@@ -6,13 +6,13 @@ lazy val root = project
     publish := {},
     publishLocal := {}
   )
-  .aggregate(`nsdb-core`, `nsdb-clustering`, `nsdb-scala-api`, `nsdb-sql`, `nsdb-http`, `nsdb-cli`)
+  .aggregate(`nsdb-core`, `nsdb-cluster`, `nsdb-scala-api`, `nsdb-sql`, `nsdb-http`, `nsdb-cli`)
 
 lazy val `nsdb-core` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
 
-lazy val `nsdb-clustering` = project
+lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .dependsOn(`nsdb-core`)
 
@@ -22,6 +22,7 @@ lazy val `nsdb-scala-api` = project
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.SQL.libraries)
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-http` = project

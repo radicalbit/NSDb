@@ -2,6 +2,12 @@ import sbt._
 
 object Dependencies {
 
+  object scalaModules {
+    lazy val version           = "1.0.6"
+    lazy val namespace         = "org.scala-lang.modules"
+    lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
+  }
+
   object akka {
     lazy val version   = "2.5.3"
     lazy val namespace = "com.typesafe.akka"
@@ -82,7 +88,14 @@ object Dependencies {
       lucene.core,
       lucene.queryParser,
       lucene.facet,
-      scalatest.core % "test"
+      scalatest.core % Test
+    )
+  }
+
+  object SQL {
+    lazy val libraries = Seq(
+      scalaModules.parserCombinators,
+      scalatest.core % Test
     )
   }
 }
