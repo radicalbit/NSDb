@@ -1,11 +1,26 @@
-import sbt.Keys._
 import sbt._
+import Keys._
+import Dependencies._
 
 object Commons {
 
+  val scalaVer = "2.12.2"
+
   val settings: Seq[Def.Setting[_]] = Seq(
+    scalaVersion := scalaVer,
     organization := "io.radicalbit",
-    scalaVersion in ThisBuild := "2.12.2"
+    resolvers ++= Seq(
+      Opts.resolver.mavenLocalFile,
+      "Radicalbit Repo" at "https://tools.radicalbit.io/maven/repository/internal/",
+      Resolver.bintrayRepo("hseeberger", "maven")
+    ),
+    libraryDependencies ++= Seq(
+      calcite.core,
+      lucene.core,
+      lucene.queryParser,
+      lucene.facet,
+      scalatest.core % "test"
+    ) ++ akka_http.core ++ akka_sse.core,
+    parallelExecution in Test := false
   )
 }
-
