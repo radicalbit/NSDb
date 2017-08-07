@@ -3,9 +3,8 @@ package io.radicalbit.commit_log
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.model.Record
-import io.radicalbit.util.Config._
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.model.Record
 
 object CommitLogService {
 
@@ -22,8 +21,10 @@ object CommitLogService {
 class CommitLogService() extends Actor with ActorLogging {
 
   import akka.pattern.{ask, pipe}
-  import scala.concurrent.duration._
   import context.dispatcher
+  import io.radicalbit.nsdb.util.Config.{CommitLogWriterConf, getString}
+
+  import scala.concurrent.duration._
 
   implicit private val timeout = Timeout(1 second)
   implicit private val config  = context.system.settings.config

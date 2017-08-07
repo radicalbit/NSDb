@@ -3,12 +3,12 @@ package io.radicalbit.nsdb.actors
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.coordinator.WriteCoordinator
 import io.radicalbit.coordinator.WriteCoordinator.{GetSchema, MapInput, SchemaGot}
-import io.radicalbit.index.IndexerActor
-import io.radicalbit.index.IndexerActor._
-import io.radicalbit.model.Record
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.index.IndexerActor
+import io.radicalbit.nsdb.index.IndexerActor.{RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.model.Record
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 class TestCommitLogService extends Actor {

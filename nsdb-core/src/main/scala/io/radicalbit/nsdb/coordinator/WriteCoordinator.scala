@@ -6,10 +6,10 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.index.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
-import io.radicalbit.index.{Schema, SchemaIndex}
-import io.radicalbit.model.Record
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.index.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
+import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.store.FSDirectory
 
 import scala.collection.mutable

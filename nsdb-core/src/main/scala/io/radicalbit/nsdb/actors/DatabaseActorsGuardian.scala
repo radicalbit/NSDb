@@ -4,8 +4,8 @@ import akka.actor.{Actor, Props}
 import io.radicalbit.actors.DatabaseActorsGuardian.GetWriteCoordinator
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.coordinator.WriteCoordinator
-import io.radicalbit.index.IndexerActor
-import io.radicalbit.metadata.MetadataService
+import io.radicalbit.nsdb.index.IndexerActor
+import io.radicalbit.nsdb.metadata.MetadataService
 
 object DatabaseActorsGuardian {
 

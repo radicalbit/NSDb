@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.{JLong, JSerializable}
+import io.radicalbit.nsdb.{JLong, JSerializable}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 

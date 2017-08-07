@@ -1,11 +1,12 @@
-package io.radicalbit.commit_log
+package io.radicalbit.nsdb.commit_log
 
 import java.io.{File, FileOutputStream}
 
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
-import io.radicalbit.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.util.Config._
+import io.radicalbit.commit_log.{DeleteExistingEntry, InsertNewEntry}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.util.Config._
 
 object RollingCommitLogFileWriter {
 

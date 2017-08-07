@@ -3,10 +3,9 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
+import io.radicalbit.index.BoundedIndex
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.store.FSDirectory
-
-import scala.util.{Failure, Success}
 
 class IndexerActor(basePath: String) extends Actor {
   import io.radicalbit.nsdb.index.IndexerActor._
@@ -25,26 +24,12 @@ class IndexerActor(basePath: String) extends Actor {
 
   override def receive: Receive = {
     case AddRecord(metric, record) =>
-//      val schemaTry = Schema(metric, record)
-//      schemaTry match {
-//        case Success(schema) =>
-//          implicit val writer = schemaIndex.getWriter
-//          val schemaUpdate    = schemaIndex.update(metric, schema)
-//          writer.flush()
-//          writer.close()
-//          schemaUpdate match {
-//            case Success(_) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.write(record)
       writer.flush()
       writer.close()
       sender ! RecordAdded(metric, record)
-//            case Failure(ex) =>
-//              sender ! RecordRejected(metric, record, ex.getMessage)
-//          }
-//        case Failure(ex) => sender ! RecordRejected(metric, record, ex.getMessage)
-//      }
     case DeleteRecord(metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter

@@ -1,7 +1,8 @@
 package io.radicalbit.index
 
-import io.radicalbit.JSerializable
-import io.radicalbit.model.Record
+import io.radicalbit.nsdb.JSerializable
+import io.radicalbit.nsdb.index.{IndexType, TimeSeriesIndex, TypeSupport}
+import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.document.{Document, LongPoint, StoredField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort, SortField}

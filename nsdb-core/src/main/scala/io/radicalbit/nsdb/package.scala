@@ -1,6 +1,6 @@
-package io
+package io.radicalbit
 
-package object radicalbit {
+package object nsdb {
 
   type JSerializable = java.io.Serializable
 

@@ -4,8 +4,8 @@ import akka.actor.ActorRef
 import akka.util.Timeout
 import io.radicalbit.actors.DatabaseActorsGuardian
 import io.radicalbit.coordinator.WriteCoordinator
-import io.radicalbit.core.{BootedCore, CoreActors}
-import io.radicalbit.model.Record
+import io.radicalbit.nsdb.core.{BootedCore, CoreActors}
+import io.radicalbit.nsdb.model.Record
 
 // this class currently is used only for test purposes
 object Main extends App with BootedCore with CoreActors {
