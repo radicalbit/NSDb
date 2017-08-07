@@ -15,8 +15,6 @@ class IndexerActor(basePath: String) extends Actor {
 
   private val indexes: mutable.Map[String, BoundedIndex] = mutable.Map.empty
 
-  private lazy val schemaIndex = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
-
   private def getIndex(metric: String) =
     indexes.getOrElse(metric, {
       val path     = FSDirectory.open(Paths.get(basePath, metric))
@@ -27,26 +25,26 @@ class IndexerActor(basePath: String) extends Actor {
 
   override def receive: Receive = {
     case AddRecord(metric, record) =>
-      val schemaTry = Schema(metric, record)
-      schemaTry match {
-        case Success(schema) =>
-          implicit val writer = schemaIndex.getWriter
-          val schemaUpdate    = schemaIndex.update(metric, schema)
-          writer.flush()
-          writer.close()
-          schemaUpdate match {
-            case Success(_) =>
-              val index           = getIndex(metric)
-              implicit val writer = index.getWriter
-              index.write(record)
-              writer.flush()
-              writer.close()
-              sender ! RecordAdded(metric, record)
-            case Failure(ex) =>
-              sender ! RecordRejected(metric, record, ex.getMessage)
-          }
-        case Failure(ex) => sender ! RecordRejected(metric, record, ex.getMessage)
-      }
+//      val schemaTry = Schema(metric, record)
+//      schemaTry match {
+//        case Success(schema) =>
+//          implicit val writer = schemaIndex.getWriter
+//          val schemaUpdate    = schemaIndex.update(metric, schema)
+//          writer.flush()
+//          writer.close()
+//          schemaUpdate match {
+//            case Success(_) =>
+      val index           = getIndex(metric)
+      implicit val writer = index.getWriter
+      index.write(record)
+      writer.flush()
+      writer.close()
+      sender ! RecordAdded(metric, record)
+//            case Failure(ex) =>
+//              sender ! RecordRejected(metric, record, ex.getMessage)
+//          }
+//        case Failure(ex) => sender ! RecordRejected(metric, record, ex.getMessage)
+//      }
     case DeleteRecord(metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
@@ -64,8 +62,6 @@ class IndexerActor(basePath: String) extends Actor {
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
       sender ! CountGot(metric, hits.size)
-    case GetSchema(metric) =>
-      sender ! SchemaGot(metric, schemaIndex.getSchema(metric))
   }
 }
 
@@ -78,8 +74,6 @@ object IndexerActor {
   case class DeleteMetric(metric: String)
   case class GetCount(metric: String)
   case class CountGot(metric: String, count: Int)
-  case class GetSchema(metric: String)
-  case class SchemaGot(metric: String, schema: Option[Schema])
   case class RecordAdded(metric: String, record: Record)
   case class RecordRejected(metric: String, record: Record, reason: String)
   case class RecordDeleted(metric: String, record: Record)

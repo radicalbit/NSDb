@@ -13,7 +13,7 @@ import org.scalactic.source.Position
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 class IndexerActorSpec()
-    extends TestKit(ActorSystem("MySpec"))
+    extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
@@ -64,42 +64,6 @@ class IndexerActorSpec()
     val expectedCountDeleted = probe.expectMsgType[CountGot]
     expectedCountDeleted.metric shouldBe "testMetric"
     expectedCountDeleted.count shouldBe 0
-
-  }
-
-  "IndexerActor" should "write and delete properly record with compatible schemas" in {
-
-    val record1 = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
-    val record2 = Record(System.currentTimeMillis, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
-    val incompatibleRecord =
-      Record(System.currentTimeMillis, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
-
-    probe.send(indexerActor, AddRecord("testMetric", record1))
-
-    val expectedAdd = probe.expectMsgType[RecordAdded]
-    expectedAdd.metric shouldBe "testMetric"
-    expectedAdd.record shouldBe record1
-
-    probe.send(indexerActor, GetSchema("testMetric"))
-    val schema = probe.expectMsgType[SchemaGot]
-
-    schema.schema.isDefined shouldBe true
-
-    probe.send(indexerActor, AddRecord("testMetric", record2))
-
-    val expectedAdd2 = probe.expectMsgType[RecordAdded]
-    expectedAdd2.metric shouldBe "testMetric"
-    expectedAdd2.record shouldBe record2
-
-    probe.send(indexerActor, GetCount("testMetric"))
-
-    val expectedCount = probe.expectMsgType[CountGot]
-    expectedCount.metric shouldBe "testMetric"
-    expectedCount.count shouldBe 2
-
-    probe.send(indexerActor, AddRecord("testMetric", incompatibleRecord))
-
-    probe.expectMsgType[RecordRejected]
 
   }
 

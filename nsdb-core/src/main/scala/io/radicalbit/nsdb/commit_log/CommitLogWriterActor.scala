@@ -1,12 +1,13 @@
 package io.radicalbit.nsdb.commit_log
 
 import akka.actor.Actor
+import io.radicalbit.model.Record
 
 object CommitLogWriterActor {
 
   sealed trait CommitLogWriterActorProtocol
 
-  case class WroteToCommitLogAck(ts: Long, metric: String) extends CommitLogWriterActorProtocol
+  case class WroteToCommitLogAck(ts: Long, metric: String, record: Record) extends CommitLogWriterActorProtocol
 
 }
 

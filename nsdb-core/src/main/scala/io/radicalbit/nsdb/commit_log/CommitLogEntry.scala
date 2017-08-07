@@ -1,6 +1,7 @@
-package io.radicalbit.nsdb.commit_log
+package io.radicalbit.commit_log
 
-import io.radicalbit.nsdb.commit_log.CommitLogEntry.Dimension
+import io.radicalbit.commit_log.CommitLogEntry.Dimension
+import io.radicalbit.model.Record
 
 object CommitLogEntry {
   type DimensionName  = String
@@ -14,7 +15,6 @@ sealed trait CommitLogEntry {
   def metric: String
 }
 
-case class InsertNewEntry(override val ts: Long, override val metric: String, dimensions: List[Dimension])
-    extends CommitLogEntry
+case class InsertNewEntry(override val ts: Long, override val metric: String, record: Record) extends CommitLogEntry
 
 case class DeleteExistingEntry(override val ts: Long, override val metric: String) extends CommitLogEntry
