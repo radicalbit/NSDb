@@ -18,11 +18,15 @@ object DatabaseActorsGuardian {
 
 class DatabaseActorsGuardian extends Actor {
 
+  val config = context.system.settings.config
+
+  val indexBasePath = config.getString("radicaldb.index.base-path")
+
   val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
-  val indexerActor     = context.actorOf(IndexerActor.props("target/test_index"), "indexer-service")
+  val indexerActor     = context.actorOf(IndexerActor.props(indexBasePath), "indexer-service")
   val writeCoordinator =
-    context.actorOf(WriteCoordinator.props("target/test_index", commitLogService, indexerActor), "write-coordinator")
+    context.actorOf(WriteCoordinator.props(indexBasePath, commitLogService, indexerActor), "write-coordinator")
 
   def receive = {
     case GetWriteCoordinator => sender() ! writeCoordinator
