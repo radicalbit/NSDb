@@ -6,7 +6,7 @@ import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, StringField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery}
 import org.apache.lucene.store.BaseDirectory
 
 import collection.JavaConverters._
@@ -51,6 +51,17 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     oldSchema.metric == oldSchema.metric && typeChecks.reduce(_ && _)
   }
 
+  def getAllSchemas: Seq[Schema] = {
+    Try { query(new MatchAllDocsQuery(), Int.MaxValue, None) } match {
+      case Success(docs: Seq[Document]) =>
+        docs.map(doc => {
+          val fields = doc.getFields.asScala.filterNot(_.name() == _keyField).map(_.stringValue())
+          Schema(doc.get(_keyField), fields.map(f => (f.split("\\|")(0), f.split("\\|")(1))))
+        })
+      case Failure(_) => Seq.empty
+    }
+  }
+
   def getSchema(metric: String): Option[Schema] = {
     Try(query(_keyField, metric, 1)) match {
       case Success(docs: Seq[Document]) =>
@@ -58,9 +69,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
           val fields = doc.getFields.asScala.filterNot(_.name() == _keyField).map(_.stringValue())
           Schema(doc.get(_keyField), fields.map(f => (f.split("\\|")(0), f.split("\\|")(1))))
         })
-      case Failure(ex) =>
-        println(ex)
-        None
+      case Failure(_) => None
     }
   }
 

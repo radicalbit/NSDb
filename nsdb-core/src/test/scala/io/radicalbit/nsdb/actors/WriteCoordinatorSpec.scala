@@ -9,7 +9,7 @@ import io.radicalbit.coordinator.WriteCoordinator.{GetSchema, MapInput, SchemaGo
 import io.radicalbit.index.IndexerActor
 import io.radicalbit.index.IndexerActor._
 import io.radicalbit.model.Record
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers, WordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 class TestCommitLogService extends Actor {
   def receive = {

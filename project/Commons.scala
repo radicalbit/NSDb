@@ -15,7 +15,6 @@ object Commons {
       Resolver.bintrayRepo("hseeberger", "maven")
     ),
     libraryDependencies ++= Seq(
-      calcite.core,
       lucene.core,
       lucene.queryParser,
       lucene.facet,

@@ -4,7 +4,6 @@ import java.io.{File, FileOutputStream}
 
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
-import io.radicalbit.commit_log.CommitLogEntry.Dimension
 import io.radicalbit.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.util.Config._
 

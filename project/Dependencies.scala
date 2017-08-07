@@ -44,12 +44,6 @@ object Dependencies {
     lazy val core = Seq(sse)
   }
 
-  object calcite {
-    lazy val version   = "1.12.0"
-    lazy val namespace = "org.apache.calcite"
-    lazy val core      = namespace % "calcite-core" % version
-  }
-
   object lucene {
     lazy val version     = "6.6.0"
     lazy val namespace   = "org.apache.lucene"
