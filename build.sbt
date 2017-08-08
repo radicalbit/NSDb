@@ -29,7 +29,7 @@ lazy val `nsdb-scala-api` = project
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
-  .dependsOn(`nsdb-scala-api`)
+  .dependsOn(`nsdb-client`)
 
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)

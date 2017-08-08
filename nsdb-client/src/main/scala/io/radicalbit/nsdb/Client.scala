@@ -1,14 +1,13 @@
 package io.radicalbit.nsdb
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.actors.DatabaseActorsGuardian
-import io.radicalbit.coordinator.WriteCoordinator
-import io.radicalbit.nsdb.core.{Core, CoreActors}
-import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.coordinator.ReadCoordinator
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.SelectStatementExecuted
+import io.radicalbit.nsdb.core.Core
+import io.radicalbit.nsdb.statement.SelectSQLStatement
 
-// this class currently is used only for test purposes
 object Client extends App with Core {
 
   import scala.concurrent.duration._
@@ -20,25 +19,12 @@ object Client extends App with Core {
 
   var counter: Int = 0
 
-//  val clientActor = system.actorOf(Props[ClientActor], "clientActor")
+  lazy val writeCoordinator =
+    system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian/write-coordinator")
+  lazy val readCoordinator =
+    system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian/read-coordinator")
 
-//  clientActor ! "GetWriteCoordinator"
-
-//
-  val guardian = system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian")
-
-  (guardian ? DatabaseActorsGuardian.GetWriteCoordinator).mapTo[ActorRef].map { writeCoordinator =>
-    println(s"Write Coordinator $writeCoordinator")
-//    while (true) {
-//      val res = x ? WriteCoordinator.MapInput(
-//        ts = System.currentTimeMillis,
-//        metric = "test",
-//        record = Record(System.currentTimeMillis, Map("dim" + counter -> ("val" + counter)), Map.empty))
-//      counter += 1
-//      Thread.sleep(500)
-//    }
-  } recover {
-    case t => sys.error(t.getStackTrace.mkString)
-  }
+  def executeSqlSelectStatement(statement: SelectSQLStatement) =
+    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement)).mapTo[SelectStatementExecuted].map(_.values)
 
 }

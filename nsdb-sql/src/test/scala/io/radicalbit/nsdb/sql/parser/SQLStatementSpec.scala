@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.sql.parser
 
 import org.scalatest.{Matchers, WordSpec}
-import io.radicalbit.nsdb.sql.parser.statement._
+import io.radicalbit.nsdb.statement._
 
 import scala.util.Success
 
