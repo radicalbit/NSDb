@@ -3,6 +3,7 @@ package io.radicalbit.nsdb
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
+import com.typesafe.config.{Config, ConfigFactory}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.SelectStatementExecuted
 import io.radicalbit.nsdb.core.Core
@@ -12,7 +13,7 @@ object Client extends App with Core {
 
   import scala.concurrent.duration._
 
-  override implicit lazy val system = ActorSystem("nsdb-client")
+  override implicit lazy val system = ActorSystem("nsdb-client", ConfigFactory.load("client"))
 
   implicit val timeout    = Timeout(10 second)
   implicit val dispatcher = system.dispatcher
