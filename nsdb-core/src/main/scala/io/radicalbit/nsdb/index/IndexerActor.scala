@@ -4,8 +4,13 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.index.BoundedIndex
+import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.statement.SelectSQLStatement
+import org.apache.lucene.search.Query
 import org.apache.lucene.store.FSDirectory
+
+import scala.util.{Failure, Try}
 
 class IndexerActor(basePath: String) extends Actor {
   import io.radicalbit.nsdb.index.IndexerActor._
@@ -21,6 +26,15 @@ class IndexerActor(basePath: String) extends Actor {
       indexes + (metric -> newIndex)
       newIndex
     })
+
+//  private def parseStatement(statament: SelectSQLStatement): Try[Query] = {
+//
+//    (statament.limit, statament.condition) match {
+//      case (Some(limit), Some(condition)) =>
+//      case _                              => Failure(new RuntimeException("cannot execute query withour a limit or a condition"))
+//    }
+//
+//  }
 
   override def receive: Receive = {
     case AddRecord(metric, record) =>
@@ -47,6 +61,7 @@ class IndexerActor(basePath: String) extends Actor {
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
       sender ! CountGot(metric, hits.size)
+    case ReadCoordinator.ExecuteSelectStatement(statement) => {}
   }
 }
 

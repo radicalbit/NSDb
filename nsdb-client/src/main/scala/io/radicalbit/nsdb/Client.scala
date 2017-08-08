@@ -3,7 +3,8 @@ package io.radicalbit.nsdb
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.Client.readCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.SelectStatementExecuted
 import io.radicalbit.nsdb.core.Core
@@ -27,5 +28,17 @@ object Client extends App with Core {
 
   def executeSqlSelectStatement(statement: SelectSQLStatement) =
     (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement)).mapTo[SelectStatementExecuted].map(_.values)
+
+}
+
+object ClientDelegate {
+  import scala.concurrent.duration._
+
+  implicit val timeout = Timeout(10 second)
+
+  def executeSqlSelectStatement(statement: SelectSQLStatement)(implicit system: ActorSystem) = {
+    implicit val dispatcher = system.dispatcher
+    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement)).mapTo[SelectStatementExecuted].map(_.values)
+  }
 
 }

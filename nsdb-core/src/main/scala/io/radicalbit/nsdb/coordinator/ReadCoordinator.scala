@@ -1,17 +1,21 @@
 package io.radicalbit.nsdb.coordinator
 
-import akka.actor.Actor
+import akka.actor.{Actor, ActorRef, Props}
 import io.radicalbit.nsdb.statement.SelectSQLStatement
 
-class ReadCoordinator extends Actor {
+class ReadCoordinator(indexerActor: ActorRef) extends Actor {
   import ReadCoordinator._
 
   override def receive: Receive = {
-    case ExecuteSelectStatement => sender() ! SelectStatementExecuted(Values(0))
+    case msg @ ExecuteSelectStatement => indexerActor.forward(msg)
   }
 }
 
 object ReadCoordinator {
+
+  def props(indexerActor: ActorRef): Props =
+    Props(new ReadCoordinator(indexerActor))
+
   case class ExecuteSelectStatement(selectStatement: SelectSQLStatement)
   case class SelectStatementExecuted(values: Values)
   case class Values(n: Int)
