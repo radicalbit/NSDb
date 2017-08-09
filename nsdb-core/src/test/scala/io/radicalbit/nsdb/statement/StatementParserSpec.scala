@@ -157,24 +157,31 @@ class StatementParserSpec extends WordSpec with Matchers {
             QueryResult(
               new MatchAllDocsQuery(),
               4,
-              Some(new Sort(new SortField("name", SortField.Type.DOC)))
+              Some(new Sort(new SortField("name", SortField.Type.DOC, false)))
             ))
         )
       }
     }
 
-//    "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
-//      "parse it successfully" in {
-//        parser.parse("SELECT name FROM people WHERE timestamp IN (2,4) ORDER BY name DESC LIMIT 5") should be(
-//          Success(SelectSQLStatement(
-//            metric = "people",
-//            fields = ListFields(List("name")),
-//            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = "2", value2 = "4"))),
-//            order = Some(DescOrderOperator(dimension = "name")),
-//            limit = Some(LimitOperator(5))
-//          )))
-//      }
-//    }
+    "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            metric = "people",
+            fields = ListFields(List("name")),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            order = Some(DescOrderOperator(dimension = "name")),
+            limit = Some(LimitOperator(5))
+          )) should be(
+          Success(
+            QueryResult(
+              LongPoint.newRangeQuery("timestamp", 2L, 4L),
+              5,
+              Some(new Sort(new SortField("name", SortField.Type.DOC, true)))
+            ))
+        )
+      }
+    }
 
     "receive a statement withoud limit" should {
       "fail" in {
