@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.JSerializable
+import io.radicalbit.nsdb.{JLong, JSerializable}
 import io.radicalbit.nsdb.model.{Record, RecordOut}
 import org.apache.lucene.document.{Document, LongPoint, StoredField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexableField}
@@ -58,7 +58,7 @@ class BoundedIndex(override val directory: BaseDirectory) extends TimeSeriesInde
       document.getFields.asScala
         .filterNot(_.name() == _keyField)
         .map {
-          case f if f.stringValue() == null => f.name() -> new java.lang.Long(f.numericValue().longValue())
+          case f if f.stringValue() == null => f.name() -> new JLong(f.numericValue().longValue())
           case f                            => f.name() -> f.stringValue()
         }
         .toMap
