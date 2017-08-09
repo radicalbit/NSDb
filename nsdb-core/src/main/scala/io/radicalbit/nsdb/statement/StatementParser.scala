@@ -43,13 +43,17 @@ class StatementParser {
       case (Some(limit)) =>
         val sortOpt = statement.order.map(order =>
           new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator])))
+        val fieldList = statement.fields match {
+          case AllFields        => List.empty
+          case ListFields(list) => list
+        }
         val expParsed = parseExpression(statement.condition.map(_.expression), limit.value)
-        Success(expParsed.copy(sort = sortOpt))
+        Success(expParsed.copy(sort = sortOpt, fields = fieldList))
       case _ => Failure(new RuntimeException("cannot execute query without a limit"))
     }
   }
 }
 
 object StatementParser {
-  case class QueryResult(q: Query, limit: Int, sort: Option[Sort] = None)
+  case class QueryResult(q: Query, limit: Int, fields: List[String] = List.empty, sort: Option[Sort] = None)
 }

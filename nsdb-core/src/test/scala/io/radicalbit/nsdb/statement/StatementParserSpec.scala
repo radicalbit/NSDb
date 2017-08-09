@@ -37,7 +37,8 @@ class StatementParserSpec extends WordSpec with Matchers {
           Success(
             QueryResult(
               new MatchAllDocsQuery(),
-              4
+              4,
+              List("name", "surname", "creationDate")
             ))
         )
       }
@@ -56,7 +57,8 @@ class StatementParserSpec extends WordSpec with Matchers {
           Success(
             QueryResult(
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              4
+              4,
+              List("name")
             ))
         )
       }
@@ -76,7 +78,8 @@ class StatementParserSpec extends WordSpec with Matchers {
           Success(
             QueryResult(
               LongPoint.newRangeQuery("timestamp", 10L, Long.MaxValue),
-              4
+              4,
+              List("name")
             ))
         )
       }
@@ -103,7 +106,8 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("timestamp", 2L + 1, Long.MaxValue), BooleanClause.Occur.MUST)
                 .add(LongPoint.newRangeQuery("timestamp", 0, 4L), BooleanClause.Occur.MUST)
                 .build(),
-              4
+              4,
+              List("name")
             )
           ))
       }
@@ -138,7 +142,8 @@ class StatementParserSpec extends WordSpec with Matchers {
                   BooleanClause.Occur.MUST_NOT
                 )
                 .build(),
-              4
+              4,
+              List("name")
             )
           )
         )
@@ -157,6 +162,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             QueryResult(
               new MatchAllDocsQuery(),
               4,
+              List.empty,
               Some(new Sort(new SortField("name", SortField.Type.DOC, false)))
             ))
         )
@@ -177,6 +183,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             QueryResult(
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               5,
+              List("name"),
               Some(new Sort(new SortField("name", SortField.Type.DOC, true)))
             ))
         )
