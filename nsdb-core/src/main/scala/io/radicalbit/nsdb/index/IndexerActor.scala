@@ -6,11 +6,12 @@ import akka.actor.{Actor, Props}
 import io.radicalbit.index.BoundedIndex
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.model.Record
-import io.radicalbit.nsdb.statement.SelectSQLStatement
-import org.apache.lucene.search.Query
+import io.radicalbit.nsdb.statement._
+import org.apache.lucene.document.LongPoint
+import org.apache.lucene.search.{BooleanClause, BooleanQuery, Query}
 import org.apache.lucene.store.FSDirectory
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 class IndexerActor(basePath: String) extends Actor {
   import io.radicalbit.nsdb.index.IndexerActor._
@@ -27,14 +28,43 @@ class IndexerActor(basePath: String) extends Actor {
       newIndex
     })
 
-//  private def parseStatement(statament: SelectSQLStatement): Try[Query] = {
-//
-//    (statament.limit, statament.condition) match {
-//      case (Some(limit), Some(condition)) =>
-//      case _                              => Failure(new RuntimeException("cannot execute query withour a limit or a condition"))
-//    }
-//
-//  }
+  private def parseExpression(exp: Expression): Query = {
+    exp match {
+      case ComparisonExpression(dimension, operator: ComparisonOperator, value: Long) => {
+        operator match {
+          case GreaterThanOperator      => LongPoint.newRangeQuery(dimension, value + 1, Long.MaxValue)
+          case GreaterOrEqualToOperator => LongPoint.newRangeQuery(dimension, value, Long.MaxValue)
+          case LessThanOperator         => LongPoint.newRangeQuery(dimension, 0, value - 1)
+          case LessOrEqualToOperator    => LongPoint.newRangeQuery(dimension, 0, value)
+        }
+      }
+      case RangeExpression(dimension, v1: Long, v2: Long) => LongPoint.newRangeQuery(dimension, v1, v2)
+      case UnaryLogicalExpression(expression, _) =>
+        val builder = new BooleanQuery.Builder()
+        builder.add(parseExpression(expression), BooleanClause.Occur.MUST_NOT).build()
+      case TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression) =>
+        operator match {
+          case AndOperator =>
+            val builder = new BooleanQuery.Builder()
+            builder.add(parseExpression(expression1), BooleanClause.Occur.MUST)
+            builder.add(parseExpression(expression2), BooleanClause.Occur.MUST).build()
+          case OrOperator =>
+            val builder = new BooleanQuery.Builder()
+            builder.add(parseExpression(expression1), BooleanClause.Occur.SHOULD)
+            builder.add(parseExpression(expression2), BooleanClause.Occur.SHOULD).build()
+        }
+    }
+  }
+
+  private def parseStatement(statament: SelectSQLStatement): Try[Query] = {
+
+    (statament.limit, statament.condition) match {
+      case (Some(limit), Some(condition)) =>
+        Success(parseExpression(condition.expression))
+      case _ => Failure(new RuntimeException("cannot execute query withour a limit or a condition"))
+    }
+
+  }
 
   override def receive: Receive = {
     case AddRecord(metric, record) =>
@@ -61,7 +91,10 @@ class IndexerActor(basePath: String) extends Actor {
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
       sender ! CountGot(metric, hits.size)
-    case ReadCoordinator.ExecuteSelectStatement(statement) => {}
+    case ReadCoordinator.ExecuteSelectStatement(statement) => {
+      val query = parseStatement(statement).get
+      getIndex(statement.metric).query(query, statement.limit.get.value, None)
+    }
   }
 }
 
