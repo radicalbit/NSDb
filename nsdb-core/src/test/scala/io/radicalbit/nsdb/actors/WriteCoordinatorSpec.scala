@@ -20,7 +20,7 @@ class TestCommitLogService extends Actor {
 }
 
 class WriteCoordinatorSpec
-    extends TestKit(ActorSystem("ignorantodb-test"))
+    extends TestKit(ActorSystem("nsdb-test"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers

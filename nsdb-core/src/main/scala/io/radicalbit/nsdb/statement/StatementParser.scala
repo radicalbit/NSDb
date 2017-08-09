@@ -39,15 +39,14 @@ class StatementParser {
   }
 
   def parseStatement(statement: SelectSQLStatement): Try[QueryResult] = {
-
     statement.limit match {
       case (Some(limit)) =>
-        Success(parseExpression(statement.condition.map(_.expression), limit.value))
+        val sortOpt   = statement.order.map(order => new Sort(new SortField(order.dimension, SortField.Type.DOC)))
+        val expParsed = parseExpression(statement.condition.map(_.expression), limit.value)
+        Success(expParsed.copy(sort = sortOpt))
       case _ => Failure(new RuntimeException("cannot execute query without a limit"))
     }
-
   }
-
 }
 
 object StatementParser {

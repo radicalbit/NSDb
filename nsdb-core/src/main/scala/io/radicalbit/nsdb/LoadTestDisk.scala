@@ -11,8 +11,7 @@ import org.apache.lucene.store.FSDirectory
 
 object LoadTestDisk extends App {
 
-  lazy val disk = FSDirectory.open(
-    Paths.get(s"/Users/saverio/Repositories/radicalbit/ignorantodb/target/test_index/${UUID.randomUUID}"))
+  lazy val disk = FSDirectory.open(Paths.get(s"target/test_index/${UUID.randomUUID}"))
 
   val diskWriter = new IndexWriter(disk, new IndexWriterConfig(new StandardAnalyzer))
 

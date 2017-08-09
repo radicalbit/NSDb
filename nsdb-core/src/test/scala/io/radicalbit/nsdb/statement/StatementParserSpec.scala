@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.statement.StatementParser.QueryResult
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.search.{BooleanClause, BooleanQuery, MatchAllDocsQuery}
+import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
@@ -145,12 +145,23 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-//    "receive a select containing a ordering statement" should {
-//      "parse it successfully" in {
-//        parser.parse("SELECT * FROM people ORDER BY name") should be(
-//          Success(SelectSQLStatement(metric = "people", fields = AllFields, order = Some(AscOrderOperator("name")))))
-//      }
-//    }
+    "receive a select containing a ordering statement" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(metric = "people",
+                             fields = AllFields,
+                             order = Some(AscOrderOperator("name")),
+                             limit = Some(LimitOperator(4)))
+        ) should be(
+          Success(
+            QueryResult(
+              new MatchAllDocsQuery(),
+              4,
+              Some(new Sort(new SortField("name", SortField.Type.DOC)))
+            ))
+        )
+      }
+    }
 
 //    "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
 //      "parse it successfully" in {

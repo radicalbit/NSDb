@@ -5,7 +5,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class JournalServiceSpec
-    extends TestKit(ActorSystem("ignorantodb-test"))
+    extends TestKit(ActorSystem("nsdb-test"))
     with ImplicitSender
     with WordSpecLike
     with Matchers
