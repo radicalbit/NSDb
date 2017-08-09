@@ -77,7 +77,7 @@ class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     writer.flush()
     writer.close()
 
-    val queryExist = LongPoint.newRangeQuery("_timestamp", timestamp, timestamp)
+    val queryExist = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val resultExist =
       boundedIndex.query(queryExist, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
     resultExist.size shouldBe 1
@@ -88,7 +88,7 @@ class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     deleteWriter.flush()
     deleteWriter.close()
 
-    val query  = LongPoint.newRangeQuery("_timestamp", timestamp, timestamp)
+    val query  = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val result = boundedIndex.query(query, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
 
     result.size shouldBe 0
