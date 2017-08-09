@@ -1,16 +1,16 @@
-package io.radicalbit.index
+package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.JSerializable
-import io.radicalbit.nsdb.index.{IndexType, TimeSeriesIndex, TypeSupport}
-import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.model.{Record, RecordOut}
 import org.apache.lucene.document.{Document, LongPoint, StoredField}
-import org.apache.lucene.index.{DirectoryReader, IndexWriter}
+import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexableField}
 import org.apache.lucene.search.{IndexSearcher, Sort, SortField}
 import org.apache.lucene.store.BaseDirectory
 
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-class BoundedIndex(override val directory: BaseDirectory) extends TimeSeriesIndex[Record] with TypeSupport {
+class BoundedIndex(override val directory: BaseDirectory) extends TimeSeriesIndex[Record, RecordOut] with TypeSupport {
 
   private val nRetry = 10
 
@@ -53,6 +53,17 @@ class BoundedIndex(override val directory: BaseDirectory) extends TimeSeriesInde
     writer.flush()
   }
 
+  override def docConversion(document: Document): RecordOut = {
+    val fields: Map[String, JSerializable] =
+      document.getFields.asScala
+        .filterNot(_.name() == _keyField)
+        .map {
+          case f if f.stringValue() == null => f.name() -> new java.lang.Long(f.numericValue().longValue())
+          case f                            => f.name() -> f.stringValue()
+        }
+        .toMap
+    RecordOut(document.getField(_keyField).numericValue().longValue(), fields)
+  }
 }
 
 object BoundedIndex {}

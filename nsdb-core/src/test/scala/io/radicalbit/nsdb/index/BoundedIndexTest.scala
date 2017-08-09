@@ -3,7 +3,6 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
-import io.radicalbit.index.BoundedIndex
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint
@@ -50,7 +49,7 @@ class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val query = LongPoint.newRangeQuery("_lastRead", 0, Long.MaxValue)
 
-    val result = boundedIndex.query(query, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
+    val result = boundedIndex.rawQuery(query, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
 
     result.size shouldBe 100
 

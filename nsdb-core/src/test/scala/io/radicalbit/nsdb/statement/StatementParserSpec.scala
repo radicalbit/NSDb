@@ -190,7 +190,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a statement withoud limit" should {
+    "receive a statement without limit" should {
       "fail" in {
         parser.parseStatement(SelectSQLStatement(metric = "people", fields = AllFields)) shouldBe 'failure
       }

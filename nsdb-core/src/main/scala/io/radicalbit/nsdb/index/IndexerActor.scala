@@ -3,9 +3,8 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
-import io.radicalbit.index.BoundedIndex
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
-import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.model.{Record, RecordOut}
 import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.store.FSDirectory
 
@@ -53,7 +52,8 @@ class IndexerActor(basePath: String) extends Actor {
       sender ! CountGot(metric, hits.size)
     case ReadCoordinator.ExecuteSelectStatement(statement) => {
       val queryResult = statementParser.parseStatement(statement).get
-      getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort)
+      val docs        = getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort)
+      sender() ! docs
     }
   }
 }

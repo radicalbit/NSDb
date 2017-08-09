@@ -10,7 +10,7 @@ trait TimeSerieRecord {
   val timestamp: Long
 }
 
-trait TimeSeriesIndex[RECORD <: TimeSerieRecord] extends Index[RECORD] {
+trait TimeSeriesIndex[RECORD <: TimeSerieRecord, RECORDOUT <: TimeSerieRecord] extends Index[RECORD, RECORDOUT] {
 
   val _lastRead          = "_lastRead"
   override val _keyField = "_timestamp"
