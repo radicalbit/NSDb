@@ -49,11 +49,11 @@ trait Index[RECORDIN, RECORDOUT] {
     rawQuery(query, limit, sort).map(docConversion)
   }
 
-  def query(field: String, queryString: String, limit: Int, sort: Option[Sort] = None): Seq[Document] = {
+  def query(field: String, queryString: String, limit: Int, sort: Option[Sort] = None): Seq[RECORDOUT] = {
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
     val parser   = new QueryParser(field, new StandardAnalyzer())
     val query    = parser.parse(queryString)
-    parseQueryResults(searcher, query, limit, sort)
+    parseQueryResults(searcher, query, limit, sort).map(docConversion)
   }
 }

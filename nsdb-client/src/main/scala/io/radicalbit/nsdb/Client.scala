@@ -8,6 +8,7 @@ import io.radicalbit.nsdb.Client.readCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.SelectStatementExecuted
 import io.radicalbit.nsdb.core.Core
+import io.radicalbit.nsdb.model.RecordOut
 import io.radicalbit.nsdb.statement.SelectSQLStatement
 
 object Client extends App with Core {
@@ -27,7 +28,9 @@ object Client extends App with Core {
     system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian/read-coordinator")
 
   def executeSqlSelectStatement(statement: SelectSQLStatement) =
-    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement)).mapTo[SelectStatementExecuted].map(_.values)
+    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement))
+      .mapTo[SelectStatementExecuted[RecordOut]]
+      .map(_.values)
 
 }
 
@@ -38,7 +41,9 @@ object ClientDelegate {
 
   def executeSqlSelectStatement(statement: SelectSQLStatement)(implicit system: ActorSystem) = {
     implicit val dispatcher = system.dispatcher
-    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement)).mapTo[SelectStatementExecuted].map(_.values)
+    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement))
+      .mapTo[SelectStatementExecuted[RecordOut]]
+      .map(_.values)
   }
 
 }

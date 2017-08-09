@@ -7,7 +7,8 @@ class ReadCoordinator(indexerActor: ActorRef) extends Actor {
   import ReadCoordinator._
 
   override def receive: Receive = {
-    case msg @ ExecuteSelectStatement => indexerActor.forward(msg)
+    case msg @ ExecuteSelectStatement(_) =>
+      indexerActor.forward(msg)
   }
 }
 
@@ -17,6 +18,6 @@ object ReadCoordinator {
     Props(new ReadCoordinator(indexerActor))
 
   case class ExecuteSelectStatement(selectStatement: SelectSQLStatement)
-  case class SelectStatementExecuted(values: Values)
-  case class Values(n: Int)
+  case class SelectStatementExecuted[T](values: Seq[T])
+  case class SelectStatementFailed(reason: String)
 }

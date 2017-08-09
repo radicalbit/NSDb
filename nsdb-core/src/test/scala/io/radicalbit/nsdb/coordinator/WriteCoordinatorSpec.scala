@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.coordinator
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}

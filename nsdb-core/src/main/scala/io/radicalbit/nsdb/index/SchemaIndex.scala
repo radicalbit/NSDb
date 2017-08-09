@@ -66,11 +66,8 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
 
   def getSchema(metric: String): Option[Schema] = {
     Try(query(_keyField, metric, 1)) match {
-      case Success(docs: Seq[Document]) =>
-        docs.headOption.map(doc => {
-          val fields = doc.getFields.asScala.filterNot(_.name() == _keyField).map(_.stringValue())
-          Schema(doc.get(_keyField), fields.map(f => (f.split("\\|")(0), f.split("\\|")(1))))
-        })
+      case Success(docs: Seq[Schema]) =>
+        docs.headOption
       case Failure(_) => None
     }
   }

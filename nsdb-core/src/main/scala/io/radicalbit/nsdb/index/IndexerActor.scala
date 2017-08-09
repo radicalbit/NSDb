@@ -4,9 +4,12 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
-import io.radicalbit.nsdb.model.{Record, RecordOut}
+import io.radicalbit.nsdb.model.Record
 import io.radicalbit.nsdb.statement.StatementParser
+import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.store.FSDirectory
+
+import scala.util.{Failure, Success, Try}
 
 class IndexerActor(basePath: String) extends Actor {
   import io.radicalbit.nsdb.index.IndexerActor._
@@ -52,8 +55,12 @@ class IndexerActor(basePath: String) extends Actor {
       sender ! CountGot(metric, hits.size)
     case ReadCoordinator.ExecuteSelectStatement(statement) => {
       val queryResult = statementParser.parseStatement(statement).get
-      val docs        = getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort)
-      sender() ! docs
+      Try { getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort) } match {
+        case Success(docs)                      => sender() ! ReadCoordinator.SelectStatementExecuted(docs)
+        case Failure(_: IndexNotFoundException) => sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty)
+        case Failure(ex)                        => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
+      }
+
     }
   }
 }

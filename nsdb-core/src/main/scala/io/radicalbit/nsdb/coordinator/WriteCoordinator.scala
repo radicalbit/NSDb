@@ -65,7 +65,6 @@ class WriteCoordinator(basePath: String, commitLogService: ActorRef, indexerActo
         else
           Failure(new RuntimeException(s"schema $newSchema is incompatible"))
       }
-      println(schemaValidation)
       schemaValidation match {
         case Success(newSchema) =>
           implicit val writer = schemaIndex.getWriter
