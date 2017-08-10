@@ -1,12 +1,16 @@
 package io.radicalbit.nsdb.coordinator
 
+import java.nio.file.Paths
+
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteSelectStatement, SelectStatementExecuted}
-import io.radicalbit.nsdb.index.IndexerActor
-import io.radicalbit.nsdb.index.IndexerActor.{AddRecords, DeleteMetric}
+import io.radicalbit.nsdb.actors.IndexerActor
+import io.radicalbit.nsdb.coordinator.ReadCoordinator._
+import io.radicalbit.nsdb.actors.IndexerActor.{AddRecords, DeleteMetric}
+import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.{Record, RecordOut}
 import io.radicalbit.nsdb.statement._
+import org.apache.lucene.store.FSDirectory
 import org.scalatest._
 
 class ReadCoordinatorSpec
@@ -18,8 +22,9 @@ class ReadCoordinatorSpec
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
-  val indexerActor         = system.actorOf(IndexerActor.props("target/test_index"))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(indexerActor)
+  private val basePath     = "target/test_index"
+  val indexerActor         = system.actorOf(IndexerActor.props(basePath))
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(basePath, indexerActor)
 
   val records: Seq[Record] = Seq(
     Record(2, Map("name"  -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
@@ -30,6 +35,10 @@ class ReadCoordinatorSpec
   )
 
   override def beforeAll(): Unit = {
+    val schemaIndex     = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
+    implicit val writer = schemaIndex.getWriter
+    schemaIndex.write(Schema("people", Seq(("name", "string"), ("surname", "string"), ("creationDate", "Long"))))
+    writer.close()
     indexerActor ! AddRecords("people", records)
   }
 
@@ -43,7 +52,7 @@ class ReadCoordinatorSpec
       "execute it successfully" in {
 
         probe.send(readCoordinatorActor,
-                   ExecuteSelectStatement(
+                   ExecuteStatement(
                      SelectSQLStatement(metric = "people", fields = AllFields, limit = Some(LimitOperator(5)))
                    ))
 
@@ -57,7 +66,7 @@ class ReadCoordinatorSpec
       "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
-          ExecuteSelectStatement(
+          ExecuteStatement(
             SelectSQLStatement(metric = "people",
                                fields = ListFields(List("name", "surname", "creationDate")),
                                limit = Some(LimitOperator(5)))
@@ -74,7 +83,7 @@ class ReadCoordinatorSpec
       "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
-          ExecuteSelectStatement(
+          ExecuteStatement(
             SelectSQLStatement(
               metric = "people",
               fields = ListFields(List("name")),
@@ -94,7 +103,7 @@ class ReadCoordinatorSpec
       "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
-          ExecuteSelectStatement(
+          ExecuteStatement(
             SelectSQLStatement(
               metric = "people",
               fields = ListFields(List("name")),
@@ -115,7 +124,7 @@ class ReadCoordinatorSpec
       "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
-          ExecuteSelectStatement(
+          ExecuteStatement(
             SelectSQLStatement(
               metric = "people",
               fields = ListFields(List("name")),
@@ -141,7 +150,7 @@ class ReadCoordinatorSpec
       "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
-          ExecuteSelectStatement(
+          ExecuteStatement(
             SelectSQLStatement(
               metric = "people",
               fields = ListFields(List("name")),

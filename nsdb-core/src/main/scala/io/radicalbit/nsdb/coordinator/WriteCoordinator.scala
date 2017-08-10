@@ -6,8 +6,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
+import io.radicalbit.nsdb.actors.SchemaSupport
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.index.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.store.FSDirectory
@@ -32,9 +33,10 @@ object WriteCoordinator {
 
 }
 
-class WriteCoordinator(basePath: String, commitLogService: ActorRef, indexerActor: ActorRef)
+class WriteCoordinator(val basePath: String, commitLogService: ActorRef, indexerActor: ActorRef)
     extends Actor
-    with ActorLogging {
+    with ActorLogging
+    with SchemaSupport {
 
   import akka.pattern.ask
 
@@ -43,16 +45,7 @@ class WriteCoordinator(basePath: String, commitLogService: ActorRef, indexerActo
   implicit val timeout: Timeout = 1 second
   import context.dispatcher
 
-  private lazy val schemaIndex = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
-
-  private lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
-
   log.info("WriteCoordinator is ready.")
-
-  override def preStart(): Unit = {
-    super.preStart()
-    schemas ++ schemaIndex.getAllSchemas.map(s => s.metric -> s).toMap
-  }
 
   private def getSchema(metric: String) = schemas.get(metric) orElse schemaIndex.getSchema(metric)
 

@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.statement.StatementParser.QueryResult
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search._
@@ -38,7 +39,12 @@ class StatementParser {
     QueryResult(q, limit)
   }
 
+  //FIXME this is temporary. In the next PR it will be fixed
   def parseStatement(statement: SelectSQLStatement): Try[QueryResult] = {
+    parseStatement(statement, null)
+  }
+
+  def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[QueryResult] = {
     statement.limit match {
       case (Some(limit)) =>
         val sortOpt = statement.order.map(order =>

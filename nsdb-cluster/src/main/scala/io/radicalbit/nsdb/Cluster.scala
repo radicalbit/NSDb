@@ -16,4 +16,6 @@ object Cluster extends App with Core with CoreActors {
 
   var counter: Int = 0
 
+  guardian
+
 }

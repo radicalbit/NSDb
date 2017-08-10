@@ -4,12 +4,13 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.Client.readCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.SelectStatementExecuted
 import io.radicalbit.nsdb.core.Core
 import io.radicalbit.nsdb.model.RecordOut
 import io.radicalbit.nsdb.statement.SelectSQLStatement
+
+import scala.concurrent.Future
 
 object Client extends App with Core {
 
@@ -28,20 +29,24 @@ object Client extends App with Core {
     system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian/read-coordinator")
 
   def executeSqlSelectStatement(statement: SelectSQLStatement) =
-    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement))
+    (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
       .mapTo[SelectStatementExecuted[RecordOut]]
       .map(_.values)
 
 }
 
-object ClientDelegate {
+class ClientDelegate(implicit system: ActorSystem) {
   import scala.concurrent.duration._
 
   implicit val timeout = Timeout(10 second)
 
-  def executeSqlSelectStatement(statement: SelectSQLStatement)(implicit system: ActorSystem) = {
+  lazy val readCoordinator =
+    system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian/read-coordinator")
+
+  def executeSqlSelectStatement(statement: SelectSQLStatement): Future[Seq[RecordOut]] = {
+
     implicit val dispatcher = system.dispatcher
-    (readCoordinator ? ReadCoordinator.ExecuteSelectStatement(statement))
+    (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
       .mapTo[SelectStatementExecuted[RecordOut]]
       .map(_.values)
   }
