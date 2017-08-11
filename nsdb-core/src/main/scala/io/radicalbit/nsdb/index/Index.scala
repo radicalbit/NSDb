@@ -1,7 +1,9 @@
 package io.radicalbit.nsdb.index
 
+import cats.data.{NonEmptyList, Validated}
+import io.radicalbit.nsdb.index.Index.{FieldValidation, LongValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.Document
+import org.apache.lucene.document.{Document, Field}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search.{IndexSearcher, Query, Sort}
@@ -19,9 +21,9 @@ trait Index[RECORDIN, RECORDOUT] {
 
   def getSearcher = new IndexSearcher(DirectoryReader.open(directory))
 
-  protected def writeRecord(doc: Document, data: RECORDIN): Try[Document]
+  protected def recordFields(data: RECORDIN): FieldValidation
 
-  protected def write(data: RECORDIN)(implicit writer: IndexWriter): Try[Long]
+  protected def write(data: RECORDIN)(implicit writer: IndexWriter): LongValidation
 
   def delete(data: RECORDIN)(implicit writer: IndexWriter): Unit
 
@@ -56,4 +58,9 @@ trait Index[RECORDIN, RECORDOUT] {
     val query    = parser.parse(queryString)
     parseQueryResults(searcher, query, limit, sort).map(docConversion)
   }
+}
+
+object Index {
+  type FieldValidation = Validated[NonEmptyList[String], Seq[Field]]
+  type LongValidation  = Validated[NonEmptyList[String], Long]
 }

@@ -1,45 +1,92 @@
 package io.radicalbit.nsdb.index
 
-import org.apache.lucene.document.{Document, LongPoint, StoredField}
+import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
+import cats.implicits._
+import cats.kernel.Semigroup
+import io.radicalbit.nsdb.{JLong, JSerializable}
+import io.radicalbit.nsdb.index.Index.{FieldValidation, LongValidation}
+import io.radicalbit.nsdb.model.{Record, RecordOut}
+import org.apache.lucene.document.{Document, Field, LongPoint, StoredField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort}
+import org.apache.lucene.store.BaseDirectory
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
-trait TimeSerieRecord {
+trait TimeSeriesRecord {
   val timestamp: Long
 }
 
-trait TimeSeriesIndex[RECORD <: TimeSerieRecord, RECORDOUT <: TimeSerieRecord] extends Index[RECORD, RECORDOUT] {
+class TimeSeriesIndex(override val directory: BaseDirectory) extends Index[Record, RecordOut] with TypeSupport {
 
   val _lastRead          = "_lastRead"
   override val _keyField = "timestamp"
 
-  def writeRecord(doc: Document, data: RECORD): Try[Document]
-
-  protected def write(data: RECORD)(implicit writer: IndexWriter): Try[Long] = {
-    val doc = new Document
-    doc.add(new LongPoint(_keyField, data.timestamp))
-    doc.add(new StoredField(_keyField, data.timestamp))
-    writeRecord(doc, data)
+  def write(data: Record)(implicit writer: IndexWriter): LongValidation = {
+    val doc     = new Document
     val curTime = System.currentTimeMillis
-    doc.add(new LongPoint(_lastRead, curTime))
-    doc.add(new StoredField(_lastRead, System.currentTimeMillis))
-    Try { writer.addDocument(doc) }
+    val allFields = recordFields(data).map(
+      fields =>
+        fields ++ Seq(
+          new LongPoint(_keyField, data.timestamp),
+          new StoredField(_keyField, data.timestamp),
+          new LongPoint(_lastRead, curTime),
+          new StoredField(_lastRead, System.currentTimeMillis)
+      ))
+    allFields match {
+      case Valid(fields) =>
+        fields.foreach(doc.add)
+        Try(writer.addDocument(doc)) match {
+          case Success(id) => valid(id)
+          case Failure(ex) => invalidNel(ex.getMessage)
+        }
+      case errs @ Invalid(_) => errs
+    }
   }
 
-  def delete(data: RECORD)(implicit writer: IndexWriter): Unit = {
+  implicit val CustomClassSemigroupImpl = new Semigroup[Seq[Field]] {
+    def combine(first: Seq[Field], second: Seq[Field]): Seq[Field] = first ++ second
+  }
+
+  override def recordFields(data: Record): FieldValidation = {
+    validateSchemaTypeSupport(data.dimensions)
+      .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
+      .combine(
+        validateSchemaTypeSupport(data.fields).map(se =>
+          se.flatMap(elem => Seq(new StoredField(elem.name, elem.value.toString))))
+      )
+  }
+
+  override def docConversion(document: Document): RecordOut = {
+    val fields: Map[String, JSerializable] =
+      document.getFields.asScala
+        .filterNot(_.name() == _keyField)
+        .map {
+          case f if f.stringValue() == null => f.name() -> new JLong(f.numericValue().longValue())
+          case f                            => f.name() -> f.stringValue()
+        }
+        .toMap
+    RecordOut(document.getField(_keyField).numericValue().longValue(), fields)
+  }
+
+  def delete(data: Record)(implicit writer: IndexWriter): Unit = {
     val query    = LongPoint.newRangeQuery(_keyField, data.timestamp, data.timestamp)
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
     val hits     = searcher.search(query, 1)
-    (0 until hits.totalHits).foreach { i =>
+    (0 until hits.totalHits).foreach { _ =>
       writer.deleteDocuments(query)
     }
     writer.forceMergeDeletes(true)
   }
 
-  def timeRange(start: Long, end: Long, size: Int = Int.MaxValue, sort: Option[Sort] = None) = {
+  def deleteAll()(implicit writer: IndexWriter): Unit = {
+    writer.deleteAll()
+    writer.flush()
+  }
+
+  def timeRange(start: Long, end: Long, size: Int = Int.MaxValue, sort: Option[Sort] = None): Seq[RecordOut] = {
     val rangeQuery = LongPoint.newRangeQuery(_keyField, start, end)
     query(rangeQuery, size, sort)
   }

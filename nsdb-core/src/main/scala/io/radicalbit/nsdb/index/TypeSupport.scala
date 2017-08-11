@@ -1,19 +1,34 @@
 package io.radicalbit.nsdb.index
 
+import cats.Monoid
+import cats.data.{NonEmptyList, Validated}
 import io.radicalbit.nsdb.{JLong, JSerializable}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
+import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
+import cats.implicits._
+import io.radicalbit.nsdb.index.IndexType.SchemaValidation
+import io.radicalbit.nsdb.model.{RawField, TypedField}
 
 import scala.util.{Failure, Success, Try}
 
 trait TypeSupport {
 
-  private def sequence[T](xs: Seq[Try[T]]): Try[Seq[T]] = (Try(Seq[T]()) /: xs) { (a, b) =>
-    a flatMap (c => b map (d => c :+ d))
+  implicit val schemaValidationMonoid = new Monoid[SchemaValidation] {
+    override val empty: SchemaValidation = valid(Seq.empty)
+
+    override def combine(x: SchemaValidation, y: SchemaValidation): SchemaValidation =
+      (x, y) match {
+        case (Valid(a), Valid(b))       => valid(a ++ b)
+        case (Valid(_), k @ Invalid(_)) => k
+        case (f @ Invalid(_), Valid(_)) => f
+        case (Invalid(l1), Invalid(l2)) => Invalid(l1.combine(l2))
+      }
   }
 
-  def validateSchema(fields: Map[String, JSerializable]): Try[Seq[IndexType[_]]] =
-    sequence(fields.map { case (_, v) => IndexType.fromClass(v.getClass) }.toSeq)
+  def validateSchemaTypeSupport(fields: Map[String, JSerializable]): SchemaValidation = {
+    fields.map { case (n, v) => IndexType.fromRawField(RawField(n, v)) }.toList.combineAll
+  }
 }
 
 sealed trait IndexType[T] {
@@ -28,12 +43,22 @@ sealed trait IndexType[T] {
 }
 
 object IndexType {
+
+  type SchemaValidation = Validated[NonEmptyList[String], Seq[TypedField]]
+
   private val supportedType = Seq(TIMESTAMP(), INT(), BIGINT(), DECIMAL(), CHAR(), VARCHAR())
+
+  def fromRawField(rawField: RawField): SchemaValidation =
+    supportedType.find(_.actualType == rawField.value.getClass) match {
+      case Some(indexType) => valid(Seq(TypedField(rawField.name, indexType, rawField.value)))
+      case None            => invalidNel(s"class ${rawField.value.getClass} is not supported")
+    }
 
   def fromClass(clazz: Class[_]): Try[IndexType[_]] = supportedType.find(_.actualType == clazz) match {
     case Some(indexType: IndexType[_]) => Success(indexType)
     case None                          => Failure(new RuntimeException(s"unsupported type $clazz"))
   }
+
 }
 
 case class TIMESTAMP() extends IndexType[Long] {

@@ -3,9 +3,8 @@ package io.radicalbit.actors
 import akka.actor.{Actor, Props}
 import io.radicalbit.actors.DatabaseActorsGuardian.GetWriteCoordinator
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.actors.IndexerActor
-import io.radicalbit.nsdb.coordinator.ReadCoordinator
+import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.metadata.MetadataService
 
 object DatabaseActorsGuardian {

@@ -3,6 +3,7 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
+import io.radicalbit.nsdb.model.SchemaField
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.RAMDirectory
@@ -20,7 +21,9 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val schemaIndex = new SchemaIndex(directory)
 
     (0 to 100).foreach { i =>
-      val testData = Schema(s"metric_$i", Seq(("field1", "BOOLEAN"), ("field2", "VARCHAR"), (s"field$i", "VARCHAR")))
+      val testData = Schema(
+        s"metric_$i",
+        Seq(SchemaField("field1", BOOLEAN()), SchemaField("field2", VARCHAR()), SchemaField(s"field$i", VARCHAR())))
       schemaIndex.write(testData)
     }
     writer.close()
@@ -32,7 +35,9 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val firstSchema = schemaIndex.getSchema("metric_0")
 
     firstSchema shouldBe Some(
-      Schema(s"metric_0", Seq(("field1", "BOOLEAN"), ("field2", "VARCHAR"), (s"field0", "VARCHAR"))))
+      Schema(
+        s"metric_0",
+        Seq(SchemaField("field1", BOOLEAN()), SchemaField("field2", VARCHAR()), SchemaField(s"field0", VARCHAR()))))
   }
 
   "SchemaIndex" should "update records" in {
@@ -43,7 +48,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(s"metric_1", Seq(("field1", "BOOLEAN"), ("field2", "VARCHAR")))
+    val testData = Schema(s"metric_1", Seq(SchemaField("field1", BOOLEAN()), SchemaField("field2", VARCHAR())))
     schemaIndex.write(testData)
     writer.close()
 

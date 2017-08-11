@@ -3,7 +3,7 @@ package io.radicalbit.nsdb
 import java.nio.file.Paths
 import java.util.UUID
 
-import io.radicalbit.nsdb.index.BoundedIndex
+import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
@@ -15,7 +15,7 @@ object LoadTestRam extends App {
 
   val ramWriter = new IndexWriter(ramDisk, new IndexWriterConfig(new StandardAnalyzer))
 
-  val ramBoundedIndex = new BoundedIndex(ramDisk)
+  val ramBoundedIndex = new TimeSeriesIndex(ramDisk)
 
   val startRam = System.currentTimeMillis
 

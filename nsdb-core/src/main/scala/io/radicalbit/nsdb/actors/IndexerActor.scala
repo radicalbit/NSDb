@@ -4,7 +4,7 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
-import io.radicalbit.nsdb.index.BoundedIndex
+import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Record
 import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.index.IndexNotFoundException
@@ -13,17 +13,18 @@ import org.apache.lucene.store.FSDirectory
 import scala.util.{Failure, Success, Try}
 
 class IndexerActor(basePath: String) extends Actor {
-  import scala.collection.mutable
   import io.radicalbit.nsdb.actors.IndexerActor._
+
+  import scala.collection.mutable
 
   private val statementParser = new StatementParser()
 
-  private val indexes: mutable.Map[String, BoundedIndex] = mutable.Map.empty
+  private val indexes: mutable.Map[String, TimeSeriesIndex] = mutable.Map.empty
 
   private def getIndex(metric: String) =
     indexes.getOrElse(metric, {
       val path     = FSDirectory.open(Paths.get(basePath, metric))
-      val newIndex = new BoundedIndex(path)
+      val newIndex = new TimeSeriesIndex(path)
       indexes + (metric -> newIndex)
       newIndex
     })
@@ -39,7 +40,7 @@ class IndexerActor(basePath: String) extends Actor {
     case AddRecords(metric, records) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
-      records.foreach(index.write(_))
+      records.foreach(index.write)
       writer.flush()
       writer.close()
       sender ! RecordsAdded(metric, records)
@@ -82,7 +83,7 @@ object IndexerActor {
   case class CountGot(metric: String, count: Int)
   case class RecordAdded(metric: String, record: Record)
   case class RecordsAdded(metric: String, record: Seq[Record])
-  case class RecordRejected(metric: String, record: Record, reason: String)
+  case class RecordRejected(metric: String, record: Record, reasons: List[String])
   case class RecordDeleted(metric: String, record: Record)
   case class MetricDeleted(metric: String)
 }

@@ -3,11 +3,10 @@ package io.radicalbit.nsdb.coordinator
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.coordinator.WriteCoordinator
-import io.radicalbit.coordinator.WriteCoordinator.{GetSchema, MapInput, SchemaGot}
 import io.radicalbit.nsdb.actors.IndexerActor
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.actors.IndexerActor.{RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{GetSchema, MapInput, SchemaGot}
 import io.radicalbit.nsdb.model.Record
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 

@@ -4,14 +4,17 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.IndexerActor
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.actors.IndexerActor.{AddRecords, DeleteMetric}
-import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
-import io.radicalbit.nsdb.model.{Record, RecordOut}
+import io.radicalbit.nsdb.index.{BIGINT, Schema, SchemaIndex, VARCHAR}
+import io.radicalbit.nsdb.model.{Record, RecordOut, SchemaField}
 import io.radicalbit.nsdb.statement._
 import org.apache.lucene.store.FSDirectory
 import org.scalatest._
+
+import scala.concurrent.Await
 
 class ReadCoordinatorSpec
     extends TestKit(ActorSystem("nsdb-test"))
@@ -35,9 +38,15 @@ class ReadCoordinatorSpec
   )
 
   override def beforeAll(): Unit = {
-    val schemaIndex     = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
-    implicit val writer = schemaIndex.getWriter
-    schemaIndex.write(Schema("people", Seq(("name", "string"), ("surname", "string"), ("creationDate", "Long"))))
+    import scala.concurrent.duration._
+    import akka.pattern.ask
+    implicit val timeout = Timeout(3 second)
+    val schemaIndex      = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
+    implicit val writer  = schemaIndex.getWriter
+    val schema = Schema(
+      "people",
+      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
+    schemaIndex.write(schema)
     writer.close()
     indexerActor ! AddRecords("people", records)
   }

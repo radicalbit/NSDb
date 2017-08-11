@@ -1,21 +1,17 @@
-package io.radicalbit.coordinator
-
-import java.nio.file.Paths
+package io.radicalbit.nsdb.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
+import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.commit_log.CommitLogService
+import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.actors.SchemaSupport
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
-import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
+import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.model.Record
-import org.apache.lucene.store.FSDirectory
 
-import scala.collection.mutable
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 object WriteCoordinator {
 
@@ -52,23 +48,30 @@ class WriteCoordinator(val basePath: String, commitLogService: ActorRef, indexer
   override def receive = {
     case WriteCoordinator.MapInput(ts, metric, record) =>
       log.debug("Received a write request for (ts: {}, metric: {})", ts, metric)
-
-      val schemaValidation = Schema(metric, record) flatMap { newSchema =>
-        if (getSchema(metric).forall(schemaIndex.isValidSchema(_, newSchema))) Success(newSchema)
-        else
-          Failure(new RuntimeException(s"schema $newSchema is incompatible"))
-      }
-      schemaValidation match {
-        case Success(newSchema) =>
+      (Schema(metric, record), getSchema(metric)) match {
+        case (Valid(newSchema), Some(oldSchema)) =>
+          schemaIndex.isCompatibleSchema(oldSchema, newSchema) match {
+            case Valid(_) =>
+              implicit val writer = schemaIndex.getWriter
+              schemas += (newSchema.metric -> newSchema)
+              Future { schemaIndex.update(metric, newSchema) }
+              writer.close()
+              (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
+                .mapTo[WroteToCommitLogAck]
+                .flatMap(ack => (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded])
+                .pipeTo(sender())
+            case Invalid(errs) => sender() ! RecordRejected(metric, record, errs.toList)
+          }
+        case (Valid(newSchema), None) =>
           implicit val writer = schemaIndex.getWriter
           schemas += (newSchema.metric -> newSchema)
           Future { schemaIndex.update(metric, newSchema) }
-          writer.close
+          writer.close()
           (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
             .mapTo[WroteToCommitLogAck]
             .flatMap(ack => (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded])
             .pipeTo(sender())
-        case Failure(ex) => sender() ! RecordRejected(metric, record, ex.getMessage)
+        case (Invalid(errs), _) => sender() ! RecordRejected(metric, record, errs.toList)
       }
     case WriteCoordinator.GetSchema(metric) =>
       sender ! WriteCoordinator.SchemaGot(metric, getSchema(metric))
