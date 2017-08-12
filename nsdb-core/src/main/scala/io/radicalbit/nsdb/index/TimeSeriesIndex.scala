@@ -1,18 +1,17 @@
 package io.radicalbit.nsdb.index
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
-import cats.implicits._
 import cats.kernel.Semigroup
-import io.radicalbit.nsdb.{JLong, JSerializable}
-import io.radicalbit.nsdb.index.Index.{FieldValidation, LongValidation}
 import io.radicalbit.nsdb.model.{Record, RecordOut}
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
+import io.radicalbit.nsdb.{JLong, JSerializable}
 import org.apache.lucene.document.{Document, Field, LongPoint, StoredField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort}
 import org.apache.lucene.store.BaseDirectory
 
-import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
 
 trait TimeSeriesRecord {
   val timestamp: Long
@@ -26,7 +25,7 @@ class TimeSeriesIndex(override val directory: BaseDirectory) extends Index[Recor
   def write(data: Record)(implicit writer: IndexWriter): LongValidation = {
     val doc     = new Document
     val curTime = System.currentTimeMillis
-    val allFields = recordFields(data).map(
+    val allFields = validateRecord(data).map(
       fields =>
         fields ++ Seq(
           new LongPoint(_keyField, data.timestamp),
@@ -49,7 +48,7 @@ class TimeSeriesIndex(override val directory: BaseDirectory) extends Index[Recor
     def combine(first: Seq[Field], second: Seq[Field]): Seq[Field] = first ++ second
   }
 
-  override def recordFields(data: Record): FieldValidation = {
+  override def validateRecord(data: Record): FieldValidation = {
     validateSchemaTypeSupport(data.dimensions)
       .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
       .combine(
@@ -58,7 +57,7 @@ class TimeSeriesIndex(override val directory: BaseDirectory) extends Index[Recor
       )
   }
 
-  override def docConversion(document: Document): RecordOut = {
+  override def toRecord(document: Document): RecordOut = {
     val fields: Map[String, JSerializable] =
       document.getFields.asScala
         .filterNot(_.name() == _keyField)
@@ -79,11 +78,6 @@ class TimeSeriesIndex(override val directory: BaseDirectory) extends Index[Recor
       writer.deleteDocuments(query)
     }
     writer.forceMergeDeletes(true)
-  }
-
-  def deleteAll()(implicit writer: IndexWriter): Unit = {
-    writer.deleteAll()
-    writer.flush()
   }
 
   def timeRange(start: Long, end: Long, size: Int = Int.MaxValue, sort: Option[Sort] = None): Seq[RecordOut] = {
