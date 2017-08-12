@@ -7,23 +7,28 @@ import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 
 final class SQLStatementParser extends RegexParsers with PackratParsers {
 
-  private val Select            = "SELECT"
+  implicit class InsensitiveString(str: String) {
+    def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
+  }
+
+  private val Select            = "SELECT" ignoreCase
   private val All               = "*"
-  private val From              = "FROM"
-  private val Where             = "WHERE"
+  private val From              = "FROM" ignoreCase
+  private val Where             = "WHERE" ignoreCase
   private val Comma             = ","
-  private val In                = "IN"
-  private val Order             = "ORDER BY"
-  private val Asc               = "ASC"
-  private val Desc              = "DESC"
-  private val Limit             = "LIMIT"
+  private val In                = "IN" ignoreCase
+  private val Order             = "ORDER BY" ignoreCase
+  private val Asc               = "ASC" ignoreCase
+  private val Desc              = "DESC" ignoreCase
+  private val DescLiteral       = "DESC"
+  private val Limit             = "LIMIT" ignoreCase
   private val GreaterThan       = ">"
   private val GreaterOrEqualTo  = ">="
   private val LessThan          = "<"
   private val LessOrEqualTo     = "<="
-  private val Not               = "NOT"
-  private val And               = "AND"
-  private val Or                = "OR"
+  private val Not               = "NOT" ignoreCase
+  private val And               = "AND" ignoreCase
+  private val Or                = "OR" ignoreCase
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
@@ -55,7 +60,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def tupledLogicalExpression: Parser[TupledLogicalExpression] =
     andTupledLogicalExpression | orTupledLogicalExpression
 
-  private def tupledLogicalExpression(operator: String,
+  private def tupledLogicalExpression(operator: Parser[String],
                                       tupledOperator: TupledLogicalOperator): Parser[TupledLogicalExpression] =
     ((termExpression | expression) <~ operator) ~ (termExpression | expression) ^^ {
       case expression1 ~ expression2 =>
@@ -98,8 +103,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def where = (Where ~> conditions) ?
 
   private def order = (((Order ~> dimension) ?) ~ ((Asc | Desc) ?)) ^^ {
-    case dim ~(Some(Desc)) => dim.map(DescOrderOperator)
-    case dim ~ _           => dim.map(AscOrderOperator)
+    case dim ~(Some(ord)) if ord.equalsIgnoreCase(DescLiteral) => dim.map(DescOrderOperator)
+    case dim ~ _                                               => dim.map(AscOrderOperator)
   }
 
   private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x.toInt)))
