@@ -1,11 +1,15 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.JSerializable
+
 sealed trait SQLStatementType
 case object Select extends SQLStatementType
+case object Insert extends SQLStatementType
 
 sealed trait SelectedFields
-case object AllFields                       extends SelectedFields
-case class ListFields(fields: List[String]) extends SelectedFields
+case object AllFields                                         extends SelectedFields
+case class ListFields(fields: List[String])                   extends SelectedFields
+case class ListAssignment(fields: Map[String, JSerializable]) extends SelectedFields
 
 sealed trait Expression
 case class Condition(expression: Expression)
@@ -36,8 +40,15 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
 
 case class LimitOperator(value: Int)
 
+sealed trait SQLStatement
 case class SelectSQLStatement(metric: String,
                               fields: SelectedFields,
                               condition: Option[Condition] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
+    extends SQLStatement
+case class InsertSQLStatement(metric: String,
+                              timestamp: Option[Long],
+                              dimensions: ListAssignment,
+                              fields: ListAssignment)
+    extends SQLStatement

@@ -8,7 +8,7 @@ import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.SelectStatementExecuted
 import io.radicalbit.nsdb.core.Core
 import io.radicalbit.nsdb.model.RecordOut
-import io.radicalbit.nsdb.statement.SelectSQLStatement
+import io.radicalbit.nsdb.statement.{InsertSQLStatement, SQLStatement, SelectSQLStatement}
 
 import scala.concurrent.Future
 
@@ -43,12 +43,18 @@ class ClientDelegate(implicit system: ActorSystem) {
   lazy val readCoordinator =
     system.actorSelection("akka.tcp://NsdbSystem@127.0.0.1:2552/user/guardian/read-coordinator")
 
-  def executeSqlSelectStatement(statement: SelectSQLStatement): Future[Seq[RecordOut]] = {
+  def executeSqlSelectStatement(statement: SQLStatement): Future[Seq[RecordOut]] = {
 
     implicit val dispatcher = system.dispatcher
-    (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
-      .mapTo[SelectStatementExecuted[RecordOut]]
-      .map(_.values)
+
+    statement match {
+      case stm: SelectSQLStatement =>
+        (readCoordinator ? ReadCoordinator.ExecuteStatement(stm))
+          .mapTo[SelectStatementExecuted[RecordOut]]
+          .map(_.values)
+//      case stm: InsertSQLStatement =>
+    }
+
   }
 
 }

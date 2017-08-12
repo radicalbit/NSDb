@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.JSerializable
 import io.radicalbit.nsdb.statement._
 
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
@@ -11,6 +12,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
   }
 
+  private val Insert            = "INSERT INTO" ignoreCase
+  private val Dim               = "DIM" ignoreCase
+  private val Ts                = "TS" ignoreCase
+  private val Fld               = "FLD" ignoreCase
   private val Select            = "SELECT" ignoreCase
   private val All               = "*"
   private val From              = "FROM" ignoreCase
@@ -26,24 +31,36 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val GreaterOrEqualTo  = ">="
   private val LessThan          = "<"
   private val LessOrEqualTo     = "<="
+  private val Equal             = "="
   private val Not               = "NOT" ignoreCase
   private val And               = "AND" ignoreCase
   private val Or                = "OR" ignoreCase
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
-  private val field     = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val metric    = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val dimension = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val intValue  = """([0-9]+)""".r
-  private val timestamp = """([0-9]+)""".r
+  private val field       = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
+  private val metric      = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
+  private val dimension   = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
+  private val stringValue = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
+  private val intValue    = """([0-9]+)""".r ^^ { _.toInt }
+  private val timestamp   = """([0-9]+)""".r ^^ { _.toLong }
 
-  private val fields = (All | field) ~ rep(Comma ~> field) ^^ {
+  private val selectFields = (All | field) ~ rep(Comma ~> field) ^^ {
     case f ~ fs =>
       f match {
         case All => AllFields
         case _   => ListFields(f +: fs)
       }
+  }
+
+  private val timestampAssignment = (Ts ~ Equal) ~> timestamp
+
+  private val assignment = (field <~ Equal) ~ (stringValue | intValue) ^^ {
+    case k ~ v => k -> v.asInstanceOf[JSerializable]
+  }
+
+  private val assignments = OpenRoundBracket ~> assignment ~ rep(Comma ~> assignment) <~ CloseRoundBracket ^^ {
+    case a ~ as => (a +: as).toMap
   }
 
   // Please don't change the order of the expressions, can cause infinite recursions
@@ -78,7 +95,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
                                    comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[_]] =
     (dimension <~ operator) ~ intValue ^^ {
       case d ~ v =>
-        ComparisonExpression(d, comparisonOperator, v.toLong)
+        ComparisonExpression(d, comparisonOperator, v)
     }
 
   private def comparisonExpressionGT = comparisonExpression(GreaterThan, GreaterThanOperator)
@@ -96,7 +113,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def conditions = expression
 
-  private def select = Select ~> fields
+  private def select = Select ~> selectFields
 
   private def from = From ~> metric
 
@@ -107,16 +124,24 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case dim ~ _                                               => dim.map(AscOrderOperator)
   }
 
-  private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x.toInt)))
+  private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x)))
 
   private def selectQuery = select ~ from ~ where ~ order ~ limit ^^ {
     case fs ~ met ~ cond ~ ord ~ lim =>
       SelectSQLStatement(metric = met, fields = fs, condition = cond.map(Condition), order = ord, limit = lim)
   }
 
-  private def query: Parser[SelectSQLStatement] = selectQuery
+  private def insertQuery =
+    (Insert ~> metric) ~
+      (timestampAssignment ?) ~
+      (Dim ~> assignments) ~ (Fld ~> assignments) ^^ {
+      case met ~ ts ~ dimensions ~ fields =>
+        InsertSQLStatement(metric = met, timestamp = ts, ListAssignment(dimensions), ListAssignment(fields))
+    }
 
-  def parse(input: String): Try[SelectSQLStatement] =
+  private def query: Parser[SQLStatement] = selectQuery | insertQuery
+
+  def parse(input: String): Try[SQLStatement] =
     Try(parse(query, input)) flatMap {
       case Success(res, _) => ScalaSuccess(res)
       case Error(msg, _)   => ScalaFailure(new RuntimeException(msg))
