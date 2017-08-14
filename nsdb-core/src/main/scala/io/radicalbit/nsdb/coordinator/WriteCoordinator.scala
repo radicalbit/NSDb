@@ -49,14 +49,15 @@ class WriteCoordinator(val basePath: String, commitLogService: ActorRef, indexer
 
   override def receive = {
     case WriteCoordinator.MapInput(ts, metric, record) =>
-      log.debug("Received a write request for (ts: {}, metric: {})", ts, metric)
+      log.debug("Received a write request for (ts: {}, metric: {}, record : {})", ts, metric, record)
       (Schema(metric, record), getSchema(metric)) match {
         case (Valid(newSchema), Some(oldSchema)) =>
           schemaIndex.isCompatibleSchema(oldSchema, newSchema) match {
             case Valid(_) =>
               implicit val writer = schemaIndex.getWriter
               schemas += (newSchema.metric -> newSchema)
-              Future { schemaIndex.update(metric, newSchema) }
+//              Future { schemaIndex.update(metric, newSchema) }
+              schemaIndex.update(metric, newSchema)
               writer.close()
               (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
                 .mapTo[WroteToCommitLogAck]

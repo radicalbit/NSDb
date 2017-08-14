@@ -53,7 +53,7 @@ class ClientDelegate(implicit system: ActorSystem) {
     (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
       .flatMap {
         case e: SelectStatementExecuted[RecordOut] => Future.successful(e.values)
-        case e: SelectStatementFailed              => Future.successful(Seq.empty))
+        case e: SelectStatementFailed              => Future.successful(Seq.empty)
       }
   }
 

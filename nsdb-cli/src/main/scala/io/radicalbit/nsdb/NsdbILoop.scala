@@ -39,10 +39,12 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
     else if (new SQLStatementParser().parse(line).isSuccess) {
       val statement = new SQLStatementParser().parse(line).get
       val result = statement match {
-        case s: SelectSQLStatement => Await.result(clientDelegate.executeSqlSelectStatement(s), 10 seconds)
-        case s: InsertSQLStatement => Await.result(clientDelegate.executeSqlInsertStatement(s), 10 seconds)
+        case s: SelectSQLStatement =>
+          Await.result(clientDelegate.executeSqlSelectStatement(s), 10 seconds).toString()
+        case s: InsertSQLStatement => Await.result(clientDelegate.executeSqlInsertStatement(s), 10 seconds).toString
       }
-      Result(keepRunning = true, Some(result.toString))
+      echo(result)
+      Result(keepRunning = true, Some(result))
     } else Result(keepRunning = true, interpretStartingWith(line))
   }
 
