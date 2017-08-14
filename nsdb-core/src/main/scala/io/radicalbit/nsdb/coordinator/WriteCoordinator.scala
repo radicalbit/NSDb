@@ -8,6 +8,7 @@ import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.actors.SchemaSupport
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.model.Record
 
@@ -22,7 +23,8 @@ object WriteCoordinator {
 
   case class FlatInput(ts: Long, metric: String, data: Array[Byte]) extends WriteCoordinatorProtocol
 
-  case class MapInput(ts: Long, metric: String, record: Record) extends WriteCoordinatorProtocol
+  case class MapInput(ts: Long, metric: String, record: Record)    extends WriteCoordinatorProtocol
+  case class InputMapped(ts: Long, metric: String, record: Record) extends WriteCoordinatorProtocol
 
   case class GetSchema(metric: String)                         extends WriteCoordinatorProtocol
   case class SchemaGot(metric: String, schema: Option[Schema]) extends WriteCoordinatorProtocol
@@ -59,6 +61,7 @@ class WriteCoordinator(val basePath: String, commitLogService: ActorRef, indexer
               (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
                 .mapTo[WroteToCommitLogAck]
                 .flatMap(ack => (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded])
+                .map(r => InputMapped(r.record.timestamp, metric, record.copy(timestamp = r.record.timestamp)))
                 .pipeTo(sender())
             case Invalid(errs) => sender() ! RecordRejected(metric, record, errs.toList)
           }
@@ -70,6 +73,7 @@ class WriteCoordinator(val basePath: String, commitLogService: ActorRef, indexer
           (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
             .mapTo[WroteToCommitLogAck]
             .flatMap(ack => (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded])
+            .map(r => InputMapped(r.record.timestamp, metric, record.copy(timestamp = r.record.timestamp)))
             .pipeTo(sender())
         case (Invalid(errs), _) => sender() ! RecordRejected(metric, record, errs.toList)
       }

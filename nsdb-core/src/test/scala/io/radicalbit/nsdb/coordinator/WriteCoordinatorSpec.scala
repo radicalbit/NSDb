@@ -6,7 +6,7 @@ import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.IndexerActor
 import io.radicalbit.nsdb.actors.IndexerActor.{RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{GetSchema, MapInput, SchemaGot}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{GetSchema, InputMapped, MapInput, SchemaGot}
 import io.radicalbit.nsdb.model.Record
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -40,7 +40,7 @@ class WriteCoordinatorSpec
 
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record1))
 
-    val expectedAdd = probe.expectMsgType[RecordAdded]
+    val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
 
@@ -51,7 +51,7 @@ class WriteCoordinatorSpec
 
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record2))
 
-    val expectedAdd2 = probe.expectMsgType[RecordAdded]
+    val expectedAdd2 = probe.expectMsgType[InputMapped]
     expectedAdd2.metric shouldBe "testMetric"
     expectedAdd2.record shouldBe record2
 

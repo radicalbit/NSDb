@@ -12,7 +12,7 @@ class ReadCoordinator(val basePath: String, indexerActor: ActorRef) extends Acto
     case ExecuteStatement(statement) =>
       schemaIndex.getSchema(statement.metric) match {
         case Some(schema) => indexerActor.forward(ExecuteSelectStatement(statement, schema))
-        case None         => SelectStatementFailed(s"No schema found for metric ${statement.metric}")
+        case None         => sender() ! SelectStatementFailed(s"No schema found for metric ${statement.metric}")
       }
   }
 }

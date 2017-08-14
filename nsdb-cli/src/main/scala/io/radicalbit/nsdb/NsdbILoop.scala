@@ -4,6 +4,7 @@ import java.io.BufferedReader
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.statement.{InsertSQLStatement, SelectSQLStatement}
 
 import scala.concurrent.Await
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
@@ -35,9 +36,12 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
     import scala.concurrent.duration._
     if (line startsWith ":") colonCommand(line)
     else if (intp.global == null) Result(keepRunning = false, None) // Notice failure to create compiler
-    else if (line.startsWith("SELECT")) {
+    else if (new SQLStatementParser().parse(line).isSuccess) {
       val statement = new SQLStatementParser().parse(line).get
-      val result    = Await.result(clientDelegate.executeSqlSelectStatement(statement), 10 seconds)
+      val result = statement match {
+        case s: SelectSQLStatement => Await.result(clientDelegate.executeSqlSelectStatement(s), 10 seconds)
+        case s: InsertSQLStatement => Await.result(clientDelegate.executeSqlInsertStatement(s), 10 seconds)
+      }
       Result(keepRunning = true, Some(result.toString))
     } else Result(keepRunning = true, interpretStartingWith(line))
   }

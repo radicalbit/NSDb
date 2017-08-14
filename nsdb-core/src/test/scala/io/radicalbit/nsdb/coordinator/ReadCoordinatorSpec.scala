@@ -183,51 +183,16 @@ class ReadCoordinatorSpec
         expected.values.size should be(1)
       }
     }
-//
-//    "receive a select containing a ordering statement" should {
-//        "execute it successfully" in {
-//        parser.parseStatement(
-//          SelectSQLStatement(metric = "people",
-//                             fields = AllFields,
-//                             order = Some(AscOrderOperator("name")),
-//                             limit = Some(LimitOperator(4)))
-//        ) should be(
-//          Success(
-//            QueryResult(
-//              new MatchAllDocsQuery(),
-//              4,
-//              List.empty,
-//              Some(new Sort(new SortField("name", SortField.Type.DOC, false)))
-//            ))
-//        )
-//      }
-//    }
-//
-//    "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
-//        "execute it successfully" in {
-//        parser.parseStatement(
-//          SelectSQLStatement(
-//            metric = "people",
-//            fields = ListFields(List("name")),
-//            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-//            order = Some(DescOrderOperator(dimension = "name")),
-//            limit = Some(LimitOperator(5))
-//          )) should be(
-//          Success(
-//            QueryResult(
-//              LongPoint.newRangeQuery("timestamp", 2L, 4L),
-//              5,
-//              List("name"),
-//              Some(new Sort(new SortField("name", SortField.Type.DOC, true)))
-//            ))
-//        )
-//      }
-//    }
-//
-//    "receive a statement without limit" should {
-//      "fail" in {
-//        parser.parseStatement(SelectSQLStatement(metric = "people", fields = AllFields)) shouldBe 'failure
-//      }
-//    }
+
+    "receive a select containing for a non existing entity" should {
+      "return an error messge properly" in {
+        probe.send(readCoordinatorActor,
+                   ExecuteStatement(
+                     SelectSQLStatement(metric = "nonexisting", fields = AllFields, limit = Some(LimitOperator(5)))
+                   ))
+
+        val expected = probe.expectMsgType[SelectStatementFailed]
+      }
+    }
   }
 }
