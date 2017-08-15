@@ -9,7 +9,7 @@ import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRej
 import io.radicalbit.nsdb.actors.SchemaSupport
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
-import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.Record
 
 import scala.concurrent.Future
@@ -52,7 +52,7 @@ class WriteCoordinator(val basePath: String, commitLogService: ActorRef, indexer
       log.debug("Received a write request for (ts: {}, metric: {}, record : {})", ts, metric, record)
       (Schema(metric, record), getSchema(metric)) match {
         case (Valid(newSchema), Some(oldSchema)) =>
-          schemaIndex.isCompatibleSchema(oldSchema, newSchema) match {
+          SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
             case Valid(_) =>
               implicit val writer = schemaIndex.getWriter
               schemas += (newSchema.metric -> newSchema)

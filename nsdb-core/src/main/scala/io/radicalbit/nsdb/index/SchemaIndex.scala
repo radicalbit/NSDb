@@ -52,19 +52,6 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
     }
   }
 
-  def isCompatibleSchema(oldSchema: Schema, newSchema: Schema): Validated[NonEmptyList[String], Seq[SchemaField]] = {
-    val newFields = newSchema.fields.map(e => e.name -> e).toMap
-    oldSchema.fields
-      .map(oldField => {
-        if (newFields.get(oldField.name).isDefined && oldField.indexType != newFields(oldField.name).indexType)
-          invalidNel("")
-        else valid(Seq(newFields(oldField.name)))
-      })
-      .toList
-      .combineAll
-
-  }
-
   override def toRecord(document: Document): Schema = {
     val fields = document.getFields.asScala.filterNot(_.name() == _keyField)
     Schema(
@@ -106,5 +93,21 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
       writer.deleteDocuments(query)
     }
     writer.forceMergeDeletes(true)
+  }
+}
+
+object SchemaIndex {
+  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Validated[NonEmptyList[String], Seq[SchemaField]] = {
+    val newFields = newSchema.fields.map(e => e.name -> e).toMap
+    val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
+    oldSchema.fields
+      .map(oldField => {
+        if (newFields.get(oldField.name).isDefined && oldField.indexType != newFields(oldField.name).indexType)
+          invalidNel("")
+        else valid(Seq(newFields.getOrElse(oldField.name, oldFields(oldField.name))))
+      })
+      .toList
+      .combineAll
+      .map(oldFields => (oldFields.toSet ++ newFields.values.toSet).toSeq)
   }
 }
