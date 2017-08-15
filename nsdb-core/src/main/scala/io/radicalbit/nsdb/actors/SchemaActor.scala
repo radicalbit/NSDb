@@ -1,13 +1,13 @@
 package io.radicalbit.nsdb.actors
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.SchemaActor.commands.{DeleteSchema, GetSchema, UpdateSchema, UpdateSchemaFromRecord}
 import io.radicalbit.nsdb.actors.SchemaActor.events.{SchemaDeleted, SchemaGot, SchemaUpdated, UpdateSchemaFailed}
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.Record
 
-class SchemaActor(val basePath: String) extends Actor with SchemaSupport {
+class SchemaActor(val basePath: String) extends Actor with SchemaSupport with ActorLogging {
 
   private def getSchema(metric: String) = schemas.get(metric) orElse schemaIndex.getSchema(metric)
 
@@ -15,7 +15,6 @@ class SchemaActor(val basePath: String) extends Actor with SchemaSupport {
     case GetSchema(metric) =>
       val schema = getSchema(metric)
       sender ! SchemaGot(metric, schema)
-
     case UpdateSchema(metric, newSchema) =>
       getSchema(metric) match {
         case Some(oldSchema) =>

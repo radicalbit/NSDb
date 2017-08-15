@@ -3,10 +3,10 @@ package io.radicalbit.nsdb.coordinator
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.nsdb.actors.IndexerActor
-import io.radicalbit.nsdb.actors.IndexerActor.{RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.actors.IndexerActor.RecordRejected
+import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{GetSchema, InputMapped, MapInput, SchemaGot}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
 import io.radicalbit.nsdb.model.Record
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -25,14 +25,15 @@ class WriteCoordinatorSpec
     with Matchers
     with BeforeAndAfterAll {
 
-  val probe      = TestProbe()
-  val probeActor = probe.ref
+  val probe       = TestProbe()
+  val probeActor  = probe.ref
+  val schemaActor = system.actorOf(SchemaActor.props("target/test_index"))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(
-    "target/test_index",
+    schemaActor,
     system.actorOf(Props[TestCommitLogService]),
     system.actorOf(IndexerActor.props("target/test_index")))
 
-  "WriteCoordinator" should "validate a schema" in {
+  "WriteCoordinator" should "write records" in {
     val record1 = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
     val record2 = Record(System.currentTimeMillis, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
     val incompatibleRecord =
@@ -43,11 +44,6 @@ class WriteCoordinatorSpec
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
-
-    probe.send(writeCoordinatorActor, GetSchema("testMetric"))
-    val schema = probe.expectMsgType[SchemaGot]
-
-    schema.schema.isDefined shouldBe true
 
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record2))
 

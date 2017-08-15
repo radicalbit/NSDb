@@ -1,9 +1,8 @@
-package io.radicalbit.actors
+package io.radicalbit.nsdb.actors
 
 import akka.actor.{Actor, Props}
-import io.radicalbit.actors.DatabaseActorsGuardian.GetWriteCoordinator
+import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.GetWriteCoordinator
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.actors.IndexerActor
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.metadata.MetadataService
 
@@ -24,11 +23,12 @@ class DatabaseActorsGuardian extends Actor {
 
   val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
+  val schemaActor      = context.actorOf(SchemaActor.props(indexBasePath), "schema-actor")
   val indexerActor     = context.actorOf(IndexerActor.props(indexBasePath), "indexer-service")
   val readCoordinator =
-    context.actorOf(ReadCoordinator.props(indexBasePath, indexerActor), "read-coordinator")
+    context.actorOf(ReadCoordinator.props(schemaActor, indexerActor), "read-coordinator")
   val writeCoordinator =
-    context.actorOf(WriteCoordinator.props(indexBasePath, commitLogService, indexerActor), "write-coordinator")
+    context.actorOf(WriteCoordinator.props(schemaActor, commitLogService, indexerActor), "write-coordinator")
 
   def receive = {
     case GetWriteCoordinator => sender() ! writeCoordinator
