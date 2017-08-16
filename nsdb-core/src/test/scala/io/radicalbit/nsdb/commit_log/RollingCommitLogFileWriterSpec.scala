@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.commit_log
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class RollingCommitLogFileWriterSpec
     extends TestKit(ActorSystem("radicaldb-test"))

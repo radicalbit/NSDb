@@ -3,6 +3,7 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
+import io.radicalbit.index.BoundedIndex
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint

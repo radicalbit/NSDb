@@ -1,5 +1,7 @@
-package io.radicalbit.nsdb.index
+package io.radicalbit.index
 
+import io.radicalbit.nsdb.JSerializable
+import io.radicalbit.nsdb.index.{IndexType, TimeSeriesIndex, TypeSupport}
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.document.{Document, LongPoint, StoredField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
@@ -15,11 +17,11 @@ class BoundedIndex(override val directory: BaseDirectory) extends TimeSeriesInde
   override def writeRecord(doc: Document, data: Record): Try[Document] = {
     validateSchema(data.dimensions ++ data.fields) match {
       case Success(_) =>
-        for (elem: (String, Any) <- data.dimensions) {
+        for (elem: (String, JSerializable) <- data.dimensions) {
           val indexField = IndexType.fromClass(elem._2.getClass).get
           indexField.indexField(elem._1, elem._2).foreach(doc.add(_))
         }
-        for (elem: (String, Any) <- data.fields) {
+        for (elem: (String, JSerializable) <- data.fields) {
           doc.add(new StoredField(elem._1, elem._2.toString))
         }
         Success(doc)

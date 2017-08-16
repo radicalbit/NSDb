@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.core
 
 import akka.actor._
 import akka.stream.ActorMaterializer
-import io.radicalbit.nsdb.actors.DatabaseActorsGuardian
+import io.radicalbit.actors.DatabaseActorsGuardian
 import io.radicalbit.nsdb.api.Api
 import io.radicalbit.nsdb.web.StaticResources
 

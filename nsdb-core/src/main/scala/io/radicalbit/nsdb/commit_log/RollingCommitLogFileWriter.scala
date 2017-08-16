@@ -3,6 +3,8 @@ package io.radicalbit.nsdb.commit_log
 import java.io.{File, FileOutputStream}
 
 import akka.actor.{ActorLogging, Props}
+import com.typesafe.config.Config
+import io.radicalbit.commit_log.{DeleteExistingEntry, InsertNewEntry}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.util.Config._
 
@@ -18,7 +20,7 @@ object RollingCommitLogFileWriter {
 
     def generateNextId: Int =
       fileNames
-        .collect { case name if (name.startsWith(fileNamePrefix)) => name.split(fileNameSeparator).last.toInt }
+        .collect { case name if name.startsWith(fileNamePrefix) => name.split(fileNameSeparator).last.toInt }
         .sorted
         .reverse
         .headOption
@@ -38,7 +40,7 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
 
   import RollingCommitLogFileWriter._
 
-  implicit val config = context.system.settings.config
+  implicit val config: Config = context.system.settings.config
 
   private val separator       = System.getProperty("line.separator").toCharArray.head
   private val serializerClass = getString(CommitLogSerializerConf)
@@ -47,7 +49,8 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   private val FileNamePrefix  = "radicalbitdb"
 
   log.info("Initializing the commit log serializer {}...", serializerClass)
-  override protected val serializer = Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
+  override protected val serializer: CommitLogSerializer =
+    Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
   log.info("Commit log serializer {} initialized successfully.", serializerClass)
 
   private var file   = newFile(directory)
@@ -56,7 +59,7 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   override protected def createEntry(entry: InsertNewEntry): Unit = {
     log.debug("Received the entry {}.", entry)
     appendToDisk(entry)
-    sender() ! WroteToCommitLogAck(ts = entry.ts, metric = entry.metric)
+    sender() ! WroteToCommitLogAck(ts = entry.ts, metric = entry.metric, record = entry.record)
 
     // this check can be done in an async fashion
     checkAndUpdateRollingFile(file).foreach {
@@ -68,9 +71,9 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
 
   override protected def deleteEntry(commitLogEntry: DeleteExistingEntry): Unit = {}
 
-  protected def close: Unit = fileOS.close()
+  protected def close(): Unit = fileOS.close()
 
-  protected def appendToDisk(entry: InsertNewEntry) = {
+  protected def appendToDisk(entry: InsertNewEntry): Unit = {
     fileOS.write(serializer.serialize(entry))
     fileOS.write(separator)
     fileOS.flush()

@@ -1,6 +1,8 @@
-package io.radicalbit.nsdb.commit_log
+package io.radicalbit.commit_log
 
+import io.radicalbit.nsdb.JSerializable
 import io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer
+import io.radicalbit.nsdb.model.Record
 import org.scalatest.{Matchers, WordSpec}
 
 class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
@@ -11,14 +13,14 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
 
         val ts            = 1500909299161L
         val metric        = "test-metric"
-        val dimensions    = List(("dimension1", "type1", "value1".getBytes))
-        val originalEntry = InsertNewEntry(ts = ts, metric = metric, dimensions = dimensions)
+        val record        = Record(ts, Map("dimension1" -> "value1"), Map.empty)
+        val originalEntry = InsertNewEntry(ts = ts, metric = metric, record = record)
 
         val entryService = new StandardCommitLogSerializer
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry.dimensions.map(convert) should be(originalEntry.dimensions.map(convert))
+        desEntry should be(originalEntry)
       }
     }
 
@@ -27,21 +29,18 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
 
         val ts     = 1500909299165L
         val metric = "test1-metric"
-        val dimensions = List(("dimension1", "type1", "value1".getBytes),
-                              ("dimension2", "type2", "value2".getBytes),
-                              ("dimension3", "type3", "value3".getBytes))
-        val originalEntry = InsertNewEntry(ts = ts, metric = metric, dimensions = dimensions)
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L)
+        val record        = Record(ts, dimensions = dimensions, fields = Map.empty)
+        val originalEntry = InsertNewEntry(ts = ts, metric = metric, record = record)
 
         val entryService = new StandardCommitLogSerializer
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry.dimensions.map(convert) should be(originalEntry.dimensions.map(convert))
+        desEntry should be(originalEntry)
       }
     }
   }
 
-  private def convert(x: (String, String, Array[Byte])): (String, String, String) = x match {
-    case (m, t, v) => (m, t, new String(v))
-  }
 }
