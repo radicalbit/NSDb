@@ -10,7 +10,7 @@ import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, StoredField, StringField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery}
+import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.store.BaseDirectory
 
 import scala.util.{Failure, Success, Try}
@@ -72,16 +72,6 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery,
     }
   }
 
-//  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): LongValidation = {
-//    getSchema(metric) match {
-//      case Some(oldSchema) =>
-//        delete(oldSchema)
-//        val newFields = oldSchema.fields.toSet ++ newSchema.fields.toSet
-//        write(Schema(newSchema.metric, newFields.toSeq))
-//      case None => write(newSchema)
-//    }
-//  }
-
   override def delete(data: NsdbQuery)(implicit writer: IndexWriter): Unit = {
     val parser   = new QueryParser(_keyField, new StandardAnalyzer())
     val query    = parser.parse(data.uuid)
@@ -94,19 +84,3 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery,
     writer.forceMergeDeletes(true)
   }
 }
-
-//object SchemaIndex {
-//  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Validated[NonEmptyList[String], Seq[SchemaField]] = {
-//    val newFields = newSchema.fields.map(e => e.name -> e).toMap
-//    val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
-//    oldSchema.fields
-//      .map(oldField => {
-//        if (newFields.get(oldField.name).isDefined && oldField.indexType != newFields(oldField.name).indexType)
-//          invalidNel("")
-//        else valid(Seq(newFields.getOrElse(oldField.name, oldFields(oldField.name))))
-//      })
-//      .toList
-//      .combineAll
-//      .map(oldFields => (oldFields.toSet ++ newFields.values.toSet).toSeq)
-//  }
-//}
