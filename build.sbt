@@ -14,10 +14,12 @@ lazy val `nsdb-core` = project
 
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .dependsOn(`nsdb-core`)
 
 lazy val `nsdb-scala-api` = project
   .settings(Commons.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.ScalaAPI.libraries)
   .dependsOn(`nsdb-core`)
 
 lazy val `nsdb-sql` = project

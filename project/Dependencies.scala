@@ -17,6 +17,7 @@ object Dependencies {
     lazy val distributedData = namespace %% "akka-distributed-data" % version
     lazy val cluster         = namespace %% "akka-cluster"          % version
     lazy val sharding        = namespace %% "akka-sharding"         % version
+    lazy val clusterTools    = namespace %% "akka-cluster-tools"    % version
 
   }
 
@@ -89,6 +90,20 @@ object Dependencies {
       lucene.queryParser,
       lucene.facet,
       scalatest.core % Test
+    )
+  }
+
+  object Cluster {
+    val libraries = Seq(
+      akka.cluster,
+      akka.clusterTools
+    )
+  }
+
+  object ScalaAPI {
+    val libraries = Seq(
+      akka.cluster,
+      akka.clusterTools
     )
   }
 

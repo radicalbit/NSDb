@@ -16,7 +16,7 @@ trait WebCore extends Core {
 }
 
 trait BootedCore extends Core with Api with StaticResources {
-  override implicit def system = ActorSystem("ignorantodb")
+  override implicit def system = ActorSystem("nsdb")
 }
 
 trait WebBootedCore extends BootedCore with WebCore {
