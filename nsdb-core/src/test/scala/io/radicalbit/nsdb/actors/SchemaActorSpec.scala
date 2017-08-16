@@ -14,7 +14,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class SchemaActorSpec
-    extends TestKit(ActorSystem("IndexerActorSpec"))
+    extends TestKit(ActorSystem("SchemaActorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers

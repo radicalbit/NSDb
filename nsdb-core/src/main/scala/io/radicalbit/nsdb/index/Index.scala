@@ -5,10 +5,11 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Document
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.{IndexSearcher, Query, Sort}
+import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query, Sort}
 import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.mutable.ListBuffer
+import scala.util.{Failure, Success, Try}
 
 trait Index[IN, OUT] {
   def directory: BaseDirectory
@@ -58,5 +59,12 @@ trait Index[IN, OUT] {
     val parser   = new QueryParser(field, new StandardAnalyzer())
     val query    = parser.parse(queryString)
     executeQuery(searcher, query, limit, sort).map(toRecord)
+  }
+
+  def getAll: Seq[OUT] = {
+    Try { query(new MatchAllDocsQuery(), Int.MaxValue, None) } match {
+      case Success(docs: Seq[OUT]) => docs
+      case Failure(_)              => Seq.empty
+    }
   }
 }
