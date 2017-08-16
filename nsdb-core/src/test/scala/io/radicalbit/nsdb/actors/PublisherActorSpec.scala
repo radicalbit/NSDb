@@ -36,7 +36,7 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
 
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.keys.head shouldBe probeActor
+    publisherActor.underlyingActor.subscribedActors.values.head shouldBe probeActor
 
   }
 
@@ -47,18 +47,18 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
 
-    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.keys.head shouldBe probeActor
+    publisherActor.underlyingActor.subscribedActors.values.size shouldBe 1
+    publisherActor.underlyingActor.subscribedActors.values.head shouldBe probeActor
 
-    val id = publisherActor.underlyingActor.subscribedActors.values.head
+    val id = publisherActor.underlyingActor.subscribedActors.keys.head
 
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
     probe.expectMsgType[Subscribed]
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.keys.head shouldBe probeActor
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe id
+    publisherActor.underlyingActor.subscribedActors.keys.head shouldBe id
+    publisherActor.underlyingActor.subscribedActors.values.head shouldBe probeActor
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
