@@ -12,7 +12,7 @@ trait SchemaSupport { this: Actor =>
 
   def basePath: String
 
-  protected lazy val schemaIndex = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
+  lazy val schemaIndex = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
 
   protected lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 

@@ -5,7 +5,7 @@ import io.radicalbit.nsdb.statement._
 
 import scala.util.Success
 
-class SQLStatementSpec extends WordSpec with Matchers {
+class SelectSQLStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
 
@@ -36,10 +36,10 @@ class SQLStatementSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parse("SELECT name FROM people WHERE timestamp IN (2,4)") should be(
           Success(
-            SelectSQLStatement(
-              metric = "people",
-              fields = ListFields(List("name")),
-              condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = "2", value2 = "4"))))))
+            SelectSQLStatement(metric = "people",
+                               fields = ListFields(List("name")),
+                               condition =
+                                 Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))))))
       }
     }
 
@@ -110,7 +110,7 @@ class SQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             metric = "people",
             fields = ListFields(List("name")),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = "2", value2 = "4"))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
           )))
@@ -120,7 +120,7 @@ class SQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             metric = "people",
             fields = ListFields(List("name")),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = "2", value2 = "4"))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
           )))

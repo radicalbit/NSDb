@@ -1,17 +1,19 @@
 package io.radicalbit.nsdb.coordinator
 
-import java.nio.file.Paths
-
 import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.actors.IndexerActor
-import io.radicalbit.nsdb.coordinator.ReadCoordinator._
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.IndexerActor.{AddRecords, DeleteMetric}
-import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
-import io.radicalbit.nsdb.model.{Record, RecordOut}
+import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchema
+import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
+import io.radicalbit.nsdb.coordinator.ReadCoordinator._
+import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
+import io.radicalbit.nsdb.model.{Record, RecordOut, SchemaField}
 import io.radicalbit.nsdb.statement._
-import org.apache.lucene.store.FSDirectory
 import org.scalatest._
+
+import scala.concurrent.Await
 
 class ReadCoordinatorSpec
     extends TestKit(ActorSystem("nsdb-test"))
@@ -23,8 +25,9 @@ class ReadCoordinatorSpec
   val probe                = TestProbe()
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
+  val schemaActor          = system.actorOf(SchemaActor.props(basePath))
   val indexerActor         = system.actorOf(IndexerActor.props(basePath))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(basePath, indexerActor)
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
     Record(2, Map("name"  -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
@@ -35,10 +38,12 @@ class ReadCoordinatorSpec
   )
 
   override def beforeAll(): Unit = {
-    val schemaIndex     = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
-    implicit val writer = schemaIndex.getWriter
-    schemaIndex.write(Schema("people", Seq(("name", "string"), ("surname", "string"), ("creationDate", "Long"))))
-    writer.close()
+    import scala.concurrent.duration._
+    implicit val timeout = Timeout(3 second)
+    val schema = Schema(
+      "people",
+      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
+    Await.result(schemaActor ? UpdateSchema("people", schema), 1 seconds)
     indexerActor ! AddRecords("people", records)
   }
 
@@ -174,51 +179,16 @@ class ReadCoordinatorSpec
         expected.values.size should be(1)
       }
     }
-//
-//    "receive a select containing a ordering statement" should {
-//        "execute it successfully" in {
-//        parser.parseStatement(
-//          SelectSQLStatement(metric = "people",
-//                             fields = AllFields,
-//                             order = Some(AscOrderOperator("name")),
-//                             limit = Some(LimitOperator(4)))
-//        ) should be(
-//          Success(
-//            QueryResult(
-//              new MatchAllDocsQuery(),
-//              4,
-//              List.empty,
-//              Some(new Sort(new SortField("name", SortField.Type.DOC, false)))
-//            ))
-//        )
-//      }
-//    }
-//
-//    "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
-//        "execute it successfully" in {
-//        parser.parseStatement(
-//          SelectSQLStatement(
-//            metric = "people",
-//            fields = ListFields(List("name")),
-//            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-//            order = Some(DescOrderOperator(dimension = "name")),
-//            limit = Some(LimitOperator(5))
-//          )) should be(
-//          Success(
-//            QueryResult(
-//              LongPoint.newRangeQuery("timestamp", 2L, 4L),
-//              5,
-//              List("name"),
-//              Some(new Sort(new SortField("name", SortField.Type.DOC, true)))
-//            ))
-//        )
-//      }
-//    }
-//
-//    "receive a statement without limit" should {
-//      "fail" in {
-//        parser.parseStatement(SelectSQLStatement(metric = "people", fields = AllFields)) shouldBe 'failure
-//      }
-//    }
+
+    "receive a select containing for a non existing entity" should {
+      "return an error messge properly" in {
+        probe.send(readCoordinatorActor,
+                   ExecuteStatement(
+                     SelectSQLStatement(metric = "nonexisting", fields = AllFields, limit = Some(LimitOperator(5)))
+                   ))
+
+        probe.expectMsgType[SelectStatementFailed]
+      }
+    }
   }
 }

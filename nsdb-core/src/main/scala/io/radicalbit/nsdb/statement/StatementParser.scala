@@ -11,14 +11,13 @@ class StatementParser {
 
   private def parseExpression(exp: Option[Expression], limit: Int): QueryResult = {
     val q = exp match {
-      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) => {
+      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
         operator match {
           case GreaterThanOperator      => LongPoint.newRangeQuery(dimension, value + 1, Long.MaxValue)
           case GreaterOrEqualToOperator => LongPoint.newRangeQuery(dimension, value, Long.MaxValue)
           case LessThanOperator         => LongPoint.newRangeQuery(dimension, 0, value - 1)
           case LessOrEqualToOperator    => LongPoint.newRangeQuery(dimension, 0, value)
         }
-      }
       case Some(RangeExpression(dimension, v1: Long, v2: Long)) => LongPoint.newRangeQuery(dimension, v1, v2)
       case Some(UnaryLogicalExpression(expression, _)) =>
         val builder = new BooleanQuery.Builder()

@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.core
 
 import akka.actor._
-import io.radicalbit.actors.DatabaseActorsGuardian
+import io.radicalbit.nsdb.actors.DatabaseActorsGuardian
 
 trait Core {
   protected implicit def system: ActorSystem

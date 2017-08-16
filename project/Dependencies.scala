@@ -8,6 +8,12 @@ object Dependencies {
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
   }
 
+  object cats {
+    lazy val version   = "0.9.0"
+    lazy val namespace = "org.typelevel"
+    lazy val cats      = namespace %% "cats" % version
+  }
+
   object akka {
     lazy val version   = "2.5.3"
     lazy val namespace = "com.typesafe.akka"
@@ -80,6 +86,7 @@ object Dependencies {
 
   object Core {
     val libraries = Seq(
+      cats.cats,
       lucene.core,
       lucene.queryParser,
       lucene.facet,

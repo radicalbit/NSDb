@@ -11,7 +11,7 @@ import org.apache.lucene.search.{Sort, SortField}
 import org.apache.lucene.store.FSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
-class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "BoundedIndex" should "write and read properly on disk" in {
 
@@ -19,7 +19,7 @@ class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
-    val boundedIndex = new BoundedIndex(directory)
+    val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 100).foreach { i =>
       val testData = Record(System.currentTimeMillis, Map("content" -> s"content_$i"), Map.empty)
@@ -38,7 +38,7 @@ class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
-    val boundedIndex = new BoundedIndex(directory)
+    val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 100).foreach { i =>
       val testData = Record(System.currentTimeMillis, Map("content" -> s"content_$i"), Map.empty)
@@ -66,7 +66,7 @@ class BoundedIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
-    val boundedIndex = new BoundedIndex(directory)
+    val boundedIndex = new TimeSeriesIndex(directory)
 
     val timestamp = System.currentTimeMillis
 
