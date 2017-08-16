@@ -115,6 +115,16 @@ class SQLStatementSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(5))
           )))
       }
+      "parse it successfully ignoring case" in {
+        parser.parse("sElect name FrOm people where timestamp in (2,4) Order bY name dEsc limit 5") should be(
+          Success(SelectSQLStatement(
+            metric = "people",
+            fields = ListFields(List("name")),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = "2", value2 = "4"))),
+            order = Some(DescOrderOperator(dimension = "name")),
+            limit = Some(LimitOperator(5))
+          )))
+      }
     }
 
     "receive random string sequences" should {
