@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.sql.parser.statement
+package io.radicalbit.nsdb.statement
 
 sealed trait SQLStatementType
 case object Select extends SQLStatementType

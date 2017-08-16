@@ -12,7 +12,8 @@ object Dependencies {
     lazy val version   = "2.5.3"
     lazy val namespace = "com.typesafe.akka"
 
-    lazy val core            = namespace %% "akka-core"             % version
+    lazy val actor           = namespace %% "akka-actor"            % version
+    lazy val testkit         = namespace %% "akka-testkit"          % version
     lazy val stream          = namespace %% "akka-stream"           % version
     lazy val distributedData = namespace %% "akka-distributed-data" % version
     lazy val cluster         = namespace %% "akka-cluster"          % version
@@ -83,6 +84,18 @@ object Dependencies {
       lucene.queryParser,
       lucene.facet,
       scalatest.core % Test
+    )
+  }
+
+  object Client {
+    val libraries = Seq(
+      akka.cluster
+    )
+  }
+
+  object Cluster {
+    val libraries = Seq(
+      akka.cluster
     )
   }
 

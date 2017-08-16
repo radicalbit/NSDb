@@ -1,5 +1,6 @@
 import sbt._
 import Keys._
+import sbtassembly.AssemblyKeys._
 import Dependencies._
 
 object Commons {
@@ -15,11 +16,14 @@ object Commons {
       Resolver.bintrayRepo("hseeberger", "maven")
     ),
     libraryDependencies ++= Seq(
-      lucene.core,
-      lucene.queryParser,
-      lucene.facet,
+      akka.actor,
+//      lucene.core,
+//      lucene.queryParser,
+//      lucene.facet,
+      akka.testkit   % "test",
       scalatest.core % "test"
-    ) ++ akka_http.core ++ akka_sse.core,
-    parallelExecution in Test := false
+    ), //++ akka_http.core ++ akka_sse.core,
+    parallelExecution in Test := false,
+    test in assembly := {}
   )
 }

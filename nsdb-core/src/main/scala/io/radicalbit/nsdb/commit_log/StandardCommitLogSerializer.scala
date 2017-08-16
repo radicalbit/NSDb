@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 
 import io.radicalbit.commit_log.CommitLogEntry.Dimension
 import io.radicalbit.commit_log.InsertNewEntry
+import io.radicalbit.nsdb.JSerializable
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 import io.radicalbit.nsdb.model.Record
 
@@ -17,7 +18,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private val readByteBuffer = new ReadBuffer(5000)
   private val writeBuffer    = new WriteBuffer(5000)
 
-  private def extractDimensions(dimensions: Map[String, java.io.Serializable]): List[Dimension] =
+  private def extractDimensions(dimensions: Map[String, JSerializable]): List[Dimension] =
     dimensions.map {
       case (k, v) =>
         (k,
@@ -25,7 +26,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
          IndexType.fromClass(v.getClass).get.serialize(v))
     }.toList
 
-  private def createDimensions(dimensions: List[Dimension]): Map[String, java.io.Serializable] =
+  private def createDimensions(dimensions: List[Dimension]): Map[String, JSerializable] =
     dimensions.map {
       case (n, t, v) =>
         n -> Class.forName(t).newInstance().asInstanceOf[IndexType[_]].deserialize(v)

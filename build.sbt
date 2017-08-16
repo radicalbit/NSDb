@@ -6,24 +6,30 @@ lazy val root = project
     publish := {},
     publishLocal := {}
   )
-  .aggregate(`nsdb-core`, `nsdb-cluster`, `nsdb-scala-api`, `nsdb-sql`, `nsdb-http`, `nsdb-cli`)
+  .aggregate(`nsdb-core`, `nsdb-client`, `nsdb-cluster`, `nsdb-scala-api`, `nsdb-sql`, `nsdb-http`, `nsdb-cli`)
 
 lazy val `nsdb-core` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
 
+lazy val `nsdb-client` = project
+  .settings(Commons.settings: _*)
+  .dependsOn(`nsdb-core`)
+  .settings(libraryDependencies ++= Dependencies.Client.libraries)
+
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .dependsOn(`nsdb-core`)
 
 lazy val `nsdb-scala-api` = project
   .settings(Commons.settings: _*)
-  .dependsOn(`nsdb-core`)
+  .dependsOn(`nsdb-client`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
-  .dependsOn(`nsdb-scala-api`)
+  .dependsOn(`nsdb-client`)
 
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
@@ -31,7 +37,8 @@ lazy val `nsdb-http` = project
 
 lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
-  .dependsOn(`nsdb-scala-api`)
+  .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.12.2")
+  .dependsOn(`nsdb-sql`)
 
 onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value
 

@@ -26,7 +26,7 @@ class RollingCommitLogFileWriterSpec
   //    "receive a single entry" should {
   //      "stored it succesfully" in {
   //
-  ////        logWriter.write(0L, "", Map.empty[String, java.io.Serializable])
+  ////        logWriter.write(0L, "", Map.empty[String, JSerializable])
   //      }
   //    }
   //  }

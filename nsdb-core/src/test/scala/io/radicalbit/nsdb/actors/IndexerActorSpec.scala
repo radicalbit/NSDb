@@ -1,10 +1,10 @@
-package io.radicalbit.nsdb.index
+package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.index.IndexerActor._
+import io.radicalbit.nsdb.actors.IndexerActor._
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}

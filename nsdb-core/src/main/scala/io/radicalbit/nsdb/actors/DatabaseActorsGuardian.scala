@@ -4,7 +4,8 @@ import akka.actor.{Actor, Props}
 import io.radicalbit.actors.DatabaseActorsGuardian.GetWriteCoordinator
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.coordinator.WriteCoordinator
-import io.radicalbit.nsdb.index.IndexerActor
+import io.radicalbit.nsdb.actors.IndexerActor
+import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.metadata.MetadataService
 
 object DatabaseActorsGuardian {
@@ -25,6 +26,8 @@ class DatabaseActorsGuardian extends Actor {
   val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
   val indexerActor     = context.actorOf(IndexerActor.props(indexBasePath), "indexer-service")
+  val readCoordinator =
+    context.actorOf(ReadCoordinator.props(indexBasePath, indexerActor), "read-coordinator")
   val writeCoordinator =
     context.actorOf(WriteCoordinator.props(indexBasePath, commitLogService, indexerActor), "write-coordinator")
 
