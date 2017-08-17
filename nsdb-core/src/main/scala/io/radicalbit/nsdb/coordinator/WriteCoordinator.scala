@@ -5,19 +5,22 @@ import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.actors.PublisherActor.RecordPublished
 import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchemaFromRecord
 import io.radicalbit.nsdb.actors.SchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
-import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.model.Record
 
 import scala.concurrent.Future
 
 object WriteCoordinator {
 
-  def props(schemaActor: ActorRef, commitLogService: ActorRef, indexerActor: ActorRef): Props =
-    Props(new WriteCoordinator(schemaActor, commitLogService, indexerActor))
+  def props(schemaActor: ActorRef,
+            commitLogService: ActorRef,
+            indexerActor: ActorRef,
+            publisherActor: ActorRef): Props =
+    Props(new WriteCoordinator(schemaActor, commitLogService, indexerActor, publisherActor))
 
   sealed trait WriteCoordinatorProtocol
 
@@ -25,13 +28,12 @@ object WriteCoordinator {
 
   case class MapInput(ts: Long, metric: String, record: Record)    extends WriteCoordinatorProtocol
   case class InputMapped(ts: Long, metric: String, record: Record) extends WriteCoordinatorProtocol
-
-//  case class GetSchema(metric: String)                         extends WriteCoordinatorProtocol
-//  case class SchemaGot(metric: String, schema: Option[Schema]) extends WriteCoordinatorProtocol
-
 }
 
-class WriteCoordinator(schemaActor: ActorRef, commitLogService: ActorRef, indexerActor: ActorRef)
+class WriteCoordinator(schemaActor: ActorRef,
+                       commitLogService: ActorRef,
+                       indexerActor: ActorRef,
+                       publisherActor: ActorRef)
     extends Actor
     with ActorLogging {
 
@@ -47,14 +49,16 @@ class WriteCoordinator(schemaActor: ActorRef, commitLogService: ActorRef, indexe
   override def receive = {
     case WriteCoordinator.MapInput(ts, metric, record) =>
       log.debug("Received a write request for (ts: {}, metric: {}, record : {})", ts, metric, record)
-
       (schemaActor ? UpdateSchemaFromRecord(metric, record))
         .flatMap {
           case SchemaUpdated(_) =>
             log.debug("Valid schema for the metric {} and the record {}", metric, record)
             (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
               .mapTo[WroteToCommitLogAck]
-              .flatMap(ack => (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded])
+              .flatMap(ack => {
+                publisherActor ! RecordPublished(metric, record)
+                (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded]
+              })
               .map(r => InputMapped(r.record.timestamp, metric, record.copy(timestamp = r.record.timestamp)))
           case UpdateSchemaFailed(_, errs) =>
             log.debug("Invalid schema for the metric {} and the record {}. Error are {}.",

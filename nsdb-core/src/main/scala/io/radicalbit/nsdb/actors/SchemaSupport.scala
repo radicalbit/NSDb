@@ -17,6 +17,6 @@ trait SchemaSupport { this: Actor =>
   protected lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 
   override def preStart(): Unit = {
-    schemas ++ schemaIndex.getAllSchemas.map(s => s.metric -> s).toMap
+    schemas ++= schemaIndex.getAllSchemas.map(s => s.metric -> s).toMap
   }
 }
