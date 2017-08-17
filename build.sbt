@@ -12,19 +12,20 @@ lazy val `nsdb-core` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
 
-lazy val `nsdb-client` = project
-  .settings(Commons.settings: _*)
-  .dependsOn(`nsdb-core`)
-  .settings(libraryDependencies ++= Dependencies.Client.libraries)
-
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .dependsOn(`nsdb-core`)
 
+lazy val `nsdb-client` = project
+  .settings(Commons.settings: _*)
+  .dependsOn(`nsdb-cluster`)
+  .settings(libraryDependencies ++= Dependencies.Client.libraries)
+
 lazy val `nsdb-scala-api` = project
   .settings(Commons.settings: _*)
-  .dependsOn(`nsdb-client`)
+  .settings(libraryDependencies ++= Dependencies.ScalaAPI.libraries)
+  .dependsOn(`nsdb-sql`, `nsdb-client`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)

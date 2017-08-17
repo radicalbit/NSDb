@@ -51,11 +51,17 @@ class WriteCoordinator(schemaActor: ActorRef, commitLogService: ActorRef, indexe
       (schemaActor ? UpdateSchemaFromRecord(metric, record))
         .flatMap {
           case SchemaUpdated(_) =>
+            log.debug("Valid schema for the metric {} and the record {}", metric, record)
             (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
               .mapTo[WroteToCommitLogAck]
               .flatMap(ack => (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded])
               .map(r => InputMapped(r.record.timestamp, metric, record.copy(timestamp = r.record.timestamp)))
-          case UpdateSchemaFailed(_, errs) => Future(RecordRejected(metric, record, errs))
+          case UpdateSchemaFailed(_, errs) =>
+            log.debug("Invalid schema for the metric {} and the record {}. Error are {}.",
+                      metric,
+                      record,
+                      errs.mkString(","))
+            Future(RecordRejected(metric, record, errs))
         }
         .pipeTo(sender())
   }

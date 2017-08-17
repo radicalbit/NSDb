@@ -24,6 +24,7 @@ object Dependencies {
     lazy val distributedData = namespace %% "akka-distributed-data" % version
     lazy val cluster         = namespace %% "akka-cluster"          % version
     lazy val sharding        = namespace %% "akka-sharding"         % version
+    lazy val clusterTools    = namespace %% "akka-cluster-tools"    % version
 
   }
 
@@ -57,7 +58,6 @@ object Dependencies {
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = "org.apache.lucene" % "lucene-queryparser" % version
     lazy val facet       = "org.apache.lucene" % "lucene-facet" % version
-
   }
 
   object scalatest {
@@ -96,14 +96,20 @@ object Dependencies {
 
   object Client {
     val libraries = Seq(
-      akka.cluster
+      akka.cluster,
+      akka.clusterTools
     )
   }
 
   object Cluster {
     val libraries = Seq(
-      akka.cluster
+      akka.cluster,
+      akka.clusterTools
     )
+  }
+
+  object ScalaAPI {
+    val libraries = Seq()
   }
 
   object SQL {

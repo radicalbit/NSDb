@@ -1,4 +1,5 @@
-package io.radicalbit.nsdb
+package io.radicalbit.nsdb.cli
+
 import scala.tools.nsc.Settings
 
 object NsdbConsole extends App {
