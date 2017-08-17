@@ -27,7 +27,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
 
   override def preStart(): Unit = {
-    queries ++ queryIndex.getAll.map(s => s.uuid -> s).toMap
+    queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
   }
 
   override def receive = {
@@ -37,7 +37,8 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
         .fold {
           new StatementParser().parseStatement(query) match {
             case Success(qr) =>
-              val id = UUID.randomUUID().toString
+              val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
+                UUID.randomUUID().toString
               subscribedActors += (id -> actor)
               queries += (id          -> NsdbQuery(id, query))
               sender ! Subscribed(id)
@@ -47,7 +48,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
             case Failure(ex) => sender ! SubscriptionFailed(ex.getMessage)
           }
         } {
-          case (id, actor) => sender() ! Subscribed(id)
+          case (id, _) => sender() ! Subscribed(id)
         }
     case msg @ RecordPublished(metric, record) =>
       val temporaryIndex: TemporaryIndex = new TemporaryIndex()

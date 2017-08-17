@@ -1,10 +1,14 @@
 package io.radicalbit.nsdb.actors
 
-import akka.actor.ActorSystem
+import java.nio.file.Paths
+
+import akka.actor.{ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.{RecordPublished, SubscribeBySqlStatement, Subscribed}
+import io.radicalbit.nsdb.index.QueryIndex
 import io.radicalbit.nsdb.model.Record
 import io.radicalbit.nsdb.statement._
+import org.apache.lucene.store.FSDirectory
 import org.scalatest._
 
 class PublisherActorSpec
@@ -12,11 +16,13 @@ class PublisherActorSpec
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with OneInstancePerTest {
+    with OneInstancePerTest
+    with BeforeAndAfter {
 
+  val basePath       = "target/test_index_publisher_actor"
   val probe          = TestProbe()
   val probeActor     = probe.testActor
-  val publisherActor = TestActorRef[PublisherActor](PublisherActor.props("target/test_index_publisher_actor"))
+  val publisherActor = TestActorRef[PublisherActor](PublisherActor.props(basePath))
 
   val testSqlStatement = SelectSQLStatement(
     metric = "people",
@@ -27,6 +33,13 @@ class PublisherActorSpec
   )
   val testRecordNotSatisfy = Record(0, Map("name"   -> "john"), Map.empty)
   val testRecordSatisfy    = Record(100, Map("name" -> "john"), Map.empty)
+
+  before {
+    val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
+    implicit val writer        = queryIndex.getWriter
+    queryIndex.deleteAll()
+    writer.close()
+  }
 
   "PublisherActor" should "make other actors subscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
@@ -80,5 +93,19 @@ class PublisherActorSpec
     val recordPublished = probe.expectMsgType[RecordPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.record shouldBe testRecordSatisfy
+  }
+
+  "PublisherActor" should "recover its queries when it is restarted" in {
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
+    val subscribed = probe.expectMsgType[Subscribed]
+
+    probe.send(publisherActor, PoisonPill)
+
+    val newPublisherActor = system.actorOf(PublisherActor.props("target/test_index_publisher_actor"))
+
+    probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
+    val newSubscribed = probe.expectMsgType[Subscribed]
+
+    newSubscribed.qid shouldBe subscribed.qid
   }
 }

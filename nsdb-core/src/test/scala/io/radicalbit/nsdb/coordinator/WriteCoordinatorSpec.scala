@@ -71,7 +71,6 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "write records and publish event to its subscriber" in {
-//    val testRecordNotSatisfy = Record(0, Map("name"   -> "john"), Map.empty)
     val testRecordSatisfy = Record(100, Map("name" -> "john"), Map.empty)
 
     val testSqlStatement = SelectSQLStatement(
