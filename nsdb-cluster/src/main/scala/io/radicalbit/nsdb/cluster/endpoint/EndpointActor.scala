@@ -48,7 +48,8 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
             SQLStatementExecuted(values)
           case SelectStatementFailed(reason) =>
             throw new RuntimeException(s"Cannot execute the given select statement. The reason is $reason.")
-        }.pipeTo(sender())
+        }
+        .pipeTo(sender())
 
     case ExecuteSQLStatement(statement: InsertSQLStatement) =>
       val result = InsertSQLStatement

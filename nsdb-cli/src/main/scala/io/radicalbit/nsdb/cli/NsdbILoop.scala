@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb
+package io.radicalbit.nsdb.cli
 
 import java.io.BufferedReader
 
@@ -7,9 +7,8 @@ import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.client.Client
 import io.radicalbit.nsdb.cluster.endpoint.EndpointActor.SQLStatementExecuted
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
-import io.radicalbit.nsdb.statement.{InsertSQLStatement, SelectSQLStatement}
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
 

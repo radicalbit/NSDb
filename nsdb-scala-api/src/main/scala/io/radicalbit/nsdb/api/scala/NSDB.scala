@@ -31,7 +31,7 @@ class NSDB(host: String, port: Int) {
 
 object Metric {
   type Dimension = (String, JSerializable)
-  type Field = (String, JSerializable)
+  type Field     = (String, JSerializable)
 }
 
 class Metric(host: String,
@@ -47,12 +47,7 @@ class Metric(host: String,
            dimensions: List[Dimension] = dimensions,
            fields: List[Field] = fields,
            ts: Option[Long] = ts) =
-    new Metric(host = host,
-      port = port,
-      name = name,
-      dimensions = dimensions,
-      fields = fields,
-      ts = ts)
+    new Metric(host = host, port = port, name = name, dimensions = dimensions, fields = fields, ts = ts)
 
   def dimension(dim: Dimension): Metric = copy(dimensions = dimensions :+ dim)
 
@@ -67,7 +62,7 @@ class Metric(host: String,
   def write(): Future[EndpointActor.SQLStatementExecuted] =
     client.executeSqlStatement(
       InsertSQLStatement(metric = name,
-        timestamp = ts,
-        dimensions = ListAssignment(dimensions.toMap),
-        fields = ListAssignment(fields.toMap)))
+                         timestamp = ts,
+                         dimensions = ListAssignment(dimensions.toMap),
+                         fields = ListAssignment(fields.toMap)))
 }

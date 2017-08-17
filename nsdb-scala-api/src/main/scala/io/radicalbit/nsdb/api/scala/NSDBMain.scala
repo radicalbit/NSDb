@@ -7,7 +7,8 @@ import scala.concurrent.duration._
 
 object NSDBMain extends App {
 
-  val res: Future[EndpointActor.SQLStatementExecuted] = NSDB.connect(host = "127.0.0.1", port = 2552)
+  val res: Future[EndpointActor.SQLStatementExecuted] = NSDB
+    .connect(host = "127.0.0.1", port = 2552)
     .metric("people")
     .field("name", "pippo")
     .dimension("surname", "pluto")

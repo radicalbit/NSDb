@@ -50,11 +50,11 @@ class SchemaActor(val basePath: String) extends Actor with SchemaSupport with Ac
 
   private def checkAndUpdateSchema(metric: String, oldSchema: Schema, newSchema: Schema): Unit =
     SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
-    case Valid(fields) =>
-      updateSchema(metric, fields)
-      sender ! SchemaUpdated(metric)
-    case Invalid(list) => sender ! UpdateSchemaFailed(metric, list.toList)
-  }
+      case Valid(fields) =>
+        updateSchema(metric, fields)
+        sender ! SchemaUpdated(metric)
+      case Invalid(list) => sender ! UpdateSchemaFailed(metric, list.toList)
+    }
 
   private def updateSchema(metric: String, fields: Seq[SchemaField]): Unit =
     updateSchema(Schema(metric, fields))
