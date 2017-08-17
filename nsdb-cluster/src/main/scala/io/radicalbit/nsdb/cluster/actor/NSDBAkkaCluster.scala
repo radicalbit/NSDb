@@ -1,14 +1,35 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import io.radicalbit.core.{BootedCore, Core}
+import akka.actor.{ActorRef, ActorSystem}
+import io.radicalbit.nsdb.actors.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.EndpointActor
+import io.radicalbit.nsdb.core.{Core, CoreActors}
+import akka.pattern.ask
+import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 
-trait NSDBAkkaCluster { this: Core =>
+import scala.concurrent.duration._
 
-  val endpointActor = system.actorOf(EndpointActor.props, "endpoint-actor")
+trait NSDBAkkaCluster extends Core {
 
+  override val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
 }
 
-trait ProductionCluster extends NSDBAkkaCluster with BootedCore {
+trait NSDBAActors extends CoreActors { this: Core =>
 
+  implicit val executionContext = system.dispatcher
+  implicit val timeout: Timeout = 1 second
+
+  (for {
+    readCoordinator  <- (guardian ? DatabaseActorsGuardian.GetReadCoordinator).mapTo[ActorRef]
+    writeCoordinator <- (guardian ? DatabaseActorsGuardian.GetWriteCoordinator).mapTo[ActorRef]
+  } yield
+    system.actorOf(EndpointActor.props(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator),
+                   "endpoint-actor")).recover {
+    case t =>
+      system.log.error("Cannot start the cluster successfully", t)
+      System.exit(0)
+  }
 }
+
+trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors

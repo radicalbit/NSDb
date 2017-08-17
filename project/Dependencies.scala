@@ -8,11 +8,18 @@ object Dependencies {
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
   }
 
+  object cats {
+    lazy val version   = "0.9.0"
+    lazy val namespace = "org.typelevel"
+    lazy val cats      = namespace %% "cats" % version
+  }
+
   object akka {
     lazy val version   = "2.5.3"
     lazy val namespace = "com.typesafe.akka"
 
-    lazy val core            = namespace %% "akka-core"             % version
+    lazy val actor           = namespace %% "akka-actor"            % version
+    lazy val testkit         = namespace %% "akka-testkit"          % version
     lazy val stream          = namespace %% "akka-stream"           % version
     lazy val distributedData = namespace %% "akka-distributed-data" % version
     lazy val cluster         = namespace %% "akka-cluster"          % version
@@ -45,19 +52,12 @@ object Dependencies {
     lazy val core = Seq(sse)
   }
 
-  object calcite {
-    lazy val version   = "1.12.0"
-    lazy val namespace = "org.apache.calcite"
-    lazy val core      = namespace % "calcite-core" % version
-  }
-
   object lucene {
     lazy val version     = "6.6.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = "org.apache.lucene" % "lucene-queryparser" % version
     lazy val facet       = "org.apache.lucene" % "lucene-facet" % version
-
   }
 
   object scalatest {
@@ -86,10 +86,18 @@ object Dependencies {
 
   object Core {
     val libraries = Seq(
+      cats.cats,
       lucene.core,
       lucene.queryParser,
       lucene.facet,
       scalatest.core % Test
+    )
+  }
+
+  object Client {
+    val libraries = Seq(
+      akka.cluster,
+      akka.clusterTools
     )
   }
 
@@ -101,10 +109,7 @@ object Dependencies {
   }
 
   object ScalaAPI {
-    val libraries = Seq(
-      akka.cluster,
-      akka.clusterTools
-    )
+    val libraries = Seq()
   }
 
   object SQL {
