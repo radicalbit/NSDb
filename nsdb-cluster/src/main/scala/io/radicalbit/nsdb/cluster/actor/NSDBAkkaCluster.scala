@@ -28,7 +28,7 @@ trait NSDBAActors extends CoreActors { this: Core =>
                    "endpoint-actor")).recover {
     case t =>
       system.log.error("Cannot start the cluster successfully", t)
-      System.exit(0)
+      System.exit(1)
   }
 }
 
