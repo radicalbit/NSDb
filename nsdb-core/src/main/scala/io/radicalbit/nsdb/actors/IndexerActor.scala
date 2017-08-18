@@ -28,45 +28,45 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     })
 
   override def receive: Receive = {
-    case AddRecord(namespace, metric, record) =>
+    case AddRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.write(record)
       writer.flush()
       writer.close()
-      sender ! RecordAdded(namespace, metric, record)
-    case AddRecords(namespace, metric, records) =>
+      sender ! RecordAdded(ns, metric, record)
+    case AddRecords(ns, metric, records) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       records.foreach(index.write)
       writer.flush()
       writer.close()
-      sender ! RecordsAdded(namespace, metric, records)
-    case DeleteRecord(namespace, metric, record) =>
+      sender ! RecordsAdded(ns, metric, records)
+    case DeleteRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.delete(record)
       writer.flush()
       writer.close()
-      sender ! RecordDeleted(namespace, metric, record)
-    case DeleteMetric(namespace, metric) =>
+      sender ! RecordDeleted(ns, metric, record)
+    case DeleteMetric(ns, metric) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.deleteAll()
       writer.close()
-      sender ! MetricDeleted(namespace, metric)
-    case DeleteAllMetrics(namespace) =>
+      sender ! MetricDeleted(ns, metric)
+    case DeleteAllMetrics(ns) =>
       indexes.foreach {
         case (_, index) =>
           implicit val writer = index.getWriter
           index.deleteAll()
           writer.close()
       }
-      sender ! AllMetricsDeleted(namespace)
-    case GetCount(namespace, metric) =>
+      sender ! AllMetricsDeleted(ns)
+    case GetCount(ns, metric) =>
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
-      sender ! CountGot(namespace, metric, hits.size)
+      sender ! CountGot(ns, metric, hits.size)
     case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
       val queryResult = statementParser.parseStatement(statement, schema).get
       Try { getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort) } match {
@@ -89,15 +89,4 @@ object IndexerActor {
 
   def props(basePath: String, namespace: String): Props = Props(new IndexerActor(basePath, namespace: String))
 
-//  case class AddRecord(metric: String, record: Record)
-//  case class AddRecords(metric: String, records: Seq[Record])
-//  case class DeleteRecord(metric: String, record: Record)
-//  case class DeleteMetric(metric: String)
-//  case class GetCount(metric: String)
-//  case class CountGot(metric: String, count: Int)
-//  case class RecordAdded(metric: String, record: Record)
-//  case class RecordsAdded(metric: String, record: Seq[Record])
-//  case class RecordRejected(metric: String, record: Record, reasons: List[String])
-//  case class RecordDeleted(metric: String, record: Record)
-//  case class MetricDeleted(metric: String)
 }

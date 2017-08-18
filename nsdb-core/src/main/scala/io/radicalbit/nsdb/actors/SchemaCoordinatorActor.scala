@@ -1,11 +1,15 @@
 package io.radicalbit.nsdb.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands._
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events.AllSchemasDeleted
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.model.Record
 
 import scala.collection.mutable
+import scala.concurrent.duration._
 
 class SchemaCoordinatorActor(val basePath: String) extends Actor with ActorLogging {
 
@@ -20,6 +24,9 @@ class SchemaCoordinatorActor(val basePath: String) extends Actor with ActorLoggi
       }
     )
 
+  implicit val timeout: Timeout = 1 second
+  import context.dispatcher
+
   override def receive = {
     case msg @ GetSchema(namespace, _) =>
       getSchemaActor(namespace).forward(msg)
@@ -29,6 +36,15 @@ class SchemaCoordinatorActor(val basePath: String) extends Actor with ActorLoggi
       getSchemaActor(namespace).forward(msg)
     case msg @ DeleteSchema(namespace, _) =>
       getSchemaActor(namespace).forward(msg)
+    case msg @ DeleteAllSchemas(namespace) =>
+      val schemaActorToDelete = getSchemaActor(namespace)
+      (schemaActorToDelete ? msg)
+        .map { e =>
+          schemaActorToDelete ! PoisonPill
+          schemaActors -= namespace
+          AllSchemasDeleted(namespace)
+        }
+        .pipeTo(sender)
   }
 }
 
@@ -41,11 +57,13 @@ object SchemaCoordinatorActor {
     case class UpdateSchema(namespace: String, metric: String, newSchema: Schema)
     case class UpdateSchemaFromRecord(namespace: String, metric: String, record: Record)
     case class DeleteSchema(namespace: String, metric: String)
+    case class DeleteAllSchemas(namespace: String)
   }
   object events {
     case class SchemaGot(namespace: String, metric: String, schema: Option[Schema])
     case class SchemaUpdated(namespace: String, metric: String)
     case class UpdateSchemaFailed(namespace: String, metric: String, errors: List[String])
     case class SchemaDeleted(namespace: String, metric: String)
+    case class AllSchemasDeleted(namespace: String)
   }
 }

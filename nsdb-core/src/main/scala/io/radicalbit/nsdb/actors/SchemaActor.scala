@@ -35,6 +35,11 @@ class SchemaActor(val basePath: String, namespace: String) extends Actor with Sc
           sender ! SchemaDeleted(namespace, metric)
         case None => sender ! SchemaDeleted(namespace, metric)
       }
+
+    case DeleteAllSchemas(namespace) => {
+      deleteAllSchemas()
+      sender ! AllSchemasDeleted(namespace)
+    }
   }
 
   private def getSchema(metric: String) = schemas.get(metric) orElse schemaIndex.getSchema(metric)
@@ -70,6 +75,13 @@ class SchemaActor(val basePath: String, namespace: String) extends Actor with Sc
     schemas -= schema.metric
     implicit val writer = schemaIndex.getWriter
     schemaIndex.delete(schema)
+    writer.close()
+  }
+
+  private def deleteAllSchemas(): Unit = {
+    schemas --= schemas.keys
+    implicit val writer = schemaIndex.getWriter
+    schemaIndex.deleteAll()
     writer.close()
   }
 }
