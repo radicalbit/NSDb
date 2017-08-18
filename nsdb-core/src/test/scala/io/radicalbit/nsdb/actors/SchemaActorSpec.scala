@@ -13,7 +13,7 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class NamespaceSchemaActorSpec
+class SchemaActorSpec
     extends TestKit(ActorSystem("SchemaActorSpec"))
     with ImplicitSender
     with FlatSpecLike
