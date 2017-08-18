@@ -67,7 +67,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
       sender ! CountGot(namespace, metric, hits.size)
-    case ReadCoordinator.ExecuteSelectStatement(_, statement, schema) =>
+    case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
       val queryResult = statementParser.parseStatement(statement, schema).get
       Try { getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort) } match {
         case Success(docs) =>

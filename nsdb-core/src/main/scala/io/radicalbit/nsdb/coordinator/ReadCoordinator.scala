@@ -19,7 +19,6 @@ class ReadCoordinator(schemaActor: ActorRef, indexerActor: ActorRef) extends Act
 
   override def receive: Receive = {
 
-
     case ExecuteStatement(statement) =>
       (schemaActor ? GetSchema(statement.namespace, statement.metric))
         .mapTo[SchemaGot]

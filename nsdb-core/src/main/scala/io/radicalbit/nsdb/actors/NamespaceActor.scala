@@ -46,8 +46,8 @@ class NamespaceActor(val basePath: String) extends Actor with ActorLogging {
           NamespaceDeleted(namespace)
         })
         .pipeTo(sender())
-    case msg @ ReadCoordinator.ExecuteSelectStatement(namespace, _, _) =>
-      getIndexer(namespace).forward(msg)
+    case msg @ ReadCoordinator.ExecuteSelectStatement(statement, _) =>
+      getIndexer(statement.namespace).forward(msg)
   }
 }
 

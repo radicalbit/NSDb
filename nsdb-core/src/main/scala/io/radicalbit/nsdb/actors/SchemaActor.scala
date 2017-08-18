@@ -7,10 +7,7 @@ import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events._
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.SchemaField
 
-class SchemaActor(val basePath: String, namespace: String)
-    extends Actor
-    with SchemaSupport
-    with ActorLogging {
+class SchemaActor(val basePath: String, namespace: String) extends Actor with SchemaSupport with ActorLogging {
 
   override def receive: Receive = {
 
