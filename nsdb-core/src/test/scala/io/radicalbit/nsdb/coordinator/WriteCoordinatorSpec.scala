@@ -43,7 +43,7 @@ class WriteCoordinatorSpec
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(
     schemaActor,
     system.actorOf(Props[TestCommitLogService]),
-    system.actorOf(IndexerActor.props("target/test_index")),
+    system.actorOf(IndexerActor.props("target/test_index", "namespace")),
     publisherActor)
 
   "WriteCoordinator" should "write records" in {

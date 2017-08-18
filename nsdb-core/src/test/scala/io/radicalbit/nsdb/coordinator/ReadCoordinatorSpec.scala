@@ -26,7 +26,7 @@ class ReadCoordinatorSpec
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
   val schemaActor          = system.actorOf(SchemaActor.props(basePath))
-  val indexerActor         = system.actorOf(IndexerActor.props(basePath))
+  val indexerActor         = system.actorOf(IndexerActor.props(basePath, "registry"))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
@@ -63,7 +63,6 @@ class ReadCoordinatorSpec
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
                    ))
-
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
 
         expected.values.size should be(5)
@@ -121,7 +120,8 @@ class ReadCoordinatorSpec
               condition = Some(Condition(
                 ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
               limit = Some(LimitOperator(4))
-            ))
+            )
+          )
         )
 
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]

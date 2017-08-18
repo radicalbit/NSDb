@@ -12,7 +12,7 @@ import org.apache.lucene.store.FSDirectory
 
 import scala.util.{Failure, Success, Try}
 
-class IndexerActor(basePath: String) extends Actor with ActorLogging {
+class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
@@ -21,7 +21,7 @@ class IndexerActor(basePath: String) extends Actor with ActorLogging {
 
   private def getIndex(metric: String) =
     indexes.getOrElse(metric, {
-      val path     = FSDirectory.open(Paths.get(basePath, metric))
+      val path     = FSDirectory.open(Paths.get(basePath, namespace, metric))
       val newIndex = new TimeSeriesIndex(path)
       indexes += (metric -> newIndex)
       newIndex
@@ -55,11 +55,19 @@ class IndexerActor(basePath: String) extends Actor with ActorLogging {
       index.deleteAll()
       writer.close()
       sender ! MetricDeleted(namespace, metric)
+    case DeleteAllMetrics(namespace) =>
+      indexes.foreach {
+        case (_, index) =>
+          implicit val writer = index.getWriter
+          index.deleteAll()
+          writer.close()
+      }
+      sender ! AllMetricsDeleted(namespace)
     case GetCount(namespace, metric) =>
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
       sender ! CountGot(namespace, metric, hits.size)
-    case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
+    case ReadCoordinator.ExecuteSelectStatement(_, statement, schema) =>
       val queryResult = statementParser.parseStatement(statement, schema).get
       Try { getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort) } match {
         case Success(docs) =>
@@ -79,7 +87,7 @@ class IndexerActor(basePath: String) extends Actor with ActorLogging {
 
 object IndexerActor {
 
-  def props(basePath: String): Props = Props(new IndexerActor(basePath))
+  def props(basePath: String, namespace: String): Props = Props(new IndexerActor(basePath, namespace: String))
 
 //  case class AddRecord(metric: String, record: Record)
 //  case class AddRecords(metric: String, records: Seq[Record])
