@@ -126,23 +126,32 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x)))
 
-  private def selectQuery = select ~ from ~ where ~ order ~ limit ^^ {
+  private def selectQuery(namespace: String) = select ~ from ~ where ~ order ~ limit ^^ {
     case fs ~ met ~ cond ~ ord ~ lim =>
-      SelectSQLStatement(metric = met, fields = fs, condition = cond.map(Condition), order = ord, limit = lim)
+      SelectSQLStatement(namespace = namespace,
+                         metric = met,
+                         fields = fs,
+                         condition = cond.map(Condition),
+                         order = ord,
+                         limit = lim)
   }
 
-  private def insertQuery =
+  private def insertQuery(namespace: String) =
     (Insert ~> metric) ~
       (timestampAssignment ?) ~
       (Dim ~> assignments) ~ (Fld ~> assignments) ^^ {
       case met ~ ts ~ dimensions ~ fields =>
-        InsertSQLStatement(metric = met, timestamp = ts, ListAssignment(dimensions), ListAssignment(fields))
+        InsertSQLStatement(namespace = namespace,
+                           metric = met,
+                           timestamp = ts,
+                           ListAssignment(dimensions),
+                           ListAssignment(fields))
     }
 
-  private def query: Parser[SQLStatement] = selectQuery | insertQuery
+  private def query(namespace: String): Parser[SQLStatement] = selectQuery(namespace) | insertQuery(namespace)
 
-  def parse(input: String): Try[SQLStatement] =
-    Try(parse(query, input)) flatMap {
+  def parse(namespace: String, input: String): Try[SQLStatement] =
+    Try(parse(query(namespace), input)) flatMap {
       case Success(res, _) => ScalaSuccess(res)
       case Error(msg, _)   => ScalaFailure(new RuntimeException(msg))
       case Failure(msg, _) => ScalaFailure(new RuntimeException(msg))

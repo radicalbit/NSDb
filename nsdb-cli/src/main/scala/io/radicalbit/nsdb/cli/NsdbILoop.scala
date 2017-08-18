@@ -9,6 +9,7 @@ import io.radicalbit.nsdb.cluster.endpoint.EndpointActor.SQLStatementExecuted
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
 
@@ -21,6 +22,10 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
   implicit lazy val system = ActorSystem("nsdb-cli", ConfigFactory.load("cli"), getClass.getClassLoader)
 
   val clientDelegate = new Client()
+
+  val parser = new SQLStatementParser()
+
+  var currentNamespace: Option[String] = None
 
   override def prompt = "nsdb $ "
 
@@ -37,23 +42,35 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
   }
 
   override def command(line: String): Result = {
-    import scala.concurrent.duration._
     if (line startsWith ":") colonCommand(line)
-    else if (intp.global == null) Result(keepRunning = false, None) // Notice failure to create compiler
-    else if (new SQLStatementParser().parse(line).isSuccess) {
+    // FIXME: this is only a workaround to select a namespace, please move the CLI commands inside a dedicated parser
+    else if (line startsWith "use ") {
+      currentNamespace = Some(line.split("use")(1).trim)
+      currentNamespace.foreach(x => echo(s"Namespace '$x' has been selected."))
+      Result(keepRunning = true, lineToRecord = None)
+    } else if (intp.global == null) Result(keepRunning = false, None) // Notice failure to create compiler
+    else parseAndExecute(line)
 
-      val statement = new SQLStatementParser().parse(line)
-      val result = statement.flatMap { stm =>
-        Try(Await.result(clientDelegate.executeSqlStatement(stm), 10 seconds))
-      }
-      print(result)
-
-      Result(keepRunning = true, result.map(_.res.mkString).toOption)
-    } else Result(keepRunning = true, interpretStartingWith(line))
   }
+
+  def parseAndExecute(statement: String): Result =
+    currentNamespace.map { namespace =>
+      parser.parse(namespace, statement).map { stm =>
+        val result = Try(Await.result(clientDelegate.executeSqlStatement(stm), 10 seconds))
+        print(result)
+        Result(keepRunning = true, result.map(_.res.mkString).toOption)
+      } getOrElse {
+        echo("The inserted SQL statement is invalid.")
+        Result(keepRunning = true, lineToRecord = None)
+      }
+    } getOrElse {
+      echo("Please select a valid namespace before the execution of any SQL statement.")
+      Result(keepRunning = true, lineToRecord = None)
+    }
 
   def print(result: Try[SQLStatementExecuted]): Unit = result match {
     case Success(stm) => echo(stm.res.mkString)
-    case Failure(t)   => echo(s"Error while trying to run the SQL statement. The detailed error is ${t.getMessage}")
+    case Failure(t) =>
+      echo(s"Error while trying to run the inserted SQL statement. The detailed error is ${t.getMessage}")
   }
 }

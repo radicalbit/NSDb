@@ -74,6 +74,7 @@ class WriteCoordinatorSpec
     val testRecordSatisfy = Record(100, Map("name" -> "john"), Map.empty)
 
     val testSqlStatement = SelectSQLStatement(
+      namespace = "registry",
       metric = "testMetric",
       fields = AllFields,
       condition = Some(

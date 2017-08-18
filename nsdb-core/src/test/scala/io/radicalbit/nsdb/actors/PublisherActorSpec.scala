@@ -25,6 +25,7 @@ class PublisherActorSpec
   val publisherActor = TestActorRef[PublisherActor](PublisherActor.props(basePath))
 
   val testSqlStatement = SelectSQLStatement(
+    namespace = "registry",
     metric = "people",
     fields = AllFields,
     condition = Some(

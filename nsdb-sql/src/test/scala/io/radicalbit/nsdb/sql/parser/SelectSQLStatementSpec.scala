@@ -13,40 +13,45 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select projecting a wildcard" should {
       "parse it successfully" in {
-        parser.parse("SELECT * FROM people") should be(
-          Success(SelectSQLStatement(metric = "people", fields = AllFields)))
+        parser.parse(namespace = "registry", input = "SELECT * FROM people") should be(
+          Success(SelectSQLStatement(namespace = "registry", metric = "people", fields = AllFields)))
       }
     }
 
     "receive a select projecting a single field" should {
       "parse it successfully" in {
-        parser.parse("SELECT name FROM people") should be(
-          Success(SelectSQLStatement(metric = "people", fields = ListFields(List("name")))))
+        parser.parse(namespace = "registry", input = "SELECT name FROM people") should be(
+          Success(SelectSQLStatement(namespace = "registry", metric = "people", fields = ListFields(List("name")))))
       }
     }
 
     "receive a select projecting a list of fields" should {
       "parse it successfully" in {
-        parser.parse("SELECT name,surname,creationDate FROM people") should be(
-          Success(SelectSQLStatement(metric = "people", fields = ListFields(List("name", "surname", "creationDate")))))
+        parser.parse(namespace = "registry", input = "SELECT name,surname,creationDate FROM people") should be(
+          Success(
+            SelectSQLStatement(namespace = "registry",
+                               metric = "people",
+                               fields = ListFields(List("name", "surname", "creationDate")))))
       }
     }
 
     "receive a select containing a range selection" should {
       "parse it successfully" in {
-        parser.parse("SELECT name FROM people WHERE timestamp IN (2,4)") should be(
-          Success(
-            SelectSQLStatement(metric = "people",
-                               fields = ListFields(List("name")),
-                               condition =
-                                 Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))))))
+        parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp IN (2,4)") should be(
+          Success(SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List("name")),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)))
+          )))
       }
     }
 
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
-        parser.parse("SELECT name FROM people WHERE timestamp >= 10") should be(
+        parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp >= 10") should be(
           Success(SelectSQLStatement(
+            namespace = "registry",
             metric = "people",
             fields = ListFields(List("name")),
             condition = Some(Condition(
@@ -57,8 +62,9 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a GT AND a LTE selection" should {
       "parse it successfully" in {
-        parser.parse("SELECT name FROM people WHERE timestamp > 2 AND timestamp <= 4") should be(
+        parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp > 2 AND timestamp <= 4") should be(
           Success(SelectSQLStatement(
+            namespace = "registry",
             metric = "people",
             fields = ListFields(List("name")),
             condition = Some(Condition(TupledLogicalExpression(
@@ -73,8 +79,10 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a GTE OR a LT selection" should {
       "parse it successfully" in {
-        parser.parse("SELECT name FROM people WHERE NOT timestamp >= 2 OR timestamp < 4") should be(
+        parser.parse(namespace = "registry",
+                     input = "SELECT name FROM people WHERE NOT timestamp >= 2 OR timestamp < 4") should be(
           Success(SelectSQLStatement(
+            namespace = "registry",
             metric = "people",
             fields = ListFields(List("name")),
             condition = Some(Condition(UnaryLogicalExpression(
@@ -92,22 +100,32 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a ordering statement" should {
       "parse it successfully" in {
-        parser.parse("SELECT * FROM people ORDER BY name") should be(
-          Success(SelectSQLStatement(metric = "people", fields = AllFields, order = Some(AscOrderOperator("name")))))
+        parser.parse(namespace = "registry", input = "SELECT * FROM people ORDER BY name") should be(
+          Success(
+            SelectSQLStatement(namespace = "registry",
+                               metric = "people",
+                               fields = AllFields,
+                               order = Some(AscOrderOperator("name")))))
       }
     }
 
     "receive a select containing a limit statement" should {
       "parse it successfully" in {
-        parser.parse("SELECT * FROM people LIMIT 10") should be(
-          Success(SelectSQLStatement(metric = "people", fields = AllFields, limit = Some(LimitOperator(10)))))
+        parser.parse(namespace = "registry", input = "SELECT * FROM people LIMIT 10") should be(
+          Success(
+            SelectSQLStatement(namespace = "registry",
+                               metric = "people",
+                               fields = AllFields,
+                               limit = Some(LimitOperator(10)))))
       }
     }
 
     "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
       "parse it successfully" in {
-        parser.parse("SELECT name FROM people WHERE timestamp IN (2,4) ORDER BY name DESC LIMIT 5") should be(
+        parser.parse(namespace = "registry",
+                     input = "SELECT name FROM people WHERE timestamp IN (2,4) ORDER BY name DESC LIMIT 5") should be(
           Success(SelectSQLStatement(
+            namespace = "registry",
             metric = "people",
             fields = ListFields(List("name")),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
@@ -116,8 +134,10 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           )))
       }
       "parse it successfully ignoring case" in {
-        parser.parse("sElect name FrOm people where timestamp in (2,4) Order bY name dEsc limit 5") should be(
+        parser.parse(namespace = "registry",
+                     input = "sElect name FrOm people where timestamp in (2,4) Order bY name dEsc limit 5") should be(
           Success(SelectSQLStatement(
+            namespace = "registry",
             metric = "people",
             fields = ListFields(List("name")),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
@@ -129,28 +149,28 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive random string sequences" should {
       "fail" in {
-        parser.parse("fkjdskjfdlsf") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure
       }
     }
 
     "receive wrong fields" should {
       "fail" in {
-        parser.parse("SELECT name surname FROM people") shouldBe 'failure
-        parser.parse("SELECT name,surname age FROM people") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "SELECT name surname FROM people") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "SELECT name,surname age FROM people") shouldBe 'failure
       }
     }
 
     "receive a wrong metric without where clause" should {
       "fail" in {
         // FIXME: this must be a failure
-        parser.parse("SELECT name,surname FROM people cats dogs") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "SELECT name,surname FROM people cats dogs") shouldBe 'failure
       }
     }
 
     "receive a wrong metric with where clause" should {
       "fail" in {
         // FIXME: this must be a failure
-        parser.parse("SELECT name,surname FROM people cats dogs WHERE timestamp > 10") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "SELECT name,surname FROM people cats dogs WHERE timestamp > 10") shouldBe 'failure
       }
     }
   }

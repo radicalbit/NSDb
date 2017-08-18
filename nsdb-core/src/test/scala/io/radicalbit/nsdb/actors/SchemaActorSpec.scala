@@ -92,7 +92,7 @@ class SchemaActorSpec
 
   "SchemaActor" should "return the same schema for a new schema included in the old one" in {
     probe.send(schemaActor,
-      UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+               UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -104,8 +104,7 @@ class SchemaActorSpec
       Schema("people", Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR())))
     )
 
-    probe.send(schemaActor,
-      UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john"), Map.empty)))
+    probe.send(schemaActor, UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john"), Map.empty)))
     probe.expectMsgType[SchemaUpdated]
 
     probe.send(schemaActor, GetSchema("people"))
