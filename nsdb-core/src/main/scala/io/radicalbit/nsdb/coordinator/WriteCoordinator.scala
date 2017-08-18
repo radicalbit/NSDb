@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.actors.IndexerActor.{AddRecord, RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.actors.NamespaceActor.{AddRecord, RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.actors.PublisherActor.RecordPublished
 import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchemaFromRecord
 import io.radicalbit.nsdb.actors.SchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
@@ -18,21 +18,21 @@ object WriteCoordinator {
 
   def props(schemaActor: ActorRef,
             commitLogService: ActorRef,
-            indexerActor: ActorRef,
+            namespaceActor: ActorRef,
             publisherActor: ActorRef): Props =
-    Props(new WriteCoordinator(schemaActor, commitLogService, indexerActor, publisherActor))
+    Props(new WriteCoordinator(schemaActor, commitLogService, namespaceActor, publisherActor))
 
   sealed trait WriteCoordinatorProtocol
 
-  case class FlatInput(ts: Long, metric: String, data: Array[Byte]) extends WriteCoordinatorProtocol
+  case class FlatInput(ts: Long, namespace: String, metric: String, data: Array[Byte]) extends WriteCoordinatorProtocol
 
-  case class MapInput(ts: Long, metric: String, record: Record)    extends WriteCoordinatorProtocol
-  case class InputMapped(ts: Long, metric: String, record: Record) extends WriteCoordinatorProtocol
+  case class MapInput(ts: Long, namespace: String, metric: String, record: Record)    extends WriteCoordinatorProtocol
+  case class InputMapped(ts: Long, namespace: String, metric: String, record: Record) extends WriteCoordinatorProtocol
 }
 
 class WriteCoordinator(schemaActor: ActorRef,
                        commitLogService: ActorRef,
-                       indexerActor: ActorRef,
+                       namespaceActor: ActorRef,
                        publisherActor: ActorRef)
     extends Actor
     with ActorLogging {
@@ -47,7 +47,7 @@ class WriteCoordinator(schemaActor: ActorRef,
   log.info("WriteCoordinator is ready.")
 
   override def receive = {
-    case WriteCoordinator.MapInput(ts, metric, record) =>
+    case WriteCoordinator.MapInput(ts, namespace, metric, record) =>
       log.debug("Received a write request for (ts: {}, metric: {}, record : {})", ts, metric, record)
       (schemaActor ? UpdateSchemaFromRecord(metric, record))
         .flatMap {
@@ -57,15 +57,16 @@ class WriteCoordinator(schemaActor: ActorRef,
               .mapTo[WroteToCommitLogAck]
               .flatMap(ack => {
                 publisherActor ! RecordPublished(metric, record)
-                (indexerActor ? AddRecord(ack.metric, ack.record)).mapTo[RecordAdded]
+                (namespaceActor ? AddRecord(namespace, ack.metric, ack.record)).mapTo[RecordAdded]
               })
-              .map(r => InputMapped(r.record.timestamp, metric, record.copy(timestamp = r.record.timestamp)))
+              .map(r =>
+                InputMapped(r.record.timestamp, namespace, metric, record.copy(timestamp = r.record.timestamp)))
           case UpdateSchemaFailed(_, errs) =>
             log.debug("Invalid schema for the metric {} and the record {}. Error are {}.",
                       metric,
                       record,
                       errs.mkString(","))
-            Future(RecordRejected(metric, record, errs))
+            Future(RecordRejected(namespace, metric, record, errs))
         }
         .pipeTo(sender())
   }

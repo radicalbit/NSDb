@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.IndexerActor.{AddRecords, DeleteMetric}
+import io.radicalbit.nsdb.actors.NamespaceActor.{AddRecords, DeleteMetric}
 import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchema
 import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
@@ -44,11 +44,11 @@ class ReadCoordinatorSpec
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchema("people", schema), 1 seconds)
-    indexerActor ! AddRecords("people", records)
+    indexerActor ! AddRecords("namespace", "people", records)
   }
 
   override def afterAll(): Unit = {
-    indexerActor ! DeleteMetric("people")
+    indexerActor ! DeleteMetric("namespace", "people")
   }
 
   "A statement parser instance" when {

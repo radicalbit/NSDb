@@ -25,12 +25,12 @@ class DatabaseActorsGuardian extends Actor {
   val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
   val schemaActor      = context.actorOf(SchemaActor.props(indexBasePath), "schema-actor")
-  val indexerActor     = context.actorOf(IndexerActor.props(indexBasePath), "indexer-service")
+  val namespaceActor   = context.actorOf(SchemaActor.props(indexBasePath), "namespace-actor")
   val publisherActor   = context.actorOf(PublisherActor.props(indexBasePath), "publisher-actor")
   val readCoordinator =
-    context.actorOf(ReadCoordinator.props(schemaActor, indexerActor), "read-coordinator")
+    context.actorOf(ReadCoordinator.props(schemaActor, namespaceActor), "read-coordinator")
   val writeCoordinator =
-    context.actorOf(WriteCoordinator.props(schemaActor, commitLogService, indexerActor, publisherActor),
+    context.actorOf(WriteCoordinator.props(schemaActor, commitLogService, namespaceActor, publisherActor),
                     "write-coordinator")
 
   def receive = {

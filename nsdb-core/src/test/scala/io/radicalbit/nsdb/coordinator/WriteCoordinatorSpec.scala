@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.coordinator
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.nsdb.actors.IndexerActor.RecordRejected
+import io.radicalbit.nsdb.actors.NamespaceActor.RecordRejected
 import io.radicalbit.nsdb.actors.PublisherActor.{RecordPublished, SubscribeBySqlStatement, Subscribed}
 import io.radicalbit.nsdb.actors.{IndexerActor, PublisherActor, SchemaActor}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
@@ -52,19 +52,20 @@ class WriteCoordinatorSpec
     val incompatibleRecord =
       Record(System.currentTimeMillis, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record1))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record2))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record2))
 
     val expectedAdd2 = probe.expectMsgType[InputMapped]
     expectedAdd2.metric shouldBe "testMetric"
     expectedAdd2.record shouldBe record2
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", incompatibleRecord))
+    probe.send(writeCoordinatorActor,
+               MapInput(System.currentTimeMillis, "testNamespace", "testMetric", incompatibleRecord))
 
     probe.expectMsgType[RecordRejected]
 
@@ -87,7 +88,8 @@ class WriteCoordinatorSpec
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", testRecordSatisfy))
+    probe.send(writeCoordinatorActor,
+               MapInput(System.currentTimeMillis, "testNamespace", "testMetric", testRecordSatisfy))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
