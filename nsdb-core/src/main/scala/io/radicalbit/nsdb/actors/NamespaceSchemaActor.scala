@@ -3,15 +3,16 @@ package io.radicalbit.nsdb.actors
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands._
-import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events.AllSchemasDeleted
+import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
+import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.AllSchemasDeleted
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.DeleteNamespace
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.model.Record
 
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-class SchemaCoordinatorActor(val basePath: String) extends Actor with ActorLogging {
+class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging {
 
   val schemaActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
@@ -36,9 +37,9 @@ class SchemaCoordinatorActor(val basePath: String) extends Actor with ActorLoggi
       getSchemaActor(namespace).forward(msg)
     case msg @ DeleteSchema(namespace, _) =>
       getSchemaActor(namespace).forward(msg)
-    case msg @ DeleteAllSchemas(namespace) =>
+    case DeleteNamespace(namespace) =>
       val schemaActorToDelete = getSchemaActor(namespace)
-      (schemaActorToDelete ? msg)
+      (schemaActorToDelete ? DeleteAllSchemas(namespace))
         .map { e =>
           schemaActorToDelete ! PoisonPill
           schemaActors -= namespace
@@ -48,9 +49,9 @@ class SchemaCoordinatorActor(val basePath: String) extends Actor with ActorLoggi
   }
 }
 
-object SchemaCoordinatorActor {
+object NamespaceSchemaActor {
 
-  def props(basePath: String): Props = Props(new SchemaCoordinatorActor(basePath))
+  def props(basePath: String): Props = Props(new NamespaceSchemaActor(basePath))
 
   object commands {
     case class GetSchema(namespace: String, metric: String)

@@ -4,7 +4,8 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.actors.NamespaceActor._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}

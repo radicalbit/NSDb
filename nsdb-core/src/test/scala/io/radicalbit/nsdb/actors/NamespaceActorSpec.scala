@@ -1,16 +1,13 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
-
 import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.pattern.ask
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.NamespaceActor._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{CountGot, GetCount, RecordAdded, RecordDeleted}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
 import io.radicalbit.nsdb.model.Record
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.store.FSDirectory
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
@@ -25,7 +22,7 @@ class NamespaceActorSpec()
   val probe          = TestProbe()
   val probeActor     = probe.ref
   val basePath       = "target/test_index"
-  val namespaceActor = TestActorRef[NamespaceActor](NamespaceActor.props(basePath))
+  val namespaceActor = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
 
   before {
     import scala.concurrent.duration._

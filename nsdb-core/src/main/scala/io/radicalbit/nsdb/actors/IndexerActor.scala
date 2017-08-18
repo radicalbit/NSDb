@@ -3,7 +3,8 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, Props}
-import io.radicalbit.nsdb.actors.NamespaceActor._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser

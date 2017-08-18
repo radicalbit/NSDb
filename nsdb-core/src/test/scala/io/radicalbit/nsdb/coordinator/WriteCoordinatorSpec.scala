@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.coordinator
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.nsdb.actors.NamespaceActor.RecordRejected
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events.RecordRejected
 import io.radicalbit.nsdb.actors.PublisherActor.{RecordPublished, SubscribeBySqlStatement, Subscribed}
 import io.radicalbit.nsdb.actors.{IndexerActor, PublisherActor, SchemaActor}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck

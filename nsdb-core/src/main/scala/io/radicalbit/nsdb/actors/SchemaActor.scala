@@ -2,8 +2,8 @@ package io.radicalbit.nsdb.actors
 
 import akka.actor.{Actor, ActorLogging, Props}
 import cats.data.Validated.{Invalid, Valid}
-import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands._
-import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events._
+import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
+import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events._
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.SchemaField
 
