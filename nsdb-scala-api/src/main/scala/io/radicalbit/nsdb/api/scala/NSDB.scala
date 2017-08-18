@@ -19,11 +19,9 @@ object NSDB {
 
   private implicit val system = ActorSystem("nsdb-scala-api", ConfigFactory.load("scala-api"))
 
-  private implicit val client = new Client(host = host, port = port)
-
   def connect(host: String = host, port: Int = port): NSDB = new NSDB(host = host, port = port)
 
-  case class Namespace(name: String, metric: Option[Metric] = None) {
+  case class Namespace(name: String, metric: Option[Metric] = None)(implicit client: Client) {
 
     def metric(metric: String): Metric = Metric(namespace = name, name = metric)
 
@@ -61,7 +59,9 @@ object NSDB {
 
 }
 
-case class NSDB(host: String, port: Int) {
+case class NSDB(host: String, port: Int)(implicit system: ActorSystem) {
+
+  private implicit val client = new Client(host = host, port = port)
 
   def namespace(name: String): Namespace = Namespace(name)
 }
