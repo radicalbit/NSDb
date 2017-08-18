@@ -24,7 +24,7 @@ class DatabaseActorsGuardian extends Actor {
 
   val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
-  val schemaActor      = context.actorOf(SchemaActor.props(indexBasePath), "schema-actor")
+  val schemaActor      = context.actorOf(SchemaCoordinatorActor.props(indexBasePath), "schema-actor")
   val namespaceActor   = context.actorOf(NamespaceActor.props(indexBasePath), "namespace-actor")
   val publisherActor   = context.actorOf(PublisherActor.props(indexBasePath), "publisher-actor")
   val readCoordinator =

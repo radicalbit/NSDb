@@ -3,8 +3,8 @@ package io.radicalbit.nsdb.coordinator
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.SchemaActor.commands.GetSchema
-import io.radicalbit.nsdb.actors.SchemaActor.events.SchemaGot
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands.GetSchema
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events.SchemaGot
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.statement.SelectSQLStatement
 

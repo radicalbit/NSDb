@@ -5,7 +5,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.NamespaceActor.RecordRejected
 import io.radicalbit.nsdb.actors.PublisherActor.{RecordPublished, SubscribeBySqlStatement, Subscribed}
-import io.radicalbit.nsdb.actors.{IndexerActor, PublisherActor, NameSpaceSchemaActor}
+import io.radicalbit.nsdb.actors.{IndexerActor, PublisherActor, SchemaActor}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
 import io.radicalbit.nsdb.model.Record
@@ -37,7 +37,7 @@ class WriteCoordinatorSpec
 
   val probe          = TestProbe()
   val probeActor     = probe.ref
-  val schemaActor    = system.actorOf(NameSpaceSchemaActor.props("target/test_index", ""))
+  val schemaActor    = system.actorOf(SchemaActor.props("target/test_index", ""))
   val subscriber     = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](PublisherActor.props("target/test_index"))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(

@@ -1,51 +1,84 @@
 package io.radicalbit.nsdb.actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.actors.SchemaActor.commands._
-import io.radicalbit.nsdb.index.Schema
-import io.radicalbit.nsdb.model.Record
+import akka.actor.{Actor, ActorLogging, Props}
+import cats.data.Validated.{Invalid, Valid}
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands._
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events._
+import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
+import io.radicalbit.nsdb.model.SchemaField
 
-import scala.collection.mutable
+class SchemaActor(val basePath: String, namespace: String)
+    extends Actor
+    with SchemaSupport
+    with ActorLogging {
 
-class SchemaActor(val basePath: String) extends Actor with ActorLogging {
+  override def receive: Receive = {
 
-  val schemaActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+    case GetSchema(namespace, metric) =>
+      val schema = getSchema(metric)
+      sender ! SchemaGot(namespace, metric, schema)
 
-  private def getSchemaActor(namespace: String): ActorRef =
-    schemaActors.getOrElse(
-      namespace, {
-        val indexerActor = context.actorOf(IndexerActor.props(basePath, namespace), s"schema-service-$namespace")
-        schemaActors += (namespace -> indexerActor)
-        indexerActor
+    case UpdateSchema(namespace, metric, newSchema) =>
+      checkAndUpdateSchema(namespace, metric, newSchema)
+
+    case UpdateSchemaFromRecord(namespace, metric, record) =>
+      (Schema(metric, record), getSchema(metric)) match {
+        case (Valid(newSchema), Some(oldSchema)) =>
+          checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
+        case (Valid(newSchema), None) =>
+          updateSchema(newSchema)
+          sender ! SchemaUpdated(namespace, metric)
+        case (Invalid(errs), _) => sender ! UpdateSchemaFailed(namespace, metric, errs.toList)
       }
-    )
 
-  override def receive = {
-    case msg @ GetSchema(namespace, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case msg @ UpdateSchema(namespace, _, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case msg @ UpdateSchemaFromRecord(namespace, _, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case msg @ DeleteSchema(namespace, _) =>
-      getSchemaActor(namespace).forward(msg)
+    case DeleteSchema(namespace, metric) =>
+      getSchema(metric) match {
+        case Some(s) =>
+          deleteSchema(s)
+          sender ! SchemaDeleted(namespace, metric)
+        case None => sender ! SchemaDeleted(namespace, metric)
+      }
+  }
+
+  private def getSchema(metric: String) = schemas.get(metric) orElse schemaIndex.getSchema(metric)
+
+  private def checkAndUpdateSchema(namespace: String, metric: String, newSchema: Schema): Unit =
+    getSchema(metric) match {
+      case Some(oldSchema) =>
+        checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
+      case None =>
+        updateSchema(newSchema)
+        sender ! SchemaUpdated(namespace, metric)
+    }
+
+  private def checkAndUpdateSchema(namespace: String, metric: String, oldSchema: Schema, newSchema: Schema): Unit =
+    SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
+      case Valid(fields) =>
+        updateSchema(metric, fields)
+        sender ! SchemaUpdated(namespace, metric)
+      case Invalid(list) => sender ! UpdateSchemaFailed(namespace, metric, list.toList)
+    }
+
+  private def updateSchema(metric: String, fields: Seq[SchemaField]): Unit =
+    updateSchema(Schema(metric, fields))
+
+  private def updateSchema(schema: Schema): Unit = {
+    schemas += (schema.metric -> schema)
+    implicit val writer = schemaIndex.getWriter
+    schemaIndex.update(schema.metric, schema)
+    writer.close()
+  }
+
+  private def deleteSchema(schema: Schema): Unit = {
+    schemas -= schema.metric
+    implicit val writer = schemaIndex.getWriter
+    schemaIndex.delete(schema)
+    writer.close()
   }
 }
 
 object SchemaActor {
 
-  def props(basePath: String): Props = Props(new SchemaActor(basePath))
+  def props(basePath: String, namespace: String): Props = Props(new SchemaActor(basePath, namespace))
 
-  object commands {
-    case class GetSchema(namespace: String, metric: String)
-    case class UpdateSchema(namespace: String, metric: String, newSchema: Schema)
-    case class UpdateSchemaFromRecord(namespace: String, metric: String, record: Record)
-    case class DeleteSchema(namespace: String, metric: String)
-  }
-  object events {
-    case class SchemaGot(namespace: String, metric: String, schema: Option[Schema])
-    case class SchemaUpdated(namespace: String, metric: String)
-    case class UpdateSchemaFailed(namespace: String, metric: String, errors: List[String])
-    case class SchemaDeleted(namespace: String, metric: String)
-  }
 }

@@ -4,8 +4,8 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.SchemaActor.commands._
-import io.radicalbit.nsdb.actors.SchemaActor.events._
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands._
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events._
 import io.radicalbit.nsdb.index.{BOOLEAN, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.{Record, SchemaField}
 import org.scalatest._
@@ -22,7 +22,7 @@ class NamespaceSchemaActorSpec
     with BeforeAndAfter {
 
   val probe       = TestProbe()
-  val schemaActor = system.actorOf(NameSpaceSchemaActor.props("target/test_index_schema_actor", "namespace"))
+  val schemaActor = system.actorOf(SchemaActor.props("target/test_index_schema_actor", "namespace"))
 
   before {
     implicit val timeout = Timeout(3 seconds)

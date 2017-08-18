@@ -5,8 +5,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceActor.{AddRecords, DeleteMetric}
-import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchema
-import io.radicalbit.nsdb.actors.{IndexerActor, NameSpaceSchemaActor}
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands.UpdateSchema
+import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.{Record, RecordOut, SchemaField}
@@ -26,7 +26,7 @@ class ReadCoordinatorSpec
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
   private val namespace    = "namespace"
-  val schemaActor          = system.actorOf(NameSpaceSchemaActor.props(basePath, namespace))
+  val schemaActor          = system.actorOf(SchemaActor.props(basePath, namespace))
   val indexerActor         = system.actorOf(IndexerActor.props(basePath, namespace))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 

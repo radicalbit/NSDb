@@ -6,8 +6,8 @@ import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.actors.NamespaceActor.{AddRecord, RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.actors.PublisherActor.RecordPublished
-import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchemaFromRecord
-import io.radicalbit.nsdb.actors.SchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.commands.UpdateSchemaFromRecord
+import io.radicalbit.nsdb.actors.SchemaCoordinatorActor.events.{SchemaUpdated, UpdateSchemaFailed}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
 import io.radicalbit.nsdb.model.Record
