@@ -4,8 +4,8 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.SchemaActor.commands.{DeleteSchema, GetSchema, UpdateSchema, UpdateSchemaFromRecord}
-import io.radicalbit.nsdb.actors.SchemaActor.events.{SchemaGot, SchemaUpdated, UpdateSchemaFailed}
+import io.radicalbit.nsdb.actors.SchemaActor.commands._
+import io.radicalbit.nsdb.actors.SchemaActor.events._
 import io.radicalbit.nsdb.index.{BOOLEAN, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.{Record, SchemaField}
 import org.scalatest._
@@ -13,7 +13,7 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class SchemaActorSpec
+class NamespaceSchemaActorSpec
     extends TestKit(ActorSystem("SchemaActorSpec"))
     with ImplicitSender
     with FlatSpecLike
@@ -22,24 +22,25 @@ class SchemaActorSpec
     with BeforeAndAfter {
 
   val probe       = TestProbe()
-  val schemaActor = system.actorOf(SchemaActor.props("target/test_index_schema_actor"))
+  val schemaActor = system.actorOf(NameSpaceSchemaActor.props("target/test_index_schema_actor", "namespace"))
 
   before {
     implicit val timeout = Timeout(3 seconds)
-    Await.result(schemaActor ? DeleteSchema("people"), 3 seconds)
-    Await.result(schemaActor ? UpdateSchema("people", Schema("people", Seq(SchemaField("name", VARCHAR())))),
-                 3 seconds)
+    Await.result(schemaActor ? DeleteSchema("namespace", "people"), 3 seconds)
+    Await.result(
+      schemaActor ? UpdateSchema("namespace", "people", Schema("people", Seq(SchemaField("name", VARCHAR())))),
+      3 seconds)
   }
 
   "SchemaActor" should "get schemas" in {
 
-    probe.send(schemaActor, GetSchema("nonexisting"))
+    probe.send(schemaActor, GetSchema("namespace", "nonexisting"))
 
     val nonexistingGot = probe.expectMsgType[SchemaGot]
     nonexistingGot.metric shouldBe "nonexisting"
     nonexistingGot.schema shouldBe None
 
-    probe.send(schemaActor, GetSchema("people"))
+    probe.send(schemaActor, GetSchema("namespace", "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
@@ -47,11 +48,12 @@ class SchemaActorSpec
   }
 
   "SchemaActor" should "update schemas in case of success" in {
-    probe.send(schemaActor, UpdateSchema("people", Schema("people", Seq(SchemaField("surname", VARCHAR())))))
+    probe.send(schemaActor,
+               UpdateSchema("namespace", "people", Schema("people", Seq(SchemaField("surname", VARCHAR())))))
 
     probe.expectMsgType[SchemaUpdated]
 
-    probe.send(schemaActor, GetSchema("people"))
+    probe.send(schemaActor, GetSchema("namespace", "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
@@ -61,12 +63,12 @@ class SchemaActorSpec
   }
 
   "SchemaActor" should "not update schemas in case of failure" in {
-    probe.send(schemaActor, UpdateSchema("people", Schema("people", Seq(SchemaField("name", BOOLEAN())))))
+    probe.send(schemaActor, UpdateSchema("namespace", "people", Schema("people", Seq(SchemaField("name", BOOLEAN())))))
 
     val failed = probe.expectMsgType[UpdateSchemaFailed]
     failed.errors shouldBe List("")
 
-    probe.send(schemaActor, GetSchema("people"))
+    probe.send(schemaActor, GetSchema("namespace", "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
@@ -76,12 +78,13 @@ class SchemaActorSpec
   }
 
   "SchemaActor" should "update schemas coming from a record" in {
-    probe.send(schemaActor,
-               UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord("namespace", "people", Record(0, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
 
-    probe.send(schemaActor, GetSchema("people"))
+    probe.send(schemaActor, GetSchema("namespace", "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
@@ -91,12 +94,13 @@ class SchemaActorSpec
   }
 
   "SchemaActor" should "return the same schema for a new schema included in the old one" in {
-    probe.send(schemaActor,
-               UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord("namespace", "people", Record(0, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
 
-    probe.send(schemaActor, GetSchema("people"))
+    probe.send(schemaActor, GetSchema("namespace", "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
@@ -104,10 +108,10 @@ class SchemaActorSpec
       Schema("people", Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR())))
     )
 
-    probe.send(schemaActor, UpdateSchemaFromRecord("people", Record(0, Map("name" -> "john"), Map.empty)))
+    probe.send(schemaActor, UpdateSchemaFromRecord("namespace", "people", Record(0, Map("name" -> "john"), Map.empty)))
     probe.expectMsgType[SchemaUpdated]
 
-    probe.send(schemaActor, GetSchema("people"))
+    probe.send(schemaActor, GetSchema("namespace", "people"))
 
     val newGot = probe.expectMsgType[SchemaGot]
     newGot.metric shouldBe "people"

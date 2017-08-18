@@ -6,7 +6,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceActor.{AddRecords, DeleteMetric}
 import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchema
-import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
+import io.radicalbit.nsdb.actors.{IndexerActor, NameSpaceSchemaActor}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.{Record, RecordOut, SchemaField}
@@ -25,8 +25,9 @@ class ReadCoordinatorSpec
   val probe                = TestProbe()
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
-  val schemaActor          = system.actorOf(SchemaActor.props(basePath))
-  val indexerActor         = system.actorOf(IndexerActor.props(basePath, "registry"))
+  private val namespace    = "namespace"
+  val schemaActor          = system.actorOf(NameSpaceSchemaActor.props(basePath, namespace))
+  val indexerActor         = system.actorOf(IndexerActor.props(basePath, namespace))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
@@ -43,12 +44,12 @@ class ReadCoordinatorSpec
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema("people", schema), 1 seconds)
-    indexerActor ! AddRecords("namespace", "people", records)
+    Await.result(schemaActor ? UpdateSchema(namespace, "people", schema), 1 seconds)
+    indexerActor ! AddRecords(namespace, "people", records)
   }
 
   override def afterAll(): Unit = {
-    indexerActor ! DeleteMetric("namespace", "people")
+    indexerActor ! DeleteMetric(namespace, "people")
   }
 
   "A statement parser instance" when {

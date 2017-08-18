@@ -49,9 +49,9 @@ class WriteCoordinator(schemaActor: ActorRef,
   override def receive = {
     case WriteCoordinator.MapInput(ts, namespace, metric, record) =>
       log.debug("Received a write request for (ts: {}, metric: {}, record : {})", ts, metric, record)
-      (schemaActor ? UpdateSchemaFromRecord(metric, record))
+      (schemaActor ? UpdateSchemaFromRecord(namespace, metric, record))
         .flatMap {
-          case SchemaUpdated(_) =>
+          case SchemaUpdated(_, _) =>
             log.debug("Valid schema for the metric {} and the record {}", metric, record)
             (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
               .mapTo[WroteToCommitLogAck]
@@ -61,7 +61,7 @@ class WriteCoordinator(schemaActor: ActorRef,
               })
               .map(r =>
                 InputMapped(r.record.timestamp, namespace, metric, record.copy(timestamp = r.record.timestamp)))
-          case UpdateSchemaFailed(_, errs) =>
+          case UpdateSchemaFailed(_, _, errs) =>
             log.debug("Invalid schema for the metric {} and the record {}. Error are {}.",
                       metric,
                       record,

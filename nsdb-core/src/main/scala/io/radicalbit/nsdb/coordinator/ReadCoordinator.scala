@@ -1,12 +1,12 @@
 package io.radicalbit.nsdb.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.actors.SchemaActor.commands.GetSchema
-import io.radicalbit.nsdb.index.Schema
-import io.radicalbit.nsdb.statement.SelectSQLStatement
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.actors.SchemaActor.commands.GetSchema
 import io.radicalbit.nsdb.actors.SchemaActor.events.SchemaGot
+import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.statement.SelectSQLStatement
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -19,11 +19,12 @@ class ReadCoordinator(schemaActor: ActorRef, indexerActor: ActorRef) extends Act
 
   override def receive: Receive = {
 
+
     case ExecuteStatement(statement) =>
-      (schemaActor ? GetSchema(statement.metric))
+      (schemaActor ? GetSchema(statement.namespace, statement.metric))
         .mapTo[SchemaGot]
         .flatMap {
-          case SchemaGot(_, Some(schema)) =>
+          case SchemaGot(_, _, Some(schema)) =>
             indexerActor ? ExecuteSelectStatement(statement, schema)
           case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
         }
