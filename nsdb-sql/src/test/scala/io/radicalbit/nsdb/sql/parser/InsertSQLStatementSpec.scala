@@ -13,9 +13,10 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with a single dimension" should {
       "parse it successfully" in {
-        parser.parse("INSERT INTO people DIM(name=john) FLD(value=23) ") should be(
+        parser.parse(namespace = "registry", input = "INSERT INTO people DIM(name=john) FLD(value=23) ") should be(
           Success(
-            InsertSQLStatement(metric = "people",
+            InsertSQLStatement(namespace = "registry",
+                               metric = "people",
                                timestamp = None,
                                dimensions = ListAssignment(Map("name" -> "john")),
                                fields = ListAssignment(Map("value"    -> 23))))
@@ -25,37 +26,44 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions" should {
       "parse it successfully" in {
-        parser.parse("INSERT INTO people DIM(name=john, surname=doe) FLD(value=23) ") should be(
+        parser.parse(namespace = "registry", input = "INSERT INTO people DIM(name=john, surname=doe) FLD(value=23) ") should be(
           Success(
-            InsertSQLStatement(metric = "people",
-                               timestamp = None,
-                               dimensions = ListAssignment(Map("name" -> "john", "surname" -> "doe")),
-                               fields = ListAssignment(Map("value"    -> 23))))
+            InsertSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              timestamp = None,
+              dimensions = ListAssignment(Map("name" -> "john", "surname" -> "doe")),
+              fields = ListAssignment(Map("value"    -> 23))
+            ))
         )
       }
     }
 
     "receive an insert with multiple dimensions and a timestamp" should {
       "parse it successfully" in {
-        parser.parse("INSERT INTO people TS=123456 DIM(name=john, surname=doe) FLD(value=23) ") should be(
+        parser.parse(namespace = "registry",
+                     input = "INSERT INTO people TS=123456 DIM(name=john, surname=doe) FLD(value=23) ") should be(
           Success(
-            InsertSQLStatement(metric = "people",
-                               timestamp = Some(123456),
-                               dimensions = ListAssignment(Map("name" -> "john", "surname" -> "doe")),
-                               fields = ListAssignment(Map("value"    -> 23))))
+            InsertSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              timestamp = Some(123456),
+              dimensions = ListAssignment(Map("name" -> "john", "surname" -> "doe")),
+              fields = ListAssignment(Map("value"    -> 23))
+            ))
         )
       }
     }
 
     "receive a wrong metric without dimensions" should {
       "fail" in {
-        parser.parse("INSERT INTO people FLD(value=23) ") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "INSERT INTO people FLD(value=23) ") shouldBe 'failure
       }
     }
 
     "receive a wrong metric without fields" should {
       "fail" in {
-        parser.parse("INSERT INTO people DIM(name=john, surname=doe) ") shouldBe 'failure
+        parser.parse(namespace = "registry", input = "INSERT INTO people DIM(name=john, surname=doe) ") shouldBe 'failure
       }
     }
   }

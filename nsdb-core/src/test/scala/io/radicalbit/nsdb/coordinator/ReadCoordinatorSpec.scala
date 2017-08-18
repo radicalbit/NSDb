@@ -58,7 +58,10 @@ class ReadCoordinatorSpec
 
         probe.send(readCoordinatorActor,
                    ExecuteStatement(
-                     SelectSQLStatement(metric = "people", fields = AllFields, limit = Some(LimitOperator(5)))
+                     SelectSQLStatement(namespace = "registry",
+                                        metric = "people",
+                                        fields = AllFields,
+                                        limit = Some(LimitOperator(5)))
                    ))
 
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
@@ -72,7 +75,8 @@ class ReadCoordinatorSpec
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
-            SelectSQLStatement(metric = "people",
+            SelectSQLStatement(namespace = "registry",
+                               metric = "people",
                                fields = ListFields(List("name", "surname", "creationDate")),
                                limit = Some(LimitOperator(5)))
           )
@@ -90,6 +94,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              namespace = "registry",
               metric = "people",
               fields = ListFields(List("name")),
               condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
@@ -110,6 +115,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              namespace = "registry",
               metric = "people",
               fields = ListFields(List("name")),
               condition = Some(Condition(
@@ -131,6 +137,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              namespace = "registry",
               metric = "people",
               fields = ListFields(List("name")),
               condition = Some(Condition(TupledLogicalExpression(
@@ -157,6 +164,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              namespace = "registry",
               metric = "people",
               fields = ListFields(List("name")),
               condition = Some(Condition(UnaryLogicalExpression(
@@ -184,7 +192,10 @@ class ReadCoordinatorSpec
       "return an error messge properly" in {
         probe.send(readCoordinatorActor,
                    ExecuteStatement(
-                     SelectSQLStatement(metric = "nonexisting", fields = AllFields, limit = Some(LimitOperator(5)))
+                     SelectSQLStatement(namespace = "registry",
+                                        metric = "nonexisting",
+                                        fields = AllFields,
+                                        limit = Some(LimitOperator(5)))
                    ))
 
         probe.expectMsgType[SelectStatementFailed]

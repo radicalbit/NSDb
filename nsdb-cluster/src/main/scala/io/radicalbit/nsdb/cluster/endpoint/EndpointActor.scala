@@ -55,7 +55,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
       val result = InsertSQLStatement
         .unapply(statement)
         .map {
-          case (metric, ts, dimensions, fields) =>
+          case (namespace, metric, ts, dimensions, fields) =>
             val timestamp = ts getOrElse System.currentTimeMillis
             (writeCoordinator ? MapInput(timestamp, metric, Record(timestamp, dimensions.fields, fields.fields)))
               .mapTo[InputMapped]

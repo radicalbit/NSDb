@@ -40,14 +40,21 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
 
 case class LimitOperator(value: Int)
 
-sealed trait SQLStatement
-case class SelectSQLStatement(metric: String,
+sealed trait SQLStatement {
+  def namespace: String
+  def metric: String
+}
+
+case class SelectSQLStatement(override val namespace: String,
+                              override val metric: String,
                               fields: SelectedFields,
                               condition: Option[Condition] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
     extends SQLStatement
-case class InsertSQLStatement(metric: String,
+
+case class InsertSQLStatement(override val namespace: String,
+                              override val metric: String,
                               timestamp: Option[Long],
                               dimensions: ListAssignment,
                               fields: ListAssignment)
