@@ -12,7 +12,9 @@ trait SchemaSupport { this: Actor =>
 
   def basePath: String
 
-  lazy val schemaIndex = new SchemaIndex(FSDirectory.open(Paths.get(basePath, "schemas")))
+  def namespace: String
+
+  lazy val schemaIndex = new SchemaIndex(FSDirectory.open(Paths.get(basePath, namespace, "schemas")))
 
   protected lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 

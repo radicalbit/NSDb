@@ -75,10 +75,10 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
         .pipeTo(sender())
     case DeleteNamespace(namespace) =>
       (namespaceDataActor ? DeleteNamespace(namespace))
-        .map(e => namespaceSchemaActor ? DeleteNamespace(namespace))
+        .mapTo[NamespaceDeleted]
+        .flatMap(_ => namespaceSchemaActor ? DeleteNamespace(namespace))
         .mapTo[NamespaceDeleted]
         .pipeTo(sender())
-
   }
 }
 

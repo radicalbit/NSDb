@@ -5,7 +5,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.AllSchemasDeleted
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.DeleteNamespace
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.model.Record
 
@@ -40,10 +40,11 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
     case DeleteNamespace(namespace) =>
       val schemaActorToDelete = getSchemaActor(namespace)
       (schemaActorToDelete ? DeleteAllSchemas(namespace))
+        .mapTo[AllSchemasDeleted]
         .map { e =>
           schemaActorToDelete ! PoisonPill
           schemaActors -= namespace
-          AllSchemasDeleted(namespace)
+          NamespaceDeleted(namespace)
         }
         .pipeTo(sender)
   }
