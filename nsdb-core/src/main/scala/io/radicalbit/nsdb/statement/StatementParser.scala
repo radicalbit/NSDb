@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.statement.StatementParser.QueryResult
 import org.apache.lucene.document.LongPoint

@@ -7,10 +7,10 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecords, DeleteMetric}
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchema
 import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.{Record, RecordOut, SchemaField}
-import io.radicalbit.nsdb.statement._
 import org.scalatest._
 
 import scala.concurrent.Await

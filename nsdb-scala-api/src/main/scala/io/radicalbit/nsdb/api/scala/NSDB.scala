@@ -7,7 +7,8 @@ import io.radicalbit.nsdb.api.scala.NSDB.Metric.{Dimension, Field}
 import io.radicalbit.nsdb.api.scala.NSDB.Namespace
 import io.radicalbit.nsdb.client.Client
 import io.radicalbit.nsdb.cluster.endpoint.EndpointActor
-import io.radicalbit.nsdb.statement.{InsertSQLStatement, ListAssignment}
+import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, ListAssignment}
+import io.radicalbit.nsdb.statement.InsertSQLStatement
 
 import scala.concurrent.Future
 

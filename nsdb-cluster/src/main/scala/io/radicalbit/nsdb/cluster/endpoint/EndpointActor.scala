@@ -6,11 +6,11 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.endpoint.EndpointActor.{ExecuteSQLStatement, SQLStatementExecuted}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.model.{Record, RecordOut}
-import io.radicalbit.nsdb.statement.{InsertSQLStatement, SQLStatement, SelectSQLStatement}
 
 import scala.concurrent.duration._
 import akka.pattern.ask
 import akka.pattern.pipe
+import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
 

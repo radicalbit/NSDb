@@ -94,6 +94,16 @@ object Dependencies {
     )
   }
 
+  object Common {
+    val libraries = Seq(
+//      cats.cats,
+//      lucene.core,
+//      lucene.queryParser,
+//      lucene.facet,
+//      scalatest.core % Test
+    )
+  }
+
   object Client {
     val libraries = Seq(
       akka.cluster,

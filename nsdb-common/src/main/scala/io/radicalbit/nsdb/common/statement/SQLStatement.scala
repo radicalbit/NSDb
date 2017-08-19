@@ -1,6 +1,6 @@
-package io.radicalbit.nsdb.statement
+package io.radicalbit.nsdb.common.statement
 
-import io.radicalbit.nsdb.JSerializable
+import io.radicalbit.nsdb.common.JSerializable
 
 sealed trait SQLStatementType
 case object Select extends SQLStatementType

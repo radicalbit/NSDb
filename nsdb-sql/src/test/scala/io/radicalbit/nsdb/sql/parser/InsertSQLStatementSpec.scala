@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, ListAssignment}
 import io.radicalbit.nsdb.statement._
 import org.scalatest.{Matchers, WordSpec}
 

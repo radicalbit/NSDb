@@ -6,7 +6,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.endpoint.EndpointActor
 import io.radicalbit.nsdb.cluster.endpoint.EndpointActor.SQLStatementExecuted
-import io.radicalbit.nsdb.statement.SQLStatement
+import io.radicalbit.nsdb.common.statement.SQLStatement
 
 import scala.concurrent.Future
 
