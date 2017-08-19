@@ -19,9 +19,9 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
   private def getSchemaActor(namespace: String): ActorRef =
     schemaActors.getOrElse(
       namespace, {
-        val indexerActor = context.actorOf(IndexerActor.props(basePath, namespace), s"schema-service-$namespace")
-        schemaActors += (namespace -> indexerActor)
-        indexerActor
+        val schemaActor = context.actorOf(SchemaActor.props(basePath, namespace), s"schema-service-$namespace")
+        schemaActors += (namespace -> schemaActor)
+        schemaActor
       }
     )
 

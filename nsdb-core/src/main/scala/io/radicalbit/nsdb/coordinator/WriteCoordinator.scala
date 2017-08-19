@@ -4,11 +4,11 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecord, DeleteAllMetrics}
+import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.AddRecord
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{RecordAdded, RecordRejected}
-import io.radicalbit.nsdb.actors.PublisherActor.RecordPublished
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchemaFromRecord
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordPublished
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, InputMapped, NamespaceDeleted}
 import io.radicalbit.nsdb.model.Record
