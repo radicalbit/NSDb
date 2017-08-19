@@ -10,8 +10,8 @@ import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchemaFromR
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordPublished
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, InputMapped, NamespaceDeleted}
-import io.radicalbit.nsdb.model.Record
 
 import scala.concurrent.Future
 

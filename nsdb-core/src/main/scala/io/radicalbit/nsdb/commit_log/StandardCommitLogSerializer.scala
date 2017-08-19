@@ -4,9 +4,9 @@ import java.nio.ByteBuffer
 
 import io.radicalbit.commit_log.CommitLogEntry.Dimension
 import io.radicalbit.commit_log.InsertNewEntry
-import io.radicalbit.nsdb.JSerializable
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
-import io.radicalbit.nsdb.model.Record
 
 /**
   * Utility class to Serialize and Deserialize a CommitLogEntry.

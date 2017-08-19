@@ -2,11 +2,12 @@ package io.radicalbit.nsdb.index
 
 import cats.Monoid
 import cats.data.{NonEmptyList, Validated}
-import io.radicalbit.nsdb.{JLong, JSerializable}
+import io.radicalbit.nsdb.JLong
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import cats.implicits._
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.index.IndexType.SchemaValidation
 import io.radicalbit.nsdb.model.{RawField, TypedField}
 

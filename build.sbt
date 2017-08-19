@@ -22,7 +22,7 @@ lazy val `nsdb-core` = project
 
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
-  .settings(libraryDependencies ++= Dependencies.Core.libraries)
+  .settings(libraryDependencies ++= Dependencies.Common.libraries)
 
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
@@ -31,7 +31,7 @@ lazy val `nsdb-cluster` = project
 
 lazy val `nsdb-client` = project
   .settings(Commons.settings: _*)
-  .dependsOn(`nsdb-cluster`)
+  .dependsOn(`nsdb-common`)
   .settings(libraryDependencies ++= Dependencies.Client.libraries)
 
 lazy val `nsdb-scala-api` = project

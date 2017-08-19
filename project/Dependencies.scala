@@ -95,13 +95,7 @@ object Dependencies {
   }
 
   object Common {
-    val libraries = Seq(
-//      cats.cats,
-//      lucene.core,
-//      lucene.queryParser,
-//      lucene.facet,
-//      scalatest.core % Test
-    )
+    val libraries = Seq.empty
   }
 
   object Client {

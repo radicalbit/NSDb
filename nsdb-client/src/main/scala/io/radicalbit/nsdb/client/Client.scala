@@ -4,8 +4,7 @@ import akka.actor.{ActorPath, ActorSystem}
 import akka.cluster.client.{ClusterClient, ClusterClientSettings}
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.endpoint.EndpointActor
-import io.radicalbit.nsdb.cluster.endpoint.EndpointActor.SQLStatementExecuted
+import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, SQLStatementExecuted}
 import io.radicalbit.nsdb.common.statement.SQLStatement
 
 import scala.concurrent.Future
@@ -26,6 +25,6 @@ class Client(host: String = "127.0.0.1", port: Int = 2552)(implicit system: Acto
   val clusterClient = system.actorOf(ClusterClient.props(settings))
 
   def executeSqlStatement(statement: SQLStatement): Future[SQLStatementExecuted] =
-    (clusterClient ? ClusterClient.Send(EndpointActorPath, EndpointActor.ExecuteSQLStatement(statement), true))
+    (clusterClient ? ClusterClient.Send(EndpointActorPath, ExecuteSQLStatement(statement), true))
       .mapTo[SQLStatementExecuted]
 }
