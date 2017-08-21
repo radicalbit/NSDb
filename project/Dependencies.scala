@@ -29,7 +29,7 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.0.5"
+    lazy val version   = "10.0.9"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
@@ -38,18 +38,23 @@ object Dependencies {
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-testkit"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
-    lazy val default    = namespace %% "akka-http"            % version
-    lazy val testkit    = namespace %% "akka-http-testkit"    % version % Test
-    lazy val spray_json = namespace %% "akka-http-spray-json" % version
-    lazy val jackson    = namespace %% "akka-http-jackson"    % version
-    lazy val xml        = namespace %% "akka-http-xml"        % version
+    lazy val default = namespace %% "akka-http"         % version
+    lazy val testkit = namespace %% "akka-http-testkit" % version % Test
+//    lazy val spray_json = namespace %% "akka-http-spray-json" % version
+    lazy val jackson = namespace %% "akka-http-jackson" % version
+    lazy val xml     = namespace %% "akka-http-xml"     % version
 
-    lazy val core = Seq(core_http, default, testkit, spray_json, jackson, xml)
+    lazy val core = Seq(core_http, default, testkit, /*spray_json,*/ jackson, xml)
   }
 
-  object akka_sse {
-    lazy val sse  = "de.heikoseeberger" %% "akka-sse" % "2.0.0"
-    lazy val core = Seq(sse)
+//  object akka_sse {
+//    lazy val sse  = "de.heikoseeberger" %% "akka-sse" % "2.0.0"
+//    lazy val core = Seq(sse)
+//  }
+
+  object json4s {
+    val version = "3.5.2"
+    val native  = "org.json4s" %% "json4s-native" % version
   }
 
   object lucene {
@@ -120,6 +125,16 @@ object Dependencies {
     lazy val libraries = Seq(
       scalaModules.parserCombinators,
       scalatest.core % Test
+    )
+  }
+
+  object Http {
+    lazy val libraries = Seq(
+      akka.stream,
+      akka_http.default,
+      json4s.native,
+      scalatest.core % Test,
+      akka_http.testkit
     )
   }
 }

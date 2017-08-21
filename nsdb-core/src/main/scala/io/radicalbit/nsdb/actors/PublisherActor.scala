@@ -4,8 +4,8 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed, Unsubscribed}
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
@@ -64,6 +64,13 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
           }
 
       }
+    case Unsubscribe(actor) => {
+      subscribedActors.find { case (_, v) => v == actor }.foreach {
+        case (k, _) =>
+          subscribedActors -= k
+          sender() ! Unsubscribed
+      }
+    }
   }
 }
 
@@ -74,6 +81,7 @@ object PublisherActor {
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, query: SelectSQLStatement)
     case class SubscribeByQueryId(actor: ActorRef, qid: String)
+    case class Unsubscribe(actor: ActorRef)
   }
 
   object Events {
@@ -81,5 +89,6 @@ object PublisherActor {
     case class SubscriptionFailed(reason: String)
 
     case class RecordPublished(metric: String, record: Record)
+    case object Unsubscribed
   }
 }
