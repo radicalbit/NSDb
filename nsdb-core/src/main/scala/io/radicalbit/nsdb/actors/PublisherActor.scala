@@ -6,9 +6,10 @@ import java.util.UUID
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed}
+import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
-import io.radicalbit.nsdb.model.Record
-import io.radicalbit.nsdb.statement.{SelectSQLStatement, StatementParser}
+import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.store.FSDirectory
 
 import scala.collection.mutable

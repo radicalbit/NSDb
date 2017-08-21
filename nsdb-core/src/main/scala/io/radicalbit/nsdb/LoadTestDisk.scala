@@ -3,8 +3,8 @@ package io.radicalbit.nsdb
 import java.nio.file.Paths
 import java.util.UUID
 
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.index.TimeSeriesIndex
-import io.radicalbit.nsdb.model.Record
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.FSDirectory

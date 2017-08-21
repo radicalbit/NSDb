@@ -6,8 +6,8 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{CountGot, GetCount, RecordAdded, RecordDeleted}
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
-import io.radicalbit.nsdb.model.Record
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await

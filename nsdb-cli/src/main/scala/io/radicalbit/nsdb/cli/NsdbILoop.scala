@@ -5,7 +5,7 @@ import java.io.BufferedReader
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.client.Client
-import io.radicalbit.nsdb.cluster.endpoint.EndpointActor.SQLStatementExecuted
+import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
 import scala.concurrent.Await

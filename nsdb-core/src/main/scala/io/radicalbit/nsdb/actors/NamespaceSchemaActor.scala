@@ -5,9 +5,9 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.AllSchemasDeleted
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
 import io.radicalbit.nsdb.index.Schema
-import io.radicalbit.nsdb.model.Record
 
 import scala.collection.mutable
 import scala.concurrent.duration._

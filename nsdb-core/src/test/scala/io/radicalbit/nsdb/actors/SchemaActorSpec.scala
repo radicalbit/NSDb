@@ -6,8 +6,9 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events._
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.index.{BOOLEAN, Schema, VARCHAR}
-import io.radicalbit.nsdb.model.{Record, SchemaField}
+import io.radicalbit.nsdb.model.SchemaField
 import org.scalatest._
 
 import scala.concurrent.Await

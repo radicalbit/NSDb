@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.sql.parser
 
-import io.radicalbit.nsdb.JSerializable
-import io.radicalbit.nsdb.statement._
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.statement._
 
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
 import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}

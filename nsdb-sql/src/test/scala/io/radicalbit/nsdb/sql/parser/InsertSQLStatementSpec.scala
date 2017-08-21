@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.sql.parser
 
-import io.radicalbit.nsdb.statement._
+import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, ListAssignment}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success

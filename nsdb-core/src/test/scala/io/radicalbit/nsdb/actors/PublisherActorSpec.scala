@@ -6,9 +6,9 @@ import akka.actor.{ActorSystem, PoisonPill}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
+import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.QueryIndex
-import io.radicalbit.nsdb.model.Record
-import io.radicalbit.nsdb.statement._
 import org.apache.lucene.store.FSDirectory
 import org.scalatest._
 

@@ -2,12 +2,12 @@ package io.radicalbit.nsdb.api.scala
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.JSerializable
 import io.radicalbit.nsdb.api.scala.NSDB.Metric.{Dimension, Field}
 import io.radicalbit.nsdb.api.scala.NSDB.Namespace
 import io.radicalbit.nsdb.client.Client
-import io.radicalbit.nsdb.cluster.endpoint.EndpointActor
-import io.radicalbit.nsdb.statement.{InsertSQLStatement, ListAssignment}
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
+import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, ListAssignment}
 
 import scala.concurrent.Future
 
@@ -48,7 +48,7 @@ object NSDB {
 
     def timestamp(v: Long) = copy(ts = Some(v))
 
-    def write(): Future[EndpointActor.SQLStatementExecuted] =
+    def write(): Future[SQLStatementExecuted] =
       client.executeSqlStatement(
         InsertSQLStatement(namespace = namespace,
                            metric = name,

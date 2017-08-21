@@ -5,8 +5,8 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.GetSchema
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.SchemaGot
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.Schema
-import io.radicalbit.nsdb.statement.SelectSQLStatement
 
 import scala.concurrent.Future
 import scala.concurrent.duration._

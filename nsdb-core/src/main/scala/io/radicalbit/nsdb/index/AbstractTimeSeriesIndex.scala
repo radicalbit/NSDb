@@ -1,19 +1,16 @@
 package io.radicalbit.nsdb.index
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
-import io.radicalbit.nsdb.model.{Record, RecordOut}
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.{Record, RecordOut}
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation, fieldSemigroup}
-import io.radicalbit.nsdb.{JLong, JSerializable}
+import io.radicalbit.nsdb.JLong
 import org.apache.lucene.document.{Document, LongPoint, StoredField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-
-trait TimeSeriesRecord {
-  val timestamp: Long
-}
 
 abstract class AbstractTimeSeriesIndex extends Index[Record, RecordOut] with TypeSupport {
 

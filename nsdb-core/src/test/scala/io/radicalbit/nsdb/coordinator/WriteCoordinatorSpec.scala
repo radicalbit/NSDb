@@ -8,9 +8,9 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
 import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, InputMapped, MapInput, NamespaceDeleted}
-import io.radicalbit.nsdb.model.Record
-import io.radicalbit.nsdb.statement._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 class TestCommitLogService extends Actor {

@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.commit_log
 
 import akka.actor.Actor
 import io.radicalbit.commit_log.{DeleteExistingEntry, InsertNewEntry}
-import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.common.protocol.Record
 
 object CommitLogWriterActor {
 

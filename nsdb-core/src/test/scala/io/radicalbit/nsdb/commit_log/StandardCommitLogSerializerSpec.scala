@@ -1,8 +1,8 @@
 package io.radicalbit.commit_log
 
-import io.radicalbit.nsdb.JSerializable
 import io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer
-import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Record
 import org.scalatest.{Matchers, WordSpec}
 
 class StandardCommitLogSerializerSpec extends WordSpec with Matchers {

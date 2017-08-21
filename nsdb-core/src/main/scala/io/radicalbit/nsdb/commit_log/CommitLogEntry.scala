@@ -1,7 +1,6 @@
 package io.radicalbit.commit_log
 
-import io.radicalbit.commit_log.CommitLogEntry.Dimension
-import io.radicalbit.nsdb.model.Record
+import io.radicalbit.nsdb.common.protocol.Record
 
 object CommitLogEntry {
   type DimensionName  = String

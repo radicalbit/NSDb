@@ -3,8 +3,9 @@ package io.radicalbit.nsdb.index
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import cats.data.{NonEmptyList, Validated}
 import cats.implicits._
+import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
-import io.radicalbit.nsdb.model.{Record, SchemaField}
+import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store

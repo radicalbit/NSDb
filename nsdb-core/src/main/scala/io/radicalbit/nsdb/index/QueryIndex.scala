@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.index
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
-import io.radicalbit.nsdb.statement.SelectSQLStatement
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store

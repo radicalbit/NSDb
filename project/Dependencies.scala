@@ -94,6 +94,10 @@ object Dependencies {
     )
   }
 
+  object Common {
+    val libraries = Seq.empty
+  }
+
   object Client {
     val libraries = Seq(
       akka.cluster,
