@@ -3,11 +3,12 @@ package io.radicalbit.nsdb.coordinator
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
-import io.radicalbit.nsdb.actors.IndexerActor.RecordRejected
-import io.radicalbit.nsdb.actors.PublisherActor.{RecordPublished, SubscribeBySqlStatement, Subscribed}
-import io.radicalbit.nsdb.actors.{IndexerActor, PublisherActor, SchemaActor}
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events.RecordRejected
+import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
+import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, InputMapped, MapInput, NamespaceDeleted}
 import io.radicalbit.nsdb.model.Record
 import io.radicalbit.nsdb.statement._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -35,16 +36,16 @@ class WriteCoordinatorSpec
     with Matchers
     with BeforeAndAfterAll {
 
-  val probe          = TestProbe()
-  val probeActor     = probe.ref
-  val schemaActor    = system.actorOf(SchemaActor.props("target/test_index"))
-  val subscriber     = TestActorRef[TestSubscriber](Props[TestSubscriber])
-  val publisherActor = TestActorRef[PublisherActor](PublisherActor.props("target/test_index"))
-  val writeCoordinatorActor = system actorOf WriteCoordinator.props(
-    schemaActor,
-    system.actorOf(Props[TestCommitLogService]),
-    system.actorOf(IndexerActor.props("target/test_index")),
-    publisherActor)
+  val probe                = TestProbe()
+  val probeActor           = probe.ref
+  val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props("target/test_index"))
+  val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props("target/test_index"))
+  val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
+  val publisherActor       = TestActorRef[PublisherActor](PublisherActor.props("target/test_index"))
+  val writeCoordinatorActor = system actorOf WriteCoordinator.props(namespaceSchemaActor,
+                                                                    system.actorOf(Props[TestCommitLogService]),
+                                                                    namespaceDataActor,
+                                                                    publisherActor)
 
   "WriteCoordinator" should "write records" in {
     val record1 = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
@@ -52,19 +53,20 @@ class WriteCoordinatorSpec
     val incompatibleRecord =
       Record(System.currentTimeMillis, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record1))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", record2))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record2))
 
     val expectedAdd2 = probe.expectMsgType[InputMapped]
     expectedAdd2.metric shouldBe "testMetric"
     expectedAdd2.record shouldBe record2
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", incompatibleRecord))
+    probe.send(writeCoordinatorActor,
+               MapInput(System.currentTimeMillis, "testNamespace", "testMetric", incompatibleRecord))
 
     probe.expectMsgType[RecordRejected]
 
@@ -87,13 +89,22 @@ class WriteCoordinatorSpec
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testMetric", testRecordSatisfy))
+    probe.send(writeCoordinatorActor,
+               MapInput(System.currentTimeMillis, "testNamespace", "testMetric", testRecordSatisfy))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe testRecordSatisfy
 
     subscriber.underlyingActor.receivedMessages shouldBe 1
+  }
+
+  "WriteCoordinator" should "delete a nanespace" in {
+    probe.send(writeCoordinatorActor, DeleteNamespace("testNamespace"))
+    probe.expectMsgType[NamespaceDeleted]
+
+    namespaceDataActor.underlyingActor.indexerActors.keys.size shouldBe 0
+    namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
   }
 
 }

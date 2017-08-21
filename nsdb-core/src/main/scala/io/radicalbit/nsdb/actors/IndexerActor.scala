@@ -3,18 +3,17 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, Props}
+import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.index.TimeSeriesIndex
-import io.radicalbit.nsdb.model.Record
 import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.store.FSDirectory
 
 import scala.util.{Failure, Success, Try}
 
-class IndexerActor(basePath: String) extends Actor with ActorLogging {
-  import io.radicalbit.nsdb.actors.IndexerActor._
-
+class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
@@ -23,44 +22,52 @@ class IndexerActor(basePath: String) extends Actor with ActorLogging {
 
   private def getIndex(metric: String) =
     indexes.getOrElse(metric, {
-      val path     = FSDirectory.open(Paths.get(basePath, metric))
+      val path     = FSDirectory.open(Paths.get(basePath, namespace, metric))
       val newIndex = new TimeSeriesIndex(path)
-      indexes + (metric -> newIndex)
+      indexes += (metric -> newIndex)
       newIndex
     })
 
   override def receive: Receive = {
-    case AddRecord(metric, record) =>
+    case AddRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.write(record)
       writer.flush()
       writer.close()
-      sender ! RecordAdded(metric, record)
-    case AddRecords(metric, records) =>
+      sender ! RecordAdded(ns, metric, record)
+    case AddRecords(ns, metric, records) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       records.foreach(index.write)
       writer.flush()
       writer.close()
-      sender ! RecordsAdded(metric, records)
-    case DeleteRecord(metric, record) =>
+      sender ! RecordsAdded(ns, metric, records)
+    case DeleteRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.delete(record)
       writer.flush()
       writer.close()
-      sender ! RecordDeleted(metric, record)
-    case DeleteMetric(metric) =>
+      sender ! RecordDeleted(ns, metric, record)
+    case DeleteMetric(ns, metric) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       index.deleteAll()
       writer.close()
-      sender ! MetricDeleted(metric)
-    case GetCount(metric) =>
+      sender ! MetricDeleted(ns, metric)
+    case DeleteAllMetrics(ns) =>
+      indexes.foreach {
+        case (_, index) =>
+          implicit val writer = index.getWriter
+          index.deleteAll()
+          writer.close()
+      }
+      sender ! AllMetricsDeleted(ns)
+    case GetCount(ns, metric) =>
       val index = getIndex(metric)
       val hits  = index.timeRange(0, Long.MaxValue)
-      sender ! CountGot(metric, hits.size)
+      sender ! CountGot(ns, metric, hits.size)
     case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
       val queryResult = statementParser.parseStatement(statement, schema).get
       Try { getIndex(statement.metric).query(queryResult.q, queryResult.limit, queryResult.sort) } match {
@@ -81,17 +88,6 @@ class IndexerActor(basePath: String) extends Actor with ActorLogging {
 
 object IndexerActor {
 
-  def props(basePath: String): Props = Props(new IndexerActor(basePath))
+  def props(basePath: String, namespace: String): Props = Props(new IndexerActor(basePath, namespace: String))
 
-  case class AddRecord(metric: String, record: Record)
-  case class AddRecords(metric: String, records: Seq[Record])
-  case class DeleteRecord(metric: String, record: Record)
-  case class DeleteMetric(metric: String)
-  case class GetCount(metric: String)
-  case class CountGot(metric: String, count: Int)
-  case class RecordAdded(metric: String, record: Record)
-  case class RecordsAdded(metric: String, record: Seq[Record])
-  case class RecordRejected(metric: String, record: Record, reasons: List[String])
-  case class RecordDeleted(metric: String, record: Record)
-  case class MetricDeleted(metric: String)
 }

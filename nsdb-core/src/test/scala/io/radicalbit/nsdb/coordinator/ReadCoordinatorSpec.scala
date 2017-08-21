@@ -4,8 +4,8 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.IndexerActor.{AddRecords, DeleteMetric}
-import io.radicalbit.nsdb.actors.SchemaActor.commands.UpdateSchema
+import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecords, DeleteMetric}
+import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchema
 import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
@@ -25,8 +25,9 @@ class ReadCoordinatorSpec
   val probe                = TestProbe()
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
-  val schemaActor          = system.actorOf(SchemaActor.props(basePath))
-  val indexerActor         = system.actorOf(IndexerActor.props(basePath))
+  private val namespace    = "namespace"
+  val schemaActor          = system.actorOf(SchemaActor.props(basePath, namespace))
+  val indexerActor         = system.actorOf(IndexerActor.props(basePath, namespace))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
@@ -43,12 +44,12 @@ class ReadCoordinatorSpec
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema("people", schema), 1 seconds)
-    indexerActor ! AddRecords("people", records)
+    Await.result(schemaActor ? UpdateSchema(namespace, "people", schema), 1 seconds)
+    indexerActor ! AddRecords(namespace, "people", records)
   }
 
   override def afterAll(): Unit = {
-    indexerActor ! DeleteMetric("people")
+    indexerActor ! DeleteMetric(namespace, "people")
   }
 
   "A statement parser instance" when {
@@ -63,7 +64,6 @@ class ReadCoordinatorSpec
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
                    ))
-
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
 
         expected.values.size should be(5)
@@ -121,7 +121,8 @@ class ReadCoordinatorSpec
               condition = Some(Condition(
                 ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
               limit = Some(LimitOperator(4))
-            ))
+            )
+          )
         )
 
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
