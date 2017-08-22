@@ -51,7 +51,7 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
 
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe probeActor
+    publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
 
   }
 
@@ -63,7 +63,7 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
 
     publisherActor.underlyingActor.subscribedActors.values.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe probeActor
+    publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
 
     val id = publisherActor.underlyingActor.subscribedActors.keys.head
 
@@ -73,7 +73,7 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActors.keys.head shouldBe id
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe probeActor
+    publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {

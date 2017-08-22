@@ -19,7 +19,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
 
-  lazy val subscribedActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+  lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
 
@@ -36,7 +36,8 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
             case Success(qr) =>
               val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
                 UUID.randomUUID().toString
-              subscribedActors += (id -> actor)
+              val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
+              subscribedActors += (id -> (previousRegisteredActors + actor))
               queries += (id          -> NsdbQuery(id, query))
               sender ! Subscribed(id)
               implicit val writer = queryIndex.getWriter
@@ -50,8 +51,8 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
     case SubscribeByQueryId(actor, quid) =>
       queries.get(quid) match {
         case Some(q) =>
-          subscribedActors -= quid
-          subscribedActors += (quid -> actor)
+          val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
+          subscribedActors += (quid -> (previousRegisteredActors + actor))
           sender() ! Subscribed(quid)
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
@@ -66,11 +67,10 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
           luceneQuery match {
             case Success(parsedQuery) =>
               if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
-                subscribedActors(id) ! msg
+                subscribedActors(id).foreach(_ ! msg)
             case Failure(query) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
-
       }
     case Unsubscribe(actor) => {
       subscribedActors.find { case (_, v) => v == actor }.foreach {
