@@ -62,7 +62,10 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
       log.debug("terminating stream actor")
-      (publisher ? Unsubscribe).foreach(_ => self ! PoisonPill)
+      (publisher ? Unsubscribe).foreach { _ =>
+        self ! PoisonPill
+        wsActor ! PoisonPill
+      }
     case _ => wsActor ! OutgoingMessage("invalid message sent")
   }
 }
