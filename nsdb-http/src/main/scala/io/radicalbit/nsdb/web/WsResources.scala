@@ -7,13 +7,11 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordPublished
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor.{OutgoingMessage, RegisterQuery, Terminate}
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import org.json4s.native.Serialization.{read, write}
+import org.json4s.native.Serialization.write
 
 trait WsResources {
 
