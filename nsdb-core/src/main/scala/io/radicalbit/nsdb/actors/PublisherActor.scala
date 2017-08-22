@@ -3,9 +3,14 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed, Unsubscribed}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{
+  RemoveQuery,
+  SubscribeByQueryId,
+  SubscribeBySqlStatement,
+  Unsubscribe
+}
+import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
@@ -72,13 +77,19 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
               log.error(s"query ${nsdbQuery.query} not valid")
           }
       }
-    case Unsubscribe(actor) => {
-      subscribedActors.find { case (_, v) => v == actor }.foreach {
-        case (k, _) =>
-          subscribedActors -= k
+    case Unsubscribe(actor) =>
+      subscribedActors.find { case (_, v) => v.contains(actor) }.foreach {
+        case (k, v) =>
+          subscribedActors += (k -> (v - actor))
           sender() ! Unsubscribed
       }
-    }
+    case RemoveQuery(quid) =>
+      subscribedActors.get(quid).foreach { actors =>
+        actors.foreach(_ ! PoisonPill)
+      }
+      subscribedActors -= quid
+      queries -= quid
+      sender() ! QueryRemoved(quid)
   }
 }
 
@@ -90,6 +101,7 @@ object PublisherActor {
     case class SubscribeBySqlStatement(actor: ActorRef, query: SelectSQLStatement)
     case class SubscribeByQueryId(actor: ActorRef, qid: String)
     case class Unsubscribe(actor: ActorRef)
+    case class RemoveQuery(quid: String)
   }
 
   object Events {
@@ -98,5 +110,6 @@ object PublisherActor {
 
     case class RecordPublished(metric: String, record: Record)
     case object Unsubscribed
+    case class QueryRemoved(quid: String)
   }
 }

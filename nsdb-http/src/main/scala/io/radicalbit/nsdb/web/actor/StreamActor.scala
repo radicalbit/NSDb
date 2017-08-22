@@ -61,15 +61,15 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
     case msg @ RecordPublished(_, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
+      log.debug("terminating stream actor")
       (publisher ? Unsubscribe).foreach(_ => self ! PoisonPill)
     case _ => wsActor ! OutgoingMessage("invalid message sent")
   }
 }
 
 object StreamActor {
-  sealed trait UserMessage
   case class Connect(outgoing: ActorRef)
-  case class OutgoingMessage(message: AnyRef) extends UserMessage
+  case class OutgoingMessage(message: AnyRef)
 
   case object Terminate
   case class RegisterQuery(namespace: String, queryString: String)
