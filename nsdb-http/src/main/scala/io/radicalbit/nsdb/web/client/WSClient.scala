@@ -2,21 +2,24 @@ package io.radicalbit.nsdb.web.client
 
 import java.net.URI
 
-import io.radicalbit.nsdb.web.actor.StreamActor.RegisterQuery
+import io.radicalbit.nsdb.web.actor.StreamActor.{RegisterQuery, RegisterQuid}
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.drafts.Draft_17
 import org.java_websocket.handshake.ServerHandshake
 import org.json4s.DefaultFormats
 import org.json4s.native.Serialization.write
 
-class WSClient(url: String, namespace: String, queryString: String)
-    extends WebSocketClient(new URI(url), new Draft_17()) {
+abstract class WSClient(url: String) extends WebSocketClient(new URI(url), new Draft_17()) {
 
   override def onMessage(message: String): Unit = println(message)
 
   override def onError(ex: Exception): Unit = println("Websocket Error: " + ex.getMessage)
 
   override def onClose(code: Int, reason: String, remote: Boolean): Unit = println("Websocket closed")
+
+}
+
+private class WSClientByQueryString(url: String, namespace: String, queryString: String) extends WSClient(url) {
 
   override def onOpen(handshakedata: ServerHandshake): Unit = {
 
@@ -29,8 +32,25 @@ class WSClient(url: String, namespace: String, queryString: String)
 
 }
 
+private class WSClientByQuid(url: String, quid: String) extends WSClient(url) {
+
+  override def onOpen(handshakedata: ServerHandshake): Unit = {
+
+    implicit val formats = DefaultFormats
+
+    println("Websocket opened")
+    val registerQueryMessage = RegisterQuid(quid)
+    send(write(registerQueryMessage))
+  }
+
+}
+
 object WSClient {
   def apply(url: String, namespace: String, queryString: String): WSClient = {
-    new WSClient(url, namespace, queryString)
+    new WSClientByQueryString(url, namespace, queryString)
+  }
+
+  def apply(url: String, quid: String): WSClient = {
+    new WSClientByQuid(url, quid)
   }
 }

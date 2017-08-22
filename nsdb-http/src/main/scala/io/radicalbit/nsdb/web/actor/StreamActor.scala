@@ -3,13 +3,13 @@ package io.radicalbit.nsdb.web.actor
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed}
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
@@ -34,13 +34,24 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
                 context become subscribed(wsActor)
                 OutgoingMessage(msg)
               case SubscriptionFailed(reason) =>
-                OutgoingMessage(QueryRegistrationFailed(namespace, queryString, reason))
+                OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, reason))
             }
             .pipeTo(wsActor)
         case Success(_) =>
-          wsActor ! OutgoingMessage(QueryRegistrationFailed(namespace, queryString, "not a select query"))
-        case Failure(ex) => wsActor ! OutgoingMessage(QueryRegistrationFailed(namespace, queryString, ex.getMessage))
+          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, "not a select query"))
+        case Failure(ex) =>
+          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, ex.getMessage))
       }
+    case RegisterQuid(quid) =>
+      (publisher ? SubscribeByQueryId(self, quid))
+        .map {
+          case msg @ Subscribed(_) =>
+            context become subscribed(wsActor)
+            OutgoingMessage(msg)
+          case SubscriptionFailed(reason) =>
+            OutgoingMessage(QuidRegistrationFailed(quid, reason))
+        }
+        .pipeTo(wsActor)
     case _ => wsActor ! OutgoingMessage("invalid message sent")
   }
 
@@ -62,7 +73,9 @@ object StreamActor {
 
   case object Terminate
   case class RegisterQuery(namespace: String, queryString: String)
-  case class QueryRegistrationFailed(namespace: String, queryString: String, reason: String)
+  case class RegisterQuid(quid: String)
+  case class QuerystringRegistrationFailed(namespace: String, queryString: String, reason: String)
+  case class QuidRegistrationFailed(quid: String, reason: String)
 
   def props(publisherActor: ActorRef) = Props(new StreamActor(publisherActor))
 }

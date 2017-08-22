@@ -8,7 +8,7 @@ import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.web.actor.StreamActor
-import io.radicalbit.nsdb.web.actor.StreamActor.{OutgoingMessage, RegisterQuery, Terminate}
+import io.radicalbit.nsdb.web.actor.StreamActor.{OutgoingMessage, RegisterQuery, RegisterQuid, Terminate}
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.native.Serialization.write
@@ -27,7 +27,8 @@ trait WsResources {
       Flow[Message]
         .map {
           case TextMessage.Strict(text) =>
-            parse(text).extractOpt[RegisterQuery] getOrElse "ERROR"
+            parse(text).extractOpt[RegisterQuery] orElse
+              parse(text).extractOpt[RegisterQuid] getOrElse "ERROR"
           //handle errors
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))

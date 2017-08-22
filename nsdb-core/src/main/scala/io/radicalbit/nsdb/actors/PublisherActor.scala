@@ -4,7 +4,7 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed, Unsubscribed}
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
@@ -47,6 +47,14 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
         } {
           case (id, _) => sender() ! Subscribed(id)
         }
+    case SubscribeByQueryId(actor, quid) =>
+      queries.get(quid) match {
+        case Some(q) =>
+          subscribedActors -= quid
+          subscribedActors += (quid -> actor)
+          sender() ! Subscribed(quid)
+        case None => sender ! SubscriptionFailed(s"quid $quid not found")
+      }
     case msg @ RecordPublished(metric, record) =>
       val temporaryIndex: TemporaryIndex = new TemporaryIndex()
       implicit val writer                = temporaryIndex.getWriter

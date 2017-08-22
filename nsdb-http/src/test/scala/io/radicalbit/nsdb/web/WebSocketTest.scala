@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.web
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Events.Subscribed
-import io.radicalbit.nsdb.web.actor.StreamActor.QueryRegistrationFailed
+import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
@@ -24,7 +24,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         val text = wsClient.expectMessage().asTextMessage.getStrictText
 
-        val obj: Option[QueryRegistrationFailed] = parse(text).extractOpt[QueryRegistrationFailed]
+        val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
 
         obj.isDefined shouldBe true
         obj.get.reason shouldEqual "not a select query"
