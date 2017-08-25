@@ -3,7 +3,8 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.Document
+import org.apache.lucene.document.Field.Store
+import org.apache.lucene.document.{Document, LongPoint, StringField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
@@ -44,31 +45,32 @@ trait Index[IN, OUT] {
     docs.toList
   }
 
-  private def executeAggregateQuery(searcher: IndexSearcher,
-                                    query: Query,
-                                    collector: AllGroupsAggregationCollector): Map[String, Long] = {
-    searcher.search(query, collector)
-    collector.getGroupMap
-  }
-
   private[index] def rawQuery(query: Query, limit: Int, sort: Option[Sort]): Seq[Document] = {
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
     executeQuery(searcher, query, limit, sort)
   }
 
-  private[index] def rawAggregateQuery(query: Query, collector: AllGroupsAggregationCollector): Map[String, Long] = {
+  private[index] def rawQuery(query: Query, collector: AllGroupsAggregationCollector): Seq[Document] = {
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
-    executeAggregateQuery(searcher, query, collector)
+    searcher.search(query, collector)
+    collector.getGroupMap.map {
+      case (g, v) =>
+        val doc = new Document
+        doc.add(new StringField(collector.groupField, g, Store.NO))
+        doc.add(new LongPoint(collector.aggField, v))
+        doc.add(new LongPoint(_keyField, 0))
+        doc
+    }.toSeq
   }
 
   def query(query: Query, limit: Int, sort: Option[Sort]): Seq[OUT] = {
     rawQuery(query, limit, sort).map(toRecord)
   }
 
-  def aggregateQuery(query: Query, collector: AllGroupsAggregationCollector): Map[String, Long] = {
-    rawAggregateQuery(query, collector)
+  def query(query: Query, collector: AllGroupsAggregationCollector): Seq[OUT] = {
+    rawQuery(query, collector).map(toRecord)
   }
 
   def query(field: String, queryString: String, limit: Int, sort: Option[Sort] = None): Seq[OUT] = {

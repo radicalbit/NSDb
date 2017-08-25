@@ -69,12 +69,8 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
     }
 
   def print(result: Try[SQLStatementExecuted]): Unit = result match {
-    case Success(stm) => {
-      if (stm.res.nonEmpty)
-        echo(stm.res.mkString)
-      if (stm.groupMap.nonEmpty)
-        echo(stm.groupMap.mkString)
-    }
+    case Success(stm) =>
+      echo(stm.res.mkString)
     case Failure(t) =>
       echo(s"Error while trying to run the inserted SQL statement. The detailed error is ${t.getMessage}")
   }

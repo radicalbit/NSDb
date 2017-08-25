@@ -10,5 +10,4 @@ sealed trait EndpointOutputProtocol
 
 // TODO: the result must be well structured
 // TODO: it must contain the schema (for both select and insert) and the final retrieved data (only for the select)
-case class SQLStatementExecuted(res: Seq[RecordOut] = Seq.empty, groupMap: Map[String, Long] = Map.empty)
-    extends EndpointOutputProtocol
+case class SQLStatementExecuted(res: Seq[RecordOut] = Seq.empty) extends EndpointOutputProtocol

@@ -208,10 +208,9 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[_]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
 
-        expected.values.size should be(0)
-        expected.groups.size should be(3)
+        expected.values.size should be(3)
       }
     }
 

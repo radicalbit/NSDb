@@ -5,6 +5,7 @@ import java.nio.file.Paths
 import akka.actor.{Actor, ActorLogging, Props}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
+import io.radicalbit.nsdb.common.protocol.RecordOut
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
@@ -28,6 +29,22 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       indexes += (metric -> newIndex)
       newIndex
     })
+
+  private def handleQueryResults(out: Try[Seq[RecordOut]]) = {
+    out match {
+      case Success(docs) =>
+        log.debug("found {} records", docs.size)
+        sender() ! ReadCoordinator.SelectStatementExecuted(docs)
+      case Failure(_: IndexNotFoundException) =>
+        log.debug("index not found")
+        sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty)
+      case Failure(ex) =>
+        ex.printStackTrace()
+        println("select statement failed ")
+        log.error(ex, "select statement failed")
+        sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
+    }
+  }
 
   override def receive: Receive = {
     case AddRecord(ns, metric, record) =>
@@ -72,33 +89,9 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
-          Try { getIndex(metric).query(q, limit, sort) } match {
-            case Success(docs) =>
-              log.debug("found {} records", docs.size)
-              sender() ! ReadCoordinator.SelectStatementExecuted(docs)
-            case Failure(_: IndexNotFoundException) =>
-              log.debug("index not found")
-              sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty)
-            case Failure(ex) =>
-              ex.printStackTrace()
-              println("select statement failed ")
-              log.error(ex, "select statement failed")
-              sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
-          }
-
+          handleQueryResults(Try(getIndex(metric).query(q, limit, sort)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
-          Try { getIndex(metric).aggregateQuery(q, collector) } match {
-            case Success(groups) =>
-              log.debug("found {} groups", groups.size)
-              sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty, groups)
-            case Failure(_: IndexNotFoundException) =>
-              log.debug("index not found")
-              sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty)
-            case Failure(ex) =>
-              ex.printStackTrace()
-              log.error(ex, "select statement failed")
-              sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
-          }
+          handleQueryResults(Try(getIndex(metric).query(q, collector)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
       }
   }
