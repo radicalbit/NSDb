@@ -41,4 +41,19 @@ abstract class AllGroupsAggregationCollector extends AllGroupsCollector[String] 
       }
     }
   }
+
+  def canEqual(other: Any): Boolean = other.getClass == this.getClass
+
+  override def equals(other: Any): Boolean = other match {
+    case that: AllGroupsAggregationCollector =>
+      (that canEqual this) &&
+        groupField == that.groupField &&
+        aggField == that.aggField
+    case _ => false
+  }
+
+  override def hashCode(): Int = {
+    val state = Seq(groupField, aggField)
+    state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
+  }
 }

@@ -10,3 +10,5 @@ case class Record(timestamp: Long, dimensions: Map[String, JSerializable], field
     extends TimeSeriesRecord
 
 case class RecordOut(timestamp: Long, fields: Map[String, JSerializable]) extends TimeSeriesRecord
+
+case class AggregateRecordOut(fields: Map[String, JSerializable])

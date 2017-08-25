@@ -32,7 +32,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
     case ExecuteSQLStatement(statement: SelectSQLStatement) =>
       (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
         .map {
-          case SelectStatementExecuted(values: Seq[RecordOut]) =>
+          case SelectStatementExecuted(values: Seq[RecordOut], map) =>
             SQLStatementExecuted(values)
           case SelectStatementFailed(reason) =>
             throw new RuntimeException(s"Cannot execute the given select statement. The reason is $reason.")

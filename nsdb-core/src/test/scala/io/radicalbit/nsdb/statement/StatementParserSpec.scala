@@ -1,7 +1,8 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.statement.StatementParser.QueryResult
+import io.radicalbit.nsdb.index.lucene.SumAllGroupsCollector
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
@@ -23,7 +24,9 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4)))
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new MatchAllDocsQuery(),
               4
             ))
@@ -42,7 +45,9 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new MatchAllDocsQuery(),
               4,
               List("name", "surname", "creationDate")
@@ -63,7 +68,9 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
               4,
               List("name")
@@ -85,7 +92,9 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               LongPoint.newRangeQuery("timestamp", 10L, Long.MaxValue),
               4,
               List("name")
@@ -111,7 +120,9 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new BooleanQuery.Builder()
                 .add(LongPoint.newRangeQuery("timestamp", 2L + 1, Long.MaxValue), BooleanClause.Occur.MUST)
                 .add(LongPoint.newRangeQuery("timestamp", 0, 4L), BooleanClause.Occur.MUST)
@@ -143,7 +154,9 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new BooleanQuery.Builder()
                 .add(
                   new BooleanQuery.Builder()
@@ -171,7 +184,9 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4)))
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new MatchAllDocsQuery(),
               4,
               List.empty,
@@ -193,7 +208,9 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(5))
           )) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               5,
               List("name"),
@@ -208,5 +225,28 @@ class StatementParserSpec extends WordSpec with Matchers {
         parser.parseStatement(SelectSQLStatement(namespace = "registry", metric = "people", fields = AllFields)) shouldBe 'failure
       }
     }
+
+    "receive a select containing a range selection and a group by" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("value", Some(SumAggregation)))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            groupBy = Some("name")
+          )
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              new SumAllGroupsCollector("name", "value")
+            ))
+        )
+      }
+    }
+
   }
 }

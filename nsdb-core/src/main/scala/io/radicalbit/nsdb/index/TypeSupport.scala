@@ -66,7 +66,7 @@ object IndexType {
 case class TIMESTAMP() extends IndexType[Long] {
   def actualType = classOf[Long]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new LongPoint(fieldName, value.toString.toLong), new StoredField(fieldName, value.toString.toLong))
+    Seq(new LongPoint(fieldName, value.toString.toLong), new NumericDocValuesField(fieldName, value.toString.toLong))
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
 case class INT() extends IndexType[Integer] {
@@ -78,7 +78,7 @@ case class INT() extends IndexType[Integer] {
 case class BIGINT() extends IndexType[JLong] {
   def actualType = classOf[JLong]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new LongPoint(fieldName, value.toString.toLong), new StoredField(fieldName, value.toString.toLong))
+    Seq(new LongPoint(fieldName, value.toString.toLong), new NumericDocValuesField(fieldName, value.toString.toLong))
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
 case class DECIMAL() extends IndexType[Float] {
