@@ -15,9 +15,9 @@ class CountAllGroupsCollector(override val groupField: String, override val aggF
 
     if (!ordSet.exists(key)) {
       ordSet.put(key)
-      groups += (term -> agg)
+      groups += (term -> 1)
     } else {
-      if (groups(term) >= agg) groups += (term -> (agg + groups(term)))
+      groups += (term -> (groups(term) + 1))
     }
   }
 

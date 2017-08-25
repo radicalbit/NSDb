@@ -32,8 +32,8 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
     case ExecuteSQLStatement(statement: SelectSQLStatement) =>
       (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
         .map {
-          case SelectStatementExecuted(values: Seq[RecordOut], map) =>
-            SQLStatementExecuted(values)
+          case SelectStatementExecuted(values: Seq[RecordOut], groupMap: Map[String, Long]) =>
+            SQLStatementExecuted(values, groupMap)
           case SelectStatementFailed(reason) =>
             throw new RuntimeException(s"Cannot execute the given select statement. The reason is $reason.")
         }
@@ -53,6 +53,6 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
         }
         .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
 
-      result.map(_ => SQLStatementExecuted(res = Seq.empty)).pipeTo(sender())
+      result.map(_ => SQLStatementExecuted(res = Seq.empty, groupMap = Map.empty)).pipeTo(sender())
   }
 }

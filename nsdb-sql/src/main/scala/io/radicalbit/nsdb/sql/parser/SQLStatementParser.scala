@@ -163,13 +163,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def insertQuery(namespace: String) =
     (Insert ~> metric) ~
       (timestampAssignment ?) ~
-      (Dim ~> assignments) ~ (Fld ~> assignments) ^^ {
+      (Dim ~> assignments) ~ ((Fld ~> assignments) ?) ^^ {
       case met ~ ts ~ dimensions ~ fields =>
         InsertSQLStatement(namespace = namespace,
                            metric = met,
                            timestamp = ts,
                            ListAssignment(dimensions),
-                           ListAssignment(fields))
+                           fields.map(ListAssignment) getOrElse ListAssignment(Map.empty))
     }
 
   private def query(namespace: String): Parser[SQLStatement] = selectQuery(namespace) | insertQuery(namespace)

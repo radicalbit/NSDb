@@ -17,7 +17,7 @@ class SumAllGroupsCollector(override val groupField: String, override val aggFie
       ordSet.put(key)
       groups += (term -> agg)
     } else {
-      if (groups(term) >= agg) groups += (term -> (agg + groups(term)))
+      groups += (term -> (agg + groups(term)))
     }
   }
 
