@@ -54,7 +54,7 @@ class StatementParser {
           case ListFields(list) => list
         }
         val expParsed = parseExpression(statement.condition.map(_.expression), limit.value)
-        Success(expParsed.copy(sort = sortOpt, fields = fieldList))
+        Success(expParsed.copy(sort = sortOpt, fields = fieldList.map(_.name)))
       case _ => Failure(new RuntimeException("cannot execute query without a limit"))
     }
   }

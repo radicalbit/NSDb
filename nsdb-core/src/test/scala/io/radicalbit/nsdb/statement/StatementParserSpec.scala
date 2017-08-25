@@ -34,10 +34,12 @@ class StatementParserSpec extends WordSpec with Matchers {
     "receive a select projecting a list of fields" should {
       "parse it successfully" in {
         parser.parseStatement(
-          SelectSQLStatement(namespace = "registry",
-                             metric = "people",
-                             fields = ListFields(List("name", "surname", "creationDate")),
-                             limit = Some(LimitOperator(4)))
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
+            limit = Some(LimitOperator(4))
+          )
         ) should be(
           Success(
             QueryResult(
@@ -55,7 +57,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             limit = Some(LimitOperator(4))
           )
@@ -76,7 +78,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
             limit = Some(LimitOperator(4))
@@ -98,7 +100,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
               operator = AndOperator,
@@ -127,7 +129,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
                 expression1 =
@@ -185,7 +187,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))

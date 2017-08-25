@@ -8,8 +8,6 @@ import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.search.grouping.term.TermAllGroupsCollector
-import org.apache.lucene.search.grouping.{AllGroupsCollector, GroupingSearch}
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.FSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
@@ -117,7 +115,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     boundedIndex.getSearcher.search(new MatchAllDocsQuery(), collector)
 
     collector.getGroupCount shouldBe 3
-    val sorted =  collector.getGroupMap.toSeq.sortBy(_._2)
-    sorted shouldBe Seq(("content_0",3), ("content_1",7), ("content_2",9))
+    val sorted = collector.getGroupMap.toSeq.sortBy(_._2)
+    sorted shouldBe Seq(("content_0", 3), ("content_1", 7), ("content_2", 9))
   }
 }

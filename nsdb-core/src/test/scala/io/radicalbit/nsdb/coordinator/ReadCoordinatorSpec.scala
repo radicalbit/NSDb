@@ -76,10 +76,12 @@ class ReadCoordinatorSpec
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
-            SelectSQLStatement(namespace = "registry",
-                               metric = "people",
-                               fields = ListFields(List("name", "surname", "creationDate")),
-                               limit = Some(LimitOperator(5)))
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
+              limit = Some(LimitOperator(5))
+            )
           )
         )
 
@@ -97,7 +99,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
               limit = Some(LimitOperator(4))
             )
@@ -118,7 +120,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(
                 ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
               limit = Some(LimitOperator(4))
@@ -141,7 +143,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(TupledLogicalExpression(
                 expression1 =
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
@@ -168,7 +170,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(UnaryLogicalExpression(
                 expression = TupledLogicalExpression(
                   expression1 =

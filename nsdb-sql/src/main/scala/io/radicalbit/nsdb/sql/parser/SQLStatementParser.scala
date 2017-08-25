@@ -12,50 +12,71 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
   }
 
-  private val Insert            = "INSERT INTO" ignoreCase
-  private val Dim               = "DIM" ignoreCase
-  private val Ts                = "TS" ignoreCase
-  private val Fld               = "FLD" ignoreCase
-  private val Select            = "SELECT" ignoreCase
-  private val All               = "*"
-  private val From              = "FROM" ignoreCase
-  private val Where             = "WHERE" ignoreCase
-  private val Comma             = ","
-  private val In                = "IN" ignoreCase
-  private val Order             = "ORDER BY" ignoreCase
-  private val Asc               = "ASC" ignoreCase
-  private val Desc              = "DESC" ignoreCase
-  private val DescLiteral       = "DESC"
-  private val Limit             = "LIMIT" ignoreCase
-  private val GreaterThan       = ">"
-  private val GreaterOrEqualTo  = ">="
-  private val LessThan          = "<"
-  private val LessOrEqualTo     = "<="
-  private val Equal             = "="
-  private val Not               = "NOT" ignoreCase
-  private val And               = "AND" ignoreCase
-  private val Or                = "OR" ignoreCase
+  private val Insert           = "INSERT INTO" ignoreCase
+  private val Dim              = "DIM" ignoreCase
+  private val Ts               = "TS" ignoreCase
+  private val Fld              = "FLD" ignoreCase
+  private val Select           = "SELECT" ignoreCase
+  private val All              = "*"
+  private val From             = "FROM" ignoreCase
+  private val Where            = "WHERE" ignoreCase
+  private val Comma            = ","
+  private val In               = "IN" ignoreCase
+  private val Order            = "ORDER BY" ignoreCase
+  private val Asc              = "ASC" ignoreCase
+  private val Desc             = "DESC" ignoreCase
+  private val DescLiteral      = "DESC"
+  private val Limit            = "LIMIT" ignoreCase
+  private val GreaterThan      = ">"
+  private val GreaterOrEqualTo = ">="
+  private val LessThan         = "<"
+  private val LessOrEqualTo    = "<="
+  private val Equal            = "="
+  private val Not              = "NOT" ignoreCase
+  private val And              = "AND" ignoreCase
+  private val Or               = "OR" ignoreCase
+  private val sum = "SUM".ignoreCase ^^ { _ =>
+    SumAggregation
+  }
+  private val min = "MIN".ignoreCase ^^ { _ =>
+    MinAggregation
+  }
+  private val max = "MAX".ignoreCase ^^ { _ =>
+    MaxAggregation
+  }
+  private val count = "COUNT".ignoreCase ^^ { _ =>
+    CountAggregation
+  }
+  private val group             = "GROUP BY" ignoreCase
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
-  private val field       = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val metric      = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val dimension   = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val stringValue = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val intValue    = """([0-9]+)""".r ^^ { _.toInt }
-  private val timestamp   = """([0-9]+)""".r ^^ { _.toLong }
+  private val digits  = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
+  private val numbers = """([0-9]+)""".r
 
-  private val selectFields = (All | field) ~ rep(Comma ~> field) ^^ {
+  private val field = digits ^^ { e =>
+    Field(e, None)
+  }
+  private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ digits <~ CloseRoundBracket ^^ { e =>
+    Field(e._2, Some(e._1))
+  }
+  private val metric      = digits
+  private val dimension   = digits
+  private val stringValue = digits
+  private val intValue    = numbers ^^ { _.toInt }
+  private val timestamp   = numbers ^^ { _.toLong }
+
+  private val selectFields = (All | aggField | field) ~ rep(Comma ~> field) ^^ {
     case f ~ fs =>
       f match {
-        case All => AllFields
-        case _   => ListFields(f +: fs)
+        case All      => AllFields
+        case f: Field => ListFields(f +: fs)
       }
   }
 
   private val timestampAssignment = (Ts ~ Equal) ~> timestamp
 
-  private val assignment = (field <~ Equal) ~ (stringValue | intValue) ^^ {
+  private val assignment = (digits <~ Equal) ~ (stringValue | intValue) ^^ {
     case k ~ v => k -> v.asInstanceOf[JSerializable]
   }
 
@@ -119,6 +140,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def where = (Where ~> conditions) ?
 
+  private def groupBy = (group ~> dimension) ?
+
   private def order = (((Order ~> dimension) ?) ~ ((Asc | Desc) ?)) ^^ {
     case dim ~(Some(ord)) if ord.equalsIgnoreCase(DescLiteral) => dim.map(DescOrderOperator)
     case dim ~ _                                               => dim.map(AscOrderOperator)
@@ -126,12 +149,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x)))
 
-  private def selectQuery(namespace: String) = select ~ from ~ where ~ order ~ limit ^^ {
-    case fs ~ met ~ cond ~ ord ~ lim =>
+  private def selectQuery(namespace: String) = select ~ from ~ where ~ groupBy ~ order ~ limit ^^ {
+    case fs ~ met ~ cond ~ group ~ ord ~ lim =>
       SelectSQLStatement(namespace = namespace,
                          metric = met,
                          fields = fs,
                          condition = cond.map(Condition),
+                         groupBy = group,
                          order = ord,
                          limit = lim)
   }
