@@ -28,8 +28,8 @@ object WriteCoordinator {
 
   case class FlatInput(ts: Long, namespace: String, metric: String, data: Array[Byte]) extends WriteCoordinatorProtocol
 
-  case class MapInput(ts: Long, namespace: String, metric: String, record: Record)    extends WriteCoordinatorProtocol
-  case class InputMapped(ts: Long, namespace: String, metric: String, record: Record) extends WriteCoordinatorProtocol
+  case class MapInput(ts: Long, namespace: String, metric: String, record: Record) extends WriteCoordinatorProtocol
+  case class InputMapped(namespace: String, metric: String, record: Record)        extends WriteCoordinatorProtocol
 
   case class ExecuteDeleteStatement(namespace: String, statement: DeleteSQLStatement)
   case class DeleteStatementExecuted(count: Long)
@@ -68,11 +68,10 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
             (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
               .mapTo[WroteToCommitLogAck]
               .flatMap(ack => {
-                publisherActor ! RecordPublished(metric, record)
+                publisherActor ! InputMapped(namespace, metric, record)
                 (namespaceDataActor ? AddRecord(namespace, ack.metric, ack.record)).mapTo[RecordAdded]
               })
-              .map(r =>
-                InputMapped(r.record.timestamp, namespace, metric, record.copy(timestamp = r.record.timestamp)))
+              .map(r => InputMapped(namespace, metric, r.record))
           case UpdateSchemaFailed(_, _, errs) =>
             log.debug("Invalid schema for the metric {} and the record {}. Error are {}.",
                       metric,

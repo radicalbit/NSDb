@@ -8,6 +8,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
 import io.radicalbit.nsdb.index.QueryIndex
 import org.apache.lucene.store.FSDirectory
 import org.scalatest._
@@ -55,9 +56,9 @@ class PublisherActorSpec
 
   }
 
-  "PublisherActor" should "prevent one actor to subscribe more than once" in {
+  "PublisherActor" should "subscribe more than once" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    probe.expectMsgType[Subscribed]
+    val firstId = probe.expectMsgType[Subscribed].qid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
@@ -65,25 +66,25 @@ class PublisherActorSpec
     publisherActor.underlyingActor.subscribedActors.values.size shouldBe 1
     publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
 
-    val id = publisherActor.underlyingActor.subscribedActors.keys.head
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement.copy(metric = "anotherOne")))
+    val secondId = probe.expectMsgType[Subscribed].qid
 
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    probe.expectMsgType[Subscribed]
-
-    publisherActor.underlyingActor.queries.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.keys.head shouldBe id
+    publisherActor.underlyingActor.queries.keys.size shouldBe 2
+    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 2
+    publisherActor.underlyingActor.subscribedActors.keys.toSeq.contains(firstId) shouldBe true
+    publisherActor.underlyingActor.subscribedActors.keys.toSeq.contains(secondId) shouldBe true
     publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
+    publisherActor.underlyingActor.subscribedActors.values.last shouldBe Set(probeActor)
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
     probe.expectMsgType[Subscribed]
 
-    probe.send(publisherActor, RecordPublished("rooms", testRecordNotSatisfy))
+    probe.send(publisherActor, InputMapped("namespace", "rooms", testRecordNotSatisfy))
     probe.expectNoMsg()
 
-    probe.send(publisherActor, RecordPublished("people", testRecordNotSatisfy))
+    probe.send(publisherActor, InputMapped("namespace", "people", testRecordNotSatisfy))
     probe.expectNoMsg()
   }
 
@@ -91,7 +92,7 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
     probe.expectMsgType[Subscribed]
 
-    probe.send(publisherActor, RecordPublished("people", testRecordSatisfy))
+    probe.send(publisherActor, InputMapped("namespace", "people", testRecordSatisfy))
     val recordPublished = probe.expectMsgType[RecordPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.record shouldBe testRecordSatisfy

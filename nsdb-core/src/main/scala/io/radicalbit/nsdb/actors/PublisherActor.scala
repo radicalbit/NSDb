@@ -4,15 +4,11 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{
-  RemoveQuery,
-  SubscribeByQueryId,
-  SubscribeBySqlStatement,
-  Unsubscribe
-}
+import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.store.FSDirectory
@@ -61,7 +57,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
           sender() ! Subscribed(quid)
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
-    case msg @ RecordPublished(metric, record) =>
+    case WriteCoordinator.InputMapped(_, metric, record) =>
       val temporaryIndex: TemporaryIndex = new TemporaryIndex()
       implicit val writer                = temporaryIndex.getWriter
       temporaryIndex.write(record)
@@ -72,7 +68,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
           luceneQuery match {
             case Success(parsedQuery) =>
               if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
-                subscribedActors(id).foreach(_ ! msg)
+                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, record))
             case Failure(query) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
@@ -108,7 +104,7 @@ object PublisherActor {
     case class Subscribed(qid: String)
     case class SubscriptionFailed(reason: String)
 
-    case class RecordPublished(metric: String, record: Record)
+    case class RecordPublished(quid: String, metric: String, record: Record)
     case object Unsubscribed
     case class QueryRemoved(quid: String)
   }

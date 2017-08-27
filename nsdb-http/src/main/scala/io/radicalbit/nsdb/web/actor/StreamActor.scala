@@ -31,7 +31,6 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
           (publisher ? SubscribeBySqlStatement(self, statement.asInstanceOf[SelectSQLStatement]))
             .map {
               case msg @ Subscribed(_) =>
-                context become subscribed(wsActor)
                 OutgoingMessage(msg)
               case SubscriptionFailed(reason) =>
                 OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, reason))
@@ -46,19 +45,12 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       (publisher ? SubscribeByQueryId(self, quid))
         .map {
           case msg @ Subscribed(_) =>
-            context become subscribed(wsActor)
             OutgoingMessage(msg)
           case SubscriptionFailed(reason) =>
             OutgoingMessage(QuidRegistrationFailed(quid, reason))
         }
         .pipeTo(wsActor)
-    case _ => wsActor ! OutgoingMessage("invalid message sent")
-  }
-
-  def subscribed(wsActor: ActorRef): Receive = {
-    case RegisterQuery(_, _) =>
-      wsActor ! OutgoingMessage("already registered")
-    case msg @ RecordPublished(_, _) =>
+    case msg @ RecordPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
       log.debug("terminating stream actor")
