@@ -138,8 +138,11 @@ class WriteCoordinatorSpec
 
     val deleted = probe.expectMsgType[DeleteStatementExecuted]
     deleted.count shouldBe 2
-//    namespaceDataActor.underlyingActor.indexerActors.keys.size shouldBe 0
-//    namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
+  }
+
+  "WriteCoordinator" should "drop a metric" in {
+    probe.send(writeCoordinatorActor, DropMetric("testNamespace", "testMetric"))
+    probe.expectMsgType[MetricDropped]
   }
 
 }

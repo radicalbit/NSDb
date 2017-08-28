@@ -12,12 +12,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordPublished
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{
-  DeleteNamespace,
-  ExecuteDeleteStatement,
-  InputMapped,
-  NamespaceDeleted
-}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator._
 
 import scala.concurrent.Future
 
@@ -39,6 +34,9 @@ object WriteCoordinator {
   case class ExecuteDeleteStatement(namespace: String, statement: DeleteSQLStatement)
   case class DeleteStatementExecuted(count: Long)
   case class DeleteStatementFailed(reason: String)
+
+  case class DropMetric(namespace: String, metric: String)
+  case class MetricDropped(namespace: String, metric: String)
 
   case class DeleteNamespace(namespace: String)
   case class NamespaceDeleted(namespace: String)
@@ -91,6 +89,8 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(_, _) =>
       namespaceDataActor forward msg
+    case msg @ DropMetric(_, _) =>
+      namespaceDataActor forward (msg)
   }
 }
 

@@ -6,6 +6,7 @@ import akka.actor.{Actor, ActorLogging, Props}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.common.protocol.RecordOut
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.MetricDropped
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
@@ -101,6 +102,18 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
           sender() ! WriteCoordinator.DeleteStatementExecuted(numerOfDeletion)
         case Failure(ex) => sender() ! WriteCoordinator.DeleteStatementFailed(ex.getMessage)
       }
+    case WriteCoordinator.DropMetric(_, metric) =>
+      indexes
+        .get(metric)
+        .fold {
+          sender() ! MetricDropped(namespace, metric)
+        } { index =>
+          implicit val writer = index.getWriter
+          index.deleteAll()
+          writer.close()
+          indexes -= metric
+          sender() ! MetricDropped(namespace, metric)
+        }
   }
 }
 
