@@ -98,8 +98,9 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         case Success(ParsedDeleteQuery(_, metric, q)) =>
           val index           = getIndex(metric)
           implicit val writer = index.getWriter
-          val numerOfDeletion = index.delete(q)
-          sender() ! WriteCoordinator.DeleteStatementExecuted(numerOfDeletion)
+          val numberOfDeletion = index.delete(q)
+          writer.close()
+          sender() ! WriteCoordinator.DeleteStatementExecuted(numberOfDeletion)
         case Failure(ex) => sender() ! WriteCoordinator.DeleteStatementFailed(ex.getMessage)
       }
     case WriteCoordinator.DropMetric(_, metric) =>
