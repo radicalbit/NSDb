@@ -7,7 +7,7 @@ import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.GetCount
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, ExecuteDeleteStatement, NamespaceDeleted}
 
 import scala.concurrent.duration._
 import scala.collection.mutable
@@ -38,6 +38,8 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
     case msg @ DeleteMetric(namespace, _) =>
       getIndexer(namespace).forward(msg)
     case msg @ GetCount(namespace, _) =>
+      getIndexer(namespace).forward(msg)
+    case msg @ ExecuteDeleteStatement(namespace, _) =>
       getIndexer(namespace).forward(msg)
     case DeleteNamespace(namespace) =>
       val indexToRemove = getIndexer(namespace)

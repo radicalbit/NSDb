@@ -6,10 +6,10 @@ import akka.actor.{Actor, ActorLogging, Props}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.common.protocol.RecordOut
-import io.radicalbit.nsdb.coordinator.ReadCoordinator
+import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
-import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
 import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.store.FSDirectory
 
@@ -91,6 +91,15 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
           handleQueryResults(Try(getIndex(metric).query(q, collector)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
+      }
+    case WriteCoordinator.ExecuteDeleteStatement(_, statement) =>
+      statementParser.parseStatement(statement) match {
+        case Success(ParsedDeleteQuery(_, metric, q)) =>
+          val index           = getIndex(metric)
+          implicit val writer = index.getWriter
+          val numerOfDeletion = index.delete(q)
+          sender() ! WriteCoordinator.DeleteStatementExecuted(numerOfDeletion)
+        case Failure(ex) => sender() ! WriteCoordinator.DeleteStatementFailed(ex.getMessage)
       }
   }
 }

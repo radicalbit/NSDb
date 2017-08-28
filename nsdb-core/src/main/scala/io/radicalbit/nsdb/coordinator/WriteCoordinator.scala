@@ -11,7 +11,13 @@ import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.{SchemaUpdated, Upd
 import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordPublished
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Record
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, InputMapped, NamespaceDeleted}
+import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
+import io.radicalbit.nsdb.coordinator.WriteCoordinator.{
+  DeleteNamespace,
+  ExecuteDeleteStatement,
+  InputMapped,
+  NamespaceDeleted
+}
 
 import scala.concurrent.Future
 
@@ -29,6 +35,10 @@ object WriteCoordinator {
 
   case class MapInput(ts: Long, namespace: String, metric: String, record: Record)    extends WriteCoordinatorProtocol
   case class InputMapped(ts: Long, namespace: String, metric: String, record: Record) extends WriteCoordinatorProtocol
+
+  case class ExecuteDeleteStatement(namespace: String, statement: DeleteSQLStatement)
+  case class DeleteStatementExecuted(count: Long)
+  case class DeleteStatementFailed(reason: String)
 
   case class DeleteNamespace(namespace: String)
   case class NamespaceDeleted(namespace: String)
@@ -73,12 +83,14 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
             Future(RecordRejected(namespace, metric, record, errs))
         }
         .pipeTo(sender())
-    case DeleteNamespace(namespace) =>
-      (namespaceDataActor ? DeleteNamespace(namespace))
+    case msg @ DeleteNamespace(_) =>
+      (namespaceDataActor ? msg)
         .mapTo[NamespaceDeleted]
-        .flatMap(_ => namespaceSchemaActor ? DeleteNamespace(namespace))
+        .flatMap(_ => namespaceSchemaActor ? msg)
         .mapTo[NamespaceDeleted]
         .pipeTo(sender())
+    case msg @ ExecuteDeleteStatement(_, _) =>
+      namespaceDataActor forward msg
   }
 }
 
