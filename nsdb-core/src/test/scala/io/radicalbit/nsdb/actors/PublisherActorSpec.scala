@@ -58,7 +58,7 @@ class PublisherActorSpec
 
   "PublisherActor" should "subscribe more than once" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    val firstId = probe.expectMsgType[Subscribed].qid
+    val firstId = probe.expectMsgType[Subscribed].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
@@ -67,7 +67,7 @@ class PublisherActorSpec
     publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
 
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement.copy(metric = "anotherOne")))
-    val secondId = probe.expectMsgType[Subscribed].qid
+    val secondId = probe.expectMsgType[Subscribed].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 2
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 2
@@ -109,6 +109,6 @@ class PublisherActorSpec
     probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
     val newSubscribed = probe.expectMsgType[Subscribed]
 
-    newSubscribed.qid shouldBe subscribed.qid
+    newSubscribed.quid shouldBe subscribed.quid
   }
 }

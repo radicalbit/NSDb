@@ -101,7 +101,7 @@ object PublisherActor {
   }
 
   object Events {
-    case class Subscribed(qid: String)
+    case class Subscribed(quid: String)
     case class SubscriptionFailed(reason: String)
 
     case class RecordPublished(quid: String, metric: String, record: Record)
