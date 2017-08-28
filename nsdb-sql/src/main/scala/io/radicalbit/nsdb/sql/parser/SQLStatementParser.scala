@@ -17,6 +17,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val Ts               = "TS" ignoreCase
   private val Fld              = "FLD" ignoreCase
   private val Select           = "SELECT" ignoreCase
+  private val Delete           = "DELETE" ignoreCase
+  private val Drop             = "Drop" ignoreCase
   private val All              = "*"
   private val From             = "FROM" ignoreCase
   private val Where            = "WHERE" ignoreCase
@@ -138,7 +140,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def from = From ~> metric
 
-  private def where = (Where ~> conditions) ?
+  private def where = (Where ~> conditions)
 
   private def groupBy = (group ~> dimension) ?
 
@@ -149,7 +151,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x)))
 
-  private def selectQuery(namespace: String) = select ~ from ~ where ~ groupBy ~ order ~ limit ^^ {
+  private def selectQuery(namespace: String) = select ~ from ~ (where ?) ~ groupBy ~ order ~ limit ^^ {
     case fs ~ met ~ cond ~ group ~ ord ~ lim =>
       SelectSQLStatement(namespace = namespace,
                          metric = met,
@@ -158,6 +160,14 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
                          groupBy = group,
                          order = ord,
                          limit = lim)
+  }
+
+  private def deleteQuery(namespace: String) = Delete ~> from ~ where ^^ {
+    case met ~ cond => DeleteSQLStatement(namespace = namespace, metric = met, condition = Condition(cond))
+  }
+
+  private def dropStatement(namespace: String) = Drop ~> metric ^^ {
+    case met => DropSQLStatement(namespace = namespace, metric = met)
   }
 
   private def insertQuery(namespace: String) =
@@ -172,7 +182,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
                            fields.map(ListAssignment) getOrElse ListAssignment(Map.empty))
     }
 
-  private def query(namespace: String): Parser[SQLStatement] = selectQuery(namespace) | insertQuery(namespace)
+  private def query(namespace: String): Parser[SQLStatement] =
+    selectQuery(namespace) | insertQuery(namespace) | deleteQuery(namespace) | dropStatement(namespace)
 
   def parse(namespace: String, input: String): Try[SQLStatement] =
     Try(parse(query(namespace), input)) flatMap {
