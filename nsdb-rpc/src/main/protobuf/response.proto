@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+message RPCInsertResult {
+    bool completedSuccessfully = 1;
+    string errors = 2;
+}

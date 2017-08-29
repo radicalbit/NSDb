@@ -2,10 +2,15 @@ import sbt._
 
 object Dependencies {
 
+  object scalaLang {
+    lazy val version   = "2.12.3"
+    lazy val namespace = "org.scala-lang"
+    lazy val compiler  = namespace % "scala-compiler" % version
+  }
+
   object scalaModules {
-    lazy val version           = "1.0.6"
     lazy val namespace         = "org.scala-lang.modules"
-    lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
+    lazy val parserCombinators = namespace %% "scala-parser-combinators" % "1.0.6"
   }
 
   object cats {
@@ -15,7 +20,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.3"
+    lazy val version   = "2.4.20"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"            % version
@@ -25,6 +30,7 @@ object Dependencies {
     lazy val cluster         = namespace %% "akka-cluster"          % version
     lazy val sharding        = namespace %% "akka-sharding"         % version
     lazy val clusterTools    = namespace %% "akka-cluster-tools"    % version
+//    lazy val camel           = namespace %% "akka-camel"            % version
 
   }
 
@@ -51,6 +57,10 @@ object Dependencies {
     lazy val sse  = "de.heikoseeberger" %% "akka-sse" % "2.0.0"
     lazy val core = Seq(sse)
   }
+
+//  object akka_stream {
+//    lazy val streamzCamel = "com.github.krasserm" %% "streamz-camel-akka" % "0.9-M1"
+//  }
 
   object lucene {
     lazy val version     = "6.6.0"
@@ -82,15 +92,56 @@ object Dependencies {
     lazy val `scala-logging` = "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
   }
 
+  object flink {
+    lazy val version        = "1.3.2"
+    lazy val namespace      = "org.apache.flink"
+    lazy val core           = namespace % "flink-core" % version
+    lazy val streamingScala = namespace % "flink-streaming-scala_2.11" % version
+  }
+
   lazy val asm = "asm" % "asm" % "3.3.1" % Test //import to use ClosureCleaner in test
+
+//  object camel {
+//    lazy val version        = "2.17.7"
+//    lazy val namespace      = "org.apache.camel"
+//    lazy val `camel-netty4` = namespace % "camel-netty4" % version
+//  }
+
+  object netty {
+    lazy val version   = "4.1.8.Final"
+    lazy val namespace = "io.netty"
+//    lazy val `netty-all` = namespace % "netty-all" % version
+  }
+
+  object gRPC {
+    lazy val version         = "1.4.0"
+    lazy val namespace       = "io.grpc"
+    lazy val `grpc-netty`    = namespace % "grpc-netty" % version
+    lazy val `grpc-protobuf` = namespace % "grpc-protobuf" % version
+  }
+
+  object scalaPB {
+    lazy val version        = "0.6.1"
+    lazy val namespace      = "com.trueaccord.scalapb"
+    lazy val `runtime`      = namespace %% "scalapb-runtime" % version
+    lazy val `runtime-grpc` = namespace %% "scalapb-runtime-grpc" % version
+  }
+
+  object slf4j {
+    lazy val version   = "1.7.25"
+    lazy val namespace = "org.slf4j"
+    lazy val api       = namespace % "slf4j-api" % version
+  }
 
   object Core {
     val libraries = Seq(
+      akka.actor,
       cats.cats,
       lucene.core,
       lucene.queryParser,
       lucene.facet,
-      scalatest.core % Test
+      scalatest.core % Test,
+      akka.testkit   % Test
     )
   }
 
@@ -98,8 +149,19 @@ object Dependencies {
     val libraries = Seq.empty
   }
 
-  object Client {
+  object RPC {
     val libraries = Seq(
+      slf4j.api,
+      gRPC.`grpc-netty`,
+      gRPC.`grpc-protobuf`,
+      scalaPB.`runtime`,
+      scalaPB.`runtime-grpc`
+    )
+  }
+
+  object AkkaClient {
+    val libraries = Seq(
+      akka.actor,
       akka.cluster,
       akka.clusterTools
     )
@@ -113,7 +175,7 @@ object Dependencies {
   }
 
   object ScalaAPI {
-    val libraries = Seq()
+    val libraries = Seq.empty
   }
 
   object SQL {
@@ -122,4 +184,17 @@ object Dependencies {
       scalatest.core % Test
     )
   }
+
+  object CLI {
+    lazy val libraries = Seq(
+      scalaLang.compiler
+    )
+  }
+
+  object FlinkConnector {
+    lazy val libraries = Seq(
+      flink.streamingScala % Provided
+    )
+  }
+
 }

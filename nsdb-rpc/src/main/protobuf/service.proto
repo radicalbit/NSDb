@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+import "request.proto";
+import "response.proto";
+
+service NSDBService {
+    rpc InsertBit (io.radicalbit.nsdb.rpc.RPCInsert) returns (io.radicalbit.nsdb.rpc.RPCInsertResult) {}
+}

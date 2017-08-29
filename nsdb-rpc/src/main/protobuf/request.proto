@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+import "common.proto";
+
+message RPCInsert {
+    string namespace = 1;
+    string series = 2;
+    int64 timestamp = 3;
+    string metric = 4;
+    repeated io.radicalbit.nsdb.rpc.ListAssignment dimensions = 5;
+    repeated io.radicalbit.nsdb.rpc.ListFields fields = 6;
+}
