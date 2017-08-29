@@ -24,7 +24,7 @@ class TestCommitLogService extends Actor {
 class TestSubscriber extends Actor {
   var receivedMessages = 0
   def receive = {
-    case RecordPublished(_, _) =>
+    case RecordPublished(_, _, _) =>
       receivedMessages += 1
   }
 }
@@ -99,7 +99,7 @@ class WriteCoordinatorSpec
     subscriber.underlyingActor.receivedMessages shouldBe 1
   }
 
-  "WriteCoordinator" should "delete a nanespace" in {
+  "WriteCoordinator" should "delete a namespace" in {
     probe.send(writeCoordinatorActor, DeleteNamespace("testNamespace"))
     probe.expectMsgType[NamespaceDeleted]
 

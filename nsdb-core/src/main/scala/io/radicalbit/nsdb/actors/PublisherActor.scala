@@ -3,11 +3,12 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import io.radicalbit.nsdb.actors.PublisherActor.Command._
+import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.store.FSDirectory
@@ -19,7 +20,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
 
-  lazy val subscribedActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+  lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
 
@@ -36,7 +37,8 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
             case Success(qr) =>
               val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
                 UUID.randomUUID().toString
-              subscribedActors += (id -> actor)
+              val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
+              subscribedActors += (id -> (previousRegisteredActors + actor))
               queries += (id          -> NsdbQuery(id, query))
               sender ! Subscribed(id)
               implicit val writer = queryIndex.getWriter
@@ -47,7 +49,15 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
         } {
           case (id, _) => sender() ! Subscribed(id)
         }
-    case msg @ RecordPublished(metric, record) =>
+    case SubscribeByQueryId(actor, quid) =>
+      queries.get(quid) match {
+        case Some(q) =>
+          val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
+          subscribedActors += (quid -> (previousRegisteredActors + actor))
+          sender() ! Subscribed(quid)
+        case None => sender ! SubscriptionFailed(s"quid $quid not found")
+      }
+    case WriteCoordinator.InputMapped(_, metric, record) =>
       val temporaryIndex: TemporaryIndex = new TemporaryIndex()
       implicit val writer                = temporaryIndex.getWriter
       temporaryIndex.write(record)
@@ -58,12 +68,24 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
           luceneQuery match {
             case Success(parsedQuery) =>
               if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
-                subscribedActors(id) ! msg
+                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, record))
             case Failure(query) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
-
       }
+    case Unsubscribe(actor) =>
+      subscribedActors.find { case (_, v) => v.contains(actor) }.foreach {
+        case (k, v) =>
+          subscribedActors += (k -> (v - actor))
+          sender() ! Unsubscribed
+      }
+    case RemoveQuery(quid) =>
+      subscribedActors.get(quid).foreach { actors =>
+        actors.foreach(_ ! PoisonPill)
+      }
+      subscribedActors -= quid
+      queries -= quid
+      sender() ! QueryRemoved(quid)
   }
 }
 
@@ -74,12 +96,16 @@ object PublisherActor {
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, query: SelectSQLStatement)
     case class SubscribeByQueryId(actor: ActorRef, qid: String)
+    case class Unsubscribe(actor: ActorRef)
+    case class RemoveQuery(quid: String)
   }
 
   object Events {
-    case class Subscribed(qid: String)
+    case class Subscribed(quid: String)
     case class SubscriptionFailed(reason: String)
 
-    case class RecordPublished(metric: String, record: Record)
+    case class RecordPublished(quid: String, metric: String, record: Record)
+    case object Unsubscribed
+    case class QueryRemoved(quid: String)
   }
 }

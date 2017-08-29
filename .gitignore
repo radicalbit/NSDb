@@ -34,5 +34,5 @@ mainRunner
 
 # IntelliJ specific
 .idea
-radicalbitdb_*
 *.sc
+radicalbitdb_*

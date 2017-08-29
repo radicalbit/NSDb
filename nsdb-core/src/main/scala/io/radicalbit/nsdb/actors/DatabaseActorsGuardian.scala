@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.actors
 
 import akka.actor.{Actor, Props}
-import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.{GetReadCoordinator, GetWriteCoordinator}
+import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.metadata.MetadataService
@@ -14,6 +14,7 @@ object DatabaseActorsGuardian {
 
   case object GetReadCoordinator
   case object GetWriteCoordinator
+  case object GetPublisher
 }
 
 class DatabaseActorsGuardian extends Actor {
@@ -36,6 +37,7 @@ class DatabaseActorsGuardian extends Actor {
   def receive = {
     case GetReadCoordinator  => sender() ! readCoordinator
     case GetWriteCoordinator => sender() ! writeCoordinator
+    case GetPublisher        => sender() ! publisherActor
   }
 
 }
