@@ -42,15 +42,13 @@ class ReadCoordinatorSpec
   override def beforeAll(): Unit = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(3 second)
+
+    Await.result(indexerActor ? DeleteMetric(namespace, "people"), 1 seconds)
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchema(namespace, "people", schema), 1 seconds)
     indexerActor ! AddRecords(namespace, "people", records)
-  }
-
-  override def afterAll(): Unit = {
-    indexerActor ! DeleteMetric(namespace, "people")
   }
 
   "A statement parser instance" when {
@@ -135,6 +133,32 @@ class ReadCoordinatorSpec
       }
     }
 
+    "receive a select containing a GTE and a NOT selection" should {
+      "execute it successfully" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(
+                UnaryLogicalExpression(
+                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
+                NotOperator
+              ))),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+
+        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+
+        expected.values.size should be(4)
+
+      }
+    }
+
     "receive a select containing a GT AND a LTE selection" should {
       "execute it successfully" in {
         probe.send(
@@ -171,7 +195,7 @@ class ReadCoordinatorSpec
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(UnaryLogicalExpression(
+              condition = Some(Condition(
                 expression = TupledLogicalExpression(
                   expression1 =
                     ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
@@ -179,16 +203,13 @@ class ReadCoordinatorSpec
                   expression2 =
                     ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
                 ),
-                operator = NotOperator
-              ))),
-              limit = Some(LimitOperator(4))
+              )),
+              limit = Some(LimitOperator(5))
             )
           )
         )
-
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
-
-        expected.values.size should be(1)
+        expected.values.size should be(5)
       }
     }
 

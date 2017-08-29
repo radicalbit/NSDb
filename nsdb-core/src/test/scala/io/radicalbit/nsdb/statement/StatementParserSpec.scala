@@ -158,6 +158,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery, BooleanClause.Occur.MUST)
                 .add(
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
