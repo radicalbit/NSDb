@@ -1,11 +1,11 @@
 package io.radicalbit.nsdb.index
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
+import io.radicalbit.nsdb.JLong
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Record, RecordOut}
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation, fieldSemigroup}
-import io.radicalbit.nsdb.JLong
-import org.apache.lucene.document.{Document, LongPoint, StoredField}
+import org.apache.lucene.document._
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort}
 
@@ -25,6 +25,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Record, RecordOut] with Typ
         fields ++ Seq(
           new LongPoint(_keyField, data.timestamp),
           new StoredField(_keyField, data.timestamp),
+          new NumericDocValuesField(_keyField, data.timestamp),
           new LongPoint(_lastRead, curTime),
           new StoredField(_lastRead, System.currentTimeMillis)
       ))

@@ -32,11 +32,11 @@ class ReadCoordinatorSpec
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
-    Record(2, Map("name"  -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(4, Map("name"  -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(6, Map("name"  -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(8, Map("name"  -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(10, Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty)
+    Record(2, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
+    Record(4, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
+    Record(6, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
+    Record(8, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
+    Record(10, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty)
   )
 
   override def beforeAll(): Unit = {
@@ -76,10 +76,12 @@ class ReadCoordinatorSpec
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
-            SelectSQLStatement(namespace = "registry",
-                               metric = "people",
-                               fields = ListFields(List("name", "surname", "creationDate")),
-                               limit = Some(LimitOperator(5)))
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
+              limit = Some(LimitOperator(5))
+            )
           )
         )
 
@@ -97,7 +99,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
               limit = Some(LimitOperator(4))
             )
@@ -118,7 +120,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(
                 ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
               limit = Some(LimitOperator(4))
@@ -141,7 +143,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(TupledLogicalExpression(
                 expression1 =
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
@@ -168,7 +170,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List("name")),
+              fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(UnaryLogicalExpression(
                 expression = TupledLogicalExpression(
                   expression1 =
@@ -190,8 +192,50 @@ class ReadCoordinatorSpec
       }
     }
 
-    "receive a select containing for a non existing entity" should {
-      "return an error messge properly" in {
+    "receive a select containing a GTE selection and a group by" should {
+      "execute it successfully" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("creationDate", Some(SumAggregation)))),
+              condition = Some(Condition(
+                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
+              groupBy = Some("name")
+            )
+          )
+        )
+
+        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+
+        expected.values.size should be(3)
+      }
+    }
+
+    "receive a select containing a GTE selection and a group by without any aggregation" should {
+      "fail" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("creationDate", None))),
+              condition = Some(Condition(
+                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
+              groupBy = Some("name")
+            )
+          )
+        )
+
+        probe.expectMsgType[SelectStatementFailed]
+      }
+    }
+
+    "receive a select containing a non existing entity" should {
+      "return an error message properly" in {
         probe.send(readCoordinatorActor,
                    ExecuteStatement(
                      SelectSQLStatement(namespace = "registry",

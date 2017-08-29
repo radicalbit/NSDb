@@ -1,11 +1,13 @@
 package io.radicalbit.nsdb.index
 
+import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.Document
+import org.apache.lucene.document.Field.Store
+import org.apache.lucene.document.{Document, LongPoint, StringField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query, Sort}
+import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.mutable.ListBuffer
@@ -49,8 +51,26 @@ trait Index[IN, OUT] {
     executeQuery(searcher, query, limit, sort)
   }
 
+  private[index] def rawQuery(query: Query, collector: AllGroupsAggregationCollector): Seq[Document] = {
+    val reader   = DirectoryReader.open(directory)
+    val searcher = new IndexSearcher(reader)
+    searcher.search(query, collector)
+    collector.getGroupMap.map {
+      case (g, v) =>
+        val doc = new Document
+        doc.add(new StringField(collector.groupField, g, Store.NO))
+        doc.add(new LongPoint(collector.aggField, v))
+        doc.add(new LongPoint(_keyField, 0))
+        doc
+    }.toSeq
+  }
+
   def query(query: Query, limit: Int, sort: Option[Sort]): Seq[OUT] = {
     rawQuery(query, limit, sort).map(toRecord)
+  }
+
+  def query(query: Query, collector: AllGroupsAggregationCollector): Seq[OUT] = {
+    rawQuery(query, collector).map(toRecord)
   }
 
   def query(field: String, queryString: String, limit: Int, sort: Option[Sort] = None): Seq[OUT] = {

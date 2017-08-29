@@ -60,11 +60,5 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
         parser.parse(namespace = "registry", input = "INSERT INTO people FLD(value=23) ") shouldBe 'failure
       }
     }
-
-    "receive a wrong metric without fields" should {
-      "fail" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people DIM(name=john, surname=doe) ") shouldBe 'failure
-      }
-    }
   }
 }

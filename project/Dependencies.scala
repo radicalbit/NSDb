@@ -56,8 +56,8 @@ object Dependencies {
     lazy val version     = "6.6.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
-    lazy val queryParser = "org.apache.lucene" % "lucene-queryparser" % version
-    lazy val facet       = "org.apache.lucene" % "lucene-facet" % version
+    lazy val queryParser = namespace % "lucene-queryparser" % version
+    lazy val grouping    = namespace % "lucene-grouping" % version
   }
 
   object scalatest {
@@ -89,7 +89,7 @@ object Dependencies {
       cats.cats,
       lucene.core,
       lucene.queryParser,
-      lucene.facet,
+      lucene.grouping,
       scalatest.core % Test
     )
   }

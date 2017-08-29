@@ -21,7 +21,11 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
     "receive a select projecting a single field" should {
       "parse it successfully" in {
         parser.parse(namespace = "registry", input = "SELECT name FROM people") should be(
-          Success(SelectSQLStatement(namespace = "registry", metric = "people", fields = ListFields(List("name")))))
+          Success(
+            SelectSQLStatement(namespace = "registry",
+                               metric = "people",
+                               fields = ListFields(List(Field("name", None)))))
+        )
       }
     }
 
@@ -29,9 +33,10 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parse(namespace = "registry", input = "SELECT name,surname,creationDate FROM people") should be(
           Success(
-            SelectSQLStatement(namespace = "registry",
-                               metric = "people",
-                               fields = ListFields(List("name", "surname", "creationDate")))))
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))))))
       }
     }
 
@@ -41,7 +46,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)))
           )))
       }
@@ -53,7 +58,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L)))
           )))
@@ -66,7 +71,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
               operator = AndOperator,
@@ -84,7 +89,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
                 expression1 =
@@ -127,7 +132,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
@@ -139,7 +144,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           Success(SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
