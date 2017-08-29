@@ -96,8 +96,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case WriteCoordinator.ExecuteDeleteStatement(_, statement) =>
       statementParser.parseStatement(statement) match {
         case Success(ParsedDeleteQuery(_, metric, q)) =>
-          val index           = getIndex(metric)
-          implicit val writer = index.getWriter
+          val index            = getIndex(metric)
+          implicit val writer  = index.getWriter
           val numberOfDeletion = index.delete(q)
           writer.close()
           sender() ! WriteCoordinator.DeleteStatementExecuted(numberOfDeletion)
