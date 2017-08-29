@@ -101,7 +101,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private def expression: Parser[Expression] =
-    (rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression)
+    rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression
 
   private def termExpression: Parser[Expression] = comparisonExpression | rangeExpression
 
@@ -146,8 +146,6 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     (dimension <~ In) ~ (OpenRoundBracket ~> timestamp) ~ (Comma ~> timestamp <~ CloseRoundBracket) ^^ {
       case (d ~ v1 ~ v2) => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
-
-//  private def conditions = expression
 
   private def select = Select ~> selectFields
 
