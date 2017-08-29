@@ -54,9 +54,15 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
       writer.close()
       queries.foreach {
         case (id, nsdbQuery) =>
-          val luceneQuery: StatementParser.ParsedQuery = new StatementParser().parseStatement(nsdbQuery.query).get
-          if (metric == nsdbQuery.query.metric && temporaryIndex.query(luceneQuery.q, 1, None).size == 1)
-            subscribedActors(id) ! msg
+          val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
+          luceneQuery match {
+            case Success(parsedQuery) =>
+              if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
+                subscribedActors(id) ! msg
+            case Failure(query) =>
+              log.error(s"query ${nsdbQuery.query} not valid")
+          }
+
       }
   }
 }

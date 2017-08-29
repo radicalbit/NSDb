@@ -39,8 +39,6 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         log.debug("index not found")
         sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty)
       case Failure(ex) =>
-        ex.printStackTrace()
-        println("select statement failed ")
         log.error(ex, "select statement failed")
         sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
     }
