@@ -29,6 +29,17 @@ trait Index[IN, OUT] {
 
   def delete(data: IN)(implicit writer: IndexWriter): Unit
 
+  def delete(query: Query)(implicit writer: IndexWriter): Long = {
+    val reader   = DirectoryReader.open(directory)
+    val searcher = new IndexSearcher(reader)
+    val hits     = searcher.search(query, Int.MaxValue)
+    (0 until hits.totalHits).foreach { _ =>
+      writer.deleteDocuments(query)
+    }
+    writer.forceMergeDeletes(true)
+    hits.totalHits
+  }
+
   def deleteAll()(implicit writer: IndexWriter): Unit = {
     writer.deleteAll()
     writer.flush()

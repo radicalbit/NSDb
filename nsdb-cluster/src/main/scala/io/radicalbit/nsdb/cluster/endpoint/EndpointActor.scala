@@ -5,10 +5,15 @@ import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, Record, RecordOut, SQLStatementExecuted}
-import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{
+  DeleteSQLStatement,
+  DropSQLStatement,
+  InsertSQLStatement,
+  SelectSQLStatement
+}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{SelectStatementExecuted, SelectStatementFailed}
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
+import io.radicalbit.nsdb.coordinator.WriteCoordinator._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -52,7 +57,16 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
               .mapTo[InputMapped]
         }
         .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
-
       result.map(_ => SQLStatementExecuted(res = Seq.empty)).pipeTo(sender())
+    case ExecuteSQLStatement(statement: DeleteSQLStatement) =>
+      (writeCoordinator ? ExecuteDeleteStatement(statement.namespace, statement))
+        .mapTo[DeleteStatementExecuted]
+        .map(_ => SQLStatementExecuted(res = Seq.empty))
+        .pipeTo(sender())
+    case ExecuteSQLStatement(statement: DropSQLStatement) =>
+      (writeCoordinator ? DropMetric(statement.namespace, statement.metric))
+        .mapTo[DeleteStatementExecuted]
+        .map(_ => SQLStatementExecuted(res = Seq.empty))
+        .pipeTo(sender())
   }
 }

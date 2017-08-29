@@ -3,12 +3,7 @@ package io.radicalbit.nsdb.statement
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.index.lucene._
-import io.radicalbit.nsdb.statement.StatementParser.{
-  ParsedAggregatedQuery,
-  ParsedExpression,
-  ParsedQuery,
-  ParsedSimpleQuery
-}
+import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search._
 
@@ -49,6 +44,10 @@ class StatementParser {
     parseStatement(statement, null)
   }
 
+  def parseDeleteStatement(statement: DeleteSQLStatement): Try[ParsedQuery] = {
+    parseStatement(statement)
+  }
+
   private def getCollector(group: String, field: String, agg: Aggregation) = {
     agg match {
       case CountAggregation => new CountAllGroupsCollector(group, field)
@@ -56,6 +55,11 @@ class StatementParser {
       case MinAggregation   => new MinAllGroupsCollector(group, field)
       case SumAggregation   => new SumAllGroupsCollector(group, field)
     }
+  }
+
+  def parseStatement(statement: DeleteSQLStatement): Try[ParsedDeleteQuery] = {
+    val expParsed: ParsedExpression = parseExpression(Some(statement.condition.expression))
+    Success(ParsedDeleteQuery(statement.namespace, statement.metric, expParsed.q))
   }
 
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
@@ -118,4 +122,6 @@ object StatementParser {
                                    q: Query,
                                    collector: AllGroupsAggregationCollector)
       extends ParsedQuery
+
+  case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
 }

@@ -68,3 +68,8 @@ case class InsertSQLStatement(override val namespace: String,
                               dimensions: ListAssignment,
                               fields: ListAssignment)
     extends SQLStatement
+
+case class DeleteSQLStatement(override val namespace: String, override val metric: String, condition: Condition)
+    extends SQLStatement
+
+case class DropSQLStatement(override val namespace: String, override val metric: String) extends SQLStatement
