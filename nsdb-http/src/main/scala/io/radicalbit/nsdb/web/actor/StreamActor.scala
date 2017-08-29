@@ -9,6 +9,7 @@ import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -41,6 +42,24 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
         case Failure(ex) =>
           wsActor ! OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, ex.getMessage))
       }
+    case RegisterQueries(queries: Seq[RegisterQuery]) =>
+      val results = queries.map(q => {
+        new SQLStatementParser().parse(q.namespace, q.queryString) match {
+          case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
+            (publisher ? SubscribeBySqlStatement(self, statement.asInstanceOf[SelectSQLStatement]))
+              .map {
+                case msg @ Subscribed(_) =>
+                  msg
+                case SubscriptionFailed(reason) =>
+                  QuerystringRegistrationFailed(q.namespace, q.queryString, reason)
+              }
+          case Success(_) =>
+            Future(QuerystringRegistrationFailed(q.namespace, q.queryString, "not a select query"))
+          case Failure(ex) =>
+            Future(QuerystringRegistrationFailed(q.namespace, q.queryString, ex.getMessage))
+        }
+      })
+      Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
     case RegisterQuid(quid) =>
       (publisher ? SubscribeByQueryId(self, quid))
         .map {
@@ -50,6 +69,17 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
             OutgoingMessage(QuidRegistrationFailed(quid, reason))
         }
         .pipeTo(wsActor)
+    case RegisterQuids(quids) =>
+      val results = quids.map(quid => {
+        (publisher ? SubscribeByQueryId(self, quid))
+          .map {
+            case msg @ Subscribed(_) =>
+              msg
+            case SubscriptionFailed(reason) =>
+              QuidRegistrationFailed(quid, reason)
+          }
+      })
+      Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
     case msg @ RecordPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
@@ -58,7 +88,9 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
         self ! PoisonPill
         wsActor ! PoisonPill
       }
-    case _ => wsActor ! OutgoingMessage("invalid message sent")
+    case e =>
+      println(e)
+      wsActor ! OutgoingMessage("invalid message sent")
   }
 }
 
@@ -68,7 +100,9 @@ object StreamActor {
 
   case object Terminate
   case class RegisterQuery(namespace: String, queryString: String)
+  case class RegisterQueries(queries: Seq[RegisterQuery])
   case class RegisterQuid(quid: String)
+  case class RegisterQuids(quids: Seq[String])
   case class QuerystringRegistrationFailed(namespace: String, queryString: String, reason: String)
   case class QuidRegistrationFailed(quid: String, reason: String)
 

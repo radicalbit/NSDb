@@ -34,6 +34,22 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
         parse(subscribed).extractOpt[Subscribed].isDefined shouldBe true
 
+        wsClient.sendMessage(
+          """{"queries":[{"namespace":"registry","queryString":"select * from people limit 1"},{"namespace":"registry","queryString":"select * from people limit 1"}]}"""
+        )
+
+        val subscribedMultipleQueryString = wsClient.expectMessage().asTextMessage.getStrictText
+        println(subscribedMultipleQueryString)
+        parse(subscribedMultipleQueryString).extractOpt[Seq[Subscribed]].isDefined shouldBe true
+
+        wsClient.sendMessage(
+          """{"queries":[{"quid":"426c2c59-a71e-451f-84df-aa18315faa6a"},{"quid":"426c2c59-a71e-451f-84df-aa18315faa6a"}]}"""
+        )
+
+        val subscribedMultipleQuuid = wsClient.expectMessage().asTextMessage.getStrictText
+        println(subscribedMultipleQuuid)
+        parse(subscribedMultipleQuuid).extractOpt[Seq[Subscribed]].isDefined shouldBe true
+
         //TODO find out how to test it, i.e. combine somehow the actorsystem coming from ScalatestRouteTest and from Testkit
       }
   }

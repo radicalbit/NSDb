@@ -34,7 +34,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
         .find { case (_, v) => v == actor }
         .fold {
           new StatementParser().parseStatement(query) match {
-            case Success(qr) =>
+            case Success(_) =>
               val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
                 UUID.randomUUID().toString
               val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
