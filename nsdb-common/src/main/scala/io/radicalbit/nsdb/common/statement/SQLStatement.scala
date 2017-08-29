@@ -6,9 +6,11 @@ sealed trait SQLStatementType
 case object Select extends SQLStatementType
 case object Insert extends SQLStatementType
 
+case class Field(name: String, aggregation: Option[Aggregation])
+
 sealed trait SelectedFields
 case object AllFields                                         extends SelectedFields
-case class ListFields(fields: List[String])                   extends SelectedFields
+case class ListFields(fields: List[Field])                    extends SelectedFields
 case class ListAssignment(fields: Map[String, JSerializable]) extends SelectedFields
 
 sealed trait Expression
@@ -32,6 +34,12 @@ case object GreaterOrEqualToOperator extends ComparisonOperator
 case object LessThanOperator         extends ComparisonOperator
 case object LessOrEqualToOperator    extends ComparisonOperator
 
+sealed trait Aggregation
+case object CountAggregation extends Aggregation
+case object MaxAggregation   extends Aggregation
+case object MinAggregation   extends Aggregation
+case object SumAggregation   extends Aggregation
+
 sealed trait OrderOperator {
   def dimension: String
 }
@@ -49,6 +57,7 @@ case class SelectSQLStatement(override val namespace: String,
                               override val metric: String,
                               fields: SelectedFields,
                               condition: Option[Condition] = None,
+                              groupBy: Option[String] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
     extends SQLStatement
@@ -59,3 +68,8 @@ case class InsertSQLStatement(override val namespace: String,
                               dimensions: ListAssignment,
                               fields: ListAssignment)
     extends SQLStatement
+
+case class DeleteSQLStatement(override val namespace: String, override val metric: String, condition: Condition)
+    extends SQLStatement
+
+case class DropSQLStatement(override val namespace: String, override val metric: String) extends SQLStatement

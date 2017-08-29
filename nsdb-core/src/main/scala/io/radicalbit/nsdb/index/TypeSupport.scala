@@ -10,6 +10,7 @@ import cats.implicits._
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.index.IndexType.SchemaValidation
 import io.radicalbit.nsdb.model.{RawField, TypedField}
+import org.apache.lucene.util.BytesRef
 
 import scala.util.{Failure, Success, Try}
 
@@ -65,19 +66,19 @@ object IndexType {
 case class TIMESTAMP() extends IndexType[Long] {
   def actualType = classOf[Long]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new LongPoint(fieldName, value.toString.toLong), new StoredField(fieldName, value.toString.toLong))
+    Seq(new LongPoint(fieldName, value.toString.toLong), new NumericDocValuesField(fieldName, value.toString.toLong))
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
 case class INT() extends IndexType[Integer] {
   def actualType = classOf[Integer]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new IntPoint(fieldName, value.toString.toInt), new StoredField(fieldName, value.toString.toInt))
+    Seq(new IntPoint(fieldName, value.toString.toInt), new NumericDocValuesField(fieldName, value.toString.toLong))
   def deserialize(value: Array[Byte]) = new String(value).toInt
 }
 case class BIGINT() extends IndexType[JLong] {
   def actualType = classOf[JLong]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new LongPoint(fieldName, value.toString.toLong), new StoredField(fieldName, value.toString.toLong))
+    Seq(new LongPoint(fieldName, value.toString.toLong), new NumericDocValuesField(fieldName, value.toString.toLong))
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
 case class DECIMAL() extends IndexType[Float] {
@@ -101,6 +102,7 @@ case class CHAR() extends IndexType[Char] {
 case class VARCHAR() extends IndexType[String] {
   def actualType = classOf[String]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new StringField(fieldName, value.toString, Store.YES))
+    Seq(new StringField(fieldName, value.toString, Store.YES),
+        new SortedDocValuesField(fieldName, new BytesRef(value.toString)))
   def deserialize(value: Array[Byte]) = new String(value)
 }

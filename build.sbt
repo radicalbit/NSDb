@@ -28,6 +28,8 @@ lazy val `nsdb-core` = project
 
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.Http.libraries)
+  .dependsOn(`nsdb-core`, `nsdb-sql`)
   .dependsOn(`nsdb-core`)
 
 lazy val `nsdb-rpc` = project

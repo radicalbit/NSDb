@@ -1,7 +1,8 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.statement.StatementParser.QueryResult
+import io.radicalbit.nsdb.index.lucene.SumAllGroupsCollector
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
@@ -23,7 +24,9 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4)))
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new MatchAllDocsQuery(),
               4
             ))
@@ -34,13 +37,17 @@ class StatementParserSpec extends WordSpec with Matchers {
     "receive a select projecting a list of fields" should {
       "parse it successfully" in {
         parser.parseStatement(
-          SelectSQLStatement(namespace = "registry",
-                             metric = "people",
-                             fields = ListFields(List("name", "surname", "creationDate")),
-                             limit = Some(LimitOperator(4)))
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
+            limit = Some(LimitOperator(4))
+          )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new MatchAllDocsQuery(),
               4,
               List("name", "surname", "creationDate")
@@ -55,13 +62,15 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             limit = Some(LimitOperator(4))
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
               4,
               List("name")
@@ -76,14 +85,16 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
             limit = Some(LimitOperator(4))
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               LongPoint.newRangeQuery("timestamp", 10L, Long.MaxValue),
               4,
               List("name")
@@ -98,7 +109,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
               operator = AndOperator,
@@ -109,7 +120,9 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new BooleanQuery.Builder()
                 .add(LongPoint.newRangeQuery("timestamp", 2L + 1, Long.MaxValue), BooleanClause.Occur.MUST)
                 .add(LongPoint.newRangeQuery("timestamp", 0, 4L), BooleanClause.Occur.MUST)
@@ -127,7 +140,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
                 expression1 =
@@ -141,8 +154,11 @@ class StatementParserSpec extends WordSpec with Matchers {
           )
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery, BooleanClause.Occur.MUST)
                 .add(
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
@@ -169,7 +185,9 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4)))
         ) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               new MatchAllDocsQuery(),
               4,
               List.empty,
@@ -185,13 +203,15 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(
             namespace = "registry",
             metric = "people",
-            fields = ListFields(List("name")),
+            fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
           )) should be(
           Success(
-            QueryResult(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               5,
               List("name"),
@@ -206,5 +226,28 @@ class StatementParserSpec extends WordSpec with Matchers {
         parser.parseStatement(SelectSQLStatement(namespace = "registry", metric = "people", fields = AllFields)) shouldBe 'failure
       }
     }
+
+    "receive a select containing a range selection and a group by" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("value", Some(SumAggregation)))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            groupBy = Some("name")
+          )
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              new SumAllGroupsCollector("name", "value")
+            ))
+        )
+      }
+    }
+
   }
 }

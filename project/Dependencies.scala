@@ -9,8 +9,9 @@ object Dependencies {
   }
 
   object scalaModules {
+    lazy val version           = "1.0.6"
     lazy val namespace         = "org.scala-lang.modules"
-    lazy val parserCombinators = namespace %% "scala-parser-combinators" % "1.0.6"
+    lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
   }
 
   object cats {
@@ -30,12 +31,11 @@ object Dependencies {
     lazy val cluster         = namespace %% "akka-cluster"          % version
     lazy val sharding        = namespace %% "akka-sharding"         % version
     lazy val clusterTools    = namespace %% "akka-cluster-tools"    % version
-//    lazy val camel           = namespace %% "akka-camel"            % version
 
   }
 
   object akka_http {
-    lazy val version   = "10.0.5"
+    lazy val version   = "10.0.9"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
@@ -44,30 +44,31 @@ object Dependencies {
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-testkit"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
-    lazy val default    = namespace %% "akka-http"            % version
-    lazy val testkit    = namespace %% "akka-http-testkit"    % version % Test
-    lazy val spray_json = namespace %% "akka-http-spray-json" % version
-    lazy val jackson    = namespace %% "akka-http-jackson"    % version
-    lazy val xml        = namespace %% "akka-http-xml"        % version
+    lazy val default = namespace %% "akka-http"         % version
+    lazy val testkit = namespace %% "akka-http-testkit" % version % Test
+    lazy val jackson = namespace %% "akka-http-jackson" % version
+    lazy val xml     = namespace %% "akka-http-xml"     % version
 
-    lazy val core = Seq(core_http, default, testkit, spray_json, jackson, xml)
+    lazy val core = Seq(core_http, default, testkit, /*spray_json,*/ jackson, xml)
   }
 
-  object akka_sse {
-    lazy val sse  = "de.heikoseeberger" %% "akka-sse" % "2.0.0"
-    lazy val core = Seq(sse)
+  object javaWebsocket {
+    lazy val version       = "1.3.0"
+    lazy val namespace     = "org.java-websocket"
+    lazy val javaWebsocket = namespace % "Java-WebSocket" % version
   }
 
-//  object akka_stream {
-//    lazy val streamzCamel = "com.github.krasserm" %% "streamz-camel-akka" % "0.9-M1"
-//  }
+  object json4s {
+    val version = "3.5.2"
+    val native  = "org.json4s" %% "json4s-native" % version
+  }
 
   object lucene {
     lazy val version     = "6.6.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
-    lazy val queryParser = "org.apache.lucene" % "lucene-queryparser" % version
-    lazy val facet       = "org.apache.lucene" % "lucene-facet" % version
+    lazy val queryParser = namespace % "lucene-queryparser" % version
+    lazy val grouping    = namespace % "lucene-grouping" % version
   }
 
   object scalatest {
@@ -101,18 +102,6 @@ object Dependencies {
 
   lazy val asm = "asm" % "asm" % "3.3.1" % Test //import to use ClosureCleaner in test
 
-//  object camel {
-//    lazy val version        = "2.17.7"
-//    lazy val namespace      = "org.apache.camel"
-//    lazy val `camel-netty4` = namespace % "camel-netty4" % version
-//  }
-
-  object netty {
-    lazy val version   = "4.1.8.Final"
-    lazy val namespace = "io.netty"
-//    lazy val `netty-all` = namespace % "netty-all" % version
-  }
-
   object gRPC {
     lazy val version         = "1.4.0"
     lazy val namespace       = "io.grpc"
@@ -139,9 +128,8 @@ object Dependencies {
       cats.cats,
       lucene.core,
       lucene.queryParser,
-      lucene.facet,
-      scalatest.core % Test,
-      akka.testkit   % Test
+      lucene.grouping,
+      scalatest.core % Test
     )
   }
 
@@ -197,4 +185,14 @@ object Dependencies {
     )
   }
 
+  object Http {
+    lazy val libraries = Seq(
+      akka.stream,
+      akka_http.default,
+      json4s.native,
+      javaWebsocket.javaWebsocket,
+      scalatest.core % Test,
+      akka_http.testkit
+    )
+  }
 }

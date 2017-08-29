@@ -18,7 +18,6 @@ trait NSDBAkkaCluster extends Core {
 trait NSDBAActors extends CoreActors { this: Core =>
 
   implicit val executionContext = system.dispatcher
-  implicit val timeout: Timeout = 1 second
 
   for {
     readCoordinator  <- (guardian ? DatabaseActorsGuardian.GetReadCoordinator).mapTo[ActorRef]
