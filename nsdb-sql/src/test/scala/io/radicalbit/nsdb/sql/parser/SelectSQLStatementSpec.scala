@@ -50,6 +50,12 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)))
           )))
       }
+
+      "parse it successfully using relative time" in {
+        val statement = parser.parse(namespace = "registry",
+                                     input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, now + 4 s)")
+        statement.isSuccess shouldBe true
+      }
     }
 
     "receive a select containing a GTE selection" should {
@@ -62,6 +68,12 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L)))
           )))
+      }
+
+      "parse it successfully using relative time" in {
+        val statement =
+          parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp >= now - 10s")
+        statement.isSuccess shouldBe true
       }
     }
 
@@ -79,6 +91,13 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                 ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
             )))
           )))
+      }
+
+      "parse it successfully using relative time" in {
+        val statement = parser.parse(namespace = "registry",
+                                     input =
+                                       "SELECT name FROM people WHERE timestamp > now - 2h AND timestamp <= now + 4m")
+        statement.isSuccess shouldBe true
       }
     }
 
@@ -100,6 +119,13 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               operator = NotOperator
             )))
           )))
+      }
+
+      "parse it successfully using relative time" in {
+        val statement =
+          parser.parse(namespace = "registry",
+                       input = "SELECT name FROM people WHERE NOT timestamp >= now + 2m OR timestamp < now - 4h")
+        statement.isSuccess shouldBe true
       }
     }
 
@@ -167,14 +193,13 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a wrong metric without where clause" should {
       "fail" in {
-        // FIXME: this must be a failure
-        parser.parse(namespace = "registry", input = "SELECT name,surname FROM people cats dogs") shouldBe 'failure
+        val f = parser.parse(namespace = "registry", input = "SELECT name,surname FROM people cats dogs")
+        f shouldBe 'failure
       }
     }
 
     "receive a wrong metric with where clause" should {
       "fail" in {
-        // FIXME: this must be a failure
         parser.parse(namespace = "registry", input = "SELECT name,surname FROM people cats dogs WHERE timestamp > 10") shouldBe 'failure
       }
     }

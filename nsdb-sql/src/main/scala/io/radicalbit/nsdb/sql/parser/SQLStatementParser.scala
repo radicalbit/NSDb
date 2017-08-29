@@ -37,6 +37,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val Not              = "NOT" ignoreCase
   private val And              = "AND" ignoreCase
   private val Or               = "OR" ignoreCase
+  private val now              = "NOW" ignoreCase
   private val sum = "SUM".ignoreCase ^^ { _ =>
     SumAggregation
   }
@@ -53,7 +54,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
-  private val digits  = """(^[a-zA-Z_][a-zA-Z0-9_]+)""".r
+  private val digits  = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]+)""".r
   private val numbers = """([0-9]+)""".r
 
   private val field = digits ^^ { e =>
@@ -62,11 +63,23 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ digits <~ CloseRoundBracket ^^ { e =>
     Field(e._2, Some(e._1))
   }
-  private val metric      = digits
+  private val metric      = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val dimension   = digits
   private val stringValue = digits
   private val intValue    = numbers ^^ { _.toInt }
-  private val timestamp   = numbers ^^ { _.toLong }
+
+  private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
+    case "H" => 3600 * 1000
+    case "M" => 60 * 1000
+    case "S" => 1000
+  }
+
+  private val delta = now ~> ("+" | "-") ~ intValue ~ timeMeasure ^^ {
+    case "+" ~ v ~ measure => System.currentTimeMillis() + v * measure
+    case "-" ~ v ~ measure => System.currentTimeMillis() - v * measure
+  }
+
+  private val timestamp = delta | numbers ^^ { _.toLong }
 
   private val selectFields = (All | aggField | field) ~ rep(Comma ~> field) ^^ {
     case f ~ fs =>
@@ -88,7 +101,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private def expression: Parser[Expression] =
-    rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression
+    (rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression)
 
   private def termExpression: Parser[Expression] = comparisonExpression | rangeExpression
 
@@ -116,7 +129,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def comparisonExpression(operator: String,
                                    comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[_]] =
-    (dimension <~ operator) ~ intValue ^^ {
+    (dimension <~ operator) ~ timestamp ^^ {
       case d ~ v =>
         ComparisonExpression(d, comparisonOperator, v)
     }
@@ -134,13 +147,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
       case (d ~ v1 ~ v2) => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
 
-  private def conditions = expression
+//  private def conditions = expression
 
   private def select = Select ~> selectFields
 
   private def from = From ~> metric
 
-  private def where = (Where ~> conditions)
+  private def where = Where ~> expression
 
   private def groupBy = (group ~> dimension) ?
 
@@ -151,7 +164,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x)))
 
-  private def selectQuery(namespace: String) = select ~ from ~ (where ?) ~ groupBy ~ order ~ limit ^^ {
+  private def selectQuery(namespace: String) = select ~ from ~ (where ?) ~ groupBy ~ order ~ limit <~ ";" ^^ {
     case fs ~ met ~ cond ~ group ~ ord ~ lim =>
       SelectSQLStatement(namespace = namespace,
                          metric = met,
@@ -186,7 +199,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     selectQuery(namespace) | insertQuery(namespace) | deleteQuery(namespace) | dropStatement(namespace)
 
   def parse(namespace: String, input: String): Try[SQLStatement] =
-    Try(parse(query(namespace), input)) flatMap {
+    Try(parse(query(namespace), s"$input;")) flatMap {
       case Success(res, _) => ScalaSuccess(res)
       case Error(msg, _)   => ScalaFailure(new RuntimeException(msg))
       case Failure(msg, _) => ScalaFailure(new RuntimeException(msg))
