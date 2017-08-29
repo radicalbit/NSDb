@@ -23,6 +23,7 @@ class StatementParser {
       case Some(RangeExpression(dimension, v1: Long, v2: Long)) => LongPoint.newRangeQuery(dimension, v1, v2)
       case Some(UnaryLogicalExpression(expression, _)) =>
         val builder = new BooleanQuery.Builder()
+        builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
         builder.add(parseExpression(Some(expression)).q, BooleanClause.Occur.MUST_NOT).build()
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         operator match {
