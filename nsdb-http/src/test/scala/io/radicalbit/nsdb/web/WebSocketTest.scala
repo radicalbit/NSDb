@@ -35,10 +35,6 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         parse(subscribed).extractOpt[Subscribed].isDefined shouldBe true
 
         //TODO find out how to test it, i.e. combine somehow the actorsystem coming from ScalatestRouteTest and from Testkit
-//        publisherActor ! RecordPublished("metric", Record(0, Map("dim1" -> "v1"), Map.empty))
-//
-//        val published = wsClient.expectMessage().asTextMessage.getStrictText
-//        parse(published).extractOpt[RecordPublished].isDefined shouldBe true
       }
   }
 }
