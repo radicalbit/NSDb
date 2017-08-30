@@ -28,7 +28,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
       check {
         isWebSocketUpgrade shouldEqual true
 
-        wsClient.sendMessage("""{"namespace":"a","queryString":"INSERT INTO people DIM(name=john) FLD(value=23)"}""")
+        wsClient.sendMessage("""{"namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
         val text = wsClient.expectMessage().asTextMessage.getStrictText
 

@@ -48,12 +48,9 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
       val result = InsertSQLStatement
         .unapply(statement)
         .map {
-          case (namespace, metric, ts, dimensions, fields) =>
+          case (namespace, metric, ts, dimensions, value) =>
             val timestamp = ts getOrElse System.currentTimeMillis
-            (writeCoordinator ? MapInput(timestamp,
-                                         namespace,
-                                         metric,
-                                         Record(timestamp, dimensions.fields, fields.fields)))
+            (writeCoordinator ? MapInput(timestamp, namespace, metric, Record(timestamp, dimensions.fields, value)))
               .mapTo[InputMapped]
         }
         .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))

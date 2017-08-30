@@ -42,8 +42,8 @@ class PublisherActorSpec
       Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
     limit = Some(LimitOperator(4))
   )
-  val testRecordNotSatisfy = Record(0, Map("name"   -> "john"), Map.empty)
-  val testRecordSatisfy    = Record(100, Map("name" -> "john"), Map.empty)
+  val testRecordNotSatisfy = Record(0, Map("name"   -> "john"), 23)
+  val testRecordSatisfy    = Record(100, Map("name" -> "john"), 25)
 
   before {
     val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))

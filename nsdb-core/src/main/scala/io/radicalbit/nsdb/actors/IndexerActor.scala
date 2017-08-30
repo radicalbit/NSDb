@@ -3,6 +3,7 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, Props}
+import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.common.protocol.RecordOut
@@ -49,10 +50,13 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case AddRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
-      index.write(record)
+      val w               = index.write(record)
       writer.flush()
       writer.close()
-      sender ! RecordAdded(ns, metric, record)
+      w match {
+        case Valid(r)   => sender ! RecordAdded(ns, metric, record)
+        case Invalid(l) => sender ! RecordRejected(ns, metric, record, l.toList)
+      }
     case AddRecords(ns, metric, records) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter

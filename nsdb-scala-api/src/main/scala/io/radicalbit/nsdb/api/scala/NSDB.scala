@@ -51,13 +51,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
 
 case class Namespace(name: String) {
 
-  def metric(metric: String): Metric = Metric(namespace = name, metric = metric)
-
-}
-
-case class Metric(namespace: String, metric: String) {
-
-  def bit: Bit = Bit(namespace = namespace, metric = metric)
+  def bit(bit: String): Bit = Bit(namespace = name, metric = bit)
 
 }
 
