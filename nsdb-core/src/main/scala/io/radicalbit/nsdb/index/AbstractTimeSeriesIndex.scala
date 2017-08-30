@@ -52,9 +52,9 @@ abstract class AbstractTimeSeriesIndex extends Index[Record, RecordOut] with Typ
   override def toRecord(document: Document): RecordOut = {
     val fields: Map[String, JSerializable] =
       document.getFields.asScala
-        .filterNot(_.name() == _keyField)
+        .filterNot(f => f.name() == _keyField || f.name() == _lastRead)
         .map {
-          case f if f.stringValue() == null => f.name() -> new JLong(f.numericValue().longValue())
+          case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())
           case f                            => f.name() -> f.stringValue()
         }
         .toMap
