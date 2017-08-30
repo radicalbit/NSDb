@@ -10,6 +10,7 @@ import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
@@ -29,6 +30,12 @@ class TestSubscriber extends Actor {
   }
 }
 
+class FakeReadCoordinatorActor extends Actor {
+  def receive: Receive = {
+    case ExecuteStatement(_) => sender() ! SelectStatementExecuted(Seq.empty)
+  }
+}
+
 class WriteCoordinatorSpec
     extends TestKit(ActorSystem("nsdb-test"))
     with ImplicitSender
@@ -41,7 +48,8 @@ class WriteCoordinatorSpec
   val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props("target/test_index"))
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props("target/test_index"))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
-  val publisherActor       = TestActorRef[PublisherActor](PublisherActor.props("target/test_index"))
+  val publisherActor = TestActorRef[PublisherActor](
+    PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor])))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(namespaceSchemaActor,
                                                                     system.actorOf(Props[TestCommitLogService]),
                                                                     namespaceDataActor,

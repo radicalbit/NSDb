@@ -10,3 +10,8 @@ case class Record(timestamp: Long, dimensions: Map[String, JSerializable], field
     extends TimeSeriesRecord
 
 case class RecordOut(timestamp: Long, fields: Map[String, JSerializable]) extends TimeSeriesRecord
+
+object RecordOut {
+  def apply(record: Record): RecordOut =
+    RecordOut(timestamp = record.timestamp, fields = record.dimensions ++ record.fields)
+}

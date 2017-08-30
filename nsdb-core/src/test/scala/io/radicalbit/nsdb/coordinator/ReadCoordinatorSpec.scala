@@ -32,11 +32,11 @@ class ReadCoordinatorSpec
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
-    Record(2, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(4, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(6, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(8, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-    Record(10, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty)
+    Record(2L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "1")),
+    Record(4L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "2")),
+    Record(6L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "3")),
+    Record(8L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "4")),
+    Record(10L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "5"))
   )
 
   override def beforeAll(): Unit = {
@@ -128,8 +128,8 @@ class ReadCoordinatorSpec
 
         val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
 
-        expected.values.size should be(1)
-
+        expected.values.size shouldBe 1
+        expected.values.head shouldBe RecordOut(records(4))
       }
     }
 
