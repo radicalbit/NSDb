@@ -2,13 +2,15 @@ syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
 
-import "common.proto";
+import "google/protobuf/any.proto";
 
 message RPCInsert {
     string namespace = 1;
-    string series = 2;
+    string metric = 2;
     int64 timestamp = 3;
-    string metric = 4;
-    repeated io.radicalbit.nsdb.rpc.ListAssignment dimensions = 5;
-    repeated io.radicalbit.nsdb.rpc.ListFields fields = 6;
+    oneof value {
+        double decimalValue = 4;
+        int64 longValue = 5;
+    }
+    map<string, google.protobuf.Any> dimensions = 7;
 }

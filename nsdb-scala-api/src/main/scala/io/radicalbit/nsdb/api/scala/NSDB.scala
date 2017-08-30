@@ -1,9 +1,10 @@
 package io.radicalbit.nsdb.api.scala
 
-import io.radicalbit.nsdb.api.scala.NSDB.{Dimension, Field, Metric}
+import io.radicalbit.nsdb.api.scala.NSDB.Dimension
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.rpc.request.RPCInsert
+import io.radicalbit.nsdb.rpc.request.RPCInsert.Value.{DecimalValue, LongValue}
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,27 +25,25 @@ object NSDB {
 
 case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
 
-//  private implicit val client = new Client(host = host, port = port)
   private val client = new GRPCClient(host = host, port = port)
 
   def namespace(name: String): Namespace = Namespace(name)
 
-  def write[T](bit: Bit[T]): Future[RPCInsertResult] =
+  def write(bit: Bit): Future[RPCInsertResult] =
     client.write(
-      RPCInsert(namespace = bit.namespace,
-                metric = bit.series,
-                timestamp = bit.ts getOrElse (System.currentTimeMillis)))
-
-//  def write[T](bit: Bit[T]): Future[SQLStatementExecuted] =
-//    client.executeSqlStatement(
-//      InsertSQLStatement(namespace = bit.namespace,
-//                         metric = bit.series,
-//                         timestamp = bit.ts,
-//                         dimensions = ListAssignment(bit.dimensions.toMap),
-//                         fields = ListAssignment(bit.fields.toMap)))
+      RPCInsert(
+        namespace = bit.namespace,
+        metric = bit.metric,
+        timestamp = bit.ts getOrElse (System.currentTimeMillis),
+        value = bit.value match {
+          case Some(v: Double) => DecimalValue(v)
+          case Some(v: Long)   => LongValue(v)
+          case _               => sys.error("boom")
+        }
+      ))
 
   // FIXME: this is not optimized, we should implement a bulk feature
-  def write[T](bs: List[Bit[T]]): Future[List[RPCInsertResult]] =
+  def write(bs: List[Bit]): Future[List[RPCInsertResult]] =
     Future.sequence(bs.map(x => write(x)))
 
   def close() = {}
@@ -52,28 +51,30 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
 
 case class Namespace(name: String) {
 
-  def series[T](series: String): Series[T] = Series[T](namespace = name, series = series)
+  def metric(metric: String): Metric = Metric(namespace = name, metric = metric)
 
 }
 
-case class Series[T](namespace: String, series: String) {
+case class Metric(namespace: String, metric: String) {
 
-  def bit: Bit[T] = Bit(namespace = namespace, series = series)
+  def bit: Bit = Bit(namespace = namespace, metric = metric)
 
 }
 
-case class Bit[T](namespace: String,
-                  series: String,
-                  metric: Option[Metric[T]] = None,
-                  dimensions: List[Dimension] = List.empty[Dimension],
-                  fields: List[Field] = List.empty[Field],
-                  ts: Option[Long] = None) {
+case class Bit(namespace: String,
+               metric: String,
+               ts: Option[Long] = None,
+               private val valueDec: Option[Double] = None,
+               private val valueLong: Option[Long] = None,
+               dimensions: List[Dimension] = List.empty[Dimension]) {
 
-  def metric(key: String, value: T): Bit[T] = copy(metric = Some((key, value)))
+  def value(v: Long) = copy(valueDec = None, valueLong = Some(v))
 
-  def dimension(dim: Dimension): Bit[T] = copy(dimensions = dimensions :+ dim)
+  def value(v: Double) = copy(valueDec = Some(v), valueLong = None)
 
-  def field(field: Field): Bit[T] = copy(fields = fields :+ field)
+  def value: Option[AnyVal] = valueDec orElse valueLong
 
-  def timestamp(v: Long): Bit[T] = copy(ts = Some(v))
+  def dimension(dim: Dimension): Bit = copy(dimensions = dimensions :+ dim)
+
+  def timestamp(v: Long): Bit = copy(ts = Some(v))
 }

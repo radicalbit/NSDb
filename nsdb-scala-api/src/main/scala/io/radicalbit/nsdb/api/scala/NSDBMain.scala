@@ -7,16 +7,13 @@ import scala.concurrent.duration._
 
 object NSDBMain extends App {
 
-  val nsdb = NSDB.connect(host = "127.0.0.1", port = 2552)(ExecutionContext.global)
+  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global)
 
   val series = nsdb
     .namespace("registry")
-    .series("people")
+    .metric("people")
     .bit
-    .metric("age", 18)
-    .field("name", "Goofy")
-    .field("address", "Goofy Road")
-    .field("best_friend", "Mickey Mouse")
+    .value(10)
     .dimension("city", "Mouseton")
     .dimension("gender", "M")
 

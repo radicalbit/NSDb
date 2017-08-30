@@ -9,10 +9,9 @@ import scala.concurrent.ExecutionContext
 
 import org.slf4j.LoggerFactory
 
-class NSDBSink[IN, METRIC_TYPE](host: String, port: Int)(implicit converter: IN => Bit[METRIC_TYPE])
-    extends RichSinkFunction[IN] {
+class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) extends RichSinkFunction[IN] {
 
-  private val log = LoggerFactory.getLogger(classOf[NSDBSink[IN, METRIC_TYPE]])
+  private val log = LoggerFactory.getLogger(classOf[NSDBSink[IN]])
 
   lazy implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(Executors.directExecutor())
 

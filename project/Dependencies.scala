@@ -112,7 +112,7 @@ object Dependencies {
   object scalaPB {
     lazy val version        = "0.6.1"
     lazy val namespace      = "com.trueaccord.scalapb"
-    lazy val `runtime`      = namespace %% "scalapb-runtime" % version
+    lazy val `runtime`      = namespace %% "scalapb-runtime" % version % "protobuf"
     lazy val `runtime-grpc` = namespace %% "scalapb-runtime-grpc" % version
   }
 
@@ -129,7 +129,8 @@ object Dependencies {
       lucene.core,
       lucene.queryParser,
       lucene.grouping,
-      scalatest.core % Test
+      scalatest.core % Test,
+      akka.testkit   % Test
     )
   }
 

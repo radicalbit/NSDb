@@ -142,11 +142,12 @@ class ReadCoordinatorSpec
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                UnaryLogicalExpression(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
-                NotOperator
-              ))),
+              condition = Some(
+                Condition(
+                  UnaryLogicalExpression(
+                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
+                    NotOperator
+                  ))),
               limit = Some(LimitOperator(4))
             )
           )
@@ -195,15 +196,12 @@ class ReadCoordinatorSpec
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                expression = TupledLogicalExpression(
-                  expression1 =
-                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
-                  operator = OrOperator,
-                  expression2 =
-                    ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
-                ),
-              )),
+              condition = Some(Condition(expression = TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                operator = OrOperator,
+                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+              ))),
               limit = Some(LimitOperator(5))
             )
           )

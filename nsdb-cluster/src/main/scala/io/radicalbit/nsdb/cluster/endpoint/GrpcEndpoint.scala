@@ -29,7 +29,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   override protected[this] def service = GrpcEndpointService
 
-  override protected[this] val port: Int = 8000
+  override protected[this] val port: Int = 7817
 
   val innerServer = start()
 
