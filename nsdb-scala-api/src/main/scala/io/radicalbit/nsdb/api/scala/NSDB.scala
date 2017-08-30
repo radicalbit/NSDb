@@ -35,7 +35,7 @@ object NSDB {
   case class Metric(namespace: String,
                     name: String,
                     dimensions: List[Dimension] = List.empty[Dimension],
-                    fields: Field = 0,
+                    value: Field = 0,
                     ts: Option[Long] = None)(implicit client: Client) {
 
     def dimension(dim: Dimension): Metric = copy(dimensions = dimensions :+ dim)
@@ -44,13 +44,17 @@ object NSDB {
 
     def timestamp(v: Long) = copy(ts = Some(v))
 
+    def value(v: Long) = copy(value = v)
+
+    def value(v: Double) = copy(value = v)
+
     def write(): Future[SQLStatementExecuted] =
       client.executeSqlStatement(
         InsertSQLStatement(namespace = namespace,
                            metric = name,
                            timestamp = ts,
                            dimensions = ListAssignment(dimensions.toMap),
-                           value = fields))
+                           value = value))
   }
 
 }

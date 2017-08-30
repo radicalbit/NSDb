@@ -6,8 +6,7 @@ trait TimeSeriesRecord {
   val timestamp: Long
 }
 
-case class Bit(timestamp: Long, dimensions: Map[String, JSerializable], metric: JSerializable)
-    extends TimeSeriesRecord
+case class Bit(timestamp: Long, dimensions: Map[String, JSerializable], metric: JSerializable) extends TimeSeriesRecord
 
 case class BitOut(timestamp: Long, fields: Map[String, JSerializable]) extends TimeSeriesRecord
 
