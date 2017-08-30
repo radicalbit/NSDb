@@ -6,7 +6,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events._
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.SchemaField
 import org.scalatest._
@@ -81,7 +81,7 @@ class SchemaActorSpec
   "SchemaActor" should "update schemas coming from a record" in {
     probe.send(
       schemaActor,
-      UpdateSchemaFromRecord("namespace", "people", Record(0, Map("name" -> "john", "surname" -> "doe"), 23.5)))
+      UpdateSchemaFromRecord("namespace", "people", Bit(0, Map("name" -> "john", "surname" -> "doe"), 23.5)))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -97,7 +97,7 @@ class SchemaActorSpec
 
   "SchemaActor" should "return the same schema for a new schema included in the old one" in {
     probe.send(schemaActor,
-               UpdateSchemaFromRecord("namespace", "people", Record(0, Map("name" -> "john", "surname" -> "doe"), 23)))
+               UpdateSchemaFromRecord("namespace", "people", Bit(0, Map("name" -> "john", "surname" -> "doe"), 23)))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -110,7 +110,7 @@ class SchemaActorSpec
              Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("value", INT())))
     )
 
-    probe.send(schemaActor, UpdateSchemaFromRecord("namespace", "people", Record(0, Map("name" -> "john"), 2)))
+    probe.send(schemaActor, UpdateSchemaFromRecord("namespace", "people", Bit(0, Map("name" -> "john"), 2)))
     probe.expectMsgType[SchemaUpdated]
 
     probe.send(schemaActor, GetSchema("namespace", "people"))

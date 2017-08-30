@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import io.radicalbit.commit_log.CommitLogEntry.Dimension
 import io.radicalbit.commit_log.InsertNewEntry
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
 /**
@@ -49,7 +49,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       _     = readByteBuffer.get(value)
     } yield (name, typ, value)).toList
 
-    InsertNewEntry(ts = ts, metric = metric, Record(ts, dimensions = createDimensions(dimensions), 0))
+    InsertNewEntry(ts = ts, metric = metric, Bit(ts, dimensions = createDimensions(dimensions), 0))
   }
 
   override def serialize(entry: InsertNewEntry): Array[Byte] =
