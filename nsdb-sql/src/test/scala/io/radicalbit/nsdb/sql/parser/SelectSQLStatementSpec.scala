@@ -58,6 +58,25 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select containing a = selection" should {
+      "parse it successfully" in {
+        parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp = 10") should be(
+          Success(SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(
+              EqualityExpression(dimension = "timestamp", value = 10L)))
+          )))
+      }
+
+      "parse it successfully using relative time" in {
+        val statement =
+          parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp = now - 10s")
+        statement.isSuccess shouldBe true
+      }
+    }
+
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
         parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp >= 10") should be(
@@ -73,6 +92,30 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       "parse it successfully using relative time" in {
         val statement =
           parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp >= now - 10s")
+        statement.isSuccess shouldBe true
+      }
+    }
+
+    "receive a select containing a GT AND a = selection" should {
+      "parse it successfully" in {
+        parser.parse(namespace = "registry", input = "SELECT name FROM people WHERE timestamp > 2 AND timestamp = 4") should be(
+          Success(SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(TupledLogicalExpression(
+              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              operator = AndOperator,
+              expression2 =
+                EqualityExpression(dimension = "timestamp", value = 4l)
+            )))
+          )))
+      }
+
+      "parse it successfully using relative time" in {
+        val statement = parser.parse(namespace = "registry",
+          input =
+            "SELECT name FROM people WHERE timestamp > now - 2h AND timestamp = now + 4m")
         statement.isSuccess shouldBe true
       }
     }

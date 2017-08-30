@@ -105,9 +105,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private def expression: Parser[Expression] =
-    rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression
+    rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression | equalityExpression
 
-  private def termExpression: Parser[Expression] = comparisonExpression | rangeExpression
+  private def termExpression: Parser[Expression] = comparisonExpression | rangeExpression | equalityExpression
 
   private def unaryLogicalExpression = notUnaryLogicalExpression
 
@@ -127,6 +127,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def andTupledLogicalExpression = tupledLogicalExpression(And, AndOperator)
 
   private def orTupledLogicalExpression = tupledLogicalExpression(Or, OrOperator)
+
+  private def equalityExpression = (dimension <~ Equal) ~ (stringValue | floatValue | timestamp) ^^ {
+    case dim ~ v => EqualityExpression(dim, v.asInstanceOf[JSerializable])
+  }
 
   private def comparisonExpression: Parser[ComparisonExpression[_]] =
     comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
