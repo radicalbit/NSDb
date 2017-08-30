@@ -38,7 +38,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         value = bit.value match {
           case Some(v: Double) => DecimalValue(v)
           case Some(v: Long)   => LongValue(v)
-          case _               => sys.error("boom")
+          case unknown               => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
         }
       ))
 
