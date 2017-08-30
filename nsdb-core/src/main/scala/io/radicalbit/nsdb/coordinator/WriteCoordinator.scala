@@ -9,7 +9,7 @@ import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{RecordAdded, RecordR
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchemaFromRecord
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.coordinator.WriteCoordinator._
 
@@ -27,8 +27,8 @@ object WriteCoordinator {
 
   case class FlatInput(ts: Long, namespace: String, metric: String, data: Array[Byte]) extends WriteCoordinatorProtocol
 
-  case class MapInput(ts: Long, namespace: String, metric: String, record: Record) extends WriteCoordinatorProtocol
-  case class InputMapped(namespace: String, metric: String, record: Record)        extends WriteCoordinatorProtocol
+  case class MapInput(ts: Long, namespace: String, metric: String, record: Bit) extends WriteCoordinatorProtocol
+  case class InputMapped(namespace: String, metric: String, record: Bit)        extends WriteCoordinatorProtocol
 
   case class ExecuteDeleteStatement(namespace: String, statement: DeleteSQLStatement)
   case class DeleteStatementExecuted(count: Long)

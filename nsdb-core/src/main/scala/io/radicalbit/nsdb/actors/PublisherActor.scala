@@ -6,7 +6,7 @@ import java.util.UUID
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
-import io.radicalbit.nsdb.common.protocol.RecordOut
+import io.radicalbit.nsdb.common.protocol.BitOut
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator
@@ -50,7 +50,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               implicit val timeout = Timeout(3 seconds)
 
               (readCoordinator ? ExecuteStatement(query))
-                .mapTo[SelectStatementExecuted[RecordOut]]
+                .mapTo[SelectStatementExecuted[BitOut]]
                 .map(e => Subscribed(id, e.values))
                 .pipeTo(sender())
 
@@ -63,7 +63,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           case (id, _) =>
             implicit val timeout = Timeout(3 seconds)
             (readCoordinator ? ExecuteStatement(query))
-              .mapTo[SelectStatementExecuted[RecordOut]]
+              .mapTo[SelectStatementExecuted[BitOut]]
               .map(e => Subscribed(id, e.values))
               .pipeTo(sender())
         }
@@ -74,7 +74,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           subscribedActors += (quid -> (previousRegisteredActors + actor))
           implicit val timeout = Timeout(3 seconds)
           (readCoordinator ? ExecuteStatement(q.query))
-            .mapTo[SelectStatementExecuted[RecordOut]]
+            .mapTo[SelectStatementExecuted[BitOut]]
             .map(e => Subscribed(quid, e.values))
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
@@ -90,7 +90,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           luceneQuery match {
             case Success(parsedQuery) =>
               if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
-                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, RecordOut(record)))
+                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, BitOut(record)))
             case Failure(query) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
@@ -123,10 +123,10 @@ object PublisherActor {
   }
 
   object Events {
-    case class Subscribed(quid: String, records: Seq[RecordOut])
+    case class Subscribed(quid: String, records: Seq[BitOut])
     case class SubscriptionFailed(reason: String)
 
-    case class RecordPublished(quid: String, metric: String, record: RecordOut)
+    case class RecordPublished(quid: String, metric: String, record: BitOut)
     case object Unsubscribed
     case class QueryRemoved(quid: String)
   }

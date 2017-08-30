@@ -5,7 +5,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.GetCount
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{
   DeleteNamespace,
@@ -66,9 +66,9 @@ object NamespaceDataActor {
   def props(basePath: String): Props = Props(new NamespaceDataActor(basePath))
 
   object commands {
-    case class AddRecord(namespace: String, metric: String, record: Record)
-    case class AddRecords(namespace: String, metric: String, records: Seq[Record])
-    case class DeleteRecord(namespace: String, metric: String, record: Record)
+    case class AddRecord(namespace: String, metric: String, record: Bit)
+    case class AddRecords(namespace: String, metric: String, records: Seq[Bit])
+    case class DeleteRecord(namespace: String, metric: String, record: Bit)
     case class DeleteMetric(namespace: String, metric: String)
     case class DeleteAllMetrics(namespace: String)
   }
@@ -76,10 +76,10 @@ object NamespaceDataActor {
   object events {
     case class GetCount(namespace: String, metric: String)
     case class CountGot(namespace: String, metric: String, count: Int)
-    case class RecordAdded(namespace: String, metric: String, record: Record)
-    case class RecordsAdded(namespace: String, metric: String, record: Seq[Record])
-    case class RecordRejected(namespace: String, metric: String, record: Record, reasons: List[String])
-    case class RecordDeleted(namespace: String, metric: String, record: Record)
+    case class RecordAdded(namespace: String, metric: String, record: Bit)
+    case class RecordsAdded(namespace: String, metric: String, record: Seq[Bit])
+    case class RecordRejected(namespace: String, metric: String, record: Bit, reasons: List[String])
+    case class RecordDeleted(namespace: String, metric: String, record: Bit)
     case class MetricDeleted(namespace: String, metric: String)
     case class AllMetricsDeleted(namespace: String)
   }
