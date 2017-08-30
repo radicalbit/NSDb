@@ -8,7 +8,6 @@ import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.AddRecord
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{RecordAdded, RecordRejected}
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchemaFromRecord
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordPublished
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Record
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement

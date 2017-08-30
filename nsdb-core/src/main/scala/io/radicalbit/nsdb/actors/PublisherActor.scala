@@ -6,17 +6,21 @@ import java.util.UUID
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.RecordOut
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.store.FSDirectory
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 
 import scala.collection.mutable
 import scala.util.{Failure, Success}
+import scala.concurrent.duration._
 
-class PublisherActor(val basePath: String) extends Actor with ActorLogging {
+class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Actor with ActorLogging {
 
   lazy val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
 
@@ -27,6 +31,8 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
   override def preStart(): Unit = {
     queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
   }
+
+  implicit val disp = context.system.dispatcher
 
   override def receive = {
     case SubscribeBySqlStatement(actor, query) =>
@@ -40,21 +46,37 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
               val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
               subscribedActors += (id -> (previousRegisteredActors + actor))
               queries += (id          -> NsdbQuery(id, query))
-              sender ! Subscribed(id)
+
+              implicit val timeout = Timeout(3 seconds)
+
+              (readCoordinator ? ExecuteStatement(query))
+                .mapTo[SelectStatementExecuted[RecordOut]]
+                .map(e => Subscribed(id, e.values))
+                .pipeTo(sender())
+
               implicit val writer = queryIndex.getWriter
               queryIndex.write(NsdbQuery(id, query))
               writer.close()
             case Failure(ex) => sender ! SubscriptionFailed(ex.getMessage)
           }
         } {
-          case (id, _) => sender() ! Subscribed(id)
+          case (id, _) =>
+            implicit val timeout = Timeout(3 seconds)
+            (readCoordinator ? ExecuteStatement(query))
+              .mapTo[SelectStatementExecuted[RecordOut]]
+              .map(e => Subscribed(id, e.values))
+              .pipeTo(sender())
         }
     case SubscribeByQueryId(actor, quid) =>
       queries.get(quid) match {
         case Some(q) =>
           val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
           subscribedActors += (quid -> (previousRegisteredActors + actor))
-          sender() ! Subscribed(quid)
+          implicit val timeout = Timeout(3 seconds)
+          (readCoordinator ? ExecuteStatement(q.query))
+            .mapTo[SelectStatementExecuted[RecordOut]]
+            .map(e => Subscribed(quid, e.values))
+            .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
     case WriteCoordinator.InputMapped(_, metric, record) =>
@@ -68,7 +90,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
           luceneQuery match {
             case Success(parsedQuery) =>
               if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
-                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, record))
+                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, RecordOut(record)))
             case Failure(query) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
@@ -91,7 +113,7 @@ class PublisherActor(val basePath: String) extends Actor with ActorLogging {
 
 object PublisherActor {
 
-  def props(basePath: String): Props = Props(new PublisherActor(basePath))
+  def props(basePath: String, readCoordinator: ActorRef): Props = Props(new PublisherActor(basePath, readCoordinator))
 
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, query: SelectSQLStatement)
@@ -101,10 +123,10 @@ object PublisherActor {
   }
 
   object Events {
-    case class Subscribed(quid: String)
+    case class Subscribed(quid: String, records: Seq[RecordOut])
     case class SubscriptionFailed(reason: String)
 
-    case class RecordPublished(quid: String, metric: String, record: Record)
+    case class RecordPublished(quid: String, metric: String, record: RecordOut)
     case object Unsubscribed
     case class QueryRemoved(quid: String)
   }

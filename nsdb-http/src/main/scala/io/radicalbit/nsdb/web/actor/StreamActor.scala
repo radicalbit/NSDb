@@ -31,7 +31,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
         case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
           (publisher ? SubscribeBySqlStatement(self, statement.asInstanceOf[SelectSQLStatement]))
             .map {
-              case msg @ Subscribed(_) =>
+              case msg @ Subscribed(_, _) =>
                 OutgoingMessage(msg)
               case SubscriptionFailed(reason) =>
                 OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, reason))
@@ -48,7 +48,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
             (publisher ? SubscribeBySqlStatement(self, statement.asInstanceOf[SelectSQLStatement]))
               .map {
-                case msg @ Subscribed(_) =>
+                case msg @ Subscribed(_, _) =>
                   msg
                 case SubscriptionFailed(reason) =>
                   QuerystringRegistrationFailed(q.namespace, q.queryString, reason)
@@ -63,7 +63,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
     case RegisterQuid(quid) =>
       (publisher ? SubscribeByQueryId(self, quid))
         .map {
-          case msg @ Subscribed(_) =>
+          case msg @ Subscribed(_, _) =>
             OutgoingMessage(msg)
           case SubscriptionFailed(reason) =>
             OutgoingMessage(QuidRegistrationFailed(quid, reason))
@@ -73,7 +73,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       val results = quids.map(quid => {
         (publisher ? SubscribeByQueryId(self, quid))
           .map {
-            case msg @ Subscribed(_) =>
+            case msg @ Subscribed(_, _) =>
               msg
             case SubscriptionFailed(reason) =>
               QuidRegistrationFailed(quid, reason)

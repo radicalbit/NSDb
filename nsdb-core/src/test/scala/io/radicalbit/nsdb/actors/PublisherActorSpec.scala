@@ -2,16 +2,23 @@ package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 
-import akka.actor.{ActorSystem, PoisonPill}
+import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.{Record, RecordOut}
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
 import io.radicalbit.nsdb.index.QueryIndex
 import org.apache.lucene.store.FSDirectory
 import org.scalatest._
+
+class FakeReadCoordinatorActor extends Actor {
+  def receive: Receive = {
+    case ExecuteStatement(_) => sender() ! SelectStatementExecuted(Seq.empty)
+  }
+}
 
 class PublisherActorSpec
     extends TestKit(ActorSystem("PublisherActorSpec"))
@@ -21,10 +28,11 @@ class PublisherActorSpec
     with OneInstancePerTest
     with BeforeAndAfter {
 
-  val basePath       = "target/test_index_publisher_actor"
-  val probe          = TestProbe()
-  val probeActor     = probe.testActor
-  val publisherActor = TestActorRef[PublisherActor](PublisherActor.props(basePath))
+  val basePath   = "target/test_index_publisher_actor"
+  val probe      = TestProbe()
+  val probeActor = probe.testActor
+  val publisherActor =
+    TestActorRef[PublisherActor](PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor])))
 
   val testSqlStatement = SelectSQLStatement(
     namespace = "registry",
@@ -95,7 +103,7 @@ class PublisherActorSpec
     probe.send(publisherActor, InputMapped("namespace", "people", testRecordSatisfy))
     val recordPublished = probe.expectMsgType[RecordPublished]
     recordPublished.metric shouldBe "people"
-    recordPublished.record shouldBe testRecordSatisfy
+    recordPublished.record shouldBe RecordOut(testRecordSatisfy)
   }
 
   "PublisherActor" should "recover its queries when it is restarted" in {
@@ -104,7 +112,8 @@ class PublisherActorSpec
 
     probe.send(publisherActor, PoisonPill)
 
-    val newPublisherActor = system.actorOf(PublisherActor.props("target/test_index_publisher_actor"))
+    val newPublisherActor = system.actorOf(
+      PublisherActor.props("target/test_index_publisher_actor", system.actorOf(Props[FakeReadCoordinatorActor])))
 
     probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
     val newSubscribed = probe.expectMsgType[Subscribed]

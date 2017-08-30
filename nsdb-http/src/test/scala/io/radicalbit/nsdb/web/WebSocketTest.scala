@@ -1,17 +1,25 @@
 package io.radicalbit.nsdb.web
 
+import akka.actor.{Actor, Props}
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Events.Subscribed
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
 
+class FakeReadCoordinatorActor extends Actor {
+  def receive: Receive = {
+    case ExecuteStatement(_) => sender() ! SelectStatementExecuted(Seq.empty)
+  }
+}
+
 class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers with WsResources {
 
   val basePath       = "target/test_index_ws"
-  val publisherActor = system.actorOf(PublisherActor.props(basePath))
+  val publisherActor = system.actorOf(PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor])))
 
   val wsClient = WSProbe()
 
@@ -50,7 +58,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         println(subscribedMultipleQuuid)
         parse(subscribedMultipleQuuid).extractOpt[Seq[Subscribed]].isDefined shouldBe true
 
-        //TODO find out how to test it, i.e. combine somehow the actorsystem coming from ScalatestRouteTest and from Testkit
+        //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
       }
   }
 }
