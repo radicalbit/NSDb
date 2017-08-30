@@ -66,7 +66,7 @@ case class InsertSQLStatement(override val namespace: String,
                               override val metric: String,
                               timestamp: Option[Long],
                               dimensions: ListAssignment,
-                              fields: ListAssignment)
+                              value: JSerializable)
     extends SQLStatement
 
 case class DeleteSQLStatement(override val namespace: String, override val metric: String, condition: Condition)

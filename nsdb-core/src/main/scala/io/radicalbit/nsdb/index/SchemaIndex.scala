@@ -22,7 +22,7 @@ case class Schema(metric: String, fields: Seq[SchemaField])
 
 object Schema extends TypeSupport {
   def apply(metric: String, record: Record): Validated[NonEmptyList[String], Schema] = {
-    validateSchemaTypeSupport(record.dimensions ++ record.fields).map(fields =>
+    validateSchemaTypeSupport(record.dimensions + ("value" -> record.metric)).map(fields =>
       Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
   }
 }

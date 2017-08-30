@@ -29,22 +29,18 @@ object NSDB {
 
   object Metric {
     type Dimension = (String, JSerializable)
-    type Field     = (String, JSerializable)
+    type Field     = JSerializable
   }
 
   case class Metric(namespace: String,
                     name: String,
                     dimensions: List[Dimension] = List.empty[Dimension],
-                    fields: List[Field] = List.empty[Field],
+                    fields: Field = 0,
                     ts: Option[Long] = None)(implicit client: Client) {
 
     def dimension(dim: Dimension): Metric = copy(dimensions = dimensions :+ dim)
 
     def dimension(k: String, v: JSerializable): Metric = dimension((k, v))
-
-    def field(field: Field): Metric = copy(fields = fields :+ field)
-
-    def field(k: String, v: JSerializable): Metric = field((k, v))
 
     def timestamp(v: Long) = copy(ts = Some(v))
 
@@ -54,7 +50,7 @@ object NSDB {
                            metric = name,
                            timestamp = ts,
                            dimensions = ListAssignment(dimensions.toMap),
-                           fields = ListAssignment(fields.toMap)))
+                           value = fields))
   }
 
 }

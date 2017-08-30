@@ -11,7 +11,7 @@ object NSDBMain extends App {
     .connect(host = "127.0.0.1", port = 2552)
     .namespace("registry")
     .metric("people")
-    .field("name", "pippo")
+//    .va("name", "pippo")
     .dimension("surname", "pluto")
     .write()
 

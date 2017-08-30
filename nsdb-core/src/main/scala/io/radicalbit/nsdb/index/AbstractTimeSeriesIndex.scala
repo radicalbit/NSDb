@@ -44,7 +44,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Record, RecordOut] with Typ
     validateSchemaTypeSupport(data.dimensions)
       .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
       .combine(
-        validateSchemaTypeSupport(data.fields).map(se =>
+        validateSchemaTypeSupport(Map("value" -> data.metric)).map(se =>
           se.flatMap(elem => Seq(new StoredField(elem.name, elem.value.toString))))
       )
   }

@@ -20,7 +20,7 @@ object LoadTestRam extends App {
   val startRam = System.currentTimeMillis
 
   (0 to 10000000).foreach { i =>
-    val testData = Record(System.currentTimeMillis, Map("content" -> s"content_$i"), Map.empty)
+    val testData = Record(System.currentTimeMillis, Map("content" -> s"content_$i"), 0)
     ramBoundedIndex.write(testData)(ramWriter)
   }
 
