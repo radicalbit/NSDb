@@ -8,7 +8,7 @@ import io.radicalbit.nsdb.rpc.service.NSDBServiceGrpc
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
 import org.slf4j.LoggerFactory
 
@@ -44,9 +44,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record = Record(timestamp = request.timestamp,
-                        dimensions = Map.empty[String, JSerializable],
-                        fields = Map.empty[String, JSerializable])
+        record =
+          Bit(timestamp = request.timestamp, dimensions = Map.empty[String, JSerializable], metric = request.value)
       )).mapTo[InputMapped] map (_ => RPCInsertResult(true)) recover {
         case t => RPCInsertResult(false, t.getMessage)
       }

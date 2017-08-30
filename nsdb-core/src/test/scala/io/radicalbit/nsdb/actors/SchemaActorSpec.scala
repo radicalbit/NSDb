@@ -79,9 +79,8 @@ class SchemaActorSpec
   }
 
   "SchemaActor" should "update schemas coming from a record" in {
-    probe.send(
-      schemaActor,
-      UpdateSchemaFromRecord("namespace", "people", Bit(0, Map("name" -> "john", "surname" -> "doe"), 23.5)))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("namespace", "people", Bit(0, Map("name" -> "john", "surname" -> "doe"), 23.5)))
 
     probe.expectMsgType[SchemaUpdated]
 
