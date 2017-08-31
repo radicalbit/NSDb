@@ -16,7 +16,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
 
   private val _lastRead          = "_lastRead"
   private override val _keyField = "timestamp"
-  private val _valueField = "value"
+  private val _valueField        = "value"
 
   def write(data: Bit)(implicit writer: IndexWriter): LongValidation = {
     val doc     = new Document
@@ -42,7 +42,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
   }
 
   override def validateRecord(data: Bit): FieldValidation = {
-    validateSchemaTypeSupport(data.dimensions + (_valueField -> data.metric))
+    validateSchemaTypeSupport(data.dimensions + (_valueField -> data.value))
       .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
       .combine(
         validateSchemaTypeSupport(Map(_valueField -> data.metric)).map(se =>
@@ -51,15 +51,16 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
   }
 
   override def toRecord(document: Document): BitOut = {
-    val fields: Map[String, JSerializable] =
+    val dimensions: Map[String, JSerializable] =
       document.getFields.asScala
-        .filterNot(f => f.name() == _keyField || f.name() == _lastRead)
+        .filterNot(f => f.name() == _keyField || f.name() == _lastRead || f.name() == _valueField)
         .map {
           case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())
           case f                             => f.name() -> f.stringValue()
         }
         .toMap
-    BitOut(document.getField(_keyField).numericValue().longValue(), fields)
+    val value = document.getField(_valueField).numericValue()
+    BitOut(timestamp = document.getField(_keyField).numericValue().longValue(), value = value, dimensions = dimensions)
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Unit = {

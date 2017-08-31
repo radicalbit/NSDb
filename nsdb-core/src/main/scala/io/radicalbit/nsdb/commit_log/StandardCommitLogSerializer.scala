@@ -49,7 +49,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       _     = readByteBuffer.get(value)
     } yield (name, typ, value)).toList
 
-    InsertNewEntry(ts = ts, metric = metric, Bit(ts, dimensions = createDimensions(dimensions), 0))
+    InsertNewEntry(ts = ts, metric = metric, Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
   }
 
   override def serialize(entry: InsertNewEntry): Array[Byte] =

@@ -30,9 +30,9 @@ object WriteCoordinator {
   case class MapInput(ts: Long, namespace: String, metric: String, record: Bit) extends WriteCoordinatorProtocol
   case class InputMapped(namespace: String, metric: String, record: Bit)        extends WriteCoordinatorProtocol
 
-  case class ExecuteDeleteStatement(namespace: String, statement: DeleteSQLStatement)
-  case class DeleteStatementExecuted(count: Long)
-  case class DeleteStatementFailed(reason: String)
+  case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
+  case class DeleteStatementExecuted(namespace: String, metric: String, count: Long)
+  case class DeleteStatementFailed(namespace: String, metric: String, reason: String)
 
   case class DropMetric(namespace: String, metric: String)
   case class MetricDropped(namespace: String, metric: String)
@@ -85,7 +85,7 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
         .flatMap(_ => namespaceSchemaActor ? msg)
         .mapTo[NamespaceDeleted]
         .pipeTo(sender())
-    case msg @ ExecuteDeleteStatement(_, _) =>
+    case msg @ ExecuteDeleteStatement(_) =>
       namespaceDataActor forward msg
     case msg @ DropMetric(_, _) =>
       namespaceDataActor forward (msg)

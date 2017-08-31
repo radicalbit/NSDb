@@ -36,7 +36,7 @@ class NamespaceActorSpec()
 
   "namespaceActor" should "write and delete properly" in {
 
-    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 0.5)
+    val record = Bit(System.currentTimeMillis, 0.5, Map("content" -> s"content"))
 
     probe.send(namespaceActor, AddRecord(namespace, "namespaceActorMetric", record))
 
@@ -66,7 +66,7 @@ class NamespaceActorSpec()
 
   "namespaceActorSpec" should "write and delete properly in multiple namespaces" in {
 
-    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 24)
+    val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"))
 
     probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
@@ -85,7 +85,7 @@ class NamespaceActorSpec()
 
   "namespaceActorSpec" should "delete a namespace" in {
 
-    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 23)
+    val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 
     probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]

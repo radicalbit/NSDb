@@ -32,7 +32,8 @@ class TestSubscriber extends Actor {
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_) => sender() ! SelectStatementExecuted(Seq.empty)
+    case ExecuteStatement(_) =>
+      sender() ! SelectStatementExecuted(namespace = "testNamespace", metric = "testMetric", values = Seq.empty)
   }
 }
 
@@ -56,10 +57,10 @@ class WriteCoordinatorSpec
                                                                     publisherActor)
 
   "WriteCoordinator" should "write records" in {
-    val record1 = Bit(System.currentTimeMillis, Map("content" -> s"content"), 1)
-    val record2 = Bit(System.currentTimeMillis, Map("content" -> s"content", "content2" -> s"content2"), 2)
+    val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
+    val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
     val incompatibleRecord =
-      Bit(System.currentTimeMillis, Map("content" -> 1, "content2" -> s"content2"), 3)
+      Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"))
 
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record1))
 
@@ -81,7 +82,7 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "write records and publish event to its subscriber" in {
-    val testRecordSatisfy = Bit(100, Map("name" -> "john"), 1)
+    val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
     val testSqlStatement = SelectSQLStatement(
       namespace = "registry",
@@ -118,11 +119,11 @@ class WriteCoordinatorSpec
   "WriteCoordinator" should "delete entries" in {
 
     val records: Seq[Bit] = Seq(
-      Bit(2, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
-      Bit(4, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
-      Bit(6, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
-      Bit(8, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
-      Bit(10, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1)
+      Bit(2, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+      Bit(4, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+      Bit(6, 1, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+      Bit(8, 1, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
+      Bit(10, 1, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
     )
 
     records.foreach(r =>
@@ -135,7 +136,6 @@ class WriteCoordinatorSpec
     probe.send(
       writeCoordinatorActor,
       ExecuteDeleteStatement(
-        "testDelete",
         DeleteSQLStatement(
           namespace = "testDelete",
           metric = "testMetric",

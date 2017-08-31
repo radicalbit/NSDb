@@ -32,11 +32,11 @@ class ReadCoordinatorSpec
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Bit] = Seq(
-    Bit(2L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
-    Bit(4L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
-    Bit(6L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
-    Bit(8L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
-    Bit(10L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L)
+    Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(6L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
   )
 
   override def beforeAll(): Unit = {

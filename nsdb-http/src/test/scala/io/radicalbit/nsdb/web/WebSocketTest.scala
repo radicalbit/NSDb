@@ -12,7 +12,8 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_) => sender() ! SelectStatementExecuted(Seq.empty)
+    case ExecuteStatement(_) =>
+      sender() ! SelectStatementExecuted(namespace = "registry", metric = "people", values = Seq.empty)
   }
 }
 

@@ -37,8 +37,8 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
     case ExecuteSQLStatement(statement: SelectSQLStatement) =>
       (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
         .map {
-          case SelectStatementExecuted(values: Seq[BitOut]) =>
-            SQLStatementExecuted(values)
+          case SelectStatementExecuted(namespace, metric, values: Seq[BitOut]) =>
+            SQLStatementExecuted(namespace = namespace, metric = metric, values)
           case SelectStatementFailed(reason) =>
             throw new RuntimeException(s"Cannot execute the given select statement. The reason is $reason.")
         }
@@ -50,20 +50,26 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
         .map {
           case (namespace, metric, ts, dimensions, value) =>
             val timestamp = ts getOrElse System.currentTimeMillis
-            (writeCoordinator ? MapInput(timestamp, namespace, metric, Bit(timestamp, dimensions.fields, value)))
+            (writeCoordinator ? MapInput(timestamp,
+                                         namespace,
+                                         metric,
+                                         Bit(timestamp = timestamp, value = value, dimensions = dimensions.fields)))
               .mapTo[InputMapped]
         }
         .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
-      result.map(_ => SQLStatementExecuted(res = Seq.empty)).pipeTo(sender())
+      result
+        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
+        .pipeTo(sender())
     case ExecuteSQLStatement(statement: DeleteSQLStatement) =>
-      (writeCoordinator ? ExecuteDeleteStatement(statement.namespace, statement))
+      (writeCoordinator ? ExecuteDeleteStatement(statement))
         .mapTo[DeleteStatementExecuted]
-        .map(_ => SQLStatementExecuted(res = Seq.empty))
+        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
         .pipeTo(sender())
     case ExecuteSQLStatement(statement: DropSQLStatement) =>
       (writeCoordinator ? DropMetric(statement.namespace, statement.metric))
+      // FIXME: this must be a drop message
         .mapTo[DeleteStatementExecuted]
-        .map(_ => SQLStatementExecuted(res = Seq.empty))
+        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
         .pipeTo(sender())
   }
 }
