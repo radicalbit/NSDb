@@ -267,7 +267,7 @@ class ReadCoordinatorSpec
             SelectSQLStatement(
               namespace = "registry",
               metric = "people",
-              fields = ListFields(List(Field("creationDate", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation)))),
               condition = Some(Condition(
                 ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
               groupBy = Some("name")
