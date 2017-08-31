@@ -1,19 +1,23 @@
 package io.radicalbit.nsdb.api.scala
 
-import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
+import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 
 import scala.concurrent._
 import scala.concurrent.duration._
 
 object NSDBMain extends App {
 
-  val res: Future[SQLStatementExecuted] = NSDB
-    .connect(host = "127.0.0.1", port = 2552)
+  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global)
+
+  val series = nsdb
     .namespace("registry")
     .metric("people")
-    .field("name", "pippo")
-    .dimension("surname", "pluto")
-    .write()
+    .bit
+    .value(10)
+    .dimension("city", "Mouseton")
+    .dimension("gender", "M")
+
+  val res: Future[RPCInsertResult] = nsdb.write(series)
 
   println(Await.result(res, 10 seconds))
 }

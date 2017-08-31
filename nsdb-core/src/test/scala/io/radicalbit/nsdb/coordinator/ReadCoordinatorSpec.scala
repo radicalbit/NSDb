@@ -32,11 +32,21 @@ class ReadCoordinatorSpec
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Record] = Seq(
-    Record(2L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "1")),
-    Record(4L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "2")),
-    Record(6L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "3")),
-    Record(8L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "4")),
-    Record(10L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map("v" -> "5"))
+    Record(2L,
+           Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+           Map("v"    -> "1")),
+    Record(4L,
+           Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+           Map("v"    -> "2")),
+    Record(6L,
+           Map("name" -> "Bill", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+           Map("v"    -> "3")),
+    Record(8L,
+           Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+           Map("v"    -> "4")),
+    Record(10L,
+           Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+           Map("v"    -> "5"))
   )
 
   override def beforeAll(): Unit = {
@@ -142,11 +152,12 @@ class ReadCoordinatorSpec
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                UnaryLogicalExpression(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
-                NotOperator
-              ))),
+              condition = Some(
+                Condition(
+                  UnaryLogicalExpression(
+                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
+                    NotOperator
+                  ))),
               limit = Some(LimitOperator(4))
             )
           )
@@ -195,15 +206,12 @@ class ReadCoordinatorSpec
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                expression = TupledLogicalExpression(
-                  expression1 =
-                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
-                  operator = OrOperator,
-                  expression2 =
-                    ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
-                ),
-              )),
+              condition = Some(Condition(expression = TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                operator = OrOperator,
+                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+              ))),
               limit = Some(LimitOperator(5))
             )
           )

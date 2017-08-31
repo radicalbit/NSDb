@@ -55,7 +55,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Record, RecordOut] with Typ
         .filterNot(f => f.name() == _keyField || f.name() == _lastRead)
         .map {
           case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())
-          case f                            => f.name() -> f.stringValue()
+          case f                             => f.name() -> f.stringValue()
         }
         .toMap
     RecordOut(document.getField(_keyField).numericValue().longValue(), fields)

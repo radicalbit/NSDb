@@ -4,7 +4,7 @@ import java.io.BufferedReader
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.client.Client
+import io.radicalbit.nsdb.client.akka.AkkaClusterClient
 import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
@@ -21,7 +21,7 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
 
   implicit lazy val system = ActorSystem("nsdb-cli", ConfigFactory.load("cli"), getClass.getClassLoader)
 
-  val clientDelegate = new Client()
+  val clientDelegate = new AkkaClusterClient()
 
   val parser = new SQLStatementParser()
 

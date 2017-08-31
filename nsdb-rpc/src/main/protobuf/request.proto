@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+import "google/protobuf/any.proto";
+
+message RPCInsert {
+    string namespace = 1;
+    string metric = 2;
+    int64 timestamp = 3;
+    oneof value {
+        double decimalValue = 4;
+        int64 longValue = 5;
+    }
+    map<string, google.protobuf.Any> dimensions = 7;
+}

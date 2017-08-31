@@ -1,67 +1,80 @@
 package io.radicalbit.nsdb.api.scala
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.api.scala.NSDB.Metric.{Dimension, Field}
-import io.radicalbit.nsdb.api.scala.NSDB.Namespace
-import io.radicalbit.nsdb.client.Client
+import io.radicalbit.nsdb.api.scala.NSDB.Dimension
+import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
-import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, ListAssignment}
+import io.radicalbit.nsdb.rpc.request.RPCInsert
+import io.radicalbit.nsdb.rpc.request.RPCInsert.Value.{DecimalValue, LongValue}
+import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object NSDB {
+
+  type Metric[T] = (String, T)
+  type Dimension = (String, JSerializable)
+  type Field     = (String, JSerializable)
 
   private val host = "127.0.0.1"
 
   private val port = 2552
 
-  private implicit val system = ActorSystem("nsdb-scala-api", ConfigFactory.load("scala-api"))
+  def connect(host: String = host, port: Int = port)(implicit executionContextExecutor: ExecutionContext): NSDB =
+    new NSDB(host = host, port = port)
+}
 
-  def connect(host: String = host, port: Int = port): NSDB = new NSDB(host = host, port = port)
+case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
 
-  case class Namespace(name: String, metric: Option[Metric] = None)(implicit client: Client) {
+  private val client = new GRPCClient(host = host, port = port)
 
-    def metric(metric: String): Metric = Metric(namespace = name, name = metric)
+  def namespace(name: String): Namespace = Namespace(name)
 
-  }
+  def write(bit: Bit): Future[RPCInsertResult] =
+    client.write(
+      RPCInsert(
+        namespace = bit.namespace,
+        metric = bit.metric,
+        timestamp = bit.ts getOrElse (System.currentTimeMillis),
+        value = bit.value match {
+          case Some(v: Double) => DecimalValue(v)
+          case Some(v: Long)   => LongValue(v)
+          case _               => sys.error("boom")
+        }
+      ))
 
-  object Metric {
-    type Dimension = (String, JSerializable)
-    type Field     = (String, JSerializable)
-  }
+  // FIXME: this is not optimized, we should implement a bulk feature
+  def write(bs: List[Bit]): Future[List[RPCInsertResult]] =
+    Future.sequence(bs.map(x => write(x)))
 
-  case class Metric(namespace: String,
-                    name: String,
-                    dimensions: List[Dimension] = List.empty[Dimension],
-                    fields: List[Field] = List.empty[Field],
-                    ts: Option[Long] = None)(implicit client: Client) {
+  def close() = {}
+}
 
-    def dimension(dim: Dimension): Metric = copy(dimensions = dimensions :+ dim)
+case class Namespace(name: String) {
 
-    def dimension(k: String, v: JSerializable): Metric = dimension((k, v))
-
-    def field(field: Field): Metric = copy(fields = fields :+ field)
-
-    def field(k: String, v: JSerializable): Metric = field((k, v))
-
-    def timestamp(v: Long) = copy(ts = Some(v))
-
-    def write(): Future[SQLStatementExecuted] =
-      client.executeSqlStatement(
-        InsertSQLStatement(namespace = namespace,
-                           metric = name,
-                           timestamp = ts,
-                           dimensions = ListAssignment(dimensions.toMap),
-                           fields = ListAssignment(fields.toMap)))
-  }
+  def metric(metric: String): Metric = Metric(namespace = name, metric = metric)
 
 }
 
-case class NSDB(host: String, port: Int)(implicit system: ActorSystem) {
+case class Metric(namespace: String, metric: String) {
 
-  private implicit val client = new Client(host = host, port = port)
+  def bit: Bit = Bit(namespace = namespace, metric = metric)
 
-  def namespace(name: String): Namespace = Namespace(name)
+}
+
+case class Bit(namespace: String,
+               metric: String,
+               ts: Option[Long] = None,
+               private val valueDec: Option[Double] = None,
+               private val valueLong: Option[Long] = None,
+               dimensions: List[Dimension] = List.empty[Dimension]) {
+
+  def value(v: Long) = copy(valueDec = None, valueLong = Some(v))
+
+  def value(v: Double) = copy(valueDec = Some(v), valueLong = None)
+
+  def value: Option[AnyVal] = valueDec orElse valueLong
+
+  def dimension(dim: Dimension): Bit = copy(dimensions = dimensions :+ dim)
+
+  def timestamp(v: Long): Bit = copy(ts = Some(v))
 }
