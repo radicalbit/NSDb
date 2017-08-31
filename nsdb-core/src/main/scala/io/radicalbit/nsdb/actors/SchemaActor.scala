@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, Props}
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events._
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{GetSchema, SchemaGot}
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.SchemaField
 
