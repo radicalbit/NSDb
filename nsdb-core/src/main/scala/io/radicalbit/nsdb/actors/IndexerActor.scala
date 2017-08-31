@@ -3,9 +3,10 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, Props}
+import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
-import io.radicalbit.nsdb.common.protocol.RecordOut
+import io.radicalbit.nsdb.common.protocol.BitOut
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.MetricDropped
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
@@ -31,7 +32,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       newIndex
     })
 
-  private def handleQueryResults(out: Try[Seq[RecordOut]]) = {
+  private def handleQueryResults(out: Try[Seq[BitOut]]) = {
     out match {
       case Success(docs) =>
         log.debug("found {} records", docs.size)
@@ -49,10 +50,13 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case AddRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
-      index.write(record)
+      val w               = index.write(record)
       writer.flush()
       writer.close()
-      sender ! RecordAdded(ns, metric, record)
+      w match {
+        case Valid(r)   => sender ! RecordAdded(ns, metric, record)
+        case Invalid(l) => sender ! RecordRejected(ns, metric, record, l.toList)
+      }
     case AddRecords(ns, metric, records) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter

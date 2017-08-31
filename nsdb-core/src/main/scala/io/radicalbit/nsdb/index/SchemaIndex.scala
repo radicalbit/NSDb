@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.index
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import cats.data.{NonEmptyList, Validated}
 import cats.implicits._
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
@@ -21,8 +21,8 @@ import scala.util.{Failure, Success, Try}
 case class Schema(metric: String, fields: Seq[SchemaField])
 
 object Schema extends TypeSupport {
-  def apply(metric: String, record: Record): Validated[NonEmptyList[String], Schema] = {
-    validateSchemaTypeSupport(record.dimensions ++ record.fields).map(fields =>
+  def apply(metric: String, record: Bit): Validated[NonEmptyList[String], Schema] = {
+    validateSchemaTypeSupport(record.dimensions + ("value" -> record.metric)).map(fields =>
       Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
   }
 }

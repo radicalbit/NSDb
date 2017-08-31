@@ -11,8 +11,7 @@ object NSDBMain extends App {
 
   val series = nsdb
     .namespace("registry")
-    .metric("people")
-    .bit
+    .bit("people")
     .value(10)
     .dimension("city", "Mouseton")
     .dimension("gender", "M")

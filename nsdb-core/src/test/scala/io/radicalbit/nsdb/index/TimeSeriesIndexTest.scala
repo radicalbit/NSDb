@@ -3,7 +3,8 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
-import io.radicalbit.nsdb.common.protocol.Record
+import cats.data.Validated.Valid
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint
@@ -23,7 +24,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 100).foreach { i =>
-      val testData = Record(System.currentTimeMillis, Map("content" -> s"content_$i"), Map.empty)
+      val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_$i"), 23)
       boundedIndex.write(testData)
     }
     writer.close()
@@ -42,7 +43,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 100).foreach { i =>
-      val testData = Record(System.currentTimeMillis, Map("content" -> s"content_$i"), Map.empty)
+      val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_$i"), 23.5)
       boundedIndex.write(testData)
     }
 
@@ -71,7 +72,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val timestamp = System.currentTimeMillis
 
-    val testData = Record(timestamp, Map("content" -> s"content"), Map.empty)
+    val testData = Bit(timestamp, Map("content" -> s"content"), 0.2)
 
     boundedIndex.write(testData)
 
@@ -104,7 +105,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 9).foreach { i =>
-      val testData = Record(System.currentTimeMillis, Map("content" -> s"content_${i / 4}", "number" -> i), Map.empty)
+      val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_${i / 4}", "number" -> i), 10)
       boundedIndex.write(testData)
     }
 

@@ -6,7 +6,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{CountGot, GetCount, RecordAdded, RecordDeleted}
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
@@ -36,7 +36,7 @@ class NamespaceActorSpec()
 
   "namespaceActor" should "write and delete properly" in {
 
-    val record = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
+    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 0.5)
 
     probe.send(namespaceActor, AddRecord(namespace, "namespaceActorMetric", record))
 
@@ -66,7 +66,7 @@ class NamespaceActorSpec()
 
   "namespaceActorSpec" should "write and delete properly in multiple namespaces" in {
 
-    val record = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
+    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 24)
 
     probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
@@ -85,7 +85,7 @@ class NamespaceActorSpec()
 
   "namespaceActorSpec" should "delete a namespace" in {
 
-    val record = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
+    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 23)
 
     probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]

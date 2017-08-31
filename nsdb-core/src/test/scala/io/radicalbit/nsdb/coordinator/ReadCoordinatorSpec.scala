@@ -7,7 +7,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecords, DeleteMetric}
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchema
 import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
-import io.radicalbit.nsdb.common.protocol.{Record, RecordOut}
+import io.radicalbit.nsdb.common.protocol.{Bit, BitOut}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
@@ -31,22 +31,12 @@ class ReadCoordinatorSpec
   val indexerActor         = system.actorOf(IndexerActor.props(basePath, namespace))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
-  val records: Seq[Record] = Seq(
-    Record(2L,
-           Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
-           Map("v"    -> "1")),
-    Record(4L,
-           Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
-           Map("v"    -> "2")),
-    Record(6L,
-           Map("name" -> "Bill", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
-           Map("v"    -> "3")),
-    Record(8L,
-           Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
-           Map("v"    -> "4")),
-    Record(10L,
-           Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
-           Map("v"    -> "5"))
+  val records: Seq[Bit] = Seq(
+    Bit(2L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
+    Bit(4L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
+    Bit(6L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
+    Bit(8L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L),
+    Bit(10L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1L)
   )
 
   override def beforeAll(): Unit = {
@@ -73,7 +63,7 @@ class ReadCoordinatorSpec
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
                    ))
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size should be(5)
       }
@@ -93,7 +83,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size should be(5)
       }
@@ -114,7 +104,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size should be(2)
       }
@@ -136,10 +126,10 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size shouldBe 1
-        expected.values.head shouldBe RecordOut(records(4))
+        expected.values.head shouldBe BitOut(records(4))
       }
     }
 
@@ -163,7 +153,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size should be(4)
 
@@ -191,7 +181,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size should be(1)
       }
@@ -216,7 +206,7 @@ class ReadCoordinatorSpec
             )
           )
         )
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
         expected.values.size should be(5)
       }
     }
@@ -237,7 +227,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[RecordOut]]
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size should be(3)
       }

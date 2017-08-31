@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.index
 
 import cats.Monoid
 import cats.data.{NonEmptyList, Validated}
-import io.radicalbit.nsdb.JLong
+import io.radicalbit.nsdb.{JLong, JDouble}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
@@ -91,10 +91,14 @@ case class BIGINT() extends IndexType[JLong] {
     )
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
-case class DECIMAL() extends IndexType[Float] {
-  def actualType = classOf[Float]
+case class DECIMAL() extends IndexType[JDouble] {
+  def actualType = classOf[JDouble]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new FloatPoint(fieldName, value.toString.toFloat), new StoredField(fieldName, value.toString.toFloat))
+    Seq(
+      new FloatPoint(fieldName, value.toString.toFloat),
+      new DoubleDocValuesField(fieldName, value.toString.toDouble),
+      new StoredField(fieldName, value.toString.toFloat)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toFloat
 }
 case class BOOLEAN() extends IndexType[Boolean] {

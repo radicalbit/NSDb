@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, Record, RecordOut, SQLStatementExecuted}
+import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, Bit, BitOut, SQLStatementExecuted}
 import io.radicalbit.nsdb.common.statement.{
   DeleteSQLStatement,
   DropSQLStatement,
@@ -37,7 +37,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
     case ExecuteSQLStatement(statement: SelectSQLStatement) =>
       (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
         .map {
-          case SelectStatementExecuted(values: Seq[RecordOut]) =>
+          case SelectStatementExecuted(values: Seq[BitOut]) =>
             SQLStatementExecuted(values)
           case SelectStatementFailed(reason) =>
             throw new RuntimeException(s"Cannot execute the given select statement. The reason is $reason.")
@@ -48,12 +48,9 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
       val result = InsertSQLStatement
         .unapply(statement)
         .map {
-          case (namespace, metric, ts, dimensions, fields) =>
+          case (namespace, metric, ts, dimensions, value) =>
             val timestamp = ts getOrElse System.currentTimeMillis
-            (writeCoordinator ? MapInput(timestamp,
-                                         namespace,
-                                         metric,
-                                         Record(timestamp, dimensions.fields, fields.fields)))
+            (writeCoordinator ? MapInput(timestamp, namespace, metric, Bit(timestamp, dimensions.fields, value)))
               .mapTo[InputMapped]
         }
         .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))

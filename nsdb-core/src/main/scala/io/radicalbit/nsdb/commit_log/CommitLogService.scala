@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 
 object CommitLogService {
 
@@ -12,7 +12,7 @@ object CommitLogService {
 
   sealed trait JournalServiceProtocol
 
-  case class Insert(ts: Long, metric: String, record: Record) extends JournalServiceProtocol
+  case class Insert(ts: Long, metric: String, record: Bit) extends JournalServiceProtocol
 
   case class Delete(ts: Long, metric: String) extends JournalServiceProtocol
 

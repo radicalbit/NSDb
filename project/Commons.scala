@@ -1,7 +1,8 @@
+import sbt.Keys._
 import sbt._
-import Keys._
 import sbtassembly.AssemblyKeys._
-import Dependencies._
+import sbtassembly.AssemblyPlugin.autoImport.{MergeStrategy, assemblyMergeStrategy}
+import sbtassembly.PathList
 
 object Commons {
 
@@ -17,6 +18,12 @@ object Commons {
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"
     ),
     parallelExecution in Test := false,
-    test in assembly := {}
+    test in assembly := {},
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    }
   )
 }

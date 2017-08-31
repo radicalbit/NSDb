@@ -5,7 +5,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.AllSchemasDeleted
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
 import io.radicalbit.nsdb.index.Schema
 
@@ -57,7 +57,7 @@ object NamespaceSchemaActor {
   object commands {
     case class GetSchema(namespace: String, metric: String)
     case class UpdateSchema(namespace: String, metric: String, newSchema: Schema)
-    case class UpdateSchemaFromRecord(namespace: String, metric: String, record: Record)
+    case class UpdateSchemaFromRecord(namespace: String, metric: String, record: Bit)
     case class DeleteSchema(namespace: String, metric: String)
     case class DeleteAllSchemas(namespace: String)
   }

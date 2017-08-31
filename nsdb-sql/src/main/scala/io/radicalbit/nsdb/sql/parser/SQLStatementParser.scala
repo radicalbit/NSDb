@@ -15,7 +15,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val Insert           = "INSERT INTO" ignoreCase
   private val Dim              = "DIM" ignoreCase
   private val Ts               = "TS" ignoreCase
-  private val Fld              = "FLD" ignoreCase
+  private val Val              = "VAL" ignoreCase
   private val Select           = "SELECT" ignoreCase
   private val Delete           = "DELETE" ignoreCase
   private val Drop             = "Drop" ignoreCase
@@ -54,8 +54,11 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
-  private val digits  = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]+)""".r
-  private val numbers = """([0-9]+)""".r
+  private val digits     = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
+  private val numbers    = """([0-9]+)""".r
+  private val intValue   = numbers ^^ { _.toInt }
+  private val longValue  = numbers ^^ { _.toLong }
+  private val floatValue = """([0-9]+)\.([0-9]+)""".r ^^ { _.toFloat }
 
   private val field = digits ^^ { e =>
     Field(e, None)
@@ -66,7 +69,6 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val metric      = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val dimension   = digits
   private val stringValue = digits
-  private val intValue    = numbers ^^ { _.toInt }
 
   private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
     case "H" => 3600 * 1000
@@ -79,7 +81,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case "-" ~ v ~ measure => System.currentTimeMillis() - v * measure
   }
 
-  private val timestamp = delta | numbers ^^ { _.toLong }
+  private val timestamp = delta | longValue
 
   private val selectFields = (All | aggField | field) ~ rep(Comma ~> field) ^^ {
     case f ~ fs =>
@@ -91,7 +93,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timestampAssignment = (Ts ~ Equal) ~> timestamp
 
-  private val assignment = (digits <~ Equal) ~ (stringValue | intValue) ^^ {
+  private val valueAssignment = (Val ~ Equal) ~> (floatValue | intValue)
+
+  private val assignment = (dimension <~ Equal) ~ (stringValue | floatValue | intValue) ^^ {
     case k ~ v => k -> v.asInstanceOf[JSerializable]
   }
 
@@ -184,13 +188,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def insertQuery(namespace: String) =
     (Insert ~> metric) ~
       (timestampAssignment ?) ~
-      (Dim ~> assignments) ~ ((Fld ~> assignments) ?) ^^ {
-      case met ~ ts ~ dimensions ~ fields =>
+      (Dim ~> assignments) ~ valueAssignment ^^ {
+      case met ~ ts ~ dimensions ~ value =>
         InsertSQLStatement(namespace = namespace,
                            metric = met,
                            timestamp = ts,
                            ListAssignment(dimensions),
-                           fields.map(ListAssignment) getOrElse ListAssignment(Map.empty))
+                           value.asInstanceOf[JSerializable])
     }
 
   private def query(namespace: String): Parser[SQLStatement] =

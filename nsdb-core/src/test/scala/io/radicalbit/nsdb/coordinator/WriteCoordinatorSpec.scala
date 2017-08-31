@@ -8,7 +8,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
 import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.common.protocol.Record
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator._
@@ -56,10 +56,10 @@ class WriteCoordinatorSpec
                                                                     publisherActor)
 
   "WriteCoordinator" should "write records" in {
-    val record1 = Record(System.currentTimeMillis, Map("content" -> s"content"), Map.empty)
-    val record2 = Record(System.currentTimeMillis, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
+    val record1 = Bit(System.currentTimeMillis, Map("content" -> s"content"), 1)
+    val record2 = Bit(System.currentTimeMillis, Map("content" -> s"content", "content2" -> s"content2"), 2)
     val incompatibleRecord =
-      Record(System.currentTimeMillis, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
+      Bit(System.currentTimeMillis, Map("content" -> 1, "content2" -> s"content2"), 3)
 
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record1))
 
@@ -81,7 +81,7 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "write records and publish event to its subscriber" in {
-    val testRecordSatisfy = Record(100, Map("name" -> "john"), Map.empty)
+    val testRecordSatisfy = Bit(100, Map("name" -> "john"), 1)
 
     val testSqlStatement = SelectSQLStatement(
       namespace = "registry",
@@ -117,12 +117,12 @@ class WriteCoordinatorSpec
 
   "WriteCoordinator" should "delete entries" in {
 
-    val records: Seq[Record] = Seq(
-      Record(2, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-      Record(4, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-      Record(6, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-      Record(8, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-      Record(10, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty)
+    val records: Seq[Bit] = Seq(
+      Bit(2, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
+      Bit(4, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
+      Bit(6, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
+      Bit(8, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1),
+      Bit(10, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), 1)
     )
 
     records.foreach(r =>
