@@ -89,6 +89,12 @@ object Dependencies {
 
   lazy val asm = "asm" % "asm" % "3.3.1" % Test //import to use ClosureCleaner in test
 
+  object asciitable {
+    lazy val version   = "0.3.2"
+    lazy val namespace = "de.vandermeer"
+    lazy val core      = namespace % "asciitable" % version
+  }
+
   object Core {
     val libraries = Seq(
       cats.cats,

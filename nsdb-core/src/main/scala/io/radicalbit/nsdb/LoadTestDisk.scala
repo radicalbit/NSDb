@@ -20,7 +20,7 @@ object LoadTestDisk extends App {
   val startDisk = System.currentTimeMillis
 
   (0 to 10000000).foreach { i =>
-    val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_$i"), 0)
+    val testData = Bit(timestamp = System.currentTimeMillis, value = 0, dimensions = Map("content" -> s"content_$i"))
     diskBoundedIndex.write(testData)(diskWriter)
   }
 

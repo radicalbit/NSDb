@@ -24,7 +24,8 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 100).foreach { i =>
-      val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_$i"), 23)
+      val testData =
+        Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_$i"))
       boundedIndex.write(testData)
     }
     writer.close()
@@ -43,7 +44,8 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 100).foreach { i =>
-      val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_$i"), 23.5)
+      val testData =
+        Bit(timestamp = System.currentTimeMillis, value = 23.5, dimensions = Map("content" -> s"content_$i"))
       boundedIndex.write(testData)
     }
 
@@ -72,7 +74,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val timestamp = System.currentTimeMillis
 
-    val testData = Bit(timestamp, Map("content" -> s"content"), 0.2)
+    val testData = Bit(timestamp = timestamp, value = 0.2, dimensions = Map("content" -> s"content"))
 
     boundedIndex.write(testData)
 
@@ -105,7 +107,9 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val boundedIndex = new TimeSeriesIndex(directory)
 
     (0 to 9).foreach { i =>
-      val testData = Bit(System.currentTimeMillis, Map("content" -> s"content_${i / 4}", "number" -> i), 10)
+      val testData = Bit(timestamp = System.currentTimeMillis,
+                         value = 10,
+                         dimensions = Map("content" -> s"content_${i / 4}", "number" -> i))
       boundedIndex.write(testData)
     }
 

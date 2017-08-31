@@ -38,6 +38,6 @@ object ReadCoordinator {
 
   case class ExecuteStatement(selectStatement: SelectSQLStatement)
   case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
-  case class SelectStatementExecuted[T](values: Seq[T])
+  case class SelectStatementExecuted[T](namespace: String, metric: String, values: Seq[T])
   case class SelectStatementFailed(reason: String)
 }

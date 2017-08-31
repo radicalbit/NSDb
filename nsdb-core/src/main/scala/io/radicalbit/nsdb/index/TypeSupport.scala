@@ -28,8 +28,8 @@ trait TypeSupport {
       }
   }
 
-  def validateSchemaTypeSupport(fields: Map[String, JSerializable]): SchemaValidation = {
-    fields.map { case (n, v) => IndexType.fromRawField(RawField(n, v)) }.toList.combineAll
+  def validateSchemaTypeSupport(dimensions: Map[String, JSerializable]): SchemaValidation = {
+    dimensions.map { case (n, v) => IndexType.fromRawField(RawField(n, v)) }.toList.combineAll
   }
 }
 

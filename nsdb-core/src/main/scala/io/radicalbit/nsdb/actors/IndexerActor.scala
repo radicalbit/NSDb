@@ -32,14 +32,14 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       newIndex
     })
 
-  private def handleQueryResults(out: Try[Seq[BitOut]]) = {
+  private def handleQueryResults(metric: String, out: Try[Seq[BitOut]]) = {
     out match {
       case Success(docs) =>
         log.debug("found {} records", docs.size)
-        sender() ! ReadCoordinator.SelectStatementExecuted(docs)
+        sender() ! ReadCoordinator.SelectStatementExecuted(namespace = namespace, metric = metric, docs)
       case Failure(_: IndexNotFoundException) =>
         log.debug("index not found")
-        sender() ! ReadCoordinator.SelectStatementExecuted(Seq.empty)
+        sender() ! ReadCoordinator.SelectStatementExecuted(namespace = namespace, metric = metric, Seq.empty)
       case Failure(ex) =>
         log.error(ex, "select statement failed")
         sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
@@ -92,20 +92,24 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
-          handleQueryResults(Try(getIndex(metric).query(q, limit, sort)))
+          handleQueryResults(metric, Try(getIndex(metric).query(q, limit, sort)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
-          handleQueryResults(Try(getIndex(metric).query(q, collector)))
+          handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
+        case _           => sender() ! ReadCoordinator.SelectStatementFailed("Not a select statement.")
       }
-    case WriteCoordinator.ExecuteDeleteStatement(_, statement) =>
+    case WriteCoordinator.ExecuteDeleteStatement(statement) =>
       statementParser.parseStatement(statement) match {
         case Success(ParsedDeleteQuery(_, metric, q)) =>
           val index            = getIndex(metric)
           implicit val writer  = index.getWriter
           val numberOfDeletion = index.delete(q)
           writer.close()
-          sender() ! WriteCoordinator.DeleteStatementExecuted(numberOfDeletion)
-        case Failure(ex) => sender() ! WriteCoordinator.DeleteStatementFailed(ex.getMessage)
+          sender() ! WriteCoordinator.DeleteStatementExecuted(namespace = namespace, metric = metric, numberOfDeletion)
+        case Failure(ex) =>
+          sender() ! WriteCoordinator.DeleteStatementFailed(namespace = namespace,
+                                                            metric = statement.metric,
+                                                            ex.getMessage)
       }
     case WriteCoordinator.DropMetric(_, metric) =>
       indexes
