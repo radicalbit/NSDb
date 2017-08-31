@@ -41,12 +41,8 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
   }
 
   override def validateRecord(data: Bit): FieldValidation = {
-    validateSchemaTypeSupport(data.dimensions)
+    validateSchemaTypeSupport(data.dimensions + ("value" -> data.metric))
       .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
-      .combine(
-        validateSchemaTypeSupport(Map("value" -> data.metric)).map(se =>
-          se.flatMap(elem => Seq(new StoredField(elem.name, elem.value.toString))))
-      )
   }
 
   override def toRecord(document: Document): BitOut = {

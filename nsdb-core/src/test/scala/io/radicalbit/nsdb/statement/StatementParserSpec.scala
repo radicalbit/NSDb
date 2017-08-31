@@ -4,6 +4,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.lucene.SumAllGroupsCollector
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.document.LongPoint
+import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
 
@@ -163,6 +164,47 @@ class StatementParserSpec extends WordSpec with Matchers {
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
                     .add(LongPoint.newRangeQuery("timestamp", 0, 4L - 1), BooleanClause.Occur.SHOULD)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
+              4,
+              List("name")
+            )
+          )
+        )
+      }
+    }
+
+    "receive a select containing a GTE OR a = selection" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(UnaryLogicalExpression(
+              expression = TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                operator = OrOperator,
+                expression2 = EqualityExpression(dimension = "name", value = "john")
+              ),
+              operator = NotOperator
+            ))),
+            limit = Some(LimitOperator(4))
+          )
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery, BooleanClause.Occur.MUST)
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
+                    .add(new TermQuery(new Term("name", "john")), BooleanClause.Occur.SHOULD)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )
