@@ -76,7 +76,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case "S" => 1000
   }
 
-  private val delta = now ~> ("+" | "-") ~ intValue ~ timeMeasure ^^ {
+  private val delta = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
     case "+" ~ v ~ measure => System.currentTimeMillis() + v * measure
     case "-" ~ v ~ measure => System.currentTimeMillis() - v * measure
   }
@@ -129,7 +129,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def orTupledLogicalExpression = tupledLogicalExpression(Or, OrOperator)
 
   private def equalityExpression = (dimension <~ Equal) ~ (stringValue | floatValue | timestamp) ^^ {
-    case dim ~ v => EqualityExpression(dim, v.asInstanceOf[JSerializable])
+    case dim ~ v => EqualityExpression(dim, v)
   }
 
   private def comparisonExpression: Parser[ComparisonExpression[_]] =

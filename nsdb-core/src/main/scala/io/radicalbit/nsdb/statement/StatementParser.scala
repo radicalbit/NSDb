@@ -4,7 +4,8 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.statement.StatementParser._
-import org.apache.lucene.document.LongPoint
+import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
+import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 
 import scala.util.{Failure, Success, Try}
@@ -13,6 +14,10 @@ class StatementParser {
 
   private def parseExpression(exp: Option[Expression]): ParsedExpression = {
     val q = exp match {
+      case Some(EqualityExpression(dimension, value: Int))    => IntPoint.newRangeQuery(dimension, value, value)
+      case Some(EqualityExpression(dimension, value: Long))   => LongPoint.newRangeQuery(dimension, value, value)
+      case Some(EqualityExpression(dimension, value: Double)) => DoublePoint.newRangeQuery(dimension, value, value)
+      case Some(EqualityExpression(dimension, value: String)) => new TermQuery(new Term(dimension, value))
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
         operator match {
           case GreaterThanOperator      => LongPoint.newRangeQuery(dimension, value + 1, Long.MaxValue)

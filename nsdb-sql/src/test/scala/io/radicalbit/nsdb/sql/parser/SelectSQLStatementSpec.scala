@@ -65,8 +65,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(
-              EqualityExpression(dimension = "timestamp", value = 10L)))
+            condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10L)))
           )))
       }
 
@@ -106,16 +105,15 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
               operator = AndOperator,
-              expression2 =
-                EqualityExpression(dimension = "timestamp", value = 4l)
+              expression2 = EqualityExpression(dimension = "timestamp", value = 4L)
             )))
           )))
       }
 
       "parse it successfully using relative time" in {
         val statement = parser.parse(namespace = "registry",
-          input =
-            "SELECT name FROM people WHERE timestamp > now - 2h AND timestamp = now + 4m")
+                                     input =
+                                       "SELECT name FROM people WHERE timestamp > now - 2h AND timestamp = now + 4m")
         statement.isSuccess shouldBe true
       }
     }

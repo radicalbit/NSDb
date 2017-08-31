@@ -211,6 +211,54 @@ class ReadCoordinatorSpec
       }
     }
 
+    "receive a select containing a = selection" should {
+      "execute it successfully" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 2L))),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
+
+        expected.values.size should be(1)
+      }
+    }
+
+    "receive a select containing a GTE AND a = selection" should {
+      "execute it successfully" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              namespace = "registry",
+              metric = "people",
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(
+                expression = TupledLogicalExpression(
+                  expression1 =
+                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                  operator = AndOperator,
+                  expression2 =
+                    EqualityExpression(dimension = "name", value = "John")
+                ),
+              )),
+              limit = Some(LimitOperator(5))
+            )
+          )
+        )
+        val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
+        expected.values.size should be(2)
+      }
+    }
+
     "receive a select containing a GTE selection and a group by" should {
       "execute it successfully" in {
         probe.send(
