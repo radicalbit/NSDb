@@ -10,6 +10,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
+import io.radicalbit.nsdb.rpc.request.RPCInsert.Value.LongValue
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,8 +45,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record =
-          Bit(timestamp = request.timestamp, dimensions = Map.empty[String, JSerializable], value = request.value)
+        record = Bit(timestamp = request.timestamp, dimensions = Map.empty[String, JSerializable], value = valueFor(request.value))
       )).mapTo[InputMapped] map (_ => RPCInsertResult(true)) recover {
         case t => RPCInsertResult(false, t.getMessage)
       }
@@ -54,6 +54,11 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       log.info("The result is {}", res)
 
       res
+    }
+
+    private def valueFor(v: RPCInsert.Value): JSerializable = v match {
+      case _: RPCInsert.Value.LongValue => v.longValue.get
+      case _: RPCInsert.Value.DecimalValue => v.decimalValue.get
     }
   }
 }

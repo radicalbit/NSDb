@@ -1,10 +1,9 @@
 package io.radicalbit.nsdb.cli
 
 import cats.implicits._
-
 import de.vandermeer.asciitable.AsciiTable
 import de.vandermeer.asciithemes.a7.A7_Grids
-import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
+import io.radicalbit.nsdb.common.protocol.{MetricSchemaRetrieved, NamespaceMetricsListRetrieved, SQLStatementExecuted}
 
 import scala.util.Try
 
@@ -29,21 +28,32 @@ object ASCIITableBuilder {
         x.timestamp.toString +: x.value.toString +: mergedDimensions.map { case (_, value) => value getOrElse ("") }
       }
 
-      // header
-      at.addRule
-      // prepending timestamp and value
-      at.addRow("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted: _*)
-
-      // values
-      for {
-        row <- rows
-        _ = at.addRule()
-        _ = at.addRow(row: _*)
-      } ()
-
-      at.addRule()
-      at.getContext.setGrid(A7_Grids.minusBarPlusEquals)
-
-      at.render
+      render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
     }
+
+  def tableFor(command: NamespaceMetricsListRetrieved): Try[String] =
+    Try(render(List("Metric Name"), List(command.metrics)))
+
+  def tableFor(command: MetricSchemaRetrieved): Try[String] =
+    Try(render(List("Field Name", "Type"), command.fields.map(x => List(x.name, x.`type`))))
+
+  private def render(headerColumns: List[String], rows: List[List[String]]): String = {
+    val at = new AsciiTable()
+    // header
+    at.addRule
+    // prepending timestamp and value
+    at.addRow(headerColumns: _*)
+
+    // values
+    for {
+      row <- rows
+      _ = at.addRule()
+      _ = at.addRow(row: _*)
+    } ()
+
+    at.addRule()
+    at.getContext.setGrid(A7_Grids.minusBarPlusEquals)
+
+    at.render
+  }
 }
