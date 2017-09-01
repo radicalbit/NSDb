@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.index
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.JLong
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.{Bit, BitOut}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation, fieldSemigroup}
 import org.apache.lucene.document._
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
@@ -12,7 +12,7 @@ import org.apache.lucene.search.{IndexSearcher, Sort}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSupport {
+abstract class AbstractTimeSeriesIndex extends Index[Bit, Bit] with TypeSupport {
 
   private val _lastRead   = "_lastRead"
   override val _keyField  = "timestamp"
@@ -50,17 +50,19 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
       )
   }
 
-  override def toRecord(document: Document): BitOut = {
+  override def toRecord(document: Document, fields: Seq[String]): Bit = {
     val dimensions: Map[String, JSerializable] =
       document.getFields.asScala
-        .filterNot(f => f.name() == _keyField || f.name() == _lastRead || f.name() == _valueField)
+        .filterNot(f =>
+          f.name() == _keyField || f.name() == _lastRead || f.name() == _valueField || (!fields.isEmpty && !fields
+            .contains(f.name())))
         .map {
           case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())
           case f                             => f.name() -> f.stringValue()
         }
         .toMap
     val value = document.getField(_valueField).numericValue()
-    BitOut(timestamp = document.getField(_keyField).numericValue().longValue(), value = value, dimensions = dimensions)
+    Bit(timestamp = document.getField(_keyField).numericValue().longValue(), value = value, dimensions = dimensions)
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Unit = {
@@ -74,9 +76,13 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
     writer.forceMergeDeletes(true)
   }
 
-  def timeRange(start: Long, end: Long, size: Int = Int.MaxValue, sort: Option[Sort] = None): Seq[BitOut] = {
+  def timeRange(start: Long,
+                end: Long,
+                fields: Seq[String],
+                size: Int = Int.MaxValue,
+                sort: Option[Sort] = None): Seq[Bit] = {
     val rangeQuery = LongPoint.newRangeQuery(_keyField, start, end)
-    query(rangeQuery, size, sort)
+    query(rangeQuery, fields, size, sort)
   }
 
 }

@@ -51,7 +51,7 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery,
     }
   }
 
-  override def toRecord(document: Document): NsdbQuery = {
+  override def toRecord(document: Document, fields: Seq[String]): NsdbQuery = {
     val binary    = document.getBinaryValue(queryField).bytes
     val b         = new ByteArrayInputStream(binary)
     val o         = new ObjectInputStream(b)
@@ -66,7 +66,7 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery,
   }
 
   def getQuery(uuid: String): Option[NsdbQuery] = {
-    Try(query(_keyField, uuid, 1).headOption) match {
+    Try(query(_keyField, uuid, Seq.empty, 1).headOption) match {
       case Success(queryOpt) => queryOpt
       case Failure(_)        => None
     }

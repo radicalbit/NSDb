@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, Bit, BitOut, SQLStatementExecuted}
+import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, Bit, SQLStatementExecuted}
 import io.radicalbit.nsdb.common.statement.{
   DeleteSQLStatement,
   DropSQLStatement,
@@ -37,7 +37,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
     case ExecuteSQLStatement(statement: SelectSQLStatement) =>
       (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
         .map {
-          case SelectStatementExecuted(namespace, metric, values: Seq[BitOut]) =>
+          case SelectStatementExecuted(namespace, metric, values: Seq[Bit]) =>
             SQLStatementExecuted(namespace = namespace, metric = metric, values)
           case SelectStatementFailed(reason) =>
             throw new RuntimeException(s"Cannot execute the given select statement. The reason is $reason.")

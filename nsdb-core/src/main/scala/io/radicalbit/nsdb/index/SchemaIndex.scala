@@ -53,7 +53,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
     }
   }
 
-  override def toRecord(document: Document): Schema = {
+  override def toRecord(document: Document, fields: Seq[String]): Schema = {
     val fields = document.getFields.asScala.filterNot(_.name() == _keyField)
     Schema(
       document.get(_keyField),
@@ -61,14 +61,14 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
   }
 
   def getAllSchemas: Seq[Schema] = {
-    Try { query(new MatchAllDocsQuery(), Int.MaxValue, None) } match {
+    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[Schema]) => docs
       case Failure(_)                 => Seq.empty
     }
   }
 
   def getSchema(metric: String): Option[Schema] = {
-    Try(query(_keyField, metric, 1).headOption) match {
+    Try(query(_keyField, metric, Seq.empty, 1).headOption) match {
       case Success(schemaOpt) => schemaOpt
       case Failure(_)         => None
     }

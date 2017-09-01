@@ -3,7 +3,6 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
-import cats.data.Validated.Valid
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.analysis.standard.StandardAnalyzer
@@ -30,7 +29,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     }
     writer.close()
 
-    val result = boundedIndex.query("content", "content_*", 100)
+    val result = boundedIndex.query("content", "content_*", Seq.empty, 100)
 
     result.size shouldBe 100
 
@@ -83,7 +82,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val queryExist = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val resultExist =
-      boundedIndex.query(queryExist, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
+      boundedIndex.query(queryExist, Seq.empty, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
     resultExist.size shouldBe 1
 
     val deleteWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
@@ -92,8 +91,9 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     deleteWriter.flush()
     deleteWriter.close()
 
-    val query  = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
-    val result = boundedIndex.query(query, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
+    val query = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
+    val result =
+      boundedIndex.query(query, Seq.empty, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
 
     result.size shouldBe 0
 
