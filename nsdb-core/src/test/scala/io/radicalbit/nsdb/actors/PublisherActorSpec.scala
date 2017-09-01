@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
-import io.radicalbit.nsdb.common.protocol.{Bit, BitOut}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
@@ -104,7 +104,7 @@ class PublisherActorSpec
     probe.send(publisherActor, InputMapped("namespace", "people", testRecordSatisfy))
     val recordPublished = probe.expectMsgType[RecordPublished]
     recordPublished.metric shouldBe "people"
-    recordPublished.record shouldBe BitOut(testRecordSatisfy)
+    recordPublished.record shouldBe testRecordSatisfy
   }
 
   "PublisherActor" should "recover its queries when it is restarted" in {

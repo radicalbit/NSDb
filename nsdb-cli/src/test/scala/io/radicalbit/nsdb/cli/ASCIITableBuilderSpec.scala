@@ -1,13 +1,13 @@
 package io.radicalbit.nsdb.cli
 
-import io.radicalbit.nsdb.common.protocol.{BitOut, SQLStatementExecuted}
+import io.radicalbit.nsdb.common.protocol.{Bit, SQLStatementExecuted}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
 class ASCIITableBuilderSpec extends WordSpec with Matchers {
 
-  def statementFor(res: Seq[BitOut]) = SQLStatementExecuted(namespace = "registry", metric = "people", res)
+  def statementFor(res: Seq[Bit]) = SQLStatementExecuted(namespace = "registry", metric = "people", res)
 
   "A parser instance" when {
 
@@ -15,14 +15,14 @@ class ASCIITableBuilderSpec extends WordSpec with Matchers {
       "parse it successfully" in {
 
         val input = List(
-          BitOut(timestamp = 1L,
-                 value = 10,
-                 dimensions = Map(("name"                                -> "Roger"), ("surname" -> "Sterling"), ("age" -> 65))),
-          BitOut(timestamp = 2L, value = 20, dimensions = Map(("name"    -> "Don"), ("surname" -> "Draper"))),
-          BitOut(timestamp = 3L, value = 30, dimensions = Map(("age"     -> 28), ("surname" -> "Olson"))),
-          BitOut(timestamp = 4L, value = 40, dimensions = Map(("name"    -> "Pete"))),
-          BitOut(timestamp = 5L, value = 50, dimensions = Map(("age"     -> "32"))),
-          BitOut(timestamp = 6L, value = 60, dimensions = Map(("surname" -> "Holloway")))
+          Bit(timestamp = 1L,
+              value = 10,
+              dimensions = Map(("name"                                -> "Roger"), ("surname" -> "Sterling"), ("age" -> 65))),
+          Bit(timestamp = 2L, value = 20, dimensions = Map(("name"    -> "Don"), ("surname" -> "Draper"))),
+          Bit(timestamp = 3L, value = 30, dimensions = Map(("age"     -> 28), ("surname" -> "Olson"))),
+          Bit(timestamp = 4L, value = 40, dimensions = Map(("name"    -> "Pete"))),
+          Bit(timestamp = 5L, value = 50, dimensions = Map(("age"     -> "32"))),
+          Bit(timestamp = 6L, value = 60, dimensions = Map(("surname" -> "Holloway")))
         )
 
         val expected = Success(

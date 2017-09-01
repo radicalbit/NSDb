@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorLogging, Props}
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
-import io.radicalbit.nsdb.common.protocol.BitOut
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{GetMetrics, MetricsGot}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.MetricDropped
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
@@ -33,7 +33,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       newIndex
     })
 
-  private def handleQueryResults(metric: String, out: Try[Seq[BitOut]]) = {
+  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out match {
       case Success(docs) =>
         log.debug("found {} records", docs.size)
