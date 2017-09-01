@@ -45,7 +45,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         metric = request.metric,
         ts = request.timestamp,
         record =
-          Bit(timestamp = request.timestamp, dimensions = Map.empty[String, JSerializable], metric = request.value)
+          Bit(timestamp = request.timestamp, dimensions = Map.empty[String, JSerializable], value = request.value)
       )).mapTo[InputMapped] map (_ => RPCInsertResult(true)) recover {
         case t => RPCInsertResult(false, t.getMessage)
       }

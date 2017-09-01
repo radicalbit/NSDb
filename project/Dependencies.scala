@@ -183,7 +183,9 @@ object Dependencies {
   object CLI {
     lazy val libraries = Seq(
       scalaLang.compiler,
-      asciitable.core
+      asciitable.core,
+      cats.cats,
+      scalatest.core % Test
     )
   }
 

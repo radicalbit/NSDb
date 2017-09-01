@@ -241,15 +241,12 @@ class ReadCoordinatorSpec
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                expression = TupledLogicalExpression(
-                  expression1 =
-                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
-                  operator = AndOperator,
-                  expression2 =
-                    EqualityExpression(dimension = "name", value = "John")
-                ),
-              )),
+              condition = Some(Condition(expression = TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                operator = AndOperator,
+                expression2 = EqualityExpression(dimension = "name", value = "John")
+              ))),
               limit = Some(LimitOperator(5))
             )
           )

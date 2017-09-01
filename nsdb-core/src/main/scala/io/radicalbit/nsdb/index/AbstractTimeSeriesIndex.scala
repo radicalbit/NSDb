@@ -14,9 +14,9 @@ import scala.util.{Failure, Success, Try}
 
 abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSupport {
 
-  private val _lastRead          = "_lastRead"
-  private override val _keyField = "timestamp"
-  private val _valueField        = "value"
+  val _lastRead          = "_lastRead"
+  override val _keyField = "timestamp"
+  val _valueField        = "value"
 
   def write(data: Bit)(implicit writer: IndexWriter): LongValidation = {
     val doc     = new Document
@@ -45,7 +45,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
     validateSchemaTypeSupport(data.dimensions + (_valueField -> data.value))
       .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
       .combine(
-        validateSchemaTypeSupport(Map(_valueField -> data.metric)).map(se =>
+        validateSchemaTypeSupport(Map(_valueField -> data.value)).map(se =>
           se.flatMap(elem => Seq(new StoredField(elem.name, elem.value.toString))))
       )
   }
