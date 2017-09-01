@@ -87,13 +87,14 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
     } else
       None
 
-  protected def newFile(current: File): File = newFile(file.getPath)
+  protected def newFile(current: File): File = newFile(file.getParent)
 
-  protected def newFile(directory: String): File =
-    new File(
-      nextFileName(fileNamePrefix = FileNamePrefix,
+  protected def newFile(directory: String): File = {
+      val nextFile = nextFileName(fileNamePrefix = FileNamePrefix,
                    fileNameSeparator = FileNameSeparator,
-                   fileNames = new File(directory).listFiles().map(_.getName)))
+                   fileNames = new File(directory).listFiles().map(_.getName))
+    new File(s"$directory/$nextFile")
+  }
 
   protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file)
 }
