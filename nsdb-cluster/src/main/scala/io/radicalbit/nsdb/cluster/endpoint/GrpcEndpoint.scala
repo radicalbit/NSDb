@@ -10,7 +10,6 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
-import io.radicalbit.nsdb.rpc.request.RPCInsert.Value.LongValue
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
