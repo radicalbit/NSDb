@@ -53,6 +53,7 @@ lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
   .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.12.2")
   .settings(libraryDependencies += Dependencies.asciitable.core)
+  .settings(libraryDependencies += Dependencies.cats.cats)
   .dependsOn(`nsdb-sql`)
 
 onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value

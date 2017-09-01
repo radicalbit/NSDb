@@ -79,8 +79,7 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
 
   def print(result: Try[SQLStatementExecuted]): Unit = result match {
     case Success(stm) =>
-//      echo(ASCIITableBuilder.tableFor(stm).toString)
-//      ASCIITableBuilder.tableFor(stm).foreach(echo(_))
+      echo(ASCIITableBuilder.tableFor(stm).getOrElse("Cannot print the output of the statement execution."))
     case Failure(t) =>
       echo(s"Error while trying to run the inserted SQL statement. The detailed error is ${t.getMessage}")
   }
