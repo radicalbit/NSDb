@@ -15,6 +15,7 @@ import io.radicalbit.nsdb.statement.StatementParser
 import org.apache.lucene.store.FSDirectory
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 
 import scala.collection.mutable
 import scala.util.{Failure, Success}
@@ -88,9 +89,16 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
         case (id, nsdbQuery) =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
           luceneQuery match {
-            case Success(parsedQuery) =>
-              if (metric == nsdbQuery.query.metric && temporaryIndex.query(parsedQuery.q, 1, None).size == 1)
+            case Success(parsedQuery: ParsedSimpleQuery) =>
+              if (metric == nsdbQuery.query.metric && temporaryIndex
+                    .query(parsedQuery.q, parsedQuery.fields, 1, None)
+                    .size == 1)
                 subscribedActors(id).foreach(_ ! RecordPublished(id, metric, BitOut(record)))
+            case Success(parsedQuery: ParsedAggregatedQuery) =>
+              implicit val timeout = Timeout(3 seconds)
+              (readCoordinator ? ExecuteStatement(nsdbQuery.query))
+                .mapTo[SelectStatementExecuted[BitOut]]
+                .pipeTo(sender())
             case Failure(query) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }

@@ -50,10 +50,11 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
       )
   }
 
-  override def toRecord(document: Document): BitOut = {
+  override def toRecord(document: Document, fields: Seq[String]): BitOut = {
     val dimensions: Map[String, JSerializable] =
       document.getFields.asScala
-        .filterNot(f => f.name() == _keyField || f.name() == _lastRead || f.name() == _valueField)
+        .filterNot(f =>
+          f.name() == _keyField || f.name() == _lastRead || f.name() == _valueField || !fields.contains(f.name()))
         .map {
           case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())
           case f                             => f.name() -> f.stringValue()
@@ -74,9 +75,13 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, BitOut] with TypeSuppo
     writer.forceMergeDeletes(true)
   }
 
-  def timeRange(start: Long, end: Long, size: Int = Int.MaxValue, sort: Option[Sort] = None): Seq[BitOut] = {
+  def timeRange(start: Long,
+                end: Long,
+                fields: Seq[String],
+                size: Int = Int.MaxValue,
+                sort: Option[Sort] = None): Seq[BitOut] = {
     val rangeQuery = LongPoint.newRangeQuery(_keyField, start, end)
-    query(rangeQuery, size, sort)
+    query(rangeQuery, fields, size, sort)
   }
 
 }

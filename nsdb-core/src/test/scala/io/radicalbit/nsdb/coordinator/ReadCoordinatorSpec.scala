@@ -163,7 +163,7 @@ class ReadCoordinatorSpec
         val expected = probe.expectMsgType[SelectStatementExecuted[BitOut]]
 
         expected.values.size shouldBe 1
-        expected.values.head shouldBe BitOut(records(4))
+        expected.values.head shouldBe BitOut(10, 1, Map("name" -> "Frank"))
       }
     }
 

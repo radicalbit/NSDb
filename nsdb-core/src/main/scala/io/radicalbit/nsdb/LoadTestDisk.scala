@@ -26,7 +26,7 @@ object LoadTestDisk extends App {
 
   diskWriter.close
 
-  var result = diskBoundedIndex.query("content", "content_*", 100)
+  var result = diskBoundedIndex.query("content", "content_*", Seq.empty, 100)
 
   println(s"disk end in ${System.currentTimeMillis - startDisk}")
 

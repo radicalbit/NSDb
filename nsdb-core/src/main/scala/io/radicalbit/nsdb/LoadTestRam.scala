@@ -26,7 +26,7 @@ object LoadTestRam extends App {
 
   ramWriter.close
 
-  var result = ramBoundedIndex.query("content", "content_*", 100)
+  var result = ramBoundedIndex.query("content", "content_*", Seq.empty, 100)
 
   println(s"ram end in ${System.currentTimeMillis - startRam}")
 }

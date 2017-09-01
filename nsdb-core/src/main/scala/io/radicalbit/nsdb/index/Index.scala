@@ -23,7 +23,7 @@ trait Index[IN, OUT] {
   def getSearcher = new IndexSearcher(DirectoryReader.open(directory))
 
   def validateRecord(data: IN): FieldValidation
-  def toRecord(document: Document): OUT
+  def toRecord(document: Document, fields: Seq[String]): OUT
 
   protected def write(data: IN)(implicit writer: IndexWriter): LongValidation
 
@@ -76,24 +76,24 @@ trait Index[IN, OUT] {
     }.toSeq
   }
 
-  def query(query: Query, limit: Int, sort: Option[Sort]): Seq[OUT] = {
-    rawQuery(query, limit, sort).map(toRecord)
+  def query(query: Query, fields: Seq[String], limit: Int, sort: Option[Sort]): Seq[OUT] = {
+    rawQuery(query, limit, sort).map(d => toRecord(d, fields))
   }
 
   def query(query: Query, collector: AllGroupsAggregationCollector): Seq[OUT] = {
-    rawQuery(query, collector).map(toRecord)
+    rawQuery(query, collector).map(d => toRecord(d, Seq.empty))
   }
 
-  def query(field: String, queryString: String, limit: Int, sort: Option[Sort] = None): Seq[OUT] = {
+  def query(field: String, queryString: String, fields: Seq[String], limit: Int, sort: Option[Sort] = None): Seq[OUT] = {
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
     val parser   = new QueryParser(field, new StandardAnalyzer())
     val query    = parser.parse(queryString)
-    executeQuery(searcher, query, limit, sort).map(toRecord)
+    executeQuery(searcher, query, limit, sort).map(d => toRecord(d, fields))
   }
 
   def getAll: Seq[OUT] = {
-    Try { query(new MatchAllDocsQuery(), Int.MaxValue, None) } match {
+    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[OUT]) => docs
       case Failure(_)              => Seq.empty
     }

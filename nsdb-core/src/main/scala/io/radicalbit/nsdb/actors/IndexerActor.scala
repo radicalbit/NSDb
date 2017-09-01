@@ -91,12 +91,12 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       sender ! AllMetricsDeleted(ns)
     case GetCount(ns, metric) =>
       val index = getIndex(metric)
-      val hits  = index.timeRange(0, Long.MaxValue)
+      val hits  = index.timeRange(0, Long.MaxValue, Seq.empty)
       sender ! CountGot(ns, metric, hits.size)
     case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
-          handleQueryResults(metric, Try(getIndex(metric).query(q, limit, sort)))
+          handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
