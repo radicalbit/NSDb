@@ -16,7 +16,8 @@ import org.scalatest._
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_) => sender() ! SelectStatementExecuted(Seq.empty)
+    case ExecuteStatement(_) =>
+      sender() ! SelectStatementExecuted(namespace = "registry", metric = "people", values = Seq.empty)
   }
 }
 
@@ -42,8 +43,8 @@ class PublisherActorSpec
       Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
     limit = Some(LimitOperator(4))
   )
-  val testRecordNotSatisfy = Bit(0, Map("name"   -> "john"), 23)
-  val testRecordSatisfy    = Bit(100, Map("name" -> "john"), 25)
+  val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"))
+  val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
 
   before {
     val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))

@@ -48,9 +48,18 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
       currentNamespace = Some(line.split("use")(1).trim)
       currentNamespace.foreach(x => echo(s"Namespace '$x' has been selected."))
       Result(keepRunning = true, lineToRecord = None)
+    } else if (line.startsWith("show ") && line.split("show")(1).trim == "metrics") {
+      // list metrics
+      echo("############ ========>>>>>>>>>> SHOW METRICS")
+    } else if (line.startsWith("describe ") && line.split("describe")(1).trim.length > 0) {
+      if (currentNamespace.isDefined) {
+        // list metrics
+        echo(s"############ ========>>>>>>>>>> DESCRIBE ${line.split("describe")(1).trim.toUpperCase}")
+      } else {
+        echo("Please select a valid namespace before.")
+      }
     } else if (intp.global == null) Result(keepRunning = false, None) // Notice failure to create compiler
     else parseAndExecute(line)
-
   }
 
   def parseAndExecute(statement: String): Result =
@@ -60,7 +69,7 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
         print(result)
         Result(keepRunning = true, result.map(_.res.mkString).toOption)
       } getOrElse {
-        echo("The inserted SQL statement is invalid.")
+        echo("The inserted statement is invalid.")
         Result(keepRunning = true, lineToRecord = None)
       }
     } getOrElse {
@@ -70,7 +79,7 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
 
   def print(result: Try[SQLStatementExecuted]): Unit = result match {
     case Success(stm) =>
-      echo(stm.res.mkString)
+      echo(ASCIITableBuilder.tableFor(stm).getOrElse("Cannot print the output of the statement execution."))
     case Failure(t) =>
       echo(s"Error while trying to run the inserted SQL statement. The detailed error is ${t.getMessage}")
   }

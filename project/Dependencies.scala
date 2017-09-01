@@ -122,6 +122,12 @@ object Dependencies {
     lazy val api       = namespace % "slf4j-api" % version
   }
 
+  object asciitable {
+    lazy val version   = "0.3.2"
+    lazy val namespace = "de.vandermeer"
+    lazy val core      = namespace % "asciitable" % version
+  }
+
   object Core {
     val libraries = Seq(
       akka.actor,
@@ -176,7 +182,10 @@ object Dependencies {
 
   object CLI {
     lazy val libraries = Seq(
-      scalaLang.compiler
+      scalaLang.compiler,
+      asciitable.core,
+      cats.cats,
+      scalatest.core % Test
     )
   }
 

@@ -49,6 +49,6 @@ object ReadCoordinator {
   case class NamespacesGot(namespaces: Seq[String])
   case class SchemaGot(namespace: String, metric: String, schema: Option[Schema])
   case class MetricsGot(namespace: String, metrics: Seq[String])
-  case class SelectStatementExecuted[T](values: Seq[T])
+  case class SelectStatementExecuted[T](namespace: String, metric: String, values: Seq[T])
   case class SelectStatementFailed(reason: String)
 }

@@ -21,6 +21,8 @@ object Commons {
     test in assembly := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
+      case PathList("CHANGELOG.adoc")                           => MergeStrategy.first
+      case PathList("CHANGELOG.html")                           => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)

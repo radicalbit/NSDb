@@ -40,7 +40,7 @@ class IndexerActorSpec()
 
   "IndexerActor" should "write and delete properly" in {
 
-    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 25)
+    val record = Bit(System.currentTimeMillis, 25, Map("content" -> s"content"))
 
     probe.send(indexerActor, AddRecord(namespace, "indexerActorMetric", record))
 
@@ -75,7 +75,7 @@ class IndexerActorSpec()
     probe.send(indexerActor, DeleteMetric(namespace, "indexerActorMetric2"))
     probe.expectMsgType[MetricDeleted]
 
-    val record = Bit(System.currentTimeMillis, Map("content" -> s"content"), 22.5)
+    val record = Bit(System.currentTimeMillis, 22.5, Map("content" -> s"content"))
 
     probe.send(indexerActor, AddRecord(namespace, "indexerActorMetric2", record))
     probe.expectMsgType[RecordAdded]
