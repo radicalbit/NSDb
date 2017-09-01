@@ -6,7 +6,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecords, DeleteMetric}
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchema
-import io.radicalbit.nsdb.actors.{IndexerActor, SchemaActor}
+import io.radicalbit.nsdb.actors.{NamespaceDataActor, SchemaActor}
 import io.radicalbit.nsdb.common.protocol.{Bit, BitOut}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
@@ -26,9 +26,9 @@ class ReadCoordinatorSpec
   val probe                = TestProbe()
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
-  private val namespace    = "namespace"
+  private val namespace    = "registry"
   val schemaActor          = system.actorOf(SchemaActor.props(basePath, namespace))
-  val indexerActor         = system.actorOf(IndexerActor.props(basePath, namespace))
+  val indexerActor         = system.actorOf(NamespaceDataActor.props(basePath))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
 
   val records: Seq[Bit] = Seq(
@@ -51,14 +51,44 @@ class ReadCoordinatorSpec
     indexerActor ! AddRecords(namespace, "people", records)
   }
 
-  "A statement parser instance" when {
+  "ReadCoordinator" when {
+
+    "receive a GetNamespace" should {
+      "return it properly" in {
+        probe.send(readCoordinatorActor, GetNamespaces)
+
+        val expected = probe.expectMsgType[NamespacesGot]
+        expected.namespaces shouldBe Seq(namespace)
+      }
+    }
+
+    "receive a GetMetrics given a namespace" should {
+      "return it properly" in {
+        probe.send(readCoordinatorActor, GetMetrics(namespace))
+
+        val expected = probe.expectMsgType[MetricsGot]
+        expected.namespace shouldBe namespace
+        expected.metrics shouldBe Seq("people")
+      }
+    }
+
+    "receive a GetSchema given a namespace and a metric" should {
+      "return it properly" in {
+        probe.send(readCoordinatorActor, GetSchema(namespace, "people"))
+
+        val expected = probe.expectMsgType[SchemaGot]
+        expected.namespace shouldBe namespace
+        expected.metric shouldBe "people"
+        expected.schema shouldBe Some(Schema("people",Seq(SchemaField("name",VARCHAR()), SchemaField("surname",VARCHAR()), SchemaField("creationDate",BIGINT()))))
+      }
+    }
 
     "receive a select projecting a wildcard" should {
       "execute it successfully" in {
 
         probe.send(readCoordinatorActor,
                    ExecuteStatement(
-                     SelectSQLStatement(namespace = "registry",
+                     SelectSQLStatement(namespace = namespace,
                                         metric = "people",
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
@@ -75,7 +105,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
               limit = Some(LimitOperator(5))
@@ -95,7 +125,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
@@ -116,7 +146,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(
@@ -139,7 +169,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(
@@ -166,7 +196,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(TupledLogicalExpression(
@@ -193,7 +223,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(expression = TupledLogicalExpression(
@@ -217,7 +247,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 2L))),
@@ -238,7 +268,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(
@@ -265,7 +295,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("value", Some(SumAggregation)))),
               condition = Some(Condition(
@@ -287,7 +317,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
-              namespace = "registry",
+              namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("creationDate", None))),
               condition = Some(Condition(
@@ -305,7 +335,7 @@ class ReadCoordinatorSpec
       "return an error message properly" in {
         probe.send(readCoordinatorActor,
                    ExecuteStatement(
-                     SelectSQLStatement(namespace = "registry",
+                     SelectSQLStatement(namespace = namespace,
                                         metric = "nonexisting",
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))

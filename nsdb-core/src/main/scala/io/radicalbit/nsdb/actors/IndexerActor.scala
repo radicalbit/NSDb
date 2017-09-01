@@ -7,6 +7,7 @@ import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.common.protocol.BitOut
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{GetMetrics, MetricsGot}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.MetricDropped
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
@@ -47,6 +48,9 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   }
 
   override def receive: Receive = {
+
+    case msg @ GetMetrics(namespace) =>
+      sender() ! MetricsGot(namespace, indexes.keys.toSeq)
     case AddRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
