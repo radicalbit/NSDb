@@ -5,7 +5,7 @@ import java.io.BufferedReader
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.client.akka.AkkaClusterClient
-import io.radicalbit.nsdb.common.protocol.SQLStatementExecuted
+import io.radicalbit.nsdb.common.protocol.{DescribeMetric, SQLStatementExecuted, ShowMetrics}
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
 import scala.concurrent.Await
@@ -49,12 +49,24 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
       currentNamespace.foreach(x => echo(s"Namespace '$x' has been selected."))
       Result(keepRunning = true, lineToRecord = None)
     } else if (line.startsWith("show ") && line.split("show")(1).trim == "metrics") {
-      // list metrics
-      echo("############ ========>>>>>>>>>> SHOW METRICS")
+      echo("\n")
+      Try(Await.result(clientDelegate.showMetrics(ShowMetrics(currentNamespace.get)), 10 seconds)) match {
+        case Success(r) =>
+          echo(ASCIITableBuilder.tableFor(r).getOrElse("Cannot print the output of the input command."))
+        case Failure(t) => echo(s"Cannot print the output of the input command. The reason is ${t.getMessage}")
+      }
+      echo("\n")
     } else if (line.startsWith("describe ") && line.split("describe")(1).trim.length > 0) {
       if (currentNamespace.isDefined) {
-        // list metrics
-        echo(s"############ ========>>>>>>>>>> DESCRIBE ${line.split("describe")(1).trim.toUpperCase}")
+        echo("\n")
+        Try(
+          Await.result(clientDelegate.describeMetric(DescribeMetric(currentNamespace.get, line.split("describe")(1))),
+                       10 seconds)) match {
+          case Success(r) =>
+            echo(ASCIITableBuilder.tableFor(r).getOrElse("Cannot print the output of the input command."))
+          case Failure(t) => echo(s"Cannot print the output of the input command. The reason is ${t.getMessage}")
+        }
+        echo("\n")
       } else {
         echo("Please select a valid namespace before.")
       }
@@ -79,7 +91,9 @@ class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in
 
   def print(result: Try[SQLStatementExecuted]): Unit = result match {
     case Success(stm) =>
+      echo("\n")
       echo(ASCIITableBuilder.tableFor(stm).getOrElse("Cannot print the output of the statement execution."))
+      echo("\n")
     case Failure(t) =>
       echo(s"Error while trying to run the inserted SQL statement. The detailed error is ${t.getMessage}")
   }

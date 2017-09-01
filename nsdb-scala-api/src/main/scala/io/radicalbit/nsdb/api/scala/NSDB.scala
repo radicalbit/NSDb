@@ -1,10 +1,10 @@
 package io.radicalbit.nsdb.api.scala
 
+import com.google.protobuf.any.Any
 import io.radicalbit.nsdb.api.scala.NSDB.Dimension
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.rpc.request.RPCInsert
-import io.radicalbit.nsdb.rpc.request.RPCInsert.Value.{DecimalValue, LongValue}
+import io.radicalbit.nsdb.rpc.request._
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,10 +36,15 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         metric = bit.metric,
         timestamp = bit.ts getOrElse (System.currentTimeMillis),
         value = bit.value match {
-          case Some(v: Double) => DecimalValue(v)
-          case Some(v: Long)   => LongValue(v)
-          case unknown         => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
-        }
+          case Some(v: Double) => RPCInsert.Value.DecimalValue(v)
+          case Some(v: Long) => RPCInsert.Value.LongValue(v)
+          case unknown => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
+        },
+        dimensions = bit.dimensions.map {
+          case (k, v: java.lang.Double) => (k, Dimension(Dimension.Value.DecimalValue(v)))
+          case (k, v: java.lang.Long) => (k, Dimension(Dimension.Value.LongValue(v)))
+          case (k, v: java.lang.String) => (k, Dimension(Dimension.Value.StringValue(v)))
+        }.toMap
       ))
 
   // FIXME: this is not optimized, we should implement a bulk feature

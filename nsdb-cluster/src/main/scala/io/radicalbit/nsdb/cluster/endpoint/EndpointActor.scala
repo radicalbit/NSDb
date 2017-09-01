@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.{ExecuteSQLStatement, Bit, SQLStatementExecuted}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement.{
   DeleteSQLStatement,
   DropSQLStatement,
@@ -12,7 +12,7 @@ import io.radicalbit.nsdb.common.statement.{
   SelectSQLStatement
 }
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{SelectStatementExecuted, SelectStatementFailed}
+import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.coordinator.WriteCoordinator._
 
 import scala.concurrent.Future
@@ -60,6 +60,25 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
       result
         .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
         .pipeTo(sender())
+
+    case ShowMetrics(namespace) =>
+      (readCoordinator ? GetMetrics(namespace)).mapTo[MetricsGot].map {
+        case MetricsGot(namespace, metrics) => NamespaceMetricsListRetrieved(namespace, metrics.toList)
+      } pipeTo (sender())
+
+    case DescribeMetric(namespace, metric) =>
+      (readCoordinator ? GetSchema(namespace = namespace, metric = metric))
+        .mapTo[SchemaGot]
+        .map {
+          case SchemaGot(namespace, metric, schema) =>
+            val fields = schema
+              .map(
+                _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
+              .getOrElse(List.empty[MetricField])
+            MetricSchemaRetrieved(namespace, metric, fields.toList)
+        }
+        .pipeTo(sender())
+
     case ExecuteSQLStatement(statement: DeleteSQLStatement) =>
       (writeCoordinator ? ExecuteDeleteStatement(statement))
         .mapTo[DeleteStatementExecuted]
@@ -67,8 +86,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
         .pipeTo(sender())
     case ExecuteSQLStatement(statement: DropSQLStatement) =>
       (writeCoordinator ? DropMetric(statement.namespace, statement.metric))
-      // FIXME: this must be a drop message
-        .mapTo[DeleteStatementExecuted]
+        .mapTo[MetricDropped]
         .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
         .pipeTo(sender())
   }
