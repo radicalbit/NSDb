@@ -7,6 +7,7 @@ import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.GetCount
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
+import io.radicalbit.nsdb.coordinator.ReadCoordinator.{GetMetrics, GetNamespaces, NamespacesGot}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.{
   DeleteNamespace,
   DropMetric,
@@ -34,6 +35,10 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   import context.dispatcher
 
   override def receive = {
+    case GetNamespaces =>
+      sender() ! NamespacesGot(indexerActors.keys.toSeq)
+    case msg @ GetMetrics(namespace) =>
+      getIndexer(namespace) forward msg
     case msg @ AddRecord(namespace, _, _) =>
       getIndexer(namespace).forward(msg)
     case msg @ AddRecords(namespace, _, _) =>
