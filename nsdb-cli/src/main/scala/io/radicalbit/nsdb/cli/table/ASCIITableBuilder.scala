@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.cli
+package io.radicalbit.nsdb.cli.table
 
 import cats.implicits._
 import de.vandermeer.asciitable.AsciiTable
@@ -31,10 +31,10 @@ object ASCIITableBuilder {
       render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
     }
 
-  def tableFor(command: NamespaceMetricsListRetrieved): Try[String] =
+  def tableForMetrics(command: NamespaceMetricsListRetrieved): Try[String] =
     Try(render(List("Metric Name"), List(command.metrics)))
 
-  def tableFor(command: MetricSchemaRetrieved): Try[String] =
+  def tableForDescribeMetric(command: MetricSchemaRetrieved): Try[String] =
     Try(render(List("Field Name", "Type"), command.fields.map(x => List(x.name, x.`type`))))
 
   private def render(headerColumns: List[String], rows: List[List[String]]): String = {

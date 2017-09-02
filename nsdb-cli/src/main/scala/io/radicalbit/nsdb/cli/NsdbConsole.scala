@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.cli
 
+import io.radicalbit.nsdb.cli.console.NsdbILoop
+
 import scala.tools.nsc.Settings
 
 object NsdbConsole extends App {

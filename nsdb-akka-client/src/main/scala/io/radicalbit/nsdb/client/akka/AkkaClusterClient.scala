@@ -5,7 +5,7 @@ import akka.cluster.client.{ClusterClient, ClusterClientSettings}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol._
-import io.radicalbit.nsdb.common.statement.SQLStatement
+import io.radicalbit.nsdb.common.statement.{CommandStatement, SQLStatement}
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
@@ -31,9 +31,6 @@ class AkkaClusterClient(host: String = "127.0.0.1", port: Int = 2552)(implicit s
   def executeSqlStatement(statement: SQLStatement): Future[SQLStatementExecuted] =
     executeCommand[ExecuteSQLStatement, SQLStatementExecuted](ExecuteSQLStatement(statement))
 
-  def showMetrics(command: ShowMetrics): Future[NamespaceMetricsListRetrieved] =
-    executeCommand[ShowMetrics, NamespaceMetricsListRetrieved](command)
-
-  def describeMetric(command: DescribeMetric): Future[MetricSchemaRetrieved] =
-    executeCommand[DescribeMetric, MetricSchemaRetrieved](command)
+  def executeCommandStatement(statement: CommandStatement): Future[CommandStatementExecuted] =
+    executeCommand[ExecuteCommandStatement, CommandStatementExecuted](ExecuteCommandStatement(statement))
 }

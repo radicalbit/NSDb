@@ -2,10 +2,6 @@ package io.radicalbit.nsdb.common.statement
 
 import io.radicalbit.nsdb.common.JSerializable
 
-sealed trait SQLStatementType
-case object Select extends SQLStatementType
-case object Insert extends SQLStatementType
-
 case class Field(name: String, aggregation: Option[Aggregation])
 
 sealed trait SelectedFields
@@ -49,7 +45,7 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
 
 case class LimitOperator(value: Int)
 
-sealed trait SQLStatement {
+sealed trait SQLStatement extends NSDBStatement {
   def namespace: String
   def metric: String
 }
