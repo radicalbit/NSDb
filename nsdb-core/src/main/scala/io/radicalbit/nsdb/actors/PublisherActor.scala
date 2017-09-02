@@ -81,25 +81,28 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
     case WriteCoordinator.InputMapped(_, metric, record) =>
-      val temporaryIndex: TemporaryIndex = new TemporaryIndex()
-      implicit val writer                = temporaryIndex.getWriter
-      temporaryIndex.write(record)
-      writer.close()
       queries.foreach {
         case (id, nsdbQuery) =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
           luceneQuery match {
             case Success(parsedQuery: ParsedSimpleQuery) =>
+              val temporaryIndex: TemporaryIndex = new TemporaryIndex()
+              implicit val writer                = temporaryIndex.getWriter
+              temporaryIndex.write(record)
+              writer.close()
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .size == 1)
-                subscribedActors(id).foreach(_ ! RecordPublished(id, metric, record))
+                subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordPublished(id, metric, record)))
             case Success(parsedQuery: ParsedAggregatedQuery) =>
               implicit val timeout = Timeout(3 seconds)
-              (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-                .mapTo[SelectStatementExecuted[Bit]]
-                .pipeTo(sender())
-            case Failure(query) =>
+              if (metric == nsdbQuery.query.metric) {
+                val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
+                  .mapTo[SelectStatementExecuted[Bit]]
+                  .map(e => RecordsPublished(id, e.metric, e.values))
+                subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+              }
+            case Failure(_) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
       }
@@ -135,6 +138,7 @@ object PublisherActor {
     case class SubscriptionFailed(reason: String)
 
     case class RecordPublished(quid: String, metric: String, record: Bit)
+    case class RecordsPublished(quid: String, metric: String, record: Seq[Bit])
     case object Unsubscribed
     case class QueryRemoved(quid: String)
   }

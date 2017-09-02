@@ -93,7 +93,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timestampAssignment = (Ts ~ Equal) ~> timestamp
 
-  private val valueAssignment = (Val ~ Equal) ~> (floatValue | intValue)
+  private val valueAssignment = (Val ~ Equal) ~> (floatValue | longValue)
 
   private val assignment = (dimension <~ Equal) ~ (stringValue | floatValue | intValue) ^^ {
     case k ~ v => k -> v.asInstanceOf[JSerializable]

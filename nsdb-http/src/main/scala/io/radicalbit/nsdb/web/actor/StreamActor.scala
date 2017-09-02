@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, SubscriptionFailed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, RecordsPublished, Subscribed, SubscriptionFailed}
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
@@ -81,6 +81,8 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       })
       Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
     case msg @ RecordPublished(_, _, _) =>
+      wsActor ! OutgoingMessage(msg)
+    case msg @ RecordsPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
       log.debug("terminating stream actor")
