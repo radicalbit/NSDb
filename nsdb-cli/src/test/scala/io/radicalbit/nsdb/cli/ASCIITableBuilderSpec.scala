@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.cli
 
+import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.common.protocol.{Bit, SQLStatementExecuted}
 import org.scalatest.{Matchers, WordSpec}
 

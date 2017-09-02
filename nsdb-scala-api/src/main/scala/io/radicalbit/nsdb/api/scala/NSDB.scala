@@ -37,12 +37,12 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         timestamp = bit.ts getOrElse (System.currentTimeMillis),
         value = bit.value match {
           case Some(v: Double) => RPCInsert.Value.DecimalValue(v)
-          case Some(v: Long) => RPCInsert.Value.LongValue(v)
-          case unknown => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
+          case Some(v: Long)   => RPCInsert.Value.LongValue(v)
+          case unknown         => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
         },
         dimensions = bit.dimensions.map {
           case (k, v: java.lang.Double) => (k, Dimension(Dimension.Value.DecimalValue(v)))
-          case (k, v: java.lang.Long) => (k, Dimension(Dimension.Value.LongValue(v)))
+          case (k, v: java.lang.Long)   => (k, Dimension(Dimension.Value.LongValue(v)))
           case (k, v: java.lang.String) => (k, Dimension(Dimension.Value.StringValue(v)))
         }.toMap
       ))

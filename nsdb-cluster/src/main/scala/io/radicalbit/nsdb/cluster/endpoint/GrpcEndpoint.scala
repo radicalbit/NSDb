@@ -16,12 +16,12 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implicit system: ActorSystem)
-  extends GRPCServer {
+    extends GRPCServer {
 
   private val log = LoggerFactory.getLogger(classOf[GrpcEndpoint])
 
   implicit val timeout: Timeout = 1 second
-  implicit val sys = system.dispatcher
+  implicit val sys              = system.dispatcher
 
   log.info("Starting GrpcEndpoint")
 
@@ -44,11 +44,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record = Bit(timestamp = request.timestamp,
-          dimensions = request.dimensions.map {
+        record = Bit(timestamp = request.timestamp, dimensions = request.dimensions.map {
           case (k, v) => (k, dimensionFor(v.value))
-        },
-          value = valueFor(request.value))
+        }, value = valueFor(request.value))
       )).mapTo[InputMapped] map (_ => RPCInsertResult(true)) recover {
         case t => RPCInsertResult(false, t.getMessage)
       }
@@ -61,13 +59,13 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
     private def valueFor(v: RPCInsert.Value): JSerializable = v match {
       case _: RPCInsert.Value.DecimalValue => v.decimalValue.get
-      case _: RPCInsert.Value.LongValue => v.longValue.get
+      case _: RPCInsert.Value.LongValue    => v.longValue.get
     }
 
     private def dimensionFor(v: Dimension.Value): JSerializable = v match {
       case _: Dimension.Value.DecimalValue => v.decimalValue.get
-      case _: Dimension.Value.LongValue => v.longValue.get
-      case _: Dimension.Value.StringValue => v.stringValue.get
+      case _: Dimension.Value.LongValue    => v.longValue.get
+      case _: Dimension.Value.StringValue  => v.stringValue.get
     }
   }
 

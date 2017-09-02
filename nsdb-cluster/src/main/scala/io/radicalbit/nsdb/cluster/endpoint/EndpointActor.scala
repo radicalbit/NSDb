@@ -5,12 +5,7 @@ import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol._
-import io.radicalbit.nsdb.common.statement.{
-  DeleteSQLStatement,
-  DropSQLStatement,
-  InsertSQLStatement,
-  SelectSQLStatement
-}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
 import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.coordinator.WriteCoordinator._
@@ -61,12 +56,24 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
         .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
         .pipeTo(sender())
 
-    case ShowMetrics(namespace) =>
+    case ExecuteSQLStatement(statement: DeleteSQLStatement) =>
+      (writeCoordinator ? ExecuteDeleteStatement(statement))
+        .mapTo[DeleteStatementExecuted]
+        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
+        .pipeTo(sender())
+
+    case ExecuteSQLStatement(statement: DropSQLStatement) =>
+      (writeCoordinator ? DropMetric(statement.namespace, statement.metric))
+        .mapTo[MetricDropped]
+        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
+        .pipeTo(sender())
+
+    case ExecuteCommandStatement(ShowMetrics(namespace)) =>
       (readCoordinator ? GetMetrics(namespace)).mapTo[MetricsGot].map {
         case MetricsGot(namespace, metrics) => NamespaceMetricsListRetrieved(namespace, metrics.toList)
       } pipeTo (sender())
 
-    case DescribeMetric(namespace, metric) =>
+    case ExecuteCommandStatement(DescribeMetric(namespace, metric)) =>
       (readCoordinator ? GetSchema(namespace = namespace, metric = metric))
         .mapTo[SchemaGot]
         .map {
@@ -77,17 +84,6 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
               .getOrElse(List.empty[MetricField])
             MetricSchemaRetrieved(namespace, metric, fields.toList)
         }
-        .pipeTo(sender())
-
-    case ExecuteSQLStatement(statement: DeleteSQLStatement) =>
-      (writeCoordinator ? ExecuteDeleteStatement(statement))
-        .mapTo[DeleteStatementExecuted]
-        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
-        .pipeTo(sender())
-    case ExecuteSQLStatement(statement: DropSQLStatement) =>
-      (writeCoordinator ? DropMetric(statement.namespace, statement.metric))
-        .mapTo[MetricDropped]
-        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
         .pipeTo(sender())
   }
 }
