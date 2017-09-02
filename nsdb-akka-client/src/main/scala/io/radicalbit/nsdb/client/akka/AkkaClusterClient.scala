@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.common.statement.{CommandStatement, SQLStatement}
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
-class AkkaClusterClient(host: String = "127.0.0.1", port: Int = 2552)(implicit system: ActorSystem) {
+class AkkaClusterClient(host: String, port: Int)(implicit system: ActorSystem) {
   import scala.concurrent.duration._
 
   private val EndpointActorPath = "/user/endpoint-actor"
