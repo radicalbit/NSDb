@@ -14,6 +14,12 @@ object Dependencies {
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
   }
 
+  object scopt {
+    lazy val version   = "3.7.0"
+    lazy val namespace = "com.github.scopt"
+    val scopt          = namespace %% "scopt" % version
+  }
+
   object cats {
     lazy val version   = "0.9.0"
     lazy val namespace = "org.typelevel"
@@ -183,6 +189,7 @@ object Dependencies {
   object CLI {
     lazy val libraries = Seq(
       scalaLang.compiler,
+      scopt.scopt,
       asciitable.core,
       cats.cats,
       scalatest.core % Test

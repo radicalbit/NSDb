@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, RecordsPublished, Subscribed, SubscriptionFailed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._

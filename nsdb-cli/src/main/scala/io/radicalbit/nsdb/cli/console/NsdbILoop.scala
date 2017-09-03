@@ -15,15 +15,16 @@ import scala.concurrent.duration._
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
 
-class NsdbILoop(in0: Option[BufferedReader], out: JPrintWriter) extends ILoop(in0, out) {
+class NsdbILoop(host: Option[String], port: Option[Int], in0: Option[BufferedReader], out: JPrintWriter)
+    extends ILoop(in0, out) {
 
-  def this(in: BufferedReader, out: JPrintWriter) = this(Some(in), out)
+  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, Some(in), out)
 
-  def this() = this(None, new JPrintWriter(Console.out, true))
+  def this(host: Option[String], port: Option[Int]) = this(host, port, None, new JPrintWriter(Console.out, true))
 
   implicit lazy val system = ActorSystem("nsdb-cli", ConfigFactory.load("cli"), getClass.getClassLoader)
 
-  val clientDelegate = new AkkaClusterClient()
+  val clientDelegate = new AkkaClusterClient(host getOrElse "127.0.0.1", port getOrElse 2552)
 
   val commandStatementParser = new CommandStatementParser()
 
