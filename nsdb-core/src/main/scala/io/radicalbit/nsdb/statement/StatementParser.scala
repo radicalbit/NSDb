@@ -69,7 +69,7 @@ class StatementParser {
       statement.order.map(order => {
         val fieldsMap = schema.fields
           .map(e => e.name -> e.indexType.getClass.getSimpleName)
-          .toMap + ("timestamp" -> BIGINT())
+          .toMap + ("timestamp" -> "BIGINT")
         fieldsMap.get(order.dimension) match {
           case Some("VARCHAR") =>
             new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
