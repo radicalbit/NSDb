@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.index.{BIGINT, Schema}
 import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
@@ -70,7 +70,9 @@ class StatementParser {
 
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
-      val fieldsMap = schema.fields.map(e => e.name -> e.indexType.getClass.getSimpleName).toMap
+      val fieldsMap = schema.fields
+        .map(e => e.name -> e.indexType.getClass.getSimpleName)
+        .toMap + ("timestamp" -> BIGINT())
       fieldsMap.get(order.dimension) match {
         case Some("VARCHAR") =>
           new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))

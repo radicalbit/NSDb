@@ -1,7 +1,9 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.index.lucene.SumAllGroupsCollector
+import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
@@ -14,6 +16,9 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   private val parser = new StatementParser
 
+  val schema = Schema(
+    "people",
+    Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
   "A statement parser instance" when {
 
     "receive a select projecting a wildcard" should {
@@ -22,7 +27,8 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(namespace = "registry",
                              metric = "people",
                              fields = AllFields,
-                             limit = Some(LimitOperator(4)))
+                             limit = Some(LimitOperator(4))),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -43,7 +49,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
             limit = Some(LimitOperator(4))
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -66,7 +73,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             limit = Some(LimitOperator(4))
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -90,7 +98,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
             limit = Some(LimitOperator(4))
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -118,7 +127,8 @@ class StatementParserSpec extends WordSpec with Matchers {
                 ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
             ))),
             limit = Some(LimitOperator(4))
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -152,7 +162,8 @@ class StatementParserSpec extends WordSpec with Matchers {
               operator = NotOperator
             ))),
             limit = Some(LimitOperator(4))
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -193,7 +204,8 @@ class StatementParserSpec extends WordSpec with Matchers {
               operator = NotOperator
             ))),
             limit = Some(LimitOperator(4))
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -224,7 +236,8 @@ class StatementParserSpec extends WordSpec with Matchers {
                              metric = "people",
                              fields = AllFields,
                              order = Some(AscOrderOperator("name")),
-                             limit = Some(LimitOperator(4)))
+                             limit = Some(LimitOperator(4))),
+          schema
         ) should be(
           Success(
             ParsedSimpleQuery(
@@ -233,7 +246,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List.empty,
-              Some(new Sort(new SortField("name", SortField.Type.DOC, false)))
+              Some(new Sort(new SortField("name", SortField.Type.STRING, false)))
             ))
         )
       }
@@ -247,9 +260,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-            order = Some(DescOrderOperator(dimension = "name")),
+            order = Some(DescOrderOperator(dimension = "creationDate")),
             limit = Some(LimitOperator(5))
-          )) should be(
+          ),
+          schema
+        ) should be(
           Success(
             ParsedSimpleQuery(
               "registry",
@@ -257,7 +272,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               5,
               List("name"),
-              Some(new Sort(new SortField("name", SortField.Type.DOC, true)))
+              Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true)))
             ))
         )
       }
@@ -278,7 +293,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("value", Some(SumAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             groupBy = Some("name")
-          )
+          ),
+          schema
         ) should be(
           Success(
             ParsedAggregatedQuery(
