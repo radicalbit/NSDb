@@ -69,8 +69,15 @@ class StatementParser {
   }
 
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
-    val sortOpt = statement.order.map(order =>
-      new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator])))
+    val sortOpt = statement.order.map(order => {
+      val fieldsMap = schema.fields.map(e => e.name -> e.indexType).toMap
+      fieldsMap.get(order.dimension).map(_.getClass.getSimpleName) match {
+        case Some("VARCHAR") => new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
+        case Some("BIGINT") => new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
+        case Some("INT") => new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
+        case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
+      }
+    })
     val expParsed = parseExpression(statement.condition.map(_.expression))
     val fieldList = statement.fields match {
       case AllFields        => List.empty
