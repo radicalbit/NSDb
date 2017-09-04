@@ -36,7 +36,7 @@ trait WsResources {
 
     val outgoingMessages: Source[Message, NotUsed] =
       Source
-        .actorRef[StreamActor.OutgoingMessage](10, OverflowStrategy.backpressure)
+        .actorRef[StreamActor.OutgoingMessage](10, OverflowStrategy.dropTail)
         .mapMaterializedValue { outgoingActor =>
           connectedWsActor ! StreamActor.Connect(outgoingActor)
           NotUsed
