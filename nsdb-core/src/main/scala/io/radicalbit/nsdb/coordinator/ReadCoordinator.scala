@@ -25,6 +25,7 @@ class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends A
       schemaActor forward msg
       namespaceActor forward msg
     case ExecuteStatement(statement) =>
+      log.debug(s"executing $statement")
       (schemaActor ? GetSchema(statement.namespace, statement.metric))
         .mapTo[SchemaGot]
         .flatMap {
