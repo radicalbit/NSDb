@@ -16,9 +16,11 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   private val parser = new StatementParser
 
-  val schema = Schema(
-    "people",
-    Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
+  val schema = Some(
+    Schema(
+      "people",
+      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT()))))
+
   "A statement parser instance" when {
 
     "receive a select projecting a wildcard" should {

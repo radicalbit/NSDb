@@ -46,10 +46,6 @@ class StatementParser {
     ParsedExpression(q)
   }
 
-  def parseStatement(statement: SelectSQLStatement): Try[ParsedQuery] = {
-    parseStatement(statement, null)
-  }
-
   def parseDeleteStatement(statement: DeleteSQLStatement): Try[ParsedQuery] = {
     parseStatement(statement)
   }
@@ -68,21 +64,22 @@ class StatementParser {
     Success(ParsedDeleteQuery(statement.namespace, statement.metric, expParsed.q))
   }
 
-  def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
-    val sortOpt = statement.order.map(order => {
-      val fieldsMap = schema.fields
-        .map(e => e.name -> e.indexType.getClass.getSimpleName)
-        .toMap + ("timestamp" -> BIGINT())
-      fieldsMap.get(order.dimension) match {
-        case Some("VARCHAR") =>
-          new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
-        case Some("BIGINT") =>
-          new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
-        case Some("INT") =>
-          new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
-        case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
-      }
-    })
+  def parseStatement(statement: SelectSQLStatement, schemaOpt: Option[Schema] = None): Try[ParsedQuery] = {
+    val sortOpt = schemaOpt.flatMap(schema =>
+      statement.order.map(order => {
+        val fieldsMap = schema.fields
+          .map(e => e.name -> e.indexType.getClass.getSimpleName)
+          .toMap + ("timestamp" -> BIGINT())
+        fieldsMap.get(order.dimension) match {
+          case Some("VARCHAR") =>
+            new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
+          case Some("BIGINT") =>
+            new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
+          case Some("INT") =>
+            new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
+          case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
+        }
+      }))
     val expParsed = parseExpression(statement.condition.map(_.expression))
     val fieldList = statement.fields match {
       case AllFields        => List.empty
