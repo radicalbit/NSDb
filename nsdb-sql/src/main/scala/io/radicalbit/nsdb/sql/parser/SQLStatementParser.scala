@@ -58,7 +58,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val numbers    = """([0-9]+)""".r
   private val intValue   = numbers ^^ { _.toInt }
   private val longValue  = numbers ^^ { _.toLong }
-  private val floatValue = """([0-9]+)\.([0-9]+)""".r ^^ { _.toFloat }
+  private val floatValue = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
 
   private val field = digits ^^ { e =>
     Field(e, None)

@@ -61,6 +61,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       })
       Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
     case RegisterQuid(quid) =>
+      log.debug(s"registering quid $quid")
       (publisher ? SubscribeByQueryId(self, quid))
         .map {
           case msg @ Subscribed(_, _) =>

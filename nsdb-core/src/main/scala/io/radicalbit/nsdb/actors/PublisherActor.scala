@@ -71,6 +71,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
     case SubscribeByQueryId(actor, quid) =>
       queries.get(quid) match {
         case Some(q) =>
+          log.debug(s"found query $q for id $quid")
           val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
           subscribedActors += (quid -> (previousRegisteredActors + actor))
           implicit val timeout = Timeout(3 seconds)
