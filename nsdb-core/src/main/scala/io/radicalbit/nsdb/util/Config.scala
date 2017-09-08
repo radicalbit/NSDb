@@ -4,11 +4,11 @@ import com.typesafe.config.{Config => TypeSafeConfig}
 
 object Config {
 
-  val CommitLogSerializerConf = "radicaldb.commit-log.serializer"
-  val CommitLogWriterConf     = "radicaldb.commit-log.writer"
-  val CommitLogEnabledConf    = "radicaldb.commit-log.enabled"
-  val CommitLogDirectoryConf  = "radicaldb.commit-log.directory"
-  val CommitLogMaxSizeConf    = "radicaldb.commit-log.max-size"
+  val CommitLogSerializerConf = "nsdb.commit-log.serializer"
+  val CommitLogWriterConf     = "nsdb.commit-log.writer"
+  val CommitLogEnabledConf    = "nsdb.commit-log.enabled"
+  val CommitLogDirectoryConf  = "nsdb.commit-log.directory"
+  val CommitLogMaxSizeConf    = "nsdb.commit-log.max-size"
 
   def getString(property: String)(implicit config: TypeSafeConfig): String = config.getString(property)
 

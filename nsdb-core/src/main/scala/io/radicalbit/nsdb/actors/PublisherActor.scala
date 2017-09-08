@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
@@ -35,6 +36,9 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
 
   implicit val disp = context.system.dispatcher
 
+  implicit val timeout =
+    Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+
   override def receive = {
     case SubscribeBySqlStatement(actor, query) =>
       subscribedActors
@@ -48,8 +52,6 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               subscribedActors += (id -> (previousRegisteredActors + actor))
               queries += (id          -> NsdbQuery(id, query))
 
-              implicit val timeout = Timeout(3 seconds)
-
               (readCoordinator ? ExecuteStatement(query))
                 .mapTo[SelectStatementExecuted[Bit]]
                 .map(e => Subscribed(id, e.values))
@@ -62,7 +64,6 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           }
         } {
           case (id, _) =>
-            implicit val timeout = Timeout(3 seconds)
             (readCoordinator ? ExecuteStatement(query))
               .mapTo[SelectStatementExecuted[Bit]]
               .map(e => Subscribed(id, e.values))
@@ -74,7 +75,6 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           log.debug(s"found query $q for id $quid")
           val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
           subscribedActors += (quid -> (previousRegisteredActors + actor))
-          implicit val timeout = Timeout(3 seconds)
           (readCoordinator ? ExecuteStatement(q.query))
             .mapTo[SelectStatementExecuted[Bit]]
             .map(e => Subscribed(quid, e.values))
@@ -96,7 +96,6 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
                     .size == 1)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordPublished(id, metric, record)))
             case Success(parsedQuery: ParsedAggregatedQuery) =>
-              implicit val timeout = Timeout(3 seconds)
               if (metric == nsdbQuery.query.metric) {
                 val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
                   .mapTo[SelectStatementExecuted[Bit]]

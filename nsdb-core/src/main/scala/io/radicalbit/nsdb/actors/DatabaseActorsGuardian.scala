@@ -1,6 +1,9 @@
 package io.radicalbit.nsdb.actors
 
-import akka.actor.{Actor, Props}
+import java.util.concurrent.TimeoutException
+
+import akka.actor.SupervisorStrategy.{Restart, Resume}
+import akka.actor.{Actor, OneForOneStrategy, Props}
 import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
@@ -19,9 +22,16 @@ object DatabaseActorsGuardian {
 
 class DatabaseActorsGuardian extends Actor {
 
+  override val supervisorStrategy = OneForOneStrategy() {
+    case e: TimeoutException =>
+      context.system.log.error("Got the following TimeoutException, resuming the processing", e)
+      Resume
+    case t => super.supervisorStrategy.decider.apply(t)
+  }
+
   val config = context.system.settings.config
 
-  val indexBasePath = config.getString("radicaldb.index.base-path")
+  val indexBasePath = config.getString("nsdb.index.base-path")
 
   val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")

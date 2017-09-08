@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.web.actor
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -10,12 +12,12 @@ import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
 
-  implicit val timeout: Timeout = 1 second
+  implicit val timeout =
+    Timeout(context.system.settings.config.getDuration("nsdb.stream.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
   import context.dispatcher
 
   override def receive: Receive = waiting

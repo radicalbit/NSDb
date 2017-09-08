@@ -26,7 +26,7 @@ trait Web extends StaticResources with WsResources with QueryResources { this: C
       val api: Route = staticResources ~ wsResources(publisher) ~ queryResources(publisher)
 
       val http =
-        Http().bindAndHandle(api, config.getString("radicaldb.http.interface"), config.getInt("radicaldb.http.port"))
+        Http().bindAndHandle(api, config.getString("nsdb.http.interface"), config.getInt("nsdb.http.port"))
 
       scala.sys.addShutdownHook {
         http.flatMap(_.unbind()).onComplete { _ =>
