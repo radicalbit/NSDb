@@ -1,18 +1,23 @@
 package io.radicalbit.nsdb.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
+import akka.util
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.Schema
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 
 class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends Actor with ActorLogging {
   import ReadCoordinator._
 
-  implicit val timeout: Timeout = 1 second
+  implicit val timeout = Timeout(
+    context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
   import context.dispatcher
 
   override def receive: Receive = {

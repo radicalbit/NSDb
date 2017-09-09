@@ -35,4 +35,4 @@ mainRunner
 # IntelliJ specific
 .idea
 *.sc
-radicalbitdb_*
+nsdb_*

@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
@@ -50,9 +52,9 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
 
   import akka.pattern.ask
 
-  import scala.concurrent.duration._
-
-  implicit val timeout: Timeout = 1 second
+  implicit val timeout = Timeout(
+    context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
   import context.dispatcher
 
   log.info("WriteCoordinator is ready.")

@@ -46,7 +46,7 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   private val serializerClass = getString(CommitLogSerializerConf)
   private val directory       = getString(CommitLogDirectoryConf)
   private val maxSize         = getInt(CommitLogMaxSizeConf)
-  private val FileNamePrefix  = "radicalbitdb"
+  private val FileNamePrefix  = "nsdb"
 
   log.info("Initializing the commit log serializer {}...", serializerClass)
   override protected val serializer: CommitLogSerializer =

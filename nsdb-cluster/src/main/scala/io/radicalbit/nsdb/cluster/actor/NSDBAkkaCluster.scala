@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ActorRef, ActorSystem}
 import io.radicalbit.nsdb.actors.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.{EndpointActor, GrpcEndpoint}
@@ -8,14 +10,15 @@ import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.duration._
-
 trait NSDBAkkaCluster extends Core {
 
   override val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
 }
 
 trait NSDBAActors extends CoreActors { this: Core =>
+
+  implicit val timeout =
+    Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   implicit val executionContext = system.dispatcher
 

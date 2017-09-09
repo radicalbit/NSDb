@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.cluster.endpoint
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
@@ -11,7 +13,6 @@ import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.coordinator.WriteCoordinator._
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 
 object EndpointActor {
 
@@ -22,7 +23,9 @@ object EndpointActor {
 
 class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) extends Actor with ActorLogging {
 
-  implicit val timeout: Timeout = 1 second
+  implicit val timeout: Timeout = Timeout(
+    context.system.settings.config.getDuration("nsdb.rpc-akka-endpoint.timeout", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
   import context.dispatcher
 
   ClusterClientReceptionist(context.system).registerService(self)

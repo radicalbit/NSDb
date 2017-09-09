@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.actors
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -26,7 +28,9 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
       }
     )
 
-  implicit val timeout: Timeout = 1 second
+  implicit val timeout: Timeout = Timeout(
+    context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
   import context.dispatcher
 
   override def receive = {
