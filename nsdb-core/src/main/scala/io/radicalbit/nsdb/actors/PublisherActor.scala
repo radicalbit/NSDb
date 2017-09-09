@@ -39,6 +39,25 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
   implicit val timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
+  val interval = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
+  context.system.scheduler.schedule(interval, interval) {
+    queries.foreach {
+      case (id, nsdbQuery) =>
+        val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
+        luceneQuery match {
+          case Success(parsedQuery: ParsedAggregatedQuery) =>
+            val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
+              .mapTo[SelectStatementExecuted[Bit]]
+              .map(e => RecordsPublished(id, e.metric, e.values))
+            subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+          case _ =>
+        }
+    }
+  }
+
   override def receive = {
     case SubscribeBySqlStatement(actor, query) =>
       subscribedActors
@@ -95,13 +114,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .size == 1)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordPublished(id, metric, record)))
-            case Success(parsedQuery: ParsedAggregatedQuery) =>
-              if (metric == nsdbQuery.query.metric) {
-                val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-                  .mapTo[SelectStatementExecuted[Bit]]
-                  .map(e => RecordsPublished(id, e.metric, e.values))
-                subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
-              }
+            case Success(_) =>
             case Failure(_) =>
               log.error(s"query ${nsdbQuery.query} not valid")
           }
