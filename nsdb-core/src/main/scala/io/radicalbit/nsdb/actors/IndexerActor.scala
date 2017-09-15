@@ -47,15 +47,11 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     }
   }
 
-  override def receive: Receive = {
-
-    case msg @ GetMetrics(namespace) =>
-      sender() ! MetricsGot(namespace, indexes.keys.toSeq)
+  def writeOps: Receive = {
     case AddRecord(ns, metric, record) =>
       val index           = getIndex(metric)
       implicit val writer = index.getWriter
       val w               = index.write(record)
-      writer.flush()
       writer.close()
       w match {
         case Valid(r)   => sender ! RecordAdded(ns, metric, record)
@@ -89,19 +85,6 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
           writer.close()
       }
       sender ! AllMetricsDeleted(ns)
-    case GetCount(ns, metric) =>
-      val index = getIndex(metric)
-      val hits  = index.timeRange(0, Long.MaxValue, Seq.empty)
-      sender ! CountGot(ns, metric, hits.size)
-    case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
-      statementParser.parseStatement(statement, Some(schema)) match {
-        case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
-          handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
-        case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
-          handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
-        case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
-        case _           => sender() ! ReadCoordinator.SelectStatementFailed("Not a select statement.")
-      }
     case WriteCoordinator.ExecuteDeleteStatement(statement) =>
       statementParser.parseStatement(statement) match {
         case Success(ParsedDeleteQuery(_, metric, q)) =>
@@ -127,6 +110,28 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
           indexes -= metric
           sender() ! MetricDropped(namespace, metric)
         }
+  }
+
+  def readOps: Receive = {
+    case msg @ GetMetrics(_) =>
+      sender() ! MetricsGot(namespace, indexes.keys.toSeq)
+    case GetCount(ns, metric) =>
+      val index = getIndex(metric)
+      val hits  = index.timeRange(0, Long.MaxValue, Seq.empty)
+      sender ! CountGot(ns, metric, hits.size)
+    case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
+      statementParser.parseStatement(statement, Some(schema)) match {
+        case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
+          handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
+        case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
+          handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
+        case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
+        case _           => sender() ! ReadCoordinator.SelectStatementFailed("Not a select statement.")
+      }
+  }
+
+  override def receive: Receive = {
+    readOps orElse writeOps
   }
 }
 
