@@ -4,6 +4,7 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import io.radicalbit.nsdb.WriteInterval
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -17,7 +18,8 @@ class IndexerActorSpec()
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter {
+    with BeforeAndAfter
+    with WriteInterval {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
@@ -27,7 +29,7 @@ class IndexerActorSpec()
   val indexerActor = system.actorOf(IndexerActor.props(basePath, namespace))
 
   before {
-    val paths = Seq(s"$basePath/$namespace/testMetric", s"$basePath/$namespace/testMetric2")
+    val paths = Seq(s"$basePath/$namespace/indexerActorMetric", s"$basePath/$namespace/indexerActorMetric2")
 
     paths.foreach { path =>
       val directory = FSDirectory.open(Paths.get(path))
@@ -36,17 +38,20 @@ class IndexerActorSpec()
       writer.flush()
       writer.close()
     }
+
   }
 
   "IndexerActor" should "write and delete properly" in {
 
-    val record = Bit(System.currentTimeMillis, 25, Map("content" -> s"content"))
+    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
 
-    probe.send(indexerActor, AddRecord(namespace, "indexerActorMetric", record))
+    probe.send(indexerActor, AddRecord(namespace, "indexerActorMetric", bit))
 
     val expectedAdd = probe.expectMsgType[RecordAdded]
     expectedAdd.metric shouldBe "indexerActorMetric"
-    expectedAdd.record shouldBe record
+    expectedAdd.record shouldBe bit
+
+    waitInterval
 
     probe.send(indexerActor, GetCount(namespace, "indexerActorMetric"))
 
@@ -54,11 +59,13 @@ class IndexerActorSpec()
     expectedCount.metric shouldBe "indexerActorMetric"
     expectedCount.count shouldBe 1
 
-    probe.send(indexerActor, DeleteRecord(namespace, "indexerActorMetric", record))
+    probe.send(indexerActor, DeleteRecord(namespace, "indexerActorMetric", bit))
 
     val expectedDelete = probe.expectMsgType[RecordDeleted]
     expectedDelete.metric shouldBe "indexerActorMetric"
-    expectedDelete.record shouldBe record
+    expectedDelete.record shouldBe bit
+
+    waitInterval
 
     probe.send(indexerActor, GetCount(namespace, "indexerActorMetric"))
 
@@ -68,17 +75,19 @@ class IndexerActorSpec()
 
   }
 
-  "IndexerActorSpec" should "write and delete properly in multiple indexes" in {
+  "IndexerActor" should "write and delete properly in multiple indexes" in {
 
-    probe.send(indexerActor, DeleteMetric(namespace, "indexerActorMetric"))
-    probe.expectMsgType[MetricDeleted]
-    probe.send(indexerActor, DeleteMetric(namespace, "indexerActorMetric2"))
-    probe.expectMsgType[MetricDeleted]
+    probe.send(indexerActor, DeleteAllMetrics(namespace))
+    probe.expectMsgType[AllMetricsDeleted]
 
-    val record = Bit(System.currentTimeMillis, 22.5, Map("content" -> s"content"))
+    waitInterval
 
-    probe.send(indexerActor, AddRecord(namespace, "indexerActorMetric2", record))
+    val bit = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
+
+    probe.send(indexerActor, AddRecord(namespace, "indexerActorMetric2", bit))
     probe.expectMsgType[RecordAdded]
+
+    waitInterval
 
     probe.send(indexerActor, GetCount(namespace, "indexerActorMetric"))
     val expectedCount = probe.expectMsgType[CountGot]

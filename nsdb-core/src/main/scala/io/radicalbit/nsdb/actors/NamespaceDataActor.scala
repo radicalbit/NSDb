@@ -75,9 +75,9 @@ object NamespaceDataActor {
   def props(basePath: String): Props = Props(new NamespaceDataActor(basePath))
 
   object commands {
-    case class AddRecord(namespace: String, metric: String, record: Bit)
-    case class AddRecords(namespace: String, metric: String, records: Seq[Bit])
-    case class DeleteRecord(namespace: String, metric: String, record: Bit)
+    case class AddRecord(namespace: String, metric: String, bit: Bit)
+    case class AddRecords(namespace: String, metric: String, bits: Seq[Bit])
+    case class DeleteRecord(namespace: String, metric: String, bit: Bit)
     case class DeleteMetric(namespace: String, metric: String)
     case class DeleteAllMetrics(namespace: String)
   }

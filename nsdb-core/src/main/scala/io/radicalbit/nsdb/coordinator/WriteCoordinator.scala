@@ -33,7 +33,7 @@ object WriteCoordinator {
   case class InputMapped(namespace: String, metric: String, record: Bit)        extends WriteCoordinatorProtocol
 
   case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
-  case class DeleteStatementExecuted(namespace: String, metric: String, count: Long)
+  case class DeleteStatementExecuted(namespace: String, metric: String)
   case class DeleteStatementFailed(namespace: String, metric: String, reason: String)
 
   case class DropMetric(namespace: String, metric: String)

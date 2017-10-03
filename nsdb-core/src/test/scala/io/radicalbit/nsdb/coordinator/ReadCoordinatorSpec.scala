@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.WriteInterval
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecords, DeleteMetric}
 import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchema
 import io.radicalbit.nsdb.actors.{NamespaceDataActor, SchemaActor}
@@ -21,7 +22,8 @@ class ReadCoordinatorSpec
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with WriteInterval {
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
@@ -49,6 +51,8 @@ class ReadCoordinatorSpec
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchema(namespace, "people", schema), 1 seconds)
     indexerActor ! AddRecords(namespace, "people", records)
+
+    waitInterval
   }
 
   "ReadCoordinator" when {
