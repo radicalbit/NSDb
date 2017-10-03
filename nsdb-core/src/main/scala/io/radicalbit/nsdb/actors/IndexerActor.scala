@@ -16,11 +16,11 @@ import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
-import org.apache.lucene.index.IndexNotFoundException
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.Query
 import org.apache.lucene.store.FSDirectory
 
-import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -39,7 +39,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
 
   private val indexes: mutable.Map[String, TimeSeriesIndex] = mutable.Map.empty
 
-  implicit val disp = context.system.dispatcher
+  implicit val disp: ExecutionContextExecutor = context.system.dispatcher
 
   implicit val timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
@@ -48,9 +48,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
-//  override def postStart: Unit =
   context.system.scheduler.schedule(interval, interval) {
-//      context.become(perform)
     self ! PerformWrites
   }
 
@@ -86,64 +84,27 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case DeleteAllMetrics(ns) =>
       indexes.foreach {
         case (_, index) =>
-          implicit val writer = index.getWriter
+          implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
       }
       sender ! AllMetricsDeleted(ns)
-  }
-
-  def writeOps: Receive = {
-    case AddRecord(ns, metric, record) =>
-      val index           = getIndex(metric)
-      implicit val writer = index.getWriter
-      val w               = index.write(record)
-      writer.close()
-      w match {
-        case Valid(r)   => sender ! RecordAdded(ns, metric, record)
-        case Invalid(l) => sender ! RecordRejected(ns, metric, record, l.toList)
-      }
-    case AddRecords(ns, metric, records) =>
-      val index           = getIndex(metric)
-      implicit val writer = index.getWriter
-      records.foreach(index.write)
-      writer.close()
-      sender ! RecordsAdded(ns, metric, records)
-    case DeleteRecord(ns, metric, record) =>
-      val index           = getIndex(metric)
-      implicit val writer = index.getWriter
-      index.delete(record)
-      writer.close()
-      sender ! RecordDeleted(ns, metric, record)
-    case WriteCoordinator.ExecuteDeleteStatement(statement) =>
-      statementParser.parseStatement(statement) match {
-        case Success(ParsedDeleteQuery(_, metric, q)) =>
-          val index           = getIndex(metric)
-          implicit val writer = index.getWriter
-          index.delete(q)
+    case WriteCoordinator.DropMetric(_, metric) =>
+      indexes
+        .get(metric)
+        .fold {
+          sender() ! MetricDropped(namespace, metric)
+        } { index =>
+          implicit val writer: IndexWriter = index.getWriter
+          index.deleteAll()
           writer.close()
-          sender() ! WriteCoordinator.DeleteStatementExecuted(namespace = namespace, metric = metric)
-        case Failure(ex) =>
-          sender() ! WriteCoordinator.DeleteStatementFailed(namespace = namespace,
-                                                            metric = statement.metric,
-                                                            ex.getMessage)
-      }
-//    case WriteCoordinator.DropMetric(_, metric) =>
-//      indexes
-//        .get(metric)
-//        .fold {
-//          sender() ! MetricDropped(namespace, metric)
-//        } { index =>
-//          implicit val writer = index.getWriter
-//          index.deleteAll()
-//          writer.close()
-//          indexes -= metric
-//          sender() ! MetricDropped(namespace, metric)
-//        }
+          indexes -= metric
+          sender() ! MetricDropped(namespace, metric)
+        }
   }
 
   def readOps: Receive = {
-    case msg @ GetMetrics(_) =>
+    case GetMetrics(_) =>
       sender() ! MetricsGot(namespace, indexes.keys.toSeq)
     case GetCount(ns, metric) =>
       val index = getIndex(metric)
@@ -213,32 +174,29 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   }
 
   def perform: Receive = {
-    case PerformWrites => {
+    case PerformWrites =>
       opBufferMap.keys.foreach { metric =>
         val index           = getIndex(metric)
-        implicit val writer = index.getWriter
+        implicit val writer: IndexWriter = index.getWriter
         opBufferMap(metric).foreach {
-          case WriteOperation(ns, _, bit) =>
-            val w = index.write(bit)
+          case WriteOperation(_, _, bit) =>
+            index.write(bit)
 //            w match {
 //              case Valid(r)   => sender ! RecordAdded(ns, metric, bit)
 //              case Invalid(l) => sender ! RecordRejected(ns, metric, bit, l.toList)
 //            }
-          case DeleteRecordOperation(ns, _, bit) =>
+          case DeleteRecordOperation(_, _, bit) =>
             index.delete(bit)
-            sender ! RecordDeleted(ns, metric, bit)
-          case DeleteQueryOperation(ns, metric, q) =>
+//            sender ! RecordDeleted(ns, _, bit)
+          case DeleteQueryOperation(_, _, q) =>
             val index           = getIndex(metric)
-            implicit val writer = index.getWriter
+            implicit val writer: IndexWriter = index.getWriter
             index.delete(q)
-//            writer.close()
         }
         writer.flush()
         writer.close()
       }
-
       self ! Accumulate
-    }
     case Accumulate =>
       unstashAll()
       context.become(readOps orElse ddlOps orElse accumulate)
@@ -246,7 +204,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   }
 
   override def receive: Receive = {
-    readOps orElse ddlOps orElse accumulate //writeOps
+    readOps orElse ddlOps orElse accumulate
   }
 }
 

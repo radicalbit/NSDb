@@ -90,7 +90,7 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
     case msg @ ExecuteDeleteStatement(_) =>
       namespaceDataActor forward msg
     case msg @ DropMetric(_, _) =>
-      namespaceDataActor forward (msg)
+      namespaceDataActor forward msg
   }
 }
 
