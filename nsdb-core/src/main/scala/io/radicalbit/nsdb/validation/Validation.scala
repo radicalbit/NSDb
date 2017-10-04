@@ -10,7 +10,7 @@ import cats.kernel.Semigroup
 
 object Validation {
   type FieldValidation  = Validated[NonEmptyList[String], Seq[Field]]
-  type LongValidation   = Validated[NonEmptyList[String], Long]
+  type WriteValidation  = Validated[NonEmptyList[String], Long]
   type SchemaValidation = Validated[NonEmptyList[String], Seq[SchemaField]]
 
   implicit val fieldSemigroup = new Semigroup[Seq[Field]] {

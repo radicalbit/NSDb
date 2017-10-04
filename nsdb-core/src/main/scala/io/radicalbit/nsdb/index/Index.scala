@@ -1,10 +1,11 @@
 package io.radicalbit.nsdb.index
 
+import cats.data.Validated.{invalidNel, valid}
 import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.{Document, LongPoint, StringField}
+import org.apache.lucene.document.{Document, Field, LongPoint, StringField}
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
@@ -13,7 +14,7 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
-trait Index[IN, OUT] {
+trait Index[T] {
   def directory: BaseDirectory
 
   def _keyField: String
@@ -22,12 +23,21 @@ trait Index[IN, OUT] {
 
   def getSearcher = new IndexSearcher(DirectoryReader.open(directory))
 
-  def validateRecord(data: IN): FieldValidation
-  def toRecord(document: Document, fields: Seq[String]): OUT
+  def validateRecord(data: T): FieldValidation
+  def toRecord(document: Document, fields: Seq[String]): T
 
-  protected def write(data: IN)(implicit writer: IndexWriter): LongValidation
+  def write(fields: Seq[Field])(implicit writer: IndexWriter): WriteValidation = {
+    val doc = new Document
+    fields.foreach(doc.add)
+    Try(writer.addDocument(doc)) match {
+      case Success(id) => valid(id)
+      case Failure(ex) => invalidNel(ex.getMessage)
+    }
+  }
 
-  def delete(data: IN)(implicit writer: IndexWriter): Unit
+  protected def write(data: T)(implicit writer: IndexWriter): WriteValidation
+
+  def delete(data: T)(implicit writer: IndexWriter): Unit
 
   def delete(query: Query)(implicit writer: IndexWriter): Long = {
     val reader   = DirectoryReader.open(directory)
@@ -76,15 +86,15 @@ trait Index[IN, OUT] {
     }.toSeq
   }
 
-  def query(query: Query, fields: Seq[String], limit: Int, sort: Option[Sort]): Seq[OUT] = {
+  def query(query: Query, fields: Seq[String], limit: Int, sort: Option[Sort]): Seq[T] = {
     rawQuery(query, limit, sort).map(d => toRecord(d, fields))
   }
 
-  def query(query: Query, collector: AllGroupsAggregationCollector): Seq[OUT] = {
+  def query(query: Query, collector: AllGroupsAggregationCollector): Seq[T] = {
     rawQuery(query, collector).map(d => toRecord(d, Seq.empty))
   }
 
-  def query(field: String, queryString: String, fields: Seq[String], limit: Int, sort: Option[Sort] = None): Seq[OUT] = {
+  def query(field: String, queryString: String, fields: Seq[String], limit: Int, sort: Option[Sort] = None): Seq[T] = {
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
     val parser   = new QueryParser(field, new StandardAnalyzer())
@@ -92,10 +102,10 @@ trait Index[IN, OUT] {
     executeQuery(searcher, query, limit, sort).map(d => toRecord(d, fields))
   }
 
-  def getAll: Seq[OUT] = {
+  def getAll: Seq[T] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
-      case Success(docs: Seq[OUT]) => docs
-      case Failure(_)              => Seq.empty
+      case Success(docs: Seq[T]) => docs
+      case Failure(_)            => Seq.empty
     }
   }
 }

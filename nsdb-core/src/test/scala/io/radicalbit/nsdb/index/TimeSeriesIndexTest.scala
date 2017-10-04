@@ -50,15 +50,15 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     writer.close()
 
-    val query = LongPoint.newRangeQuery("_lastRead", 0, Long.MaxValue)
+    val query = new MatchAllDocsQuery()
 
-    val result = boundedIndex.rawQuery(query, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
+    val result = boundedIndex.rawQuery(query, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
 
     result.size shouldBe 100
 
     (1 to 99).foreach { i =>
-      result(i).getField("_lastRead").numericValue().longValue should be >= result(i - 1)
-        .getField("_lastRead")
+      result(i).getField("timestamp").numericValue().longValue should be >= result(i - 1)
+        .getField("timestamp")
         .numericValue
         .longValue
     }
@@ -82,7 +82,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val queryExist = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val resultExist =
-      boundedIndex.query(queryExist, Seq.empty, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
+      boundedIndex.query(queryExist, Seq.empty, 100, None)
     resultExist.size shouldBe 1
 
     val deleteWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
@@ -93,7 +93,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val query = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val result =
-      boundedIndex.query(query, Seq.empty, 100, Some(new Sort(new SortField("_lastRead", SortField.Type.DOC))))
+      boundedIndex.query(query, Seq.empty, 100, None)
 
     result.size shouldBe 0
 

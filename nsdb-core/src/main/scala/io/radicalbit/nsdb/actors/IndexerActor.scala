@@ -176,7 +176,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   def perform: Receive = {
     case PerformWrites =>
       opBufferMap.keys.foreach { metric =>
-        val index           = getIndex(metric)
+        val index                        = getIndex(metric)
         implicit val writer: IndexWriter = index.getWriter
         opBufferMap(metric).foreach {
           case WriteOperation(_, _, bit) =>
@@ -189,7 +189,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
             index.delete(bit)
 //            sender ! RecordDeleted(ns, _, bit)
           case DeleteQueryOperation(_, _, q) =>
-            val index           = getIndex(metric)
+            val index                        = getIndex(metric)
             implicit val writer: IndexWriter = index.getWriter
             index.delete(q)
         }

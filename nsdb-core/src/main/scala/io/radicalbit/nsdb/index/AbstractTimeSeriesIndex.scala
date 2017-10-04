@@ -4,7 +4,7 @@ import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.JLong
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation, fieldSemigroup}
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation, fieldSemigroup}
 import org.apache.lucene.document._
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort}
@@ -12,24 +12,14 @@ import org.apache.lucene.search.{IndexSearcher, Sort}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-abstract class AbstractTimeSeriesIndex extends Index[Bit, Bit] with TypeSupport {
+abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
 
-  private val _lastRead   = "_lastRead"
   override val _keyField  = "timestamp"
   private val _valueField = "value"
 
-  def write(data: Bit)(implicit writer: IndexWriter): LongValidation = {
-    val doc     = new Document
-    val curTime = System.currentTimeMillis
-    val allFields = validateRecord(data).map(
-      fields =>
-        fields ++ Seq(
-          new LongPoint(_keyField, data.timestamp),
-          new StoredField(_keyField, data.timestamp),
-          new NumericDocValuesField(_keyField, data.timestamp),
-          new LongPoint(_lastRead, curTime),
-          new StoredField(_lastRead, System.currentTimeMillis)
-      ))
+  def write(data: Bit)(implicit writer: IndexWriter): WriteValidation = {
+    val doc       = new Document
+    val allFields = validateRecord(data)
     allFields match {
       case Valid(fields) =>
         fields.foreach(doc.add)
@@ -48,13 +38,20 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit, Bit] with TypeSupport 
         validateSchemaTypeSupport(Map(_valueField -> data.value)).map(se =>
           se.flatMap(elem => Seq(new StoredField(elem.name, elem.value.toString))))
       )
+      .map(
+        fields =>
+          fields ++ Seq(
+            new LongPoint(_keyField, data.timestamp),
+            new StoredField(_keyField, data.timestamp),
+            new NumericDocValuesField(_keyField, data.timestamp)
+        ))
   }
 
   override def toRecord(document: Document, fields: Seq[String]): Bit = {
     val dimensions: Map[String, JSerializable] =
       document.getFields.asScala
         .filterNot(f =>
-          f.name() == _keyField || f.name() == _lastRead || f.name() == _valueField || (!fields.isEmpty && !fields
+          f.name() == _keyField || f.name() == _valueField || (fields.nonEmpty && !fields
             .contains(f.name())))
         .map {
           case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())

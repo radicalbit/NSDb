@@ -55,12 +55,15 @@ class SchemaActor(val basePath: String, val namespace: String) extends Actor wit
     }
 
   private def checkAndUpdateSchema(namespace: String, metric: String, oldSchema: Schema, newSchema: Schema): Unit =
-    SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
-      case Valid(fields) =>
-        updateSchema(metric, fields)
-        sender ! SchemaUpdated(namespace, metric)
-      case Invalid(list) => sender ! UpdateSchemaFailed(namespace, metric, list.toList)
-    }
+    if (oldSchema == newSchema)
+      sender ! SchemaUpdated(namespace, metric)
+    else
+      SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
+        case Valid(fields) =>
+          updateSchema(metric, fields)
+          sender ! SchemaUpdated(namespace, metric)
+        case Invalid(list) => sender ! UpdateSchemaFailed(namespace, metric, list.toList)
+      }
 
   private def updateSchema(metric: String, fields: Seq[SchemaField]): Unit =
     updateSchema(Schema(metric, fields))
