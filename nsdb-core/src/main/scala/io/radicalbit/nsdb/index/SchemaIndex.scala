@@ -29,7 +29,7 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
 
 object Schema extends TypeSupport {
   def apply(metric: String, bit: Bit): Validated[NonEmptyList[String], Schema] = {
-    validateSchemaTypeSupport(bit.dimensions + ("value" -> bit.value)).map(fields =>
+    validateSchemaTypeSupport(bit).map(fields =>
       Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
   }
 }

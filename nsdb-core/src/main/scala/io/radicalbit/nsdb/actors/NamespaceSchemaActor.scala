@@ -13,7 +13,6 @@ import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, Namespa
 import io.radicalbit.nsdb.index.Schema
 
 import scala.collection.mutable
-import scala.concurrent.duration._
 
 class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging {
 
@@ -33,7 +32,7 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
     TimeUnit.SECONDS)
   import context.dispatcher
 
-  override def receive = {
+  override def receive: Receive = {
     case msg @ GetSchema(namespace, _) =>
       getSchemaActor(namespace).forward(msg)
     case msg @ UpdateSchema(namespace, _, _) =>
@@ -46,7 +45,7 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
       val schemaActorToDelete = getSchemaActor(namespace)
       (schemaActorToDelete ? DeleteAllSchemas(namespace))
         .mapTo[AllSchemasDeleted]
-        .map { e =>
+        .map { _ =>
           schemaActorToDelete ! PoisonPill
           schemaActors -= namespace
           NamespaceDeleted(namespace)

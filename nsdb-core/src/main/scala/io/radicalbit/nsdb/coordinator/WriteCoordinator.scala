@@ -52,33 +52,33 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
 
   import akka.pattern.ask
 
-  implicit val timeout = Timeout(
+  implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
 
   log.info("WriteCoordinator is ready.")
 
-  override def receive = {
-    case WriteCoordinator.MapInput(ts, namespace, metric, record) =>
-      log.debug("Received a write request for (ts: {}, metric: {}, record : {})", ts, metric, record)
-      (namespaceSchemaActor ? UpdateSchemaFromRecord(namespace, metric, record))
+  override def receive: Receive = {
+    case WriteCoordinator.MapInput(ts, namespace, metric, bit) =>
+      log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
+      (namespaceSchemaActor ? UpdateSchemaFromRecord(namespace, metric, bit))
         .flatMap {
           case SchemaUpdated(_, _) =>
-            log.debug("Valid schema for the metric {} and the record {}", metric, record)
-            (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = record))
+            log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
+            (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = bit))
               .mapTo[WroteToCommitLogAck]
               .flatMap(ack => {
-                publisherActor ! InputMapped(namespace, metric, record)
+                publisherActor ! InputMapped(namespace, metric, bit)
                 (namespaceDataActor ? AddRecord(namespace, ack.metric, ack.record)).mapTo[RecordAdded]
               })
               .map(r => InputMapped(namespace, metric, r.record))
           case UpdateSchemaFailed(_, _, errs) =>
-            log.debug("Invalid schema for the metric {} and the record {}. Error are {}.",
+            log.debug("Invalid schema for the metric {} and the bit {}. Error are {}.",
                       metric,
-                      record,
+                      bit,
                       errs.mkString(","))
-            Future(RecordRejected(namespace, metric, record, errs))
+            Future(RecordRejected(namespace, metric, bit, errs))
         }
         .pipeTo(sender())
     case msg @ DeleteNamespace(_) =>
