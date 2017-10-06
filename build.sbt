@@ -1,11 +1,10 @@
 lazy val root = project
   .in(file("."))
-  .settings(PublishSettings.dontPublish: _*)
   .settings(
     name := "nsdb",
+    crossScalaVersions := Seq("2.11.11", "2.12.3"),
     publish := {},
-    publishLocal := {},
-    crossScalaVersions := Seq("2.11.11", "2.12.3")
+    publishLocal := {}
   )
   .aggregate(`nsdb-common`,
              `nsdb-core`,
