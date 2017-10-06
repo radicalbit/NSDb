@@ -17,7 +17,6 @@ object PublishSettings {
   )
 
   lazy val dontPublish: Seq[Def.Setting[_]] = Seq(
-    publish := {},
-    publishLocal := {}
+    publish := {}
   )
 }

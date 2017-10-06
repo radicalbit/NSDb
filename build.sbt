@@ -3,6 +3,8 @@ lazy val root = project
   .settings(PublishSettings.dontPublish: _*)
   .settings(
     name := "nsdb",
+    publish := {},
+    publishLocal := {},
     crossScalaVersions := Seq("2.11.11", "2.12.3")
   )
   .aggregate(`nsdb-common`,
@@ -18,25 +20,25 @@ lazy val root = project
 
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Common.libraries)
 
 lazy val `nsdb-core` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .dependsOn(`nsdb-core`, `nsdb-sql`)
   .dependsOn(`nsdb-core`)
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.RPC.libraries)
   .settings(
     PB.targets in Compile := Seq(
@@ -46,31 +48,31 @@ lazy val `nsdb-rpc` = project
 
 lazy val `nsdb-akka-client` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.AkkaClient.libraries)
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .dependsOn(`nsdb-http`, `nsdb-rpc`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-scala-api` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.ScalaAPI.libraries)
   .dependsOn(`nsdb-rpc`)
 
 lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
   .dependsOn(`nsdb-akka-client`, `nsdb-sql`)
 
