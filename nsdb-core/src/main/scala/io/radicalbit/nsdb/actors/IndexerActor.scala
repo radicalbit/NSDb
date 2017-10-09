@@ -181,10 +181,6 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
           case WriteOperation(_, _, bit) =>
             index.write(bit)
           //TODO handle errors
-//            w match {
-//              case Valid(r)   => sender ! RecordAdded(ns, metric, bit)
-//              case Invalid(l) => sender ! RecordRejected(ns, metric, bit, l.toList)
-//            }
           case DeleteRecordOperation(_, _, bit) =>
             index.delete(bit)
           case DeleteQueryOperation(_, _, q) =>
