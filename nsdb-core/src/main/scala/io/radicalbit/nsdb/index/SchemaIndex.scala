@@ -6,7 +6,7 @@ import cats.implicits._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
 import io.radicalbit.nsdb.model.SchemaField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, StringField}
@@ -18,16 +18,23 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-case class Schema(metric: String, fields: Seq[SchemaField])
+case class Schema(metric: String, fields: Seq[SchemaField]) {
+  override def equals(obj: scala.Any): Boolean = {
+    if (obj != null && obj.isInstanceOf[Schema]) {
+      val otherSchema = obj.asInstanceOf[Schema]
+      (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields.toSet == this.fields.toSet)
+    } else false
+  }
+}
 
 object Schema extends TypeSupport {
-  def apply(metric: String, record: Bit): Validated[NonEmptyList[String], Schema] = {
-    validateSchemaTypeSupport(record.dimensions + ("value" -> record.value)).map(fields =>
+  def apply(metric: String, bit: Bit): Validated[NonEmptyList[String], Schema] = {
+    validateSchemaTypeSupport(bit).map(fields =>
       Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
   }
 }
 
-class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, Schema] {
+class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   override val _keyField: String = "_metric"
 
   override def validateRecord(data: Schema): FieldValidation = {
@@ -38,7 +45,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
         data.fields.map(e => new StringField(e.name, e.indexType.getClass.getCanonicalName, Store.YES)))
   }
 
-  override def write(data: Schema)(implicit writer: IndexWriter): LongValidation = {
+  override def write(data: Schema)(implicit writer: IndexWriter): WriteValidation = {
     val doc = new Document
     validateRecord(data) match {
       case Valid(fields) =>
@@ -74,7 +81,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema, S
     }
   }
 
-  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): LongValidation = {
+  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): WriteValidation = {
     getSchema(metric) match {
       case Some(oldSchema) =>
         delete(oldSchema)

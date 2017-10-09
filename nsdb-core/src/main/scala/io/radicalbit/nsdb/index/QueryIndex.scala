@@ -4,7 +4,7 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, 
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, LongValidation}
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, StoredField, StringField}
@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 
 case class NsdbQuery(uuid: String, query: SelectSQLStatement)
 
-class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery, NsdbQuery] {
+class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery] {
   override val _keyField: String = "_uuid"
   val queryField                 = "query"
 
@@ -36,7 +36,7 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery,
     )
   }
 
-  override def write(data: NsdbQuery)(implicit writer: IndexWriter): LongValidation = {
+  override def write(data: NsdbQuery)(implicit writer: IndexWriter): WriteValidation = {
     val doc = new Document
     validateRecord(data) match {
       case Valid(fields) =>

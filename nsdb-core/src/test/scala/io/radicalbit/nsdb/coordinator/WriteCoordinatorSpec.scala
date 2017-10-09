@@ -144,8 +144,7 @@ class WriteCoordinatorSpec
       )
     )
 
-    val deleted = probe.expectMsgType[DeleteStatementExecuted]
-    deleted.count shouldBe 2
+    probe.expectMsgType[DeleteStatementExecuted]
   }
 
   "WriteCoordinator" should "drop a metric" in {

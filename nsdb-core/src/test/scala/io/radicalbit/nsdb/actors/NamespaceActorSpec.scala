@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.WriteInterval
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{CountGot, GetCount, RecordAdded, RecordDeleted}
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -17,7 +18,8 @@ class NamespaceActorSpec()
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter {
+    with BeforeAndAfter
+    with WriteInterval {
 
   val probe          = TestProbe()
   val probeActor     = probe.ref
@@ -28,7 +30,7 @@ class NamespaceActorSpec()
 
   before {
     import scala.concurrent.duration._
-    implicit val timeout: Timeout = 1 second
+    implicit val timeout: Timeout = 10 second
 
     Await.result(namespaceActor ? DeleteNamespace(namespace), 1 seconds)
     Await.result(namespaceActor ? DeleteNamespace(namespace1), 1 seconds)
@@ -44,6 +46,8 @@ class NamespaceActorSpec()
     expectedAdd.metric shouldBe "namespaceActorMetric"
     expectedAdd.record shouldBe record
 
+    waitInterval
+
     probe.send(namespaceActor, GetCount(namespace, "namespaceActorMetric"))
 
     val expectedCount = probe.expectMsgType[CountGot]
@@ -56,6 +60,8 @@ class NamespaceActorSpec()
     expectedDelete.metric shouldBe "namespaceActorMetric"
     expectedDelete.record shouldBe record
 
+    waitInterval
+
     probe.send(namespaceActor, GetCount(namespace, "namespaceActorMetric"))
 
     val expectedCountDeleted = probe.expectMsgType[CountGot]
@@ -64,12 +70,14 @@ class NamespaceActorSpec()
 
   }
 
-  "namespaceActorSpec" should "write and delete properly in multiple namespaces" in {
+  "namespaceActor" should "write and delete properly in multiple namespaces" in {
 
     val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"))
 
     probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
+
+    waitInterval
 
     probe.send(namespaceActor, GetCount(namespace, "namespaceActorMetric"))
     val expectedCount = probe.expectMsgType[CountGot]
@@ -83,12 +91,14 @@ class NamespaceActorSpec()
 
   }
 
-  "namespaceActorSpec" should "delete a namespace" in {
+  "namespaceActor" should "delete a namespace" in {
 
     val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 
     probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
+
+    waitInterval
 
     probe.send(namespaceActor, GetCount(namespace1, "namespaceActorMetric2"))
     val expectedCount2 = probe.expectMsgType[CountGot]
@@ -99,6 +109,8 @@ class NamespaceActorSpec()
 
     probe.send(namespaceActor, DeleteNamespace(namespace1))
     probe.expectMsgType[NamespaceDeleted]
+
+    waitInterval
 
     namespaceActor.underlyingActor.indexerActors.keys.size shouldBe 0
   }

@@ -7,19 +7,20 @@ import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{GetSchema, SchemaGot}
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.SchemaField
+import org.apache.lucene.index.IndexWriter
 
 class SchemaActor(val basePath: String, val namespace: String) extends Actor with SchemaSupport with ActorLogging {
 
   override def receive: Receive = {
 
-    case GetSchema(namespace, metric) =>
+    case GetSchema(_, metric) =>
       val schema = getSchema(metric)
       sender ! SchemaGot(namespace, metric, schema)
 
-    case UpdateSchema(namespace, metric, newSchema) =>
+    case UpdateSchema(_, metric, newSchema) =>
       checkAndUpdateSchema(namespace, metric, newSchema)
 
-    case UpdateSchemaFromRecord(namespace, metric, record) =>
+    case UpdateSchemaFromRecord(_, metric, record) =>
       (Schema(metric, record), getSchema(metric)) match {
         case (Valid(newSchema), Some(oldSchema)) =>
           checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
@@ -29,18 +30,16 @@ class SchemaActor(val basePath: String, val namespace: String) extends Actor wit
         case (Invalid(errs), _) => sender ! UpdateSchemaFailed(namespace, metric, errs.toList)
       }
 
-    case DeleteSchema(namespace, metric) =>
+    case DeleteSchema(_, metric) =>
       getSchema(metric) match {
         case Some(s) =>
           deleteSchema(s)
           sender ! SchemaDeleted(namespace, metric)
         case None => sender ! SchemaDeleted(namespace, metric)
       }
-
-    case DeleteAllSchemas(namespace) => {
+    case DeleteAllSchemas(_) =>
       deleteAllSchemas()
       sender ! AllSchemasDeleted(namespace)
-    }
   }
 
   private def getSchema(metric: String) = schemas.get(metric) orElse schemaIndex.getSchema(metric)
@@ -55,33 +54,36 @@ class SchemaActor(val basePath: String, val namespace: String) extends Actor wit
     }
 
   private def checkAndUpdateSchema(namespace: String, metric: String, oldSchema: Schema, newSchema: Schema): Unit =
-    SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
-      case Valid(fields) =>
-        updateSchema(metric, fields)
-        sender ! SchemaUpdated(namespace, metric)
-      case Invalid(list) => sender ! UpdateSchemaFailed(namespace, metric, list.toList)
-    }
+    if (oldSchema == newSchema)
+      sender ! SchemaUpdated(namespace, metric)
+    else
+      SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
+        case Valid(fields) =>
+          updateSchema(metric, fields)
+          sender ! SchemaUpdated(namespace, metric)
+        case Invalid(list) => sender ! UpdateSchemaFailed(namespace, metric, list.toList)
+      }
 
   private def updateSchema(metric: String, fields: Seq[SchemaField]): Unit =
     updateSchema(Schema(metric, fields))
 
   private def updateSchema(schema: Schema): Unit = {
     schemas += (schema.metric -> schema)
-    implicit val writer = schemaIndex.getWriter
+    implicit val writer: IndexWriter = schemaIndex.getWriter
     schemaIndex.update(schema.metric, schema)
     writer.close()
   }
 
   private def deleteSchema(schema: Schema): Unit = {
     schemas -= schema.metric
-    implicit val writer = schemaIndex.getWriter
+    implicit val writer: IndexWriter = schemaIndex.getWriter
     schemaIndex.delete(schema)
     writer.close()
   }
 
   private def deleteAllSchemas(): Unit = {
     schemas --= schemas.keys
-    implicit val writer = schemaIndex.getWriter
+    implicit val writer: IndexWriter = schemaIndex.getWriter
     schemaIndex.deleteAll()
     writer.close()
   }
