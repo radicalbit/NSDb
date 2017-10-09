@@ -44,18 +44,27 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
     TimeUnit.SECONDS)
 
   context.system.scheduler.schedule(interval, interval) {
-    queries.foreach {
-      case (id, nsdbQuery) =>
-        val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
-        luceneQuery match {
-          case Success(parsedQuery: ParsedAggregatedQuery) =>
-            val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-              .mapTo[SelectStatementExecuted[Bit]]
-              .map(e => RecordsPublished(id, e.metric, e.values))
-            subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
-          case _ =>
-        }
-    }
+
+    log.debug("{} actors subscribed {} ",
+             subscribedActors.values.flatten.toSet.size,
+             subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
+
+    queries
+      .filter { q =>
+        subscribedActors.get(q._1).isDefined && subscribedActors(q._1).nonEmpty
+      }
+      .foreach {
+        case (id, nsdbQuery) =>
+          val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
+          luceneQuery match {
+            case Success(parsedQuery: ParsedAggregatedQuery) =>
+              val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
+                .mapTo[SelectStatementExecuted[Bit]]
+                .map(e => RecordsPublished(id, e.metric, e.values))
+              subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+            case _ =>
+          }
+      }
   }
 
   override def receive = {
@@ -120,10 +129,17 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           }
       }
     case Unsubscribe(actor) =>
-      subscribedActors.find { case (_, v) => v.contains(actor) }.foreach {
+      log.info("unsubscribe actor {} ", actor)
+      val x = subscribedActors.filter { case (_, v) => v.contains(actor) }
+
+      println(s"found actor to unsubscribe $x")
+
+      x.foreach {
         case (k, v) =>
-          subscribedActors += (k -> (v - actor))
-          sender() ! Unsubscribed
+          if (v.size == 1) subscribedActors -= k
+          else
+            subscribedActors += (k -> (v - actor))
+          sender() ! Unsubscribed(actor)
       }
     case RemoveQuery(quid) =>
       subscribedActors.get(quid).foreach { actors =>
@@ -152,7 +168,7 @@ object PublisherActor {
 
     case class RecordPublished(quid: String, metric: String, record: Bit)
     case class RecordsPublished(quid: String, metric: String, record: Seq[Bit])
-    case object Unsubscribed
+    case class Unsubscribed(actor: ActorRef)
     case class QueryRemoved(quid: String)
   }
 }

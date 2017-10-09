@@ -4,8 +4,8 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, Unsubscribed}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
@@ -53,7 +53,7 @@ class PublisherActorSpec
     writer.close()
   }
 
-  "PublisherActor" should "make other actors subscribe" in {
+  "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
     probe.expectMsgType[Subscribed]
 
@@ -63,6 +63,10 @@ class PublisherActorSpec
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
 
+    probe.send(publisherActor, Unsubscribe(probeActor))
+    probe.expectMsgType[Unsubscribed]
+
+    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 0
   }
 
   "PublisherActor" should "subscribe more than once" in {

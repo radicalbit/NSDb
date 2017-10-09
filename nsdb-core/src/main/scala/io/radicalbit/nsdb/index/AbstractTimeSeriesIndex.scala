@@ -4,7 +4,7 @@ import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.JLong
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation, fieldSemigroup}
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document._
 import org.apache.lucene.index.{DirectoryReader, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, Sort}
