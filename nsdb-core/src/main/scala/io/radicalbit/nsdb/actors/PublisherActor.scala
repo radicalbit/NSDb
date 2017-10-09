@@ -46,8 +46,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
   context.system.scheduler.schedule(interval, interval) {
 
     log.debug("{} actors subscribed {} ",
-             subscribedActors.values.flatten.toSet.size,
-             subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
+              subscribedActors.values.flatten.toSet.size,
+              subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
 
     queries
       .filter { q =>
@@ -129,10 +129,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           }
       }
     case Unsubscribe(actor) =>
-      log.info("unsubscribe actor {} ", actor)
+      log.debug("unsubscribe actor {} ", actor)
       val x = subscribedActors.filter { case (_, v) => v.contains(actor) }
-
-      println(s"found actor to unsubscribe $x")
 
       x.foreach {
         case (k, v) =>

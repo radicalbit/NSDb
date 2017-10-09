@@ -36,8 +36,12 @@ object Dependencies {
     lazy val distributedData = namespace %% "akka-distributed-data" % version
     lazy val cluster         = namespace %% "akka-cluster"          % version
     lazy val sharding        = namespace %% "akka-sharding"         % version
+    lazy val slf4j           = namespace %% "akka-slf4j"            % version
     lazy val clusterTools    = namespace %% "akka-cluster-tools"    % version
+  }
 
+  object logback {
+    val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
   }
 
   object akka_http {
@@ -93,10 +97,6 @@ object Dependencies {
     lazy val version        = "0.11"
     lazy val namespace      = "com.novocode"
     lazy val junitInterface = namespace % "junit-interface" % version
-  }
-
-  object logging {
-    lazy val `scala-logging` = "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
   }
 
   object flink {
@@ -171,7 +171,9 @@ object Dependencies {
   object Cluster {
     val libraries = Seq(
       akka.cluster,
-      akka.clusterTools
+      akka.clusterTools,
+      akka.slf4j,
+      logback.logback
     )
   }
 

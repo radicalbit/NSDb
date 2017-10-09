@@ -35,12 +35,12 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   val innerServer = start()
 
-  log.info("GrpcEndpoint started on port {}", port)
+  log.debug("GrpcEndpoint started on port {}", port)
 
   protected[this] object GrpcEndpointService extends NSDBServiceGrpc.NSDBService {
 
     override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {
-      log.info("Received a write request {}", request)
+      log.debug("Received a write request {}", request)
 
       val res = (writeCoordinator ? MapInput(
         namespace = request.namespace,
@@ -53,8 +53,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         case t => RPCInsertResult(false, t.getMessage)
       }
 
-      log.info("Completed the write request {}", request)
-      log.info("The result is {}", res)
+      log.debug("Completed the write request {}", request)
+      log.debug("The result is {}", res)
 
       res
     }
