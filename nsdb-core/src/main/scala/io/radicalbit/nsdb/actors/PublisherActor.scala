@@ -5,6 +5,8 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -13,18 +15,16 @@ import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectS
 import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.statement.StatementParser
-import org.apache.lucene.store.FSDirectory
-import akka.pattern.{ask, pipe}
-import akka.util.Timeout
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import org.apache.lucene.store.NIOFSDirectory
 
 import scala.collection.mutable
-import scala.util.{Failure, Success}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Actor with ActorLogging {
 
-  lazy val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
+  lazy val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
 
   lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 

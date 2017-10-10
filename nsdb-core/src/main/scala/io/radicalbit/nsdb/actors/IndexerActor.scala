@@ -17,7 +17,7 @@ import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.Query
-import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.store.NIOFSDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
@@ -52,12 +52,14 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   }
 
   private def getIndex(metric: String) =
-    indexes.getOrElse(metric, {
-      val path     = FSDirectory.open(Paths.get(basePath, namespace, metric))
-      val newIndex = new TimeSeriesIndex(path)
-      indexes += (metric -> newIndex)
-      newIndex
-    })
+    indexes.getOrElse(
+      metric, {
+        val directory = new NIOFSDirectory(Paths.get(basePath, namespace, metric))
+        val newIndex  = new TimeSeriesIndex(directory)
+        indexes += (metric -> newIndex)
+        newIndex
+      }
+    )
 
   private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out match {

@@ -9,14 +9,14 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "TimeSeriesIndex" should "write and read properly on disk" in {
 
-    lazy val directory = FSDirectory.open(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -36,7 +36,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support range queries and sorting" in {
-    lazy val directory = FSDirectory.open(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -65,7 +65,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "delete records" in {
-    implicit lazy val directory = FSDirectory.open(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    implicit lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -100,7 +100,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support groupBy queries" in {
-    lazy val directory = FSDirectory.open(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 

@@ -11,7 +11,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
 import io.radicalbit.nsdb.index.QueryIndex
-import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest._
 
 class FakeReadCoordinatorActor extends Actor {
@@ -47,7 +47,7 @@ class PublisherActorSpec
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
 
   before {
-    val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
+    val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
     implicit val writer        = queryIndex.getWriter
     queryIndex.deleteAll()
     writer.close()
