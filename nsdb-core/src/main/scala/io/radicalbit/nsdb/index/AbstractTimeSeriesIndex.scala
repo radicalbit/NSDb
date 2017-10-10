@@ -68,14 +68,4 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
     }
     writer.forceMergeDeletes(true)
   }
-
-  def timeRange(start: Long,
-                end: Long,
-                fields: Seq[String],
-                size: Int = Int.MaxValue,
-                sort: Option[Sort] = None): Seq[Bit] = {
-    val rangeQuery = LongPoint.newRangeQuery(_keyField, start, end)
-    query(rangeQuery, fields, size, sort)
-  }
-
 }

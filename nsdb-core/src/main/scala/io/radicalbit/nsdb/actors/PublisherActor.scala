@@ -16,6 +16,8 @@ import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import org.apache.lucene.index.IndexNotFoundException
+import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.store.NIOFSDirectory
 
 import scala.collection.mutable
@@ -31,7 +33,12 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
 
   override def preStart(): Unit = {
-    queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
+    try {
+      implicit val searcher: IndexSearcher = queryIndex.getSearcher
+      queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
+    } catch {
+      case e: IndexNotFoundException => // do nothing
+    }
   }
 
   implicit val disp = context.system.dispatcher
@@ -119,6 +126,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               implicit val writer                = temporaryIndex.getWriter
               temporaryIndex.write(record)
               writer.close()
+              implicit val searcher = temporaryIndex.getSearcher
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .size == 1)
