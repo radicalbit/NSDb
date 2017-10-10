@@ -36,3 +36,4 @@ mainRunner
 .idea
 *.sc
 nsdb_*
+data
