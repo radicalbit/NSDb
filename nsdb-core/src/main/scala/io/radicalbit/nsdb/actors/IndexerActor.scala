@@ -15,9 +15,9 @@ import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
-import org.apache.lucene.search.Query
-import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.index.{DirectoryReader, IndexNotFoundException, IndexWriter}
+import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query}
+import org.apache.lucene.store.NIOFSDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
@@ -36,7 +36,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
 
   private val statementParser = new StatementParser()
 
-  private val indexes: mutable.Map[String, TimeSeriesIndex] = mutable.Map.empty
+  private val indexes: mutable.Map[String, TimeSeriesIndex]       = mutable.Map.empty
+  private val indexeSearchers: mutable.Map[String, IndexSearcher] = mutable.Map.empty
 
   implicit val disp: ExecutionContextExecutor = context.system.dispatcher
 
@@ -52,12 +53,24 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   }
 
   private def getIndex(metric: String) =
-    indexes.getOrElse(metric, {
-      val path     = FSDirectory.open(Paths.get(basePath, namespace, metric))
-      val newIndex = new TimeSeriesIndex(path)
-      indexes += (metric -> newIndex)
-      newIndex
-    })
+    indexes.getOrElse(
+      metric, {
+        val directory = new NIOFSDirectory(Paths.get(basePath, namespace, metric))
+        val newIndex  = new TimeSeriesIndex(directory)
+        indexes += (metric -> newIndex)
+        newIndex
+      }
+    )
+
+  private def getSearcher(metric: String) =
+    indexeSearchers.getOrElse(
+      metric, {
+        val directory = new NIOFSDirectory(Paths.get(basePath, namespace, metric))
+        val searcher  = new IndexSearcher(DirectoryReader.open(directory))
+        indexeSearchers += (metric -> searcher)
+        searcher
+      }
+    )
 
   private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out match {
@@ -106,10 +119,12 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     case GetMetrics(_) =>
       sender() ! MetricsGot(namespace, indexes.keys.toSeq)
     case GetCount(ns, metric) =>
-      val index = getIndex(metric)
-      val hits  = index.timeRange(0, Long.MaxValue, Seq.empty)
+      val index                            = getIndex(metric)
+      implicit val searcher: IndexSearcher = getSearcher(metric)
+      val hits                             = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)
       sender ! CountGot(ns, metric, hits.size)
     case ReadCoordinator.ExecuteSelectStatement(statement, schema) =>
+      implicit val searcher: IndexSearcher = getSearcher(statement.metric)
       statementParser.parseStatement(statement, Some(schema)) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
@@ -190,7 +205,9 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         }
         writer.flush()
         writer.close()
+        indexeSearchers -= metric
       }
+      opBufferMap.clear()
       self ! Accumulate
     case Accumulate =>
       unstashAll()

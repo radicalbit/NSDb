@@ -66,15 +66,13 @@ trait Index[T] {
     docs.toList
   }
 
-  private[index] def rawQuery(query: Query, limit: Int, sort: Option[Sort]): Seq[Document] = {
-    val reader   = DirectoryReader.open(directory)
-    val searcher = new IndexSearcher(reader)
+  private[index] def rawQuery(query: Query, limit: Int, sort: Option[Sort])(
+      implicit searcher: IndexSearcher): Seq[Document] = {
     executeQuery(searcher, query, limit, sort)
   }
 
-  private[index] def rawQuery(query: Query, collector: AllGroupsAggregationCollector): Seq[Document] = {
-    val reader   = DirectoryReader.open(directory)
-    val searcher = new IndexSearcher(reader)
+  private[index] def rawQuery(query: Query, collector: AllGroupsAggregationCollector)(
+      implicit searcher: IndexSearcher): Seq[Document] = {
     searcher.search(query, collector)
     collector.getGroupMap.map {
       case (g, v) =>
@@ -86,11 +84,12 @@ trait Index[T] {
     }.toSeq
   }
 
-  def query(query: Query, fields: Seq[String], limit: Int, sort: Option[Sort]): Seq[T] = {
+  def query(query: Query, fields: Seq[String], limit: Int, sort: Option[Sort])(
+      implicit searcher: IndexSearcher): Seq[T] = {
     rawQuery(query, limit, sort).map(d => toRecord(d, fields))
   }
 
-  def query(query: Query, collector: AllGroupsAggregationCollector): Seq[T] = {
+  def query(query: Query, collector: AllGroupsAggregationCollector)(implicit searcher: IndexSearcher): Seq[T] = {
     rawQuery(query, collector).map(d => toRecord(d, Seq.empty))
   }
 
@@ -102,7 +101,7 @@ trait Index[T] {
     executeQuery(searcher, query, limit, sort).map(d => toRecord(d, fields))
   }
 
-  def getAll: Seq[T] = {
+  def getAll()(implicit searcher: IndexSearcher): Seq[T] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[T]) => docs
       case Failure(_)            => Seq.empty

@@ -5,6 +5,8 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -13,25 +15,30 @@ import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectS
 import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.statement.StatementParser
-import org.apache.lucene.store.FSDirectory
-import akka.pattern.{ask, pipe}
-import akka.util.Timeout
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import org.apache.lucene.index.IndexNotFoundException
+import org.apache.lucene.search.IndexSearcher
+import org.apache.lucene.store.NIOFSDirectory
 
 import scala.collection.mutable
-import scala.util.{Failure, Success}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Actor with ActorLogging {
 
-  lazy val queryIndex: QueryIndex = new QueryIndex(FSDirectory.open(Paths.get(basePath, "queries")))
+  lazy val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
 
   lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
 
   override def preStart(): Unit = {
-    queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
+    try {
+      implicit val searcher: IndexSearcher = queryIndex.getSearcher
+      queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
+    } catch {
+      case e: IndexNotFoundException => // do nothing
+    }
   }
 
   implicit val disp = context.system.dispatcher
@@ -46,8 +53,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
   context.system.scheduler.schedule(interval, interval) {
 
     log.debug("{} actors subscribed {} ",
-             subscribedActors.values.flatten.toSet.size,
-             subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
+              subscribedActors.values.flatten.toSet.size,
+              subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
 
     queries
       .filter { q =>
@@ -57,7 +64,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
         case (id, nsdbQuery) =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
           luceneQuery match {
-            case Success(parsedQuery: ParsedAggregatedQuery) =>
+            case Success(_: ParsedAggregatedQuery) =>
               val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
                 .mapTo[SelectStatementExecuted[Bit]]
                 .map(e => RecordsPublished(id, e.metric, e.values))
@@ -119,6 +126,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               implicit val writer                = temporaryIndex.getWriter
               temporaryIndex.write(record)
               writer.close()
+              implicit val searcher = temporaryIndex.getSearcher
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .size == 1)
@@ -129,10 +137,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           }
       }
     case Unsubscribe(actor) =>
-      log.info("unsubscribe actor {} ", actor)
+      log.debug("unsubscribe actor {} ", actor)
       val x = subscribedActors.filter { case (_, v) => v.contains(actor) }
-
-      println(s"found actor to unsubscribe $x")
 
       x.foreach {
         case (k, v) =>

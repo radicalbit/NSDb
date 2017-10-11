@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.store.FSDirectory
+import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 class IndexerActorSpec()
@@ -32,7 +32,7 @@ class IndexerActorSpec()
     val paths = Seq(s"$basePath/$namespace/indexerActorMetric", s"$basePath/$namespace/indexerActorMetric2")
 
     paths.foreach { path =>
-      val directory = FSDirectory.open(Paths.get(path))
+      val directory = new NIOFSDirectory(Paths.get(path))
       val writer    = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
       writer.deleteAll()
       writer.flush()

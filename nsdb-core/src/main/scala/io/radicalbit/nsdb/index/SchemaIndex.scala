@@ -67,7 +67,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
       fields.map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]])))
   }
 
-  def getAllSchemas: Seq[Schema] = {
+  def getAllSchemas(implicit searcher: IndexSearcher): Seq[Schema] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[Schema]) => docs
       case Failure(_)                 => Seq.empty
