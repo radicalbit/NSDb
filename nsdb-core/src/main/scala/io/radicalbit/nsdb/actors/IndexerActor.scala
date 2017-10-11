@@ -207,6 +207,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         writer.close()
         indexeSearchers -= metric
       }
+      opBufferMap.clear()
       self ! Accumulate
     case Accumulate =>
       unstashAll()

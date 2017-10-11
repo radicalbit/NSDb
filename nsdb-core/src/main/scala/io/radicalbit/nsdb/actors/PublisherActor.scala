@@ -64,7 +64,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
         case (id, nsdbQuery) =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
           luceneQuery match {
-            case Success(parsedQuery: ParsedAggregatedQuery) =>
+            case Success(_: ParsedAggregatedQuery) =>
               val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
                 .mapTo[SelectStatementExecuted[Bit]]
                 .map(e => RecordsPublished(id, e.metric, e.values))
