@@ -6,7 +6,7 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document._
-import org.apache.lucene.index.{DirectoryReader, IndexWriter}
+import org.apache.lucene.index.{DirectoryReader, IndexWriter, Term}
 import org.apache.lucene.search.{IndexSearcher, Sort}
 
 import scala.collection.JavaConverters._
@@ -59,13 +59,8 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Unit = {
-    val query    = LongPoint.newRangeQuery(_keyField, data.timestamp, data.timestamp)
-    val reader   = DirectoryReader.open(directory)
-    val searcher = new IndexSearcher(reader)
-    val hits     = searcher.search(query, 1)
-    (0 until hits.totalHits).foreach { _ =>
-      writer.deleteDocuments(query)
-    }
+    val query = LongPoint.newRangeQuery(_keyField, data.timestamp, data.timestamp)
+    writer.deleteDocuments(query)
     writer.forceMergeDeletes(true)
   }
 }

@@ -19,9 +19,13 @@ trait Index[T] {
 
   def _keyField: String
 
+  private lazy val searcherManager: SearcherManager = new SearcherManager(directory, null)
+
   def getWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
-  def getSearcher = new IndexSearcher(DirectoryReader.open(directory))
+  def getSearcher: IndexSearcher = searcherManager.acquire()
+
+  def release(searcher: IndexSearcher) = searcherManager.maybeRefreshBlocking()
 
   def validateRecord(data: T): FieldValidation
   def toRecord(document: Document, fields: Seq[String]): T

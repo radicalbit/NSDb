@@ -65,8 +65,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   private def getSearcher(metric: String) =
     indexeSearchers.getOrElse(
       metric, {
-        val directory = new NIOFSDirectory(Paths.get(basePath, namespace, metric))
-        val searcher  = new IndexSearcher(DirectoryReader.open(directory))
+        val searcher = indexes(metric).getSearcher
         indexeSearchers += (metric -> searcher)
         searcher
       }
@@ -205,6 +204,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         }
         writer.flush()
         writer.close()
+        indexeSearchers.get(metric).foreach(index.release)
         indexeSearchers -= metric
       }
       opBufferMap.clear()

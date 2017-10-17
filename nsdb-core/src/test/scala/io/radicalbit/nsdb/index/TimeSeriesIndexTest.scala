@@ -7,20 +7,17 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Sort, SortField}
+import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
+import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "TimeSeriesIndex" should "write and read properly on disk" in {
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
-
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-
-    val timeSeriesIndex = new TimeSeriesIndex(directory)
+    implicit val writer = timeSeriesIndex.getWriter
 
     (0 to 100).foreach { i =>
       val testData =
@@ -37,24 +34,22 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support range queries and sorting" in {
-    lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-
-    val boundedIndex = new TimeSeriesIndex(directory)
+    implicit val writer = timeSeriesIndex.getWriter
 
     (0 to 100).foreach { i =>
       val testData =
         Bit(timestamp = System.currentTimeMillis, value = 23.5, dimensions = Map("content" -> s"content_$i"))
-      boundedIndex.write(testData)
+      timeSeriesIndex.write(testData)
     }
 
     writer.close()
 
     val query = new MatchAllDocsQuery()
 
-    implicit val searcher = new IndexSearcher(DirectoryReader.open(directory))
-    val result            = boundedIndex.rawQuery(query, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
+    implicit val searcher = timeSeriesIndex.getSearcher //new IndexSearcher(DirectoryReader.open(directory))
+    val result            = timeSeriesIndex.rawQuery(query, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
 
     result.size shouldBe 100
 
@@ -67,11 +62,9 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "delete records" in {
-    implicit lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-
-    val timeSeriesIndex = new TimeSeriesIndex(directory)
+    implicit val writer = timeSeriesIndex.getWriter
 
     val timestamp = System.currentTimeMillis
 
@@ -79,36 +72,36 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     timeSeriesIndex.write(testData)
 
-    writer.flush()
     writer.close()
+
+    var searcher = timeSeriesIndex.getSearcher
 
     val queryExist = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val resultExist =
-      timeSeriesIndex.query(queryExist, Seq.empty, 100, None)(timeSeriesIndex.getSearcher)
+      timeSeriesIndex.query(queryExist, Seq.empty, 100, None)(searcher)
     resultExist.size shouldBe 1
 
-    val deleteWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
+    val deleteWriter = timeSeriesIndex.getWriter
     timeSeriesIndex.delete(testData)(deleteWriter)
 
-    deleteWriter.flush()
     deleteWriter.close()
 
-    implicit val searcher = timeSeriesIndex.getSearcher
+    timeSeriesIndex.release(searcher)
+
+    searcher = timeSeriesIndex.getSearcher
 
     val query = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
     val result =
-      timeSeriesIndex.query(query, Seq.empty, 100, None)
+      timeSeriesIndex.query(query, Seq.empty, 100, None)(searcher)
 
     result.size shouldBe 0
 
   }
 
   "TimeSeriesIndex" should "support groupBy queries" in {
-    lazy val directory = new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}"))
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-
-    val timeSeriesIndex = new TimeSeriesIndex(directory)
+    implicit val writer = timeSeriesIndex.getWriter
 
     (0 to 9).foreach { i =>
       val testData = Bit(timestamp = System.currentTimeMillis,
