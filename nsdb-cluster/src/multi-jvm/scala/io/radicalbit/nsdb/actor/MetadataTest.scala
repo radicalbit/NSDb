@@ -10,7 +10,7 @@ import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLocations, UpdateLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetadataCoordinator}
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetadataCoordinator, ReplicatedMetadataCache}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -21,7 +21,7 @@ object MetadataTest extends MultiNodeConfig {
   val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
-    akka.loglevel = DEBUG
+    akka.loglevel = ERROR
     akka.actor.provider = "cluster"
     akka.log-dead-letters-during-shutdown = off
     nsdb.index.base-path = "target/test_index"
@@ -42,9 +42,11 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
 
   val clusterListener = system.actorOf(Props[ClusterListener])
 
+  val metadataCache = system.actorOf(Props[ReplicatedMetadataCache])
+
   val mediator = DistributedPubSub(system).mediator
 
-  val metadataCoordinator = system.actorOf(Props[MetadataCoordinator], name = "metadata-coordinator")
+  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {

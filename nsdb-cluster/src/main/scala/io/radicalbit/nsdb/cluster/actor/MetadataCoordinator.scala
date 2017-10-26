@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Send}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, AddLocations, UpdateLocation}
@@ -8,7 +8,7 @@ import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.collection.mutable
 
-class MetadataCoordinator extends Actor with ActorLogging {
+class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   private val metadatas: mutable.Map[String, Seq[Location]] = mutable.Map.empty
 
@@ -59,4 +59,6 @@ object MetadataCoordinator {
     case class NamespaceDeleted(namespace: String, occurredOn: Long)
 
   }
+
+  def props(cache: ActorRef): Props = Props(new MetadataCoordinator(cache))
 }
