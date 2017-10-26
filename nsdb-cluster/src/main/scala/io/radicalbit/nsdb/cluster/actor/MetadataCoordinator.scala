@@ -15,11 +15,11 @@ class MetadataCoordinator extends Actor with ActorLogging {
   val mediator = DistributedPubSub(context.system).mediator
 
   override def receive: Receive = {
-    case msg @ AddLocation(namespace, location) =>
+    case msg @ AddLocation(namespace, location, occurredOn) =>
       mediator ! Publish("metadata", msg)
-    case msg @ AddLocations(namespace, locations) =>
+    case msg @ AddLocations(namespace, locations, occurredOn) =>
       mediator ! Publish("metadata", msg)
-    case msg @ UpdateLocation(_, _, _) =>
+    case msg @ UpdateLocation(_, _, _, _) =>
       mediator ! Publish("metadata", msg)
   }
 }
@@ -28,25 +28,35 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetLocations(namespace: String, metric: String)
-    case class GetLocation(namespace: String, metric: String, timestamp: Long)
-    case class UpdateLocation(namespace: String, oldLocation: Location, newLocation: Location)
-    case class AddLocation(namespace: String, location: Location)
-    case class AddLocations(namespace: String, locations: Seq[Location])
-    case class DeleteLocation(namespace: String, location: Location)
-    case class DeleteNamespace(namespace: String)
+    case class GetLocations(namespace: String, metric: String, occurredOn: Long = System.currentTimeMillis)
+    case class GetLocation(namespace: String,
+                           metric: String,
+                           timestamp: Long,
+                           occurredOn: Long = System.currentTimeMillis)
+    case class UpdateLocation(namespace: String,
+                              oldLocation: Location,
+                              newOccupation: Long,
+                              occurredOn: Long = System.currentTimeMillis)
+    case class AddLocation(namespace: String, location: Location, occurredOn: Long = System.currentTimeMillis)
+    case class AddLocations(namespace: String, locations: Seq[Location], occurredOn: Long = System.currentTimeMillis)
+    case class DeleteLocation(namespace: String, location: Location, occurredOn: Long = System.currentTimeMillis)
+    case class DeleteNamespace(namespace: String, occurredOn: Long = System.currentTimeMillis)
 
   }
 
   object events {
 
-    case class LocationsGot(namespace: String, metric: String, locations: Seq[Location])
-    case class LocationGot(namespace: String, metric: String, timestamp: Long, location: Option[Location])
-    case class LocationUpdated(namespace: String, oldLocation: Location, newLocation: Location)
-    case class LocationAdded(namespace: String, location: Location)
-    case class LocationsAdded(namespace: String, locations: Seq[Location])
-    case class LocationDeleted(namespace: String, location: Location)
-    case class NamespaceDeleted(namespace: String)
+    case class LocationsGot(namespace: String, metric: String, locations: Seq[Location], occurredOn: Long)
+    case class LocationGot(namespace: String,
+                           metric: String,
+                           timestamp: Long,
+                           location: Option[Location],
+                           occurredOn: Long)
+    case class LocationUpdated(namespace: String, oldLocation: Location, newOccupation: Long, occurredOn: Long)
+    case class LocationAdded(namespace: String, location: Location, occurredOn: Long)
+    case class LocationsAdded(namespace: String, locations: Seq[Location], occurredOn: Long)
+    case class LocationDeleted(namespace: String, location: Location, occurredOn: Long)
+    case class NamespaceDeleted(namespace: String, occurredOn: Long)
 
   }
 }

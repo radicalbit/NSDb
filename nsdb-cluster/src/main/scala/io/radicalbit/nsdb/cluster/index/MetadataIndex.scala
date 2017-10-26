@@ -12,7 +12,7 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-case class Location(metric: String, node: String, from: Long, to: Long)
+case class Location(metric: String, node: String, from: Long, to: Long, occupied: Long)
 
 class MetadataIndex(override val directory: BaseDirectory) extends Index[Location] {
   override val _keyField: String = "_metric"
@@ -24,10 +24,13 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
         new StringField("node", data.node.toLowerCase, Store.YES),
         new LongPoint("from", data.from),
         new LongPoint("to", data.to),
+        new LongPoint("occupied", data.occupied),
         new NumericDocValuesField("from", data.from),
         new NumericDocValuesField("to", data.to),
+        new NumericDocValuesField("occupied", data.occupied),
         new StoredField("from", data.from),
-        new StoredField("to", data.to)
+        new StoredField("to", data.to),
+        new StoredField("occupied", data.occupied)
       )
     )
   }
@@ -53,7 +56,8 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
       document.get(_keyField),
       document.get("node"),
       fields("from").numericValue().longValue(),
-      fields("to").numericValue().longValue()
+      fields("to").numericValue().longValue(),
+      fields("occupied").numericValue().longValue()
     )
   }
 

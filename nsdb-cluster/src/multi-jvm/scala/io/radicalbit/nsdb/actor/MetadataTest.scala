@@ -73,32 +73,30 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator ! AddLocation("namespace", Location("metric", "node-1", 0, 1))
+        metadataCoordinator ! AddLocation("namespace", Location("metric", "node-1", 0, 1, 0))
       }
 
       awaitAssert {
         addresses.foreach(a => {
           val metadataActor =
             system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor.tell(GetLocations("namespace", "metric"), probe.ref)
-          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
+          metadataActor.tell(GetLocations("namespace", "metric", 0), probe.ref)
+          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1, 0)), 0))
         })
       }
 
       enterBarrier("after-add")
 
       runOn(node2) {
-        metadataCoordinator ! UpdateLocation("namespace",
-                                             Location("metric", "node-1", 0, 1),
-                                             Location("metric", "node-1", 0, 5))
+        metadataCoordinator ! UpdateLocation("namespace", Location("metric", "node-1", 0, 1, 1), 1, 0)
       }
 
       awaitAssert {
         addresses.foreach(a => {
           val metadataActor =
             system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor.tell(GetLocations("namespace", "metric"), probe.ref)
-          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 5))))
+          metadataActor.tell(GetLocations("namespace", "metric", 0), probe.ref)
+          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1, 1)), 0))
         })
       }
 

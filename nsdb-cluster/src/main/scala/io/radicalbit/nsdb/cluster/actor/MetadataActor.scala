@@ -34,49 +34,49 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
 
   override def receive: Receive = {
 
-    case GetLocations(namespace, metric) =>
+    case GetLocations(namespace, metric, occurredOn) =>
       val metadata = getIndex(namespace).getMetadata(metric)
-      sender ! LocationsGot(namespace, metric, metadata)
+      sender ! LocationsGot(namespace, metric, metadata, occurredOn)
 
-    case GetLocation(namespace, metric, t) =>
+    case GetLocation(namespace, metric, t, occurredOn) =>
       val metadata = getIndex(namespace).getMetadata(metric, t)
-      sender ! LocationGot(namespace, metric, t, metadata)
+      sender ! LocationGot(namespace, metric, t, metadata, occurredOn)
 
-    case AddLocation(namespace, metadata) =>
+    case AddLocation(namespace, metadata, occurredOn) =>
       val index                        = getIndex(namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.write(metadata)
       writer.close()
-      sender ! LocationAdded(namespace, metadata)
+      sender ! LocationAdded(namespace, metadata, occurredOn)
 
-    case AddLocations(namespace, metadataSeq) =>
+    case AddLocations(namespace, metadataSeq, occurredOn) =>
       val index                        = getIndex(namespace)
       implicit val writer: IndexWriter = index.getWriter
       metadataSeq.foreach(index.write)
       writer.close()
-      sender ! LocationsAdded(namespace, metadataSeq)
+      sender ! LocationsAdded(namespace, metadataSeq, occurredOn)
 
-    case UpdateLocation(namespace, oldMetadata, newMetadata) =>
+    case UpdateLocation(namespace, oldMetadata, newOccupation, occurredOn) =>
       val index                        = getIndex(namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.delete(oldMetadata)
-      index.write(newMetadata)
+      index.write(oldMetadata.copy(occupied = newOccupation))
       writer.close()
-      sender ! LocationUpdated(namespace, oldMetadata, newMetadata)
+      sender ! LocationUpdated(namespace, oldMetadata, newOccupation, occurredOn)
 
-    case DeleteLocation(namespace, metadata) =>
+    case DeleteLocation(namespace, metadata, occurredOn) =>
       val index                        = getIndex(namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.delete(metadata)
       writer.close()
-      sender ! LocationDeleted(namespace, metadata)
+      sender ! LocationDeleted(namespace, metadata, occurredOn)
 
-    case DeleteNamespace(namespace) =>
+    case DeleteNamespace(namespace, occurredOn) =>
       val index                        = getIndex(namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.deleteAll()
       writer.close()
-      sender ! NamespaceDeleted(namespace)
+      sender ! NamespaceDeleted(namespace, occurredOn)
 
     case SubscribeAck(Subscribe("metadata", None, _)) =>
       log.debug("subscribed to topic metadata")
