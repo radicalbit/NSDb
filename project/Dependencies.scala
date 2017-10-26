@@ -27,17 +27,18 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.4.20"
+    lazy val version   = "2.5.2"
     lazy val namespace = "com.typesafe.akka"
 
-    lazy val actor           = namespace %% "akka-actor"            % version
-    lazy val testkit         = namespace %% "akka-testkit"          % version
-    lazy val stream          = namespace %% "akka-stream"           % version
-    lazy val distributedData = namespace %% "akka-distributed-data" % version
-    lazy val cluster         = namespace %% "akka-cluster"          % version
-    lazy val sharding        = namespace %% "akka-sharding"         % version
-    lazy val slf4j           = namespace %% "akka-slf4j"            % version
-    lazy val clusterTools    = namespace %% "akka-cluster-tools"    % version
+    lazy val actor           = namespace %% "akka-actor"              % version
+    lazy val testkit         = namespace %% "akka-testkit"            % version
+    lazy val stream          = namespace %% "akka-stream"             % version
+    lazy val distributedData = namespace %% "akka-distributed-data"   % version
+    lazy val cluster         = namespace %% "akka-cluster"            % version
+    lazy val sharding        = namespace %% "akka-sharding"           % version
+    lazy val slf4j           = namespace %% "akka-slf4j"              % version
+    lazy val clusterTools    = namespace %% "akka-cluster-tools"      % version
+    lazy val multiNode       = namespace %% "akka-multi-node-testkit" % version
   }
 
   object logback {
@@ -172,8 +173,12 @@ object Dependencies {
     val libraries = Seq(
       akka.cluster,
       akka.clusterTools,
+      akka.distributedData,
       akka.slf4j,
-      logback.logback
+      logback.logback,
+      scalatest.core % Test,
+      akka.testkit   % Test,
+      akka.multiNode
     )
   }
 

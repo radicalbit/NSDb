@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import io.radicalbit.nsdb.actors.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.{EndpointActor, GrpcEndpoint}
 import io.radicalbit.nsdb.core.{Core, CoreActors}
@@ -21,6 +21,10 @@ trait NSDBAActors extends CoreActors { this: Core =>
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   implicit val executionContext = system.dispatcher
+
+  system.actorOf(Props[ClusterListener], name = "clusterListener")
+
+  system.actorOf(Props[MetadataCoordinator], name = "metadata-coordinator")
 
   for {
     readCoordinator  <- (guardian ? DatabaseActorsGuardian.GetReadCoordinator).mapTo[ActorRef]
