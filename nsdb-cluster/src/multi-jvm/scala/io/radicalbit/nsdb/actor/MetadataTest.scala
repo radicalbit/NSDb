@@ -9,7 +9,7 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLocations, UpdateLocation}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationAdded, LocationsGot}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetadataCoordinator, ReplicatedMetadataCache}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
@@ -76,7 +76,8 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator ! AddLocation("namespace", Location("metric", "node-1", 0, 1, 0))
+        metadataCoordinator.tell(AddLocation("namespace", Location("metric", "node-1", 0, 1, 0), 0), probe.ref)
+        probe.expectMsg(LocationAdded("namespace", Location("metric", "node-1", 0, 1, 0), 0))
       }
 
       awaitAssert {
