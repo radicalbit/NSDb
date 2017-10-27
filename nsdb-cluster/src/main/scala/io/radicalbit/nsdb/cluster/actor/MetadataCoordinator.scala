@@ -23,24 +23,23 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case msg @ AddLocation(namespace, location, occurredOn) =>
-      (mediator ? PutInCache(Key(namespace,location.metric,location.from, location.to), location))
-        .map{
-        case Cached(_, Some(_)) =>
-          mediator ! Publish("metadata", msg)
-          LocationAdded(namespace,location,occurredOn)
-        case _ => AddLocationFailed(namespace,location,occurredOn)
-      }
+      (mediator ? PutInCache(Key(namespace, location.metric, location.from, location.to), location))
+        .map {
+          case Cached(_, Some(_)) =>
+            mediator ! Publish("metadata", msg)
+            LocationAdded(namespace, location, occurredOn)
+          case _ => AddLocationFailed(namespace, location, occurredOn)
+        }
         .pipeTo(sender)
-
 
     case msg @ UpdateLocation(namespace, oldLocation, newOccupation, occurredOn) =>
       val newLocation = oldLocation.copy(occupied = newOccupation)
-      (mediator ? PutInCache(Key(namespace,oldLocation.metric,oldLocation.from, oldLocation.to), newLocation))
-        .map{
+      (mediator ? PutInCache(Key(namespace, oldLocation.metric, oldLocation.from, oldLocation.to), newLocation))
+        .map {
           case Cached(_, Some(_)) =>
             mediator ! Publish("metadata", msg)
-            LocationAdded(namespace,newLocation,occurredOn)
-          case _ => AddLocationFailed(namespace,newLocation,occurredOn)
+            LocationAdded(namespace, newLocation, occurredOn)
+          case _ => AddLocationFailed(namespace, newLocation, occurredOn)
         }
         .pipeTo(sender)
       mediator ! Publish("metadata", msg)

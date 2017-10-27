@@ -25,6 +25,7 @@ object MetadataTest extends MultiNodeConfig {
     akka.actor.provider = "cluster"
     akka.log-dead-letters-during-shutdown = off
     nsdb.index.base-path = "target/test_index"
+    nsdb.write-coordinator.timeout = 5 seconds
     """))
 }
 
