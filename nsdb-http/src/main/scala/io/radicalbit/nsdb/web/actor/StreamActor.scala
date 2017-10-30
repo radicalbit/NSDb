@@ -31,9 +31,9 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
     case RegisterQuery(namespace, queryString) =>
       new SQLStatementParser().parse(namespace, queryString) match {
         case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
-          (publisher ? SubscribeBySqlStatement(self, statement.asInstanceOf[SelectSQLStatement]))
+          (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
             .map {
-              case msg @ Subscribed(_, _) =>
+              case msg @ SubscribedByQueryString(_, _, _) =>
                 OutgoingMessage(msg)
               case SubscriptionFailed(reason) =>
                 OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, reason))
@@ -48,9 +48,9 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       val results = queries.map(q => {
         new SQLStatementParser().parse(q.namespace, q.queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
-            (publisher ? SubscribeBySqlStatement(self, statement.asInstanceOf[SelectSQLStatement]))
+            (publisher ? SubscribeBySqlStatement(self, q.queryString, statement.asInstanceOf[SelectSQLStatement]))
               .map {
-                case msg @ Subscribed(_, _) =>
+                case msg @ SubscribedByQueryString(_, _, _) =>
                   msg
                 case SubscriptionFailed(reason) =>
                   QuerystringRegistrationFailed(q.namespace, q.queryString, reason)
@@ -66,7 +66,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       log.debug(s"registering quid $quid")
       (publisher ? SubscribeByQueryId(self, quid))
         .map {
-          case msg @ Subscribed(_, _) =>
+          case msg @ SubscribedByQuid(_, _) =>
             OutgoingMessage(msg)
           case SubscriptionFailed(reason) =>
             OutgoingMessage(QuidRegistrationFailed(quid, reason))
@@ -76,15 +76,15 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       val results = quids.map(quid => {
         (publisher ? SubscribeByQueryId(self, quid))
           .map {
-            case msg @ Subscribed(_, _) =>
+            case msg @ SubscribeByQueryId(_, _) =>
               msg
             case SubscriptionFailed(reason) =>
               QuidRegistrationFailed(quid, reason)
           }
       })
       Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
-    case msg @ RecordPublished(_, _, _) =>
-      wsActor ! OutgoingMessage(msg)
+//    case msg @ RecordPublished(_, _, _) =>
+//      wsActor ! OutgoingMessage(msg)
     case msg @ RecordsPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>

@@ -5,7 +5,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events.RecordRejected
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -25,7 +25,7 @@ class TestCommitLogService extends Actor {
 class TestSubscriber extends Actor {
   var receivedMessages = 0
   def receive = {
-    case RecordPublished(_, _, _) =>
+    case RecordsPublished(_, _, _) =>
       receivedMessages += 1
   }
 }
@@ -93,8 +93,8 @@ class WriteCoordinatorSpec
       limit = Some(LimitOperator(4))
     )
 
-    probe.send(publisherActor, SubscribeBySqlStatement(subscriber, testSqlStatement))
-    probe.expectMsgType[Subscribed]
+    probe.send(publisherActor, SubscribeBySqlStatement(subscriber, "testQueryString", testSqlStatement))
+    probe.expectMsgType[SubscribedByQueryString]
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
 
