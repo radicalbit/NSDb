@@ -83,8 +83,6 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
           }
       })
       Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
-//    case msg @ RecordPublished(_, _, _) =>
-//      wsActor ! OutgoingMessage(msg)
     case msg @ RecordsPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
