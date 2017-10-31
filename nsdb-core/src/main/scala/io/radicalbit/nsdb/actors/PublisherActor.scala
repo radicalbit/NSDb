@@ -75,7 +75,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
   }
 
   override def receive = {
-    case SubscribeBySqlStatement(actor, query) =>
+    case SubscribeBySqlStatement(actor, queryString, query) =>
       subscribedActors
         .find { case (_, v) => v == actor }
         .fold {
@@ -89,7 +89,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
 
               (readCoordinator ? ExecuteStatement(query))
                 .mapTo[SelectStatementExecuted[Bit]]
-                .map(e => Subscribed(id, e.values))
+                .map(e => SubscribedByQueryString(queryString, id, e.values))
                 .pipeTo(sender())
 
               implicit val writer = queryIndex.getWriter
@@ -101,7 +101,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           case (id, _) =>
             (readCoordinator ? ExecuteStatement(query))
               .mapTo[SelectStatementExecuted[Bit]]
-              .map(e => Subscribed(id, e.values))
+              .map(e => SubscribedByQueryString(queryString, id, e.values))
               .pipeTo(sender())
         }
     case SubscribeByQueryId(actor, quid) =>
@@ -112,7 +112,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           subscribedActors += (quid -> (previousRegisteredActors + actor))
           (readCoordinator ? ExecuteStatement(q.query))
             .mapTo[SelectStatementExecuted[Bit]]
-            .map(e => Subscribed(quid, e.values))
+            .map(e => SubscribedByQuid(quid, e.values))
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
@@ -130,7 +130,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .size == 1)
-                subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordPublished(id, metric, record)))
+                subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
             case Success(_) =>
             case Failure(_) =>
               log.error(s"query ${nsdbQuery.query} not valid")
@@ -162,17 +162,17 @@ object PublisherActor {
   def props(basePath: String, readCoordinator: ActorRef): Props = Props(new PublisherActor(basePath, readCoordinator))
 
   object Command {
-    case class SubscribeBySqlStatement(actor: ActorRef, query: SelectSQLStatement)
+    case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)
     case class SubscribeByQueryId(actor: ActorRef, qid: String)
     case class Unsubscribe(actor: ActorRef)
     case class RemoveQuery(quid: String)
   }
 
   object Events {
-    case class Subscribed(quid: String, records: Seq[Bit])
+    case class SubscribedByQuid(quid: String, records: Seq[Bit])
+    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit])
     case class SubscriptionFailed(reason: String)
 
-    case class RecordPublished(quid: String, metric: String, record: Bit)
     case class RecordsPublished(quid: String, metric: String, record: Seq[Bit])
     case class Unsubscribed(actor: ActorRef)
     case class QueryRemoved(quid: String)

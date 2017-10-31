@@ -5,7 +5,7 @@ import java.nio.file.Paths
 import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordPublished, Subscribed, Unsubscribed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
@@ -54,8 +54,8 @@ class PublisherActorSpec
   }
 
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    probe.expectMsgType[Subscribed]
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
+    probe.expectMsgType[SubscribedByQueryString]
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
@@ -70,8 +70,8 @@ class PublisherActorSpec
   }
 
   "PublisherActor" should "subscribe more than once" in {
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    val firstId = probe.expectMsgType[Subscribed].quid
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
+    val firstId = probe.expectMsgType[SubscribedByQueryString].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
@@ -79,8 +79,9 @@ class PublisherActorSpec
     publisherActor.underlyingActor.subscribedActors.values.size shouldBe 1
     publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
 
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement.copy(metric = "anotherOne")))
-    val secondId = probe.expectMsgType[Subscribed].quid
+    probe.send(publisherActor,
+               SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement.copy(metric = "anotherOne")))
+    val secondId = probe.expectMsgType[SubscribedByQueryString].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 2
     publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 2
@@ -91,8 +92,8 @@ class PublisherActorSpec
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    probe.expectMsgType[Subscribed]
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
+    probe.expectMsgType[SubscribedByQueryString]
 
     probe.send(publisherActor, InputMapped("namespace", "rooms", testRecordNotSatisfy))
     probe.expectNoMsg()
@@ -102,26 +103,26 @@ class PublisherActorSpec
   }
 
   "PublisherActor" should "send a messge to all its subscribers when a matching event comes" in {
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    probe.expectMsgType[Subscribed]
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
+    probe.expectMsgType[SubscribedByQueryString]
 
     probe.send(publisherActor, InputMapped("namespace", "people", testRecordSatisfy))
-    val recordPublished = probe.expectMsgType[RecordPublished]
+    val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
-    recordPublished.record shouldBe testRecordSatisfy
+    recordPublished.record shouldBe Seq(testRecordSatisfy)
   }
 
   "PublisherActor" should "recover its queries when it is restarted" in {
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    val subscribed = probe.expectMsgType[Subscribed]
+    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
+    val subscribed = probe.expectMsgType[SubscribedByQueryString]
 
     probe.send(publisherActor, PoisonPill)
 
     val newPublisherActor = system.actorOf(
       PublisherActor.props("target/test_index_publisher_actor", system.actorOf(Props[FakeReadCoordinatorActor])))
 
-    probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, testSqlStatement))
-    val newSubscribed = probe.expectMsgType[Subscribed]
+    probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
+    val newSubscribed = probe.expectMsgType[SubscribedByQueryString]
 
     newSubscribed.quid shouldBe subscribed.quid
   }

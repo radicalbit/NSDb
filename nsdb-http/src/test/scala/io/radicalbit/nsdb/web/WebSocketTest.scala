@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.web
 import akka.actor.{Actor, Props}
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.actors.PublisherActor.Events.Subscribed
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryString, SubscribedByQuid}
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import org.json4s._
@@ -41,7 +41,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         wsClient.sendMessage("""{"namespace":"registry","queryString":"select * from people limit 1"}""")
 
         val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
-        parse(subscribed).extractOpt[Subscribed].isDefined shouldBe true
+        parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
 
         wsClient.sendMessage(
           """{"queries":[{"namespace":"registry","queryString":"select * from people limit 1"},{"namespace":"registry","queryString":"select * from people limit 1"}]}"""
@@ -49,7 +49,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         val subscribedMultipleQueryString = wsClient.expectMessage().asTextMessage.getStrictText
         println(subscribedMultipleQueryString)
-        parse(subscribedMultipleQueryString).extractOpt[Seq[Subscribed]].isDefined shouldBe true
+        parse(subscribedMultipleQueryString).extractOpt[Seq[SubscribedByQueryString]].isDefined shouldBe true
 
         wsClient.sendMessage(
           """{"queries":[{"quid":"426c2c59-a71e-451f-84df-aa18315faa6a"},{"quid":"426c2c59-a71e-451f-84df-aa18315faa6a"}]}"""
@@ -57,7 +57,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         val subscribedMultipleQuuid = wsClient.expectMessage().asTextMessage.getStrictText
         println(subscribedMultipleQuuid)
-        parse(subscribedMultipleQuuid).extractOpt[Seq[Subscribed]].isDefined shouldBe true
+        parse(subscribedMultipleQuuid).extractOpt[Seq[SubscribedByQuid]].isDefined shouldBe true
 
         //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
       }
