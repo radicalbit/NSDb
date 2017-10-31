@@ -109,7 +109,7 @@ class PublisherActorSpec
     probe.send(publisherActor, InputMapped("namespace", "people", testRecordSatisfy))
     val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
-    recordPublished.record shouldBe Seq(testRecordSatisfy)
+    recordPublished.records shouldBe Seq(testRecordSatisfy)
   }
 
   "PublisherActor" should "recover its queries when it is restarted" in {

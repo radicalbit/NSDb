@@ -25,7 +25,10 @@ trait Index[T] {
 
   def getSearcher: IndexSearcher = searcherManager.acquire()
 
-  def release(searcher: IndexSearcher) = searcherManager.maybeRefreshBlocking()
+  def release(searcher: IndexSearcher) = {
+    searcherManager.maybeRefreshBlocking()
+    searcherManager.release(searcher)
+  }
 
   def validateRecord(data: T): FieldValidation
   def toRecord(document: Document, fields: Seq[String]): T

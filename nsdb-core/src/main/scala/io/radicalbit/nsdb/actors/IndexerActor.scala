@@ -31,7 +31,7 @@ case class DeleteRecordOperation(ns: String, metric: String, bit: Bit)    extend
 case class DeleteQueryOperation(ns: String, metric: String, query: Query) extends Operation
 case class WriteOperation(ns: String, metric: String, bit: Bit)           extends Operation
 
-class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging with Stash /*with PostStart*/ {
+class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging with Stash {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
