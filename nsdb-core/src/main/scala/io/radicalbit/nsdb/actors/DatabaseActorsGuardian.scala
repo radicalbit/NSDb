@@ -2,12 +2,11 @@ package io.radicalbit.nsdb.actors
 
 import java.util.concurrent.TimeoutException
 
-import akka.actor.SupervisorStrategy.{Restart, Resume}
+import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, OneForOneStrategy, Props}
-import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
 import io.radicalbit.commit_log.CommitLogService
+import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
 import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
-import io.radicalbit.nsdb.metadata.MetadataService
 
 object DatabaseActorsGuardian {
 
@@ -33,7 +32,6 @@ class DatabaseActorsGuardian extends Actor {
 
   val indexBasePath = config.getString("nsdb.index.base-path")
 
-  val metadataService  = context.actorOf(MetadataService.props, "metadata-service")
   val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
   val schemaActor      = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
   val namespaceActor   = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-actor")
