@@ -15,7 +15,7 @@ import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
-import org.apache.lucene.index.{DirectoryReader, IndexNotFoundException, IndexWriter}
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query}
 import org.apache.lucene.store.NIOFSDirectory
 
@@ -127,7 +127,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       statementParser.parseStatement(statement, Some(schema)) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
-        case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
+        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
         case _           => sender() ! ReadCoordinator.SelectStatementFailed("Not a select statement.")

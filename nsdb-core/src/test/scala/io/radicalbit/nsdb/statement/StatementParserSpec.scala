@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
-import io.radicalbit.nsdb.index.lucene.SumAllGroupsCollector
+import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.document.LongPoint
@@ -304,6 +304,33 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
               new SumAllGroupsCollector("name", "value")
+            ))
+        )
+      }
+    }
+
+    "receive a complex select containing a range selection a desc ordering statement and a limit statement and a group by" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            groupBy = Some("name"),
+            order = Some(DescOrderOperator(dimension = "creationDate")),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2L, 4L),
+              new MaxAllGroupsCollector("name", "value"),
+              Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
+              5
             ))
         )
       }

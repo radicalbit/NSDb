@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.api.scala
 
-import com.google.protobuf.any.Any
 import io.radicalbit.nsdb.api.scala.NSDB.Dimension
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
