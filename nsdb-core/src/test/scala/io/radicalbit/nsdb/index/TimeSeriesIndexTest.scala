@@ -123,9 +123,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     val records: Seq[Bit] = (0 to 9).map { i =>
-      Bit(timestamp = i,
-        value = i,
-        dimensions = Map("content" -> s"content_${i / 4}"))
+      Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"))
     }
 
     implicit val writer = timeSeriesIndex.getWriter
@@ -134,14 +132,24 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val ascSort = new Sort(new SortField("value", SortField.Type.INT, false))
 
-    val results = timeSeriesIndex.query(new MatchAllDocsQuery(),new MaxAllGroupsCollector("content", "value"), None, Some(ascSort))(timeSeriesIndex.getSearcher)
+    val results = timeSeriesIndex.query(new MatchAllDocsQuery(),
+                                        new MaxAllGroupsCollector("content", "value"),
+                                        None,
+                                        Some(ascSort))(timeSeriesIndex.getSearcher)
 
-    results shouldBe Seq(Bit(0,3,Map("content" -> "content_0")), Bit(0,7,Map("content" -> "content_1")), Bit(0, 9, Map("content" -> "content_2")))
+    results shouldBe Seq(Bit(0, 3, Map("content" -> "content_0")),
+                         Bit(0, 7, Map("content" -> "content_1")),
+                         Bit(0, 9, Map("content" -> "content_2")))
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
-    val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),new MaxAllGroupsCollector("content", "value"), None, Some(descSort))(timeSeriesIndex.getSearcher)
+    val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),
+                                            new MaxAllGroupsCollector("content", "value"),
+                                            None,
+                                            Some(descSort))(timeSeriesIndex.getSearcher)
 
-    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")), Bit(0,7,Map("content" -> "content_1")), Bit(0,3,Map("content" -> "content_0")))
+    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")),
+                             Bit(0, 7, Map("content" -> "content_1")),
+                             Bit(0, 3, Map("content" -> "content_0")))
   }
 }
