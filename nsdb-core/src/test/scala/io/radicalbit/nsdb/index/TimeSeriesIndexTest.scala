@@ -119,7 +119,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     sorted shouldBe Seq(("content_0", 3), ("content_1", 7), ("content_2", 9))
   }
 
-  "TimeSeriesIndex" should "support groupBy queries with ordering and limiting" in {
+  "TimeSeriesIndex" should "support groupBy queries with ordering" in {
     val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     val records: Seq[Bit] = (0 to 9).map { i =>
@@ -151,5 +151,26 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")),
                              Bit(0, 7, Map("content" -> "content_1")),
                              Bit(0, 3, Map("content" -> "content_0")))
+  }
+
+  "TimeSeriesIndex" should "support groupBy queries with ordering and limiting" in {
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+
+    val records: Seq[Bit] = (0 to 9).map { i =>
+      Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"))
+    }
+
+    implicit val writer = timeSeriesIndex.getWriter
+    records.foreach(timeSeriesIndex.write)
+    writer.close()
+
+    val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
+
+    val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),
+                                            new MaxAllGroupsCollector("content", "value"),
+                                            Some(2),
+                                            Some(descSort))(timeSeriesIndex.getSearcher)
+
+    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")), Bit(0, 7, Map("content" -> "content_1")))
   }
 }
