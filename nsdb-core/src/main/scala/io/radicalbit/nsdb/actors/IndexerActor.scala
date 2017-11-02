@@ -65,7 +65,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   private def getSearcher(metric: String) =
     indexSearchers.getOrElse(
       metric, {
-        val searcher = indexes(metric).getSearcher
+        val searcher = getIndex(metric).getSearcher
         indexSearchers += (metric -> searcher)
         searcher
       }
