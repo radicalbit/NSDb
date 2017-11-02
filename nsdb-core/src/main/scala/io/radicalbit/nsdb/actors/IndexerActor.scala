@@ -36,12 +36,12 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
 
   private val statementParser = new StatementParser()
 
-  private val indexes: mutable.Map[String, TimeSeriesIndex]       = mutable.Map.empty
-  private val indexeSearchers: mutable.Map[String, IndexSearcher] = mutable.Map.empty
+  private val indexes: mutable.Map[String, TimeSeriesIndex]      = mutable.Map.empty
+  private val indexSearchers: mutable.Map[String, IndexSearcher] = mutable.Map.empty
 
-  implicit val disp: ExecutionContextExecutor = context.system.dispatcher
+  implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
-  implicit val timeout =
+  implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   val interval = FiniteDuration(
@@ -63,15 +63,15 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     )
 
   private def getSearcher(metric: String) =
-    indexeSearchers.getOrElse(
+    indexSearchers.getOrElse(
       metric, {
         val searcher = indexes(metric).getSearcher
-        indexeSearchers += (metric -> searcher)
+        indexSearchers += (metric -> searcher)
         searcher
       }
     )
 
-  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
+  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]): Unit = {
     out match {
       case Success(docs) =>
         log.debug("found {} records", docs.size)
@@ -87,8 +87,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
 
   def ddlOps: Receive = {
     case DeleteMetric(ns, metric) =>
-      val index           = getIndex(metric)
-      implicit val writer = index.getWriter
+      val index                        = getIndex(metric)
+      implicit val writer: IndexWriter = index.getWriter
       index.deleteAll()
       writer.close()
       sender ! MetricDeleted(ns, metric)
@@ -128,7 +128,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
-          handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
+          handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
         case _           => sender() ! ReadCoordinator.SelectStatementFailed("Not a select statement.")
       }
@@ -204,8 +204,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         }
         writer.flush()
         writer.close()
-        indexeSearchers.get(metric).foreach(index.release)
-        indexeSearchers -= metric
+        indexSearchers.get(metric).foreach(index.release)
+        indexSearchers -= metric
       }
       opBufferMap.clear()
       self ! Accumulate

@@ -330,7 +330,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               new MaxAllGroupsCollector("name", "value"),
               Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
-              5
+              Some(5)
             ))
         )
       }

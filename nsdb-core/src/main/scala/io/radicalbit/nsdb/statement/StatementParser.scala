@@ -93,7 +93,7 @@ class StatementParser {
                                 expParsed.q,
                                 getCollector(group, fieldName, agg),
                                 sortOpt,
-                                limit.map(_.value) getOrElse 0))
+                                limit.map(_.value)))
       case (List(Field(_, None)), Some(_), _) =>
         Failure(new RuntimeException("cannot execute a group by query without an aggregation"))
       case (List(_), Some(_), _) =>
@@ -139,7 +139,7 @@ object StatementParser {
                                    q: Query,
                                    collector: AllGroupsAggregationCollector,
                                    sort: Option[Sort] = None,
-                                   limit: Int = 0)
+                                   limit: Option[Int] = None)
       extends ParsedQuery
 
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
