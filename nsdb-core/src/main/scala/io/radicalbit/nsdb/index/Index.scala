@@ -87,8 +87,11 @@ trait Index[T] {
                               sort: Option[Sort])(implicit searcher: IndexSearcher): Seq[Document] = {
     searcher.search(query, collector)
 
-    val sortedGroupMap = sort
-      .map(s => collector.getGroupMap.toSeq.sortBy(_._1)(Ord(s.getSort.headOption.exists(_.getReverse))).toMap)
+    val sortedGroupMap = sort.flatMap(_.getSort.headOption)
+      .map{
+        case s if s.getType == SortField.Type.STRING => collector.getGroupMap.toSeq.sortBy(_._1)(Ord(s.getReverse)).toMap
+        case s => collector.getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
+      }
       .getOrElse(collector.getGroupMap)
 
     val limitedGroupMap = limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap)

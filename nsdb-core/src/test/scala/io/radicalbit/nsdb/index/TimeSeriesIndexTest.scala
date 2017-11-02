@@ -5,9 +5,7 @@ import java.util.UUID
 
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
-import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
@@ -119,5 +117,31 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     collector.getGroupCount shouldBe 3
     val sorted = collector.getGroupMap.toSeq.sortBy(_._2)
     sorted shouldBe Seq(("content_0", 3), ("content_1", 7), ("content_2", 9))
+  }
+
+  "TimeSeriesIndex" should "support groupBy queries with ordering and limiting" in {
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+
+    val records: Seq[Bit] = (0 to 9).map { i =>
+      Bit(timestamp = i,
+        value = i,
+        dimensions = Map("content" -> s"content_${i / 4}"))
+    }
+
+    implicit val writer = timeSeriesIndex.getWriter
+    records.foreach(timeSeriesIndex.write)
+    writer.close()
+
+    val ascSort = new Sort(new SortField("value", SortField.Type.INT, false))
+
+    val results = timeSeriesIndex.query(new MatchAllDocsQuery(),new MaxAllGroupsCollector("content", "value"), None, Some(ascSort))(timeSeriesIndex.getSearcher)
+
+    results shouldBe Seq(Bit(0,3,Map("content" -> "content_0")), Bit(0,7,Map("content" -> "content_1")), Bit(0, 9, Map("content" -> "content_2")))
+
+    val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
+
+    val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),new MaxAllGroupsCollector("content", "value"), None, Some(descSort))(timeSeriesIndex.getSearcher)
+
+    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")), Bit(0,7,Map("content" -> "content_1")), Bit(0,3,Map("content" -> "content_0")))
   }
 }
