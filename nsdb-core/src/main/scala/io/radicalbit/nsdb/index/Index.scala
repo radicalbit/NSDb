@@ -92,7 +92,7 @@ trait Index[T] {
       .map {
         case s if s.getType == SortField.Type.STRING =>
           collector.getGroupMap.toSeq.sortBy(_._1)(Ord(s.getReverse)).toMap
-        case s => collector.getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
+        case s => collector.getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse))
       }
       .getOrElse(collector.getGroupMap)
 

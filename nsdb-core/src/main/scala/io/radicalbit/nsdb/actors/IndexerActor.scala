@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props, Stash}
 import akka.util.Timeout
+import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.IndexerActor.{Accumulate, PerformWrites}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
@@ -193,7 +194,10 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         implicit val writer: IndexWriter = index.getWriter
         opBufferMap(metric).foreach {
           case WriteOperation(_, _, bit) =>
-            index.write(bit)
+            index.write(bit) match {
+              case Valid(_)      =>
+              case Invalid(errs) => log.error(errs.toList.mkString(","))
+            }
           //TODO handle errors
           case DeleteRecordOperation(_, _, bit) =>
             index.delete(bit)
