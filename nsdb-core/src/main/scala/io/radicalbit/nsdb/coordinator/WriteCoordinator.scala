@@ -74,7 +74,7 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
               })
               .map(r => InputMapped(namespace, metric, r.record))
           case UpdateSchemaFailed(_, _, errs) =>
-            log.debug("Invalid schema for the metric {} and the bit {}. Error are {}.",
+            log.error("Invalid schema for the metric {} and the bit {}. Error are {}.",
                       metric,
                       bit,
                       errs.mkString(","))

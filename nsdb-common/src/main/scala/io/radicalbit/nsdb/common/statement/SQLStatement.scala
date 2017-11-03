@@ -62,7 +62,7 @@ case class SelectSQLStatement(override val namespace: String,
 case class InsertSQLStatement(override val namespace: String,
                               override val metric: String,
                               timestamp: Option[Long],
-                              dimensions: ListAssignment,
+                              dimensions: Option[ListAssignment],
                               value: JSerializable)
     extends SQLStatement
 

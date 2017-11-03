@@ -22,11 +22,11 @@ trait NSDBAActors extends CoreActors { this: Core =>
 
   implicit val executionContext = system.dispatcher
 
-  system.actorOf(Props[ClusterListener], name = "clusterListener")
-
   val metadataCache = system.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
 
   system.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
+
+  system.actorOf(Props[ClusterListener], name = "clusterListener")
 
   for {
     readCoordinator  <- (guardian ? DatabaseActorsGuardian.GetReadCoordinator).mapTo[ActorRef]

@@ -28,8 +28,8 @@ class AkkaClusterClient(host: String, port: Int)(implicit system: ActorSystem) {
   private def executeCommand[IN, OUT](command: IN)(implicit tag: ClassTag[OUT]): Future[OUT] =
     (clusterClient ? ClusterClient.Send(EndpointActorPath, command, true)).mapTo[OUT]
 
-  def executeSqlStatement(statement: SQLStatement): Future[SQLStatementExecuted] =
-    executeCommand[ExecuteSQLStatement, SQLStatementExecuted](ExecuteSQLStatement(statement))
+  def executeSqlStatement(statement: SQLStatement): Future[EndpointOutputProtocol] =
+    executeCommand[ExecuteSQLStatement, EndpointOutputProtocol](ExecuteSQLStatement(statement))
 
   def executeCommandStatement(statement: CommandStatement): Future[CommandStatementExecuted] =
     executeCommand[ExecuteCommandStatement, CommandStatementExecuted](ExecuteCommandStatement(statement))

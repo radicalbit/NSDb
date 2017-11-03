@@ -11,6 +11,7 @@ sealed trait EndpointOutputProtocol
 // TODO: it must contain the schema (for both select and insert) and the final retrieved data (only for the select)
 case class SQLStatementExecuted(namespace: String, metric: String, res: Seq[Bit] = Seq.empty)
     extends EndpointOutputProtocol
+case class SQLStatementFailed(namespace: String, metric: String, reason: String) extends EndpointOutputProtocol
 
 trait CommandStatementExecuted                                                     extends EndpointOutputProtocol
 case class NamespaceMetricsListRetrieved(namespace: String, metrics: List[String]) extends CommandStatementExecuted
