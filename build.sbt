@@ -72,9 +72,10 @@ lazy val `nsdb-cluster` = project
                      testResults.summaries ++ multiNodeResults.summaries)
     }
   )
-  .dependsOn(`nsdb-http`, `nsdb-rpc`)
   .settings(SbtMultiJvm.multiJvmSettings)
   .configs(MultiJvm)
+  .settings(assemblyJarName in assembly := "nsdb-cluster.jar")
+  .dependsOn(`nsdb-http`, `nsdb-rpc`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
@@ -92,6 +93,7 @@ lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
+  .settings(assemblyJarName in assembly := "nsdb-cli.jar")
   .dependsOn(`nsdb-akka-client`, `nsdb-sql`)
 
 lazy val `nsdb-flink-connector` = project
@@ -119,11 +121,6 @@ lazy val `nsdb-flink-connector` = project
       art.copy(`classifier` = None)
     },
     addArtifact(artifact in (Compile, assembly), assembly)
-    //publishArtifact in makePom := false,
-    //    ivyXML :=
-    //      <dependencies>
-    //        <dependency org="org.apache.flink" name="flink-streaming-scala_2.11" rev="1.3.2" conf="provided->default(compile)"/>
-    //      </dependencies>
   )
   .dependsOn(`nsdb-scala-api`)
 
