@@ -173,7 +173,7 @@ object PublisherActor {
     case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit])
     case class SubscriptionFailed(reason: String)
 
-    case class RecordsPublished(quid: String, metric: String, record: Seq[Bit])
+    case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
     case class Unsubscribed(actor: ActorRef)
     case class QueryRemoved(quid: String)
   }

@@ -93,6 +93,10 @@ class SchemaActorSpec
       Schema("people",
              Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("value", DECIMAL())))
     )
+
+    probe.send(schemaActor, UpdateSchemaFromRecord("namespace", "noDimensions", Bit(0, 23.5, Map.empty)))
+
+    probe.expectMsgType[SchemaUpdated]
   }
 
   "SchemaActor" should "return the same schema for a new schema included in the old one" in {

@@ -85,6 +85,21 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select containing a ordering statement and a limit clause" should {
+      "parse it successfully" in {
+        parser.parse(namespace = "registry",
+                     input = "SELECT count(value) FROM people group by name ORDER BY name limit 1") should be(
+          Success(SelectSQLStatement(
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            order = Some(AscOrderOperator("name")),
+            groupBy = Some("name"),
+            limit = Some(LimitOperator(1))
+          )))
+      }
+    }
+
     "receive wrong fields" should {
       "fail" in {
         parser.parse(namespace = "registry", input = "SELECT count(name), min(surname) FROM people") shouldBe 'failure

@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props, Stash}
 import akka.util.Timeout
+import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.IndexerActor.{Accumulate, PerformWrites}
 import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
 import io.radicalbit.nsdb.actors.NamespaceDataActor.events._
@@ -15,7 +16,7 @@ import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
-import org.apache.lucene.index.{DirectoryReader, IndexNotFoundException, IndexWriter}
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query}
 import org.apache.lucene.store.NIOFSDirectory
 
@@ -31,17 +32,17 @@ case class DeleteRecordOperation(ns: String, metric: String, bit: Bit)    extend
 case class DeleteQueryOperation(ns: String, metric: String, query: Query) extends Operation
 case class WriteOperation(ns: String, metric: String, bit: Bit)           extends Operation
 
-class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging with Stash /*with PostStart*/ {
+class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging with Stash {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
 
-  private val indexes: mutable.Map[String, TimeSeriesIndex]       = mutable.Map.empty
-  private val indexeSearchers: mutable.Map[String, IndexSearcher] = mutable.Map.empty
+  private val indexes: mutable.Map[String, TimeSeriesIndex]      = mutable.Map.empty
+  private val indexSearchers: mutable.Map[String, IndexSearcher] = mutable.Map.empty
 
-  implicit val disp: ExecutionContextExecutor = context.system.dispatcher
+  implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
-  implicit val timeout =
+  implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   val interval = FiniteDuration(
@@ -63,15 +64,15 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     )
 
   private def getSearcher(metric: String) =
-    indexeSearchers.getOrElse(
+    indexSearchers.getOrElse(
       metric, {
-        val searcher = indexes(metric).getSearcher
-        indexeSearchers += (metric -> searcher)
+        val searcher = getIndex(metric).getSearcher
+        indexSearchers += (metric -> searcher)
         searcher
       }
     )
 
-  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
+  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]): Unit = {
     out match {
       case Success(docs) =>
         log.debug("found {} records", docs.size)
@@ -87,8 +88,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
 
   def ddlOps: Receive = {
     case DeleteMetric(ns, metric) =>
-      val index           = getIndex(metric)
-      implicit val writer = index.getWriter
+      val index                        = getIndex(metric)
+      implicit val writer: IndexWriter = index.getWriter
       index.deleteAll()
       writer.close()
       sender ! MetricDeleted(ns, metric)
@@ -127,8 +128,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
       statementParser.parseStatement(statement, Some(schema)) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
-        case Success(ParsedAggregatedQuery(_, metric, q, collector)) =>
-          handleQueryResults(metric, Try(getIndex(metric).query(q, collector)))
+        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
+          handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
         case Failure(ex) => sender() ! ReadCoordinator.SelectStatementFailed(ex.getMessage)
         case _           => sender() ! ReadCoordinator.SelectStatementFailed("Not a select statement.")
       }
@@ -193,7 +194,10 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         implicit val writer: IndexWriter = index.getWriter
         opBufferMap(metric).foreach {
           case WriteOperation(_, _, bit) =>
-            index.write(bit)
+            index.write(bit) match {
+              case Valid(_)      =>
+              case Invalid(errs) => log.error(errs.toList.mkString(","))
+            }
           //TODO handle errors
           case DeleteRecordOperation(_, _, bit) =>
             index.delete(bit)
@@ -204,8 +208,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         }
         writer.flush()
         writer.close()
-        indexeSearchers.get(metric).foreach(index.release)
-        indexeSearchers -= metric
+        indexSearchers.get(metric).foreach(index.release)
+        indexSearchers -= metric
       }
       opBufferMap.clear()
       self ! Accumulate

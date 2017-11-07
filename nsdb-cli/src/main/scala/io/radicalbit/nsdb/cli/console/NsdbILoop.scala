@@ -4,6 +4,7 @@ import java.io.BufferedReader
 
 import akka.actor.ActorSystem
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.akka.AkkaClusterClient
 import io.radicalbit.nsdb.common.protocol._
@@ -16,7 +17,8 @@ import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
 
 class NsdbILoop(host: Option[String], port: Option[Int], in0: Option[BufferedReader], out: JPrintWriter)
-    extends ILoop(in0, out) {
+    extends ILoop(in0, out)
+    with LazyLogging {
 
   def this(in: BufferedReader, out: JPrintWriter) = this(None, None, Some(in), out)
 
@@ -91,7 +93,15 @@ class NsdbILoop(host: Option[String], port: Option[Int], in0: Option[BufferedRea
                                         lineToRecord: String): Result =
     Try(Await.result(send, 10 seconds)) match {
       case Success(resp: T) => echo(print(resp), lineToRecord)
-      case Success(_) | Failure(_) =>
+      case Success(resp: SQLStatementFailed) =>
+        echo(s"statement failed because ${resp.reason}")
+        result(Some(lineToRecord))
+      case Success(_) =>
+        echo(
+          "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
+        result(Some(lineToRecord))
+      case Failure(ex) =>
+        logger.error("error", ex)
         echo(
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
         result(Some(lineToRecord))

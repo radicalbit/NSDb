@@ -16,6 +16,8 @@ abstract class AllGroupsAggregationCollector extends AllGroupsCollector[String] 
 
   val groupField: String
   val aggField: String
+  def accumulateFunction(prev: Long, actual: Long): Option[Long]
+
   val initialSize: Int = AllGroupsAggregationCollector.DEFAULT_INITIAL_SIZE
 
   protected val groups: mutable.Map[String, Long] = mutable.Map.empty
@@ -28,6 +30,22 @@ abstract class AllGroupsAggregationCollector extends AllGroupsCollector[String] 
   override def getGroups: util.Collection[String] = ???
 
   def getGroupMap: Map[String, Long] = groups.toMap
+
+  override def collect(doc: Int): Unit = {
+    val key = index.getOrd(doc)
+
+    val term: String =
+      if (key == -1) null
+      else BytesRef.deepCopyOf(index.lookupOrd(key)).utf8ToString()
+    val agg = aggIndex.get(doc)
+
+    if (!ordSet.exists(key)) {
+      ordSet.put(key)
+      groups += (term -> 1)
+    } else {
+      accumulateFunction(groups(term), agg).foreach(v => groups += (term -> v))
+    }
+  }
 
   override protected def doSetNextReader(context: LeafReaderContext): Unit = {
     index = DocValues.getSorted(context.reader, groupField)

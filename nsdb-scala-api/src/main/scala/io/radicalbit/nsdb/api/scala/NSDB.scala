@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.api.scala
 
-import com.google.protobuf.any.Any
 import io.radicalbit.nsdb.api.scala.NSDB.Dimension
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
@@ -41,9 +40,10 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
           case unknown         => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
         },
         dimensions = bit.dimensions.map {
-          case (k, v: java.lang.Double) => (k, Dimension(Dimension.Value.DecimalValue(v)))
-          case (k, v: java.lang.Long)   => (k, Dimension(Dimension.Value.LongValue(v)))
-          case (k, v: java.lang.String) => (k, Dimension(Dimension.Value.StringValue(v)))
+          case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
+          case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
+          case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+          case (k, v: java.lang.String)  => (k, Dimension(Dimension.Value.StringValue(v)))
         }.toMap
       ))
 

@@ -41,6 +41,10 @@ object Dependencies {
     lazy val multiNode       = namespace %% "akka-multi-node-testkit" % version
   }
 
+  object scala_logging {
+    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2"
+  }
+
   object logback {
     val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
   }
@@ -199,6 +203,9 @@ object Dependencies {
       scopt.scopt,
       asciitable.core,
       cats.cats,
+      scala_logging.scala_logging,
+      akka.slf4j,
+      logback.logback,
       scalatest.core % Test
     )
   }

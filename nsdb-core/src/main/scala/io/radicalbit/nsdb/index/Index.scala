@@ -25,7 +25,10 @@ trait Index[T] {
 
   def getSearcher: IndexSearcher = searcherManager.acquire()
 
-  def release(searcher: IndexSearcher) = searcherManager.maybeRefreshBlocking()
+  def release(searcher: IndexSearcher): Unit = {
+    searcherManager.maybeRefreshBlocking()
+    searcherManager.release(searcher)
+  }
 
   def validateRecord(data: T): FieldValidation
   def toRecord(document: Document, fields: Seq[String]): T
@@ -75,10 +78,27 @@ trait Index[T] {
     executeQuery(searcher, query, limit, sort)
   }
 
-  private[index] def rawQuery(query: Query, collector: AllGroupsAggregationCollector)(
-      implicit searcher: IndexSearcher): Seq[Document] = {
+  def Ord[T: Ordering](reverse: Boolean): Ordering[T] =
+    if (reverse) implicitly[Ordering[T]].reverse else implicitly[Ordering[T]]
+
+  private[index] def rawQuery(query: Query,
+                              collector: AllGroupsAggregationCollector,
+                              limit: Option[Int],
+                              sort: Option[Sort])(implicit searcher: IndexSearcher): Seq[Document] = {
     searcher.search(query, collector)
-    collector.getGroupMap.map {
+
+    val sortedGroupMap = sort
+      .flatMap(_.getSort.headOption)
+      .map {
+        case s if s.getType == SortField.Type.STRING =>
+          collector.getGroupMap.toSeq.sortBy(_._1)(Ord(s.getReverse)).toMap
+        case s => collector.getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse))
+      }
+      .getOrElse(collector.getGroupMap)
+
+    val limitedGroupMap = limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap)
+
+    limitedGroupMap.map {
       case (g, v) =>
         val doc = new Document
         doc.add(new StringField(collector.groupField, g, Store.NO))
@@ -93,8 +113,9 @@ trait Index[T] {
     rawQuery(query, limit, sort).map(d => toRecord(d, fields))
   }
 
-  def query(query: Query, collector: AllGroupsAggregationCollector)(implicit searcher: IndexSearcher): Seq[T] = {
-    rawQuery(query, collector).map(d => toRecord(d, Seq.empty))
+  def query(query: Query, collector: AllGroupsAggregationCollector, limit: Option[Int], sort: Option[Sort])(
+      implicit searcher: IndexSearcher): Seq[T] = {
+    rawQuery(query, collector, limit, sort).map(d => toRecord(d, Seq.empty))
   }
 
   def query(field: String, queryString: String, fields: Seq[String], limit: Int, sort: Option[Sort] = None): Seq[T] = {

@@ -15,6 +15,7 @@ import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implicit system: ActorSystem)
     extends GRPCServer {
@@ -35,7 +36,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   val innerServer = start()
 
-  log.debug("GrpcEndpoint started on port {}", port)
+  log.info("GrpcEndpoint started on port {}", port)
 
   protected[this] object GrpcEndpointService extends NSDBServiceGrpc.NSDBService {
 
@@ -53,9 +54,13 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         case t => RPCInsertResult(false, t.getMessage)
       }
 
-      log.debug("Completed the write request {}", request)
-      log.debug("The result is {}", res)
-
+      res.onComplete {
+        case Success(res: RPCInsertResult) =>
+          log.debug("Completed the write request {}", request)
+          log.debug("The result is {}", res)
+        case Failure(t: Throwable) =>
+          log.error(s"error on request $request", t)
+      }
       res
     }
 

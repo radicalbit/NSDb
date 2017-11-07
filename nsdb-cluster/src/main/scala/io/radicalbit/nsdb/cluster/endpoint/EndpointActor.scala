@@ -6,6 +6,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.actors.NamespaceDataActor.events.RecordRejected
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.coordinator.ReadCoordinator
@@ -48,15 +49,19 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
         .map {
           case (namespace, metric, ts, dimensions, value) =>
             val timestamp = ts getOrElse System.currentTimeMillis
-            (writeCoordinator ? MapInput(timestamp,
-                                         namespace,
-                                         metric,
-                                         Bit(timestamp = timestamp, value = value, dimensions = dimensions.fields)))
-              .mapTo[InputMapped]
+            writeCoordinator ? MapInput(
+              timestamp,
+              namespace,
+              metric,
+              Bit(timestamp = timestamp, value = value, dimensions = dimensions.map(_.fields).getOrElse(Map.empty)))
         }
         .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
       result
-        .map(x => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty))
+        .map {
+          case x: InputMapped => SQLStatementExecuted(namespace = x.namespace, metric = x.metric, res = Seq.empty)
+          case x: RecordRejected =>
+            SQLStatementFailed(namespace = x.namespace, metric = x.metric, reason = x.reasons.mkString(","))
+        }
         .pipeTo(sender())
 
     case ExecuteSQLStatement(statement: DeleteSQLStatement) =>

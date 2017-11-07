@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema}
+import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
@@ -86,12 +86,14 @@ class StatementParser {
       case ListFields(list) => list
     }
     (fieldList, statement.groupBy, statement.limit) match {
-      case (Seq(Field(fieldName, Some(agg))), Some(group), _) =>
+      case (Seq(Field(fieldName, Some(agg))), Some(group), limit) =>
         Success(
           ParsedAggregatedQuery(statement.namespace,
                                 statement.metric,
                                 expParsed.q,
-                                getCollector(group, fieldName, agg)))
+                                getCollector(group, fieldName, agg),
+                                sortOpt,
+                                limit.map(_.value)))
       case (List(Field(_, None)), Some(_), _) =>
         Failure(new RuntimeException("cannot execute a group by query without an aggregation"))
       case (List(_), Some(_), _) =>
@@ -135,7 +137,9 @@ object StatementParser {
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   collector: AllGroupsAggregationCollector)
+                                   collector: AllGroupsAggregationCollector,
+                                   sort: Option[Sort] = None,
+                                   limit: Option[Int] = None)
       extends ParsedQuery
 
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery

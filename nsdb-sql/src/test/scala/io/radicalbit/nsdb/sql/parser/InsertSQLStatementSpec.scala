@@ -18,7 +18,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
             InsertSQLStatement(namespace = "registry",
                                metric = "people",
                                timestamp = None,
-                               dimensions = ListAssignment(Map("name" -> "john")),
+                               dimensions = Some(ListAssignment(Map("name" -> "john"))),
                                value = 23))
         )
       }
@@ -32,7 +32,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = None,
-              dimensions = ListAssignment(Map("name" -> "john", "surname" -> "doe")),
+              dimensions = Some(ListAssignment(Map("name" -> "john", "surname" -> "doe"))),
               value = 23
             ))
         )
@@ -48,7 +48,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
-              dimensions = ListAssignment(Map("name" -> "john", "surname" -> "doe")),
+              dimensions = Some(ListAssignment(Map("name" -> "john", "surname" -> "doe"))),
               value = 23
             ))
         )
@@ -63,7 +63,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
-              dimensions = ListAssignment(Map("x" -> 1, "y" -> 1.5)),
+              dimensions = Some(ListAssignment(Map("x" -> 1, "y" -> 1.5))),
               value = 23
             ))
         )
@@ -78,16 +78,20 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
-              dimensions = ListAssignment(Map("x" -> 1, "y" -> 1.5)),
+              dimensions = Some(ListAssignment(Map("x" -> 1, "y" -> 1.5))),
               value = 23.5
             ))
         )
       }
     }
 
-    "receive a wrong metric without dimensions" should {
-      "fail" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people FLD(value=23) ") shouldBe 'failure
+    "receive a insert metric without dimensions" should {
+      "succeed" in {
+        parser.parse(namespace = "registry", input = "INSERT INTO people val=23) ") should be(
+          Success(
+            InsertSQLStatement("registry", "people", None, None, 23)
+          )
+        )
       }
     }
   }

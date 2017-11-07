@@ -192,12 +192,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def insertQuery(namespace: String) =
     (Insert ~> metric) ~
       (timestampAssignment ?) ~
-      (Dim ~> assignments) ~ valueAssignment ^^ {
+      (Dim ~> assignments ?) ~ valueAssignment ^^ {
       case met ~ ts ~ dimensions ~ value =>
         InsertSQLStatement(namespace = namespace,
                            metric = met,
                            timestamp = ts,
-                           ListAssignment(dimensions),
+                           dimensions.map(ListAssignment),
                            value.asInstanceOf[JSerializable])
     }
 
