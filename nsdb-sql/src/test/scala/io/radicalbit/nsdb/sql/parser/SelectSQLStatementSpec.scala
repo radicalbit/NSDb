@@ -219,6 +219,22 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a complex select containing a equality selection a desc ordering statement and a limit statement" in {
+      parser.parse(
+        namespace = "registry",
+        input = "select * from AreaOccupancy where name=MeetingArea order by timestamp desc limit 1"
+      ) shouldBe
+        Success(
+          SelectSQLStatement(
+            namespace = "registry",
+            metric = "AreaOccupancy",
+            fields = AllFields,
+            condition = Some(Condition(EqualityExpression("name", "MeetingArea"))),
+            order = Some(DescOrderOperator(dimension = "timestamp")),
+            limit = Some(LimitOperator(1))
+          ))
+    }
+
     "receive random string sequences" should {
       "fail" in {
         parser.parse(namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure
