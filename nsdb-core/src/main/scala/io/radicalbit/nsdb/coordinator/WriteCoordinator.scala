@@ -20,7 +20,7 @@ import scala.concurrent.Future
 object WriteCoordinator {
 
   def props(namespaceSchemaActor: ActorRef,
-            commitLogService: ActorRef,
+            commitLogService: Option[ActorRef],
             namespaceDataActor: ActorRef,
             publisherActor: ActorRef): Props =
     Props(new WriteCoordinator(namespaceSchemaActor, commitLogService, namespaceDataActor, publisherActor))
@@ -44,7 +44,7 @@ object WriteCoordinator {
 }
 
 class WriteCoordinator(namespaceSchemaActor: ActorRef,
-                       commitLogService: ActorRef,
+                       commitLogService: Option[ActorRef],
                        namespaceDataActor: ActorRef,
                        publisherActor: ActorRef)
     extends Actor
@@ -58,6 +58,8 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
   import context.dispatcher
 
   log.info("WriteCoordinator is ready.")
+  if (commitLogService.isEmpty)
+    log.info("Commit Log is disabled")
 
   override def receive: Receive = {
     case WriteCoordinator.MapInput(ts, namespace, metric, bit) =>
@@ -66,11 +68,15 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
         .flatMap {
           case SchemaUpdated(_, _) =>
             log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
-            (commitLogService ? CommitLogService.Insert(ts = ts, metric = metric, record = bit))
-              .mapTo[WroteToCommitLogAck]
+            val commitLogFuture: Future[WroteToCommitLogAck] =
+              if (commitLogService.isDefined)
+                (commitLogService.get ? CommitLogService.Insert(ts = ts, metric = metric, record = bit))
+                  .mapTo[WroteToCommitLogAck]
+              else Future.successful(WroteToCommitLogAck(ts, metric, bit))
+            commitLogFuture
               .flatMap(ack => {
                 publisherActor ! InputMapped(namespace, metric, bit)
-                (namespaceDataActor ? AddRecord(namespace, ack.metric, ack.record)).mapTo[RecordAdded]
+                (namespaceDataActor ? AddRecord(namespace, ack.metric, ack.bit)).mapTo[RecordAdded]
               })
               .map(r => InputMapped(namespace, metric, r.record))
           case UpdateSchemaFailed(_, _, errs) =>

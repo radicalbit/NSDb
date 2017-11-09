@@ -59,7 +59,7 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   override protected def createEntry(entry: InsertNewEntry): Unit = {
     log.debug("Received the entry {}.", entry)
     appendToDisk(entry)
-    sender() ! WroteToCommitLogAck(ts = entry.ts, metric = entry.metric, record = entry.record)
+    sender() ! WroteToCommitLogAck(ts = entry.ts, metric = entry.metric, bit = entry.record)
 
     // this check can be done in an async fashion
     checkAndUpdateRollingFile(file).foreach {

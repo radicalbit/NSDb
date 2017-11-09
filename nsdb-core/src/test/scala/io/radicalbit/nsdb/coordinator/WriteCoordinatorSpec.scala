@@ -52,7 +52,7 @@ class WriteCoordinatorSpec
   val publisherActor = TestActorRef[PublisherActor](
     PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor])))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(namespaceSchemaActor,
-                                                                    system.actorOf(Props[TestCommitLogService]),
+                                                                    Some(system.actorOf(Props[TestCommitLogService])),
                                                                     namespaceDataActor,
                                                                     publisherActor)
 

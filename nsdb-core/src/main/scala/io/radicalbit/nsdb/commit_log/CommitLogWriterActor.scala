@@ -8,7 +8,7 @@ object CommitLogWriterActor {
 
   sealed trait CommitLogWriterActorProtocol
 
-  case class WroteToCommitLogAck(ts: Long, metric: String, record: Bit) extends CommitLogWriterActorProtocol
+  case class WroteToCommitLogAck(ts: Long, metric: String, bit: Bit) extends CommitLogWriterActorProtocol
 
 }
 

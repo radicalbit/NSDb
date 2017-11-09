@@ -32,9 +32,12 @@ class DatabaseActorsGuardian extends Actor {
 
   val indexBasePath = config.getString("nsdb.index.base-path")
 
-  val commitLogService = context.actorOf(CommitLogService.props, "commit-log-service")
-  val schemaActor      = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
-  val namespaceActor   = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-actor")
+  val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
+
+  val commitLogService =
+    if (writeToCommitLog) Some(context.actorOf(CommitLogService.props, "commit-log-service")) else None
+  val schemaActor    = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
+  val namespaceActor = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-actor")
   val readCoordinator =
     context.actorOf(ReadCoordinator.props(schemaActor, namespaceActor), "read-coordinator")
   val publisherActor = context.actorOf(PublisherActor.props(indexBasePath, readCoordinator), "publisher-actor")
