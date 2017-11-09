@@ -57,7 +57,10 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       res.onComplete {
         case Success(res: RPCInsertResult) =>
           log.debug("Completed the write request {}", request)
-          log.debug("The result is {}", res)
+          if (res.completedSuccessfully)
+            log.debug("The result is {}", res)
+          else
+            log.error("The result is {}", res)
         case Failure(t: Throwable) =>
           log.error(s"error on request $request", t)
       }

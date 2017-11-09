@@ -5,11 +5,13 @@ import io.radicalbit.nsdb.common.statement._
 
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
 import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
+import scala.language.postfixOps
+import scala.util.parsing.input.CharSequenceReader
 
 final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   implicit class InsensitiveString(str: String) {
-    def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
+    def ignoreCase: PackratParser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
   }
 
   private val Insert           = "INSERT INTO" ignoreCase
@@ -25,9 +27,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val Comma            = ","
   private val In               = "IN" ignoreCase
   private val Order            = "ORDER BY" ignoreCase
-  private val Asc              = "ASC" ignoreCase
   private val Desc             = "DESC" ignoreCase
-  private val DescLiteral      = "DESC"
   private val Limit            = "LIMIT" ignoreCase
   private val GreaterThan      = ">"
   private val GreaterOrEqualTo = ">="
@@ -104,79 +104,84 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   }
 
   // Please don't change the order of the expressions, can cause infinite recursions
-  private def expression: Parser[Expression] =
+  private lazy val expression: PackratParser[Expression] =
     rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression | equalityExpression
 
-  private def termExpression: Parser[Expression] = comparisonExpression | rangeExpression | equalityExpression
+  private lazy val termExpression
+    : PackratParser[Expression] = rangeExpression | comparisonExpression | equalityExpression
 
-  private def unaryLogicalExpression = notUnaryLogicalExpression
+  private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 
-  private def notUnaryLogicalExpression =
+  private lazy val notUnaryLogicalExpression: PackratParser[UnaryLogicalExpression] =
     (Not ~> expression) ^^ (expression => UnaryLogicalExpression(expression, NotOperator))
 
-  private def tupledLogicalExpression: Parser[TupledLogicalExpression] =
+  private lazy val tupledLogicalExpression: PackratParser[TupledLogicalExpression] =
     andTupledLogicalExpression | orTupledLogicalExpression
 
-  private def tupledLogicalExpression(operator: Parser[String],
-                                      tupledOperator: TupledLogicalOperator): Parser[TupledLogicalExpression] =
+  private def tupledLogicalExpression(operator: PackratParser[String],
+                                      tupledOperator: TupledLogicalOperator): PackratParser[TupledLogicalExpression] =
     ((termExpression | expression) <~ operator) ~ (termExpression | expression) ^^ {
       case expression1 ~ expression2 =>
         TupledLogicalExpression(expression1, tupledOperator, expression2)
     }
 
-  private def andTupledLogicalExpression = tupledLogicalExpression(And, AndOperator)
+  lazy val andTupledLogicalExpression: PackratParser[TupledLogicalExpression] =
+    tupledLogicalExpression(And, AndOperator)
 
-  private def orTupledLogicalExpression = tupledLogicalExpression(Or, OrOperator)
+  lazy val orTupledLogicalExpression: PackratParser[TupledLogicalExpression] = tupledLogicalExpression(Or, OrOperator)
 
-  private def equalityExpression = (dimension <~ Equal) ~ (stringValue | floatValue | timestamp) ^^ {
+  lazy val equalityExpression
+    : PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue | floatValue | timestamp) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }
 
-  private def comparisonExpression: Parser[ComparisonExpression[_]] =
+  lazy val comparisonExpression: PackratParser[ComparisonExpression[_]] =
     comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
 
   private def comparisonExpression(operator: String,
-                                   comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[_]] =
+                                   comparisonOperator: ComparisonOperator): PackratParser[ComparisonExpression[_]] =
     (dimension <~ operator) ~ timestamp ^^ {
       case d ~ v =>
         ComparisonExpression(d, comparisonOperator, v)
     }
 
-  private def comparisonExpressionGT = comparisonExpression(GreaterThan, GreaterThanOperator)
+  private lazy val comparisonExpressionGT = comparisonExpression(GreaterThan, GreaterThanOperator)
 
-  private def comparisonExpressionGTE = comparisonExpression(GreaterOrEqualTo, GreaterOrEqualToOperator)
+  private lazy val comparisonExpressionGTE = comparisonExpression(GreaterOrEqualTo, GreaterOrEqualToOperator)
 
-  private def comparisonExpressionLT = comparisonExpression(LessThan, LessThanOperator)
+  private lazy val comparisonExpressionLT = comparisonExpression(LessThan, LessThanOperator)
 
-  private def comparisonExpressionLTE = comparisonExpression(LessOrEqualTo, LessOrEqualToOperator)
+  private lazy val comparisonExpressionLTE = comparisonExpression(LessOrEqualTo, LessOrEqualToOperator)
 
-  private def rangeExpression =
+  private lazy val rangeExpression =
     (dimension <~ In) ~ (OpenRoundBracket ~> timestamp) ~ (Comma ~> timestamp <~ CloseRoundBracket) ^^ {
       case (d ~ v1 ~ v2) => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
 
-  private def select = Select ~> selectFields
+  lazy val select: PackratParser[SelectedFields with Product with Serializable] = Select ~> selectFields
 
-  private def from = From ~> metric
+  lazy val from: PackratParser[String] = From ~> metric
 
-  private def where = Where ~> expression
+  lazy val where: PackratParser[Expression] = Where ~> expression
 
-  private def groupBy = (group ~> dimension) ?
+  lazy val groupBy: PackratParser[Option[String]] = (group ~> dimension) ?
 
-  private def order = (((Order ~> dimension) ?) ~ ((Asc | Desc) ?)) ^^ {
-    case dim ~(Some(ord)) if ord.equalsIgnoreCase(DescLiteral) => dim.map(DescOrderOperator)
-    case dim ~ _                                               => dim.map(AscOrderOperator)
+  lazy val order: PackratParser[Option[OrderOperator]] = ((Order ~> dimension ~ (Desc ?)) ?) ^^ {
+    case Some(dim ~(Some(_))) => Some(DescOrderOperator(dim))
+    case Some(dim ~ None)     => Some(AscOrderOperator(dim))
+    case None                 => None
   }
 
-  private def limit = ((Limit ~> intValue) ?) ^^ (value => value.map(x => LimitOperator(x)))
+  lazy val limit: PackratParser[Option[LimitOperator]] = ((Limit ~> intValue) ?) ^^ (value =>
+    value.map(x => LimitOperator(x)))
 
   private def selectQuery(namespace: String) = select ~ from ~ (where ?) ~ groupBy ~ order ~ limit <~ ";" ^^ {
-    case fs ~ met ~ cond ~ group ~ ord ~ lim =>
+    case fs ~ met ~ cond ~ gr ~ ord ~ lim =>
       SelectSQLStatement(namespace = namespace,
                          metric = met,
                          fields = fs,
                          condition = cond.map(Condition),
-                         groupBy = group,
+                         groupBy = gr,
                          order = ord,
                          limit = lim)
   }
@@ -185,8 +190,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case met ~ cond => DeleteSQLStatement(namespace = namespace, metric = met, condition = Condition(cond))
   }
 
-  private def dropStatement(namespace: String) = Drop ~> metric ^^ {
-    case met => DropSQLStatement(namespace = namespace, metric = met)
+  private def dropStatement(namespace: String) = Drop ~> metric ^^ { met =>
+    DropSQLStatement(namespace = namespace, metric = met)
   }
 
   private def insertQuery(namespace: String) =
@@ -201,13 +206,15 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
                            value.asInstanceOf[JSerializable])
     }
 
-  private def query(namespace: String): Parser[SQLStatement] =
+  private def query(namespace: String): PackratParser[SQLStatement] =
     selectQuery(namespace) | insertQuery(namespace) | deleteQuery(namespace) | dropStatement(namespace)
 
   def parse(namespace: String, input: String): Try[SQLStatement] =
-    Try(parse(query(namespace), s"$input;")) flatMap {
+    Try(parse(query(namespace), new PackratReader[Char](new CharSequenceReader(s"$input;")))) flatMap {
       case Success(res, _) => ScalaSuccess(res)
-      case Error(msg, _)   => ScalaFailure(new RuntimeException(msg))
-      case Failure(msg, _) => ScalaFailure(new RuntimeException(msg))
+      case Error(msg, next) =>
+        ScalaFailure(new RuntimeException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
+      case Failure(msg, next) =>
+        ScalaFailure(new RuntimeException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
     }
 }
