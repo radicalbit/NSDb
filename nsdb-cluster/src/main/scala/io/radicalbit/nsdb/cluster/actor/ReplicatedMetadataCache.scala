@@ -31,8 +31,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   val replicator: ActorRef = DistributedData(context.system).replicator
 
-  def dataKey(entryKey: Key): LWWMapKey[Key, Location] =
-    LWWMapKey("cache-" + math.abs(entryKey.hashCode) % 100)
+  def locationDataKey(entryKey: Key): LWWMapKey[Key, Location] =
+    LWWMapKey("location-cache-" + math.abs(entryKey.hashCode) % 100)
 
   val writeDuration = 5 seconds
 
@@ -43,21 +43,19 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   def receive: Receive = {
     case PutInCache(key, value) =>
-      (replicator ? Update(dataKey(key), LWWMap(), WriteMajority(writeDuration))(_ + (key -> value)))
+      (replicator ? Update(locationDataKey(key), LWWMap(), WriteMajority(writeDuration))(_ + (key -> value)))
         .map {
           case UpdateSuccess(_, _) => Cached(key, Some(value))
           case _                   => Cached(key, None)
         }
         .pipeTo(sender())
     case Evict(key) =>
-      (replicator ? Update(dataKey(key), LWWMap(), WriteMajority(writeDuration))(_ - key))
-        .map {
-          case _ => Cached(key, None)
-        }
+      (replicator ? Update(locationDataKey(key), LWWMap(), WriteMajority(writeDuration))(_ - key))
+        .map(_ => Cached(key, None))
         .pipeTo(sender())
     case GetFromCache(key) =>
       log.debug("searching for key {} in cache", key)
-      replicator ! Get(dataKey(key), ReadMajority(writeDuration), Some(Request(key, sender())))
+      replicator ! Get(locationDataKey(key), ReadMajority(writeDuration), Some(Request(key, sender())))
     case g @ GetSuccess(LWWMapKey(_), Some(Request(key, replyTo))) =>
       g.dataValue match {
         case data: LWWMap[_, _] =>

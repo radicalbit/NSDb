@@ -1,4 +1,4 @@
-package sample.distributeddata
+package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -45,7 +45,7 @@ object ServiceRegistry {
     */
   final case class BindingChanged(name: String, services: Set[Location])
 
-  final case class ServiceKey(serviceName: String) extends Key[ORSet[Location]](serviceName)
+  final case class ServiceKey(serviceName: String) extends akka.cluster.ddata.Key[ORSet[Location]](serviceName)
 
   private val AllServicesKey = GSetKey[ServiceKey]("service-keys")
 
@@ -67,12 +67,12 @@ class ServiceRegistry extends Actor with ActorLogging {
 
   override def preStart(): Unit = {
     replicator ! Subscribe(AllServicesKey, self)
-    cluster.subscribe(self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.LeaderChanged])
+//    cluster.subscribe(self, ClusterEvent.InitialStateAsEvents, classOf[ClusterEvent.LeaderChanged])
   }
 
-  override def postStop(): Unit = {
-    cluster.unsubscribe(self)
-  }
+//  override def postStop(): Unit = {
+//    cluster.unsubscribe(self)
+//  }
 
   def receive = {
     case Register(metric, service) =>
@@ -98,12 +98,12 @@ class ServiceRegistry extends Actor with ActorLogging {
       }
       keys = newKeys
 
-    case c @ Changed(ServiceKey(serviceName)) =>
-      val name        = serviceName.split(":").tail.mkString
+    case c @ Changed(ServiceKey(name)) =>
+//      val name        = serviceName.split(":").tail.mkString
       val newServices = c.get(ServiceKey(name)).elements
       log.error("Services changed for name [{}]: {}", name, newServices)
       services = services.updated(name, newServices)
-      context.system.eventStream.publish(BindingChanged(name, newServices))
+//      context.system.eventStream.publish(BindingChanged(name, newServices))
 //      if (leader)
 //        newServices.foreach(context.watch) // watch is idempotent
 
