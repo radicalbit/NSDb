@@ -9,7 +9,7 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{Cached, Evict, GetFromCache, PutInCache}
-import io.radicalbit.nsdb.cluster.actor.{Key, ReplicatedMetadataCache}
+import io.radicalbit.nsdb.cluster.actor.{LocationKey, ReplicatedMetadataCache}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
@@ -71,7 +71,7 @@ class ReplicatedMetadataCacheSpec
 
     "replicate cached entry" in within(10.seconds) {
 
-      val key      = Key("namespace", "metric", 0, 1)
+      val key      = LocationKey("namespace", "metric", 0, 1)
       val location = Location("metric", "node1", 0, 1, 1)
 
       val probe = TestProbe()
@@ -79,7 +79,8 @@ class ReplicatedMetadataCacheSpec
       runOn(node1) {
         awaitAssert {
 
-          replicatedCache.tell(PutInCache(Key("namespace", "metric", 0, 1), Location("metric", "node1", 0, 1, 1)),
+          replicatedCache.tell(PutInCache(LocationKey("namespace", "metric", 0, 1),
+                                          Location("metric", "node1", 0, 1, 1)),
                                probe.ref)
           probe.expectMsg(Cached(key, Some(location)))
         }
@@ -96,7 +97,7 @@ class ReplicatedMetadataCacheSpec
 
     "replicate many cached entries" in within(10.seconds) {
       val probe    = TestProbe()
-      val key      = Key("namespace", "metric", _: Long, _: Long)
+      val key      = LocationKey("namespace", "metric", _: Long, _: Long)
       val location = Location("metric", "node1", _: Long, _: Long, _: Long)
 
       runOn(node1) {
@@ -119,7 +120,7 @@ class ReplicatedMetadataCacheSpec
 
     "replicate evicted entry" in within(15.seconds) {
       val probe    = TestProbe()
-      val key      = Key("namespace", "metric", 0, 1)
+      val key      = LocationKey("namespace", "metric", 0, 1)
       val location = Location("metric", "node1", 0, 1, 1)
 
       runOn(node1) {
@@ -149,7 +150,7 @@ class ReplicatedMetadataCacheSpec
     }
 
     "replicate updated cached entry" in within(10.seconds) {
-      val key             = Key("namespace", "metric", 0, 1)
+      val key             = LocationKey("namespace", "metric", 0, 1)
       val location        = Location("metric", "node1", 0, 1, 0)
       val updatedLocation = Location("metric", "node1", 0, 1, 0)
       val probe           = TestProbe()

@@ -11,15 +11,16 @@ import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.concurrent.duration._
 
-case class Key(namespace: String, metric: String, from: Long, to: Long)
+case class LocationKey(namespace: String, metric: String, from: Long, to: Long)
+case class MetricKey(namespace: String, metric: String)
 
 object ReplicatedMetadataCache {
-  private final case class Request(key: Key, replyTo: ActorRef)
+  private final case class Request(key: LocationKey, replyTo: ActorRef)
 
-  final case class PutInCache(key: Key, value: Location)
-  final case class GetFromCache(key: Key)
-  final case class Cached(key: Key, value: Option[Location])
-  final case class Evict(key: Key)
+  final case class PutInCache(key: LocationKey, value: Location)
+  final case class GetFromCache(key: LocationKey)
+  final case class Cached(key: LocationKey, value: Option[Location])
+  final case class Evict(key: LocationKey)
 }
 
 class ReplicatedMetadataCache extends Actor with ActorLogging {
@@ -31,8 +32,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   val replicator: ActorRef = DistributedData(context.system).replicator
 
-  def locationDataKey(entryKey: Key): LWWMapKey[Key, Location] =
+  def locationDataKey(entryKey: LocationKey): LWWMapKey[LocationKey, Location] =
     LWWMapKey("location-cache-" + math.abs(entryKey.hashCode) % 100)
+
+  def metricDataKey(entryKey: LocationKey): LWWMapKey[LocationKey, Location] =
+    LWWMapKey("metric-cache-" + math.abs(entryKey.hashCode) % 100)
 
   val writeDuration = 5 seconds
 
@@ -59,7 +63,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     case g @ GetSuccess(LWWMapKey(_), Some(Request(key, replyTo))) =>
       g.dataValue match {
         case data: LWWMap[_, _] =>
-          data.asInstanceOf[LWWMap[Key, Location]].get(key) match {
+          data.asInstanceOf[LWWMap[LocationKey, Location]].get(key) match {
             case Some(value) => replyTo ! Cached(key, Some(value))
             case None        => replyTo ! Cached(key, None)
           }
