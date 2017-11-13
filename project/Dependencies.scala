@@ -62,6 +62,7 @@ object Dependencies {
     lazy val default        = namespace %% "akka-http" % version
     lazy val testkit        = namespace %% "akka-http-testkit" % version % Test
     lazy val akkaHttpJson4s = "de.heikoseeberger" %% "akka-http-json4s" % "1.18.1"
+    lazy val sprayJson      = "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.10"
     lazy val core           = Seq(core_http, default, testkit)
   }
 
@@ -219,7 +220,7 @@ object Dependencies {
       akka.stream,
       akka_http.default,
       json4s.jackson,
-      akka_http.akkaHttpJson4s,
+      akka_http.sprayJson,
       javaWebsocket.javaWebsocket,
       scalatest.core % Test,
       akka_http.testkit
