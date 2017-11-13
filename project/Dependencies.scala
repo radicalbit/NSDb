@@ -59,12 +59,10 @@ object Dependencies {
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-testkit"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
-    lazy val default = namespace %% "akka-http"         % version
-    lazy val testkit = namespace %% "akka-http-testkit" % version % Test
-    lazy val jackson = namespace %% "akka-http-jackson" % version
-    lazy val xml     = namespace %% "akka-http-xml"     % version
-
-    lazy val core = Seq(core_http, default, testkit, /*spray_json,*/ jackson, xml)
+    lazy val default        = namespace %% "akka-http" % version
+    lazy val testkit        = namespace %% "akka-http-testkit" % version % Test
+    lazy val akkaHttpJson4s = "de.heikoseeberger" %% "akka-http-json4s" % "1.18.1"
+    lazy val core           = Seq(core_http, default, testkit)
   }
 
   object javaWebsocket {
@@ -75,7 +73,7 @@ object Dependencies {
 
   object json4s {
     val version = "3.5.2"
-    val native  = "org.json4s" %% "json4s-native" % version
+    val jackson = "org.json4s" %% "json4s-jackson" % version
   }
 
   object lucene {
@@ -220,7 +218,8 @@ object Dependencies {
     lazy val libraries = Seq(
       akka.stream,
       akka_http.default,
-      json4s.native,
+      json4s.jackson,
+      akka_http.akkaHttpJson4s,
       javaWebsocket.javaWebsocket,
       scalatest.core % Test,
       akka_http.testkit

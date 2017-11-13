@@ -66,7 +66,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           luceneQuery match {
             case Success(_: ParsedAggregatedQuery) =>
               val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-                .mapTo[SelectStatementExecuted[Bit]]
+                .mapTo[SelectStatementExecuted]
                 .map(e => RecordsPublished(id, e.metric, e.values))
               subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
             case _ =>
@@ -88,7 +88,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               queries += (id          -> NsdbQuery(id, query))
 
               (readCoordinator ? ExecuteStatement(query))
-                .mapTo[SelectStatementExecuted[Bit]]
+                .mapTo[SelectStatementExecuted]
                 .map(e => SubscribedByQueryString(queryString, id, e.values))
                 .pipeTo(sender())
 
@@ -100,7 +100,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
         } {
           case (id, _) =>
             (readCoordinator ? ExecuteStatement(query))
-              .mapTo[SelectStatementExecuted[Bit]]
+              .mapTo[SelectStatementExecuted]
               .map(e => SubscribedByQueryString(queryString, id, e.values))
               .pipeTo(sender())
         }
@@ -111,7 +111,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
           val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
           subscribedActors += (quid -> (previousRegisteredActors + actor))
           (readCoordinator ? ExecuteStatement(q.query))
-            .mapTo[SelectStatementExecuted[Bit]]
+            .mapTo[SelectStatementExecuted]
             .map(e => SubscribedByQuid(quid, e.values))
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")

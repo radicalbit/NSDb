@@ -57,7 +57,18 @@ case class SelectSQLStatement(override val namespace: String,
                               groupBy: Option[String] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
-    extends SQLStatement
+    extends SQLStatement {
+
+  def enrichWithTimeRange(dimension: String, from: Long, to: Long): SelectSQLStatement = {
+    val tsRangeExpression = RangeExpression(dimension, from, to)
+    val newCondition = this.condition match {
+      case Some(cond) => Condition(TupledLogicalExpression(tsRangeExpression, AndOperator, cond.expression))
+      case None       => Condition(tsRangeExpression)
+    }
+    this.copy(condition = Some(newCondition))
+  }
+
+}
 
 case class InsertSQLStatement(override val namespace: String,
                               override val metric: String,

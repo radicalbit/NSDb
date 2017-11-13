@@ -7,7 +7,7 @@ import org.java_websocket.client.WebSocketClient
 import org.java_websocket.drafts.Draft_17
 import org.java_websocket.handshake.ServerHandshake
 import org.json4s.DefaultFormats
-import org.json4s.native.Serialization.write
+import org.json4s.jackson.Serialization.write
 
 abstract class WSClient(url: String) extends WebSocketClient(new URI(url), new Draft_17()) {
 

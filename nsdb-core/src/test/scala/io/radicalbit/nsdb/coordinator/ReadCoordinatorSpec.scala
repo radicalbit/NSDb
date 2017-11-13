@@ -101,7 +101,7 @@ class ReadCoordinatorSpec
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
                    ))
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values shouldBe records
       }
@@ -121,7 +121,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values shouldBe Seq(
           Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
@@ -148,7 +148,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values.size should be(2)
       }
@@ -170,7 +170,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values.size shouldBe 1
         expected.values.head shouldBe Bit(10, 1, Map("name" -> "Frank"))
@@ -197,7 +197,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values.size should be(4)
 
@@ -225,7 +225,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values.size should be(1)
       }
@@ -250,7 +250,7 @@ class ReadCoordinatorSpec
             )
           )
         )
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
         expected.values.size should be(5)
       }
     }
@@ -270,7 +270,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values.size should be(1)
       }
@@ -295,7 +295,7 @@ class ReadCoordinatorSpec
             )
           )
         )
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
         expected.values.size should be(2)
       }
     }
@@ -316,7 +316,7 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted[Bit]]
+        val expected = probe.expectMsgType[SelectStatementExecuted]
 
         expected.values.size should be(3)
       }
