@@ -27,7 +27,7 @@ trait Web extends StaticResources with WsResources with QueryResources { this: C
   Future
     .sequence(
       Seq((guardian ? DatabaseActorsGuardian.GetPublisher).mapTo[ActorRef],
-          (guardian ? DatabaseActorsGuardian.GetPublisher).mapTo[ActorRef]))
+          (guardian ? DatabaseActorsGuardian.GetReadCoordinator).mapTo[ActorRef]))
     .onComplete {
       case Success(Seq(publisher, readCoordinator)) =>
         val api: Route = staticResources ~ wsResources(publisher) ~ queryResources(publisher, readCoordinator)
