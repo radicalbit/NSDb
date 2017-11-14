@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.web
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
@@ -15,7 +16,8 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-trait Web extends StaticResources with WsResources with QueryResources { this: CoreActors =>
+trait Web extends StaticResources with WsResources with QueryResources with CorsSupport { this: CoreActors =>
+
 
   implicit val formats = DefaultFormats
 
@@ -33,7 +35,7 @@ trait Web extends StaticResources with WsResources with QueryResources { this: C
         val api: Route = staticResources ~ wsResources(publisher) ~ queryResources(publisher, readCoordinator)
 
         val http =
-          Http().bindAndHandle(api, config.getString("nsdb.http.interface"), config.getInt("nsdb.http.port"))
+          Http().bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), config.getInt("nsdb.http.port"))
 
         scala.sys.addShutdownHook {
           http.flatMap(_.unbind()).onComplete { _ =>
