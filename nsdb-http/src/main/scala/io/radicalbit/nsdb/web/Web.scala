@@ -18,7 +18,6 @@ import scala.util.{Failure, Success}
 
 trait Web extends StaticResources with WsResources with QueryResources with CorsSupport { this: CoreActors =>
 
-
   implicit val formats = DefaultFormats
 
   val config                = system.settings.config

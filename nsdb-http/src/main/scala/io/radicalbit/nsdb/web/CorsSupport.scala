@@ -7,13 +7,16 @@ import akka.http.scaladsl.server.Route
 trait CorsSupport {
 
   val optionsSupport = {
-    options {complete("")}
+    options { complete("") }
   }
 
-  val corsHeaders = List(RawHeader("Access-Control-Allow-Origin", "*"),
+  val corsHeaders = List(
+    RawHeader("Access-Control-Allow-Origin", "*"),
     RawHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS, DELETE"),
-    RawHeader("Access-Control-Allow-Headers", "Access-Control-Allow-Origin, Origin, X-Requested-With, Content-Type, Accept, Authorization") )
+    RawHeader("Access-Control-Allow-Headers",
+              "Access-Control-Allow-Origin, Origin, X-Requested-With, Content-Type, Accept, Authorization")
+  )
 
-  def withCors(route: Route) = respondWithHeaders(corsHeaders) {route ~ optionsSupport}
+  def withCors(route: Route) = respondWithHeaders(corsHeaders) { route ~ optionsSupport }
 
 }
