@@ -1,13 +1,13 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.ActorRef
-import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.pattern.ask
 import akka.util.Timeout
-import org.json4s.DefaultFormats
 import io.radicalbit.nsdb.actors.PublisherActor.Command.RemoveQuery
 import io.radicalbit.nsdb.actors.PublisherActor.Events.QueryRemoved
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -18,7 +18,7 @@ import io.radicalbit.nsdb.coordinator.ReadCoordinator.{
   SelectStatementFailed
 }
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
 import spray.json._
 
@@ -66,7 +66,7 @@ trait QueryResources {
               case Some(statement) =>
                 onComplete(readCoordinator ? ExecuteStatement(statement)) {
                   case Success(SelectStatementExecuted(_, _, values)) =>
-                    complete(write(QueryResponse(values)))
+                    complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
                   case Success(SelectStatementFailed(reason)) =>
                     complete(HttpResponse(InternalServerError, entity = reason))
                   case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
