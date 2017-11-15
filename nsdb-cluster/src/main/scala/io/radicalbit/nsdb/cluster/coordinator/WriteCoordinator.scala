@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.coordinator
+package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
@@ -6,14 +6,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.AddRecord
-import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{RecordAdded, RecordRejected}
-import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchemaFromRecord
-import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events.{SchemaUpdated, UpdateSchemaFailed}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.coordinator.WriteCoordinator._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.concurrent.Future
 
@@ -25,22 +20,6 @@ object WriteCoordinator {
             publisherActor: ActorRef): Props =
     Props(new WriteCoordinator(namespaceSchemaActor, commitLogService, namespaceDataActor, publisherActor))
 
-  sealed trait WriteCoordinatorProtocol
-
-  case class FlatInput(ts: Long, namespace: String, metric: String, data: Array[Byte]) extends WriteCoordinatorProtocol
-
-  case class MapInput(ts: Long, namespace: String, metric: String, record: Bit) extends WriteCoordinatorProtocol
-  case class InputMapped(namespace: String, metric: String, record: Bit)        extends WriteCoordinatorProtocol
-
-  case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
-  case class DeleteStatementExecuted(namespace: String, metric: String)
-  case class DeleteStatementFailed(namespace: String, metric: String, reason: String)
-
-  case class DropMetric(namespace: String, metric: String)
-  case class MetricDropped(namespace: String, metric: String)
-
-  case class DeleteNamespace(namespace: String)
-  case class NamespaceDeleted(namespace: String)
 }
 
 class WriteCoordinator(namespaceSchemaActor: ActorRef,
@@ -61,8 +40,8 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
   if (commitLogService.isEmpty)
     log.info("Commit Log is disabled")
 
-  override def receive: Receive = {
-    case WriteCoordinator.MapInput(ts, namespace, metric, bit) =>
+  def receive: Receive = {
+    case MapInput(ts, namespace, metric, bit) =>
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(namespace, metric, bit))
         .flatMap {

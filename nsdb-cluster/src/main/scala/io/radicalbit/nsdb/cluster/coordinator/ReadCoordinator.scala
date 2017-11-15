@@ -1,18 +1,16 @@
-package io.radicalbit.nsdb.coordinator
+package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.concurrent.Future
 
 class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends Actor with ActorLogging {
-  import ReadCoordinator._
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
@@ -47,14 +45,4 @@ object ReadCoordinator {
   def props(schemaActor: ActorRef, indexerActor: ActorRef): Props =
     Props(new ReadCoordinator(schemaActor, indexerActor))
 
-  case object GetNamespaces
-  case class GetMetrics(namespace: String)
-  case class GetSchema(namespace: String, metric: String)
-  case class ExecuteStatement(selectStatement: SelectSQLStatement)
-  case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
-  case class NamespacesGot(namespaces: Seq[String])
-  case class SchemaGot(namespace: String, metric: String, schema: Option[Schema])
-  case class MetricsGot(namespace: String, metrics: Seq[String])
-  case class SelectStatementExecuted(namespace: String, metric: String, values: Seq[Bit])
-  case class SelectStatementFailed(reason: String)
 }

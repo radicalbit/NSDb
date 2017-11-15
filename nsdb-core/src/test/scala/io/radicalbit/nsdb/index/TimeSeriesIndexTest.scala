@@ -6,6 +6,7 @@ import java.util.UUID
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.document.LongPoint
+import org.apache.lucene.queryparser.xml.builders.RangeQueryBuilder
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
@@ -38,20 +39,20 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = System.currentTimeMillis, value = 23.5, dimensions = Map("content" -> s"content_$i"))
+        Bit(timestamp = i, value = 23.5, dimensions = Map("content" -> s"content_$i"))
       timeSeriesIndex.write(testData)
     }
 
     writer.close()
 
-    val query = new MatchAllDocsQuery()
+    val query = LongPoint.newRangeQuery("timestamp", 10, 20)
 
-    implicit val searcher = timeSeriesIndex.getSearcher //new IndexSearcher(DirectoryReader.open(directory))
+    implicit val searcher = timeSeriesIndex.getSearcher
     val result            = timeSeriesIndex.rawQuery(query, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
 
-    result.size shouldBe 100
+    result.size shouldBe 11
 
-    (1 to 99).foreach { i =>
+    (1 to 10).foreach { i =>
       result(i).getField("timestamp").numericValue().longValue should be >= result(i - 1)
         .getField("timestamp")
         .numericValue

@@ -1,18 +1,18 @@
-package io.radicalbit.nsdb.coordinator
+package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.WriteInterval
-import io.radicalbit.nsdb.actors.NamespaceDataActor.commands.{AddRecords, DeleteMetric}
-import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands.UpdateSchema
-import io.radicalbit.nsdb.actors.{NamespaceDataActor, SchemaActor}
+import io.radicalbit.nsdb.cluster.WriteInterval
+import io.radicalbit.nsdb.actors.SchemaActor
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.coordinator.ReadCoordinator._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -30,8 +30,8 @@ class ReadCoordinatorSpec
   private val basePath     = "target/test_index"
   private val namespace    = "registry"
   val schemaActor          = system.actorOf(SchemaActor.props(basePath, namespace))
-  val indexerActor         = system.actorOf(NamespaceDataActor.props(basePath))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, indexerActor)
+  val namespaceDataActor   = system.actorOf(NamespaceDataActor.props(basePath))
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, namespaceDataActor)
 
   val records: Seq[Bit] = Seq(
     Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
@@ -45,12 +45,12 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(3 second)
 
-    Await.result(indexerActor ? DeleteMetric(namespace, "people"), 1 seconds)
+    Await.result(namespaceDataActor ? DeleteMetric(namespace, "people"), 1 seconds)
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchema(namespace, "people", schema), 1 seconds)
-    indexerActor ! AddRecords(namespace, "people", records)
+    namespaceDataActor ! AddRecords(namespace, "people", records)
 
     waitInterval
   }

@@ -11,9 +11,9 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
-import io.radicalbit.nsdb.coordinator.WriteCoordinator
 import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.index.IndexNotFoundException
@@ -116,7 +116,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
-    case WriteCoordinator.InputMapped(_, metric, record) =>
+    case InputMapped(_, metric, record) =>
       queries.foreach {
         case (id, nsdbQuery) =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)

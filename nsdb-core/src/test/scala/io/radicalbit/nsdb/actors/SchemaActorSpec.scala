@@ -4,12 +4,11 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.NamespaceSchemaActor.commands._
-import io.radicalbit.nsdb.actors.NamespaceSchemaActor.events._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{GetSchema, SchemaGot}
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
 import scala.concurrent.Await

@@ -6,12 +6,10 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.client.ClusterClientReceptionist
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.NamespaceDataActor.events.RecordRejected
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.coordinator.ReadCoordinator
-import io.radicalbit.nsdb.coordinator.ReadCoordinator._
-import io.radicalbit.nsdb.coordinator.WriteCoordinator._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.concurrent.Future
 
@@ -34,7 +32,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
   def receive = {
 
     case ExecuteSQLStatement(statement: SelectSQLStatement) =>
-      (readCoordinator ? ReadCoordinator.ExecuteStatement(statement))
+      (readCoordinator ? ExecuteStatement(statement))
         .map {
           case SelectStatementExecuted(namespace, metric, values: Seq[Bit]) =>
             SQLStatementExecuted(namespace = namespace, metric = metric, values)
@@ -79,7 +77,7 @@ class EndpointActor(readCoordinator: ActorRef, writeCoordinator: ActorRef) exten
     case ExecuteCommandStatement(ShowMetrics(namespace)) =>
       (readCoordinator ? GetMetrics(namespace)).mapTo[MetricsGot].map {
         case MetricsGot(namespace, metrics) => NamespaceMetricsListRetrieved(namespace, metrics.toList)
-      } pipeTo (sender())
+      } pipeTo sender()
 
     case ExecuteCommandStatement(DescribeMetric(namespace, metric)) =>
       (readCoordinator ? GetSchema(namespace = namespace, metric = metric))

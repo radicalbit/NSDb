@@ -1,22 +1,18 @@
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeoutException
 
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, OneForOneStrategy, Props}
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.actors.DatabaseActorsGuardian.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
-import io.radicalbit.nsdb.coordinator.{ReadCoordinator, WriteCoordinator}
+import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
+import io.radicalbit.nsdb.cluster.coordinator.{ReadCoordinator, WriteCoordinator}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
 
 object DatabaseActorsGuardian {
 
   def props = Props(new DatabaseActorsGuardian)
 
-  sealed trait DatabaseActorsGuardianProtocol
-
-  case object GetReadCoordinator
-  case object GetWriteCoordinator
-  case object GetPublisher
 }
 
 class DatabaseActorsGuardian extends Actor {
