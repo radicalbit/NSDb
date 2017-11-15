@@ -12,7 +12,7 @@ import com.typesafe.config.ConfigFactory
 
 trait NSDBAkkaCluster extends Core {
 
-  override val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
+  override implicit val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
 }
 
 trait NSDBAActors extends CoreActors { this: Core =>

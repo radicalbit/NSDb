@@ -7,7 +7,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryString,
 import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
 import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import org.json4s._
-import org.json4s.native.JsonMethods._
+import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
 
 class FakeReadCoordinatorActor extends Actor {
@@ -18,6 +18,8 @@ class FakeReadCoordinatorActor extends Actor {
 }
 
 class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers with WsResources {
+
+  implicit val formats = DefaultFormats
 
   val basePath       = "target/test_index_ws"
   val publisherActor = system.actorOf(PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor])))

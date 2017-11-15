@@ -10,12 +10,12 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
 import org.json4s._
-import org.json4s.native.JsonMethods.{parse, _}
-import org.json4s.native.Serialization.write
+import org.json4s.jackson.JsonMethods.{parse, _}
+import org.json4s.jackson.Serialization.write
 
 trait WsResources {
 
-  implicit val formats = DefaultFormats
+  implicit val formats: DefaultFormats.type
 
   implicit def system: ActorSystem
 
