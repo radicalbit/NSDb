@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 
 class FakeWriteCoordinator extends Actor {
   override def receive: Receive = {
-    case msg: MapInput => sender() ! InputMapped(msg.namespace, msg.metric, msg.record)
+    case msg: MapInput => sender() ! InputMapped(msg.db,msg.namespace, msg.metric, msg.record)
   }
 }
 

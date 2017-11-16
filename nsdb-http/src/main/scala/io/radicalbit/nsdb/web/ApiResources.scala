@@ -106,17 +106,18 @@ trait ApiResources {
       }
     } ~
       pathPrefix("data") {
-        pathEnd {
+        path(Segment) { db =>
           post {
             entity(as[InsertBody]) { insertBody =>
               onComplete(
                 writeCoordinator ? MapInput(insertBody.bit.timestamp,
+                                            db,
                                             insertBody.namespace,
                                             insertBody.metric,
                                             insertBody.bit)) {
                 case Success(_: InputMapped) =>
                   complete("OK")
-                case Success(RecordRejected(_, _, _, reasons)) =>
+                case Success(RecordRejected(_, _, _, _, reasons)) =>
                   complete(HttpResponse(InternalServerError, entity = reasons.mkString(",")))
                 case Success(_) =>
                   complete(HttpResponse(InternalServerError, entity = "unknown response"))
