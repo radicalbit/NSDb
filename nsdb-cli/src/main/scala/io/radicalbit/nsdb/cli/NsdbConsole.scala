@@ -5,7 +5,7 @@ import io.radicalbit.nsdb.cli.console.NsdbILoop
 import scala.tools.nsc.Settings
 import scala.util.Try
 
-case class Params(host: Option[String] = None, port: Option[Int] = None)
+case class Params(host: Option[String] = None, port: Option[Int] = None, db: String)
 
 object NsdbConsole extends App {
 
@@ -17,13 +17,16 @@ object NsdbConsole extends App {
     opt[Int]('p', "port") action { (x, c) =>
       c.copy(port = Some(x))
     } text "the remote port"
+    opt[String]('d', "database") action { (x, c) =>
+      c.copy(db = x)
+    } text "the database to select"
   }
 
-  parser.parse(args, Params()) map { params =>
+  parser.parse(args, Params(None, None, "root")) map { params =>
     val settings = new Settings
     settings.usejavacp.value = true
     settings.deprecation.value = true
 
-    new NsdbILoop(params.host, params.port).process(settings)
+    new NsdbILoop(params.host, params.port, params.db).process(settings)
   }
 }

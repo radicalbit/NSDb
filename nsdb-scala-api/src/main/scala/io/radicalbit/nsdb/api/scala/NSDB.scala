@@ -18,11 +18,12 @@ object NSDB {
 
   private val port = 2552
 
-  def connect(host: String = host, port: Int = port)(implicit executionContextExecutor: ExecutionContext): NSDB =
-    new NSDB(host = host, port = port)
+  def connect(host: String = host, port: Int = port, db: String)(
+      implicit executionContextExecutor: ExecutionContext): NSDB =
+    new NSDB(host = host, port = port, db = db)
 }
 
-case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
+case class NSDB(host: String, port: Int, db: String)(implicit executionContextExecutor: ExecutionContext) {
 
   private val client = new GRPCClient(host = host, port = port)
 
@@ -33,7 +34,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
       RPCInsert(
         namespace = bit.namespace,
         metric = bit.metric,
-        timestamp = bit.ts getOrElse (System.currentTimeMillis),
+        timestamp = bit.ts getOrElse System.currentTimeMillis,
         value = bit.value match {
           case Some(v: Double) => RPCInsert.Value.DecimalValue(v)
           case Some(v: Long)   => RPCInsert.Value.LongValue(v)

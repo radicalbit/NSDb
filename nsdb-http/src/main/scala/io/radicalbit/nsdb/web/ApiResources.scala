@@ -78,11 +78,11 @@ trait ApiResources {
           }
         }
       }
-      pathEnd {
+      path(Segment) { db =>
         post {
           entity(as[QueryBody]) { qb =>
             val statementOpt =
-              (new SQLStatementParser().parse(qb.namespace, qb.queryString), qb.from, qb.to) match {
+              (new SQLStatementParser().parse(db, qb.namespace, qb.queryString), qb.from, qb.to) match {
                 case (Success(statement: SelectSQLStatement), Some(from), Some(to)) =>
                   Some(statement.enrichWithTimeRange("timestamp", from, to))
                 case (Success(statement: SelectSQLStatement), _, _) => Some(statement)
@@ -91,7 +91,7 @@ trait ApiResources {
             statementOpt match {
               case Some(statement) =>
                 onComplete(readCoordinator ? ExecuteStatement(statement)) {
-                  case Success(SelectStatementExecuted(_, _, values)) =>
+                  case Success(SelectStatementExecuted(_, _, _, values)) =>
                     complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
                   case Success(SelectStatementFailed(reason)) =>
                     complete(HttpResponse(InternalServerError, entity = reason))

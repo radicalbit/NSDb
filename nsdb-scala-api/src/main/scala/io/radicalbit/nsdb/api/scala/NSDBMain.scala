@@ -7,7 +7,7 @@ import scala.concurrent.duration._
 
 object NSDBMain extends App {
 
-  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global)
+  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817, db = "root")(ExecutionContext.global)
 
   val series = nsdb
     .namespace("registry")

@@ -9,12 +9,14 @@ case class ExecuteSQLStatement(statement: SQLStatement)         extends Endpoint
 sealed trait EndpointOutputProtocol
 // TODO: the result must be well structured
 // TODO: it must contain the schema (for both select and insert) and the final retrieved data (only for the select)
-case class SQLStatementExecuted(namespace: String, metric: String, res: Seq[Bit] = Seq.empty)
+case class SQLStatementExecuted(db: String, namespace: String, metric: String, res: Seq[Bit] = Seq.empty)
     extends EndpointOutputProtocol
-case class SQLStatementFailed(namespace: String, metric: String, reason: String) extends EndpointOutputProtocol
+case class SQLStatementFailed(db: String, namespace: String, metric: String, reason: String)
+    extends EndpointOutputProtocol
 
-trait CommandStatementExecuted                                                     extends EndpointOutputProtocol
-case class NamespaceMetricsListRetrieved(namespace: String, metrics: List[String]) extends CommandStatementExecuted
-case class MetricField(name: String, `type`: String)                               extends CommandStatementExecuted
-case class MetricSchemaRetrieved(namespace: String, metric: String, fields: List[MetricField])
+trait CommandStatementExecuted extends EndpointOutputProtocol
+case class NamespaceMetricsListRetrieved(db: String, namespace: String, metrics: List[String])
+    extends CommandStatementExecuted
+case class MetricField(name: String, `type`: String) extends CommandStatementExecuted
+case class MetricSchemaRetrieved(db: String, namespace: String, metric: String, fields: List[MetricField])
     extends CommandStatementExecuted

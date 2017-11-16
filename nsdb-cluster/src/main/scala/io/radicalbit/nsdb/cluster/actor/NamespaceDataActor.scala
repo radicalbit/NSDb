@@ -17,10 +17,11 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
 
   val indexerActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  private def getIndexer(namespace: String): ActorRef =
+  private def getIndexer(db: String, namespace: String): ActorRef =
     indexerActors.getOrElse(
-      namespace, {
-        val indexerActor = context.actorOf(IndexerActor.props(basePath, namespace), s"indexer-service-$namespace")
+      s"$db-$namespace", {
+        val indexerActor =
+          context.actorOf(IndexerActor.props(basePath, db, namespace), s"indexer-service-$db-$namespace")
         indexerActors += (namespace -> indexerActor)
         indexerActor
       }
@@ -32,35 +33,35 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   import context.dispatcher
 
   override def receive: Receive = {
-    case GetNamespaces =>
-      sender() ! NamespacesGot(indexerActors.keys.toSeq)
-    case msg @ GetMetrics(namespace) =>
-      getIndexer(namespace) forward msg
-    case msg @ AddRecord(namespace, _, _) =>
-      getIndexer(namespace).forward(msg)
-    case msg @ AddRecords(namespace, _, _) =>
-      getIndexer(namespace).forward(msg)
-    case msg @ DeleteRecord(namespace, _, _) =>
-      getIndexer(namespace).forward(msg)
-    case msg @ DeleteMetric(namespace, _) =>
-      getIndexer(namespace).forward(msg)
-    case msg @ GetCount(namespace, _) =>
-      getIndexer(namespace).forward(msg)
+    case GetNamespaces(db) =>
+      sender() ! NamespacesGot(db, indexerActors.keys.filter(_.startsWith(db)).toSeq)
+    case msg @ GetMetrics(db, namespace) =>
+      getIndexer(db, namespace) forward msg
+    case msg @ AddRecord(db, namespace, _, _) =>
+      getIndexer(db, namespace).forward(msg)
+    case msg @ AddRecords(db, namespace, _, _) =>
+      getIndexer(db, namespace).forward(msg)
+    case msg @ DeleteRecord(db, namespace, _, _) =>
+      getIndexer(db, namespace).forward(msg)
+    case msg @ DeleteMetric(db, namespace, _) =>
+      getIndexer(db, namespace).forward(msg)
+    case msg @ GetCount(db, namespace, _) =>
+      getIndexer(db, namespace).forward(msg)
     case msg @ ExecuteDeleteStatement(statement) =>
-      getIndexer(statement.namespace).forward(msg)
-    case DeleteNamespace(namespace) =>
-      val indexToRemove = getIndexer(namespace)
-      (indexToRemove ? DeleteAllMetrics(namespace))
+      getIndexer(statement.db, statement.namespace).forward(msg)
+    case DeleteNamespace(db, namespace) =>
+      val indexToRemove = getIndexer(db, namespace)
+      (indexToRemove ? DeleteAllMetrics(db, namespace))
         .map(_ => {
           indexToRemove ! PoisonPill
           indexerActors -= namespace
-          NamespaceDeleted(namespace)
+          NamespaceDeleted(db, namespace)
         })
         .pipeTo(sender())
-    case msg @ DropMetric(namespace, _) =>
-      getIndexer(namespace).forward(msg)
+    case msg @ DropMetric(db, namespace, _) =>
+      getIndexer(db, namespace).forward(msg)
     case msg @ ExecuteSelectStatement(statement, _) =>
-      getIndexer(statement.namespace).forward(msg)
+      getIndexer(statement.db, statement.namespace).forward(msg)
   }
 }
 

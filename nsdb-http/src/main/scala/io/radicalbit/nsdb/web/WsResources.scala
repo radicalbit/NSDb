@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
 import org.json4s._
-import org.json4s.jackson.JsonMethods.{parse, _}
+import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization.write
 
 trait WsResources {
@@ -19,9 +19,9 @@ trait WsResources {
 
   implicit def system: ActorSystem
 
-  private def newStream(publisherActor: ActorRef): Flow[Message, Message, NotUsed] = {
+  private def newStream(db: String, publisherActor: ActorRef): Flow[Message, Message, NotUsed] = {
 
-    val connectedWsActor = system.actorOf(StreamActor.props(publisherActor))
+    val connectedWsActor = system.actorOf(StreamActor.props(db, publisherActor))
 
     val incomingMessages: Sink[Message, NotUsed] =
       Flow[Message]
@@ -51,6 +51,8 @@ trait WsResources {
 
   def wsResources(publisherActor: ActorRef): Route =
     path("ws-stream") {
-      handleWebSocketMessages(newStream(publisherActor))
+      path(Segment) { db =>
+        handleWebSocketMessages(newStream(db, publisherActor))
+      }
     }
 }

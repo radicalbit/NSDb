@@ -16,19 +16,20 @@ import scala.concurrent.duration._
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
 
-class NsdbILoop(host: Option[String], port: Option[Int], in0: Option[BufferedReader], out: JPrintWriter)
+class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option[BufferedReader], out: JPrintWriter)
     extends ILoop(in0, out)
     with LazyLogging {
 
-  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, Some(in), out)
+  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, "root", Some(in), out)
 
-  def this(host: Option[String], port: Option[Int]) = this(host, port, None, new JPrintWriter(Console.out, true))
+  def this(host: Option[String], port: Option[Int], db: String) =
+    this(host, port, db, None, new JPrintWriter(Console.out, true))
 
-  implicit lazy val system = ActorSystem("nsdb-cli", ConfigFactory.load("cli"), getClass.getClassLoader)
+  implicit lazy val system: ActorSystem = ActorSystem("nsdb-cli", ConfigFactory.load("cli"), getClass.getClassLoader)
 
   val clientDelegate = new AkkaClusterClient(host getOrElse "127.0.0.1", port getOrElse 2552)
 
-  val commandStatementParser = new CommandStatementParser()
+  val commandStatementParser = new CommandStatementParser(db)
 
   val sqlStatementParser = new SQLStatementParser()
 
@@ -69,7 +70,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], in0: Option[BufferedRea
   def parseSQLStatement(statement: String): Try[Result] =
     currentNamespace
       .map { namespace =>
-        sqlStatementParser.parse(namespace, statement).map(x => sendCommand(x, statement))
+        sqlStatementParser.parse(db, namespace, statement).map(x => sendCommand(x, statement))
       }
       .getOrElse(Failure(new RuntimeException("Select a namespace before tu run non-namespace related statements.")))
 

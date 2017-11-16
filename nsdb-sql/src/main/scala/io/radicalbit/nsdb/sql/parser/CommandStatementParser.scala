@@ -5,7 +5,7 @@ import io.radicalbit.nsdb.common.statement._
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
 import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 
-class CommandStatementParser extends RegexParsers with PackratParsers {
+class CommandStatementParser(db: String) extends RegexParsers with PackratParsers {
 
   implicit class InsensitiveString(str: String) {
     def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
@@ -29,12 +29,12 @@ class CommandStatementParser extends RegexParsers with PackratParsers {
   }
 
   private def showMetrics(namespace: Option[String]) = Show ~ Metrics ^^ {
-    case _ if (namespace.isDefined) => ShowMetrics(namespace.get)
+    case _ if (namespace.isDefined) => ShowMetrics(db, namespace.get)
     case _                          => sys.error("Please select a valid namespace to list the associated metrics.")
   }
 
   private def describeMetric(namespace: Option[String]) = Describe ~> metric ^^ {
-    case m if (namespace.isDefined) => DescribeMetric(namespace = namespace.get, metric = m)
+    case m if (namespace.isDefined) => DescribeMetric(db, namespace = namespace.get, metric = m)
     case _                          => sys.error("Please select a valid namespace to describe the given metric.")
   }
 

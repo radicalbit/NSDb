@@ -5,12 +5,13 @@ package io.radicalbit.nsdb.rpc;
 import "google/protobuf/any.proto";
 
 message RPCInsert {
-    string namespace = 1;
-    string metric = 2;
-    int64 timestamp = 3;
+    string database = 1;
+    string namespace = 2;
+    string metric = 3;
+    int64 timestamp = 4;
     oneof value {
-        double decimalValue = 4;
-        int64 longValue = 5;
+        double decimalValue = 5;
+        int64 longValue = 6;
     }
     map<string, Dimension> dimensions = 7;
 }

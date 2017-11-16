@@ -41,11 +41,11 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
     log.info("Commit Log is disabled")
 
   def receive: Receive = {
-    case MapInput(ts, namespace, metric, bit) =>
+    case MapInput(ts, db, namespace, metric, bit) =>
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      (namespaceSchemaActor ? UpdateSchemaFromRecord(namespace, metric, bit))
+      (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
         .flatMap {
-          case SchemaUpdated(_, _) =>
+          case SchemaUpdated(_, _, _) =>
             log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
             val commitLogFuture: Future[WroteToCommitLogAck] =
               if (commitLogService.isDefined)
@@ -54,19 +54,19 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
               else Future.successful(WroteToCommitLogAck(ts, metric, bit))
             commitLogFuture
               .flatMap(ack => {
-                publisherActor ! InputMapped(namespace, metric, bit)
-                (namespaceDataActor ? AddRecord(namespace, ack.metric, ack.bit)).mapTo[RecordAdded]
+                publisherActor ! InputMapped(db, namespace, metric, bit)
+                (namespaceDataActor ? AddRecord(db, namespace, ack.metric, ack.bit)).mapTo[RecordAdded]
               })
-              .map(r => InputMapped(namespace, metric, r.record))
-          case UpdateSchemaFailed(_, _, errs) =>
+              .map(r => InputMapped(db, namespace, metric, r.record))
+          case UpdateSchemaFailed(_, _, _, errs) =>
             log.error("Invalid schema for the metric {} and the bit {}. Error are {}.",
                       metric,
                       bit,
                       errs.mkString(","))
-            Future(RecordRejected(namespace, metric, bit, errs))
+            Future(RecordRejected(db, namespace, metric, bit, errs))
         }
         .pipeTo(sender())
-    case msg @ DeleteNamespace(_) =>
+    case msg @ DeleteNamespace(_, _) =>
       (namespaceDataActor ? msg)
         .mapTo[NamespaceDeleted]
         .flatMap(_ => namespaceSchemaActor ? msg)
@@ -74,7 +74,7 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(_) =>
       namespaceDataActor forward msg
-    case msg @ DropMetric(_, _) =>
+    case msg @ DropMetric(_, _, _) =>
       namespaceDataActor forward msg
   }
 }

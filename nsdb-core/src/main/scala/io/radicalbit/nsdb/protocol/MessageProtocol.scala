@@ -7,29 +7,29 @@ import io.radicalbit.nsdb.index.Schema
 object MessageProtocol {
 
   object Commands {
-    case object GetNamespaces
-    case class GetMetrics(namespace: String)
-    case class GetSchema(namespace: String, metric: String)
+    case class GetNamespaces(db: String)
+    case class GetMetrics(db: String, namespace: String)
+    case class GetSchema(db: String, namespace: String, metric: String)
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
 
-    case class FlatInput(ts: Long, namespace: String, metric: String, data: Array[Byte])
-    case class MapInput(ts: Long, namespace: String, metric: String, record: Bit)
-    case class InputMapped(namespace: String, metric: String, record: Bit)
+    case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
+    case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
+    case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
-    case class DropMetric(namespace: String, metric: String)
-    case class DeleteNamespace(namespace: String)
+    case class DropMetric(db: String, namespace: String, metric: String)
+    case class DeleteNamespace(db: String, namespace: String)
 
-    case class UpdateSchema(namespace: String, metric: String, newSchema: Schema)
-    case class UpdateSchemaFromRecord(namespace: String, metric: String, record: Bit)
-    case class DeleteSchema(namespace: String, metric: String)
-    case class DeleteAllSchemas(namespace: String)
+    case class UpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema)
+    case class UpdateSchemaFromRecord(db: String, namespace: String, metric: String, record: Bit)
+    case class DeleteSchema(db: String, namespace: String, metric: String)
+    case class DeleteAllSchemas(db: String, namespace: String)
 
-    case class AddRecord(namespace: String, metric: String, bit: Bit)
-    case class AddRecords(namespace: String, metric: String, bits: Seq[Bit])
-    case class DeleteRecord(namespace: String, metric: String, bit: Bit)
-    case class DeleteMetric(namespace: String, metric: String)
-    case class DeleteAllMetrics(namespace: String)
+    case class AddRecord(db: String, namespace: String, metric: String, bit: Bit)
+    case class AddRecords(db: String, namespace: String, metric: String, bits: Seq[Bit])
+    case class DeleteRecord(db: String, namespace: String, metric: String, bit: Bit)
+    case class DeleteMetric(db: String, namespace: String, metric: String)
+    case class DeleteAllMetrics(db: String, namespace: String)
 
     case object GetReadCoordinator
     case object GetWriteCoordinator
@@ -37,30 +37,30 @@ object MessageProtocol {
   }
 
   object Events {
-    case class NamespacesGot(namespaces: Seq[String])
-    case class SchemaGot(namespace: String, metric: String, schema: Option[Schema])
-    case class MetricsGot(namespace: String, metrics: Seq[String])
-    case class SelectStatementExecuted(namespace: String, metric: String, values: Seq[Bit])
+    case class NamespacesGot(db: String, namespaces: Seq[String])
+    case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
+    case class MetricsGot(db: String, namespace: String, metrics: Seq[String])
+    case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String)
 
-    case class DeleteStatementExecuted(namespace: String, metric: String)
-    case class DeleteStatementFailed(namespace: String, metric: String, reason: String)
-    case class MetricDropped(namespace: String, metric: String)
-    case class NamespaceDeleted(namespace: String)
+    case class DeleteStatementExecuted(db: String, namespace: String, metric: String)
+    case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
+    case class MetricDropped(db: String, namespace: String, metric: String)
+    case class NamespaceDeleted(db: String, namespace: String)
 
-    case class SchemaUpdated(namespace: String, metric: String)
-    case class UpdateSchemaFailed(namespace: String, metric: String, errors: List[String])
-    case class SchemaDeleted(namespace: String, metric: String)
-    case class AllSchemasDeleted(namespace: String)
+    case class SchemaUpdated(db: String, namespace: String, metric: String)
+    case class UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])
+    case class SchemaDeleted(db: String, namespace: String, metric: String)
+    case class AllSchemasDeleted(db: String, namespace: String)
 
-    case class GetCount(namespace: String, metric: String)
-    case class CountGot(namespace: String, metric: String, count: Int)
-    case class RecordAdded(namespace: String, metric: String, record: Bit)
-    case class RecordsAdded(namespace: String, metric: String, record: Seq[Bit])
-    case class RecordRejected(namespace: String, metric: String, record: Bit, reasons: List[String])
-    case class RecordDeleted(namespace: String, metric: String, record: Bit)
-    case class MetricDeleted(namespace: String, metric: String)
-    case class AllMetricsDeleted(namespace: String)
+    case class GetCount(db: String, namespace: String, metric: String)
+    case class CountGot(db: String, namespace: String, metric: String, count: Int)
+    case class RecordAdded(db: String, namespace: String, metric: String, record: Bit)
+    case class RecordsAdded(db: String, namespace: String, metric: String, record: Seq[Bit])
+    case class RecordRejected(db: String, namespace: String, metric: String, record: Bit, reasons: List[String])
+    case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
+    case class MetricDeleted(db: String, namespace: String, metric: String)
+    case class AllMetricsDeleted(db: String, namespace: String)
   }
 
 }
