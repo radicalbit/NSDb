@@ -12,13 +12,13 @@ import scala.collection.mutable
 
 class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging {
 
-  val schemaActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+  val schemaActors: mutable.Map[(String, String), ActorRef] = mutable.Map.empty
 
   private def getSchemaActor(db: String, namespace: String): ActorRef =
     schemaActors.getOrElse(
-      s"$db-$namespace", {
+      (db, namespace), {
         val schemaActor = context.actorOf(SchemaActor.props(basePath, db, namespace), s"schema-service-$db-$namespace")
-        schemaActors += (namespace -> schemaActor)
+        schemaActors += ((db, namespace) -> schemaActor)
         schemaActor
       }
     )
@@ -43,7 +43,7 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
         .mapTo[AllSchemasDeleted]
         .map { _ =>
           schemaActorToDelete ! PoisonPill
-          schemaActors -= namespace
+          schemaActors -= ((db, namespace))
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender)

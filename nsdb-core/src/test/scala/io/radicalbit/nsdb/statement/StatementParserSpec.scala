@@ -26,7 +26,8 @@ class StatementParserSpec extends WordSpec with Matchers {
     "receive a select projecting a wildcard" should {
       "parse it successfully" in {
         parser.parseStatement(
-          SelectSQLStatement(namespace = "registry",
+          SelectSQLStatement(db = "db",
+                             namespace = "registry",
                              metric = "people",
                              fields = AllFields,
                              limit = Some(LimitOperator(4))),
@@ -47,6 +48,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
@@ -70,6 +72,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
@@ -94,6 +97,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
@@ -119,6 +123,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
@@ -151,6 +156,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
@@ -193,6 +199,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
@@ -234,7 +241,8 @@ class StatementParserSpec extends WordSpec with Matchers {
     "receive a select containing a ordering statement" should {
       "parse it successfully" in {
         parser.parseStatement(
-          SelectSQLStatement(namespace = "registry",
+          SelectSQLStatement(db = "db",
+                             namespace = "registry",
                              metric = "people",
                              fields = AllFields,
                              order = Some(AscOrderOperator("name")),
@@ -258,6 +266,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("name", None))),
@@ -282,7 +291,10 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a statement without limit" should {
       "fail" in {
-        parser.parseStatement(SelectSQLStatement(namespace = "registry", metric = "people", fields = AllFields)) shouldBe 'failure
+        parser.parseStatement(SelectSQLStatement(db = "db",
+                                                 namespace = "registry",
+                                                 metric = "people",
+                                                 fields = AllFields)) shouldBe 'failure
       }
     }
 
@@ -290,6 +302,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(SumAggregation)))),
@@ -313,6 +326,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),

@@ -23,6 +23,7 @@ class NamespaceActorSpec()
   val probe          = TestProbe()
   val probeActor     = probe.ref
   val basePath       = "target/test_index"
+  val db             = "db"
   val namespace      = "namespace"
   val namespace1     = "namespace1"
   val namespaceActor = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
@@ -31,15 +32,15 @@ class NamespaceActorSpec()
     import scala.concurrent.duration._
     implicit val timeout: Timeout = 10 second
 
-    Await.result(namespaceActor ? DeleteNamespace(namespace), 1 seconds)
-    Await.result(namespaceActor ? DeleteNamespace(namespace1), 1 seconds)
+    Await.result(namespaceActor ? DeleteNamespace(db, namespace), 1 seconds)
+    Await.result(namespaceActor ? DeleteNamespace(db, namespace1), 1 seconds)
   }
 
   "namespaceActor" should "write and delete properly" in {
 
     val record = Bit(System.currentTimeMillis, 0.5, Map("content" -> s"content"))
 
-    probe.send(namespaceActor, AddRecord(namespace, "namespaceActorMetric", record))
+    probe.send(namespaceActor, AddRecord(db, namespace, "namespaceActorMetric", record))
 
     val expectedAdd = probe.expectMsgType[RecordAdded]
     expectedAdd.metric shouldBe "namespaceActorMetric"
@@ -47,13 +48,13 @@ class NamespaceActorSpec()
 
     waitInterval
 
-    probe.send(namespaceActor, GetCount(namespace, "namespaceActorMetric"))
+    probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
 
     val expectedCount = probe.expectMsgType[CountGot]
     expectedCount.metric shouldBe "namespaceActorMetric"
     expectedCount.count shouldBe 1
 
-    probe.send(namespaceActor, DeleteRecord(namespace, "namespaceActorMetric", record))
+    probe.send(namespaceActor, DeleteRecord(db, namespace, "namespaceActorMetric", record))
 
     val expectedDelete = probe.expectMsgType[RecordDeleted]
     expectedDelete.metric shouldBe "namespaceActorMetric"
@@ -61,7 +62,7 @@ class NamespaceActorSpec()
 
     waitInterval
 
-    probe.send(namespaceActor, GetCount(namespace, "namespaceActorMetric"))
+    probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
 
     val expectedCountDeleted = probe.expectMsgType[CountGot]
     expectedCountDeleted.metric shouldBe "namespaceActorMetric"
@@ -73,17 +74,17 @@ class NamespaceActorSpec()
 
     val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"))
 
-    probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
+    probe.send(namespaceActor, AddRecord(db, namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
 
     waitInterval
 
-    probe.send(namespaceActor, GetCount(namespace, "namespaceActorMetric"))
+    probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
     val expectedCount = probe.expectMsgType[CountGot]
     expectedCount.metric shouldBe "namespaceActorMetric"
     expectedCount.count shouldBe 0
 
-    probe.send(namespaceActor, GetCount(namespace1, "namespaceActorMetric2"))
+    probe.send(namespaceActor, GetCount(db, namespace1, "namespaceActorMetric2"))
     val expectedCount2 = probe.expectMsgType[CountGot]
     expectedCount2.metric shouldBe "namespaceActorMetric2"
     expectedCount2.count shouldBe 1
@@ -94,19 +95,19 @@ class NamespaceActorSpec()
 
     val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 
-    probe.send(namespaceActor, AddRecord(namespace1, "namespaceActorMetric2", record))
+    probe.send(namespaceActor, AddRecord(db, namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
 
     waitInterval
 
-    probe.send(namespaceActor, GetCount(namespace1, "namespaceActorMetric2"))
+    probe.send(namespaceActor, GetCount(db, namespace1, "namespaceActorMetric2"))
     val expectedCount2 = probe.expectMsgType[CountGot]
     expectedCount2.metric shouldBe "namespaceActorMetric2"
     expectedCount2.count shouldBe 1
 
     namespaceActor.underlyingActor.indexerActors.keys.size shouldBe 1
 
-    probe.send(namespaceActor, DeleteNamespace(namespace1))
+    probe.send(namespaceActor, DeleteNamespace(db, namespace1))
     probe.expectMsgType[NamespaceDeleted]
 
     waitInterval

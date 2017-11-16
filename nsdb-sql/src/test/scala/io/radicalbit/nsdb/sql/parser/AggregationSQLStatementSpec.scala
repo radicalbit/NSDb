@@ -13,9 +13,10 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select with a group by and one aggregation" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "SELECT sum(value) FROM people group by name") should be(
+        parser.parse(db = "db", namespace = "registry", input = "SELECT sum(value) FROM people group by name") should be(
           Success(
-            SelectSQLStatement(namespace = "registry",
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
                                metric = "people",
                                fields = ListFields(List(Field("value", Some(SumAggregation)))),
                                groupBy = Some("name"))
@@ -25,9 +26,11 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a range selection and a group by" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry",
+        parser.parse(db = "db",
+                     namespace = "registry",
                      input = "SELECT count(value) FROM people WHERE timestamp IN (2,4) group by name") should be(
           Success(SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
@@ -39,9 +42,11 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a GTE selection and a group by" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry",
+        parser.parse(db = "db",
+                     namespace = "registry",
                      input = "SELECT min(value) FROM people WHERE timestamp >= 10 group by name") should be(
           Success(SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(MinAggregation)))),
@@ -55,9 +60,11 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
     "receive a select containing a GT AND a LTE selection and a group by" should {
       "parse it successfully" in {
         parser.parse(
+          db = "db",
           namespace = "registry",
           input = "SELECT max(value) FROM people WHERE timestamp > 2 AND timestamp <= 4 group by name") should be(
           Success(SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
@@ -74,8 +81,11 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a ordering statement" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "SELECT count(value) FROM people group by name ORDER BY name") should be(
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT count(value) FROM people group by name ORDER BY name") should be(
           Success(SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
@@ -87,9 +97,11 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select containing a ordering statement and a limit clause" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry",
+        parser.parse(db = "db",
+                     namespace = "registry",
                      input = "SELECT count(value) FROM people group by name ORDER BY name limit 1") should be(
           Success(SelectSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
@@ -102,8 +114,8 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive wrong fields" should {
       "fail" in {
-        parser.parse(namespace = "registry", input = "SELECT count(name), min(surname) FROM people") shouldBe 'failure
-        parser.parse(namespace = "registry", input = "SELECT count(name,surname) FROM people") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(name), min(surname) FROM people") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(name,surname) FROM people") shouldBe 'failure
       }
     }
   }

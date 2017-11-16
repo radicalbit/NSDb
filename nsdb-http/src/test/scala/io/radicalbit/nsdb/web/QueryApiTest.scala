@@ -22,13 +22,17 @@ class FakeReadCoordinator extends Actor {
     case ExecuteStatement(statement)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
       val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
-      sender ! SelectStatementExecuted(statement.namespace, statement.metric, bitsParameterized(e.value1, e.value2))
-    case ExecuteStatement(statement) => sender ! SelectStatementExecuted(statement.namespace, statement.metric, bits)
+      sender ! SelectStatementExecuted(statement.db,
+                                       statement.namespace,
+                                       statement.metric,
+                                       bitsParametrized(e.value1, e.value2))
+    case ExecuteStatement(statement) =>
+      sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
   }
 }
 
 object FakeReadCoordinator {
-  def bitsParameterized(from: Long, to: Long) =
+  def bitsParametrized(from: Long, to: Long) =
     Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2)), Bit(to, 3, Map("name" -> "name", "number" -> 2)))
   val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2)), Bit(2, 3, Map("name" -> "name", "number" -> 2)))
 }
@@ -42,8 +46,14 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
     apiResources(null, system.actorOf(Props[FakeReadCoordinator]), null)
   )
 
-  "QueryApi" should "not allow get" in {
+  "QueryApi" should "return 404 if the database is not supplied" in {
     Get("/query") ~> testRoutes ~> check {
+      status shouldEqual NotFound
+    }
+  }
+
+  "QueryApi" should "not allow get" in {
+    Get("/query/db") ~> testRoutes ~> check {
       status shouldEqual MethodNotAllowed
     }
   }
@@ -51,10 +61,10 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "QueryApi" should "correctly query the db with time range passed" in {
     val q = QueryBody("namespace", "select * from metric limit 1", Some(100), Some(200))
 
-    Post("/query", q) ~> testRoutes ~> check {
+    Post("/query/db", q) ~> testRoutes ~> check {
       status shouldBe OK
       val entity       = entityAs[String]
-      val recordString = pretty(render((parse(entity))))
+      val recordString = pretty(render(parse(entity)))
 
       recordString shouldBe
         """{
@@ -82,7 +92,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "QueryApi" should "correctly query the db without time range passed" in {
     val q = QueryBody("namespace", "select * from metric limit 1", None, None)
 
-    Post("/query", q) ~> testRoutes ~> check {
+    Post("/query/db", q) ~> testRoutes ~> check {
       status shouldBe OK
       val entity       = entityAs[String]
       val recordString = pretty(render((parse(entity))))
@@ -113,7 +123,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "QueryApi" should "return if query is not valid" in {
     val q = QueryBody("namespace", "select from metric", Some(1), Some(2))
 
-    Post("/query", q) ~> testRoutes ~> check {
+    Post("/query/db", q) ~> testRoutes ~> check {
       status shouldBe BadRequest
 
     }

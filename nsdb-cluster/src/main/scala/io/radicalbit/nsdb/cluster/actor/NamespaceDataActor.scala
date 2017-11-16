@@ -15,14 +15,14 @@ case class ShardKey(metric: String, interval: (Long, Long))
 
 class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
 
-  val indexerActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+  val indexerActors: mutable.Map[(String, String), ActorRef] = mutable.Map.empty
 
   private def getIndexer(db: String, namespace: String): ActorRef =
     indexerActors.getOrElse(
-      s"$db-$namespace", {
+      (db, namespace), {
         val indexerActor =
           context.actorOf(IndexerActor.props(basePath, db, namespace), s"indexer-service-$db-$namespace")
-        indexerActors += (namespace -> indexerActor)
+        indexerActors += ((db, namespace) -> indexerActor)
         indexerActor
       }
     )
@@ -30,11 +30,12 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-data.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
+
   import context.dispatcher
 
   override def receive: Receive = {
     case GetNamespaces(db) =>
-      sender() ! NamespacesGot(db, indexerActors.keys.filter(_.startsWith(db)).toSeq)
+      sender() ! NamespacesGot(db, indexerActors.keys.filter(_._1 == db).map(_._2).toSeq)
     case msg @ GetMetrics(db, namespace) =>
       getIndexer(db, namespace) forward msg
     case msg @ AddRecord(db, namespace, _, _) =>
@@ -54,7 +55,7 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
       (indexToRemove ? DeleteAllMetrics(db, namespace))
         .map(_ => {
           indexToRemove ! PoisonPill
-          indexerActors -= namespace
+          indexerActors -= ((db, namespace))
           NamespaceDeleted(db, namespace)
         })
         .pipeTo(sender())

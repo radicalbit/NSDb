@@ -17,7 +17,7 @@ import org.scalatest._
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(_) =>
-      sender() ! SelectStatementExecuted(namespace = "registry", metric = "people", values = Seq.empty)
+      sender() ! SelectStatementExecuted(db = "db", namespace = "registry", metric = "people", values = Seq.empty)
   }
 }
 
@@ -36,6 +36,7 @@ class PublisherActorSpec
     TestActorRef[PublisherActor](PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor])))
 
   val testSqlStatement = SelectSQLStatement(
+    db = "db",
     namespace = "registry",
     metric = "people",
     fields = AllFields,
@@ -95,10 +96,10 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, InputMapped("namespace", "rooms", testRecordNotSatisfy))
+    probe.send(publisherActor, InputMapped("db", "namespace", "rooms", testRecordNotSatisfy))
     probe.expectNoMsg()
 
-    probe.send(publisherActor, InputMapped("namespace", "people", testRecordNotSatisfy))
+    probe.send(publisherActor, InputMapped("db", "namespace", "people", testRecordNotSatisfy))
     probe.expectNoMsg()
   }
 
@@ -106,7 +107,7 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, InputMapped("namespace", "people", testRecordSatisfy))
+    probe.send(publisherActor, InputMapped("db", "namespace", "people", testRecordSatisfy))
     val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.records shouldBe Seq(testRecordSatisfy)

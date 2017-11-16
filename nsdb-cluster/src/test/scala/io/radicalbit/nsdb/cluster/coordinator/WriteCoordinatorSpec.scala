@@ -33,7 +33,10 @@ class TestSubscriber extends Actor {
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(_) =>
-      sender() ! SelectStatementExecuted(namespace = "testNamespace", metric = "testMetric", values = Seq.empty)
+      sender() ! SelectStatementExecuted(db = "db",
+                                         namespace = "testNamespace",
+                                         metric = "testMetric",
+                                         values = Seq.empty)
   }
 }
 
@@ -62,20 +65,20 @@ class WriteCoordinatorSpec
     val incompatibleRecord =
       Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"))
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record1))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testNamespace", "testMetric", record2))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record2))
 
     val expectedAdd2 = probe.expectMsgType[InputMapped]
     expectedAdd2.metric shouldBe "testMetric"
     expectedAdd2.record shouldBe record2
 
     probe.send(writeCoordinatorActor,
-               MapInput(System.currentTimeMillis, "testNamespace", "testMetric", incompatibleRecord))
+               MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", incompatibleRecord))
 
     probe.expectMsgType[RecordRejected]
 
@@ -85,6 +88,7 @@ class WriteCoordinatorSpec
     val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
     val testSqlStatement = SelectSQLStatement(
+      db = "db",
       namespace = "registry",
       metric = "testMetric",
       fields = AllFields,
@@ -99,7 +103,7 @@ class WriteCoordinatorSpec
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
 
     probe.send(writeCoordinatorActor,
-               MapInput(System.currentTimeMillis, "testNamespace", "testMetric", testRecordSatisfy))
+               MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", testRecordSatisfy))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
@@ -109,7 +113,7 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "delete a namespace" in {
-    probe.send(writeCoordinatorActor, DeleteNamespace("testNamespace"))
+    probe.send(writeCoordinatorActor, DeleteNamespace("db", "testNamespace"))
     probe.expectMsgType[NamespaceDeleted]
 
     namespaceDataActor.underlyingActor.indexerActors.keys.size shouldBe 0
@@ -127,7 +131,7 @@ class WriteCoordinatorSpec
     )
 
     records.foreach(r =>
-      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "testDelete", "testMetric", r)))
+      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testDelete", "testMetric", r)))
 
     (0 to 4) foreach { _ =>
       probe.expectMsgType[InputMapped]
@@ -137,6 +141,7 @@ class WriteCoordinatorSpec
       writeCoordinatorActor,
       ExecuteDeleteStatement(
         DeleteSQLStatement(
+          db = "db",
           namespace = "testDelete",
           metric = "testMetric",
           condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))
@@ -148,7 +153,7 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "drop a metric" in {
-    probe.send(writeCoordinatorActor, DropMetric("testNamespace", "testMetric"))
+    probe.send(writeCoordinatorActor, DropMetric("db", "testNamespace", "testMetric"))
     probe.expectMsgType[MetricDropped]
   }
 

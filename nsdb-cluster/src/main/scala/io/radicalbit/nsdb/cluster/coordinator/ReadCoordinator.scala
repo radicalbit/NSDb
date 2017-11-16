@@ -20,8 +20,8 @@ class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends A
 
   override def receive: Receive = {
 
-    case GetNamespaces =>
-      namespaceActor forward GetNamespaces
+    case msg: GetNamespaces =>
+      namespaceActor forward msg
     case msg: GetMetrics =>
       namespaceActor forward msg
     case msg: GetSchema =>

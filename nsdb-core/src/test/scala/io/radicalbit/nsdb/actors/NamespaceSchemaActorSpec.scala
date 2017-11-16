@@ -25,17 +25,21 @@ class NamespaceSchemaActorSpec
   val namespaceSchemaActor =
     TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props("target/test_index_schema_actor"))
 
+  val db         = "namespace"
   val namespace  = "namespace"
   val namespace1 = "namespace1"
 
   before {
     implicit val timeout = Timeout(3 seconds)
-    Await.result(namespaceSchemaActor ? DeleteNamespace(namespace), 3 seconds)
-    Await.result(namespaceSchemaActor ? DeleteNamespace(namespace1), 3 seconds)
-    Await.result(
-      namespaceSchemaActor ? UpdateSchema(namespace, "people", Schema("people", Seq(SchemaField("name", VARCHAR())))),
-      3 seconds)
-    Await.result(namespaceSchemaActor ? UpdateSchema(namespace1,
+    Await.result(namespaceSchemaActor ? DeleteNamespace(db, namespace), 3 seconds)
+    Await.result(namespaceSchemaActor ? DeleteNamespace(db, namespace1), 3 seconds)
+    Await.result(namespaceSchemaActor ? UpdateSchema(db,
+                                                     namespace,
+                                                     "people",
+                                                     Schema("people", Seq(SchemaField("name", VARCHAR())))),
+                 3 seconds)
+    Await.result(namespaceSchemaActor ? UpdateSchema(db,
+                                                     namespace1,
                                                      "people",
                                                      Schema("people", Seq(SchemaField("surname", VARCHAR())))),
                  3 seconds)
@@ -45,19 +49,19 @@ class NamespaceSchemaActorSpec
 
     namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 2
 
-    probe.send(namespaceSchemaActor, GetSchema(namespace, "nonexisting"))
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "nonexisting"))
 
     val nonexistingGot = probe.expectMsgType[SchemaGot]
     nonexistingGot.metric shouldBe "nonexisting"
     nonexistingGot.schema shouldBe None
 
-    probe.send(namespaceSchemaActor, GetSchema(namespace, "people"))
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(Schema("people", Seq(SchemaField("name", VARCHAR()))))
 
-    probe.send(namespaceSchemaActor, GetSchema(namespace1, "people"))
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace1, "people"))
 
     val existingGot1 = probe.expectMsgType[SchemaGot]
     existingGot1.metric shouldBe "people"
@@ -66,11 +70,11 @@ class NamespaceSchemaActorSpec
 
   "SchemaActor" should "update schemas in case of success in different namespaces" in {
     probe.send(namespaceSchemaActor,
-               UpdateSchema(namespace, "people", Schema("people", Seq(SchemaField("surname", VARCHAR())))))
+               UpdateSchema(db, namespace, "people", Schema("people", Seq(SchemaField("surname", VARCHAR())))))
 
     probe.expectMsgType[SchemaUpdated]
 
-    probe.send(namespaceSchemaActor, GetSchema(namespace, "people"))
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
@@ -79,11 +83,11 @@ class NamespaceSchemaActorSpec
     )
 
     probe.send(namespaceSchemaActor,
-               UpdateSchema(namespace1, "people", Schema("people", Seq(SchemaField("name", VARCHAR())))))
+               UpdateSchema(db, namespace1, "people", Schema("people", Seq(SchemaField("name", VARCHAR())))))
 
     probe.expectMsgType[SchemaUpdated]
 
-    probe.send(namespaceSchemaActor, GetSchema(namespace, "people"))
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "people"))
 
     val existingGot1 = probe.expectMsgType[SchemaGot]
     existingGot1.metric shouldBe "people"
