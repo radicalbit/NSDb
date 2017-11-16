@@ -32,6 +32,7 @@ case class NSDB(host: String, port: Int, db: String)(implicit executionContextEx
   def write(bit: Bit): Future[RPCInsertResult] =
     client.write(
       RPCInsert(
+        database = db,
         namespace = bit.namespace,
         metric = bit.metric,
         timestamp = bit.ts getOrElse System.currentTimeMillis,

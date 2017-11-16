@@ -50,7 +50,7 @@ trait WsResources {
   }
 
   def wsResources(publisherActor: ActorRef): Route =
-    path("ws-stream") {
+    pathPrefix("ws-stream") {
       path(Segment) { db =>
         handleWebSocketMessages(newStream(db, publisherActor))
       }

@@ -17,7 +17,7 @@ object NsdbConsole extends App {
     opt[Int]('p', "port") action { (x, c) =>
       c.copy(port = Some(x))
     } text "the remote port"
-    opt[String]('d', "database") action { (x, c) =>
+    opt[String]('d', "database").required() action { (x, c) =>
       c.copy(db = x)
     } text "the database to select"
   }
