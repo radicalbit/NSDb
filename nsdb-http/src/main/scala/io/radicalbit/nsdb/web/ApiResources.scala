@@ -4,16 +4,21 @@ import akka.actor.ActorRef
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.{entity, _}
 import akka.http.scaladsl.server._
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.RemoveQuery
 import io.radicalbit.nsdb.actors.PublisherActor.Events.QueryRemoved
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, SelectStatementFailed}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, InputMapped, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
+  RecordRejected,
+  SelectStatementExecuted,
+  SelectStatementFailed
+}
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
@@ -22,7 +27,34 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-trait QueryResources {
+case class QueryBody(namespace: String, queryString: String, from: Option[Long], to: Option[Long])
+case class InsertBody(namespace: String, metric: String, bit: Bit)
+
+object Formats extends DefaultJsonProtocol with SprayJsonSupport {
+  implicit val QbFormat = jsonFormat4(QueryBody.apply)
+
+  implicit object JSerializableJsonFormat extends RootJsonFormat[JSerializable] {
+    def write(c: JSerializable) = c match {
+      case v: java.lang.Double  => JsNumber(v)
+      case v: java.lang.Long    => JsNumber(v)
+      case v: java.lang.Integer => JsNumber(v)
+      case v                    => JsString(v.toString)
+    }
+    def read(value: JsValue) = value match {
+      case JsNumber(v) if v.isValidInt    => new java.lang.Integer(v.intValue)
+      case JsNumber(v) if v.isValidLong   => new java.lang.Long(v.longValue)
+      case JsNumber(v) if v.isValidDouble => new java.lang.Double(v.doubleValue)
+      case JsString(v)                    => v
+    }
+  }
+
+  implicit val BitFormat = jsonFormat3(Bit.apply)
+
+  implicit val InsertBodyFormat = jsonFormat3(InsertBody.apply)
+
+}
+
+trait ApiResources {
 
   implicit val formats: DefaultFormats
 
@@ -32,15 +64,12 @@ trait QueryResources {
     (publisherActor ? RemoveQuery(id)).mapTo[QueryRemoved].map(_.quid)
   }
 
-  case class QueryBody(namespace: String, queryString: String, from: Option[Long], to: Option[Long])
-
-  object QueryBody extends DefaultJsonProtocol with SprayJsonSupport {
-    implicit val QbFormat = jsonFormat4(QueryBody.apply)
-  }
-
   case class QueryResponse(records: Seq[Bit])
 
-  def queryResources(publisherActor: ActorRef, readCoordinator: ActorRef)(implicit ec: ExecutionContext): Route =
+  import Formats._
+
+  def apiResources(publisherActor: ActorRef, readCoordinator: ActorRef, writeCoordinator: ActorRef)(
+      implicit ec: ExecutionContext): Route =
     pathPrefix("query") {
       pathPrefix(JavaUUID) { id =>
         pathEnd {
@@ -75,5 +104,27 @@ trait QueryResources {
           }
         }
       }
-    }
+    } ~
+      pathPrefix("data") {
+        pathEnd {
+          post {
+            entity(as[InsertBody]) { insertBody =>
+              onComplete(
+                writeCoordinator ? MapInput(insertBody.bit.timestamp,
+                                            insertBody.namespace,
+                                            insertBody.metric,
+                                            insertBody.bit)) {
+                case Success(_: InputMapped) =>
+                  complete("OK")
+                case Success(RecordRejected(_, _, _, reasons)) =>
+                  complete(HttpResponse(InternalServerError, entity = reasons.mkString(",")))
+                case Success(_) =>
+                  complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+              }
+            }
+          }
+        }
+      }
+
 }
