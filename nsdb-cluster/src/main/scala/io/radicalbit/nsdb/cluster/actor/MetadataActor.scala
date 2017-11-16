@@ -38,7 +38,7 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
       val metadata = getIndex(namespace).getMetadata(metric)
       sender ! LocationsGot(namespace, metric, metadata, occurredOn)
 
-      //FIXME see if this has to be removed
+    //FIXME see if this has to be removed
 //    case GetLocation(namespace, metric, t, occurredOn) =>
 //      val metadata = getIndex(namespace).getMetadata(metric, t)
 //      sender ! LocationGot(namespace, metric, t, metadata, occurredOn)

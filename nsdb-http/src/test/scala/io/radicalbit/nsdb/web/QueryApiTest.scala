@@ -12,6 +12,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecute
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest._
+import io.radicalbit.nsdb.web.Formats._
 
 import scala.concurrent.duration._
 
@@ -32,13 +33,13 @@ object FakeReadCoordinator {
   val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2)), Bit(2, 3, Map("name" -> "name", "number" -> 2)))
 }
 
-class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with QueryResources {
+class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with ApiResources {
 
   implicit val formats          = DefaultFormats
   implicit val timeout: Timeout = 5 seconds
 
   val testRoutes = Route.seal(
-    queryResources(null, system.actorOf(Props[FakeReadCoordinator]))
+    apiResources(null, system.actorOf(Props[FakeReadCoordinator]), null)
   )
 
   "QueryApi" should "not allow get" in {
