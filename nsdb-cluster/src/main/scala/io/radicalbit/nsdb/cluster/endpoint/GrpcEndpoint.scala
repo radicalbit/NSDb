@@ -3,15 +3,15 @@ package io.radicalbit.nsdb.cluster.endpoint
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
+import akka.pattern.ask
+import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{InputMapped, MapInput}
 import io.radicalbit.nsdb.rpc.request.{Dimension, RPCInsert}
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.service.NSDBServiceGrpc
-import akka.pattern.ask
-import akka.util.Timeout
-import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{InputMapped, MapInput}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}

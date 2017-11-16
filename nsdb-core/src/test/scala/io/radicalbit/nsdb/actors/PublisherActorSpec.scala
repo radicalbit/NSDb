@@ -8,9 +8,9 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.InputMapped
 import io.radicalbit.nsdb.index.QueryIndex
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest._
 

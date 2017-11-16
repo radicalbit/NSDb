@@ -3,19 +3,17 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import io.radicalbit.nsdb.actors.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.{EndpointActor, GrpcEndpoint}
-import io.radicalbit.nsdb.core.{Core, CoreActors}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 
-trait NSDBAkkaCluster extends Core {
-
-  override implicit val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
+trait NSDBAkkaCluster {
+  implicit val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
 }
 
-trait NSDBAActors extends CoreActors { this: Core =>
+trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
@@ -24,13 +22,15 @@ trait NSDBAActors extends CoreActors { this: Core =>
 
   val metadataCache = system.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
 
-  system.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
+  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
+
+  lazy val guardian = system.actorOf(DatabaseActorsGuardian.props, "guardian")
 
   system.actorOf(Props[ClusterListener], name = "clusterListener")
 
   for {
-    readCoordinator  <- (guardian ? DatabaseActorsGuardian.GetReadCoordinator).mapTo[ActorRef]
-    writeCoordinator <- (guardian ? DatabaseActorsGuardian.GetWriteCoordinator).mapTo[ActorRef]
+    readCoordinator  <- (guardian ? GetReadCoordinator).mapTo[ActorRef]
+    writeCoordinator <- (guardian ? GetWriteCoordinator).mapTo[ActorRef]
     _ = system.actorOf(EndpointActor.props(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator),
                        "endpoint-actor")
     _ = new GrpcEndpoint(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator)

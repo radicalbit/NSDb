@@ -12,11 +12,8 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.RemoveQuery
 import io.radicalbit.nsdb.actors.PublisherActor.Events.QueryRemoved
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{
-  ExecuteStatement,
-  SelectStatementExecuted,
-  SelectStatementFailed
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
@@ -69,6 +66,8 @@ trait QueryResources {
                     complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
                   case Success(SelectStatementFailed(reason)) =>
                     complete(HttpResponse(InternalServerError, entity = reason))
+                  case Success(_) =>
+                    complete(HttpResponse(InternalServerError, entity = "unknown response"))
                   case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))

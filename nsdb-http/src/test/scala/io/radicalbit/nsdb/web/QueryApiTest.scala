@@ -7,7 +7,8 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest._

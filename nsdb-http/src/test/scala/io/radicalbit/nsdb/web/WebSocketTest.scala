@@ -4,7 +4,8 @@ import akka.actor.{Actor, Props}
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryString, SubscribedByQuid}
-import io.radicalbit.nsdb.coordinator.ReadCoordinator.{ExecuteStatement, SelectStatementExecuted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
 import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import org.json4s._
 import org.json4s.jackson.JsonMethods._

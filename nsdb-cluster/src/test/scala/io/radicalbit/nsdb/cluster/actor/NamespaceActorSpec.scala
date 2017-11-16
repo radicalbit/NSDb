@@ -1,14 +1,13 @@
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.WriteInterval
-import io.radicalbit.nsdb.actors.NamespaceDataActor.commands._
-import io.radicalbit.nsdb.actors.NamespaceDataActor.events.{CountGot, GetCount, RecordAdded, RecordDeleted}
+import io.radicalbit.nsdb.cluster.WriteInterval
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.coordinator.WriteCoordinator.{DeleteNamespace, NamespaceDeleted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
