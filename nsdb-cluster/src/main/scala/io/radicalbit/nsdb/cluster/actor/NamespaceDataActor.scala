@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
@@ -15,7 +16,11 @@ case class ShardKey(metric: String, interval: (Long, Long))
 
 class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
 
+  lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
+  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
   val indexerActors: mutable.Map[(String, String), ActorRef] = mutable.Map.empty
+  val shards: mutable.Map[ShardKey, ActorRef]                = mutable.Map.empty
 
   private def getIndexer(db: String, namespace: String): ActorRef =
     indexerActors.getOrElse(
@@ -27,13 +32,26 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
       }
     )
 
+//  private def getShard(namespace: String, timestamp: Long): ActorRef =
+//    indexerActors.getOrElse(
+//      namespace, {
+//        val indexerActor = context.actorOf(IndexerActor.props(basePath, namespace), s"indexer-service-$namespace")
+//        indexerActors += (namespace -> indexerActor)
+//        indexerActor
+//      }
+//    )
+
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-data.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
   import context.dispatcher
 
-  override def receive: Receive = {
+  override def receive: Receive = if (sharding) receiveShard else receiveNoShard
+
+  def receiveShard: Receive = Actor.emptyBehavior
+
+  def receiveNoShard: Receive = {
     case GetNamespaces(db) =>
       sender() ! NamespacesGot(db, indexerActors.keys.filter(_._1 == db).map(_._2).toSeq)
     case msg @ GetMetrics(db, namespace) =>
