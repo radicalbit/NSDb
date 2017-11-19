@@ -9,12 +9,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLastLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot}
-import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
-  Cached,
-  CachedLocations,
-  GetLocationsFromCache,
-  PutInCache
-}
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.index.Location
 
 class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
