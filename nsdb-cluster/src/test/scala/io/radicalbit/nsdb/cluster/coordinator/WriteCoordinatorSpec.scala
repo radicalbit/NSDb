@@ -14,6 +14,8 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.concurrent.duration._
+
 class TestCommitLogService extends Actor {
   def receive = {
     case Insert(ts, metric, record) =>
@@ -105,19 +107,24 @@ class WriteCoordinatorSpec
     probe.send(writeCoordinatorActor,
                MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", testRecordSatisfy))
 
-    val expectedAdd = probe.expectMsgType[InputMapped]
-    expectedAdd.metric shouldBe "testMetric"
-    expectedAdd.record shouldBe testRecordSatisfy
+    within(5 seconds) {
+      val expectedAdd = probe.expectMsgType[InputMapped]
+      expectedAdd.metric shouldBe "testMetric"
+      expectedAdd.record shouldBe testRecordSatisfy
 
-    subscriber.underlyingActor.receivedMessages shouldBe 1
+      subscriber.underlyingActor.receivedMessages shouldBe 1
+    }
   }
 
   "WriteCoordinator" should "delete a namespace" in {
     probe.send(writeCoordinatorActor, DeleteNamespace("db", "testNamespace"))
-    probe.expectMsgType[NamespaceDeleted]
 
-    namespaceDataActor.underlyingActor.indexerActors.keys.size shouldBe 0
-    namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
+    within(5 seconds) {
+      probe.expectMsgType[NamespaceDeleted]
+
+      namespaceDataActor.underlyingActor.indexerActors.keys.size shouldBe 0
+      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
+    }
   }
 
   "WriteCoordinator" should "delete entries" in {
@@ -133,8 +140,10 @@ class WriteCoordinatorSpec
     records.foreach(r =>
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testDelete", "testMetric", r)))
 
-    (0 to 4) foreach { _ =>
-      probe.expectMsgType[InputMapped]
+    within(5 seconds) {
+      (0 to 4) foreach { _ =>
+        probe.expectMsgType[InputMapped]
+      }
     }
 
     probe.send(
@@ -148,13 +157,16 @@ class WriteCoordinatorSpec
         )
       )
     )
-
-    probe.expectMsgType[DeleteStatementExecuted]
+    within(5 seconds) {
+      probe.expectMsgType[DeleteStatementExecuted]
+    }
   }
 
   "WriteCoordinator" should "drop a metric" in {
     probe.send(writeCoordinatorActor, DropMetric("db", "testNamespace", "testMetric"))
-    probe.expectMsgType[MetricDropped]
+    within(5 seconds) {
+      probe.expectMsgType[MetricDropped]
+    }
   }
 
 }

@@ -34,9 +34,9 @@ class LocationActorTest
   )
 
   before {
-    implicit val timeout = Timeout(3 seconds)
-    Await.result(metadataActor ? DeleteNamespace(namespace), 3 seconds)
-    Await.result(metadataActor ? AddLocations(namespace, locations), 3 seconds)
+    implicit val timeout = Timeout(5 seconds)
+    Await.result(metadataActor ? DeleteNamespace(namespace), 5 seconds)
+    Await.result(metadataActor ? AddLocations(namespace, locations), 5 seconds)
   }
 
   "MetadataActor" should "delete locations for a namespace" in {

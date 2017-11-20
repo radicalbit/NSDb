@@ -13,6 +13,8 @@ import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
+import scala.concurrent.duration._
+
 class IndexerActorSpec()
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
@@ -47,58 +49,67 @@ class IndexerActorSpec()
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
 
     probe.send(indexerActor, AddRecord(db, namespace, "indexerActorMetric", bit))
-
-    val expectedAdd = probe.expectMsgType[RecordAdded]
-    expectedAdd.metric shouldBe "indexerActorMetric"
-    expectedAdd.record shouldBe bit
-
+    within(5 seconds) {
+      val expectedAdd = probe.expectMsgType[RecordAdded]
+      expectedAdd.metric shouldBe "indexerActorMetric"
+      expectedAdd.record shouldBe bit
+    }
     waitInterval
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
-
-    val expectedCount = probe.expectMsgType[CountGot]
-    expectedCount.metric shouldBe "indexerActorMetric"
-    expectedCount.count shouldBe 1
-
+    within(5 seconds) {
+      val expectedCount = probe.expectMsgType[CountGot]
+      expectedCount.metric shouldBe "indexerActorMetric"
+      expectedCount.count shouldBe 1
+    }
     probe.send(indexerActor, DeleteRecord(db, namespace, "indexerActorMetric", bit))
-
-    val expectedDelete = probe.expectMsgType[RecordDeleted]
-    expectedDelete.metric shouldBe "indexerActorMetric"
-    expectedDelete.record shouldBe bit
-
+    within(5 seconds) {
+      val expectedDelete = probe.expectMsgType[RecordDeleted]
+      expectedDelete.metric shouldBe "indexerActorMetric"
+      expectedDelete.record shouldBe bit
+    }
     waitInterval
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
-
-    val expectedCountDeleted = probe.expectMsgType[CountGot]
-    expectedCountDeleted.metric shouldBe "indexerActorMetric"
-    expectedCountDeleted.count shouldBe 0
+    within(5 seconds) {
+      val expectedCountDeleted = probe.expectMsgType[CountGot]
+      expectedCountDeleted.metric shouldBe "indexerActorMetric"
+      expectedCountDeleted.count shouldBe 0
+    }
 
   }
 
   "IndexerActor" should "write and delete properly in multiple indexes" in {
 
     probe.send(indexerActor, DeleteAllMetrics(db, namespace))
-    probe.expectMsgType[AllMetricsDeleted]
+    within(5 seconds) {
+      probe.expectMsgType[AllMetricsDeleted]
+    }
 
     waitInterval
 
     val bit = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
 
     probe.send(indexerActor, AddRecord(db, namespace, "indexerActorMetric2", bit))
-    probe.expectMsgType[RecordAdded]
+    within(5 seconds) {
+      probe.expectMsgType[RecordAdded]
+    }
 
     waitInterval
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
-    val expectedCount = probe.expectMsgType[CountGot]
-    expectedCount.metric shouldBe "indexerActorMetric"
-    expectedCount.count shouldBe 0
+    within(5 seconds) {
+      val expectedCount = probe.expectMsgType[CountGot]
+      expectedCount.metric shouldBe "indexerActorMetric"
+      expectedCount.count shouldBe 0
+    }
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric2"))
-    val expectedCount2 = probe.expectMsgType[CountGot]
-    expectedCount2.metric shouldBe "indexerActorMetric2"
-    expectedCount2.count shouldBe 1
+    within(5 seconds) {
+      val expectedCount2 = probe.expectMsgType[CountGot]
+      expectedCount2.metric shouldBe "indexerActorMetric2"
+      expectedCount2.count shouldBe 1
+    }
 
   }
 

@@ -4,8 +4,8 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.WriteInterval
 import io.radicalbit.nsdb.actors.SchemaActor
+import io.radicalbit.nsdb.cluster.WriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
@@ -16,6 +16,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class ReadCoordinatorSpec
     extends TestKit(ActorSystem("nsdb-test"))
@@ -44,13 +45,13 @@ class ReadCoordinatorSpec
 
   override def beforeAll(): Unit = {
     import scala.concurrent.duration._
-    implicit val timeout = Timeout(3 second)
+    implicit val timeout = Timeout(5 second)
 
-    Await.result(namespaceDataActor ? DeleteMetric(db, namespace, "people"), 1 seconds)
+    Await.result(namespaceDataActor ? DeleteMetric(db, namespace, "people"), 3 seconds)
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 1 seconds)
+    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
     namespaceDataActor ! AddRecords(db, namespace, "people", records)
 
     waitInterval
@@ -62,8 +63,11 @@ class ReadCoordinatorSpec
       "return it properly" in {
         probe.send(readCoordinatorActor, GetNamespaces(db))
 
-        val expected = probe.expectMsgType[NamespacesGot]
-        expected.namespaces shouldBe Seq(namespace)
+        within(5 seconds) {
+          val expected = probe.expectMsgType[NamespacesGot]
+          expected.namespaces shouldBe Seq(namespace)
+        }
+
       }
     }
 
@@ -71,9 +75,11 @@ class ReadCoordinatorSpec
       "return it properly" in {
         probe.send(readCoordinatorActor, GetMetrics(db, namespace))
 
-        val expected = probe.expectMsgType[MetricsGot]
-        expected.namespace shouldBe namespace
-        expected.metrics shouldBe Seq("people")
+        within(5 seconds) {
+          val expected = probe.expectMsgType[MetricsGot]
+          expected.namespace shouldBe namespace
+          expected.metrics shouldBe Seq("people")
+        }
       }
     }
 
@@ -81,14 +87,16 @@ class ReadCoordinatorSpec
       "return it properly" in {
         probe.send(readCoordinatorActor, GetSchema(db, namespace, "people"))
 
-        val expected = probe.expectMsgType[SchemaGot]
-        expected.namespace shouldBe namespace
-        expected.metric shouldBe "people"
-        expected.schema shouldBe Some(
-          Schema("people",
-                 Seq(SchemaField("name", VARCHAR()),
-                     SchemaField("surname", VARCHAR()),
-                     SchemaField("creationDate", BIGINT()))))
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SchemaGot]
+          expected.namespace shouldBe namespace
+          expected.metric shouldBe "people"
+          expected.schema shouldBe Some(
+            Schema("people",
+                   Seq(SchemaField("name", VARCHAR()),
+                       SchemaField("surname", VARCHAR()),
+                       SchemaField("creationDate", BIGINT()))))
+        }
       }
     }
 
@@ -103,9 +111,11 @@ class ReadCoordinatorSpec
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
                    ))
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values shouldBe records
+          expected.values shouldBe records
+        }
       }
     }
 
@@ -124,15 +134,17 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values shouldBe Seq(
-          Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
-          Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
-          Bit(6L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe")),
-          Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
-          Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
-        )
+          expected.values shouldBe Seq(
+            Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
+            Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
+            Bit(6L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe")),
+            Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
+            Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
+          )
+        }
       }
     }
 
@@ -152,9 +164,11 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values.size should be(2)
+          expected.values.size should be(2)
+        }
       }
     }
 
@@ -175,10 +189,12 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values.size shouldBe 1
-        expected.values.head shouldBe Bit(10, 1, Map("name" -> "Frank"))
+          expected.values.size shouldBe 1
+          expected.values.head shouldBe Bit(10, 1, Map("name" -> "Frank"))
+        }
       }
     }
 
@@ -203,10 +219,11 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values.size should be(4)
-
+          expected.values.size should be(4)
+        }
       }
     }
 
@@ -232,9 +249,11 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values.size should be(1)
+          expected.values.size should be(1)
+        }
       }
     }
 
@@ -258,8 +277,10 @@ class ReadCoordinatorSpec
             )
           )
         )
-        val expected = probe.expectMsgType[SelectStatementExecuted]
-        expected.values.size should be(5)
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size should be(5)
+        }
       }
     }
 
@@ -279,9 +300,11 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
 
-        expected.values.size should be(1)
+          expected.values.size should be(1)
+        }
       }
     }
 
@@ -305,8 +328,10 @@ class ReadCoordinatorSpec
             )
           )
         )
-        val expected = probe.expectMsgType[SelectStatementExecuted]
-        expected.values.size should be(2)
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size should be(2)
+        }
       }
     }
 
@@ -327,9 +352,10 @@ class ReadCoordinatorSpec
           )
         )
 
-        val expected = probe.expectMsgType[SelectStatementExecuted]
-
-        expected.values.size should be(3)
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size should be(3)
+        }
       }
     }
 
@@ -349,8 +375,9 @@ class ReadCoordinatorSpec
             )
           )
         )
-
-        probe.expectMsgType[SelectStatementFailed]
+        within(5 seconds) {
+          probe.expectMsgType[SelectStatementFailed]
+        }
       }
     }
 
@@ -366,8 +393,9 @@ class ReadCoordinatorSpec
                                limit = Some(LimitOperator(5)))
           )
         )
-
-        probe.expectMsgType[SelectStatementFailed]
+        within(5 seconds) {
+          probe.expectMsgType[SelectStatementFailed]
+        }
       }
     }
   }
