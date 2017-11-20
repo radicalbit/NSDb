@@ -33,7 +33,7 @@ class ReadCoordinatorSpec
   private val namespace    = "registry"
   val schemaActor          = system.actorOf(SchemaActor.props(basePath, db, namespace))
   val namespaceDataActor   = system.actorOf(NamespaceDataActor.props(basePath))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, namespaceDataActor)
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor)
 
   val records: Seq[Bit] = Seq(
     Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
@@ -47,8 +47,10 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
+    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", records.head), 3 seconds)
+
     namespaceDataActor ! AddRecords(db, namespace, "people", records)
 
     waitInterval

@@ -14,18 +14,12 @@ import scala.concurrent.Future
 
 object WriteCoordinator {
 
-  def props(namespaceSchemaActor: ActorRef,
-            commitLogService: Option[ActorRef],
-            namespaceDataActor: ActorRef,
-            publisherActor: ActorRef): Props =
-    Props(new WriteCoordinator(namespaceSchemaActor, commitLogService, namespaceDataActor, publisherActor))
+  def props(namespaceSchemaActor: ActorRef, commitLogService: Option[ActorRef], publisherActor: ActorRef): Props =
+    Props(new WriteCoordinator(namespaceSchemaActor, commitLogService, publisherActor))
 
 }
 
-class WriteCoordinator(namespaceSchemaActor: ActorRef,
-                       commitLogService: Option[ActorRef],
-                       namespaceDataActor: ActorRef,
-                       publisherActor: ActorRef)
+class WriteCoordinator(namespaceSchemaActor: ActorRef, commitLogService: Option[ActorRef], publisherActor: ActorRef)
     extends Actor
     with ActorLogging {
 
@@ -40,7 +34,15 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
   if (commitLogService.isEmpty)
     log.info("Commit Log is disabled")
 
-  def receive: Receive = {
+  override def receive: Receive = init
+
+  def init: Receive = {
+    case SubscribeNamespaceDataActor(actor: ActorRef) =>
+      context.become(subscribed(actor))
+      sender() ! NamespaceDataActorSubscribed(actor)
+  }
+
+  def subscribed(namespaceDataActor: ActorRef): Receive = {
     case MapInput(ts, db, namespace, metric, bit) =>
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))

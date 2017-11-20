@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
@@ -17,6 +18,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class TestCommitLogService extends Actor {
@@ -75,11 +77,20 @@ class WriteCoordinatorSpec
                          system.actorOf(Props[FakeNamespaceSchemaActor])))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
-                                                                    namespaceDataActor,
                                                                     publisherActor)
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
+
+  override def beforeAll() = {
+    import akka.pattern.ask
+
+    import scala.concurrent.duration._
+
+    implicit val timeout = Timeout(3 seconds)
+
+    Await.result((writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor)), 3 seconds)
+  }
 
   "WriteCoordinator" should "write records" in {
     val incompatibleRecord =

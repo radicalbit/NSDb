@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.concurrent.Future
 
-class ReadCoordinator(namespaceSchemaActor: ActorRef, namespaceDataActor: ActorRef) extends Actor with ActorLogging {
+class ReadCoordinator(namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
@@ -18,7 +18,15 @@ class ReadCoordinator(namespaceSchemaActor: ActorRef, namespaceDataActor: ActorR
 
   import context.dispatcher
 
-  override def receive: Receive = {
+  override def receive: Receive = init
+
+  def init: Receive = {
+    case SubscribeNamespaceDataActor(actor: ActorRef) =>
+      context.become(subscribed(actor))
+      sender() ! NamespaceDataActorSubscribed(actor)
+  }
+
+  def subscribed(namespaceDataActor: ActorRef): Receive = {
 
     case msg: GetNamespaces =>
       namespaceDataActor forward msg
@@ -41,7 +49,7 @@ class ReadCoordinator(namespaceSchemaActor: ActorRef, namespaceDataActor: ActorR
 
 object ReadCoordinator {
 
-  def props(schemaActor: ActorRef, indexerActor: ActorRef): Props =
-    Props(new ReadCoordinator(schemaActor, indexerActor))
+  def props(schemaActor: ActorRef): Props =
+    Props(new ReadCoordinator(schemaActor))
 
 }

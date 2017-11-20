@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.protocol
 
+import akka.actor.ActorRef
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.index.Schema
@@ -35,6 +36,8 @@ object MessageProtocol {
     case object GetReadCoordinator
     case object GetWriteCoordinator
     case object GetPublisher
+
+    case class SubscribeNamespaceDataActor(actor: ActorRef)
   }
 
   object Events {
@@ -61,6 +64,8 @@ object MessageProtocol {
     case class RecordRejected(db: String, namespace: String, metric: String, record: Bit, reasons: List[String])
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)
+
+    case class NamespaceDataActorSubscribed(actor: ActorRef)
   }
 
 }

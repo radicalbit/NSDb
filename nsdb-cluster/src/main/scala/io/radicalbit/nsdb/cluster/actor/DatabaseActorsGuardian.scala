@@ -3,11 +3,17 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeoutException
 
 import akka.actor.SupervisorStrategy.Resume
-import akka.actor.{Actor, OneForOneStrategy, Props}
+import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props}
+import akka.pattern.ask
+import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
 import io.radicalbit.nsdb.cluster.coordinator.{ReadCoordinator, WriteCoordinator}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.NamespaceDataActorSubscribed
+
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 object DatabaseActorsGuardian {
 
@@ -15,7 +21,7 @@ object DatabaseActorsGuardian {
 
 }
 
-class DatabaseActorsGuardian extends Actor {
+class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   override val supervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
@@ -26,23 +32,50 @@ class DatabaseActorsGuardian extends Actor {
 
   val config = context.system.settings.config
 
-  val indexBasePath = config.getString("nsdb.index.base-path")
+  private val indexBasePath = config.getString("nsdb.index.base-path")
 
-  val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
+  private val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
 
-  val commitLogService =
+  private val commitLogService =
     if (writeToCommitLog) Some(context.actorOf(CommitLogService.props, "commit-log-service")) else None
-  val namespaceSchemaActor = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
-  val namespaceActor       = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-actor")
-  val readCoordinator =
-    context.actorOf(ReadCoordinator.props(namespaceSchemaActor, namespaceActor), "read-coordinator")
-  val publisherActor =
-    context.actorOf(PublisherActor.props(indexBasePath, readCoordinator, namespaceSchemaActor), "publisher-actor")
-  val writeCoordinator =
-    context.actorOf(WriteCoordinator.props(namespaceSchemaActor, commitLogService, namespaceActor, publisherActor),
+
+  private val namespaceSchemaActor = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
+
+  private val namespaceDataActor = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-data-actor")
+
+  private val readCoordinator =
+    context.actorOf(ReadCoordinator.props(namespaceSchemaActor), "read-coordinator")
+  private val publisherActor = context.actorOf(PublisherActor.props(indexBasePath, readCoordinator, namespaceSchemaActor), "publisher-actor")
+  private val writeCoordinator =
+    context.actorOf(WriteCoordinator.props(namespaceSchemaActor, commitLogService, publisherActor),
                     "write-coordinator")
 
-  def receive = {
+  if (!context.system.settings.config.getBoolean("nsdb.sharding.enabled")) {
+    implicit val timeout = Timeout(5 seconds)
+    import context.dispatcher
+
+    (writeCoordinator ? SubscribeNamespaceDataActor(namespaceDataActor)).onComplete {
+      case Success(msg: NamespaceDataActorSubscribed) => log.info("WriteCoordinator is ready")
+      case Success(msg) =>
+        log.error(s"unexepted response $msg from WriteCoordinator. need to quit")
+        System.exit(1)
+      case Failure(t) =>
+        log.error(s"error when starting WriteCoordinator", t)
+        System.exit(1)
+    }
+
+    (readCoordinator ? SubscribeNamespaceDataActor(namespaceDataActor)).onComplete {
+      case Success(msg: NamespaceDataActorSubscribed) => log.info("ReadCoordinator is ready")
+      case Success(msg) =>
+        log.error(s"unexepted response $msg from ReadCoordinator. need to quit")
+        System.exit(1)
+      case Failure(t) =>
+        log.error(s"error when starting ReadCoordinator", t)
+        System.exit(1)
+    }
+  }
+
+  def receive: Receive = {
     case GetReadCoordinator  => sender() ! readCoordinator
     case GetWriteCoordinator => sender() ! writeCoordinator
     case GetPublisher        => sender() ! publisherActor
