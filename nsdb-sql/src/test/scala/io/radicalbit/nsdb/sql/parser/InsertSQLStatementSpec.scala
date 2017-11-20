@@ -13,9 +13,10 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with a single dimension" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people DIM(name=john) VAL=23 ") should be(
+        parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people DIM(name=john) VAL=23 ") should be(
           Success(
-            InsertSQLStatement(namespace = "registry",
+            InsertSQLStatement(db = "db",
+                               namespace = "registry",
                                metric = "people",
                                timestamp = None,
                                dimensions = Some(ListAssignment(Map("name" -> "john"))),
@@ -26,9 +27,12 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people DIM(name=john, surname=doe) VAL=23 ") should be(
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "INSERT INTO people DIM(name=john, surname=doe) VAL=23 ") should be(
           Success(
             InsertSQLStatement(
+              db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = None,
@@ -41,10 +45,12 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions and a timestamp" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry",
+        parser.parse(db = "db",
+                     namespace = "registry",
                      input = "INSERT INTO people TS=123456 DIM(name=john, surname=doe) VAL=23 ") should be(
           Success(
             InsertSQLStatement(
+              db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
@@ -57,9 +63,10 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions in int and float format and a timestamp" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people TS=123456 DIM(x=1, y=1.5) VAL=23 ") should be(
+        parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people TS=123456 DIM(x=1, y=1.5) VAL=23 ") should be(
           Success(
             InsertSQLStatement(
+              db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
@@ -72,9 +79,12 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions in int and float format, a timestamp and a float value" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people TS=123456 DIM(x=1, y=1.5) VAL=23.5 ") should be(
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "INSERT INTO people TS=123456 DIM(x=1, y=1.5) VAL=23.5 ") should be(
           Success(
             InsertSQLStatement(
+              db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
@@ -87,9 +97,9 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a insert metric without dimensions" should {
       "succeed" in {
-        parser.parse(namespace = "registry", input = "INSERT INTO people val=23) ") should be(
+        parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people val=23) ") should be(
           Success(
-            InsertSQLStatement("registry", "people", None, None, 23)
+            InsertSQLStatement(db = "db", "registry", "people", None, None, 23)
           )
         )
       }

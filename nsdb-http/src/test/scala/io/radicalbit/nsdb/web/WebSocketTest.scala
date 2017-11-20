@@ -14,7 +14,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(_) =>
-      sender() ! SelectStatementExecuted(namespace = "registry", metric = "people", values = Seq.empty)
+      sender() ! SelectStatementExecuted(db = "db", namespace = "registry", metric = "people", values = Seq.empty)
   }
 }
 
@@ -28,7 +28,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
   val wsClient = WSProbe()
 
   "WebSocketStream" should "register to a query" in {
-    WS("/ws-stream", wsClient.flow) ~> wsResources(publisherActor) ~>
+    WS("/ws-stream/db", wsClient.flow) ~> wsResources(publisherActor) ~>
       check {
         isWebSocketUpgrade shouldEqual true
 

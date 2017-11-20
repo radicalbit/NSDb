@@ -7,7 +7,7 @@ import scala.util.Success
 
 class CommandStatementSpec extends WordSpec with Matchers {
 
-  private val parser = new CommandStatementParser()
+  private val parser = new CommandStatementParser("db")
 
   "A parser instance" when {
 
@@ -29,7 +29,7 @@ class CommandStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully specifying a namespace" in {
-        parser.parse(Some("registry"), "show metrics") should be(Success(ShowMetrics("registry")))
+        parser.parse(Some("registry"), "show metrics") should be(Success(ShowMetrics("db", "registry")))
       }
     }
 
@@ -47,7 +47,8 @@ class CommandStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully specifying a namespace and a metric" in {
-        parser.parse(Some("registry"), "describe people") should be(Success(DescribeMetric("registry", "people")))
+        parser.parse(Some("registry"), "describe people") should be(
+          Success(DescribeMetric("db", "registry", "people")))
       }
     }
   }

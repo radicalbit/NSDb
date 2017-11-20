@@ -12,13 +12,13 @@ import scala.collection.mutable
 
 class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging {
 
-  val schemaActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+  val schemaActors: mutable.Map[(String, String), ActorRef] = mutable.Map.empty
 
-  private def getSchemaActor(namespace: String): ActorRef =
+  private def getSchemaActor(db: String, namespace: String): ActorRef =
     schemaActors.getOrElse(
-      namespace, {
-        val schemaActor = context.actorOf(SchemaActor.props(basePath, namespace), s"schema-service-$namespace")
-        schemaActors += (namespace -> schemaActor)
+      (db, namespace), {
+        val schemaActor = context.actorOf(SchemaActor.props(basePath, db, namespace), s"schema-service-$db-$namespace")
+        schemaActors += ((db, namespace) -> schemaActor)
         schemaActor
       }
     )
@@ -29,22 +29,22 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
   import context.dispatcher
 
   override def receive: Receive = {
-    case msg @ GetSchema(namespace, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case msg @ UpdateSchema(namespace, _, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case msg @ UpdateSchemaFromRecord(namespace, _, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case msg @ DeleteSchema(namespace, _) =>
-      getSchemaActor(namespace).forward(msg)
-    case DeleteNamespace(namespace) =>
-      val schemaActorToDelete = getSchemaActor(namespace)
-      (schemaActorToDelete ? DeleteAllSchemas(namespace))
+    case msg @ GetSchema(db, namespace, _) =>
+      getSchemaActor(db, namespace).forward(msg)
+    case msg @ UpdateSchema(db, namespace, _, _) =>
+      getSchemaActor(db, namespace).forward(msg)
+    case msg @ UpdateSchemaFromRecord(db, namespace, _, _) =>
+      getSchemaActor(db, namespace).forward(msg)
+    case msg @ DeleteSchema(db, namespace, _) =>
+      getSchemaActor(db, namespace).forward(msg)
+    case DeleteNamespace(db, namespace) =>
+      val schemaActorToDelete = getSchemaActor(db, namespace)
+      (schemaActorToDelete ? DeleteAllSchemas(db, namespace))
         .mapTo[AllSchemasDeleted]
         .map { _ =>
           schemaActorToDelete ! PoisonPill
-          schemaActors -= namespace
-          NamespaceDeleted(namespace)
+          schemaActors -= ((db, namespace))
+          NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender)
   }

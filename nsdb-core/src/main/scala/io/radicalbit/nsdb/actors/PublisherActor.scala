@@ -16,11 +16,12 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
-import org.apache.lucene.index.IndexNotFoundException
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.store.NIOFSDirectory
 
 import scala.collection.mutable
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -41,9 +42,9 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
     }
   }
 
-  implicit val disp = context.system.dispatcher
+  implicit val disp: ExecutionContextExecutor = context.system.dispatcher
 
-  implicit val timeout =
+  implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   val interval = FiniteDuration(
@@ -74,7 +75,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
       }
   }
 
-  override def receive = {
+  override def receive: Receive = {
     case SubscribeBySqlStatement(actor, queryString, query) =>
       subscribedActors
         .find { case (_, v) => v == actor }
@@ -92,7 +93,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
                 .map(e => SubscribedByQueryString(queryString, id, e.values))
                 .pipeTo(sender())
 
-              implicit val writer = queryIndex.getWriter
+              implicit val writer: IndexWriter = queryIndex.getWriter
               queryIndex.write(NsdbQuery(id, query))
               writer.close()
             case Failure(ex) => sender ! SubscriptionFailed(ex.getMessage)
@@ -116,17 +117,17 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
-    case InputMapped(_, metric, record) =>
+    case InputMapped(_, _, metric, record) =>
       queries.foreach {
         case (id, nsdbQuery) =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
           luceneQuery match {
             case Success(parsedQuery: ParsedSimpleQuery) =>
               val temporaryIndex: TemporaryIndex = new TemporaryIndex()
-              implicit val writer                = temporaryIndex.getWriter
+              implicit val writer: IndexWriter   = temporaryIndex.getWriter
               temporaryIndex.write(record)
               writer.close()
-              implicit val searcher = temporaryIndex.getSearcher
+              implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .size == 1)

@@ -44,14 +44,15 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       log.debug("Received a write request {}", request)
 
       val res = (writeCoordinator ? MapInput(
+        db = request.database,
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
         record = Bit(timestamp = request.timestamp, dimensions = request.dimensions.map {
           case (k, v) => (k, dimensionFor(v.value))
         }, value = valueFor(request.value))
-      )).mapTo[InputMapped] map (_ => RPCInsertResult(true)) recover {
-        case t => RPCInsertResult(false, t.getMessage)
+      )).mapTo[InputMapped] map (_ => RPCInsertResult(completedSuccessfully = true)) recover {
+        case t => RPCInsertResult(completedSuccessfully = false, t.getMessage)
       }
 
       res.onComplete {

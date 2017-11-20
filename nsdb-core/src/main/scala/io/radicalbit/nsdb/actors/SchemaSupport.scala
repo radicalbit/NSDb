@@ -14,9 +14,11 @@ trait SchemaSupport { this: Actor =>
 
   def basePath: String
 
+  def db: String
+
   def namespace: String
 
-  lazy val schemaIndex = new SchemaIndex(new NIOFSDirectory(Paths.get(basePath, namespace, "schemas")))
+  lazy val schemaIndex = new SchemaIndex(new NIOFSDirectory(Paths.get(basePath, db, namespace, "schemas")))
 
   protected lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 

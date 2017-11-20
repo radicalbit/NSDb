@@ -13,15 +13,16 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a delete without a where condition" should {
       "fail" in {
-        parser.parse(namespace = "registry", input = "DELETE FROM people") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "DELETE FROM people") shouldBe 'failure
       }
     }
 
     "receive a delete containing a range selection" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "delete FROM people WHERE timestamp IN (2,4)") should be(
+        parser.parse(db = "db", namespace = "registry", input = "delete FROM people WHERE timestamp IN (2,4)") should be(
           Success(
             DeleteSQLStatement(
+              db = "db",
               namespace = "registry",
               metric = "people",
               condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))
@@ -29,9 +30,10 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully ignoring case" in {
-        parser.parse(namespace = "registry", input = "delete FrOm people where timestamp in (2,4)") should be(
+        parser.parse(db = "db", namespace = "registry", input = "delete FrOm people where timestamp in (2,4)") should be(
           Success(
             DeleteSQLStatement(
+              db = "db",
               namespace = "registry",
               metric = "people",
               condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))
@@ -41,21 +43,24 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a delete containing a GTE selection" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "DELETE FROM people WHERE timestamp >= 10") should be(
-          Success(
-            DeleteSQLStatement(
-              namespace = "registry",
-              metric = "people",
-              condition = Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))
-            )))
+        parser.parse(db = "db", namespace = "registry", input = "DELETE FROM people WHERE timestamp >= 10") should be(
+          Success(DeleteSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            condition = Condition(
+              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))
+          )))
       }
     }
 
     "receive a delete containing a GT AND a LTE selection" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "Delete FROM people WHERE timestamp > 2 AND timestamp <= 4") should be(
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "Delete FROM people WHERE timestamp > 2 AND timestamp <= 4") should be(
           Success(DeleteSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             condition = Condition(TupledLogicalExpression(
@@ -70,8 +75,11 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a delete containing a GTE OR a LT selection" should {
       "parse it successfully" in {
-        parser.parse(namespace = "registry", input = "DELETE FROM people WHERE NOT timestamp >= 2 OR timestamp < 4") should be(
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "DELETE FROM people WHERE NOT timestamp >= 2 OR timestamp < 4") should be(
           Success(DeleteSQLStatement(
+            db = "db",
             namespace = "registry",
             metric = "people",
             condition = Condition(UnaryLogicalExpression(
@@ -89,7 +97,7 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
 
     "receive random string sequences" should {
       "fail" in {
-        parser.parse(namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure
       }
     }
 

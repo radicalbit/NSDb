@@ -20,19 +20,19 @@ class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends A
 
   override def receive: Receive = {
 
-    case GetNamespaces =>
-      namespaceActor forward GetNamespaces
-    case msg @ GetMetrics(_) =>
+    case msg: GetNamespaces =>
       namespaceActor forward msg
-    case msg @ GetSchema(_, _) =>
+    case msg: GetMetrics =>
+      namespaceActor forward msg
+    case msg: GetSchema =>
       schemaActor forward msg
       namespaceActor forward msg
     case ExecuteStatement(statement) =>
       log.debug(s"executing $statement")
-      (schemaActor ? GetSchema(statement.namespace, statement.metric))
+      (schemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .mapTo[SchemaGot]
         .flatMap {
-          case SchemaGot(_, _, Some(schema)) =>
+          case SchemaGot(_, _, _, Some(schema)) =>
             namespaceActor ? ExecuteSelectStatement(statement, schema)
           case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
         }

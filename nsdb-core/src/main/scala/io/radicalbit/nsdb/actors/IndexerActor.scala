@@ -29,7 +29,7 @@ case class DeleteRecordOperation(ns: String, metric: String, bit: Bit)    extend
 case class DeleteQueryOperation(ns: String, metric: String, query: Query) extends Operation
 case class WriteOperation(ns: String, metric: String, bit: Bit)           extends Operation
 
-class IndexerActor(basePath: String, namespace: String) extends Actor with ActorLogging with Stash {
+class IndexerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging with Stash {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
@@ -53,7 +53,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   private def getIndex(metric: String) =
     indexes.getOrElse(
       metric, {
-        val directory = new NIOFSDirectory(Paths.get(basePath, namespace, metric))
+        val directory = new NIOFSDirectory(Paths.get(basePath, db, namespace, metric))
         val newIndex  = new TimeSeriesIndex(directory)
         indexes += (metric -> newIndex)
         newIndex
@@ -73,10 +73,10 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
     out match {
       case Success(docs) =>
         log.debug("found {} records", docs.size)
-        sender() ! SelectStatementExecuted(namespace = namespace, metric = metric, docs)
+        sender() ! SelectStatementExecuted(db = db, namespace = namespace, metric = metric, docs)
       case Failure(_: IndexNotFoundException) =>
         log.debug("index not found")
-        sender() ! SelectStatementExecuted(namespace = namespace, metric = metric, Seq.empty)
+        sender() ! SelectStatementExecuted(db = db, namespace = namespace, metric = metric, Seq.empty)
       case Failure(ex) =>
         log.error(ex, "select statement failed")
         sender() ! SelectStatementFailed(ex.getMessage)
@@ -84,42 +84,42 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   }
 
   def ddlOps: Receive = {
-    case DeleteMetric(ns, metric) =>
+    case DeleteMetric(_, ns, metric) =>
       val index                        = getIndex(metric)
       implicit val writer: IndexWriter = index.getWriter
       index.deleteAll()
       writer.close()
-      sender ! MetricDeleted(ns, metric)
-    case DeleteAllMetrics(ns) =>
+      sender ! MetricDeleted(db, ns, metric)
+    case DeleteAllMetrics(_, ns) =>
       indexes.foreach {
         case (_, index) =>
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
       }
-      sender ! AllMetricsDeleted(ns)
-    case DropMetric(_, metric) =>
+      sender ! AllMetricsDeleted(db, ns)
+    case DropMetric(_, _, metric) =>
       indexes
         .get(metric)
         .fold {
-          sender() ! MetricDropped(namespace, metric)
+          sender() ! MetricDropped(db, namespace, metric)
         } { index =>
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
           indexes -= metric
-          sender() ! MetricDropped(namespace, metric)
+          sender() ! MetricDropped(db, namespace, metric)
         }
   }
 
   def readOps: Receive = {
-    case GetMetrics(_) =>
-      sender() ! MetricsGot(namespace, indexes.keys.toSeq)
-    case GetCount(ns, metric) =>
+    case GetMetrics(_, _) =>
+      sender() ! MetricsGot(db, namespace, indexes.keys.toSeq)
+    case GetCount(_, ns, metric) =>
       val index                            = getIndex(metric)
       implicit val searcher: IndexSearcher = getSearcher(metric)
       val hits                             = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)
-      sender ! CountGot(ns, metric, hits.size)
+      sender ! CountGot(db, ns, metric, hits.size)
     case ExecuteSelectStatement(statement, schema) =>
       implicit val searcher: IndexSearcher = getSearcher(statement.metric)
       statementParser.parseStatement(statement, Some(schema)) match {
@@ -135,7 +135,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
   private val opBufferMap: mutable.Map[String, Seq[Operation]] = mutable.Map.empty
 
   def accumulate: Receive = {
-    case AddRecord(ns, metric, bit) =>
+    case AddRecord(_, ns, metric, bit) =>
       opBufferMap
         .get(metric)
         .fold {
@@ -143,8 +143,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         } { list =>
           opBufferMap += (metric -> (list :+ WriteOperation(ns, metric, bit)))
         }
-      sender ! RecordAdded(ns, metric, bit)
-    case AddRecords(ns, metric, bits) =>
+      sender ! RecordAdded(db, ns, metric, bit)
+    case AddRecords(_, ns, metric, bits) =>
       val ops = bits.map(WriteOperation(ns, metric, _))
       opBufferMap
         .get(metric)
@@ -153,8 +153,8 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         } { list =>
           opBufferMap += (metric -> (list ++ ops))
         }
-      sender ! RecordsAdded(ns, metric, bits)
-    case DeleteRecord(ns, metric, bit) =>
+      sender ! RecordsAdded(db, ns, metric, bits)
+    case DeleteRecord(_, ns, metric, bit) =>
       opBufferMap
         .get(metric)
         .fold {
@@ -162,7 +162,7 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
         } { list =>
           opBufferMap += (metric -> (list :+ DeleteRecordOperation(ns, metric, bit)))
         }
-      sender ! RecordDeleted(ns, metric, bit)
+      sender ! RecordDeleted(db, ns, metric, bit)
     case ExecuteDeleteStatement(statement) =>
       statementParser.parseStatement(statement) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
@@ -173,9 +173,9 @@ class IndexerActor(basePath: String, namespace: String) extends Actor with Actor
             } { list =>
               opBufferMap += (metric -> (list :+ DeleteQueryOperation(ns, metric, q)))
             }
-          sender() ! DeleteStatementExecuted(namespace = namespace, metric = metric)
+          sender() ! DeleteStatementExecuted(db = db, namespace = namespace, metric = metric)
         case Failure(ex) =>
-          sender() ! DeleteStatementFailed(namespace = namespace, metric = statement.metric, ex.getMessage)
+          sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
       }
     case PerformWrites =>
       context.become(perform)
@@ -224,5 +224,5 @@ object IndexerActor {
   case object PerformWrites
   case object Accumulate
 
-  def props(basePath: String, namespace: String): Props = Props(new IndexerActor(basePath, namespace: String))
+  def props(basePath: String, db: String, namespace: String): Props = Props(new IndexerActor(basePath, db, namespace))
 }

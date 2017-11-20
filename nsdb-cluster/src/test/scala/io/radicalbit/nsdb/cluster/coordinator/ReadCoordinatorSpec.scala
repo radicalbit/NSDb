@@ -28,8 +28,9 @@ class ReadCoordinatorSpec
   val probe                = TestProbe()
   val probeActor           = probe.ref
   private val basePath     = "target/test_index"
+  private val db           = "db"
   private val namespace    = "registry"
-  val schemaActor          = system.actorOf(SchemaActor.props(basePath, namespace))
+  val schemaActor          = system.actorOf(SchemaActor.props(basePath, db, namespace))
   val namespaceDataActor   = system.actorOf(NamespaceDataActor.props(basePath))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(schemaActor, namespaceDataActor)
 
@@ -45,12 +46,12 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(3 second)
 
-    Await.result(namespaceDataActor ? DeleteMetric(namespace, "people"), 1 seconds)
+    Await.result(namespaceDataActor ? DeleteMetric(db, namespace, "people"), 1 seconds)
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema(namespace, "people", schema), 1 seconds)
-    namespaceDataActor ! AddRecords(namespace, "people", records)
+    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 1 seconds)
+    namespaceDataActor ! AddRecords(db, namespace, "people", records)
 
     waitInterval
   }
@@ -59,7 +60,7 @@ class ReadCoordinatorSpec
 
     "receive a GetNamespace" should {
       "return it properly" in {
-        probe.send(readCoordinatorActor, GetNamespaces)
+        probe.send(readCoordinatorActor, GetNamespaces(db))
 
         val expected = probe.expectMsgType[NamespacesGot]
         expected.namespaces shouldBe Seq(namespace)
@@ -68,7 +69,7 @@ class ReadCoordinatorSpec
 
     "receive a GetMetrics given a namespace" should {
       "return it properly" in {
-        probe.send(readCoordinatorActor, GetMetrics(namespace))
+        probe.send(readCoordinatorActor, GetMetrics(db, namespace))
 
         val expected = probe.expectMsgType[MetricsGot]
         expected.namespace shouldBe namespace
@@ -78,7 +79,7 @@ class ReadCoordinatorSpec
 
     "receive a GetSchema given a namespace and a metric" should {
       "return it properly" in {
-        probe.send(readCoordinatorActor, GetSchema(namespace, "people"))
+        probe.send(readCoordinatorActor, GetSchema(db, namespace, "people"))
 
         val expected = probe.expectMsgType[SchemaGot]
         expected.namespace shouldBe namespace
@@ -96,7 +97,8 @@ class ReadCoordinatorSpec
 
         probe.send(readCoordinatorActor,
                    ExecuteStatement(
-                     SelectSQLStatement(namespace = namespace,
+                     SelectSQLStatement(db = db,
+                                        namespace = namespace,
                                         metric = "people",
                                         fields = AllFields,
                                         limit = Some(LimitOperator(5)))
@@ -113,6 +115,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None), Field("surname", None))),
@@ -139,6 +142,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -160,6 +164,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -183,6 +188,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -210,6 +216,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -237,6 +244,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -261,6 +269,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -282,6 +291,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("name", None))),
@@ -306,6 +316,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("value", Some(SumAggregation)))),
@@ -328,6 +339,7 @@ class ReadCoordinatorSpec
           readCoordinatorActor,
           ExecuteStatement(
             SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = "people",
               fields = ListFields(List(Field("creationDate", None))),
@@ -344,13 +356,16 @@ class ReadCoordinatorSpec
 
     "receive a select containing a non existing entity" should {
       "return an error message properly" in {
-        probe.send(readCoordinatorActor,
-                   ExecuteStatement(
-                     SelectSQLStatement(namespace = namespace,
-                                        metric = "nonexisting",
-                                        fields = AllFields,
-                                        limit = Some(LimitOperator(5)))
-                   ))
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(db = db,
+                               namespace = namespace,
+                               metric = "nonexisting",
+                               fields = AllFields,
+                               limit = Some(LimitOperator(5)))
+          )
+        )
 
         probe.expectMsgType[SelectStatementFailed]
       }

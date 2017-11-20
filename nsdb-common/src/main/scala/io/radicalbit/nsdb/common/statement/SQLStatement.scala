@@ -46,11 +46,13 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
 case class LimitOperator(value: Int)
 
 sealed trait SQLStatement extends NSDBStatement {
+  def db: String
   def namespace: String
   def metric: String
 }
 
-case class SelectSQLStatement(override val namespace: String,
+case class SelectSQLStatement(override val db: String,
+                              override val namespace: String,
                               override val metric: String,
                               fields: SelectedFields,
                               condition: Option[Condition] = None,
@@ -70,14 +72,19 @@ case class SelectSQLStatement(override val namespace: String,
 
 }
 
-case class InsertSQLStatement(override val namespace: String,
+case class InsertSQLStatement(override val db: String,
+                              override val namespace: String,
                               override val metric: String,
                               timestamp: Option[Long],
                               dimensions: Option[ListAssignment],
                               value: JSerializable)
     extends SQLStatement
 
-case class DeleteSQLStatement(override val namespace: String, override val metric: String, condition: Condition)
+case class DeleteSQLStatement(override val db: String,
+                              override val namespace: String,
+                              override val metric: String,
+                              condition: Condition)
     extends SQLStatement
 
-case class DropSQLStatement(override val namespace: String, override val metric: String) extends SQLStatement
+case class DropSQLStatement(override val db: String, override val namespace: String, override val metric: String)
+    extends SQLStatement

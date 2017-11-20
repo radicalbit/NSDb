@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 
 class FakeWriteCoordinator extends Actor {
   override def receive: Receive = {
-    case msg: MapInput => sender() ! InputMapped(msg.namespace, msg.metric, msg.record)
+    case msg: MapInput => sender() ! InputMapped(msg.db, msg.namespace, msg.metric, msg.record)
   }
 }
 
@@ -29,7 +29,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   )
 
   "DataApi" should "not allow get" in {
-    Get("/data") ~> testRoutes ~> check {
+    Get("/data/db") ~> testRoutes ~> check {
       status shouldEqual MethodNotAllowed
     }
   }
@@ -37,7 +37,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   "DataApi" should "correctly insert a record" in {
     val b = InsertBody("namespace", "metric", Bit(0, 1, Map.empty))
 
-    Post("/data", b) ~> testRoutes ~> check {
+    Post("/data/db", b) ~> testRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
       println(entity)

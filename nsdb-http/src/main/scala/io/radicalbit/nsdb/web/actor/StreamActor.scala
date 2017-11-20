@@ -14,7 +14,7 @@ import io.radicalbit.nsdb.web.actor.StreamActor._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
+class StreamActor(db: String, publisher: ActorRef) extends Actor with ActorLogging {
 
   implicit val timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.stream.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
@@ -29,7 +29,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
 
   def connected(wsActor: ActorRef): Receive = {
     case RegisterQuery(namespace, queryString) =>
-      new SQLStatementParser().parse(namespace, queryString) match {
+      new SQLStatementParser().parse(db, namespace, queryString) match {
         case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
           (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
             .map {
@@ -46,7 +46,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
       }
     case RegisterQueries(queries: Seq[RegisterQuery]) =>
       val results = queries.map(q => {
-        new SQLStatementParser().parse(q.namespace, q.queryString) match {
+        new SQLStatementParser().parse(db, q.namespace, q.queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
             (publisher ? SubscribeBySqlStatement(self, q.queryString, statement.asInstanceOf[SelectSQLStatement]))
               .map {
@@ -109,5 +109,5 @@ object StreamActor {
   case class QuerystringRegistrationFailed(namespace: String, queryString: String, reason: String)
   case class QuidRegistrationFailed(quid: String, reason: String)
 
-  def props(publisherActor: ActorRef) = Props(new StreamActor(publisherActor))
+  def props(db: String, publisherActor: ActorRef) = Props(new StreamActor(db, publisherActor))
 }

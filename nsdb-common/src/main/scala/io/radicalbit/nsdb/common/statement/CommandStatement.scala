@@ -15,9 +15,9 @@ case class UseNamespace(namespace: String) extends CommandStatement
 /**
   * CLI command to retrieve the metrics present in the database for the given namespace.
   */
-case class ShowMetrics(namespace: String) extends CommandStatement
+case class ShowMetrics(db: String, namespace: String) extends CommandStatement
 
 /**
   * CLI command to describe the given metric for the give namespace.
   */
-case class DescribeMetric(namespace: String, metric: String) extends CommandStatement
+case class DescribeMetric(db: String, namespace: String, metric: String) extends CommandStatement

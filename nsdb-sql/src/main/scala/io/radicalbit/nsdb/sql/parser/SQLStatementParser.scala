@@ -175,42 +175,45 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val limit: PackratParser[Option[LimitOperator]] = ((Limit ~> intValue) ?) ^^ (value =>
     value.map(x => LimitOperator(x)))
 
-  private def selectQuery(namespace: String) = select ~ from ~ (where ?) ~ groupBy ~ order ~ limit <~ ";" ^^ {
-    case fs ~ met ~ cond ~ gr ~ ord ~ lim =>
-      SelectSQLStatement(namespace = namespace,
-                         metric = met,
-                         fields = fs,
-                         condition = cond.map(Condition),
-                         groupBy = gr,
-                         order = ord,
-                         limit = lim)
+  private def selectQuery(db: String, namespace: String) =
+    select ~ from ~ (where ?) ~ groupBy ~ order ~ limit <~ ";" ^^ {
+      case fs ~ met ~ cond ~ gr ~ ord ~ lim =>
+        SelectSQLStatement(db = db,
+                           namespace = namespace,
+                           metric = met,
+                           fields = fs,
+                           condition = cond.map(Condition),
+                           groupBy = gr,
+                           order = ord,
+                           limit = lim)
+    }
+
+  private def deleteQuery(db: String, namespace: String) = Delete ~> from ~ where ^^ {
+    case met ~ cond => DeleteSQLStatement(db = db, namespace = namespace, metric = met, condition = Condition(cond))
   }
 
-  private def deleteQuery(namespace: String) = Delete ~> from ~ where ^^ {
-    case met ~ cond => DeleteSQLStatement(namespace = namespace, metric = met, condition = Condition(cond))
+  private def dropStatement(db: String, namespace: String) = Drop ~> metric ^^ { met =>
+    DropSQLStatement(db = db, namespace = namespace, metric = met)
   }
 
-  private def dropStatement(namespace: String) = Drop ~> metric ^^ { met =>
-    DropSQLStatement(namespace = namespace, metric = met)
-  }
-
-  private def insertQuery(namespace: String) =
+  private def insertQuery(db: String, namespace: String) =
     (Insert ~> metric) ~
       (timestampAssignment ?) ~
       (Dim ~> assignments ?) ~ valueAssignment ^^ {
       case met ~ ts ~ dimensions ~ value =>
-        InsertSQLStatement(namespace = namespace,
+        InsertSQLStatement(db = db,
+                           namespace = namespace,
                            metric = met,
                            timestamp = ts,
                            dimensions.map(ListAssignment),
                            value.asInstanceOf[JSerializable])
     }
 
-  private def query(namespace: String): PackratParser[SQLStatement] =
-    selectQuery(namespace) | insertQuery(namespace) | deleteQuery(namespace) | dropStatement(namespace)
+  private def query(db: String, namespace: String): PackratParser[SQLStatement] =
+    selectQuery(db, namespace) | insertQuery(db, namespace) | deleteQuery(db, namespace) | dropStatement(db, namespace)
 
-  def parse(namespace: String, input: String): Try[SQLStatement] =
-    Try(parse(query(namespace), new PackratReader[Char](new CharSequenceReader(s"$input;")))) flatMap {
+  def parse(db: String, namespace: String, input: String): Try[SQLStatement] =
+    Try(parse(query(db, namespace), new PackratReader[Char](new CharSequenceReader(s"$input;")))) flatMap {
       case Success(res, _) => ScalaSuccess(res)
       case Error(msg, next) =>
         ScalaFailure(new RuntimeException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
