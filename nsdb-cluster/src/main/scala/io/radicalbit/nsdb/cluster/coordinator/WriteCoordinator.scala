@@ -10,6 +10,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
+import scala.collection.mutable
 import scala.concurrent.Future
 
 object WriteCoordinator {
@@ -34,10 +35,48 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef, commitLogService: Option[
   if (commitLogService.isEmpty)
     log.info("Commit Log is disabled")
 
-  override def receive: Receive = init
+  lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
+
+  private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
+
+  override def receive: Receive = if (sharding) shardBehaviour else init
+
+  def shardBehaviour: Receive = {
+    case SubscribeNamespaceDataActor(actor: ActorRef, Some(host)) =>
+      namespaces += (host -> actor)
+      sender() ! NamespaceDataActorSubscribed(actor, Some(host))
+    case SubscribeNamespaceDataActor(actor: ActorRef, None) =>
+      sender() ! NamespaceDataActorSubscriptionFailed(actor, None, "cannot subscribe ")
+    case MapInput(ts, db, namespace, metric, bit) =>
+      log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
+      (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
+        .flatMap {
+          case SchemaUpdated(_, _, _) =>
+            log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
+            val commitLogFuture: Future[WroteToCommitLogAck] =
+              if (commitLogService.isDefined)
+                (commitLogService.get ? CommitLogService.Insert(ts = ts, metric = metric, record = bit))
+                  .mapTo[WroteToCommitLogAck]
+              else Future.successful(WroteToCommitLogAck(ts, metric, bit))
+            commitLogFuture
+              .flatMap(ack => {
+                publisherActor ! InputMapped(db, namespace, metric, bit)
+//                (namespaceDataActor ? AddRecord(db, namespace, ack.metric, ack.bit)).mapTo[RecordAdded]
+                Future(RecordAdded(db, namespace, metric, bit))
+              })
+              .map(r => InputMapped(db, namespace, metric, r.record))
+          case UpdateSchemaFailed(_, _, _, errs) =>
+            log.error("Invalid schema for the metric {} and the bit {}. Error are {}.",
+                      metric,
+                      bit,
+                      errs.mkString(","))
+            Future(RecordRejected(db, namespace, metric, bit, errs))
+        }
+        .pipeTo(sender())
+  }
 
   def init: Receive = {
-    case SubscribeNamespaceDataActor(actor: ActorRef) =>
+    case SubscribeNamespaceDataActor(actor: ActorRef, _) =>
       context.become(subscribed(actor))
       sender() ! NamespaceDataActorSubscribed(actor)
   }

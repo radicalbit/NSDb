@@ -15,15 +15,15 @@ import scala.collection.mutable
 
 class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Actor with ActorLogging {
 
-  lazy val metadataIndexes: mutable.Map[String, MetadataIndex] = mutable.Map.empty
+  lazy val metadataIndexes: mutable.Map[(String, String), MetadataIndex] = mutable.Map.empty
 
   val remoteAddress = RemoteAddress(context.system)
 
-  private def getIndex(namespace: String): MetadataIndex =
+  private def getIndex(db: String, namespace: String): MetadataIndex =
     metadataIndexes.getOrElse(
-      namespace, {
+      (db, namespace), {
         val newIndex = new MetadataIndex(new MMapDirectory(Paths.get(basePath, namespace, "metadata")))
-        metadataIndexes += (namespace -> newIndex)
+        metadataIndexes += ((db, namespace) -> newIndex)
         newIndex
       }
     )
@@ -34,42 +34,37 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
 
   override def receive: Receive = {
 
-    case GetLocations(namespace, metric, occurredOn) =>
-      val metadata = getIndex(namespace).getMetadata(metric)
-      sender ! LocationsGot(namespace, metric, metadata, occurredOn)
+    case GetLocations(db, namespace, metric, occurredOn) =>
+      val metadata = getIndex(db, namespace).getMetadata(metric)
+      sender ! LocationsGot(db, namespace, metric, metadata, occurredOn)
 
-    //FIXME see if this has to be removed
-//    case GetLocation(namespace, metric, t, occurredOn) =>
-//      val metadata = getIndex(namespace).getMetadata(metric, t)
-//      sender ! LocationGot(namespace, metric, t, metadata, occurredOn)
-
-    case AddLocation(namespace, metadata, occurredOn) =>
-      val index                        = getIndex(namespace)
+    case AddLocation(db, namespace, metadata, occurredOn) =>
+      val index                        = getIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.write(metadata)
       writer.close()
-      sender ! LocationAdded(namespace, metadata, occurredOn)
+      sender ! LocationAdded(db, namespace, metadata)
 
-    case AddLocations(namespace, metadataSeq, occurredOn) =>
-      val index                        = getIndex(namespace)
+    case AddLocations(db, namespace, metadataSeq, occurredOn) =>
+      val index                        = getIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       metadataSeq.foreach(index.write)
       writer.close()
-      sender ! LocationsAdded(namespace, metadataSeq, occurredOn)
+      sender ! LocationsAdded(db, namespace, metadataSeq)
 
-    case DeleteLocation(namespace, metadata, occurredOn) =>
-      val index                        = getIndex(namespace)
+    case DeleteLocation(db, namespace, metadata, occurredOn) =>
+      val index                        = getIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.delete(metadata)
       writer.close()
-      sender ! LocationDeleted(namespace, metadata, occurredOn)
+      sender ! LocationDeleted(db, namespace, metadata)
 
-    case DeleteNamespace(namespace, occurredOn) =>
-      val index                        = getIndex(namespace)
+    case DeleteNamespace(db, namespace, occurredOn) =>
+      val index                        = getIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.deleteAll()
       writer.close()
-      sender ! NamespaceDeleted(namespace, occurredOn)
+      sender ! NamespaceDeleted(db, namespace, occurredOn)
 
     case SubscribeAck(Subscribe("metadata", None, _)) =>
       log.debug("subscribed to topic metadata")

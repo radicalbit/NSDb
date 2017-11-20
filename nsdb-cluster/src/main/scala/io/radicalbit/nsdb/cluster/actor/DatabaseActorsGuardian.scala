@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeoutException
 
 import akka.actor.SupervisorStrategy.Resume
-import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props}
+import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
@@ -23,14 +23,14 @@ object DatabaseActorsGuardian {
 
 class DatabaseActorsGuardian extends Actor with ActorLogging {
 
-  override val supervisorStrategy = OneForOneStrategy() {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
       context.system.log.error("Got the following TimeoutException, resuming the processing", e)
       Resume
     case t => super.supervisorStrategy.decider.apply(t)
   }
 
-  val config = context.system.settings.config
+  private val config = context.system.settings.config
 
   private val indexBasePath = config.getString("nsdb.index.base-path")
 
@@ -42,6 +42,10 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
   private val namespaceSchemaActor = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
 
   private val namespaceDataActor = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-data-actor")
+
+  val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
+
+  val metadataCoordinator = context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
   private val readCoordinator =
     context.actorOf(ReadCoordinator.props(namespaceSchemaActor), "read-coordinator")

@@ -33,7 +33,7 @@ class ClusterListener extends Actor with ActorLogging {
 
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
-      context.system.actorSelection("/user/metadata-coordinator").resolveOne().onComplete {
+      context.system.actorSelection("/user/guardian/metadata-coordinator").resolveOne().onComplete {
         case Success(metadataCoordinator: ActorRef) =>
           val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
 

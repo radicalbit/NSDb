@@ -21,7 +21,7 @@ class ReadCoordinator(namespaceSchemaActor: ActorRef) extends Actor with ActorLo
   override def receive: Receive = init
 
   def init: Receive = {
-    case SubscribeNamespaceDataActor(actor: ActorRef) =>
+    case SubscribeNamespaceDataActor(actor: ActorRef, _) =>
       context.become(subscribed(actor))
       sender() ! NamespaceDataActorSubscribed(actor)
   }

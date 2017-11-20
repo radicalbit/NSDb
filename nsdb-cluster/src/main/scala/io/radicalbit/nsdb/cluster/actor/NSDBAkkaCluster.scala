@@ -26,10 +26,6 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val executionContext = system.dispatcher
 
-  val metadataCache = system.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
-
-  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
-
   lazy val guardian = system.actorOf(DatabaseActorsGuardian.props, "guardian")
 
   system.actorOf(Props[ClusterListener], name = "clusterListener")

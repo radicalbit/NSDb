@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.actor
 
-import akka.actor.Props
+import akka.actor.{Actor, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Count
 import akka.cluster.{Cluster, MemberStatus}
@@ -15,6 +15,15 @@ import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
+
+class FakeGuardian() extends Actor {
+
+  val metadataCache = context.actorOf(Props[ReplicatedMetadataCache])
+
+  val mc = context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
+
+  override def receive = Actor.emptyBehavior
+}
 
 object MetadataTest extends MultiNodeConfig {
   val node1 = role("node-1")
@@ -43,11 +52,11 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
 
   val clusterListener = system.actorOf(Props[ClusterListener])
 
-  val metadataCache = system.actorOf(Props[ReplicatedMetadataCache])
-
   val mediator = DistributedPubSub(system).mediator
 
-  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
+  val guardian = system.actorOf(Props[FakeGuardian], "guardian")
+
+  val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
@@ -76,21 +85,20 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator.tell(AddLocation("namespace", Location("metric", "node-1", 0, 1), 0), probe.ref)
-        probe.expectMsg(LocationAdded("namespace", Location("metric", "node-1", 0, 1), 0))
+        metadataCoordinator.tell(AddLocation("db", "namespace", Location("metric", "node-1", 0, 1), 0), probe.ref)
+        probe.expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
       }
 
       awaitAssert {
         addresses.foreach(a => {
           val metadataActor =
             system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor.tell(GetLocations("namespace", "metric", 0), probe.ref)
-          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1)), 0))
+          metadataActor.tell(GetLocations("db", "namespace", "metric", 0), probe.ref)
+          probe.expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1)), 0))
         })
       }
 
       enterBarrier("after-add")
-
     }
   }
 }
