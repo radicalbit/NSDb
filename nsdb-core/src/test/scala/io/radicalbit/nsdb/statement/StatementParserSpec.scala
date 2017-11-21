@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
+import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
@@ -17,9 +17,11 @@ class StatementParserSpec extends WordSpec with Matchers {
   private val parser = new StatementParser
 
   val schema = Some(
-    Schema(
-      "people",
-      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT()))))
+    Schema("people",
+           Seq(SchemaField("name", VARCHAR()),
+               SchemaField("surname", VARCHAR()),
+               SchemaField("creationDate", BIGINT()),
+               SchemaField("value", DECIMAL()))))
 
   "A statement parser instance" when {
 
@@ -238,7 +240,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a select containing a ordering statement" should {
+    "receive a select containing a ordering statement and a limit statement" should {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
@@ -257,6 +259,30 @@ class StatementParserSpec extends WordSpec with Matchers {
               4,
               List.empty,
               Some(new Sort(new SortField("name", SortField.Type.STRING, false)))
+            ))
+        )
+      }
+    }
+
+    "receive a select containing a ordering by value statement and a limit statement" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(db = "db",
+                             namespace = "registry",
+                             metric = "people",
+                             fields = AllFields,
+                             order = Some(AscOrderOperator("value")),
+                             limit = Some(LimitOperator(4))),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List.empty,
+              Some(new Sort(new SortField("value", SortField.Type.DOUBLE, false)))
             ))
         )
       }
@@ -349,6 +375,5 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
     }
-
   }
 }
