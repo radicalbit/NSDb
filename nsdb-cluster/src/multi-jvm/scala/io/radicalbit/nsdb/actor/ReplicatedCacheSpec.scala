@@ -22,10 +22,16 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     akka.loglevel = ERROR
-    akka.actor.provider = "cluster"
-    akka.log-dead-letters-during-shutdown = off
-    nsdb.write-coordinator.timeout = 5 seconds
-    """))
+ |akka.actor.provider = "cluster"
+ |akka.log-dead-letters-during-shutdown = off
+ |nsdb{
+ |  index.base-path = "target/test_index"
+ |  write-coordinator.timeout = 5 seconds
+ |  commit-log {
+ |    enabled = false
+ |  }
+ |}
+    """.stripMargin))
 }
 
 // need one concrete test class per node

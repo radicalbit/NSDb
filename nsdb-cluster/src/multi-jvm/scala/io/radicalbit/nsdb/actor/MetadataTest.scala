@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.actor
 
-import akka.actor.{Actor, Props}
+import akka.actor.Props
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Count
 import akka.cluster.{Cluster, MemberStatus}
@@ -10,20 +10,11 @@ import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLocations}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationAdded, LocationsGot}
-import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetadataCoordinator, ReplicatedMetadataCache}
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
-
-class FakeGuardian() extends Actor {
-
-  val metadataCache = context.actorOf(Props[ReplicatedMetadataCache])
-
-  val mc = context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
-
-  override def receive = Actor.emptyBehavior
-}
 
 object MetadataTest extends MultiNodeConfig {
   val node1 = role("node-1")
@@ -31,11 +22,21 @@ object MetadataTest extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     akka.loglevel = ERROR
-    akka.actor.provider = "cluster"
-    akka.log-dead-letters-during-shutdown = off
-    nsdb.index.base-path = "target/test_index"
-    nsdb.write-coordinator.timeout = 5 seconds
-    """))
+ |akka.actor.provider = "cluster"
+ |akka.log-dead-letters-during-shutdown = off
+ |nsdb{
+ |  sharding {
+ |    enabled = true
+ |    interval = 1d
+ |  }
+ |  index.base-path = "target/test_index"
+ |  write-coordinator.timeout = 5 seconds
+ |  commit-log {
+ |    enabled = false
+ |  }
+ |}
+    """.stripMargin))
+
 }
 
 class MetadataTestMultiJvmNode1 extends MetadataTest
@@ -54,7 +55,7 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
 
   val mediator = DistributedPubSub(system).mediator
 
-  val guardian = system.actorOf(Props[FakeGuardian], "guardian")
+  val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
   val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
 

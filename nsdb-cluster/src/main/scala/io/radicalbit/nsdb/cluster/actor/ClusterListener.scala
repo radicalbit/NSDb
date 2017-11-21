@@ -7,9 +7,10 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.remote.RemoteScope
 import akka.util.Timeout
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeNamespaceDataActor
 
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
 class ClusterListener extends Actor with ActorLogging {
@@ -20,6 +21,8 @@ class ClusterListener extends Actor with ActorLogging {
 
   val config = context.system.settings.config
 
+  lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
+
   override def preStart(): Unit =
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
 
@@ -29,26 +32,44 @@ class ClusterListener extends Actor with ActorLogging {
     case MemberUp(member) =>
       log.debug("Member is Up: {}", member.address)
 
+      val nameNode = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
+
       implicit val timeout: Timeout = Timeout(5 seconds)
 
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
-      context.system.actorSelection("/user/guardian/metadata-coordinator").resolveOne().onComplete {
-        case Success(metadataCoordinator: ActorRef) =>
-          val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
+      Future
+        .sequence(
+          Seq(
+            context.system.actorSelection("/user/guardian/write-coordinator").resolveOne(),
+            context.system.actorSelection("/user/guardian/metadata-coordinator").resolveOne()
+          ))
+        .onComplete {
+          case Success(Seq(writeCoordinator: ActorRef, metadataCoordinator: ActorRef)) =>
+            val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
 
-          val metadataActor = context.system.actorOf(
-            MetadataActor
-              .props(indexBasePath, metadataCoordinator)
-              .withDeploy(Deploy(scope = RemoteScope(member.address))),
-            name = s"metadata_${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
-          )
+            val metadataActor = context.system.actorOf(
+              MetadataActor
+                .props(indexBasePath, metadataCoordinator)
+                .withDeploy(Deploy(scope = RemoteScope(member.address))),
+              name = s"metadata_$nameNode"
+            )
 
-          mediator ! Subscribe("metadata", metadataActor)
-        case Failure(exception) =>
-          log.error(exception, "cannot find metadataCoordinator")
-          cluster.leave(member.address)
-      }
+            mediator ! Subscribe("metadata", metadataActor)
+
+            if (sharding) {
+              val namespaceActor = context.actorOf(
+                NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
+                s"namespace-data-actor_$nameNode")
+              writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
+            }
+          case Success(_) =>
+            log.error("cannot find metadataCoordinator or WriteCoordinator")
+            cluster.leave(member.address)
+          case Failure(exception) =>
+            log.error(exception, "cannot find metadataCoordinator or WriteCoordinator")
+            cluster.leave(member.address)
+        }
 
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)

@@ -51,8 +51,9 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
     context.actorOf(ReadCoordinator.props(namespaceSchemaActor), "read-coordinator")
   private val publisherActor = context.actorOf(PublisherActor.props(indexBasePath, readCoordinator, namespaceSchemaActor), "publisher-actor")
   private val writeCoordinator =
-    context.actorOf(WriteCoordinator.props(namespaceSchemaActor, commitLogService, publisherActor),
-                    "write-coordinator")
+    context.actorOf(
+      WriteCoordinator.props(metadataCoordinator, namespaceSchemaActor, commitLogService, publisherActor),
+      "write-coordinator")
 
   if (!context.system.settings.config.getBoolean("nsdb.sharding.enabled")) {
     implicit val timeout = Timeout(5 seconds)

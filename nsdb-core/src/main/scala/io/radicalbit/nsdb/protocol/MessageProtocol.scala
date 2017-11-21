@@ -37,7 +37,7 @@ object MessageProtocol {
     case object GetWriteCoordinator
     case object GetPublisher
 
-    case class SubscribeNamespaceDataActor(actor: ActorRef, host: Option[String] = None)
+    case class SubscribeNamespaceDataActor(actor: ActorRef, nodeName: Option[String] = None)
   }
 
   object Events {

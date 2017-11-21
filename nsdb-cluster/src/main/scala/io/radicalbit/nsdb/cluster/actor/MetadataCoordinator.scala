@@ -1,40 +1,69 @@
 package io.radicalbit.nsdb.cluster.actor
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLastLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, _}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.index.Location
 
+import scala.concurrent.Future
+
 class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   val mediator: ActorRef = DistributedPubSub(context.system).mediator
+
+  val cluster = Cluster(context.system)
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
 
+  lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
+  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
   override def receive: Receive = {
-    case GetLastLocation(db, namespace, metric, _) =>
-      (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric))).map {
-        case CachedLocations(_, values) if values.nonEmpty => LocationGot(db, namespace, metric, Some(values.last))
-        case CachedLocations(_, _)                         => LocationGot(db, namespace, metric, None)
-      }
+    case GetWriteLocation(db, namespace, metric, timestamp) =>
+      (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
+        .flatMap {
+          case CachedLocations(_, values) if values.nonEmpty =>
+            values.find(v => v.from <= timestamp && v.to >= timestamp) match {
+              case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
+              case None =>
+                val nodeName =
+                  s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+                (self ? AddLocation(
+                  db,
+                  namespace,
+                  Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
+                  case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                  case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                }
+            }
+
+          case CachedLocations(_, _) =>
+            (self ? AddLocation(db, namespace, Location(metric, "", 0, shardingInterval.toMillis))).map {
+              case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+              case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+            }
+        }
+        .pipeTo(sender())
 
     case msg @ AddLocation(db, namespace, location, occurredOn) =>
       (cache ? PutInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
         .map {
           case Cached(_, Some(_)) =>
             mediator ! Publish("metadata", msg)
-            LocationAdded(db, namespace, location, occurredOn)
-          case _ => AddLocationFailed(db, namespace, location, occurredOn)
+            LocationAdded(db, namespace, location)
+          case _ => AddLocationFailed(db, namespace, location)
         }
         .pipeTo(sender)
   }
@@ -49,6 +78,7 @@ object MetadataCoordinator {
                                namespace: String,
                                metric: String,
                                occurredOn: Long = System.currentTimeMillis)
+    case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class UpdateLocation(db: String,
                               namespace: String,
                               oldLocation: Location,

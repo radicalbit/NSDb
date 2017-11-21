@@ -75,7 +75,8 @@ class WriteCoordinatorSpec
     PublisherActor.props("target/test_index",
                          system.actorOf(Props[FakeReadCoordinatorActor]),
                          system.actorOf(Props[FakeNamespaceSchemaActor])))
-  val writeCoordinatorActor = system actorOf WriteCoordinator.props(namespaceSchemaActor,
+  val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
+                                                                    namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
                                                                     publisherActor)
 
@@ -89,7 +90,7 @@ class WriteCoordinatorSpec
 
     implicit val timeout = Timeout(3 seconds)
 
-    Await.result((writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor)), 3 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
   }
 
   "WriteCoordinator" should "write records" in {
