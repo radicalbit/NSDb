@@ -5,7 +5,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "nsdb",
-    crossScalaVersions := Seq("2.11.11"),
+    crossScalaVersions := Seq("2.11.11", "2.12.4"),
     publish := {},
     publishLocal := {}
   )
@@ -130,6 +130,7 @@ lazy val `nsdb-flink-connector` = project
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
+  .settings(scalaVersion := "2.11.11")
   .settings(libraryDependencies ++= Dependencies.Performance.libraries)
   .enablePlugins(GatlingPlugin)
 

@@ -6,7 +6,7 @@ import sbtassembly.PathList
 
 object Commons {
 
-  val scalaVer = "2.11.11"
+  val scalaVer = "2.12.4"
 
   val settings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,
