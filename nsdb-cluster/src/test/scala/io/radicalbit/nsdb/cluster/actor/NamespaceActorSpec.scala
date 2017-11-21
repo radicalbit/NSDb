@@ -122,7 +122,7 @@ class NamespaceActorSpec()
       expectedCount2.count shouldBe 1
     }
 
-    namespaceActor.underlyingActor.indexerActors.keys.size shouldBe 1
+    namespaceActor.underlyingActor.childActors.keys.size shouldBe 1
 
     probe.send(namespaceActor, DeleteNamespace(db, namespace1))
     within(5 seconds) {
@@ -131,7 +131,7 @@ class NamespaceActorSpec()
 
     waitInterval
 
-    namespaceActor.underlyingActor.indexerActors.keys.size shouldBe 0
+    namespaceActor.underlyingActor.childActors.keys.size shouldBe 0
   }
 
 }

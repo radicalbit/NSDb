@@ -64,7 +64,7 @@ class ReadCoordinatorSpec
 
         within(5 seconds) {
           val expected = probe.expectMsgType[NamespacesGot]
-          expected.namespaces shouldBe Seq(namespace)
+          expected.namespaces shouldBe Set(namespace)
         }
 
       }
@@ -77,7 +77,7 @@ class ReadCoordinatorSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[MetricsGot]
           expected.namespace shouldBe namespace
-          expected.metrics shouldBe Seq("people")
+          expected.metrics shouldBe Set("people")
         }
       }
     }

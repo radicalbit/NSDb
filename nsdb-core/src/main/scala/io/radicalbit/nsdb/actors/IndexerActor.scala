@@ -115,7 +115,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
 
   def readOps: Receive = {
     case GetMetrics(_, _) =>
-      sender() ! MetricsGot(db, namespace, indexes.keys.toSeq)
+      sender() ! MetricsGot(db, namespace, indexes.keys.toSet)
     case GetCount(_, ns, metric) =>
       val index = getIndex(metric)
       val hits  = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)

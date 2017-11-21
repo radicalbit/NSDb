@@ -152,7 +152,7 @@ class WriteCoordinatorSpec
     within(5 seconds) {
       probe.expectMsgType[NamespaceDeleted]
 
-      namespaceDataActor.underlyingActor.indexerActors.keys.size shouldBe 0
+      namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
       namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
     }
   }

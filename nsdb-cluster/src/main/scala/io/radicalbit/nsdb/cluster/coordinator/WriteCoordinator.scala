@@ -7,9 +7,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetWriteLocation
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetWriteLocation, UpdateLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -58,6 +58,20 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       sender() ! NamespaceDataActorSubscribed(actor, Some(nodeName))
     case SubscribeNamespaceDataActor(actor: ActorRef, None) =>
       sender() ! NamespaceDataActorSubscriptionFailed(actor, None, "cannot subscribe ")
+
+    case msg @ GetNamespaces(db) =>
+      Future
+        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
+        .map(_.flatten.toSet)
+        .map(namespaces => NamespacesGot(db, namespaces))
+        .pipeTo(sender)
+    case msg @ GetMetrics(db, namespace) =>
+      Future
+        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[MetricsGot].map(_.metrics)))
+        .map(_.flatten.toSet)
+        .map(metrics => MetricsGot(db, namespace, metrics))
+        .pipeTo(sender)
+
     case MapInput(ts, db, namespace, metric, bit) =>
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
@@ -73,11 +87,13 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
               .flatMap(ack => {
                 publisherActor ! InputMapped(db, namespace, metric, bit)
                 (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ack.ts)).mapTo[LocationGot].flatMap {
-                  case LocationGot(_, _, _, Some(Location(_, node, _, _, _))) =>
-                    namespaces.get(node) match {
-                      case Some(actor) => (actor ? AddRecord(db, namespace, ack.metric, ack.bit)).mapTo[RecordAdded]
+                  case LocationGot(_, _, _, Some(loc)) =>
+                    namespaces.get(loc.node) match {
+                      case Some(actor) =>
+                        metadataCoordinator ! UpdateLocation(db, namespace, loc, bit.timestamp)
+                        (actor ? AddRecordToLocation(db, namespace, ack.metric, ack.bit, loc)).mapTo[RecordAdded]
                       case None =>
-                        Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node $node")))
+                        Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${loc.node}")))
                     }
                   case _ => Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
                 }
@@ -91,6 +107,11 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                       errs.mkString(","))
             Future(RecordRejected(db, namespace, metric, bit, errs))
         }
+        .pipeTo(sender())
+    case msg @ (DeleteNamespace(_, _) | ExecuteDeleteStatement(_) | DropMetric(_, _, _)) =>
+      Future
+        .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
+        .map(_.head)
         .pipeTo(sender())
   }
 

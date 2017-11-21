@@ -41,9 +41,9 @@ object MessageProtocol {
   }
 
   object Events {
-    case class NamespacesGot(db: String, namespaces: Seq[String])
+    case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
-    case class MetricsGot(db: String, namespace: String, metrics: Seq[String])
+    case class MetricsGot(db: String, namespace: String, metrics: Set[String])
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String)
 
