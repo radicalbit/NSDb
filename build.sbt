@@ -5,20 +5,23 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "nsdb",
-    crossScalaVersions := Seq("2.11.11", "2.12.3"),
+    crossScalaVersions := Seq("2.11.11"),
     publish := {},
     publishLocal := {}
   )
-  .aggregate(`nsdb-common`,
-             `nsdb-core`,
-             `nsdb-http`,
-             `nsdb-cluster`,
-             `nsdb-rpc`,
-             `nsdb-akka-client`,
-             `nsdb-scala-api`,
-             `nsdb-sql`,
-             `nsdb-cli`,
-             `nsdb-flink-connector`)
+  .aggregate(
+    `nsdb-common`,
+    `nsdb-core`,
+    `nsdb-http`,
+    `nsdb-cluster`,
+    `nsdb-rpc`,
+    `nsdb-akka-client`,
+    `nsdb-scala-api`,
+    `nsdb-sql`,
+    `nsdb-cli`,
+    `nsdb-flink-connector`,
+    `nsdb-perf`
+  )
 
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
@@ -123,6 +126,12 @@ lazy val `nsdb-flink-connector` = project
     addArtifact(artifact in (Compile, assembly), assembly)
   )
   .dependsOn(`nsdb-scala-api`)
+
+lazy val `nsdb-perf` = (project in file("nsdb-perf"))
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
+  .settings(libraryDependencies ++= Dependencies.Performance.libraries)
+  .enablePlugins(GatlingPlugin)
 
 onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value
 

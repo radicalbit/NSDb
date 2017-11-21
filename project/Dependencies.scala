@@ -27,7 +27,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.2"
+    lazy val version   = "2.5.6"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -50,7 +50,7 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.0.9"
+    lazy val version   = "10.0.10"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
@@ -136,6 +136,19 @@ object Dependencies {
     lazy val version   = "0.3.2"
     lazy val namespace = "de.vandermeer"
     lazy val core      = namespace % "asciitable" % version
+  }
+
+  object config {
+    lazy val version   = "1.3.1"
+    lazy val namespace = "com.typesafe"
+    lazy val core      = namespace % "config" % version
+  }
+
+  object gatling {
+    lazy val version    = "2.2.0"
+    lazy val namespace  = "io.gatling"
+    lazy val test       = namespace % "gatling-test-framework" % version
+    lazy val highcharts = s"$namespace.highcharts" % "gatling-charts-highcharts" % version
   }
 
   object Core {
@@ -224,6 +237,14 @@ object Dependencies {
       javaWebsocket.javaWebsocket,
       scalatest.core % Test,
       akka_http.testkit
+    )
+  }
+
+  object Performance {
+    lazy val libraries = Seq(
+      config.core,
+      gatling.test       % Test,
+      gatling.highcharts % Test
     )
   }
 }

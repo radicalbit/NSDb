@@ -1,0 +1,4 @@
+{
+  "namespace": "twitter",
+  "queryString": "select * from KeyedAggregation limit 1"
+}

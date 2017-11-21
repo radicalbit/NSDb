@@ -75,7 +75,9 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       .getOrElse(Failure(new RuntimeException("Select a namespace before tu run non-namespace related statements.")))
 
   def sendCommand(stm: NSDBStatement, lineToRecord: String): Result = stm match {
-    case ShowNamespaces => result()
+    case ShowNamespaces =>
+      echo("Work in progress...")
+      result()
     case UseNamespace(namespace) =>
       currentNamespace = Some(namespace)
       echo(s"The namespace $namespace has been selected.")
@@ -84,7 +86,6 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       send(clientDelegate.executeCommandStatement(x), ASCIITableBuilder.tableForMetrics, lineToRecord)
     case x: DescribeMetric =>
       send(clientDelegate.executeCommandStatement(x), ASCIITableBuilder.tableForDescribeMetric, lineToRecord)
-
     case x: SQLStatement =>
       send(clientDelegate.executeSqlStatement(x), ASCIITableBuilder.tableFor, lineToRecord)
   }
