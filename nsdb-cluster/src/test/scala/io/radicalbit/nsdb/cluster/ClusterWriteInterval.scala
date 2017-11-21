@@ -6,7 +6,7 @@ import akka.testkit.TestKit
 
 import scala.concurrent.duration.FiniteDuration
 
-trait WriteInterval { this: TestKit =>
+trait ClusterWriteInterval { this: TestKit =>
 
   private lazy val interval = FiniteDuration(
     system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),

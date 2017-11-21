@@ -4,13 +4,13 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.WriteInterval
+import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import scala.concurrent.Await
 
 class NamespaceActorSpec()
@@ -19,7 +19,7 @@ class NamespaceActorSpec()
     with FlatSpecLike
     with Matchers
     with BeforeAndAfter
-    with WriteInterval {
+    with ClusterWriteInterval {
 
   val probe          = TestProbe()
   val probeActor     = probe.ref

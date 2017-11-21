@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -32,16 +32,9 @@ class IndexerActorSpec()
   val indexerActor = system.actorOf(IndexerActor.props(basePath, db, namespace))
 
   before {
-    val paths = Seq(s"$basePath/$namespace/indexerActorMetric", s"$basePath/$namespace/indexerActorMetric2")
-
-    paths.foreach { path =>
-      val directory = new MMapDirectory(Paths.get(path))
-      val writer    = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-      writer.deleteAll()
-      writer.flush()
-      writer.close()
-    }
-
+    import scala.collection.JavaConverters._
+    if (Paths.get(basePath, db).toFile.exists())
+      Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
   }
 
   "IndexerActor" should "write and delete properly" in {
@@ -81,12 +74,12 @@ class IndexerActorSpec()
 
   "IndexerActor" should "write and delete properly in multiple indexes" in {
 
-    probe.send(indexerActor, DeleteAllMetrics(db, namespace))
-    within(5 seconds) {
-      probe.expectMsgType[AllMetricsDeleted]
-    }
-
-    waitInterval
+//    probe.send(indexerActor, DeleteAllMetrics(db, namespace))
+//    within(5 seconds) {
+//      probe.expectMsgType[AllMetricsDeleted]
+//    }
+//
+//    waitInterval
 
     val bit = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
 
