@@ -60,6 +60,10 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, _) =>
       getChild(db, namespace).forward(msg)
+    case msg @ GetCount(db, namespace, _) =>
+      getChild(db, namespace).forward(msg)
+    case msg @ ExecuteSelectStatement(statement, _) =>
+      getChild(statement.db, statement.namespace).forward(msg)
   }
 
   def receiveShard: Receive = {
@@ -70,7 +74,6 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   }
 
   def receiveNoShard: Receive = {
-
     case msg @ AddRecord(db, namespace, _, _) =>
       getChild(db, namespace).forward(msg)
     case msg @ AddRecords(db, namespace, _, _) =>

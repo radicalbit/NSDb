@@ -30,7 +30,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
   private val statementParser = new StatementParser()
 
-  private val shards: mutable.Map[ShardKey, TimeSeriesIndex]       = mutable.Map.empty
+  val shards: mutable.Map[ShardKey, TimeSeriesIndex]               = mutable.Map.empty
   private val indexSearchers: mutable.Map[ShardKey, IndexSearcher] = mutable.Map.empty
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
@@ -68,17 +68,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       }
     )
 
-  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]): Unit = {
-    out match {
-      case Success(docs) =>
-        log.debug("found {} records", docs.size)
-        sender() ! SelectStatementExecuted(db = db, namespace = namespace, metric = metric, docs)
-      case Failure(_: IndexNotFoundException) =>
-        log.debug("index not found")
-        sender() ! SelectStatementExecuted(db = db, namespace = namespace, metric = metric, Seq.empty)
-      case Failure(ex) =>
-        log.error(ex, "select statement failed")
-        sender() ! SelectStatementFailed(ex.getMessage)
+  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
+    out.recoverWith {
+      case _: IndexNotFoundException => Success(Seq.empty)
     }
   }
 
@@ -121,15 +113,29 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       }.sum
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>
-//      implicit val searcher: IndexSearcher = getSearcher(statement.metric)
-//      statementParser.parseStatement(statement, Some(schema)) match {
-//        case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
-//          handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
-//        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
-//          handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
-//        case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage)
-//        case _           => sender() ! SelectStatementFailed("Not a select statement.")
-//      }
+      val shardResults: Seq[Try[Seq[Bit]]] = statementParser.parseStatement(statement, Some(schema)) match {
+        case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
+          val indexes = getMetricIndexes(statement.metric)
+          indexes.toSeq.map {
+            case (key, index) =>
+              implicit val searcher: IndexSearcher = getSearcher(key)
+              handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
+          }
+        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
+          val indexes = getMetricIndexes(statement.metric)
+          indexes.toSeq.map {
+            case (key, index) =>
+              implicit val searcher: IndexSearcher = getSearcher(key)
+              handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
+          }
+        case Failure(ex) => Seq(Failure(ex))
+        case _           => Seq(Failure(new RuntimeException("Not a select statement.")))
+      }
+      val combinedResult = Try(shardResults.flatMap(_.get))
+      combinedResult match {
+        case Success(bits) => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
+        case Failure(ex)   => sender() ! SelectStatementFailed(ex.getMessage)
+      }
   }
 
   private val opBufferMap: mutable.Map[ShardKey, Seq[Operation]] = mutable.Map.empty
@@ -169,7 +175,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       statementParser.parseStatement(statement) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
           opBufferMap.filter(_._1.metric == metric).foreach {
-            case (key, seq) =>
+            case (key, _) =>
               opBufferMap
                 .get(key)
                 .fold {
@@ -189,27 +195,27 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
   def perform: Receive = {
     case PerformWrites =>
-      opBufferMap.keys.foreach { metric =>
-        val index                        = getIndex(metric)
-        implicit val writer: IndexWriter = index.getWriter
-        opBufferMap(metric).foreach {
-          case WriteOperation(_, _, bit) =>
-            index.write(bit) match {
-              case Valid(_)      =>
-              case Invalid(errs) => log.error(errs.toList.mkString(","))
-            }
-          //TODO handle errors
-          case DeleteRecordOperation(_, _, bit) =>
-            index.delete(bit)
-          case DeleteQueryOperation(_, _, q) =>
-            val index                        = getIndex(metric)
-            implicit val writer: IndexWriter = index.getWriter
-            index.delete(q)
-        }
-        writer.flush()
-        writer.close()
-        indexSearchers.get(metric).foreach(index.release)
-        indexSearchers -= metric
+      opBufferMap.foreach {
+        case (key, ops) =>
+          val index                        = getIndex(key)
+          implicit val writer: IndexWriter = index.getWriter
+          ops.foreach {
+            case WriteOperation(_, _, bit) =>
+              index.write(bit) match {
+                case Valid(_)      =>
+                case Invalid(errs) => log.error(errs.toList.mkString(","))
+              }
+            //TODO handle errors
+            case DeleteRecordOperation(_, _, bit) =>
+              index.delete(bit)
+            case DeleteQueryOperation(_, _, q) =>
+              implicit val writer: IndexWriter = index.getWriter
+              index.delete(q)
+          }
+          writer.flush()
+          writer.close()
+          indexSearchers.get(key).foreach(index.release)
+          indexSearchers -= key
       }
       opBufferMap.clear()
       self ! Accumulate

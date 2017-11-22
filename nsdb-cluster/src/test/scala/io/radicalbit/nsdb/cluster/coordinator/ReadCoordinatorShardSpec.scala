@@ -4,9 +4,12 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
@@ -18,8 +21,11 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class ReadCoordinatorSpec
-    extends TestKit(ActorSystem("nsdb-test"))
+class ReadCoordinatorShardSpec
+    extends TestKit(ActorSystem("nsdb-test",
+      ConfigFactory
+.load()
+.withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))))
     with ImplicitSender
     with WordSpecLike
     with Matchers
@@ -35,28 +41,41 @@ class ReadCoordinatorSpec
   val namespaceDataActor   = system.actorOf(NamespaceDataActor.props(basePath))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaActor)
 
-  val records: Seq[Bit] = Seq(
+  val recordsShard1: Seq[Bit] = Seq(
     Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
     Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
-    Bit(6L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
-    Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
-    Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
   )
+
+  val recordsShard2: Seq[Bit] = Seq(
+    Bit(11L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(12L, 1L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(13L, 1L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
+  )
+
+  val records = recordsShard1 ++ recordsShard2
 
   override def beforeAll(): Unit = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
-    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", records.head), 3 seconds)
+    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
+    Await.result(namespaceDataActor ? DeleteMetric(db, namespace, "people"), 3 seconds)
 
-    namespaceDataActor ! AddRecords(db, namespace, "people", records)
+    val schema = Schema(
+      "people",
+      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
+    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
+
+    val location1 = Location("people", "node1", 0,10,0)
+    val location2 = Location("people", "node1", 11,20,11)
+
+    recordsShard1.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r,location1))
+    recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r,location2))
 
     waitInterval
   }
 
-  "ReadCoordinator" when {
+  "ReadCoordinator in shard mode" when {
 
     "receive a GetNamespace" should {
       "return it properly" in {
@@ -91,16 +110,10 @@ class ReadCoordinatorSpec
           expected.namespace shouldBe namespace
           expected.metric shouldBe "people"
           expected.schema shouldBe Some(
-            Schema(
-              "people",
-              Seq(
-                SchemaField("name", VARCHAR()),
-                SchemaField("timestamp", BIGINT()),
-                SchemaField("surname", VARCHAR()),
-                SchemaField("creationDate", BIGINT()),
-                SchemaField("value", BIGINT())
-              )
-            ))
+            Schema("people",
+                   Seq(SchemaField("name", VARCHAR()),
+                       SchemaField("surname", VARCHAR()),
+                       SchemaField("creationDate", BIGINT()))))
         }
       }
     }
@@ -118,13 +131,14 @@ class ReadCoordinatorSpec
                    ))
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
+
           expected.values shouldBe records
         }
       }
     }
 
     "receive a select projecting a list of fields" should {
-      "execute it successfully with only simple fields" in {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -148,75 +162,6 @@ class ReadCoordinatorSpec
             Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
             Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
           )
-        }
-
-      }
-      "execute it successfully with mixed aggregated and simple" in {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = "people",
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)),
-                     Field("name", None),
-                     Field("creationDate", Some(CountAggregation)))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        within(5 seconds) {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values shouldBe Seq(
-            Bit(2L, 1L, Map("name" -> "John", "count(*)"  -> 4, "count(creationDate)" -> 4)),
-            Bit(4L, 1L, Map("name" -> "John", "count(*)"  -> 4, "count(creationDate)" -> 4)),
-            Bit(6L, 1L, Map("name" -> "Bill", "count(*)"  -> 4, "count(creationDate)" -> 4)),
-            Bit(8L, 1L, Map("name" -> "Frank", "count(*)" -> 4, "count(creationDate)" -> 4))
-          )
-        }
-      }
-      "execute it successfully with only a count" in {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = "people",
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)))
-              ),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        within(5 seconds) {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values shouldBe Seq(
-            Bit(0, 4L, Map("count(*)" -> 4))
-          )
-        }
-      }
-      "fail when other aggregation than count is provided" in {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = "people",
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)),
-                     Field("surname", None),
-                     Field("creationDate", Some(SumAggregation)))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        within(5 seconds) {
-          probe.expectMsgType[SelectStatementFailed]
         }
       }
     }

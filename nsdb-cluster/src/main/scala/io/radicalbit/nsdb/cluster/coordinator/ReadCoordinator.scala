@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
@@ -8,17 +9,59 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
+import scala.collection.mutable
 import scala.concurrent.Future
 
-class ReadCoordinator(namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
+class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
+  lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
+  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
   import context.dispatcher
 
-  override def receive: Receive = init
+  private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
+
+  override def receive: Receive = if (sharding) shardBehaviour else init
+
+  def shardBehaviour: Receive = {
+    case SubscribeNamespaceDataActor(actor: ActorRef, Some(nodeName)) =>
+      namespaces += (nodeName -> actor)
+      sender() ! NamespaceDataActorSubscribed(actor, Some(nodeName))
+    case msg @ GetNamespaces(db) =>
+      Future
+        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
+        .map(_.flatten.toSet)
+        .map(namespaces => NamespacesGot(db, namespaces))
+        .pipeTo(sender)
+    case msg @ GetMetrics(db, namespace) =>
+      Future
+        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[MetricsGot].map(_.metrics)))
+        .map(_.flatten.toSet)
+        .map(metrics => MetricsGot(db, namespace, metrics))
+        .pipeTo(sender)
+    case msg: GetSchema =>
+      namespaceSchemaActor forward msg
+    case ExecuteStatement(statement) =>
+      log.debug(s"executing $statement")
+      (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+        .mapTo[SchemaGot]
+        .flatMap {
+          case SchemaGot(_, _, _, Some(schema)) =>
+            Future
+              .sequence(namespaces.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
+              .map {
+                case e: Seq[SelectStatementExecuted] =>
+                  SelectStatementExecuted(statement.db, statement.namespace, statement.metric, e.flatMap(_.values))
+                case _ => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)
+              }
+          case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
+        }
+        .pipeTo(sender())
+  }
 
   def init: Receive = {
     case SubscribeNamespaceDataActor(actor: ActorRef, _) =>
@@ -34,7 +77,6 @@ class ReadCoordinator(namespaceSchemaActor: ActorRef) extends Actor with ActorLo
       namespaceDataActor forward msg
     case msg: GetSchema =>
       namespaceSchemaActor forward msg
-      namespaceDataActor forward msg
     case ExecuteStatement(statement) =>
       log.debug(s"executing $statement")
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
@@ -49,7 +91,7 @@ class ReadCoordinator(namespaceSchemaActor: ActorRef) extends Actor with ActorLo
 
 object ReadCoordinator {
 
-  def props(schemaActor: ActorRef): Props =
-    Props(new ReadCoordinator(schemaActor))
+  def props(metadataCoordinator: ActorRef, schemaActor: ActorRef): Props =
+    Props(new ReadCoordinator(metadataCoordinator, schemaActor))
 
 }
