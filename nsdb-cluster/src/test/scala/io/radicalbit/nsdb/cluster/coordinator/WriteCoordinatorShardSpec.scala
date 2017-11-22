@@ -36,7 +36,8 @@ class WriteCoordinatorShardSpec
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
     PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor])))
-  val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
+  val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
+  val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
                                                                     publisherActor)
@@ -48,7 +49,7 @@ class WriteCoordinatorShardSpec
 
     implicit val timeout = Timeout(3 seconds)
 
-    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
   }
 
   "WriteCoordinator in shard mode" should "write records" in {

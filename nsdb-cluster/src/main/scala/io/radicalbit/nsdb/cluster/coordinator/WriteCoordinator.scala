@@ -16,7 +16,6 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.collection.mutable
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 object WriteCoordinator {
 
@@ -57,7 +56,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     Future
       .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
-      .pipeTo(sender())
 
   def shardBehaviour: Receive = {
     case SubscribeNamespaceDataActor(actor: ActorRef, Some(nodeName)) =>
@@ -98,15 +96,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                     namespaces.get(loc.node) match {
                       case Some(actor) =>
                         metadataCoordinator ! UpdateLocation(db, namespace, loc, bit.timestamp)
-                        (actor ? AddRecordToLocation(db, namespace, ack.metric, ack.bit, loc)).mapTo[RecordAdded]
+                        (actor ? AddRecordToLocation(db, namespace, ack.metric, ack.bit, loc)).map {
+                          case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
+                          case msg: RecordRejected => msg
+                          case _ =>
+                            RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
+                        }
                       case None =>
                         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${loc.node}")))
                     }
                   case _ => Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
                 }
-                Future(RecordAdded(db, namespace, metric, bit))
               })
-              .map(r => InputMapped(db, namespace, metric, r.record))
           case UpdateSchemaFailed(_, _, _, errs) =>
             log.error("Invalid schema for the metric {} and the bit {}. Error are {}.",
                       metric,
@@ -119,17 +120,17 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       if (namespaces.isEmpty)
         (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
       else
-        (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
+        (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(sender)
     case msg @ ExecuteDeleteStatement(statement) =>
       if (namespaces.isEmpty)
         sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
       else
-        broadcastMessage(msg)
+        broadcastMessage(msg).pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       if (namespaces.isEmpty)
         sender() ! MetricDropped(db, namespace, metric)
       else
-        broadcastMessage(msg)
+        broadcastMessage(msg).pipeTo(sender())
   }
 
   def init: Receive = {
