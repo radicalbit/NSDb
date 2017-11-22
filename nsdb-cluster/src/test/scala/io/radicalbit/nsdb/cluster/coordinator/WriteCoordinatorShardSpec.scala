@@ -3,18 +3,14 @@ package io.radicalbit.nsdb.cluster.coordinator
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
-import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
-import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.cluster.coordinator.Facilities._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -22,13 +18,16 @@ import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class WriteCoordinatorSpec
-    extends TestKit(ActorSystem("nsdb-test"))
+class WriteCoordinatorShardSpec
+    extends TestKit(
+      ActorSystem("nsdb-test",
+                  ConfigFactory
+                    .load()
+                    .withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll
-    with ClusterWriteInterval {
+    with BeforeAndAfterAll {
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
@@ -36,16 +35,11 @@ class WriteCoordinatorSpec
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props("target/test_index"))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
-    PublisherActor.props("target/test_index",
-                         system.actorOf(Props[FakeReadCoordinatorActor]),
-                         system.actorOf(Props[FakeNamespaceSchemaActor])))
+    PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor])))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
                                                                     publisherActor)
-
-  val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
-  val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
 
   override def beforeAll() = {
     import akka.pattern.ask
@@ -57,7 +51,9 @@ class WriteCoordinatorSpec
     Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
   }
 
-  "WriteCoordinator" should "write records" in {
+  "WriteCoordinator in shard mode" should "write records" in {
+    val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
+    val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
     val incompatibleRecord =
       Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"))
 
@@ -80,12 +76,12 @@ class WriteCoordinatorSpec
 
   }
 
-  "WriteCoordinator" should "write records and publish event to its subscriber" in {
+  "WriteCoordinator in shard mode" should "write records and publish event to its subscriber" in {
     val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
     val testSqlStatement = SelectSQLStatement(
       db = "db",
-      namespace = "testNamespace",
+      namespace = "registry",
       metric = "testMetric",
       fields = AllFields,
       condition = Some(
@@ -110,7 +106,7 @@ class WriteCoordinatorSpec
     }
   }
 
-  "WriteCoordinator" should "delete a namespace" in {
+  "WriteCoordinator in shard mode" should "delete a namespace" in {
     probe.send(writeCoordinatorActor, DeleteNamespace("db", "testNamespace"))
 
     within(5 seconds) {
@@ -121,7 +117,7 @@ class WriteCoordinatorSpec
     }
   }
 
-  "WriteCoordinator" should "delete entries" in {
+  "WriteCoordinator in shard mode" should "delete entries" in {
 
     val records: Seq[Bit] = Seq(
       Bit(2, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
@@ -157,28 +153,9 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "drop a metric" in {
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record1))
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record2))
-    probe.expectMsgType[InputMapped]
-    probe.expectMsgType[InputMapped]
-
-    waitInterval
-
-    probe.send(namespaceDataActor, GetCount("db", "testNamespace", "testMetric"))
-    within(5 seconds) {
-      probe.expectMsgType[CountGot].count shouldBe 2
-    }
-
     probe.send(writeCoordinatorActor, DropMetric("db", "testNamespace", "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[MetricDropped]
-    }
-
-    waitInterval
-
-    probe.send(namespaceDataActor, GetCount("db", "testNamespace", "testMetric"))
-    within(5 seconds) {
-      probe.expectMsgType[CountGot].count shouldBe 0
     }
   }
 

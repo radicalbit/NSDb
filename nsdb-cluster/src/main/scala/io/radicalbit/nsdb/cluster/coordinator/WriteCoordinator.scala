@@ -16,6 +16,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object WriteCoordinator {
 
@@ -51,6 +52,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
   private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   override def receive: Receive = if (sharding) shardBehaviour else init
+
+  private def broadcastMessage(msg: Any) =
+    Future
+      .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
+      .map(_.head)
+      .pipeTo(sender())
 
   def shardBehaviour: Receive = {
     case SubscribeNamespaceDataActor(actor: ActorRef, Some(nodeName)) =>
@@ -108,11 +115,21 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             Future(RecordRejected(db, namespace, metric, bit, errs))
         }
         .pipeTo(sender())
-    case msg @ (DeleteNamespace(_, _) | ExecuteDeleteStatement(_) | DropMetric(_, _, _)) =>
-      Future
-        .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
-        .map(_.head)
-        .pipeTo(sender())
+    case msg @ DeleteNamespace(db, namespace) =>
+      if (namespaces.isEmpty)
+        (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
+      else
+        (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
+    case msg @ ExecuteDeleteStatement(statement) =>
+      if (namespaces.isEmpty)
+        sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
+      else
+        broadcastMessage(msg)
+    case msg @ DropMetric(db, namespace, metric) =>
+      if (namespaces.isEmpty)
+        sender() ! MetricDropped(db, namespace, metric)
+      else
+        broadcastMessage(msg)
   }
 
   def init: Receive = {
