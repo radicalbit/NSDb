@@ -47,7 +47,7 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    Await.result(namespaceDataActor ? DeleteMetric(db, namespace, "people"), 3 seconds)
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
