@@ -3,11 +3,9 @@ package io.radicalbit.nsdb.cluster.coordinator
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
-import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
+import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
 import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.cluster.coordinator.Facilities._
@@ -44,12 +42,12 @@ class WriteCoordinatorSpec
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
                                                                     publisherActor)
 
-  val db = "writeCoordinatorSpecDB"
+  val db        = "writeCoordinatorSpecDB"
   val namespace = "testNamespace"
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
-  
+
   override def beforeAll() = {
     import akka.pattern.ask
 

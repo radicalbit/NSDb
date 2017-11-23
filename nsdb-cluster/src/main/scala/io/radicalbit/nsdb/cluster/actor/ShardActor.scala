@@ -75,14 +75,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
   }
 
   def ddlOps: Receive = {
-    case DeleteMetric(_, ns, metric) =>
-      val indexes = getMetricIndexes(metric).values
-      indexes.foreach(index => {
-        implicit val writer: IndexWriter = index.getWriter
-        index.deleteAll()
-        writer.close()
-      })
-      sender ! MetricDeleted(db, ns, metric)
     case DeleteAllMetrics(_, ns) =>
       shards.foreach {
         case (_, index) =>
@@ -97,6 +89,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
+          indexSearchers.get(key).foreach(index.release)
+          indexSearchers -= key
           shards -= key
       }
       sender() ! MetricDropped(db, namespace, metric)
@@ -119,7 +113,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           indexes.toSeq.map {
             case (key, index) =>
               implicit val searcher: IndexSearcher = getSearcher(key)
-              val res = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
+              val res                              = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
               res
           }
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
