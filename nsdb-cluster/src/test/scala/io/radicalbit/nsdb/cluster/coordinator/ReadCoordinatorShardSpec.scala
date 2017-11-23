@@ -16,6 +16,7 @@ import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import org.scalactic.source.Position
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -29,7 +30,7 @@ class ReadCoordinatorShardSpec
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfterAll
+    with BeforeAndAfter
     with ClusterWriteInterval {
 
   val probe                = TestProbe()
@@ -54,12 +55,12 @@ class ReadCoordinatorShardSpec
 
   val records = recordsShard1 ++ recordsShard2
 
-  override def beforeAll(): Unit = {
+  before {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
-    Await.result(namespaceDataActor ? DeleteMetric(db, namespace, "people"), 3 seconds)
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
 
     val schema = Schema(
       "people",
@@ -73,6 +74,13 @@ class ReadCoordinatorShardSpec
     recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r,location2))
 
     waitInterval
+
+    probe.send(namespaceDataActor, GetCount(db, namespace, "people"))
+
+    within(5 seconds) {
+      val expected = probe.expectMsgType[CountGot]
+      expected.count shouldBe 0
+    }
   }
 
   "ReadCoordinator in shard mode" when {

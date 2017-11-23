@@ -64,6 +64,7 @@ trait Index[T] {
 
   def deleteAll()(implicit writer: IndexWriter): Unit = {
     writer.deleteAll()
+    writer.forceMergeDeletes(true)
     writer.flush()
   }
 

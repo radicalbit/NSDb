@@ -44,9 +44,12 @@ class WriteCoordinatorSpec
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
                                                                     publisherActor)
 
+  val db = "writeCoordinatorSpecDB"
+  val namespace = "testNamespace"
+
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
-
+  
   override def beforeAll() = {
     import akka.pattern.ask
 
@@ -61,20 +64,20 @@ class WriteCoordinatorSpec
     val incompatibleRecord =
       Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"))
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record2))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 
     val expectedAdd2 = probe.expectMsgType[InputMapped]
     expectedAdd2.metric shouldBe "testMetric"
     expectedAdd2.record shouldBe record2
 
     probe.send(writeCoordinatorActor,
-               MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", incompatibleRecord))
+               MapInput(System.currentTimeMillis, db, namespace, "testMetric", incompatibleRecord))
 
     probe.expectMsgType[RecordRejected]
 
@@ -84,8 +87,8 @@ class WriteCoordinatorSpec
     val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
     val testSqlStatement = SelectSQLStatement(
-      db = "db",
-      namespace = "testNamespace",
+      db = db,
+      namespace = "registry",
       metric = "testMetric",
       fields = AllFields,
       condition = Some(
@@ -99,7 +102,7 @@ class WriteCoordinatorSpec
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
 
     probe.send(writeCoordinatorActor,
-               MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", testRecordSatisfy))
+               MapInput(System.currentTimeMillis, db, namespace, "testMetric", testRecordSatisfy))
 
     within(5 seconds) {
       val expectedAdd = probe.expectMsgType[InputMapped]
@@ -111,7 +114,7 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "delete a namespace" in {
-    probe.send(writeCoordinatorActor, DeleteNamespace("db", "testNamespace"))
+    probe.send(writeCoordinatorActor, DeleteNamespace(db, namespace))
 
     within(5 seconds) {
       probe.expectMsgType[NamespaceDeleted]
@@ -132,7 +135,7 @@ class WriteCoordinatorSpec
     )
 
     records.foreach(r =>
-      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testDelete", "testMetric", r)))
+      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, "testDelete", "testMetric", r)))
 
     within(5 seconds) {
       (0 to 4) foreach { _ =>
@@ -144,7 +147,7 @@ class WriteCoordinatorSpec
       writeCoordinatorActor,
       ExecuteDeleteStatement(
         DeleteSQLStatement(
-          db = "db",
+          db = db,
           namespace = "testDelete",
           metric = "testMetric",
           condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))
@@ -157,26 +160,27 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "drop a metric" in {
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record1))
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record2))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
+
     probe.expectMsgType[InputMapped]
     probe.expectMsgType[InputMapped]
 
     waitInterval
 
-    probe.send(namespaceDataActor, GetCount("db", "testNamespace", "testMetric"))
+    probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[CountGot].count shouldBe 2
     }
 
-    probe.send(writeCoordinatorActor, DropMetric("db", "testNamespace", "testMetric"))
+    probe.send(writeCoordinatorActor, DropMetric(db, namespace, "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[MetricDropped]
     }
 
     waitInterval
 
-    probe.send(namespaceDataActor, GetCount("db", "testNamespace", "testMetric"))
+    probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[CountGot].count shouldBe 0
     }
