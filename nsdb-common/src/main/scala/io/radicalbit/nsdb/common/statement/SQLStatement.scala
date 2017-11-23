@@ -10,8 +10,9 @@ case class ListFields(fields: List[Field]) extends SelectedFields
 
 case class ListAssignment(fields: Map[String, JSerializable])
 
-sealed trait Expression
 case class Condition(expression: Expression)
+
+sealed trait Expression
 case class UnaryLogicalExpression(expression: Expression, operator: SingleLogicalOperator) extends Expression
 case class TupledLogicalExpression(expression1: Expression, operator: TupledLogicalOperator, expression2: Expression)
     extends Expression

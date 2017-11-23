@@ -48,6 +48,13 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
   private def getMetricIndexes(metric: String) = shards.filter(_._1.metric == metric)
 
+  private def getMetricIndexesInTimeRange(metric: String, from: Long, to: Long) =
+    shards.filter {
+      case (key, _) =>
+        key.metric == metric &&
+          (key.from <= from || key.to >= to)
+    }
+
   private def getIndex(key: ShardKey) =
     shards.getOrElse(
       key, {
@@ -75,13 +82,19 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
   }
 
   override def preStart = {
-    Paths.get(basePath, db, namespace, "shards").toFile.list().filter(_.split("_").size == 3)
-        .map(_.split("_")).foreach { case Array(metric, from, to) =>
-      val directory =
-        new NIOFSDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}"))
-      val newIndex = new TimeSeriesIndex(directory)
-      shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
-    }
+    Paths
+      .get(basePath, db, namespace, "shards")
+      .toFile
+      .list()
+      .filter(_.split("_").size == 3)
+      .map(_.split("_"))
+      .foreach {
+        case Array(metric, from, to) =>
+          val directory =
+            new NIOFSDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}"))
+          val newIndex = new TimeSeriesIndex(directory)
+          shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
+      }
   }
 
   def ddlOps: Receive = {
@@ -156,16 +169,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           opBufferMap += (key -> (list :+ WriteOperation(ns, metric, bit)))
         }
       sender ! RecordAdded(db, ns, metric, bit)
-//    case AddRecords(_, ns, metric, bits) =>
-//      val ops = bits.map(WriteOperation(ns, metric, _))
-//      opBufferMap
-//        .get(metric)
-//        .fold {
-//          opBufferMap += (metric -> ops)
-//        } { list =>
-//          opBufferMap += (metric -> (list ++ ops))
-//        }
-//      sender ! RecordsAdded(db, ns, metric, bits)
     case DeleteRecordFromLocation(_, ns, metric, bit, location) =>
       val key = ShardKey(metric, location.from, location.to)
       opBufferMap
@@ -236,9 +239,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 }
 
 object ShardActor {
-
-//  case object PerformWrites
-//  case object Accumulate
 
   def props(basePath: String, db: String, namespace: String): Props = Props(new ShardActor(basePath, db, namespace))
 }

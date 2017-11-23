@@ -42,13 +42,21 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   import context.dispatcher
 
   override def preStart() = {
-    val childs = Paths.get(basePath).toFile.list().flatMap(db => {
-      Paths.get(basePath, db).toFile.list().map(namespace => (db,namespace))
-    })
-    childs.foreach { case (db, namespace) =>
-      childActors +=  (NamespaceKey(db,namespace) ->  (if (sharding) context.actorOf(ShardActor.props(basePath, db, namespace), s"shard-service-$db-$namespace")
-    else
-      context.actorOf(IndexerActor.props(basePath, db, namespace), s"indexer-service-$db-$namespace")))
+    val childs = Paths
+      .get(basePath)
+      .toFile
+      .list()
+      .flatMap(db => {
+        Paths.get(basePath, db).toFile.list().map(namespace => (db, namespace))
+      })
+    childs.foreach {
+      case (db, namespace) =>
+        childActors += (NamespaceKey(db, namespace) -> (if (sharding)
+                                                          context.actorOf(ShardActor.props(basePath, db, namespace),
+                                                                          s"shard-service-$db-$namespace")
+                                                        else
+                                                          context.actorOf(IndexerActor.props(basePath, db, namespace),
+                                                                          s"indexer-service-$db-$namespace")))
     }
   }
 
