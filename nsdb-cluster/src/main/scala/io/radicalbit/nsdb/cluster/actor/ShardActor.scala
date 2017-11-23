@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props, Stash}
@@ -71,6 +71,16 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
   private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
+    }
+  }
+
+  override def preStart = {
+    Paths.get(basePath, db, namespace, "shards").toFile.list().filter(_.split("_").size == 3)
+        .map(_.split("_")).foreach { case Array(metric, from, to) =>
+      val directory =
+        new NIOFSDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}"))
+      val newIndex = new TimeSeriesIndex(directory)
+      shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
     }
   }
 

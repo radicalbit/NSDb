@@ -62,6 +62,15 @@ class ReadCoordinatorShardSpec
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
 
+    waitInterval
+
+    probe.send(namespaceDataActor, GetCount(db, namespace, "people"))
+
+    within(5 seconds) {
+      val expected = probe.expectMsgType[CountGot]
+      expected.count shouldBe 0
+    }
+
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
@@ -79,7 +88,7 @@ class ReadCoordinatorShardSpec
 
     within(5 seconds) {
       val expected = probe.expectMsgType[CountGot]
-      expected.count shouldBe 0
+      expected.count shouldBe 5
     }
   }
 
@@ -140,7 +149,7 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
 
-          expected.values shouldBe records
+          expected.values.sortBy(_.timestamp) shouldBe records
         }
       }
     }
@@ -163,12 +172,12 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
 
-          expected.values shouldBe Seq(
+          expected.values.sortBy(_.timestamp) shouldBe Seq(
             Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
             Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
-            Bit(6L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe")),
-            Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
-            Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
+            Bit(11L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe")),
+            Bit(12L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
+            Bit(13L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
           )
         }
       }
