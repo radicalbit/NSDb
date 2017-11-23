@@ -47,7 +47,8 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
     TimeUnit.SECONDS)
 
   context.system.scheduler.schedule(interval, interval) {
-    self ! PerformWrites
+    if (opBufferMap.nonEmpty)
+      self ! PerformWrites
   }
 
   private def getIndex(metric: String) =
@@ -84,12 +85,6 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
   }
 
   def ddlOps: Receive = {
-    case DeleteMetric(_, ns, metric) =>
-      val index                        = getIndex(metric)
-      implicit val writer: IndexWriter = index.getWriter
-      index.deleteAll()
-      writer.close()
-      sender ! MetricDeleted(db, ns, metric)
     case DeleteAllMetrics(_, ns) =>
       indexes.foreach {
         case (_, index) =>
@@ -99,6 +94,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       }
       sender ! AllMetricsDeleted(db, ns)
     case DropMetric(_, _, metric) =>
+      opBufferMap -= metric
       indexes
         .get(metric)
         .fold {
@@ -108,6 +104,8 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
           index.deleteAll()
           writer.close()
           indexes -= metric
+          indexSearchers.get(metric).foreach(index.release)
+          indexSearchers -= metric
           sender() ! MetricDropped(db, namespace, metric)
         }
   }

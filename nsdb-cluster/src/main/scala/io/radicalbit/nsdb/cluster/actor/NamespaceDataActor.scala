@@ -44,8 +44,6 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
       getIndexer(db, namespace).forward(msg)
     case msg @ DeleteRecord(db, namespace, _, _) =>
       getIndexer(db, namespace).forward(msg)
-    case msg @ DeleteMetric(db, namespace, _) =>
-      getIndexer(db, namespace).forward(msg)
     case msg @ GetCount(db, namespace, _) =>
       getIndexer(db, namespace).forward(msg)
     case msg @ ExecuteDeleteStatement(statement) =>

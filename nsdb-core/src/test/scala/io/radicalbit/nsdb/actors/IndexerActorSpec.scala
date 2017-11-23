@@ -113,4 +113,34 @@ class IndexerActorSpec()
 
   }
 
+  "IndexerActor" should "drop a metric" in {
+
+    val bit1 = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
+    val bit2 = Bit(System.currentTimeMillis, 30, Map("content" -> "content"))
+
+    probe.send(indexerActor, AddRecord("db", "testNamespace", "testMetric", bit1))
+    probe.send(indexerActor, AddRecord("db", "testNamespace", "testMetric", bit2))
+    probe.expectMsgType[RecordAdded]
+    probe.expectMsgType[RecordAdded]
+
+    waitInterval
+
+    probe.send(indexerActor, GetCount("db", "testNamespace", "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 2
+    }
+
+    probe.send(indexerActor, DropMetric("db", "testNamespace", "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[MetricDropped]
+    }
+
+    waitInterval
+
+    probe.send(indexerActor, GetCount("db", "testNamespace", "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 0
+    }
+  }
+
 }

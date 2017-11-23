@@ -6,6 +6,7 @@ import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.actors._
+import io.radicalbit.nsdb.cluster.WriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -47,7 +48,8 @@ class WriteCoordinatorSpec
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with WriteInterval {
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
@@ -61,9 +63,10 @@ class WriteCoordinatorSpec
                                                                     namespaceDataActor,
                                                                     publisherActor)
 
+  val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
+  val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
+
   "WriteCoordinator" should "write records" in {
-    val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
-    val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
     val incompatibleRecord =
       Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"))
 
@@ -163,9 +166,28 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "drop a metric" in {
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, "db", "testNamespace", "testMetric", record2))
+    probe.expectMsgType[InputMapped]
+    probe.expectMsgType[InputMapped]
+
+    waitInterval
+
+    probe.send(namespaceDataActor, GetCount("db", "testNamespace", "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 2
+    }
+
     probe.send(writeCoordinatorActor, DropMetric("db", "testNamespace", "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[MetricDropped]
+    }
+
+    waitInterval
+
+    probe.send(namespaceDataActor, GetCount("db", "testNamespace", "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 0
     }
   }
 
