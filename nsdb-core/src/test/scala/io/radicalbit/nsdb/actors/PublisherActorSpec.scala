@@ -43,7 +43,7 @@ class PublisherActorSpec
     with OneInstancePerTest
     with BeforeAndAfter {
 
-  val basePath   = "target/test_index_publisher_actor"
+  val basePath   = "target/test_index/PublisherActorSpec"
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =

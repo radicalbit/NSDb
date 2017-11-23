@@ -82,10 +82,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
   }
 
   override def preStart = {
-    Paths
-      .get(basePath, db, namespace, "shards")
-      .toFile
-      .list()
+    Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
+      .map(_.toSet)
+      .getOrElse(Set.empty)
       .filter(_.split("_").size == 3)
       .map(_.split("_"))
       .foreach {

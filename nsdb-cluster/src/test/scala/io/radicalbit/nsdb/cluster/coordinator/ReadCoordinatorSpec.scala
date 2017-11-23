@@ -28,7 +28,7 @@ class ReadCoordinatorSpec
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
-  private val basePath     = "target/test_index"
+  private val basePath     = "target/test_index/ReadCoordinatorSpec"
   private val db           = "db"
   private val namespace    = "registry"
   val schemaActor          = system.actorOf(SchemaActor.props(basePath, db, namespace))

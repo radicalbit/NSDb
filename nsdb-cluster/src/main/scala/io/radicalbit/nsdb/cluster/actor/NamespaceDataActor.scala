@@ -1,6 +1,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.nio.file.{Files, Paths}
+import java.util
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
@@ -42,22 +43,23 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   import context.dispatcher
 
   override def preStart() = {
-    val childs = Paths
-      .get(basePath)
-      .toFile
-      .list()
+    import scala.collection.JavaConverters._
+    Option(Paths.get(basePath).toFile.list())
+      .map(_.toSet)
+      .getOrElse(Set.empty)
       .flatMap(db => {
         Paths.get(basePath, db).toFile.list().map(namespace => (db, namespace))
       })
-    childs.foreach {
-      case (db, namespace) =>
-        childActors += (NamespaceKey(db, namespace) -> (if (sharding)
-                                                          context.actorOf(ShardActor.props(basePath, db, namespace),
-                                                                          s"shard-service-$db-$namespace")
-                                                        else
-                                                          context.actorOf(IndexerActor.props(basePath, db, namespace),
-                                                                          s"indexer-service-$db-$namespace")))
-    }
+      .foreach {
+        case (db, namespace) =>
+          childActors += (NamespaceKey(db, namespace) -> (if (sharding)
+                                                            context.actorOf(ShardActor.props(basePath, db, namespace),
+                                                                            s"shard-service-$db-$namespace")
+                                                          else
+                                                            context.actorOf(
+                                                              IndexerActor.props(basePath, db, namespace),
+                                                              s"indexer-service-$db-$namespace")))
+      }
   }
 
   override def receive: Receive = commons orElse (if (sharding) receiveShard else receiveNoShard)

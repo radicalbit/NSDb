@@ -23,7 +23,7 @@ class NamespaceActorSpec()
 
   val probe          = TestProbe()
   val probeActor     = probe.ref
-  val basePath       = "target/test_index"
+  val basePath       = "target/test_index/NamespaceActorSpec"
   val db             = "db"
   val namespace      = "namespace"
   val namespace1     = "namespace1"

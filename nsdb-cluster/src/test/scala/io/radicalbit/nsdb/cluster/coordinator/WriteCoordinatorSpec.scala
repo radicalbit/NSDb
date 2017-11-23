@@ -28,10 +28,11 @@ class WriteCoordinatorSpec
     with BeforeAndAfterAll
     with ClusterWriteInterval {
 
+  val basePath             = "target/test_index/WriteCoordinatorSpec"
   val probe                = TestProbe()
   val probeActor           = probe.ref
-  val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props("target/test_index"))
-  val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props("target/test_index"))
+  val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props(basePath))
+  val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
     PublisherActor.props("target/test_index",

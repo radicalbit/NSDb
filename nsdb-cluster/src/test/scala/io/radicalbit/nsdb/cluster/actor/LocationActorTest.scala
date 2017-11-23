@@ -21,7 +21,7 @@ class LocationActorTest
     with BeforeAndAfter {
 
   val probe         = TestProbe()
-  val metadataActor = system.actorOf(MetadataActor.props("target/test_index_metadata_actor", null))
+  val metadataActor = system.actorOf(MetadataActor.props("target/test_index/LocationActorTest", null))
 
   lazy val db        = "db"
   lazy val namespace = "namespaceTest"

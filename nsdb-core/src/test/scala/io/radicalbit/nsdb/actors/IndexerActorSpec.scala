@@ -8,9 +8,6 @@ import io.radicalbit.nsdb.WriteInterval
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -73,13 +70,6 @@ class IndexerActorSpec()
   }
 
   "IndexerActor" should "write and delete properly in multiple indexes" in {
-
-//    probe.send(indexerActor, DeleteAllMetrics(db, namespace))
-//    within(5 seconds) {
-//      probe.expectMsgType[AllMetricsDeleted]
-//    }
-//
-//    waitInterval
 
     val bit = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
 
