@@ -99,7 +99,7 @@ case class DECIMAL() extends IndexType[JDouble] {
   def actualType = classOf[JDouble]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
     Seq(
-      new FloatPoint(fieldName, value.toString.toFloat),
+      new DoublePoint(fieldName, value.toString.toDouble),
       new DoubleDocValuesField(fieldName, value.toString.toDouble),
       new StoredField(fieldName, value.toString.toFloat)
     )

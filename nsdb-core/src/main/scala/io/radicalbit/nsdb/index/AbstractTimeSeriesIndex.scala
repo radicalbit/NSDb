@@ -50,7 +50,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
           f.name() == _keyField || f.name() == _valueField || (fields.nonEmpty && !fields
             .contains(f.name())))
         .map {
-          case f if f.numericValue() != null => f.name() -> new JLong(f.numericValue().longValue())
+          case f if f.numericValue() != null => f.name() -> f.numericValue()
           case f                             => f.name() -> f.stringValue()
         }
         .toMap
