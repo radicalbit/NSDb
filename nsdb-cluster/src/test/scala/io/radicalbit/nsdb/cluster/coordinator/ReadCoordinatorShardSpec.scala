@@ -16,7 +16,6 @@ import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.scalactic.source.Position
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -30,7 +29,7 @@ class ReadCoordinatorShardSpec
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfter
+    with BeforeAndAfterAll
     with ClusterWriteInterval {
 
   val probe                = TestProbe()
@@ -55,7 +54,7 @@ class ReadCoordinatorShardSpec
 
   val records = recordsShard1 ++ recordsShard2
 
-  before {
+  override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
@@ -63,13 +62,6 @@ class ReadCoordinatorShardSpec
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
 
     waitInterval
-
-//    probe.send(namespaceDataActor, GetCount(db, namespace, "people"))
-//
-//    within(5 seconds) {
-//      val expected = probe.expectMsgType[CountGot]
-//      expected.count shouldBe 0
-//    }
 
     val schema = Schema(
       "people",
@@ -83,13 +75,6 @@ class ReadCoordinatorShardSpec
     recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r,location2))
 
     waitInterval
-
-//    probe.send(namespaceDataActor, GetCount(db, namespace, "people"))
-//
-//    within(5 seconds) {
-//      val expected = probe.expectMsgType[CountGot]
-//      expected.count shouldBe 5
-//    }
   }
 
   "ReadCoordinator in shard mode" when {
@@ -227,8 +212,12 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
 
-          expected.values.size shouldBe 1
-          expected.values.head shouldBe Bit(10, 1, Map("name" -> "Frank"))
+          expected.values.size shouldBe 3
+          expected.values shouldBe Seq(
+            Bit(11L, 1L, Map("name"  -> "Bill")),
+            Bit(12L, 1L, Map("name"  -> "Frank")),
+            Bit(13L, 1L, Map("name" -> "Frank"))
+          )
         }
       }
     }
@@ -257,7 +246,11 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
 
-          expected.values.size should be(4)
+          expected.values.size should be(2)
+          expected.values shouldBe Seq(
+            Bit(2L, 1L, Map("name"  -> "John")),
+            Bit(4L, 1L, Map("name"  -> "John"))
+          )
         }
       }
     }
@@ -389,7 +382,7 @@ class ReadCoordinatorShardSpec
 
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size should be(3)
+          expected.values.size should be(5)
         }
       }
     }

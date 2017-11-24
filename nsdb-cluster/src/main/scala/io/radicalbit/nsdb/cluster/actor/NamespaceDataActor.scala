@@ -1,7 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.{Files, Paths}
-import java.util
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
@@ -43,7 +42,6 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   import context.dispatcher
 
   override def preStart() = {
-    import scala.collection.JavaConverters._
     Option(Paths.get(basePath).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)

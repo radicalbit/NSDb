@@ -29,13 +29,14 @@ class WriteCoordinatorShardSpec
     with Matchers
     with BeforeAndAfterAll {
 
+  val basePath             = "target/test_index/WriteCoordinatorShardSpec"
   val probe                = TestProbe()
   val probeActor           = probe.ref
-  val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props("target/test_index"))
-  val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props("target/test_index"))
+  val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props(basePath))
+  val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
-  val publisherActor = TestActorRef[PublisherActor](
-    PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor])))
+  val publisherActor =
+    TestActorRef[PublisherActor](PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor])))
   val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
                                                                     namespaceSchemaActor,

@@ -53,10 +53,16 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
           case SchemaGot(_, _, _, Some(schema)) =>
             Future
               .sequence(namespaces.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
-              .map {
-                case e: Seq[SelectStatementExecuted] =>
-                  SelectStatementExecuted(statement.db, statement.namespace, statement.metric, e.flatMap(_.values))
-                case _ => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)
+              .map { seq =>
+                  val errs = seq.collect{
+                    case e :SelectStatementFailed => e.reason
+                  }
+                  if (errs.isEmpty) {
+                    val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
+                    SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results.flatMap(_.values))
+                  } else {
+                    SelectStatementFailed(errs.mkString(","))
+                  }
               }
           case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
         }

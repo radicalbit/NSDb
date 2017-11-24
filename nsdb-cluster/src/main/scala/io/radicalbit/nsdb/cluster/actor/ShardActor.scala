@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props, Stash}
@@ -13,11 +13,13 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery}
 import org.apache.lucene.store.NIOFSDirectory
+import spire.math.Interval
+import spire.implicits._
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
@@ -47,13 +49,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
   }
 
   private def getMetricIndexes(metric: String) = shards.filter(_._1.metric == metric)
-
-  private def getMetricIndexesInTimeRange(metric: String, from: Long, to: Long) =
-    shards.filter {
-      case (key, _) =>
-        key.metric == metric &&
-          (key.from <= from || key.to >= to)
-    }
 
   private def getIndex(key: ShardKey) =
     shards.getOrElse(
@@ -85,7 +80,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
-      .filter(_.split("_").size == 3)
+      .filter(_.split("_").length == 3)
       .map(_.split("_"))
       .foreach {
         case Array(metric, from, to) =>
@@ -131,7 +126,18 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     case ExecuteSelectStatement(statement, schema) =>
       val shardResults: Seq[Try[Seq[Bit]]] = statementParser.parseStatement(statement, Some(schema)) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
-          val indexes = getMetricIndexes(statement.metric)
+          val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
+
+          val metricIn = getMetricIndexes(statement.metric)
+          val indexes = metricIn
+            .filter {
+              //FIXME see if it can be refactored
+              case (key, _) if intervals.nonEmpty =>
+                intervals
+                  .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
+                  .foldLeft(false)((x, y) => x || y)
+              case _ => true
+            }
           indexes.toSeq.map {
             case (key, index) =>
               implicit val searcher: IndexSearcher = getSearcher(key)
