@@ -41,10 +41,10 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       case v                    => JsString(v.toString)
     }
     def read(value: JsValue) = value match {
-      case JsNumber(v) if v.isValidInt    => new java.lang.Integer(v.intValue)
-      case JsNumber(v) if v.isValidLong   => new java.lang.Long(v.longValue)
-      case JsNumber(v) if v.isValidDouble => new java.lang.Double(v.doubleValue)
-      case JsString(v)                    => v
+      case JsNumber(v) if v.scale > 0   => new java.lang.Double(v.doubleValue)
+      case JsNumber(v) if v.isValidLong => new java.lang.Long(v.longValue)
+      case JsNumber(v) if v.isValidInt  => new java.lang.Integer(v.intValue)
+      case JsString(v)                  => v
     }
   }
 
