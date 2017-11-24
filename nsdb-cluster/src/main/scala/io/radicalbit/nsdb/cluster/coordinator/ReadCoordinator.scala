@@ -59,7 +59,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
                   }
                   if (errs.isEmpty) {
                     val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
-                    SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results.flatMap(_.values))
+                    SelectStatementExecuted(statement.db,
+                                            statement.namespace,
+                                            statement.metric,
+                                            results.flatMap(_.values))
                   } else {
                     SelectStatementFailed(errs.mkString(","))
                   }

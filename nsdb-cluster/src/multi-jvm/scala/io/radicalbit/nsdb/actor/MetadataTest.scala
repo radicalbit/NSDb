@@ -25,6 +25,14 @@ object MetadataTest extends MultiNodeConfig {
  |akka.actor.provider = "cluster"
  |akka.log-dead-letters-during-shutdown = off
  |nsdb{
+ |
+ |  read-coordinatoor.timeout = 10 seconds
+ |  namespace-schema.timeout = 10 seconds
+ |  namespace-data.timeout = 10 seconds
+ |  publisher.timeout = 10 seconds
+ |  publisher.scheduler.interval = 5 seconds
+ |  write.scheduler.interval = 15 seconds
+ |
  |  sharding {
  |    enabled = true
  |    interval = 1d
