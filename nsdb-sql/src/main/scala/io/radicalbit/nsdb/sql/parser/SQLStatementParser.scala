@@ -54,11 +54,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
-  private val digits     = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
-  private val numbers    = """([0-9]+)""".r
-  private val intValue   = numbers ^^ { _.toInt }
-  private val longValue  = numbers ^^ { _.toLong }
-  private val floatValue = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
+  private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9]*)""".r
+  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9\\-]*[a-zA-Z0-9])""".r
+  private val numbers          = """([0-9]+)""".r
+  private val intValue         = numbers ^^ { _.toInt }
+  private val longValue        = numbers ^^ { _.toLong }
+  private val floatValue       = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
 
   private val field = digits ^^ { e =>
     Field(e, None)
@@ -68,7 +69,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   }
   private val metric      = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val dimension   = digits
-  private val stringValue = digits
+  private val stringValue = digitsWithDashes
 
   private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
     case "H" => 3600 * 1000
@@ -120,7 +121,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def tupledLogicalExpression(operator: PackratParser[String],
                                       tupledOperator: TupledLogicalOperator): PackratParser[TupledLogicalExpression] =
-    ((termExpression | expression) <~ operator) ~ (termExpression | expression) ^^ {
+    (expression <~ operator) ~ expression ^^ {
       case expression1 ~ expression2 =>
         TupledLogicalExpression(expression1, tupledOperator, expression2)
     }

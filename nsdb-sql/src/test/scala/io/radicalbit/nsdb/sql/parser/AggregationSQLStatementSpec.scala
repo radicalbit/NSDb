@@ -112,6 +112,63 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select containing uuids" should {
+      "parse it successfully" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "select count(value) from people where name = b483a480-832b-473e-a999-5d1a5950858d and surname = b483a480-832b group by surname"
+        ) should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            condition = Some(Condition(TupledLogicalExpression(
+              expression1 = EqualityExpression(dimension = "name", value = "b483a480-832b-473e-a999-5d1a5950858d"),
+              expression2 = EqualityExpression(dimension = "surname", value = "b483a480-832b"),
+              operator = AndOperator
+            ))),
+            groupBy = Some("surname")
+          )))
+
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "select count(value) from people where na-me = b483a480-832b-473e-a999-5d1a5950858d and surname = b483a480-832b group by surname"
+        ) shouldBe 'failure
+      }
+    }
+
+    "receive a select containing uuids and more than 2 where" should {
+      "parse it successfully" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "select count(value) from people where prediction = 1.0 and adoptedModel = b483a480-832b-473e-a999-5d1a5950858d and id = c1234-56789 group by id"
+        ) should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            condition = Some(Condition(
+              TupledLogicalExpression(
+                EqualityExpression("prediction", 1.0),
+                AndOperator,
+                TupledLogicalExpression(EqualityExpression("adoptedModel", "b483a480-832b-473e-a999-5d1a5950858d"),
+                                        AndOperator,
+                                        EqualityExpression("id", "c1234-56789"))
+              )
+            )),
+            groupBy = Some("id")
+          )))
+      }
+    }
+
     "receive wrong fields" should {
       "fail" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT count(name), min(surname) FROM people") shouldBe 'failure
