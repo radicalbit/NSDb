@@ -6,8 +6,9 @@ import java.util.UUID
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.document.LongPoint
+import org.apache.lucene.index.Term
 import org.apache.lucene.queryparser.xml.builders.RangeQueryBuilder
-import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
+import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField, TermQuery}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
@@ -30,6 +31,27 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     result.size shouldBe 100
 
+  }
+
+  "TimeSeriesIndex" should "support values containing dashes" in {
+    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+
+    implicit val writer = timeSeriesIndex.getWriter
+
+    (0 to 100).foreach { i =>
+      val testData =
+        Bit(timestamp = i, value = 23.5, dimensions = Map("content" -> s"content-$i"))
+      timeSeriesIndex.write(testData)
+    }
+
+    writer.close()
+
+    val query = new TermQuery(new Term("content", "content-10"))
+
+    implicit val searcher = timeSeriesIndex.getSearcher
+    val result            = timeSeriesIndex.rawQuery(query, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
+
+    result.size shouldBe 1
   }
 
   "TimeSeriesIndex" should "support range queries and sorting" in {
