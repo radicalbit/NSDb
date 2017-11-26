@@ -210,7 +210,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 expression1 =
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
                 operator = OrOperator,
-                expression2 = EqualityExpression(dimension = "name", value = "john")
+                expression2 = EqualityExpression(dimension = "name", value = "$john$")
               ),
               operator = NotOperator
             ))),
@@ -227,7 +227,50 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
-                    .add(new TermQuery(new Term("name", "john")), BooleanClause.Occur.SHOULD)
+                    .add(new TermQuery(new Term("name", "$john$")), BooleanClause.Occur.SHOULD)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
+              4,
+              List("name")
+            )
+          )
+        )
+      }
+    }
+
+    "receive a select containing a GTE OR a like selection" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(UnaryLogicalExpression(
+              expression = TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                operator = OrOperator,
+                expression2 = LikeExpression(dimension = "name", value = "$john$")
+              ),
+              operator = NotOperator
+            ))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery, BooleanClause.Occur.MUST)
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
+                    .add(new TermQuery(new Term("name", "*john*")), BooleanClause.Occur.SHOULD)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )

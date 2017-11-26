@@ -5,9 +5,10 @@ import io.radicalbit.nsdb.common.JSerializable
 case class Field(name: String, aggregation: Option[Aggregation])
 
 sealed trait SelectedFields
-case object AllFields                                         extends SelectedFields
-case class ListFields(fields: List[Field])                    extends SelectedFields
-case class ListAssignment(fields: Map[String, JSerializable]) extends SelectedFields
+case object AllFields                      extends SelectedFields
+case class ListFields(fields: List[Field]) extends SelectedFields
+
+case class ListAssignment(fields: Map[String, JSerializable])
 
 sealed trait Expression
 case class Condition(expression: Expression)

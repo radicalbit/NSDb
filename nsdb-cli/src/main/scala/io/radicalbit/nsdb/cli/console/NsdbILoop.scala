@@ -94,10 +94,10 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                                         print: T => Try[String],
                                         lineToRecord: String): Result =
     Try(Await.result(send, 10 seconds)) match {
-      case Success(resp: T) => echo(print(resp), lineToRecord)
       case Success(resp: SQLStatementFailed) =>
         echo(s"statement failed because ${resp.reason}")
         result(Some(lineToRecord))
+      case Success(resp: T) => echo(print(resp), lineToRecord)
       case Success(_) =>
         echo(
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
