@@ -34,6 +34,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val LessThan         = "<"
   private val LessOrEqualTo    = "<="
   private val Equal            = "="
+  private val Like             = "LIKE" ignoreCase
   private val Not              = "NOT" ignoreCase
   private val And              = "AND" ignoreCase
   private val Or               = "OR" ignoreCase
@@ -55,7 +56,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val CloseRoundBracket = ")"
 
   private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9]*)""".r
-  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9\\-]*[a-zA-Z0-9])""".r
+  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\\-]*[a-zA-Z0-9])""".r
   private val numbers          = """([0-9]+)""".r
   private val intValue         = numbers ^^ { _.toInt }
   private val longValue        = numbers ^^ { _.toLong }
@@ -67,9 +68,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ digits <~ CloseRoundBracket ^^ { e =>
     Field(e._2, Some(e._1))
   }
-  private val metric      = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
-  private val dimension   = digits
-  private val stringValue = digitsWithDashes
+  private val metric                   = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
+  private val dimension                = digits
+  private val stringValue              = digitsWithDashes
+  private val stringValueWithWildcards = """(^[a-zA-Z_\\$][a-zA-Z0-9_\\-\\$]*[a-zA-Z0-9\\$])""".r
 
   private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
     case "H" => 3600 * 1000
@@ -106,10 +108,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
-    rangeExpression | unaryLogicalExpression | tupledLogicalExpression | comparisonExpression | equalityExpression
-
-  private lazy val termExpression
-    : PackratParser[Expression] = rangeExpression | comparisonExpression | equalityExpression
+    unaryLogicalExpression | tupledLogicalExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
 
   private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 
@@ -135,6 +134,11 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     : PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue | floatValue | timestamp) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }
+
+  lazy val likeExpression: PackratParser[LikeExpression] =
+    (dimension <~ Like) ~ stringValueWithWildcards ^^ {
+      case dim ~ v => LikeExpression(dim, v)
+    }
 
   lazy val comparisonExpression: PackratParser[ComparisonExpression[_]] =
     comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE

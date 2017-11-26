@@ -17,6 +17,7 @@ case class TupledLogicalExpression(expression1: Expression, operator: TupledLogi
 case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: T) extends Expression
 case class RangeExpression[T](dimension: String, value1: T, value2: T)                          extends Expression
 case class EqualityExpression[T](dimension: String, value: T)                                   extends Expression
+case class LikeExpression(dimension: String, value: String)                                     extends Expression
 
 sealed trait LogicalOperator
 sealed trait SingleLogicalOperator extends LogicalOperator
