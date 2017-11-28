@@ -18,6 +18,7 @@ class StatementParser {
       case Some(EqualityExpression(dimension, value: Long))   => LongPoint.newRangeQuery(dimension, value, value)
       case Some(EqualityExpression(dimension, value: Double)) => DoublePoint.newRangeQuery(dimension, value, value)
       case Some(EqualityExpression(dimension, value: String)) => new TermQuery(new Term(dimension, value))
+      case Some(LikeExpression(dimension, value))             => new TermQuery(new Term(dimension, value.replaceAll("\\$", "*")))
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
         operator match {
           case GreaterThanOperator      => LongPoint.newRangeQuery(dimension, value + 1, Long.MaxValue)

@@ -7,7 +7,6 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
-import org.apache.lucene.queryparser.xml.builders.RangeQueryBuilder
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField, TermQuery}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}

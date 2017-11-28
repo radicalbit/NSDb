@@ -45,7 +45,7 @@ case class NSDB(host: String, port: Int, db: String)(implicit executionContextEx
           case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
           case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
           case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v: java.lang.String)  => (k, Dimension(Dimension.Value.StringValue(v)))
+          case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
         }.toMap
       ))
 

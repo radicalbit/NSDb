@@ -76,7 +76,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     private def dimensionFor(v: Dimension.Value): JSerializable = v match {
       case _: Dimension.Value.DecimalValue => v.decimalValue.get
       case _: Dimension.Value.LongValue    => v.longValue.get
-      case _: Dimension.Value.StringValue  => v.stringValue.get
+      case _                               => v.stringValue.get
     }
   }
 

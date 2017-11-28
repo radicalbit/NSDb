@@ -83,6 +83,19 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select containing a like selection" should {
+      "parse it successfully" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE name like $ame$") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(LikeExpression(dimension = "name", value = "$ame$")))
+          )))
+      }
+    }
+
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp >= 10") should be(
@@ -240,6 +253,31 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
+            order = Some(DescOrderOperator(dimension = "name")),
+            limit = Some(LimitOperator(5))
+          )))
+      }
+    }
+
+    "receive a complex select containing 3 conditions a desc ordering statement and a limit statement" should {
+      "parse it successfully" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "SELECT name FROM people WHERE name like $an$ and surname = pippo and timestamp IN (2,4)  ORDER BY name DESC LIMIT 5"
+        ) should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(
+              Condition(TupledLogicalExpression(LikeExpression("name", "$an$"),
+                                                AndOperator,
+                                                TupledLogicalExpression(EqualityExpression("surname", "pippo"),
+                                                                        AndOperator,
+                                                                        RangeExpression("timestamp", 2, 4))))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
           )))

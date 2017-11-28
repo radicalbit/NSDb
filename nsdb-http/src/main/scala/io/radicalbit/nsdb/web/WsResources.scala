@@ -31,6 +31,7 @@ trait WsResources {
               parse(text).extractOpt[RegisterQuid] orElse
               parse(text).extractOpt[RegisterQuids] orElse
               parse(text).extractOpt[RegisterQueries] getOrElse "Message not handled by receiver"
+          case _ => "Message not handled by receiver"
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))
 

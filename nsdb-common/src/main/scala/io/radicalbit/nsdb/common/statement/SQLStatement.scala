@@ -5,9 +5,10 @@ import io.radicalbit.nsdb.common.JSerializable
 case class Field(name: String, aggregation: Option[Aggregation])
 
 sealed trait SelectedFields
-case object AllFields                                         extends SelectedFields
-case class ListFields(fields: List[Field])                    extends SelectedFields
-case class ListAssignment(fields: Map[String, JSerializable]) extends SelectedFields
+case object AllFields                      extends SelectedFields
+case class ListFields(fields: List[Field]) extends SelectedFields
+
+case class ListAssignment(fields: Map[String, JSerializable])
 
 sealed trait Expression
 case class Condition(expression: Expression)
@@ -17,6 +18,7 @@ case class TupledLogicalExpression(expression1: Expression, operator: TupledLogi
 case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: T) extends Expression
 case class RangeExpression[T](dimension: String, value1: T, value2: T)                          extends Expression
 case class EqualityExpression[T](dimension: String, value: T)                                   extends Expression
+case class LikeExpression(dimension: String, value: String)                                     extends Expression
 
 sealed trait LogicalOperator
 sealed trait SingleLogicalOperator extends LogicalOperator
