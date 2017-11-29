@@ -10,11 +10,12 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, _}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.concurrent.Future
+import scala.util.Random
 
 class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
@@ -31,6 +32,11 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
   override def receive: Receive = {
+    case GetLocations(db, namespace, metric, occurredOn) =>
+      val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
+        .mapTo[CachedLocations]
+        .map(l => LocationsGot(db, namespace, metric, l.value, occurredOn))
+      f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
       (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .flatMap {
@@ -50,7 +56,10 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
             }
 
           case CachedLocations(_, _) =>
-            (self ? AddLocation(db, namespace, Location(metric, "", 0, shardingInterval.toMillis))).map {
+            val randomNode = Random.shuffle(cluster.state.members).head
+            val nodeName =
+              s"${randomNode.address.host.getOrElse("noHost")}_${randomNode.address.port.getOrElse(2552)}"
+            (self ? AddLocation(db, namespace, Location(metric, nodeName, 0, shardingInterval.toMillis))).map {
               case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
               case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
             }
@@ -102,12 +111,7 @@ object MetadataCoordinator {
   object events {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location], occurredOn: Long)
-    case class LocationGot(db: String,
-                           namespace: String,
-                           metric: String,
-//                           timestamp: Long,
-                           location: Option[Location])
-//                           occurredOn: Long)
+    case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])
     case class LocationUpdated(db: String,
                                namespace: String,
                                oldLocation: Location,

@@ -60,6 +60,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
   def shardBehaviour: Receive = {
     case SubscribeNamespaceDataActor(actor: ActorRef, Some(nodeName)) =>
       namespaces += (nodeName -> actor)
+      log.info(s"subscribed data actor for node $nodeName")
       sender() ! NamespaceDataActorSubscribed(actor, Some(nodeName))
     case SubscribeNamespaceDataActor(actor: ActorRef, None) =>
       sender() ! NamespaceDataActorSubscriptionFailed(actor, None, "cannot subscribe ")
@@ -93,6 +94,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                 publisherActor ! InputMapped(db, namespace, metric, bit)
                 (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ack.ts)).mapTo[LocationGot].flatMap {
                   case LocationGot(_, _, _, Some(loc)) =>
+                    log.debug(s"received location for metric $metric, $loc")
                     namespaces.get(loc.node) match {
                       case Some(actor) =>
                         metadataCoordinator ! UpdateLocation(db, namespace, loc, bit.timestamp)
@@ -103,9 +105,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                             RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
                         }
                       case None =>
+                        log.debug(s"no data actor for node ${loc.node}")
                         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${loc.node}")))
                     }
-                  case _ => Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
+                  case _ =>
+                    log.debug(s"no location found for bit $bit")
+                    Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
                 }
               })
           case UpdateSchemaFailed(_, _, _, errs) =>

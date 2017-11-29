@@ -58,6 +58,7 @@ class ClusterListener extends Actor with ActorLogging {
             mediator ! Subscribe("metadata", metadataActor)
 
             if (sharding) {
+              log.info(s"subscribing data actor for node $nameNode")
               val namespaceActor = context.actorOf(
                 NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
                 s"namespace-data-actor_$nameNode")

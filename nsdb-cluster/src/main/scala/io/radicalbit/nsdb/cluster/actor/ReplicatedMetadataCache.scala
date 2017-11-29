@@ -138,6 +138,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       }
     case NotFound(_, Some(Request(key, replyTo))) =>
       replyTo ! Cached(key, None)
+    case NotFound(_, Some(MetricRequest(key, replyTo))) =>
+      replyTo ! CachedLocations(key, Seq.empty)
     case msg: UpdateResponse[_] =>
       log.debug("received not handled update message {}", msg)
   }

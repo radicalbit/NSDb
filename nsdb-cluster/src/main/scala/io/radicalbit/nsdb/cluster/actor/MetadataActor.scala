@@ -22,7 +22,7 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
   private def getIndex(db: String, namespace: String): MetadataIndex =
     metadataIndexes.getOrElse(
       (db, namespace), {
-        val newIndex = new MetadataIndex(new MMapDirectory(Paths.get(basePath, namespace, "metadata")))
+        val newIndex = new MetadataIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "metadata")))
         metadataIndexes += ((db, namespace) -> newIndex)
         newIndex
       }

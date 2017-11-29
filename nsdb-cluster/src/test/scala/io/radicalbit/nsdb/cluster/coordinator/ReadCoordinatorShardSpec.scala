@@ -22,10 +22,11 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ReadCoordinatorShardSpec
-    extends TestKit(ActorSystem("nsdb-test",
-      ConfigFactory
-.load()
-.withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))))
+    extends TestKit(
+      ActorSystem("nsdb-test",
+                  ConfigFactory
+                    .load()
+                    .withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))))
     with ImplicitSender
     with WordSpecLike
     with Matchers
@@ -42,13 +43,13 @@ class ReadCoordinatorShardSpec
   val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaActor)
 
   val recordsShard1: Seq[Bit] = Seq(
-    Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
-    Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(2L, 1L, Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(4L, 1L, Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
   )
 
   val recordsShard2: Seq[Bit] = Seq(
-    Bit(11L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
-    Bit(12L, 1L, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(11L, 1L, Map("name" -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
+    Bit(12L, 1L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
     Bit(13L, 1L, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
   )
 
@@ -68,11 +69,11 @@ class ReadCoordinatorShardSpec
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
 
-    val location1 = Location("people", "node1", 0,10,0)
-    val location2 = Location("people", "node1", 11,20,11)
+    val location1 = Location("people", "node1", 0, 10, 0)
+    val location2 = Location("people", "node1", 11, 20, 11)
 
-    recordsShard1.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r,location1))
-    recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r,location2))
+    recordsShard1.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r, location1))
+    recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r, location2))
 
     waitInterval
   }
@@ -160,8 +161,8 @@ class ReadCoordinatorShardSpec
           expected.values.sortBy(_.timestamp) shouldBe Seq(
             Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
             Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
-            Bit(11L, 1L, Map("name"  -> "Bill", "surname"  -> "Doe")),
-            Bit(12L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
+            Bit(11L, 1L, Map("name" -> "Bill", "surname"  -> "Doe")),
+            Bit(12L, 1L, Map("name" -> "Frank", "surname" -> "Doe")),
             Bit(13L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
           )
         }
@@ -214,8 +215,8 @@ class ReadCoordinatorShardSpec
 
           expected.values.size shouldBe 3
           expected.values shouldBe Seq(
-            Bit(11L, 1L, Map("name"  -> "Bill")),
-            Bit(12L, 1L, Map("name"  -> "Frank")),
+            Bit(11L, 1L, Map("name" -> "Bill")),
+            Bit(12L, 1L, Map("name" -> "Frank")),
             Bit(13L, 1L, Map("name" -> "Frank"))
           )
         }
@@ -248,8 +249,8 @@ class ReadCoordinatorShardSpec
 
           expected.values.size should be(2)
           expected.values shouldBe Seq(
-            Bit(2L, 1L, Map("name"  -> "John")),
-            Bit(4L, 1L, Map("name"  -> "John"))
+            Bit(2L, 1L, Map("name" -> "John")),
+            Bit(4L, 1L, Map("name" -> "John"))
           )
         }
       }

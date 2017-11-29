@@ -141,8 +141,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           indexes.toSeq.map {
             case (key, index) =>
               implicit val searcher: IndexSearcher = getSearcher(key)
-              val res                              = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
-              res
+              handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
           }
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           val indexes = getMetricIndexes(statement.metric)
