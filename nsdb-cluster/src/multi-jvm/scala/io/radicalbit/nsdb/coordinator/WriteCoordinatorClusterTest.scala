@@ -90,7 +90,7 @@ class WriteCoordinatorClusterTest
         expectMsg(2)
       }
 
-      enterBarrier("after-1")
+      enterBarrier("Joined")
     }
 
     "write records and update metadata" in within(10.seconds) {
@@ -113,7 +113,7 @@ class WriteCoordinatorClusterTest
       }
 
       runOn(node2) {
-        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(1, 1.0, Map.empty))
+        writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty))
         expectMsgType[InputMapped]
       }
 
@@ -154,20 +154,25 @@ class WriteCoordinatorClusterTest
         locations.locations.head.to shouldBe 60000
       }
 
+      enterBarrier("Single Location")
+
       runOn(node1) {
-        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty))
+        writeCoordinator ! MapInput(60001, "db", "namespace", "metric", Bit(60001, 1.0, Map.empty))
         expectMsgType[InputMapped]
       }
 
       awaitAssert {
+
         metadataCoordinator ! GetLocations("db", "namespace", "metric")
         val locations = expectMsgType[LocationsGot]
         locations.locations.size shouldBe 2
         locations.locations.head.from shouldBe 0
         locations.locations.head.to shouldBe 60000
-        locations.locations.last.from shouldBe 0
-        locations.locations.last.to shouldBe 60000
+        locations.locations.last.from shouldBe 60001
+        locations.locations.last.to shouldBe 120001
       }
+
+      enterBarrier("Multiple Location")
 
     }
 
