@@ -69,8 +69,8 @@ class ReadCoordinatorShardSpec
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
 
-    val location1 = Location("people", "node1", 0, 10, 0)
-    val location2 = Location("people", "node1", 11, 20, 11)
+    val location1 = Location("people", "node1", 0, 10)
+    val location2 = Location("people", "node1", 11, 20)
 
     recordsShard1.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r, location1))
     recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r, location2))

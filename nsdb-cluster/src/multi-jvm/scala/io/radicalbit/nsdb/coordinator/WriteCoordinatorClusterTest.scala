@@ -97,10 +97,7 @@ class WriteCoordinatorClusterTest
 
       metadataCoordinator ! GetLocations("db", "namespace", "metric")
       val initialLoc = expectMsgType[LocationsGot]
-//      println(s"initialLoc $initialLoc")
       initialLoc.locations.size shouldBe 0
-
-//      awaitAssert {
 
       runOn(node1) {
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty))
@@ -113,8 +110,6 @@ class WriteCoordinatorClusterTest
         locations.locations.size shouldBe 1
         locations.locations.head.from shouldBe 0
         locations.locations.head.to shouldBe 60000
-        locations.locations.head.occupied shouldBe 0
-
       }
 
       runOn(node2) {
@@ -128,8 +123,6 @@ class WriteCoordinatorClusterTest
         locations.locations.size shouldBe 1
         locations.locations.head.from shouldBe 0
         locations.locations.head.to shouldBe 60000
-        locations.locations.head.occupied shouldBe 0
-
       }
 
       runOn(node2) {
@@ -143,8 +136,6 @@ class WriteCoordinatorClusterTest
         locations.locations.size shouldBe 1
         locations.locations.head.from shouldBe 0
         locations.locations.head.to shouldBe 60000
-        locations.locations.head.occupied shouldBe 60000
-
       }
       runOn(node1) {
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty))
@@ -161,9 +152,23 @@ class WriteCoordinatorClusterTest
         locations.locations.size shouldBe 1
         locations.locations.head.from shouldBe 0
         locations.locations.head.to shouldBe 60000
-        locations.locations.head.occupied shouldBe 40000
-
       }
+
+      runOn(node1) {
+        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty))
+        expectMsgType[InputMapped]
+      }
+
+      awaitAssert {
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+        val locations = expectMsgType[LocationsGot]
+        locations.locations.size shouldBe 2
+        locations.locations.head.from shouldBe 0
+        locations.locations.head.to shouldBe 60000
+        locations.locations.last.from shouldBe 0
+        locations.locations.last.to shouldBe 60000
+      }
+
     }
 
   }

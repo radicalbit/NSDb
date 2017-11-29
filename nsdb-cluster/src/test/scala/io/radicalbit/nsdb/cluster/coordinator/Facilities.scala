@@ -1,30 +1,16 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
-import akka.util.Timeout
+import akka.actor.{Actor, ActorLogging}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordsPublished
-import io.radicalbit.nsdb.cluster.actor.{LocationKey, MetricKey}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetWriteLocation, UpdateLocation}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot}
-import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
-  Cached,
-  CachedLocations,
-  GetLocationsFromCache,
-  PutInCache
-}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
-
-import scala.concurrent.Future
 
 object Facilities {
 
@@ -60,7 +46,7 @@ object Facilities {
 
     override def receive: Receive = {
       case GetWriteLocation(db, namespace, metric, timestamp) =>
-        val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis, timestamp)
+        val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
         sender() ! LocationGot(db, namespace, metric, Some(location))
 
       case msg @ AddLocation(db, namespace, location, occurredOn) =>
@@ -73,7 +59,7 @@ object Facilities {
 //          }
 //          .pipeTo(sender)
 
-      case msg @ UpdateLocation(db, namespace, oldLocation, newOccupation, occurredOn) =>
+//      case msg @ UpdateLocation(db, namespace, oldLocation, newOccupation, occurredOn) =>
 //        val newLocation = oldLocation.copy(occupied = newOccupation)
 //        (cache ? PutInCache(LocationKey(db, namespace, oldLocation.metric, oldLocation.from, oldLocation.to),
 //          newLocation))

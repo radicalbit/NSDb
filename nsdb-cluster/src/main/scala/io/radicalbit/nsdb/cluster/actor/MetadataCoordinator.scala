@@ -88,11 +88,6 @@ object MetadataCoordinator {
                                metric: String,
                                occurredOn: Long = System.currentTimeMillis)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
-    case class UpdateLocation(db: String,
-                              namespace: String,
-                              oldLocation: Location,
-                              newOccupation: Long,
-                              occurredOn: Long = System.currentTimeMillis)
     case class AddLocation(db: String,
                            namespace: String,
                            location: Location,
@@ -112,11 +107,6 @@ object MetadataCoordinator {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location], occurredOn: Long)
     case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])
-    case class LocationUpdated(db: String,
-                               namespace: String,
-                               oldLocation: Location,
-                               newOccupation: Long,
-                               occurredOn: Long)
     case class UpdateLocationFailed(db: String,
                                     namespace: String,
                                     oldLocation: Location,

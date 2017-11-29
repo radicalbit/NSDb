@@ -48,7 +48,7 @@ class ShardActorSpec()
   "ShardActor" should "write and delete properly" in {
 
     val bit      = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
-    val location = Location("shardActorMetric", "node1", 0, 100, 0)
+    val location = Location("shardActorMetric", "node1", 0, 100)
 
     probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit, location))
     within(5 seconds) {
@@ -83,8 +83,8 @@ class ShardActorSpec()
 
   "ShardActor" should "write and delete properly the same metric in multiple locations" in {
 
-    val location  = Location("shardActorMetric", "node1", 0, 100, 0)
-    val location2 = Location("shardActorMetric", "node1", 101, 200, 101)
+    val location  = Location("shardActorMetric", "node1", 0, 100)
+    val location2 = Location("shardActorMetric", "node1", 101, 200)
 
     val bit11 = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
     val bit12 = Bit(System.currentTimeMillis, 30.5, Map("content" -> "content"))

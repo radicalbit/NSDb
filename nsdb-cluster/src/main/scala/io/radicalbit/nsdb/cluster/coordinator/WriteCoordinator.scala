@@ -7,7 +7,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetWriteLocation, UpdateLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetWriteLocation
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
@@ -97,7 +97,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                     log.debug(s"received location for metric $metric, $loc")
                     namespaces.get(loc.node) match {
                       case Some(actor) =>
-                        metadataCoordinator ! UpdateLocation(db, namespace, loc, bit.timestamp)
+//                        metadataCoordinator ! UpdateLocation(db, namespace, loc, bit.timestamp)
                         (actor ? AddRecordToLocation(db, namespace, ack.metric, ack.bit, loc)).map {
                           case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
                           case msg: RecordRejected => msg
