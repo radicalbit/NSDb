@@ -21,28 +21,28 @@ object MetadataTest extends MultiNodeConfig {
   val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
-    akka.loglevel = ERROR
- |akka.actor.provider = "cluster"
- |akka.log-dead-letters-during-shutdown = off
- |nsdb{
- |
- |  read-coordinatoor.timeout = 10 seconds
- |  namespace-schema.timeout = 10 seconds
- |  namespace-data.timeout = 10 seconds
- |  publisher.timeout = 10 seconds
- |  publisher.scheduler.interval = 5 seconds
- |  write.scheduler.interval = 15 seconds
- |
- |  sharding {
- |    enabled = true
- |    interval = 1d
- |  }
- |  index.base-path = "target/test_index/MetadataTest"
- |  write-coordinator.timeout = 5 seconds
- |  commit-log {
- |    enabled = false
- |  }
- |}
+    |akka.loglevel = ERROR
+    |akka.actor.provider = "cluster"
+    |akka.log-dead-letters-during-shutdown = off
+    |nsdb{
+    |
+    |  read-coordinatoor.timeout = 10 seconds
+    |  namespace-schema.timeout = 10 seconds
+    |  namespace-data.timeout = 10 seconds
+    |  publisher.timeout = 10 seconds
+    |  publisher.scheduler.interval = 5 seconds
+    |  write.scheduler.interval = 15 seconds
+    |
+    |  sharding {
+    |    enabled = true
+    |    interval = 1d
+    |  }
+    |  index.base-path = "target/test_index/MetadataTest"
+    |  write-coordinator.timeout = 5 seconds
+    |  commit-log {
+    |    enabled = false
+    |  }
+    |}
     """.stripMargin))
 
 }

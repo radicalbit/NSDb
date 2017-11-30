@@ -22,30 +22,28 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
   val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
-    akka.loglevel = ERROR
- |akka.actor.provider = "cluster"
- |akka.log-dead-letters-during-shutdown = off
- |nsdb{
- |
- |  read-coordinatoor.timeout = 10 seconds
- |  namespace-schema.timeout = 10 seconds
- |  namespace-data.timeout = 10 seconds
- |  publisher.timeout = 10 seconds
- |  publisher.scheduler.interval = 5 seconds
- |  write.scheduler.interval = 15 seconds
- |
- |  sharding {
- |    enabled = true
- |    interval = 1m
- |  }
- |  index.base-path = "target/test_index/WriteCoordinatorTest"
- |  write-coordinator.timeout = 5 seconds
- |  commit-log {
- |    enabled = false
- |  }
- |}
-    """.stripMargin))
-
+    |akka.loglevel = ERROR
+    |akka.actor.provider = "cluster"
+    |akka.log-dead-letters-during-shutdown = off
+    |nsdb{
+    |
+    |  read-coordinatoor.timeout = 10 seconds
+    |  namespace-schema.timeout = 10 seconds
+    |  namespace-data.timeout = 10 seconds
+    |  publisher.timeout = 10 seconds
+    |  publisher.scheduler.interval = 5 seconds
+    |  write.scheduler.interval = 15 seconds
+    |
+    |  sharding {
+    |    enabled = true
+    |    interval = 1m
+    |  }
+    |  index.base-path = "target/test_index/WriteCoordinatorTest"
+    |  write-coordinator.timeout = 5 seconds
+    |  commit-log {
+    |    enabled = false
+    |  }
+    |}""".stripMargin))
 }
 
 class WriteCoordinatorClusterTestMultiJvmNode1 extends WriteCoordinatorClusterTest

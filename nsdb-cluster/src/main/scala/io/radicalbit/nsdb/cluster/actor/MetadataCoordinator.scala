@@ -83,10 +83,10 @@ object MetadataCoordinator {
   object commands {
 
     case class GetLocations(db: String, namespace: String, metric: String, occurredOn: Long = System.currentTimeMillis)
-    case class GetLastLocation(db: String,
-                               namespace: String,
-                               metric: String,
-                               occurredOn: Long = System.currentTimeMillis)
+//    case class GetLastLocation(db: String,
+//                               namespace: String,
+//                               metric: String,
+//                               occurredOn: Long = System.currentTimeMillis)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String,
                            namespace: String,

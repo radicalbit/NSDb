@@ -5,7 +5,7 @@ import java.time.Duration
 import akka.actor.{Actor, ActorLogging}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordsPublished
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetWriteLocation
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
@@ -48,28 +48,6 @@ object Facilities {
       case GetWriteLocation(db, namespace, metric, timestamp) =>
         val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
         sender() ! LocationGot(db, namespace, metric, Some(location))
-
-      case msg @ AddLocation(db, namespace, location, occurredOn) =>
-//        (cache ? PutInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
-//          .map {
-//            case Cached(_, Some(_)) =>
-//              mediator ! Publish("metadata", msg)
-//              LocationAdded(db, namespace, location, occurredOn)
-//            case _ => AddLocationFailed(db, namespace, location, occurredOn)
-//          }
-//          .pipeTo(sender)
-
-//      case msg @ UpdateLocation(db, namespace, oldLocation, newOccupation, occurredOn) =>
-//        val newLocation = oldLocation.copy(occupied = newOccupation)
-//        (cache ? PutInCache(LocationKey(db, namespace, oldLocation.metric, oldLocation.from, oldLocation.to),
-//          newLocation))
-//          .map {
-//            case Cached(_, Some(_)) =>
-//              mediator ! Publish("metadata", msg)
-//              LocationAdded(db, namespace, newLocation, occurredOn)
-//            case _ => AddLocationFailed(db, namespace, newLocation, occurredOn)
-//          }
-//          .pipeTo(sender)
     }
   }
 

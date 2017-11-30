@@ -97,7 +97,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                     log.debug(s"received location for metric $metric, $loc")
                     namespaces.get(loc.node) match {
                       case Some(actor) =>
-//                        metadataCoordinator ! UpdateLocation(db, namespace, loc, bit.timestamp)
                         (actor ? AddRecordToLocation(db, namespace, ack.metric, ack.bit, loc)).map {
                           case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
                           case msg: RecordRejected => msg

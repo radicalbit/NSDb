@@ -67,7 +67,6 @@ class LocationActorTest
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
     existingGot.locations shouldBe locations
-
   }
 
   "MetadataActor" should "add a new location" in {
