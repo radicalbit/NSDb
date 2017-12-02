@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
+import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
@@ -31,6 +33,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     case SubscribeNamespaceDataActor(actor: ActorRef, Some(nodeName)) =>
       namespaces += (nodeName -> actor)
       sender() ! NamespaceDataActorSubscribed(actor, Some(nodeName))
+    case GetConnectedNodes =>
+      sender ! ConnectedNodesGot(namespaces.keys.toSeq)
     case msg @ GetNamespaces(db) =>
       Future
         .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
@@ -79,7 +83,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
   }
 
   def subscribed(namespaceDataActor: ActorRef): Receive = {
-
     case msg: GetNamespaces =>
       namespaceDataActor forward msg
     case msg: GetMetrics =>
@@ -99,6 +102,14 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
 }
 
 object ReadCoordinator {
+
+  object Commands {
+    private[coordinator] case object GetConnectedNodes
+  }
+
+  object Events {
+    private[coordinator] case class ConnectedNodesGot(nodes: Seq[String])
+  }
 
   def props(metadataCoordinator: ActorRef, schemaActor: ActorRef): Props =
     Props(new ReadCoordinator(metadataCoordinator, schemaActor))

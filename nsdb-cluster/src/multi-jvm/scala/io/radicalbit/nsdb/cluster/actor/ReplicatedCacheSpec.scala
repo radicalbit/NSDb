@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.actor
+package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.Props
 import akka.cluster.Cluster

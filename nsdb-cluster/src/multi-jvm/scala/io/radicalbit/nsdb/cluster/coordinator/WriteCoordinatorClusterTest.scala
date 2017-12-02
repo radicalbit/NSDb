@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.coordinator
+package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.Props
 import akka.cluster.Cluster
@@ -32,7 +32,7 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |  namespace-data.timeout = 10 seconds
     |  publisher.timeout = 10 seconds
     |  publisher.scheduler.interval = 5 seconds
-    |  write.scheduler.interval = 15 seconds
+    |  write.scheduler.interval = 5 seconds
     |
     |  sharding {
     |    enabled = true

@@ -30,7 +30,7 @@ class ClusterListener extends Actor with ActorLogging {
 
   def receive: Receive = {
     case MemberUp(member) =>
-      log.debug("Member is Up: {}", member.address)
+      log.info("Member is Up: {}", member.address)
 
       val nameNode = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
 
@@ -42,10 +42,11 @@ class ClusterListener extends Actor with ActorLogging {
         .sequence(
           Seq(
             context.system.actorSelection("/user/guardian/write-coordinator").resolveOne(),
+            context.system.actorSelection("/user/guardian/read-coordinator").resolveOne(),
             context.system.actorSelection("/user/guardian/metadata-coordinator").resolveOne()
           ))
         .onComplete {
-          case Success(Seq(writeCoordinator: ActorRef, metadataCoordinator: ActorRef)) =>
+          case Success(Seq(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)) =>
             val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
 
             val metadataActor = context.system.actorOf(
@@ -63,6 +64,7 @@ class ClusterListener extends Actor with ActorLogging {
                 NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
                 s"namespace-data-actor_$nameNode")
               writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
+              readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
             }
           case Success(_) =>
             log.error("cannot find metadataCoordinator or WriteCoordinator")

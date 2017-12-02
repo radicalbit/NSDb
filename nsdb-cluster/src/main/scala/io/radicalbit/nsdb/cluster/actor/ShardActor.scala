@@ -6,9 +6,9 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, Props, Stash}
 import akka.util.Timeout
 import cats.data.Validated.{Invalid, Valid}
-import io.radicalbit.nsdb.actors.IndexerActor._
 import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.actor.ShardActor.{Accumulate, PerformWrites}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -243,6 +243,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 }
 
 object ShardActor {
+
+  case object PerformWrites
+  case object Accumulate
 
   def props(basePath: String, db: String, namespace: String): Props = Props(new ShardActor(basePath, db, namespace))
 }
