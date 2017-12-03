@@ -10,7 +10,6 @@ import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLocations}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationAdded, LocationsGot}
-import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -58,8 +57,6 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
   override def initialParticipants = roles.size
 
   val cluster = Cluster(system)
-
-  val clusterListener = system.actorOf(Props[ClusterListener])
 
   val mediator = DistributedPubSub(system).mediator
 

@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Deploy}
+import akka.actor.{Actor, ActorLogging, ActorRef, Deploy, Props}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.pubsub.DistributedPubSub
@@ -9,11 +9,12 @@ import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeNamespaceDataActor
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success}
 
-class ClusterListener extends Actor with ActorLogging {
+class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)
+    extends Actor
+    with ActorLogging {
 
   val cluster = Cluster(context.system)
 
@@ -38,41 +39,25 @@ class ClusterListener extends Actor with ActorLogging {
 
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
-      Future
-        .sequence(
-          Seq(
-            context.system.actorSelection("/user/guardian/write-coordinator").resolveOne(),
-            context.system.actorSelection("/user/guardian/read-coordinator").resolveOne(),
-            context.system.actorSelection("/user/guardian/metadata-coordinator").resolveOne()
-          ))
-        .onComplete {
-          case Success(Seq(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)) =>
-            val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
+      val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
 
-            val metadataActor = context.system.actorOf(
-              MetadataActor
-                .props(indexBasePath, metadataCoordinator)
-                .withDeploy(Deploy(scope = RemoteScope(member.address))),
-              name = s"metadata_$nameNode"
-            )
+      val metadataActor = context.system.actorOf(
+        MetadataActor
+          .props(indexBasePath, metadataCoordinator)
+          .withDeploy(Deploy(scope = RemoteScope(member.address))),
+        name = s"metadata_$nameNode"
+      )
 
-            mediator ! Subscribe("metadata", metadataActor)
+      mediator ! Subscribe("metadata", metadataActor)
 
-            if (sharding) {
-              log.info(s"subscribing data actor for node $nameNode")
-              val namespaceActor = context.actorOf(
-                NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
-                s"namespace-data-actor_$nameNode")
-              writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
-              readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
-            }
-          case Success(_) =>
-            log.error("cannot find metadataCoordinator or WriteCoordinator")
-            cluster.leave(member.address)
-          case Failure(exception) =>
-            log.error(exception, "cannot find metadataCoordinator or WriteCoordinator")
-            cluster.leave(member.address)
-        }
+      if (sharding) {
+        log.info(s"subscribing data actor for node $nameNode")
+        val namespaceActor = context.actorOf(
+          NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
+          s"namespace-data-actor_$nameNode")
+        writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
+        readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
+      }
 
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)
@@ -80,4 +65,9 @@ class ClusterListener extends Actor with ActorLogging {
       log.debug("Member is Removed: {} after {}", member.address, previousStatus)
     case _: MemberEvent => // ignore
   }
+}
+
+object ClusterListener {
+  def props(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef) =
+    Props(new ClusterListener(writeCoordinator, readCoordinator, metadataCoordinator))
 }

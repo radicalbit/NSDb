@@ -8,6 +8,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
+import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian._
 import io.radicalbit.nsdb.cluster.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.NamespaceDataActorSubscribed
@@ -16,6 +17,8 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 object DatabaseActorsGuardian {
+
+  case object GetMetadataCoordinator
 
   def props = Props(new DatabaseActorsGuardian)
 
@@ -55,6 +58,13 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
       WriteCoordinator.props(metadataCoordinator, namespaceSchemaActor, commitLogService, publisherActor),
       "write-coordinator")
 
+  context.actorOf(
+    ClusterListener.props(readCoordinator = readCoordinator,
+                          writeCoordinator = writeCoordinator,
+                          metadataCoordinator = metadataCoordinator),
+    name = "clusterListener"
+  )
+
   if (!context.system.settings.config.getBoolean("nsdb.sharding.enabled")) {
     implicit val timeout = Timeout(5 seconds)
     import context.dispatcher
@@ -81,9 +91,10 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
   }
 
   def receive: Receive = {
-    case GetReadCoordinator  => sender() ! readCoordinator
-    case GetWriteCoordinator => sender() ! writeCoordinator
-    case GetPublisher        => sender() ! publisherActor
+    case GetReadCoordinator     => sender() ! readCoordinator
+    case GetWriteCoordinator    => sender() ! writeCoordinator
+    case GetMetadataCoordinator => sender() ! metadataCoordinator
+    case GetPublisher           => sender() ! publisherActor
   }
 
 }

@@ -9,7 +9,6 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.actor.{LocationKey, MetricKey, ReplicatedMetadataCache}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats

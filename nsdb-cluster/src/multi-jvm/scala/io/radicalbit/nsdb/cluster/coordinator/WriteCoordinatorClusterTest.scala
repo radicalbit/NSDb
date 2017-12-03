@@ -63,8 +63,6 @@ class WriteCoordinatorClusterTest
 
   val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
-  val clusterListener = system.actorOf(Props[ClusterListener])
-
   val mediator = DistributedPubSub(system).mediator
 
   val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")

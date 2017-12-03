@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
+import java.io.File
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
@@ -45,6 +46,7 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
     Option(Paths.get(basePath).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
+      .filter(f => new File(f).isDirectory && f == "queries")
       .flatMap(db => {
         Paths.get(basePath, db).toFile.list().map(namespace => (db, namespace))
       })
