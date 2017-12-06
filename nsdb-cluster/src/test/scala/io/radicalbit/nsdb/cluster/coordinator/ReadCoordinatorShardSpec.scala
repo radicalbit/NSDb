@@ -1,12 +1,13 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.SchemaActor
-import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.index.Location
@@ -30,8 +31,7 @@ class ReadCoordinatorShardSpec
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfterAll
-    with ClusterWriteInterval {
+    with BeforeAndAfterAll {
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
@@ -44,7 +44,7 @@ class ReadCoordinatorShardSpec
 
   val recordsShard1: Seq[Bit] = Seq(
     Bit(2L, 1L, Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis())),
-    Bit(4L, 1L, Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
+    Bit(4L, 1L, Map("name" -> "Jon", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()))
   )
 
   val recordsShard2: Seq[Bit] = Seq(
@@ -62,7 +62,11 @@ class ReadCoordinatorShardSpec
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
 
-    waitInterval
+    val interval = FiniteDuration(
+      system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    expectNoMessage(interval)
 
     val schema = Schema(
       "people",
@@ -72,10 +76,12 @@ class ReadCoordinatorShardSpec
     val location1 = Location("people", "node1", 0, 10)
     val location2 = Location("people", "node1", 11, 20)
 
-    recordsShard1.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r, location1))
-    recordsShard2.foreach(r => namespaceDataActor ! AddRecordToLocation(db, namespace, "people", r, location2))
+    recordsShard1.foreach(r =>
+      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, "people", r, location1), 3 seconds))
+    recordsShard2.foreach(r =>
+      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, "people", r, location2), 3 seconds))
 
-    waitInterval
+    expectNoMessage(interval)
   }
 
   "ReadCoordinator in shard mode" when {
@@ -134,8 +140,68 @@ class ReadCoordinatorShardSpec
                    ))
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size shouldBe 5
 
           expected.values.sortBy(_.timestamp) shouldBe records
+        }
+      }
+    }
+
+    "receive a select projecting a wildcard with a limit" should {
+      "execute it successfully" in {
+
+        probe.send(readCoordinatorActor,
+                   ExecuteStatement(
+                     SelectSQLStatement(db = db,
+                                        namespace = namespace,
+                                        metric = "people",
+                                        fields = AllFields,
+                                        limit = Some(LimitOperator(2)))
+                   ))
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size shouldBe 2
+        }
+      }
+    }
+
+    "receive a select projecting a wildcard with a limit and a ordering" should {
+      "execute it successfully when ordered by timestamp" in {
+
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(db = db,
+                               namespace = namespace,
+                               metric = "people",
+                               fields = AllFields,
+                               limit = Some(LimitOperator(2)),
+                               order = Some(DescOrderOperator("timestamp")))
+          )
+        )
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size shouldBe 2
+          expected.values shouldBe recordsShard2.tail.reverse
+        }
+      }
+
+      "execute it successfully when ordered by another dimension" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(db = db,
+                               namespace = namespace,
+                               metric = "people",
+                               fields = AllFields,
+                               limit = Some(LimitOperator(2)),
+                               order = Some(DescOrderOperator("name")))
+          )
+        )
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values.size shouldBe 2
+          expected.values shouldBe recordsShard1.reverse
         }
       }
     }
@@ -160,7 +226,7 @@ class ReadCoordinatorShardSpec
 
           expected.values.sortBy(_.timestamp) shouldBe Seq(
             Bit(2L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
-            Bit(4L, 1L, Map("name"  -> "John", "surname"  -> "Doe")),
+            Bit(4L, 1L, Map("name"  -> "Jon", "surname"   -> "Doe")),
             Bit(11L, 1L, Map("name" -> "Bill", "surname"  -> "Doe")),
             Bit(12L, 1L, Map("name" -> "Frank", "surname" -> "Doe")),
             Bit(13L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
@@ -250,7 +316,7 @@ class ReadCoordinatorShardSpec
           expected.values.size should be(2)
           expected.values shouldBe Seq(
             Bit(2L, 1L, Map("name" -> "John")),
-            Bit(4L, 1L, Map("name" -> "John"))
+            Bit(4L, 1L, Map("name" -> "Jon"))
           )
         }
       }
@@ -351,7 +417,7 @@ class ReadCoordinatorShardSpec
                 expression1 =
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
                 operator = AndOperator,
-                expression2 = EqualityExpression(dimension = "name", value = "John")
+                expression2 = EqualityExpression(dimension = "name", value = "Frank")
               ))),
               limit = Some(LimitOperator(5))
             )
@@ -383,7 +449,7 @@ class ReadCoordinatorShardSpec
 
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size should be(5)
+          expected.values.size should be(6)
         }
       }
     }

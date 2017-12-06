@@ -39,7 +39,7 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
-      val indexBasePath = s"${config.getString("nsdb.index.base-path")}_${member.address.port.getOrElse(2552)}"
+      val indexBasePath = config.getString("nsdb.index.base-path")
 
       val metadataActor = context.system.actorOf(
         MetadataActor

@@ -9,18 +9,21 @@ import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.cluster.actor.ShardActor.{Accumulate, PerformWrites}
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.DescOrderOperator
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import io.radicalbit.nsdb.statement.StatementParser._
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery}
 import org.apache.lucene.store.NIOFSDirectory
-import spire.math.Interval
 import spire.implicits._
+import spire.math.Interval
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
@@ -76,7 +79,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     }
   }
 
-  override def preStart = {
+  override def preStart: Unit = {
     Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
@@ -85,7 +88,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       .foreach {
         case Array(metric, from, to) =>
           val directory =
-            new NIOFSDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}"))
+            new NIOFSDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to"))
           val newIndex = new TimeSeriesIndex(directory)
           shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
       }
@@ -124,7 +127,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       }.sum
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>
-      val shardResults: Seq[Try[Seq[Bit]]] = statementParser.parseStatement(statement, Some(schema)) match {
+      val combinedResult: Try[Seq[Bit]] = statementParser.parseStatement(statement, Some(schema)) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
@@ -138,22 +141,53 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                   .foldLeft(false)((x, y) => x || y)
               case _ => true
             }
-          indexes.toSeq.map {
-            case (key, index) =>
-              implicit val searcher: IndexSearcher = getSearcher(key)
-              handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
+
+          if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
+            val result: ListBuffer[Try[Seq[Bit]]] = ListBuffer.empty
+
+            val eventuallyOrdered =
+              statement.getTimeOrdering.map(indexes.toSeq.sortBy(_._1.from)(_)).getOrElse(indexes.toSeq)
+
+            eventuallyOrdered.takeWhile {
+              case (key, index) =>
+                val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(getSearcher(key))))
+                result += partials
+
+                val combined = Try(result.flatMap(_.get))
+
+                combined.isSuccess && combined.get.size < statement.limit.map(_.value).getOrElse(Int.MaxValue)
+            }
+
+            Try(result.flatMap(_.get))
+
+          } else {
+
+            val shardResults = indexes.toSeq.map {
+              case (key, index) =>
+                implicit val searcher: IndexSearcher = getSearcher(key)
+                handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
+            }
+
+            Try(shardResults.flatMap(_.get)).map(s => {
+              val o            = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+              implicit val ord: Ordering[JSerializable] = if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+              val sorted       = s.sortBy(_.dimensions(statement.order.get.dimension))
+              sorted.take(statement.limit.get.value)
+            })
+
           }
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           val indexes = getMetricIndexes(statement.metric)
-          indexes.toSeq.map {
+          val shardResults = indexes.toSeq.map {
             case (key, index) =>
               implicit val searcher: IndexSearcher = getSearcher(key)
               handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
           }
-        case Failure(ex) => Seq(Failure(ex))
-        case _           => Seq(Failure(new RuntimeException("Not a select statement.")))
+          Try(shardResults.flatMap(_.get))
+        case Failure(ex) => Failure(ex)
+        case _           => Failure(new RuntimeException("Not a select statement."))
       }
-      val combinedResult = Try(shardResults.flatMap(_.get))
+
       combinedResult match {
         case Success(bits) => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
         case Failure(ex)   => sender() ! SelectStatementFailed(ex.getMessage)

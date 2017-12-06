@@ -38,11 +38,14 @@ trait TypeSupport {
 }
 
 sealed trait IndexType[T] {
+
   def actualType: Class[T]
 
   def indexField(fieldName: String, value: T): Seq[Field]
 
   def facetField(fieldName: String, value: T): Seq[Field]
+
+  def ord: Ordering[JSerializable]
 
   def serialize(value: T): Array[Byte] = value.toString.getBytes()
 
@@ -75,8 +78,9 @@ object IndexType {
 
 }
 
-case class INT() extends NumericType[Integer] {
-  def actualType = classOf[Integer]
+case class INT() extends IndexType[Integer] {
+  def actualType                   = classOf[Integer]
+  def ord: Ordering[JSerializable] = Ordering[Long].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt),
         new NumericDocValuesField(fieldName, value.toString.toLong),
@@ -88,8 +92,9 @@ case class INT() extends NumericType[Integer] {
     )
   def deserialize(value: Array[Byte]) = new String(value).toInt
 }
-case class BIGINT() extends NumericType[JLong] {
-  def actualType = classOf[JLong]
+case class BIGINT() extends IndexType[JLong] {
+  def actualType                   = classOf[JLong]
+  def ord: Ordering[JSerializable] = Ordering[JLong].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JLong): Seq[Field] =
     Seq(
       new LongPoint(fieldName, value.toString.toLong),
@@ -103,8 +108,9 @@ case class BIGINT() extends NumericType[JLong] {
     )
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
-case class DECIMAL() extends NumericType[JDouble] {
-  def actualType = classOf[JDouble]
+case class DECIMAL() extends IndexType[JDouble] {
+  def actualType                   = classOf[JDouble]
+  def ord: Ordering[JSerializable] = Ordering[JDouble].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JDouble): Seq[Field] =
     Seq(
       new DoublePoint(fieldName, value.toString.toDouble),
@@ -119,15 +125,17 @@ case class DECIMAL() extends NumericType[JDouble] {
   def deserialize(value: Array[Byte]) = new String(value).toDouble
 }
 case class BOOLEAN() extends IndexType[Boolean] {
-  def actualType = classOf[Boolean]
+  def actualType                   = classOf[Boolean]
+  def ord: Ordering[JSerializable] = Ordering[Boolean].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: Boolean): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
   override def facetField(fieldName: String, value: Boolean): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
   def deserialize(value: Array[Byte]) = new String(value).toBoolean
 }
-case class CHAR() extends StringType[Char] {
-  def actualType = classOf[Char]
+case class CHAR() extends IndexType[Char] {
+  def actualType                   = classOf[Char]
+  def ord: Ordering[JSerializable] = Ordering[Char].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: Char): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
   override def facetField(fieldName: String, value: Char): Seq[Field] =
@@ -137,6 +145,7 @@ case class CHAR() extends StringType[Char] {
 }
 case class VARCHAR() extends StringType[String] {
   def actualType = classOf[String]
+  def ord: Ordering[JSerializable] = Ordering[String].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: String): Seq[Field] =
     Seq(
       new StringField(fieldName, value, Store.YES),

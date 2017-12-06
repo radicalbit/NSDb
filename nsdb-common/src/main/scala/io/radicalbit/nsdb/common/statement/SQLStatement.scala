@@ -73,6 +73,12 @@ case class SelectSQLStatement(override val db: String,
     this.copy(condition = Some(newCondition))
   }
 
+  def getTimeOrdering: Option[Ordering[Long]] =
+    this.order.collect {
+      case o: AscOrderOperator if o.dimension == "timestamp"  => implicitly[Ordering[Long]]
+      case o: DescOrderOperator if o.dimension == "timestamp" => implicitly[Ordering[Long]].reverse
+    }
+
 }
 
 case class InsertSQLStatement(override val db: String,
