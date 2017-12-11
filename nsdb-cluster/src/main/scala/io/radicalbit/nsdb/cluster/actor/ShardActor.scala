@@ -169,9 +169,10 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
             }
 
             Try(shardResults.flatMap(_.get)).map(s => {
-              val o            = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-              implicit val ord: Ordering[JSerializable] = if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-              val sorted       = s.sortBy(_.dimensions(statement.order.get.dimension))
+              val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+              implicit val ord: Ordering[JSerializable] =
+                if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+              val sorted = s.sortBy(_.dimensions(statement.order.get.dimension))
               sorted.take(statement.limit.get.value)
             })
 

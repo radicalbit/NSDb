@@ -1,11 +1,12 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
-import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
@@ -23,8 +24,7 @@ class ReadCoordinatorSpec
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfterAll
-    with ClusterWriteInterval {
+    with BeforeAndAfterAll {
 
   val probe                = TestProbe()
   val probeActor           = probe.ref
@@ -47,13 +47,23 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
+    val interval = FiniteDuration(
+      system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS) //+ (1 second)
+
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", records.head), 3 seconds)
 
-    namespaceDataActor ! AddRecords(db, namespace, "people", records)
+    expectNoMessage(interval)
 
-    waitInterval
+    val schema = Schema(
+      "people",
+      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
+    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
+    Await.result(namespaceDataActor ? AddRecords(db, namespace, "people", records), 3 seconds)
+
+    expectNoMessage(interval)
   }
 
   "ReadCoordinator" when {

@@ -1,25 +1,25 @@
 package io.radicalbit.nsdb.cluster.actor
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class NamespaceActorSpec()
     extends TestKit(ActorSystem("namespaceActorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter
-    with ClusterWriteInterval {
+    with BeforeAndAfter {
 
   val probe          = TestProbe()
   val probeActor     = probe.ref
@@ -28,6 +28,9 @@ class NamespaceActorSpec()
   val namespace      = "namespace"
   val namespace1     = "namespace1"
   val namespaceActor = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
+
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS) + (1 second)
 
   before {
     import scala.concurrent.duration._
@@ -49,7 +52,7 @@ class NamespaceActorSpec()
       expectedAdd.record shouldBe record
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
 
@@ -67,7 +70,7 @@ class NamespaceActorSpec()
       expectedDelete.record shouldBe record
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
 
@@ -86,7 +89,7 @@ class NamespaceActorSpec()
     probe.send(namespaceActor, AddRecord(db, namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
 
@@ -113,7 +116,7 @@ class NamespaceActorSpec()
     probe.send(namespaceActor, AddRecord(db, namespace1, "namespaceActorMetric2", record))
     probe.expectMsgType[RecordAdded]
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(namespaceActor, GetCount(db, namespace1, "namespaceActorMetric2"))
     within(5 seconds) {
@@ -129,7 +132,7 @@ class NamespaceActorSpec()
       probe.expectMsgType[NamespaceDeleted]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     namespaceActor.underlyingActor.childActors.keys.size shouldBe 0
   }

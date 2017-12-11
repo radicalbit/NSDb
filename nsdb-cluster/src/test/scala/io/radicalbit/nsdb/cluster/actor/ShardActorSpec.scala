@@ -1,10 +1,10 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -19,8 +19,7 @@ class ShardActorSpec()
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter
-    with ClusterWriteInterval {
+    with BeforeAndAfter {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
@@ -29,6 +28,9 @@ class ShardActorSpec()
   val db         = "db_shard"
   val namespace  = "namespace"
   val shardActor = TestActorRef[ShardActor](ShardActor.props(basePath, db, namespace))
+
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS)
 
   before {
     import scala.collection.JavaConverters._
@@ -56,7 +58,7 @@ class ShardActorSpec()
       expectedAdd.metric shouldBe "shardActorMetric"
       expectedAdd.record shouldBe bit
     }
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
     within(5 seconds) {
@@ -70,7 +72,7 @@ class ShardActorSpec()
       expectedDelete.metric shouldBe "shardActorMetric"
       expectedDelete.record shouldBe bit
     }
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
     within(5 seconds) {
@@ -105,7 +107,7 @@ class ShardActorSpec()
       probe.expectMsgType[RecordAdded]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
     within(5 seconds) {

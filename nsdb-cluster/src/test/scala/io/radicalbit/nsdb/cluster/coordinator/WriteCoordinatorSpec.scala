@@ -1,12 +1,13 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
 import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
-import io.radicalbit.nsdb.cluster.ClusterWriteInterval
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.cluster.coordinator.Facilities._
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -25,8 +26,7 @@ class WriteCoordinatorSpec
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll
-    with ClusterWriteInterval {
+    with BeforeAndAfterAll {
 
   val basePath             = "target/test_index/WriteCoordinatorSpec"
   val probe                = TestProbe()
@@ -48,6 +48,9 @@ class WriteCoordinatorSpec
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
+
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS)
 
   override def beforeAll() = {
     import akka.pattern.ask
@@ -165,7 +168,7 @@ class WriteCoordinatorSpec
     probe.expectMsgType[InputMapped]
     probe.expectMsgType[InputMapped]
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
     within(5 seconds) {
@@ -177,7 +180,7 @@ class WriteCoordinatorSpec
       probe.expectMsgType[MetricDropped]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
     within(5 seconds) {

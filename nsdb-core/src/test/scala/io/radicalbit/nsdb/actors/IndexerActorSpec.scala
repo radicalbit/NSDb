@@ -1,10 +1,10 @@
 package io.radicalbit.nsdb.actors
 
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.WriteInterval
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -17,11 +17,13 @@ class IndexerActorSpec()
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter
-    with WriteInterval {
+    with BeforeAndAfter {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
+
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS)
 
   val basePath     = "target/test_index"
   val db           = "db"
@@ -44,7 +46,7 @@ class IndexerActorSpec()
       expectedAdd.metric shouldBe "indexerActorMetric"
       expectedAdd.record shouldBe bit
     }
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
     within(5 seconds) {
@@ -58,7 +60,7 @@ class IndexerActorSpec()
       expectedDelete.metric shouldBe "indexerActorMetric"
       expectedDelete.record shouldBe bit
     }
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
     within(5 seconds) {
@@ -78,7 +80,7 @@ class IndexerActorSpec()
       probe.expectMsgType[RecordAdded]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
     within(5 seconds) {
@@ -106,7 +108,7 @@ class IndexerActorSpec()
     probe.expectMsgType[RecordAdded]
     probe.expectMsgType[RecordAdded]
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount("db", "testNamespace", "testMetric"))
     within(5 seconds) {
@@ -118,7 +120,7 @@ class IndexerActorSpec()
       probe.expectMsgType[MetricDropped]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount("db", "testNamespace", "testMetric"))
     within(5 seconds) {
