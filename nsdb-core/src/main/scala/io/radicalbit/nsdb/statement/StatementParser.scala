@@ -12,39 +12,48 @@ import scala.util.{Failure, Success, Try}
 
 class StatementParser {
 
-  private def parseExpression(exp: Option[Expression], schema: Schema): ParsedExpression = {
+  private def parseExpression(exp: Option[Expression], schema: Schema): Try[ParsedExpression] = {
     val q = exp match {
-      case Some(EqualityExpression(dimension, value: Int))    => IntPoint.newExactQuery(dimension, value)
-      case Some(EqualityExpression(dimension, value: Long))   => LongPoint.newExactQuery(dimension, value)
-      case Some(EqualityExpression(dimension, value: Double)) => DoublePoint.newExactQuery(dimension, value)
-      case Some(EqualityExpression(dimension, value: String)) => new TermQuery(new Term(dimension, value))
-      case Some(LikeExpression(dimension, value))             => new TermQuery(new Term(dimension, value.replaceAll("\\$", "*")))
+      case Some(EqualityExpression(dimension, value: Int))    => Success(IntPoint.newExactQuery(dimension, value))
+      case Some(EqualityExpression(dimension, value: Long))   => Success(LongPoint.newExactQuery(dimension, value))
+      case Some(EqualityExpression(dimension, value: Double)) => Success(DoublePoint.newExactQuery(dimension, value))
+      case Some(EqualityExpression(dimension, value: String)) => Success(new TermQuery(new Term(dimension, value)))
+      case Some(LikeExpression(dimension, value)) =>
+        Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
-        operator match {
+        Success(operator match {
           case GreaterThanOperator      => LongPoint.newRangeQuery(dimension, value + 1, Long.MaxValue)
           case GreaterOrEqualToOperator => LongPoint.newRangeQuery(dimension, value, Long.MaxValue)
           case LessThanOperator         => LongPoint.newRangeQuery(dimension, 0, value - 1)
           case LessOrEqualToOperator    => LongPoint.newRangeQuery(dimension, 0, value)
-        }
-      case Some(RangeExpression(dimension, v1: Long, v2: Long)) => LongPoint.newRangeQuery(dimension, v1, v2)
+        })
+      case Some(RangeExpression(dimension, v1: Long, v2: Long)) => Success(LongPoint.newRangeQuery(dimension, v1, v2))
       case Some(UnaryLogicalExpression(expression, _)) =>
-        val builder = new BooleanQuery.Builder()
-        builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-        builder.add(parseExpression(Some(expression), schema).q, BooleanClause.Occur.MUST_NOT).build()
-      case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
-        operator match {
-          case AndOperator =>
-            val builder = new BooleanQuery.Builder()
-            builder.add(parseExpression(Some(expression1), schema).q, BooleanClause.Occur.MUST)
-            builder.add(parseExpression(Some(expression2), schema).q, BooleanClause.Occur.MUST).build()
-          case OrOperator =>
-            val builder = new BooleanQuery.Builder()
-            builder.add(parseExpression(Some(expression1), schema).q, BooleanClause.Occur.SHOULD)
-            builder.add(parseExpression(Some(expression2), schema).q, BooleanClause.Occur.SHOULD).build()
+        parseExpression(Some(expression), schema).map { e =>
+          val builder = new BooleanQuery.Builder()
+          builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+          builder.add(e.q, BooleanClause.Occur.MUST_NOT).build()
         }
-      case None => new MatchAllDocsQuery()
+      case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
+        for {
+          e1 <- parseExpression(Some(expression1), schema)
+          e2 <- parseExpression(Some(expression2), schema)
+        } yield {
+          val builder = operator match {
+            case AndOperator =>
+              val builder = new BooleanQuery.Builder()
+              builder.add(e1.q, BooleanClause.Occur.MUST)
+              builder.add(e2.q, BooleanClause.Occur.MUST)
+            case OrOperator =>
+              val builder = new BooleanQuery.Builder()
+              builder.add(e1.q, BooleanClause.Occur.SHOULD)
+              builder.add(e2.q, BooleanClause.Occur.SHOULD)
+          }
+          builder.build()
+        }
+      case None => Success(new MatchAllDocsQuery())
     }
-    ParsedExpression(q)
+    q.map(ParsedExpression)
   }
 
   def parseDeleteStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] = {
@@ -61,8 +70,8 @@ class StatementParser {
   }
 
   def parseStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedDeleteQuery] = {
-    val expParsed: ParsedExpression = parseExpression(Some(statement.condition.expression), schema)
-    Success(ParsedDeleteQuery(statement.namespace, statement.metric, expParsed.q))
+    val expParsed = parseExpression(Some(statement.condition.expression), schema)
+    expParsed.map(exp => ParsedDeleteQuery(statement.namespace, statement.metric, exp.q))
   }
 
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
@@ -87,36 +96,38 @@ class StatementParser {
       case AllFields        => List.empty
       case ListFields(list) => list
     }
-    (fieldList, statement.groupBy, statement.limit) match {
-      case (Seq(Field(fieldName, Some(agg))), Some(group), limit) =>
-        Success(
-          ParsedAggregatedQuery(statement.namespace,
-                                statement.metric,
-                                expParsed.q,
-                                getCollector(group, fieldName, agg),
-                                sortOpt,
-                                limit.map(_.value)))
-      case (List(Field(_, None)), Some(_), _) =>
-        Failure(new RuntimeException("cannot execute a group by query without an aggregation"))
-      case (List(_), Some(_), _) =>
-        Failure(new RuntimeException("cannot execute a group by query with more than a field"))
-      case (List(), Some(_), _) =>
-        Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
-      case (fieldsSeq, None, Some(limit)) if fieldsSeq.map(_.aggregation.isEmpty).foldLeft(true)(_ && _) =>
-        Success(
-          ParsedSimpleQuery(statement.namespace,
-                            statement.metric,
-                            expParsed.q,
-                            limit.value,
-                            fieldsSeq.map(_.name),
-                            sortOpt))
-      case (List(), None, Some(limit)) =>
-        Success(ParsedSimpleQuery(statement.namespace, statement.metric, expParsed.q, limit.value, List(), sortOpt))
-      case (fieldsSeq, None, Some(_)) if fieldsSeq.map(_.aggregation.isDefined).foldLeft(true)(_ && _) =>
-        Failure(new RuntimeException("cannot execute a query with aggregation without a group by"))
-      case (_, None, None) =>
-        Failure(new RuntimeException("cannot execute query without a limit"))
-    }
+
+    expParsed.flatMap(exp =>
+      (fieldList, statement.groupBy, statement.limit) match {
+        case (Seq(Field(fieldName, Some(agg))), Some(group), limit) =>
+          Success(
+            ParsedAggregatedQuery(statement.namespace,
+                                  statement.metric,
+                                  exp.q,
+                                  getCollector(group, fieldName, agg),
+                                  sortOpt,
+                                  limit.map(_.value)))
+        case (List(Field(_, None)), Some(_), _) =>
+          Failure(new RuntimeException("cannot execute a group by query without an aggregation"))
+        case (List(_), Some(_), _) =>
+          Failure(new RuntimeException("cannot execute a group by query with more than a field"))
+        case (List(), Some(_), _) =>
+          Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
+        case (fieldsSeq, None, Some(limit)) if fieldsSeq.map(_.aggregation.isEmpty).foldLeft(true)(_ && _) =>
+          Success(
+            ParsedSimpleQuery(statement.namespace,
+                              statement.metric,
+                              exp.q,
+                              limit.value,
+                              fieldsSeq.map(_.name),
+                              sortOpt))
+        case (List(), None, Some(limit)) =>
+          Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, limit.value, List(), sortOpt))
+        case (fieldsSeq, None, Some(_)) if fieldsSeq.map(_.aggregation.isDefined).foldLeft(true)(_ && _) =>
+          Failure(new RuntimeException("cannot execute a query with aggregation without a group by"))
+        case (_, None, None) =>
+          Failure(new RuntimeException("cannot execute query without a limit"))
+    })
   }
 }
 
