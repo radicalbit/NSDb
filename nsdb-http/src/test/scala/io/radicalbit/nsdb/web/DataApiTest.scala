@@ -6,7 +6,8 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{InputMapped, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.web.Formats._
 import org.json4s._
 import org.scalatest._

@@ -36,7 +36,8 @@ class DatabaseActorsGuardian extends Actor {
   val namespaceActor       = context.actorOf(NamespaceDataActor.props(indexBasePath), "namespace-actor")
   val readCoordinator =
     context.actorOf(ReadCoordinator.props(namespaceSchemaActor, namespaceActor), "read-coordinator")
-  val publisherActor = context.actorOf(PublisherActor.props(indexBasePath, readCoordinator), "publisher-actor")
+  val publisherActor =
+    context.actorOf(PublisherActor.props(indexBasePath, readCoordinator, namespaceSchemaActor), "publisher-actor")
   val writeCoordinator =
     context.actorOf(WriteCoordinator.props(namespaceSchemaActor, commitLogService, namespaceActor, publisherActor),
                     "write-coordinator")

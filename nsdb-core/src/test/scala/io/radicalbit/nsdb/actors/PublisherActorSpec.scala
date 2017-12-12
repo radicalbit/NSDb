@@ -8,7 +8,8 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.QueryIndex
+import io.radicalbit.nsdb.index.{QueryIndex, Schema, VARCHAR}
+import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.store.NIOFSDirectory
@@ -18,6 +19,16 @@ class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(_) =>
       sender() ! SelectStatementExecuted(db = "db", namespace = "registry", metric = "people", values = Seq.empty)
+  }
+}
+
+class FakeNamespaceSchemaActor extends Actor {
+  def receive: Receive = {
+    case GetSchema(_, _, _) =>
+      sender() ! SchemaGot(db = "db",
+                           namespace = "registry",
+                           metric = "people",
+                           schema = Some(Schema("people", Seq(SchemaField("surname", VARCHAR())))))
   }
 }
 
@@ -33,7 +44,10 @@ class PublisherActorSpec
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =
-    TestActorRef[PublisherActor](PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor])))
+    TestActorRef[PublisherActor](
+      PublisherActor.props(basePath,
+                           system.actorOf(Props[FakeReadCoordinatorActor]),
+                           system.actorOf(Props[FakeNamespaceSchemaActor])))
 
   val testSqlStatement = SelectSQLStatement(
     db = "db",
@@ -44,8 +58,11 @@ class PublisherActorSpec
       Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
     limit = Some(LimitOperator(4))
   )
+
   val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"))
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
+
+  val schema = Schema("people", Seq(SchemaField("name", VARCHAR())))
 
   before {
     val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
@@ -96,10 +113,10 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, InputMapped("db", "namespace", "rooms", testRecordNotSatisfy))
+    probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
     probe.expectNoMsg()
 
-    probe.send(publisherActor, InputMapped("db", "namespace", "people", testRecordNotSatisfy))
+    probe.send(publisherActor, PublishRecord("db", "namespace", "person", testRecordNotSatisfy, schema))
     probe.expectNoMsg()
   }
 
@@ -107,7 +124,7 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, InputMapped("db", "namespace", "people", testRecordSatisfy))
+    probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordSatisfy, schema))
     val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.records shouldBe Seq(testRecordSatisfy)
@@ -120,7 +137,9 @@ class PublisherActorSpec
     probe.send(publisherActor, PoisonPill)
 
     val newPublisherActor = system.actorOf(
-      PublisherActor.props("target/test_index_publisher_actor", system.actorOf(Props[FakeReadCoordinatorActor])))
+      PublisherActor.props("target/test_index_publisher_actor",
+                           system.actorOf(Props[FakeReadCoordinatorActor]),
+                           system.actorOf(Props[FakeNamespaceSchemaActor])))
 
     probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     val newSubscribed = probe.expectMsgType[SubscribedByQueryString]

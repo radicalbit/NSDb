@@ -8,7 +8,8 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{InputMapped, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.rpc.request.{Dimension, RPCInsert}
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.service.NSDBServiceGrpc

@@ -59,7 +59,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Unit = {
-    val query = LongPoint.newRangeQuery(_keyField, data.timestamp, data.timestamp)
+    val query = LongPoint.newExactQuery(_keyField, data.timestamp)
     writer.deleteDocuments(query)
     writer.forceMergeDeletes(true)
   }

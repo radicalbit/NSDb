@@ -12,11 +12,11 @@ import scala.util.{Failure, Success, Try}
 
 class StatementParser {
 
-  private def parseExpression(exp: Option[Expression]): ParsedExpression = {
+  private def parseExpression(exp: Option[Expression], schema: Schema): ParsedExpression = {
     val q = exp match {
-      case Some(EqualityExpression(dimension, value: Int))    => IntPoint.newRangeQuery(dimension, value, value)
-      case Some(EqualityExpression(dimension, value: Long))   => LongPoint.newRangeQuery(dimension, value, value)
-      case Some(EqualityExpression(dimension, value: Double)) => DoublePoint.newRangeQuery(dimension, value, value)
+      case Some(EqualityExpression(dimension, value: Int))    => IntPoint.newExactQuery(dimension, value)
+      case Some(EqualityExpression(dimension, value: Long))   => LongPoint.newExactQuery(dimension, value)
+      case Some(EqualityExpression(dimension, value: Double)) => DoublePoint.newExactQuery(dimension, value)
       case Some(EqualityExpression(dimension, value: String)) => new TermQuery(new Term(dimension, value))
       case Some(LikeExpression(dimension, value))             => new TermQuery(new Term(dimension, value.replaceAll("\\$", "*")))
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
@@ -30,25 +30,25 @@ class StatementParser {
       case Some(UnaryLogicalExpression(expression, _)) =>
         val builder = new BooleanQuery.Builder()
         builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-        builder.add(parseExpression(Some(expression)).q, BooleanClause.Occur.MUST_NOT).build()
+        builder.add(parseExpression(Some(expression), schema).q, BooleanClause.Occur.MUST_NOT).build()
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         operator match {
           case AndOperator =>
             val builder = new BooleanQuery.Builder()
-            builder.add(parseExpression(Some(expression1)).q, BooleanClause.Occur.MUST)
-            builder.add(parseExpression(Some(expression2)).q, BooleanClause.Occur.MUST).build()
+            builder.add(parseExpression(Some(expression1), schema).q, BooleanClause.Occur.MUST)
+            builder.add(parseExpression(Some(expression2), schema).q, BooleanClause.Occur.MUST).build()
           case OrOperator =>
             val builder = new BooleanQuery.Builder()
-            builder.add(parseExpression(Some(expression1)).q, BooleanClause.Occur.SHOULD)
-            builder.add(parseExpression(Some(expression2)).q, BooleanClause.Occur.SHOULD).build()
+            builder.add(parseExpression(Some(expression1), schema).q, BooleanClause.Occur.SHOULD)
+            builder.add(parseExpression(Some(expression2), schema).q, BooleanClause.Occur.SHOULD).build()
         }
       case None => new MatchAllDocsQuery()
     }
     ParsedExpression(q)
   }
 
-  def parseDeleteStatement(statement: DeleteSQLStatement): Try[ParsedQuery] = {
-    parseStatement(statement)
+  def parseDeleteStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] = {
+    parseStatement(statement, schema)
   }
 
   private def getCollector(group: String, field: String, agg: Aggregation) = {
@@ -60,30 +60,29 @@ class StatementParser {
     }
   }
 
-  def parseStatement(statement: DeleteSQLStatement): Try[ParsedDeleteQuery] = {
-    val expParsed: ParsedExpression = parseExpression(Some(statement.condition.expression))
+  def parseStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedDeleteQuery] = {
+    val expParsed: ParsedExpression = parseExpression(Some(statement.condition.expression), schema)
     Success(ParsedDeleteQuery(statement.namespace, statement.metric, expParsed.q))
   }
 
-  def parseStatement(statement: SelectSQLStatement, schemaOpt: Option[Schema] = None): Try[ParsedQuery] = {
-    val sortOpt = schemaOpt.flatMap(schema =>
-      statement.order.map(order => {
-        val fieldsMap = schema.fields
-          .map(e => e.name -> e.indexType.getClass.getSimpleName)
-          .toMap + ("timestamp" -> "BIGINT")
-        fieldsMap.get(order.dimension) match {
-          case Some("VARCHAR") =>
-            new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
-          case Some("BIGINT") =>
-            new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
-          case Some("INT") =>
-            new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
-          case Some("DECIMAL") =>
-            new Sort(new SortField(order.dimension, SortField.Type.DOUBLE, order.isInstanceOf[DescOrderOperator]))
-          case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
-        }
-      }))
-    val expParsed = parseExpression(statement.condition.map(_.expression))
+  def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
+    val sortOpt = statement.order.map(order => {
+      val fieldsMap = schema.fields
+        .map(e => e.name -> e.indexType.getClass.getSimpleName)
+        .toMap + ("timestamp" -> "BIGINT")
+      fieldsMap.get(order.dimension) match {
+        case Some("VARCHAR") =>
+          new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
+        case Some("BIGINT") =>
+          new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
+        case Some("INT") =>
+          new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
+        case Some("DECIMAL") =>
+          new Sort(new SortField(order.dimension, SortField.Type.DOUBLE, order.isInstanceOf[DescOrderOperator]))
+        case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
+      }
+    })
+    val expParsed = parseExpression(statement.condition.map(_.expression), schema)
     val fieldList = statement.fields match {
       case AllFields        => List.empty
       case ListFields(list) => list
