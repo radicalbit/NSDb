@@ -15,7 +15,7 @@ import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
-import io.radicalbit.nsdb.statement.StatementParser.ParsedSimpleQuery
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.store.NIOFSDirectory
@@ -60,8 +60,9 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
               subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
 
     queries
-      .filter { q =>
-        subscribedActors.get(q._1).isDefined && subscribedActors(q._1).nonEmpty
+      .filter {
+        case (id, q) =>
+          q.aggregated && subscribedActors.get(id).isDefined && subscribedActors(id).nonEmpty
       }
       .foreach {
         case (id, nsdbQuery) =>
@@ -81,15 +82,15 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
             .flatMap {
               case SchemaGot(_, _, _, Some(schema)) =>
                 new StatementParser().parseStatement(query, schema) match {
-                  case Success(_) =>
+                  case Success(parsedQuery) =>
                     val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
                       UUID.randomUUID().toString
                     val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
                     subscribedActors += (id -> (previousRegisteredActors + actor))
-                    queries += (id          -> NsdbQuery(id, query))
+                    queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
 
                     implicit val writer: IndexWriter = queryIndex.getWriter
-                    queryIndex.write(NsdbQuery(id, query))
+                    queryIndex.write(NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
                     writer.close()
 
                     (readCoordinator ? ExecuteStatement(query))
@@ -134,7 +135,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
               implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
-                    .size == 1)
+                    .lengthCompare(1) == 0)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
             case Success(_) =>
             case Failure(_) =>

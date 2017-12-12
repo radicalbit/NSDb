@@ -15,6 +15,8 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest._
 
+import scala.concurrent.duration._
+
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(_) =>
@@ -110,14 +112,19 @@ class PublisherActorSpec
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
+    publisherActor.underlyingActor.queries.clear()
+    publisherActor.underlyingActor.subscribedActors.clear()
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
-    probe.expectNoMsg()
+    publisherActor.underlyingActor.queries.keys.size shouldBe 1
+    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
 
-    probe.send(publisherActor, PublishRecord("db", "namespace", "person", testRecordNotSatisfy, schema))
-    probe.expectNoMsg()
+    probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
+    probe.expectNoMessage(3 seconds)
+
+    probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordNotSatisfy, schema))
+    probe.expectNoMessage(3 seconds)
   }
 
   "PublisherActor" should "send a messge to all its subscribers when a matching event comes" in {
