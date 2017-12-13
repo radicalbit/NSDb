@@ -67,8 +67,10 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
       .foreach {
         case (id, nsdbQuery) =>
           val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-            .mapTo[SelectStatementExecuted]
-            .map(e => RecordsPublished(id, e.metric, e.values))
+            .map {
+              case e: SelectStatementExecuted => RecordsPublished(id, e.metric, e.values)
+              case e: SelectStatementFailed   => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
+            }
           subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       }
   }
@@ -85,17 +87,20 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
                   case Success(parsedQuery) =>
                     val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
                       UUID.randomUUID().toString
-                    val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
-                    subscribedActors += (id -> (previousRegisteredActors + actor))
-                    queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
 
                     implicit val writer: IndexWriter = queryIndex.getWriter
                     queryIndex.write(NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
                     writer.close()
 
                     (readCoordinator ? ExecuteStatement(query))
-                      .mapTo[SelectStatementExecuted]
-                      .map(e => SubscribedByQueryString(queryString, id, e.values))
+                      .map {
+                        case e: SelectStatementExecuted =>
+                          val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
+                          subscribedActors += (id -> (previousRegisteredActors + actor))
+                          queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
+                          SubscribedByQueryString(queryString, id, e.values)
+                        case SelectStatementFailed(reason) => SubscriptionFailed(reason)
+                      }
 
                   case Failure(ex) => Future(SubscriptionFailed(ex.getMessage))
                 }
@@ -114,11 +119,14 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
       queries.get(quid) match {
         case Some(q) =>
           log.debug(s"found query $q for id $quid")
-          val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
-          subscribedActors += (quid -> (previousRegisteredActors + actor))
           (readCoordinator ? ExecuteStatement(q.query))
-            .mapTo[SelectStatementExecuted]
-            .map(e => SubscribedByQuid(quid, e.values))
+            .map {
+              case e: SelectStatementExecuted =>
+                val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
+                subscribedActors += (quid -> (previousRegisteredActors + actor))
+                SubscribedByQuid(quid, e.values)
+              case SelectStatementFailed(reason) => SubscriptionFailed(reason)
+            }
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
