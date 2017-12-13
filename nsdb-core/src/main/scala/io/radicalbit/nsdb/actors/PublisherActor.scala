@@ -146,8 +146,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
                     .lengthCompare(1) == 0)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
             case Success(_) =>
-            case Failure(_) =>
-              log.error(s"query ${nsdbQuery.query} not valid")
+            case Failure(ex) =>
+              log.error(ex,s"query ${nsdbQuery.query} not valid because of")
           }
       }
     case Unsubscribe(actor) =>
