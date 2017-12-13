@@ -1,13 +1,11 @@
 package io.radicalbit.nsdb.index
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
-import io.radicalbit.nsdb.JLong
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document._
-import org.apache.lucene.index.{DirectoryReader, IndexWriter, Term}
-import org.apache.lucene.search.{IndexSearcher, Sort}
+import org.apache.lucene.index.IndexWriter
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -33,7 +31,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
 
   override def validateRecord(bit: Bit): FieldValidation = {
     validateSchemaTypeSupport(bit)
-      .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
+      .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.indexType.cast(elem.value))))
       .map(fields =>
         fields ++ Seq(
           new StoredField(_valueField, bit.value.toString),
@@ -59,7 +57,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Unit = {
-    val query = LongPoint.newRangeQuery(_keyField, data.timestamp, data.timestamp)
+    val query = LongPoint.newExactQuery(_keyField, data.timestamp)
     writer.deleteDocuments(query)
     writer.forceMergeDeletes(true)
   }

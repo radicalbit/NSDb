@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.concurrent.Future
 
-class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends Actor with ActorLogging {
+class ReadCoordinator(namespaceSchemaActor: ActorRef, namespaceDataActor: ActorRef) extends Actor with ActorLogging {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
@@ -21,19 +21,18 @@ class ReadCoordinator(schemaActor: ActorRef, namespaceActor: ActorRef) extends A
   override def receive: Receive = {
 
     case msg: GetNamespaces =>
-      namespaceActor forward msg
+      namespaceDataActor forward msg
     case msg: GetMetrics =>
-      namespaceActor forward msg
+      namespaceDataActor forward msg
     case msg: GetSchema =>
-      schemaActor forward msg
-      namespaceActor forward msg
+      namespaceSchemaActor forward msg
+      namespaceDataActor forward msg
     case ExecuteStatement(statement) =>
       log.debug(s"executing $statement")
-      (schemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
-        .mapTo[SchemaGot]
+      (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
-            namespaceActor ? ExecuteSelectStatement(statement, schema)
+            namespaceDataActor ? ExecuteSelectStatement(statement, schema)
           case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
         }
         .pipeTo(sender())

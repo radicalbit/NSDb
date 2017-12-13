@@ -96,7 +96,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     var searcher = timeSeriesIndex.getSearcher
 
-    val queryExist = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
+    val queryExist = LongPoint.newExactQuery("timestamp", timestamp)
     val resultExist =
       timeSeriesIndex.query(queryExist, Seq.empty, 100, None)(searcher)
     resultExist.size shouldBe 1
@@ -110,7 +110,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     searcher = timeSeriesIndex.getSearcher
 
-    val query = LongPoint.newRangeQuery("timestamp", timestamp, timestamp)
+    val query = LongPoint.newExactQuery("timestamp", timestamp)
     val result =
       timeSeriesIndex.query(query, Seq.empty, 100, None)(searcher)
 

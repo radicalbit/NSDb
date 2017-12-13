@@ -15,8 +15,9 @@ object MessageProtocol {
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
     case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
-    case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
+    case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
+    case class ExecuteDeleteStatementInternal(statement: DeleteSQLStatement, schema: Schema)
     case class DropMetric(db: String, namespace: String, metric: String)
     case class DeleteNamespace(db: String, namespace: String)
 
@@ -43,12 +44,13 @@ object MessageProtocol {
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String)
 
+    case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
     case class DeleteStatementExecuted(db: String, namespace: String, metric: String)
     case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
     case class MetricDropped(db: String, namespace: String, metric: String)
     case class NamespaceDeleted(db: String, namespace: String)
 
-    case class SchemaUpdated(db: String, namespace: String, metric: String)
+    case class SchemaUpdated(db: String, namespace: String, metric: String, schema: Schema)
     case class UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])
     case class SchemaDeleted(db: String, namespace: String, metric: String)
     case class AllSchemasDeleted(db: String, namespace: String)

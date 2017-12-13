@@ -25,6 +25,9 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
       (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields.toSet == this.fields.toSet)
     } else false
   }
+
+  def fieldsMap(): Map[String, SchemaField] =
+    fields.map(f => f.name -> f).toMap + ("timestamp" -> SchemaField("timestamp", BIGINT()))
 }
 
 object Schema extends TypeSupport {
