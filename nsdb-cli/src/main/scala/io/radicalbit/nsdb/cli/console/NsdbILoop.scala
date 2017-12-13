@@ -2,7 +2,6 @@ package io.radicalbit.nsdb.cli.console
 
 import java.io.BufferedReader
 
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
@@ -97,7 +96,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         CommandStatementExecutedWithFailure(r.errors)
     }
 
-  def toInternalSQLStatementResponse(gRpcResponse: SQLStatementResponse) = {
+  def toInternalSQLStatementResponse(gRpcResponse: SQLStatementResponse): SQLStatementResult = {
     if (gRpcResponse.completedSuccessfully)
       SQLStatementExecuted(
         db = gRpcResponse.db,
@@ -140,11 +139,12 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       )
   }
 
-  def processCommandResponse[T <: CommandStatementExecuted](attemptValue: Future[T], print: T => Try[String], lineToRecord: String): Result =
+  def processCommandResponse[T <: CommandStatementExecuted](attemptValue: Future[T],
+                                                            print: T => Try[String],
+                                                            lineToRecord: String): Result =
     Try(Await.result(attemptValue, 10 seconds)) match {
       case Success(resp: CommandStatementExecutedWithFailure) =>
-        echo(
-          "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
+        echo(s"Statement failed because ${resp.reason}")
         result(Some(lineToRecord))
       case Success(resp) =>
         echo(print(resp), lineToRecord)
@@ -162,7 +162,8 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       case Success(resp: SQLStatementFailed) =>
         echo(s"statement failed because ${resp.reason}")
         result(Some(lineToRecord))
-      case Success(resp: SQLStatementExecuted) => echo(print(resp), lineToRecord)
+      case Success(resp: SQLStatementExecuted) =>
+        echo(print(resp), lineToRecord)
       case Success(_) =>
         echo(
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")

@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.cluster.endpoint
 
+import java.lang.RuntimeException
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -7,8 +8,15 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{InputMapped, MapInput}
+import io.radicalbit.nsdb.common.protocol.{Bit, ExecuteSQLStatement, SQLStatementExecuted, SQLStatementFailed}
+import io.radicalbit.nsdb.common.statement.{
+  DeleteSQLStatement,
+  DropSQLStatement,
+  InsertSQLStatement,
+  SelectSQLStatement
+}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics}
@@ -103,9 +111,106 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     override def executeSQLStatement(
         request: SQLRequestStatement
     ): Future[SQLStatementResponse] = {
-      parserSQL.parse(request.db, request.namespace, request.statement)
+      val db           = request.db
+      val namespace    = request.namespace
+      val sqlStatement = parserSQL.parse(request.db, request.namespace, request.statement)
+      sqlStatement match {
+        // Parsing Success
+        case Success(statement) =>
+          statement match {
+            case select: SelectSQLStatement =>
+              (readCoordinator ? ExecuteStatement(select))
+                .map {
+                  // SelectExecution Success
+                  case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit]) =>
+                    SQLStatementResponse(
+                      db = db,
+                      namespace = namespace,
+                      metric = metric,
+                      completedSuccessfully = true,
+                      records = values.map { bit =>
+                        GrpcBit(
+                          timestamp = bit.timestamp,
+                          value = bit.value match {
+                            case Some(v: Double) => GrpcBit.Value.DecimalValue(v)
+                            case Some(v: Long)   => GrpcBit.Value.LongValue(v)
+                          },
+                          dimensions = bit.dimensions.map {
+                            case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
+                            case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
+                            case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+                            case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+                          }
+                        )
+                      }
+                    )
+                  // SelectExecution Failure
+                  case SelectStatementFailed(reason) =>
+                    SQLStatementResponse(
+                      db = db,
+                      namespace = namespace,
+                      completedSuccessfully = false,
+                      reason = reason
+                    )
 
-      ???
+                }
+            case insert: InsertSQLStatement =>
+              val result = InsertSQLStatement
+                .unapply(insert)
+                .map {
+                  case (db, namespace, metric, ts, dimensions, value) =>
+                    val timestamp = ts getOrElse System.currentTimeMillis
+                    writeCoordinator ? MapInput(timestamp,
+                                                db,
+                                                namespace,
+                                                metric,
+                                                Bit(timestamp = timestamp,
+                                                    value = value,
+                                                    dimensions = dimensions.map(_.fields).getOrElse(Map.empty)))
+                }
+                .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
+              result
+                .map {
+                  case x: InputMapped =>
+                    SQLStatementResponse(db = x.db,
+                                         namespace = x.namespace,
+                                         metric = x.metric,
+                                         completedSuccessfully = true)
+                  case x: RecordRejected =>
+                    SQLStatementResponse(db = x.db,
+                                         namespace = x.namespace,
+                                         metric = x.metric,
+                                         completedSuccessfully = false,
+                                         reason = x.reasons.mkString(","))
+                }
+
+            case delete: DeleteSQLStatement =>
+              (writeCoordinator ? ExecuteDeleteStatement(delete))
+                .mapTo[DeleteStatementExecuted]
+                .map(x =>
+                  SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
+
+            case drop: DropSQLStatement =>
+              (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
+                .mapTo[MetricDropped]
+                .map(x =>
+                  SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
+          }
+
+        //Parsing Failure
+        case Failure(exception) =>
+          exception match {
+            case r: RuntimeException =>
+              Future.successful(
+                SQLStatementResponse(db = request.db,
+                                     namespace = request.namespace,
+                                     completedSuccessfully = false,
+                                     reason = r.getMessage,
+                                     message = "")
+              )
+          }
+
+      }
     }
   }
 
