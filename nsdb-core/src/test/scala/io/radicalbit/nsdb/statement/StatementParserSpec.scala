@@ -16,12 +16,11 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   private val parser = new StatementParser
 
-  val schema = Some(
-    Schema("people",
-           Seq(SchemaField("name", VARCHAR()),
-               SchemaField("surname", VARCHAR()),
-               SchemaField("creationDate", BIGINT()),
-               SchemaField("value", DECIMAL()))))
+  val schema = Schema("people",
+                      Seq(SchemaField("name", VARCHAR()),
+                          SchemaField("surname", VARCHAR()),
+                          SchemaField("creationDate", BIGINT()),
+                          SchemaField("value", DECIMAL())))
 
   "A statement parser instance" when {
 
@@ -88,6 +87,75 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
+              4,
+              List("name")
+            ))
+        )
+      }
+    }
+
+    "receive a select containing a = selection" should {
+      "parse it successfully on a number vs a number" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10L))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              LongPoint.newExactQuery("timestamp", 10L),
+              4,
+              List("name")
+            ))
+        )
+      }
+      "parse it successfully on a string vs a string" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "name", value = "TestString"))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new TermQuery(new Term("name", "TestString")),
+              4,
+              List("name")
+            ))
+        )
+      }
+      "parse it successfully on a number vs a string" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "name", value = 0))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new TermQuery(new Term("name", "0")),
               4,
               List("name")
             ))
@@ -363,7 +431,8 @@ class StatementParserSpec extends WordSpec with Matchers {
         parser.parseStatement(SelectSQLStatement(db = "db",
                                                  namespace = "registry",
                                                  metric = "people",
-                                                 fields = AllFields)) shouldBe 'failure
+                                                 fields = AllFields),
+                              schema) shouldBe 'failure
       }
     }
 

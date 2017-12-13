@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.cluster.endpoint
 
-import java.lang.RuntimeException
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -8,7 +7,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.{Bit, ExecuteSQLStatement, SQLStatementExecuted, SQLStatementFailed}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{
   DeleteSQLStatement,
   DropSQLStatement,
@@ -209,9 +208,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                      message = "")
               )
           }
-
       }
     }
   }
-
 }

@@ -21,11 +21,13 @@ import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.store.NIOFSDirectory
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Actor with ActorLogging {
+class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
+    extends Actor
+    with ActorLogging {
 
   lazy val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
 
@@ -58,20 +60,16 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
 
     queries
-      .filter { q =>
-        subscribedActors.get(q._1).isDefined && subscribedActors(q._1).nonEmpty
+      .filter {
+        case (id, q) =>
+          q.aggregated && subscribedActors.get(id).isDefined && subscribedActors(id).nonEmpty
       }
       .foreach {
         case (id, nsdbQuery) =>
-          val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
-          luceneQuery match {
-            case Success(_: ParsedAggregatedQuery) =>
-              val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-                .mapTo[SelectStatementExecuted]
-                .map(e => RecordsPublished(id, e.metric, e.values))
-              subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
-            case _ =>
-          }
+          val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
+            .mapTo[SelectStatementExecuted]
+            .map(e => RecordsPublished(id, e.metric, e.values))
+          subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       }
   }
 
@@ -80,24 +78,31 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
       subscribedActors
         .find { case (_, v) => v == actor }
         .fold {
-          new StatementParser().parseStatement(query) match {
-            case Success(_) =>
-              val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
-                UUID.randomUUID().toString
-              val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
-              subscribedActors += (id -> (previousRegisteredActors + actor))
-              queries += (id          -> NsdbQuery(id, query))
+          val f = (namespaceSchemaActor ? GetSchema(query.db, query.namespace, query.metric))
+            .flatMap {
+              case SchemaGot(_, _, _, Some(schema)) =>
+                new StatementParser().parseStatement(query, schema) match {
+                  case Success(parsedQuery) =>
+                    val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
+                      UUID.randomUUID().toString
+                    val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
+                    subscribedActors += (id -> (previousRegisteredActors + actor))
+                    queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
 
-              (readCoordinator ? ExecuteStatement(query))
-                .mapTo[SelectStatementExecuted]
-                .map(e => SubscribedByQueryString(queryString, id, e.values))
-                .pipeTo(sender())
+                    implicit val writer: IndexWriter = queryIndex.getWriter
+                    queryIndex.write(NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
+                    writer.close()
 
-              implicit val writer: IndexWriter = queryIndex.getWriter
-              queryIndex.write(NsdbQuery(id, query))
-              writer.close()
-            case Failure(ex) => sender ! SubscriptionFailed(ex.getMessage)
-          }
+                    (readCoordinator ? ExecuteStatement(query))
+                      .mapTo[SelectStatementExecuted]
+                      .map(e => SubscribedByQueryString(queryString, id, e.values))
+
+                  case Failure(ex) => Future(SubscriptionFailed(ex.getMessage))
+                }
+
+              case _ => Future(SubscriptionFailed(s"No schema found for metric ${query.metric}"))
+            }
+          f.pipeTo(sender())
         } {
           case (id, _) =>
             (readCoordinator ? ExecuteStatement(query))
@@ -117,10 +122,10 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
-    case InputMapped(_, _, metric, record) =>
+    case PublishRecord(_, _, metric, record, schema) =>
       queries.foreach {
         case (id, nsdbQuery) =>
-          val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query)
+          val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
             case Success(parsedQuery: ParsedSimpleQuery) =>
               val temporaryIndex: TemporaryIndex = new TemporaryIndex()
@@ -130,7 +135,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
               implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
               if (metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
-                    .size == 1)
+                    .lengthCompare(1) == 0)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
             case Success(_) =>
             case Failure(_) =>
@@ -160,7 +165,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef) extends Ac
 
 object PublisherActor {
 
-  def props(basePath: String, readCoordinator: ActorRef): Props = Props(new PublisherActor(basePath, readCoordinator))
+  def props(basePath: String, readCoordinator: ActorRef, namespaceSchemaActor: ActorRef): Props =
+    Props(new PublisherActor(basePath, readCoordinator, namespaceSchemaActor))
 
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)

@@ -120,7 +120,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       sender ! CountGot(db, ns, metric, hits.size)
     case ExecuteSelectStatement(statement, schema) =>
       implicit val searcher: IndexSearcher = getSearcher(statement.metric)
-      statementParser.parseStatement(statement, Some(schema)) match {
+      statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
@@ -161,8 +161,8 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
           opBufferMap += (metric -> (list :+ DeleteRecordOperation(ns, metric, bit)))
         }
       sender ! RecordDeleted(db, ns, metric, bit)
-    case ExecuteDeleteStatement(statement) =>
-      statementParser.parseStatement(statement) match {
+    case ExecuteDeleteStatementInternal(statement, schema) =>
+      statementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
           opBufferMap
             .get(metric)

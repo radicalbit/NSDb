@@ -15,22 +15,24 @@ import org.apache.lucene.store.BaseDirectory
 
 import scala.util.{Failure, Success, Try}
 
-case class NsdbQuery(uuid: String, query: SelectSQLStatement)
+case class NsdbQuery(uuid: String, aggregated: Boolean, query: SelectSQLStatement)
 
 class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery] {
   override val _keyField: String = "_uuid"
+  val aggregatedField            = "aggregated"
   val queryField                 = "query"
 
   override def validateRecord(data: NsdbQuery): FieldValidation = {
     val b = new ByteArrayOutputStream()
     val o = new ObjectOutputStream(b)
     o.writeObject(data.query)
-    val binary = b.toByteArray()
+    val binary = b.toByteArray
     b.close()
     o.close()
     valid(
       Seq(
         new StringField(_keyField, data.uuid.toLowerCase, Store.YES),
+        new StringField(aggregatedField, data.aggregated.toString, Store.YES),
         new StoredField(queryField, binary)
       )
     )
@@ -61,6 +63,7 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery]
 
     NsdbQuery(
       document.get(_keyField),
+      document.get(aggregatedField).toBoolean,
       statement
     )
   }

@@ -13,12 +13,8 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events.QueryRemoved
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, InputMapped, MapInput}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
-  RecordRejected,
-  SelectStatementExecuted,
-  SelectStatementFailed
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write

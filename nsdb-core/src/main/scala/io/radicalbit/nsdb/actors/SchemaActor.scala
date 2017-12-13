@@ -28,7 +28,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
           checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
         case (Valid(newSchema), None) =>
           updateSchema(newSchema)
-          sender ! SchemaUpdated(db, namespace, metric)
+          sender ! SchemaUpdated(db, namespace, metric, newSchema)
         case (Invalid(errs), _) => sender ! UpdateSchemaFailed(db, namespace, metric, errs.toList)
       }
 
@@ -52,17 +52,17 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
         checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
       case None =>
         updateSchema(newSchema)
-        sender ! SchemaUpdated(db, namespace, metric)
+        sender ! SchemaUpdated(db, namespace, metric, newSchema)
     }
 
   private def checkAndUpdateSchema(namespace: String, metric: String, oldSchema: Schema, newSchema: Schema): Unit =
     if (oldSchema == newSchema)
-      sender ! SchemaUpdated(db, namespace, metric)
+      sender ! SchemaUpdated(db, namespace, metric, newSchema)
     else
       SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
         case Valid(fields) =>
           updateSchema(metric, fields)
-          sender ! SchemaUpdated(db, namespace, metric)
+          sender ! SchemaUpdated(db, namespace, metric, newSchema)
         case Invalid(list) => sender ! UpdateSchemaFailed(db, namespace, metric, list.toList)
       }
 
