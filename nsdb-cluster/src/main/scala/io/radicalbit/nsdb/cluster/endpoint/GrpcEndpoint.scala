@@ -7,21 +7,16 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{
-  DeleteSQLStatement,
-  DropSQLStatement,
-  InsertSQLStatement,
-  SelectSQLStatement
-}
+import io.radicalbit.nsdb.common.protocol.{Bit, MetricField, MetricSchemaRetrieved, NamespaceMetricsListRetrieved}
+import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, DropSQLStatement, InsertSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{MetricsGot, _}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.{MetricSchemaRetrieved, MetricsGot}
+import io.radicalbit.nsdb.rpc.responseCommand.{MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
@@ -59,11 +54,28 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
   protected[this] object GrpcEndpointServiceCommand extends NSDBServiceCommand {
     override def showMetrics(
         request: ShowMetrics
-    ): Future[MetricsGot] = ???
+    ): Future[GrpcMetricsGot] = {
+      //TODO: add failure handling
+      (readCoordinator ? GetMetrics(request.db, request.namespace)).mapTo[MetricsGot].map {
+        case MetricsGot(db, namespace, metrics) => GrpcMetricsGot(db, namespace, metrics.toList)
+      }
+    }
 
     override def describeMetric(
         request: DescribeMetric
-    ): Future[MetricSchemaRetrieved] = ???
+    ): Future[GrpcMetricSchemaRetrieved] = {
+      //TODO: add failure handling
+      (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
+        .mapTo[SchemaGot]
+        .map {
+          case SchemaGot(db, namespace, metric, schema) =>
+            val fields = schema
+              .map(
+                _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
+              .getOrElse(List.empty[MetricField])
+            GrpcMetricSchemaRetrieved(db, namespace, metric, fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)))
+        }
+    }
   }
 
   protected[this] object GrpcEndpointServiceSQL extends NSDBServiceSQL {
@@ -184,13 +196,15 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 }
 
             case delete: DeleteSQLStatement =>
+              //TODO: add failure handling
               (writeCoordinator ? ExecuteDeleteStatement(delete))
                 .mapTo[DeleteStatementExecuted]
                 .map(x =>
                   SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
 
             case drop: DropSQLStatement =>
-              (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
+              //TODO: add failure handling
+            (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
                 .mapTo[MetricDropped]
                 .map(x =>
                   SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
