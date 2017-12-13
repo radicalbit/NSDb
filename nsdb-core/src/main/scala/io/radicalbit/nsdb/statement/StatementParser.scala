@@ -1,8 +1,9 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene._
+import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
 import org.apache.lucene.index.Term
@@ -12,12 +13,18 @@ import scala.util.{Failure, Success, Try}
 
 class StatementParser {
 
-  private def parseExpression(exp: Option[Expression], schema: Schema): Try[ParsedExpression] = {
+  private def parseExpression(exp: Option[Expression], schema: Map[String, SchemaField]): Try[ParsedExpression] = {
     val q = exp match {
-      case Some(EqualityExpression(dimension, value: Int))    => Success(IntPoint.newExactQuery(dimension, value))
-      case Some(EqualityExpression(dimension, value: Long))   => Success(LongPoint.newExactQuery(dimension, value))
-      case Some(EqualityExpression(dimension, value: Double)) => Success(DoublePoint.newExactQuery(dimension, value))
-      case Some(EqualityExpression(dimension, value: String)) => Success(new TermQuery(new Term(dimension, value)))
+      case Some(EqualityExpression(dimension, value)) =>
+        schema.get(dimension) match {
+          case Some(SchemaField(_, t: INT))     => Try(IntPoint.newExactQuery(dimension, t.cast(value)))
+          case Some(SchemaField(_, t: BIGINT))  => Try(LongPoint.newExactQuery(dimension, t.cast(value)))
+          case Some(SchemaField(_, t: DECIMAL)) => Try(DoublePoint.newExactQuery(dimension, t.cast(value)))
+          case Some(SchemaField(_, t: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, t: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, t: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
+          case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+        }
       case Some(LikeExpression(dimension, value)) =>
         Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
@@ -70,28 +77,25 @@ class StatementParser {
   }
 
   def parseStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedDeleteQuery] = {
-    val expParsed = parseExpression(Some(statement.condition.expression), schema)
+    val expParsed = parseExpression(Some(statement.condition.expression), schema.fields.map(f => f.name -> f).toMap)
     expParsed.map(exp => ParsedDeleteQuery(statement.namespace, statement.metric, exp.q))
   }
 
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
-      val fieldsMap = schema.fields
-        .map(e => e.name -> e.indexType.getClass.getSimpleName)
-        .toMap + ("timestamp" -> "BIGINT")
-      fieldsMap.get(order.dimension) match {
-        case Some("VARCHAR") =>
+      schema.fieldsMap.get(order.dimension) match {
+        case Some(SchemaField(_, VARCHAR())) =>
           new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
-        case Some("BIGINT") =>
+        case Some(SchemaField(_, BIGINT())) =>
           new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
-        case Some("INT") =>
+        case Some(SchemaField(_, INT())) =>
           new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
-        case Some("DECIMAL") =>
+        case Some(SchemaField(_, DECIMAL())) =>
           new Sort(new SortField(order.dimension, SortField.Type.DOUBLE, order.isInstanceOf[DescOrderOperator]))
         case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
       }
     })
-    val expParsed = parseExpression(statement.condition.map(_.expression), schema)
+    val expParsed = parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
     val fieldList = statement.fields match {
       case AllFields        => List.empty
       case ListFields(list) => list

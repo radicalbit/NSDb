@@ -54,7 +54,7 @@ object IndexType {
 
   type SchemaValidation = Validated[NonEmptyList[String], Seq[TypedField]]
 
-  private val supportedType = Seq(TIMESTAMP(), INT(), BIGINT(), DECIMAL(), CHAR(), VARCHAR())
+  private val supportedType = Seq(INT(), BIGINT(), DECIMAL(), CHAR(), VARCHAR())
 
   def fromRawField(rawField: RawField): SchemaValidation =
     supportedType.find(_.actualType == rawField.value.getClass) match {
@@ -69,16 +69,6 @@ object IndexType {
 
 }
 
-case class TIMESTAMP() extends IndexType[Long] {
-  def actualType = classOf[Long]
-  override def indexField(fieldName: String, value: Long): Seq[Field] =
-    Seq(
-      new LongPoint(fieldName, value.toString.toLong),
-      new NumericDocValuesField(fieldName, value.toString.toLong),
-      new StoredField(fieldName, value.toString.toLong)
-    )
-  def deserialize(value: Array[Byte]) = new String(value).toLong
-}
 case class INT() extends IndexType[Integer] {
   def actualType = classOf[Integer]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
