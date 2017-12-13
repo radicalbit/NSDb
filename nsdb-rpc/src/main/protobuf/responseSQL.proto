@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+import "common.proto";
+
+message SQLStatementResponse{
+     string db = 1;
+     string namespace = 2;
+     string metric = 3;
+     bool completedSuccessfully = 4;
+     string reason = 5;
+     string message = 6;
+     repeated Bit records = 7;
+}

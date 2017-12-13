@@ -9,9 +9,16 @@ import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{InputMapped, MapInput}
-import io.radicalbit.nsdb.rpc.request.{Dimension, RPCInsert}
+import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.request.RPCInsert
+import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics}
+import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.service.NSDBServiceGrpc
+import io.radicalbit.nsdb.rpc.responseCommand.{MetricSchemaRetrieved, MetricsGot}
+import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
+import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
+import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
+import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,15 +37,29 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   override protected[this] val executionContextExecutor = implicitly[ExecutionContext]
 
-  override protected[this] def service = GrpcEndpointService
+  override protected[this] def serviceSQL = GrpcEndpointServiceSQL
+
+  override protected[this] def serviceCommand = GrpcEndpointServiceCommand
 
   override protected[this] val port: Int = 7817
+
+  override protected[this] val parserSQL = new SQLStatementParser
 
   val innerServer = start()
 
   log.info("GrpcEndpoint started on port {}", port)
 
-  protected[this] object GrpcEndpointService extends NSDBServiceGrpc.NSDBService {
+  protected[this] object GrpcEndpointServiceCommand extends NSDBServiceCommand {
+    override def showMetrics(
+        request: ShowMetrics
+    ): Future[MetricsGot] = ???
+
+    override def describeMetric(
+        request: DescribeMetric
+    ): Future[MetricSchemaRetrieved] = ???
+  }
+
+  protected[this] object GrpcEndpointServiceSQL extends NSDBServiceSQL {
 
     override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {
       log.debug("Received a write request {}", request)
@@ -77,6 +98,14 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       case _: Dimension.Value.DecimalValue => v.decimalValue.get
       case _: Dimension.Value.LongValue    => v.longValue.get
       case _                               => v.stringValue.get
+    }
+
+    override def executeSQLStatement(
+        request: SQLRequestStatement
+    ): Future[SQLStatementResponse] = {
+      parserSQL.parse(request.db, request.namespace, request.statement)
+
+      ???
     }
   }
 

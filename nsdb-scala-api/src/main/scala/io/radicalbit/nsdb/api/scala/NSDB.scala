@@ -1,8 +1,9 @@
 package io.radicalbit.nsdb.api.scala
 
-import io.radicalbit.nsdb.api.scala.NSDB.Dimension
+import io.radicalbit.nsdb.api.scala.NSDB.DimensionAPI
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.request._
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 
@@ -10,9 +11,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object NSDB {
 
-  type Metric[T] = (String, T)
-  type Dimension = (String, JSerializable)
-  type Field     = (String, JSerializable)
+  type Metric[T]    = (String, T)
+  type DimensionAPI = (String, JSerializable)
+  type Field        = (String, JSerializable)
 
   private val host = "127.0.0.1"
 
@@ -67,7 +68,7 @@ case class Bit(namespace: String,
                ts: Option[Long] = None,
                private val valueDec: Option[Double] = None,
                private val valueLong: Option[Long] = None,
-               dimensions: List[Dimension] = List.empty[Dimension]) {
+               dimensions: List[DimensionAPI] = List.empty[DimensionAPI]) {
 
   def value(v: Long) = copy(valueDec = None, valueLong = Some(v))
 
@@ -75,7 +76,7 @@ case class Bit(namespace: String,
 
   def value: Option[AnyVal] = valueDec orElse valueLong
 
-  def dimension(dim: Dimension): Bit = copy(dimensions = dimensions :+ dim)
+  def dimension(dim: DimensionAPI): Bit = copy(dimensions = dimensions :+ dim)
 
   def timestamp(v: Long): Bit = copy(ts = Some(v))
 }

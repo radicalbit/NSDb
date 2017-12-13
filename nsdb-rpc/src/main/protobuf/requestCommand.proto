@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+message ShowMetrics{
+    string db = 1;
+    string namespace = 2;
+}
+
+message DescribeMetric{
+    string db = 1;
+    string namespace = 2;
+    string metric = 3;
+}
+
+message ShowNamespaces{
+    string db = 1;
+}

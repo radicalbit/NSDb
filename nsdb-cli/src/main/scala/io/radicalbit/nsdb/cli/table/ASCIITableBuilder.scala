@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.cli.table
 import cats.implicits._
 import de.vandermeer.asciitable.AsciiTable
 import de.vandermeer.asciithemes.a7.A7_Grids
-import io.radicalbit.nsdb.common.protocol.{MetricSchemaRetrieved, NamespaceMetricsListRetrieved, SQLStatementExecuted}
+import io.radicalbit.nsdb.common.protocol._
 
 import scala.util.Try
 
@@ -16,26 +16,36 @@ object ASCIITableBuilder {
       })
       .toMap
 
-  def tableFor(stm: SQLStatementExecuted): Try[String] =
-    Try {
-      val at                                         = new AsciiTable()
-      val allDimensions: Map[String, Option[String]] = extractColumnNames(stm)
+  def tableFor(stm: SQLStatementResult): Try[String] =
+    stm match {
+      case statement: SQLStatementExecuted =>
+        Try {
+          val at                                         = new AsciiTable()
+          val allDimensions: Map[String, Option[String]] = extractColumnNames(statement)
 
-      val rows: List[List[String]] = stm.res.toList.map { x =>
-        val dimensionsMap    = x.dimensions.map { case (k, v)                                     => (k, Some(v.toString)) }
-        val mergedDimensions = allDimensions.combine(dimensionsMap).toList.sortBy { case (col, _) => col }
-        // prepending timestamp and value
-        x.timestamp.toString +: x.value.toString +: mergedDimensions.map { case (_, value) => value getOrElse ("") }
-      }
+          val rows: List[List[String]] = statement.res.toList.map { x =>
+            val dimensionsMap    = x.dimensions.map { case (k, v)                                     => (k, Some(v.toString)) }
+            val mergedDimensions = allDimensions.combine(dimensionsMap).toList.sortBy { case (col, _) => col }
+            // prepending timestamp and value
+            x.timestamp.toString +: x.value.toString +: mergedDimensions.map {
+              case (_, value) => value getOrElse ("")
+            }
+          }
 
-      render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
+          render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
+        }
+      case failStatement: SQLStatementFailed => ???
+
     }
 
-  def tableForMetrics(command: NamespaceMetricsListRetrieved): Try[String] =
-    Try(render(List("Metric Name"), List(command.metrics)))
-
-  def tableForDescribeMetric(command: MetricSchemaRetrieved): Try[String] =
-    Try(render(List("Field Name", "Type"), command.fields.map(x => List(x.name, x.`type`))))
+  def tableFor(commandResult: CommandStatementExecuted): Try[String] = {
+    commandResult match {
+      case res: NamespaceMetricsListRetrieved =>
+        Try(render(List("Metric Name"), List(res.metrics)))
+      case res: MetricSchemaRetrieved =>
+        Try(render(List("Field Name", "Type"), res.fields.map(x => List(x.name, x.`type`))))
+    }
+  }
 
   private def render(headerColumns: List[String], rows: List[List[String]]): String = {
     val at = new AsciiTable()

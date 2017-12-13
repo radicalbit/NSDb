@@ -3,6 +3,7 @@ syntax = "proto3";
 package io.radicalbit.nsdb.rpc;
 
 import "google/protobuf/any.proto";
+import "common.proto";
 
 message RPCInsert {
     string database = 1;
@@ -14,12 +15,4 @@ message RPCInsert {
         int64 longValue = 6;
     }
     map<string, Dimension> dimensions = 7;
-}
-
-message Dimension {
-    oneof value {
-        double decimalValue = 1;
-        int64 longValue = 2;
-        string stringValue = 3;
-    }
 }

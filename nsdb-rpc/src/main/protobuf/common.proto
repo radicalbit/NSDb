@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+message Dimension {
+    oneof value {
+        double decimalValue = 1;
+        int64 longValue = 2;
+        string stringValue = 3;
+    }
+}
+
+message Bit{
+    int64 timestamp = 1;
+    oneof value {
+        double decimalValue = 2;
+        int64 longValue = 3;
+    }
+    map<string, Dimension> dimensions = 4;
+}

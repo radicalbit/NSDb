@@ -49,7 +49,7 @@ lazy val `nsdb-rpc` = project
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value
     ))
-  .dependsOn(`nsdb-common`)
+  .dependsOn(`nsdb-common`, `nsdb-sql`)
 
 lazy val `nsdb-akka-client` = project
   .settings(Commons.settings: _*)
@@ -97,7 +97,7 @@ lazy val `nsdb-cli` = project
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
   .settings(assemblyJarName in assembly := "nsdb-cli.jar")
-  .dependsOn(`nsdb-akka-client`, `nsdb-sql`)
+  .dependsOn(`nsdb-rpc`, `nsdb-sql`)
 
 lazy val `nsdb-flink-connector` = project
   .settings(Commons.settings: _*)
