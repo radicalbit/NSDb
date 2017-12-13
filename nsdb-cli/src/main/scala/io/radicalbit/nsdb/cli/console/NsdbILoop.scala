@@ -140,14 +140,14 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       )
   }
 
-  def processCommandResponse[T](attemptValue: Future[T], print: T => Try[String], lineToRecord: String): Result =
+  def processCommandResponse[T <: CommandStatementExecuted](attemptValue: Future[T], print: T => Try[String], lineToRecord: String): Result =
     Try(Await.result(attemptValue, 10 seconds)) match {
-      case Success(resp: T) =>
-        echo(print(resp), lineToRecord)
-      case Success(_) =>
+      case Success(resp: CommandStatementExecutedWithFailure) =>
         echo(
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
         result(Some(lineToRecord))
+      case Success(resp) =>
+        echo(print(resp), lineToRecord)
       case Failure(ex) =>
         logger.error("error", ex)
         echo(
