@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import io.radicalbit.nsdb.cluster.endpoint.{EndpointActor, GrpcEndpoint}
+import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 import akka.pattern.ask
 import akka.util.Timeout

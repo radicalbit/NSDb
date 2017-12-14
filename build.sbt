@@ -15,7 +15,6 @@ lazy val root = project
     `nsdb-http`,
     `nsdb-cluster`,
     `nsdb-rpc`,
-    `nsdb-akka-client`,
     `nsdb-scala-api`,
     `nsdb-sql`,
     `nsdb-cli`,
@@ -50,12 +49,6 @@ lazy val `nsdb-rpc` = project
       scalapb.gen() -> (sourceManaged in Compile).value
     ))
   .dependsOn(`nsdb-common`, `nsdb-sql`)
-
-lazy val `nsdb-akka-client` = project
-  .settings(Commons.settings: _*)
-  .settings(PublishSettings.dontPublish: _*)
-  .settings(libraryDependencies ++= Dependencies.AkkaClient.libraries)
-  .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)

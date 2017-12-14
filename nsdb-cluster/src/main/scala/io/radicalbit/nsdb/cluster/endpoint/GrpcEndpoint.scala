@@ -65,7 +65,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       //TODO: add failure handling
       log.debug("Received command ShowMetrics for namespace {}", request.namespace)
       (readCoordinator ? GetMetrics(request.db, request.namespace)).mapTo[MetricsGot].map {
-        case MetricsGot(db, namespace, metrics) => GrpcMetricsGot(db, namespace, metrics.toList)
+        case MetricsGot(db, namespace, metrics) =>
+          GrpcMetricsGot(db, namespace, metrics.toList, completedSuccessfully = true)
       }
     }
 
@@ -85,7 +86,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
             GrpcMetricSchemaRetrieved(db,
                                       namespace,
                                       metric,
-                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)))
+                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)),
+                                      completedSuccessfully = true)
         }
     }
   }
@@ -131,6 +133,24 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       case _                               => v.stringValue.get
     }
 
+    private def toGrpcBit(bit: Bit): GrpcBit = {
+      GrpcBit(
+        timestamp = bit.timestamp,
+        value = bit.value match {
+          case v: java.lang.Long          => GrpcBit.Value.LongValue(v)
+          case Some(v: java.lang.Double)  => GrpcBit.Value.DecimalValue(v)
+          case Some(v: java.lang.Integer) => GrpcBit.Value.LongValue(v.longValue())
+          case Some(v: java.lang.Long)    => GrpcBit.Value.LongValue(v)
+        },
+        dimensions = bit.dimensions.map {
+          case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
+          case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
+          case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+          case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+        }
+      )
+    }
+
     override def executeSQLStatement(
         request: SQLRequestStatement
     ): Future[SQLStatementResponse] = {
@@ -155,23 +175,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       namespace = namespace,
                       metric = metric,
                       completedSuccessfully = true,
-                      records = values.map { bit =>
-                        GrpcBit(
-                          timestamp = bit.timestamp,
-                          value = bit.value match {
-                            case v: java.lang.Long          => GrpcBit.Value.LongValue(v)
-                            case Some(v: java.lang.Double)  => GrpcBit.Value.DecimalValue(v)
-                            case Some(v: java.lang.Integer) => GrpcBit.Value.LongValue(v.longValue())
-                            case Some(v: java.lang.Long)    => GrpcBit.Value.LongValue(v)
-                          },
-                          dimensions = bit.dimensions.map {
-                            case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
-                            case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
-                            case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-                            case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
-                          }
-                        )
-                      }
+                      records = values.map(toGrpcBit)
                     )
                   // SelectExecution Failure
                   case SelectStatementFailed(reason) =>
@@ -210,11 +214,12 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
               result
                 .map {
-                  case x: InputMapped =>
-                    SQLStatementResponse(db = x.db,
-                                         namespace = x.namespace,
-                                         metric = x.metric,
-                                         completedSuccessfully = true)
+                  case InputMapped(db, namespace, metric, record) =>
+                    SQLStatementResponse(db = db,
+                                         namespace = namespace,
+                                         metric = metric,
+                                         completedSuccessfully = true,
+                                         records = Seq(toGrpcBit(record)))
                   case x: RecordRejected =>
                     SQLStatementResponse(db = x.db,
                                          namespace = x.namespace,
