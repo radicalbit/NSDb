@@ -82,7 +82,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
         .flatMap {
-          case SchemaUpdated(_, _, _) =>
+          case SchemaUpdated(_, _, _, schema) =>
             log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
             val commitLogFuture: Future[WroteToCommitLogAck] =
               if (commitLogService.isDefined)
@@ -91,7 +91,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
               else Future.successful(WroteToCommitLogAck(ts, metric, bit))
             commitLogFuture
               .flatMap(ack => {
-                publisherActor ! InputMapped(db, namespace, metric, bit)
+                publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
                 (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ack.ts)).mapTo[LocationGot].flatMap {
                   case LocationGot(_, _, _, Some(loc)) =>
                     log.debug(s"received location for metric $metric, $loc")
@@ -129,7 +129,13 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       if (namespaces.isEmpty)
         sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
       else
-        broadcastMessage(msg).pipeTo(sender())
+        (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+          .flatMap {
+            case SchemaGot(_, _, _, Some(schema)) =>
+              broadcastMessage(ExecuteDeleteStatementInternal(statement, schema))
+            case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
+          }
+          .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       if (namespaces.isEmpty)
         sender() ! MetricDropped(db, namespace, metric)
