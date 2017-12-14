@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -11,14 +10,13 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.index.{NsdbQuery, QueryIndex, TemporaryIndex}
+import io.radicalbit.nsdb.index.{NsdbQuery, TemporaryIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
+import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.IndexSearcher
-import org.apache.lucene.store.NIOFSDirectory
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -29,20 +27,9 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
     extends Actor
     with ActorLogging {
 
-  lazy val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
-
   lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
-
-  override def preStart(): Unit = {
-    try {
-      implicit val searcher: IndexSearcher = queryIndex.getSearcher
-      queries ++= queryIndex.getAll.map(s => s.uuid -> s).toMap
-    } catch {
-      case e: IndexNotFoundException => // do nothing
-    }
-  }
 
   implicit val disp: ExecutionContextExecutor = context.system.dispatcher
 
@@ -67,8 +54,10 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
       .foreach {
         case (id, nsdbQuery) =>
           val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-            .mapTo[SelectStatementExecuted]
-            .map(e => RecordsPublished(id, e.metric, e.values))
+            .map {
+              case e: SelectStatementExecuted => RecordsPublished(id, e.metric, e.values)
+              case e: SelectStatementFailed   => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
+            }
           subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       }
   }
@@ -85,17 +74,16 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
                   case Success(parsedQuery) =>
                     val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
                       UUID.randomUUID().toString
-                    val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
-                    subscribedActors += (id -> (previousRegisteredActors + actor))
-                    queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
-
-                    implicit val writer: IndexWriter = queryIndex.getWriter
-                    queryIndex.write(NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
-                    writer.close()
 
                     (readCoordinator ? ExecuteStatement(query))
-                      .mapTo[SelectStatementExecuted]
-                      .map(e => SubscribedByQueryString(queryString, id, e.values))
+                      .map {
+                        case e: SelectStatementExecuted =>
+                          val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
+                          subscribedActors += (id -> (previousRegisteredActors + actor))
+                          queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
+                          SubscribedByQueryString(queryString, id, e.values)
+                        case SelectStatementFailed(reason) => SubscriptionFailed(reason)
+                      }
 
                   case Failure(ex) => Future(SubscriptionFailed(ex.getMessage))
                 }
@@ -114,17 +102,20 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
       queries.get(quid) match {
         case Some(q) =>
           log.debug(s"found query $q for id $quid")
-          val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
-          subscribedActors += (quid -> (previousRegisteredActors + actor))
           (readCoordinator ? ExecuteStatement(q.query))
-            .mapTo[SelectStatementExecuted]
-            .map(e => SubscribedByQuid(quid, e.values))
+            .map {
+              case e: SelectStatementExecuted =>
+                val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
+                subscribedActors += (quid -> (previousRegisteredActors + actor))
+                SubscribedByQuid(quid, e.values)
+              case SelectStatementFailed(reason) => SubscriptionFailed(reason)
+            }
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
-    case PublishRecord(_, _, metric, record, schema) =>
+    case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {
-        case (id, nsdbQuery) =>
+        case (id, nsdbQuery) if !nsdbQuery.aggregated =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
             case Success(parsedQuery: ParsedSimpleQuery) =>
@@ -133,14 +124,15 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
               temporaryIndex.write(record)
               writer.close()
               implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
-              if (metric == nsdbQuery.query.metric && temporaryIndex
+              if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .lengthCompare(1) == 0)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
-            case Success(_) =>
-            case Failure(_) =>
-              log.error(s"query ${nsdbQuery.query} not valid")
+            case Success(_) => log.error("unreachable branch reached...")
+            case Failure(ex) =>
+              log.error(ex, s"query ${nsdbQuery.query} not valid because of")
           }
+        case _ =>
       }
     case Unsubscribe(actor) =>
       log.debug("unsubscribe actor {} ", actor)
