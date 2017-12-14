@@ -131,7 +131,7 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordSatisfy, schema))
+    probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
     val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.records shouldBe Seq(testRecordSatisfy)

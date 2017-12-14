@@ -108,7 +108,7 @@ class WriteCoordinatorSpec
 
     val testSqlStatement = SelectSQLStatement(
       db = "db",
-      namespace = "registry",
+      namespace = "testNamespace",
       metric = "testMetric",
       fields = AllFields,
       condition = Some(

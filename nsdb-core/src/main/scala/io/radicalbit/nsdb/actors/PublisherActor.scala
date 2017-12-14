@@ -113,7 +113,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")
       }
-    case PublishRecord(_, _, metric, record, schema) =>
+    case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {
         case (id, nsdbQuery) if !nsdbQuery.aggregated =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query, schema)
@@ -124,13 +124,13 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
               temporaryIndex.write(record)
               writer.close()
               implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
-              if (metric == nsdbQuery.query.metric && temporaryIndex
+              if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
                     .query(parsedQuery.q, parsedQuery.fields, 1, None)
                     .lengthCompare(1) == 0)
                 subscribedActors.get(id).foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
             case Success(_) => log.error("unreachable branch reached...")
             case Failure(ex) =>
-              log.error(ex,s"query ${nsdbQuery.query} not valid because of")
+              log.error(ex, s"query ${nsdbQuery.query} not valid because of")
           }
         case _ =>
       }
