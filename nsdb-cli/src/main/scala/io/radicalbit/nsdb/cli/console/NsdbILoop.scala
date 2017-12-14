@@ -2,7 +2,6 @@ package io.radicalbit.nsdb.cli.console
 
 import java.io.BufferedReader
 
-import com.google.protobuf.wrappers.DoubleValue
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
@@ -14,8 +13,6 @@ import io.radicalbit.nsdb.rpc.responseCommand.{
 }
 import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.rpc.common.Bit.Value.{DecimalValue, LongValue}
-import io.radicalbit.nsdb.rpc.common.Dimension.Value.StringValue
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.sql.parser.CommandStatementParser
@@ -111,18 +108,10 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
           r =>
             Bit(
               r.timestamp,
-              r.value match {
-                case v: LongValue    => v.value
-                case v: StringValue  => v.value
-                case v: DecimalValue => v.value
-              },
+              r.value.value.asInstanceOf[JSerializable],
               r.dimensions.map {
                 case (k, dim) =>
-                  (k, dim.value match {
-                    case v: LongValue    => v.value.asInstanceOf[JSerializable]
-                    case v: StringValue  => v.value.asInstanceOf[JSerializable]
-                    case v: DecimalValue => v.value.asInstanceOf[JSerializable]
-                  })
+                  (k, dim.value.value.asInstanceOf[JSerializable])
               }
           ))
       )
