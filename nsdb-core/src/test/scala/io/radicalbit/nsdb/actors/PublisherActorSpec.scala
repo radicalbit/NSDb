@@ -131,26 +131,9 @@ class PublisherActorSpec
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
-    probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordSatisfy, schema))
+    probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
     val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.records shouldBe Seq(testRecordSatisfy)
-  }
-
-  "PublisherActor" should "recover its queries when it is restarted" in {
-    probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
-    val subscribed = probe.expectMsgType[SubscribedByQueryString]
-
-    probe.send(publisherActor, PoisonPill)
-
-    val newPublisherActor = system.actorOf(
-      PublisherActor.props("target/test_index_publisher_actor",
-                           system.actorOf(Props[FakeReadCoordinatorActor]),
-                           system.actorOf(Props[FakeNamespaceSchemaActor])))
-
-    probe.send(newPublisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
-    val newSubscribed = probe.expectMsgType[SubscribedByQueryString]
-
-    newSubscribed.quid shouldBe subscribed.quid
   }
 }

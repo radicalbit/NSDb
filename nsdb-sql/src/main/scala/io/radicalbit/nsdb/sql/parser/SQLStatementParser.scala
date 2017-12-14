@@ -55,7 +55,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
 
-  private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9]*)""".r
+  private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
   private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\\-]*[a-zA-Z0-9])""".r
   private val numbers          = """([0-9]+)""".r
   private val intValue         = numbers ^^ { _.toInt }
