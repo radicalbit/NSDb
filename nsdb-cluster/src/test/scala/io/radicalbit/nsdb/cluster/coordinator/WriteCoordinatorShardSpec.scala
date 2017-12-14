@@ -45,7 +45,7 @@ class WriteCoordinatorShardSpec
 
   val db        = "writeCoordinatorSpecShardDB"
   val namespace = "namespace"
-  
+
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
 
@@ -117,7 +117,7 @@ class WriteCoordinatorShardSpec
   }
 
   "WriteCoordinator in shard mode" should "delete a namespace" in {
-    probe.send(writeCoordinatorActor, DeleteNamespace(db, "testNamespace"))
+    probe.send(writeCoordinatorActor, DeleteNamespace(db, namespace))
 
     within(5 seconds) {
       probe.expectMsgType[NamespaceDeleted]
