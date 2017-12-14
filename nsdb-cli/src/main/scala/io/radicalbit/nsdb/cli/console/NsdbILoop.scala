@@ -2,9 +2,11 @@ package io.radicalbit.nsdb.cli.console
 
 import java.io.BufferedReader
 
+import com.google.protobuf.wrappers.DoubleValue
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric => GrpcDescribeMetric, ShowMetrics => GrpcShowMetrics}
 import io.radicalbit.nsdb.rpc.responseCommand.{
   MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
@@ -12,6 +14,8 @@ import io.radicalbit.nsdb.rpc.responseCommand.{
 }
 import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.rpc.common.Bit.Value.{DecimalValue, LongValue}
+import io.radicalbit.nsdb.rpc.common.Dimension.Value.StringValue
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.sql.parser.CommandStatementParser
@@ -33,7 +37,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
 
   val commandStatementParser = new CommandStatementParser(db)
 
-  val clientGrpc = new GRPCClient(host = host.getOrElse("127.0.0.1"), port = port.getOrElse(2552))
+  val clientGrpc = new GRPCClient(host = host.getOrElse("127.0.0.1"), port = port.getOrElse(7817))
 
   var currentNamespace: Option[String] = None
 
@@ -55,6 +59,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
     if (line startsWith ":") colonCommand(line)
     else if (intp.global == null) Result(keepRunning = false, None) // Notice failure to create compiler
     else
+      //FIXME: Match possible failures
       parseStatement(line).getOrElse {
         echo("Cannot parse the inserted statement.")
         result()
@@ -63,7 +68,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
 
   def result(lineToRecord: Option[String] = None) = Result(keepRunning = true, lineToRecord = lineToRecord)
 
-  def parseStatement(statement: String) =
+  def parseStatement(statement: String): Try[Result] =
     sendParsedCommandStatement(statement)
       .orElse(
         Try(
@@ -97,20 +102,38 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
     }
 
   def toInternalSQLStatementResponse(gRpcResponse: SQLStatementResponse): SQLStatementResult = {
-    if (gRpcResponse.completedSuccessfully)
+    if (gRpcResponse.completedSuccessfully) {
       SQLStatementExecuted(
         db = gRpcResponse.db,
         namespace = gRpcResponse.namespace,
         metric = gRpcResponse.metric,
-        res = gRpcResponse.records.map(r => Bit(r.timestamp, r.value, r.dimensions))
+        res = gRpcResponse.records.map(
+          r =>
+            Bit(
+              r.timestamp,
+              r.value match {
+                case v: LongValue    => v.value
+                case v: StringValue  => v.value
+                case v: DecimalValue => v.value
+              },
+              r.dimensions.map {
+                case (k, dim) =>
+                  (k, dim.value match {
+                    case v: LongValue    => v.value.asInstanceOf[JSerializable]
+                    case v: StringValue  => v.value.asInstanceOf[JSerializable]
+                    case v: DecimalValue => v.value.asInstanceOf[JSerializable]
+                  })
+              }
+          ))
       )
-    else
+    } else {
       SQLStatementFailed(
         db = gRpcResponse.db,
         namespace = gRpcResponse.namespace,
         metric = gRpcResponse.metric,
         reason = gRpcResponse.reason
       )
+    }
   }
 
   def sendCommand(stm: CommandStatement, lineToRecord: String): Result = stm match {

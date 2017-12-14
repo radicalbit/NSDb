@@ -1,13 +1,14 @@
 package io.radicalbit.nsdb.cli.table
 
 import cats.implicits._
+import com.typesafe.scalalogging.LazyLogging
 import de.vandermeer.asciitable.AsciiTable
 import de.vandermeer.asciithemes.a7.A7_Grids
 import io.radicalbit.nsdb.common.protocol._
 
 import scala.util.Try
 
-object ASCIITableBuilder {
+object ASCIITableBuilder extends LazyLogging {
 
   private def extractColumnNames(stm: SQLStatementExecuted): Map[String, Option[String]] =
     stm.res
@@ -34,7 +35,8 @@ object ASCIITableBuilder {
 
           render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
         }
-      case failStatement: SQLStatementFailed => Try(failStatement.reason)
+      case failStatement: SQLStatementFailed =>
+        Try(failStatement.reason)
 
     }
 

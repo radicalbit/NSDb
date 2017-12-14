@@ -31,8 +31,6 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
   for {
     readCoordinator  <- (guardian ? GetReadCoordinator).mapTo[ActorRef]
     writeCoordinator <- (guardian ? GetWriteCoordinator).mapTo[ActorRef]
-    _ = system.actorOf(EndpointActor.props(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator),
-                       "endpoint-actor")
     _ = new GrpcEndpoint(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator)
   } ()
 }

@@ -7,8 +7,13 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.{Bit, MetricField, MetricSchemaRetrieved, NamespaceMetricsListRetrieved}
-import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, DropSQLStatement, InsertSQLStatement, SelectSQLStatement}
+import io.radicalbit.nsdb.common.protocol.{Bit, MetricField}
+import io.radicalbit.nsdb.common.statement.{
+  DeleteSQLStatement,
+  DropSQLStatement,
+  InsertSQLStatement,
+  SelectSQLStatement
+}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{MetricsGot, _}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
@@ -16,7 +21,10 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.{MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
+import io.radicalbit.nsdb.rpc.responseCommand.{
+  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  MetricsGot => GrpcMetricsGot
+}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
@@ -25,7 +33,6 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-
 class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implicit system: ActorSystem)
     extends GRPCServer {
 
@@ -56,6 +63,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         request: ShowMetrics
     ): Future[GrpcMetricsGot] = {
       //TODO: add failure handling
+      log.debug("Received command ShowMetrics for namespace {}", request.namespace)
       (readCoordinator ? GetMetrics(request.db, request.namespace)).mapTo[MetricsGot].map {
         case MetricsGot(db, namespace, metrics) => GrpcMetricsGot(db, namespace, metrics.toList)
       }
@@ -65,6 +73,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         request: DescribeMetric
     ): Future[GrpcMetricSchemaRetrieved] = {
       //TODO: add failure handling
+      log.debug("Received command DescribeMetric for metric {}", request.metric)
       (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
         .mapTo[SchemaGot]
         .map {
@@ -73,7 +82,10 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
               .map(
                 _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
               .getOrElse(List.empty[MetricField])
-            GrpcMetricSchemaRetrieved(db, namespace, metric, fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)))
+            GrpcMetricSchemaRetrieved(db,
+                                      namespace,
+                                      metric,
+                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)))
         }
     }
   }
@@ -122,9 +134,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     override def executeSQLStatement(
         request: SQLRequestStatement
     ): Future[SQLStatementResponse] = {
-      val db           = request.db
-      val namespace    = request.namespace
-      val sqlStatement = parserSQL.parse(request.db, request.namespace, request.statement)
+      val requestDb        = request.db
+      val requestNamespace = request.namespace
+      val sqlStatement     = parserSQL.parse(request.db, request.namespace, request.statement)
       sqlStatement match {
         // Parsing Success
         case Success(statement) =>
@@ -134,6 +146,10 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 .map {
                   // SelectExecution Success
                   case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit]) =>
+                    log.debug("SQL statement succeeded on db {} with namespace {} and metric {}",
+                              db,
+                              namespace,
+                              metric)
                     SQLStatementResponse(
                       db = db,
                       namespace = namespace,
@@ -143,8 +159,10 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                         GrpcBit(
                           timestamp = bit.timestamp,
                           value = bit.value match {
-                            case Some(v: Double) => GrpcBit.Value.DecimalValue(v)
-                            case Some(v: Long)   => GrpcBit.Value.LongValue(v)
+                            case v: java.lang.Long          => GrpcBit.Value.LongValue(v)
+                            case Some(v: java.lang.Double)  => GrpcBit.Value.DecimalValue(v)
+                            case Some(v: java.lang.Integer) => GrpcBit.Value.LongValue(v.longValue())
+                            case Some(v: java.lang.Long)    => GrpcBit.Value.LongValue(v)
                           },
                           dimensions = bit.dimensions.map {
                             case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
@@ -158,12 +176,22 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                   // SelectExecution Failure
                   case SelectStatementFailed(reason) =>
                     SQLStatementResponse(
-                      db = db,
-                      namespace = namespace,
+                      db = requestDb,
+                      namespace = requestNamespace,
                       completedSuccessfully = false,
                       reason = reason
                     )
 
+                }
+                .recoverWith {
+                  case t =>
+                    Future.successful(
+                      SQLStatementResponse(
+                        db = requestDb,
+                        namespace = requestNamespace,
+                        completedSuccessfully = false,
+                        reason = t.getMessage
+                      ))
                 }
             case insert: InsertSQLStatement =>
               val result = InsertSQLStatement
@@ -204,7 +232,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
             case drop: DropSQLStatement =>
               //TODO: add failure handling
-            (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
+              (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
                 .mapTo[MetricDropped]
                 .map(x =>
                   SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
@@ -221,6 +249,14 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                      reason = r.getMessage,
                                      message = "")
               )
+            case _ =>
+              Future.successful(
+                SQLStatementResponse(db = request.db,
+                                     namespace = request.namespace,
+                                     completedSuccessfully = false,
+                                     reason = "",
+                                     message = ""))
+
           }
       }
     }
