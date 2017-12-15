@@ -178,7 +178,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                                                             lineToRecord: String): Result =
     Try(Await.result(attemptValue, 10 seconds)) match {
       case Success(resp: CommandStatementExecutedWithFailure) =>
-        echo(s"Statement failed because ${resp.reason}")
+        echo(s"Statement failed because : ${resp.reason}")
         result(Some(lineToRecord))
       case Success(resp) =>
         echo(print(resp), lineToRecord)
@@ -194,7 +194,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                                   lineToRecord: String): Result = {
     Try(Await.result(statementAttempt, 10 seconds)) match {
       case Success(resp: SQLStatementFailed) =>
-        echo(s"statement failed because ${resp.reason}")
+        echo(s"Statement failed because : ${resp.reason}")
         result(Some(lineToRecord))
       case Success(resp: SQLStatementExecuted) =>
         echo(print(resp), lineToRecord)
