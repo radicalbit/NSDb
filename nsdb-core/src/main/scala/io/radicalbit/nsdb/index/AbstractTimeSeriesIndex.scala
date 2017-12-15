@@ -3,6 +3,7 @@ package io.radicalbit.nsdb.index
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
@@ -41,12 +42,12 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
       ))
   }
 
-  override def toRecord(document: Document, fields: Seq[String]): Bit = {
+  override def toRecord(document: Document, fields: Seq[SimpleField]): Bit = {
     val dimensions: Map[String, JSerializable] =
       document.getFields.asScala
         .filterNot(f =>
-          f.name() == _keyField || f.name() == _valueField || (fields.nonEmpty && !fields
-            .contains(f.name())))
+          f.name() == _keyField || f.name() == _valueField || (fields.nonEmpty &&
+            !fields.exists(_.name == f.name())))
         .map {
           case f if f.numericValue() != null => f.name() -> f.numericValue()
           case f                             => f.name() -> f.stringValue()

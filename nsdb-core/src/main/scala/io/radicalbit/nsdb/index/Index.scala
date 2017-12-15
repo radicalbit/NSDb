@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.index
 
 import cats.data.Validated.{invalidNel, valid}
 import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
+import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
@@ -31,7 +32,7 @@ trait Index[T] {
   }
 
   def validateRecord(data: T): FieldValidation
-  def toRecord(document: Document, fields: Seq[String]): T
+  def toRecord(document: Document, fields: Seq[SimpleField]): T
 
   def write(fields: Seq[Field])(implicit writer: IndexWriter): WriteValidation = {
     val doc = new Document
@@ -108,7 +109,7 @@ trait Index[T] {
     }.toSeq
   }
 
-  def query(query: Query, fields: Seq[String], limit: Int, sort: Option[Sort])(
+  def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(
       implicit searcher: IndexSearcher): Seq[T] = {
     rawQuery(query, limit, sort).map(d => toRecord(d, fields))
   }
@@ -118,7 +119,11 @@ trait Index[T] {
     rawQuery(query, collector, limit, sort).map(d => toRecord(d, Seq.empty))
   }
 
-  def query(field: String, queryString: String, fields: Seq[String], limit: Int, sort: Option[Sort] = None): Seq[T] = {
+  def query(field: String,
+            queryString: String,
+            fields: Seq[SimpleField],
+            limit: Int,
+            sort: Option[Sort] = None): Seq[T] = {
     val reader   = DirectoryReader.open(directory)
     val searcher = new IndexSearcher(reader)
     val parser   = new QueryParser(field, new StandardAnalyzer())

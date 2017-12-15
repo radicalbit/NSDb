@@ -19,7 +19,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
     }
 
     "receive a select projecting a single field" should {
-      "parse it successfully" in {
+      "parse it successfully with a simple field" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people") should be(
           Success(
             SelectSQLStatement(db = "db",
@@ -28,10 +28,28 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                fields = ListFields(List(Field("name", None)))))
         )
       }
+      "parse it successfully with an aggregated field" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               fields = ListFields(List(Field("value", Some(CountAggregation))))))
+        )
+      }
+      "parse it successfully with an aggregated *" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(*) FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               fields = ListFields(List(Field("*", Some(CountAggregation))))))
+        )
+      }
     }
 
     "receive a select projecting a list of fields" should {
-      "parse it successfully" in {
+      "parse it successfully only with simple fields" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname,creationDate FROM people") should be(
           Success(
             SelectSQLStatement(
@@ -39,6 +57,19 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))))))
+      }
+      "parse it successfully with mixed aggregated and simple" in {
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT count(*),surname,sum(creationDate) FROM people") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(List(Field("*", Some(CountAggregation)),
+                                     Field("surname", None),
+                                     Field("creationDate", Some(SumAggregation))))
+          )))
       }
     }
 

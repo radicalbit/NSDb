@@ -6,6 +6,7 @@ import cats.implicits._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
 import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
@@ -22,11 +23,11 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields.toSet == this.fields.toSet)
+      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0) && (otherSchema.fields.toSet == this.fields.toSet)
     } else false
   }
 
-  def fieldsMap(): Map[String, SchemaField] =
+  def fieldsMap: Map[String, SchemaField] =
     fields.map(f => f.name -> f).toMap + ("timestamp" -> SchemaField("timestamp", BIGINT()))
 }
 
@@ -63,7 +64,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     }
   }
 
-  override def toRecord(document: Document, fields: Seq[String]): Schema = {
+  override def toRecord(document: Document, fields: Seq[SimpleField]): Schema = {
     val fields = document.getFields.asScala.filterNot(_.name() == _keyField)
     Schema(
       document.get(_keyField),

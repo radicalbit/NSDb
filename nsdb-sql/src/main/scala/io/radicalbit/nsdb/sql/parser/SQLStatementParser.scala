@@ -65,8 +65,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val field = digits ^^ { e =>
     Field(e, None)
   }
-  private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ digits <~ CloseRoundBracket ^^ { e =>
-    Field(e._2, Some(e._1))
+  private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ {
+    e =>
+      Field(e._2, Some(e._1))
   }
   private val metric                   = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val dimension                = digits
@@ -86,7 +87,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timestamp = delta | longValue
 
-  private val selectFields = (All | aggField | field) ~ rep(Comma ~> field) ^^ {
+  private val selectFields = (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
     case f ~ fs =>
       f match {
         case All      => AllFields

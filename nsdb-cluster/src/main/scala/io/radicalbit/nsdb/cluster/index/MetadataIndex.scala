@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.cluster.index
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.index.Index
+import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
@@ -50,7 +51,7 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
     }
   }
 
-  override def toRecord(document: Document, fields: Seq[String]): Location = {
+  override def toRecord(document: Document, fields: Seq[SimpleField]): Location = {
     val fields = document.getFields.asScala.map(f => f.name() -> f).toMap
     Location(
       document.get(_keyField),
@@ -73,8 +74,8 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
     builder.add(LongPoint.newRangeQuery("to", t, Long.MaxValue), BooleanClause.Occur.SHOULD)
     builder.add(LongPoint.newRangeQuery("from", 0, t), BooleanClause.Occur.SHOULD).build()
 
-    val reader            = DirectoryReader.open(directory)
-    implicit val searcher = new IndexSearcher(reader)
+    val reader                           = DirectoryReader.open(directory)
+    implicit val searcher: IndexSearcher = new IndexSearcher(reader)
 
     Try(query(builder.build(), Seq.empty, Integer.MAX_VALUE, None).headOption) match {
       case Success(metadataSeq) => metadataSeq

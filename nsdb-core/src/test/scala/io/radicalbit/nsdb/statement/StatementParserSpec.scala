@@ -4,7 +4,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
 import io.radicalbit.nsdb.model.SchemaField
-import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
@@ -46,7 +46,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
 
     "receive a select projecting a list of fields" should {
-      "parse it successfully" in {
+      "parse it successfully only in simple fields" in {
         parser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -63,9 +63,48 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               4,
-              List("name", "surname", "creationDate")
+              List("name", "surname", "creationDate").map(SimpleField(_))
             ))
         )
+      }
+      "parse it successfully with mixed aggregated and simple" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(
+              List(Field("*", Some(CountAggregation)),
+                   Field("surname", None),
+                   Field("creationDate", Some(CountAggregation)))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("*", true), SimpleField("surname"), SimpleField("creationDate", true))
+            ))
+        )
+      }
+      "fail when other aggregation than count is provided" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            fields = ListFields(
+              List(Field("*", Some(CountAggregation)),
+                   Field("surname", None),
+                   Field("creationDate", Some(SumAggregation)))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) shouldBe 'failure
       }
     }
 
@@ -88,7 +127,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             ))
         )
       }
@@ -113,7 +152,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newExactQuery("timestamp", 10L),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             ))
         )
       }
@@ -135,7 +174,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new TermQuery(new Term("name", "TestString")),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             ))
         )
       }
@@ -157,7 +196,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new TermQuery(new Term("name", "0")),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             ))
         )
       }
@@ -183,7 +222,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newRangeQuery("timestamp", 10L, Long.MaxValue),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             ))
         )
       }
@@ -216,7 +255,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("timestamp", 0, 4L), BooleanClause.Occur.MUST)
                 .build(),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             )
           ))
       }
@@ -258,7 +297,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 )
                 .build(),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             )
           )
         )
@@ -301,7 +340,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 )
                 .build(),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             )
           )
         )
@@ -344,7 +383,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 )
                 .build(),
               4,
-              List("name")
+              List("name").map(SimpleField(_))
             )
           )
         )
@@ -419,7 +458,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               5,
-              List("name"),
+              List("name").map(SimpleField(_)),
               Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true)))
             ))
         )
