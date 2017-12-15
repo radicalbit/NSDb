@@ -147,7 +147,11 @@ object StatementParser {
     val q: Query
   }
 
-  case class SimpleField(name: String, count: Boolean = false)
+  case class SimpleField(name: String, count: Boolean = false) {
+    override def toString: String = {
+      if (count) s"count($name)" else name
+    }
+  }
 
   case class ParsedSimpleQuery(namespace: String,
                                metric: String,

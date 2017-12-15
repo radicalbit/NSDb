@@ -6,7 +6,7 @@ import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.{Document, Field, LongPoint, StringField}
+import org.apache.lucene.document._
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
@@ -19,6 +19,7 @@ trait Index[T] {
   def directory: BaseDirectory
 
   def _keyField: String
+  val _countField: String  = "_count"
 
   private lazy val searcherManager: SearcherManager = new SearcherManager(directory, null)
 
@@ -69,10 +70,19 @@ trait Index[T] {
       sort.fold(searcher.search(query, limit).scoreDocs)(sort => searcher.search(query, limit, sort).scoreDocs)
     (0 until hits.length).foreach { i =>
       val doc = searcher.doc(hits(i).doc)
+      doc.add(new IntPoint(_countField, hits.length))
       docs += doc
     }
     docs.toList
   }
+
+  private def executeCountQuery(searcher: IndexSearcher, query: Query, limit: Int) = {
+    val hits = searcher.search(query, limit).totalHits
+    val d = new Document()
+    d.add(new IntPoint(_countField, hits))
+    Seq(d)
+  }
+
 
   private[index] def rawQuery(query: Query, limit: Int, sort: Option[Sort])(
       implicit searcher: IndexSearcher): Seq[Document] = {
@@ -128,7 +138,13 @@ trait Index[T] {
     val searcher = new IndexSearcher(reader)
     val parser   = new QueryParser(field, new StandardAnalyzer())
     val query    = parser.parse(queryString)
-    executeQuery(searcher, query, limit, sort).map(d => toRecord(d, fields))
+
+    val raws = if (fields.forall(_.count)) {
+      executeCountQuery(searcher,query, limit)
+    }
+    else
+      executeQuery(searcher, query, limit, sort)
+        raws.map(d => toRecord(d, fields))
   }
 
   def getAll()(implicit searcher: IndexSearcher): Seq[T] = {
