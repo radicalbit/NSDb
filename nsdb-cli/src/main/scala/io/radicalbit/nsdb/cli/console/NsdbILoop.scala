@@ -85,7 +85,14 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
   def prepareSQLStatement(statement: String): Future[SQLStatementResponse] =
     currentNamespace match {
       case Some(namespace) => clientGrpc.executeSQLStatement(SQLRequestStatement(db, namespace, statement))
-      case None            => Future.failed(new RuntimeException("Namespace must be selected"))
+      case None =>
+        Future.successful(
+          SQLStatementResponse(
+            db = db,
+            completedSuccessfully = false,
+            reason = "Namespace must be selected",
+            message = "Namespace must be selected"
+          ))
     }
 
   def toInternalCommandResponse[T](gRpcResponse: T): CommandStatementExecuted =

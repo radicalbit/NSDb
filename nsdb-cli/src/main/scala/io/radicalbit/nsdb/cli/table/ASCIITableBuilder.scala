@@ -47,7 +47,6 @@ object ASCIITableBuilder extends LazyLogging {
       case res: MetricSchemaRetrieved =>
         Try(render(List("Field Name", "Type"), res.fields.map(x => List(x.name, x.`type`))))
       case res: NamespacesListRetrieved =>
-        logger.info("Namespaces: {}", res.namespaces)
         Try(render(List("Name"), res.namespaces.map(name => List(name)).toList))
       case res: CommandStatementExecutedWithFailure =>
         Try(res.reason)
