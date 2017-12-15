@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.client.rpc
 
 import io.grpc.ManagedChannelBuilder
 import io.radicalbit.nsdb.rpc.request.RPCInsert
-import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics}
+import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseCommand.{MetricSchemaRetrieved, MetricsGot}
@@ -28,6 +28,11 @@ class GRPCClient(host: String, port: Int) {
   def executeSQLStatement(request: SQLRequestStatement): Future[SQLStatementResponse] = {
     log.info("Preparing execution of SQL request: {} ", request.statement)
     stubSql.executeSQLStatement(request)
+  }
+
+  def showNamespaces(request: ShowNamespaces) = {
+    log.info("Preparing of command show namespaces")
+    stubCommand.showNamespaces(request)
   }
 
   def showMetrics(request: ShowMetrics): Future[MetricsGot] = {

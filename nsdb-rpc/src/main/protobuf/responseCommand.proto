@@ -24,7 +24,8 @@ message MetricSchemaRetrieved{
 }
 
 message Namespaces{
-    repeated string namespaces = 1;
-    bool completedSuccessfully = 2;
-    string errors = 3;
+    string db = 1;
+    repeated string namespaces = 2;
+    bool completedSuccessfully = 3;
+    string errors = 4;
 }

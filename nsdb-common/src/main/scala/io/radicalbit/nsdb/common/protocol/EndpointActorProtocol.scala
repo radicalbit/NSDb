@@ -28,4 +28,5 @@ case class NamespaceMetricsListRetrieved(db: String, namespace: String, metrics:
     extends CommandStatementExecuted
 case class MetricSchemaRetrieved(db: String, namespace: String, metric: String, fields: List[MetricField])
     extends CommandStatementExecuted
-case class CommandStatementExecutedWithFailure(reason: String) extends CommandStatementExecuted
+case class NamespacesListRetrieved(db: String, namespaces: Seq[String]) extends CommandStatementExecuted
+case class CommandStatementExecutedWithFailure(reason: String)          extends CommandStatementExecuted

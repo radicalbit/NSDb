@@ -6,8 +6,13 @@ import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric => GrpcDescribeMetric, ShowMetrics => GrpcShowMetrics}
+import io.radicalbit.nsdb.rpc.requestCommand.{
+  DescribeMetric => GrpcDescribeMetric,
+  ShowMetrics => GrpcShowMetrics,
+  ShowNamespaces => GrpcShowNamespaces
+}
 import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
   MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
   MetricsGot => GrpcMetricsGot
 }
@@ -92,6 +97,10 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                               r.namespace,
                               r.metric,
                               r.fields.map(field => MetricField(field.name, field.`type`)).toList)
+      case r: Namespaces if r.completedSuccessfully =>
+        NamespacesListRetrieved(r.db, r.namespaces)
+      case r: Namespaces =>
+        CommandStatementExecutedWithFailure(r.errors)
       case r: GrpcMetricsGot =>
         CommandStatementExecutedWithFailure(r.errors)
       case r: GrpcMetricSchemaRetrieved =>
@@ -127,7 +136,13 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
 
   def sendCommand(stm: CommandStatement, lineToRecord: String): Result = stm match {
     case ShowNamespaces =>
-      echo("Work in progress...")
+      processCommandResponse[CommandStatementExecuted](
+        clientGrpc
+          .showNamespaces(GrpcShowNamespaces(db))
+          .map(toInternalCommandResponse[Namespaces]),
+        ASCIITableBuilder.tableFor,
+        lineToRecord
+      )
       result()
     case UseNamespace(namespace) =>
       currentNamespace = Some(namespace)
