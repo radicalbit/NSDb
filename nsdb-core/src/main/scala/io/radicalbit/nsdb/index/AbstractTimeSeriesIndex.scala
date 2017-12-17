@@ -13,8 +13,7 @@ import scala.util.{Failure, Success, Try}
 
 abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
 
-  override val _keyField  = "timestamp"
-  private val _valueField = "value"
+  override def _keyField: String = "timestamp"
 
   def write(data: Bit)(implicit writer: IndexWriter): WriteValidation = {
     val doc       = new Document
@@ -53,10 +52,13 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
           case f                             => f.name() -> f.stringValue()
         }
         .toMap
-    val aggregated : Map[String, JSerializable] = fields.filter(_.count).map(_.toString -> document.getField("_count").numericValue()).toMap
+    val aggregated: Map[String, JSerializable] =
+      fields.filter(_.count).map(_.toString -> document.getField("_count").numericValue()).toMap
 
     val value = document.getField(_valueField).numericValue()
-    Bit(timestamp = document.getField(_keyField).numericValue().longValue(), value = value, dimensions = dimensions ++ aggregated)
+    Bit(timestamp = document.getField(_keyField).numericValue().longValue(),
+        value = value,
+        dimensions = dimensions ++ aggregated)
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Unit = {

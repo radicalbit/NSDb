@@ -65,7 +65,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   }
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Schema = {
-    val fields = document.getFields.asScala.filterNot(_.name() == _keyField)
+    val fields = document.getFields.asScala.filterNot(f => f.name() == _keyField || f.name() == _countField)
     Schema(
       document.get(_keyField),
       fields.map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]])))

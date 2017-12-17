@@ -19,7 +19,8 @@ trait Index[T] {
   def directory: BaseDirectory
 
   def _keyField: String
-  val _countField: String  = "_count"
+  val _countField: String = "_count"
+  val _valueField         = "value"
 
   private lazy val searcherManager: SearcherManager = new SearcherManager(directory, null)
 
@@ -77,12 +78,13 @@ trait Index[T] {
   }
 
   private def executeCountQuery(searcher: IndexSearcher, query: Query, limit: Int) = {
-    val hits = searcher.search(query, limit).totalHits
-    val d = new Document()
+    val hits = searcher.search(query, limit).scoreDocs.length
+    val d    = new Document()
+    d.add(new LongPoint(_keyField, 0))
+    d.add(new IntPoint(_valueField, hits))
     d.add(new IntPoint(_countField, hits))
     Seq(d)
   }
-
 
   private[index] def rawQuery(query: Query, limit: Int, sort: Option[Sort])(
       implicit searcher: IndexSearcher): Seq[Document] = {
@@ -121,7 +123,12 @@ trait Index[T] {
 
   def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(
       implicit searcher: IndexSearcher): Seq[T] = {
-    rawQuery(query, limit, sort).map(d => toRecord(d, fields))
+
+    val raws = if (fields.nonEmpty && fields.forall(_.count)) {
+      executeCountQuery(this.getSearcher, query, limit)
+    } else
+      executeQuery(this.getSearcher, query, limit, sort)
+    raws.map(d => toRecord(d, fields))
   }
 
   def query(query: Query, collector: AllGroupsAggregationCollector, limit: Option[Int], sort: Option[Sort])(
@@ -134,17 +141,14 @@ trait Index[T] {
             fields: Seq[SimpleField],
             limit: Int,
             sort: Option[Sort] = None): Seq[T] = {
-    val reader   = DirectoryReader.open(directory)
-    val searcher = new IndexSearcher(reader)
-    val parser   = new QueryParser(field, new StandardAnalyzer())
-    val query    = parser.parse(queryString)
+    val parser = new QueryParser(field, new StandardAnalyzer())
+    val query  = parser.parse(queryString)
 
-    val raws = if (fields.forall(_.count)) {
-      executeCountQuery(searcher,query, limit)
-    }
-    else
-      executeQuery(searcher, query, limit, sort)
-        raws.map(d => toRecord(d, fields))
+    val raws = if (fields.nonEmpty && fields.forall(_.count)) {
+      executeCountQuery(this.getSearcher, query, limit)
+    } else
+      executeQuery(this.getSearcher, query, limit, sort)
+    raws.map(d => toRecord(d, fields))
   }
 
   def getAll()(implicit searcher: IndexSearcher): Seq[T] = {
