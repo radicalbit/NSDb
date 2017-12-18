@@ -51,7 +51,7 @@ class ReadCoordinatorSpec
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", records.head), 3 seconds)
     namespaceDataActor ! AddRecords(db, namespace, "people", records)
 
     waitInterval
@@ -94,6 +94,7 @@ class ReadCoordinatorSpec
           expected.schema shouldBe Some(
             Schema("people",
                    Seq(SchemaField("name", VARCHAR()),
+                       SchemaField("timestamp", BIGINT()),
                        SchemaField("surname", VARCHAR()),
                        SchemaField("creationDate", BIGINT()))))
         }

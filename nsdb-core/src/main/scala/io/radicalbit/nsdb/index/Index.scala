@@ -28,6 +28,8 @@ trait Index[T] {
 
   def getSearcher: IndexSearcher = searcherManager.acquire()
 
+  def refresh(): Unit = searcherManager.maybeRefreshBlocking()
+
   def release(searcher: IndexSearcher): Unit = {
     searcherManager.maybeRefreshBlocking()
     searcherManager.release(searcher)

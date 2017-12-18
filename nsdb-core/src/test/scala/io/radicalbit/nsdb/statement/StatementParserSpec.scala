@@ -16,11 +16,16 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   private val parser = new StatementParser
 
-  val schema = Schema("people",
-                      Seq(SchemaField("name", VARCHAR()),
-                          SchemaField("surname", VARCHAR()),
-                          SchemaField("creationDate", BIGINT()),
-                          SchemaField("value", DECIMAL())))
+  val schema = Schema(
+    "people",
+    Seq(
+      SchemaField("timestamp", BIGINT()),
+      SchemaField("name", VARCHAR()),
+      SchemaField("surname", VARCHAR()),
+      SchemaField("creationDate", BIGINT()),
+      SchemaField("value", DECIMAL())
+    )
+  )
 
   "A statement parser instance" when {
 
