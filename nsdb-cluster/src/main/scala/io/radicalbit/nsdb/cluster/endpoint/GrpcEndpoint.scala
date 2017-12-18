@@ -246,20 +246,27 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 }
 
             case delete: DeleteSQLStatement =>
-              //TODO: add failure handling
               (writeCoordinator ? ExecuteDeleteStatement(delete))
                 .mapTo[DeleteStatementExecuted]
-                .map { x =>
-                  log.info("DELETE statement executed {}", x)
-                  SQLStatementResponse(db = x.db,
-                                       namespace = x.namespace,
-                                       metric = x.metric,
-                                       completedSuccessfully = true,
-                                       records = Seq.empty)
+                .map(
+                  x =>
+                    SQLStatementResponse(db = x.db,
+                                         namespace = x.namespace,
+                                         metric = x.metric,
+                                         completedSuccessfully = true,
+                                         records = Seq.empty))
+                .recoverWith {
+                  case t =>
+                    Future.successful(
+                      SQLStatementResponse(
+                        db = requestDb,
+                        namespace = requestNamespace,
+                        completedSuccessfully = false,
+                        reason = t.getMessage
+                      ))
                 }
 
             case drop: DropSQLStatement =>
-              //TODO: add failure handling
               (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
                 .mapTo[MetricDropped]
                 .map(
@@ -269,6 +276,16 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                          metric = x.metric,
                                          completedSuccessfully = true,
                                          records = Seq.empty))
+                .recoverWith {
+                  case t =>
+                    Future.successful(
+                      SQLStatementResponse(
+                        db = requestDb,
+                        namespace = requestNamespace,
+                        completedSuccessfully = false,
+                        reason = t.getMessage
+                      ))
+                }
           }
 
         //Parsing Failure
@@ -279,7 +296,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 SQLStatementResponse(db = request.db,
                                      namespace = request.namespace,
                                      completedSuccessfully = false,
-                                     reason = r.getMessage,
+                                     reason = "statement not valid",
                                      message = "")
               )
             case _ =>
@@ -287,8 +304,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 SQLStatementResponse(db = request.db,
                                      namespace = request.namespace,
                                      completedSuccessfully = false,
-                                     reason = "Statement not valid",
-                                     message = "Statement not valid"))
+                                     reason = "statement not valid",
+                                     message = "statement not valid"))
 
           }
       }
