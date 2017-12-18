@@ -19,7 +19,7 @@ object ASCIITableBuilder extends LazyLogging {
 
   def tableFor(stm: SQLStatementResult): Try[String] =
     stm match {
-      case statement: SQLStatementExecuted =>
+      case statement: SQLStatementExecuted if statement.res.nonEmpty =>
         Try {
           val at                                         = new AsciiTable()
           val allDimensions: Map[String, Option[String]] = extractColumnNames(statement)
@@ -35,6 +35,10 @@ object ASCIITableBuilder extends LazyLogging {
 
           render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
         }
+
+      case statement: SQLStatementExecuted if statement.res.isEmpty =>
+        Try("Statement executed successfully, no records to display")
+
       case failStatement: SQLStatementFailed =>
         Try(failStatement.reason)
 
@@ -43,7 +47,7 @@ object ASCIITableBuilder extends LazyLogging {
   def tableFor(commandResult: CommandStatementExecuted): Try[String] = {
     commandResult match {
       case res: NamespaceMetricsListRetrieved =>
-        Try(render(List("Metric Name"), List(res.metrics)))
+        Try(render(List("Metric Name"), res.metrics.map(m => List(m))))
       case res: MetricSchemaRetrieved =>
         Try(render(List("Field Name", "Type"), res.fields.map(x => List(x.name, x.`type`))))
       case res: NamespacesListRetrieved =>
