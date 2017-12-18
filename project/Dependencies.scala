@@ -83,6 +83,7 @@ object Dependencies {
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
     lazy val grouping    = namespace % "lucene-grouping" % version
+    lazy val facet       = namespace % "lucene-facet" % version
   }
 
   object scalatest {
@@ -158,6 +159,7 @@ object Dependencies {
       lucene.core,
       lucene.queryParser,
       lucene.grouping,
+      lucene.facet,
       scalatest.core % Test,
       akka.testkit   % Test
     )

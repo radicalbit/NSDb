@@ -11,6 +11,7 @@ import io.radicalbit.nsdb.model.{RawField, TypedField}
 import io.radicalbit.nsdb.{JDouble, JLong}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField
 import org.apache.lucene.util.BytesRef
 
 import scala.util.{Failure, Success, Try}
@@ -50,6 +51,13 @@ sealed trait IndexType[T] {
 
 }
 
+sealed trait NumericType[T] extends IndexType[T]
+
+sealed trait StringType[T] extends IndexType[T]
+//{
+//  def facetField(fieldName: String, value: T): Seq[Field]
+//}
+
 object IndexType {
 
   type SchemaValidation = Validated[NonEmptyList[String], Seq[TypedField]]
@@ -69,7 +77,7 @@ object IndexType {
 
 }
 
-case class INT() extends IndexType[Integer] {
+case class INT() extends NumericType[Integer] {
   def actualType = classOf[Integer]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt),
@@ -77,7 +85,7 @@ case class INT() extends IndexType[Integer] {
         new StoredField(fieldName, value.toString.toInt))
   def deserialize(value: Array[Byte]) = new String(value).toInt
 }
-case class BIGINT() extends IndexType[JLong] {
+case class BIGINT() extends NumericType[JLong] {
   def actualType = classOf[JLong]
   override def indexField(fieldName: String, value: JLong): Seq[Field] =
     Seq(
@@ -87,7 +95,7 @@ case class BIGINT() extends IndexType[JLong] {
     )
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
-case class DECIMAL() extends IndexType[JDouble] {
+case class DECIMAL() extends NumericType[JDouble] {
   def actualType = classOf[JDouble]
   override def indexField(fieldName: String, value: JDouble): Seq[Field] =
     Seq(
@@ -103,16 +111,22 @@ case class BOOLEAN() extends IndexType[Boolean] {
     Seq(new StringField(fieldName, value.toString, Store.YES))
   def deserialize(value: Array[Byte]) = new String(value).toBoolean
 }
-case class CHAR() extends IndexType[Char] {
+case class CHAR() extends StringType[Char] {
   def actualType = classOf[Char]
   override def indexField(fieldName: String, value: Char): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
+
+//  override def facetField(fieldName: String, value: Char): Seq[Field] = ???
   def deserialize(value: Array[Byte]) = new String(value).charAt(0)
 }
-case class VARCHAR() extends IndexType[String] {
+case class VARCHAR() extends StringType[String] {
   def actualType = classOf[String]
   override def indexField(fieldName: String, value: String): Seq[Field] =
-    Seq(new StringField(fieldName, value.toString, Store.YES),
-        new SortedDocValuesField(fieldName, new BytesRef(value.toString)))
+    Seq(
+      new StringField(fieldName, value, Store.YES),
+      new SortedDocValuesField(fieldName, new BytesRef(value)),
+      new SortedSetDocValuesFacetField(fieldName, value)
+    )
+//  override def facetField(fieldName: String, value: String): Seq[Field] = Seq()
   def deserialize(value: Array[Byte]) = new String(value)
 }
