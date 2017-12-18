@@ -48,9 +48,6 @@ class ReadCoordinatorSpec
     implicit val timeout = Timeout(5 second)
 
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
-    val schema = Schema(
-      "people",
-      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", records.head), 3 seconds)
     namespaceDataActor ! AddRecords(db, namespace, "people", records)
 
@@ -92,11 +89,16 @@ class ReadCoordinatorSpec
           expected.namespace shouldBe namespace
           expected.metric shouldBe "people"
           expected.schema shouldBe Some(
-            Schema("people",
-                   Seq(SchemaField("name", VARCHAR()),
-                       SchemaField("timestamp", BIGINT()),
-                       SchemaField("surname", VARCHAR()),
-                       SchemaField("creationDate", BIGINT()))))
+            Schema(
+              "people",
+              Seq(
+                SchemaField("name", VARCHAR()),
+                SchemaField("timestamp", BIGINT()),
+                SchemaField("surname", VARCHAR()),
+                SchemaField("creationDate", BIGINT()),
+                SchemaField("value", BIGINT())
+              )
+            ))
         }
       }
     }

@@ -27,10 +27,10 @@ class LocationActorTest
   lazy val metric    = "people"
 
   lazy val locations = Seq(
-    Location(metric, "node1", 0, 1, 1),
-    Location(metric, "node1", 2, 3, 3),
-    Location(metric, "node1", 4, 5, 5),
-    Location(metric, "node1", 6, 8, 7)
+    Location(metric, "node1", 0, 1),
+    Location(metric, "node1", 2, 3),
+    Location(metric, "node1", 4, 5),
+    Location(metric, "node1", 6, 8)
   )
 
   before {
@@ -67,17 +67,11 @@ class LocationActorTest
     existingGot.metric shouldBe metric
     existingGot.locations shouldBe locations
 
-    //FIXME see if this has to be removed
-//    probe.send(metadataActor, GetLocation(namespace, metric, 3))
-//
-//    val existingSingleGot = probe.expectMsgType[LocationGot]
-//    existingSingleGot.metric shouldBe metric
-//    existingSingleGot.location shouldBe Some(locations(1))
   }
 
   "MetadataActor" should "add a new location" in {
 
-    val newLocation = Location(metric, "node2", 10, 11, 11)
+    val newLocation = Location(metric, "node2", 10, 11)
     probe.send(metadataActor, AddLocation(namespace, newLocation))
 
     val added = probe.expectMsgType[LocationAdded]
@@ -88,21 +82,5 @@ class LocationActorTest
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
     existingGot.locations shouldBe (locations :+ newLocation)
-  }
-
-  "MetadataActor" should "update an existing location" in {
-
-    val oldLocation = locations.last
-    probe.send(metadataActor, UpdateLocation(namespace, oldLocation, 8))
-
-    val added = probe.expectMsgType[LocationUpdated]
-    added.oldLocation shouldBe oldLocation
-    added.newOccupation shouldBe 8
-
-    probe.send(metadataActor, GetLocations(namespace, metric))
-
-    val existingGot = probe.expectMsgType[LocationsGot]
-    existingGot.metric shouldBe metric
-    existingGot.locations shouldBe (locations.dropRight(1) :+ oldLocation.copy(occupied = 8))
   }
 }

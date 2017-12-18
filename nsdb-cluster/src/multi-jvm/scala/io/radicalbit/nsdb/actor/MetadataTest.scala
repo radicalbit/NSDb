@@ -8,7 +8,7 @@ import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLocations, UpdateLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLocations}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationAdded, LocationsGot}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetadataCoordinator, ReplicatedMetadataCache}
 import io.radicalbit.nsdb.cluster.index.Location
@@ -70,14 +70,14 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
       enterBarrier("after-1")
     }
 
-    "add and update location from different nodes" in within(10.seconds) {
+    "add location from different nodes" in within(10.seconds) {
 
       val probe     = TestProbe()
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator.tell(AddLocation("namespace", Location("metric", "node-1", 0, 1, 0), 0), probe.ref)
-        probe.expectMsg(LocationAdded("namespace", Location("metric", "node-1", 0, 1, 0), 0))
+        metadataCoordinator.tell(AddLocation("namespace", Location("metric", "node-1", 0, 1), 0), probe.ref)
+        probe.expectMsg(LocationAdded("namespace", Location("metric", "node-1", 0, 1), 0))
       }
 
       awaitAssert {
@@ -85,26 +85,12 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
           val metadataActor =
             system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
           metadataActor.tell(GetLocations("namespace", "metric", 0), probe.ref)
-          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1, 0)), 0))
+          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1)), 0))
         })
       }
 
       enterBarrier("after-add")
 
-      runOn(node2) {
-        metadataCoordinator ! UpdateLocation("namespace", Location("metric", "node-1", 0, 1, 1), 1, 0)
-      }
-
-      awaitAssert {
-        addresses.foreach(a => {
-          val metadataActor =
-            system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor.tell(GetLocations("namespace", "metric", 0), probe.ref)
-          probe.expectMsg(LocationsGot("namespace", "metric", Seq(Location("metric", "node-1", 0, 1, 1)), 0))
-        })
-      }
-
-      enterBarrier("after-update")
     }
   }
 }
