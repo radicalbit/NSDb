@@ -296,7 +296,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 SQLStatementResponse(db = request.db,
                                      namespace = request.namespace,
                                      completedSuccessfully = false,
-                                     reason = "statement not valid",
+                                     reason = "sql statement not valid",
                                      message = "")
               )
             case _ =>
@@ -304,8 +304,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 SQLStatementResponse(db = request.db,
                                      namespace = request.namespace,
                                      completedSuccessfully = false,
-                                     reason = "statement not valid",
-                                     message = "statement not valid"))
+                                     reason = "sql statement not valid",
+                                     message = "sql statement not valid"))
 
           }
       }
