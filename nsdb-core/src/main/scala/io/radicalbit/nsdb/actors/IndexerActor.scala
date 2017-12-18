@@ -195,8 +195,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
           case DeleteRecordOperation(_, _, bit) =>
             index.delete(bit)
           case DeleteQueryOperation(_, _, q) =>
-            val index                        = getIndex(metric)
-            implicit val writer: IndexWriter = index.getWriter
+            val index = getIndex(metric)
             index.delete(q)
         }
         writer.flush()
