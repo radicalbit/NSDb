@@ -20,17 +20,10 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
     val allFields = validateRecord(data)
     allFields match {
       case Valid(fields) =>
-        import org.apache.lucene.facet.FacetsConfig
-        import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField
-        val config = new FacetsConfig
-//        config.setIndexFieldName("name", "facet_name")
-//        val doc = new Nothing
-//        doc.add(new SortedSetDocValuesFacetField("author", "Douglas Adams"))
-//        writer.addDocument(config.build(doc))
         fields.foreach(f => {
           doc.add(f)
         })
-        Try(writer.addDocument(config.build(doc))) match {
+        Try(writer.addDocument(doc)) match {
           case Success(id) => valid(id)
           case Failure(ex) => invalidNel(ex.getMessage)
         }
