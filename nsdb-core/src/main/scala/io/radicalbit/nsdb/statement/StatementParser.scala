@@ -26,15 +26,60 @@ class StatementParser {
           case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
         }
       case Some(LikeExpression(dimension, value)) =>
-        Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
-      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value: Long)) =>
-        Success(operator match {
-          case GreaterThanOperator      => LongPoint.newRangeQuery(dimension, value + 1, Long.MaxValue)
-          case GreaterOrEqualToOperator => LongPoint.newRangeQuery(dimension, value, Long.MaxValue)
-          case LessThanOperator         => LongPoint.newRangeQuery(dimension, 0, value - 1)
-          case LessOrEqualToOperator    => LongPoint.newRangeQuery(dimension, 0, value)
-        })
-      case Some(RangeExpression(dimension, v1: Long, v2: Long)) => Success(LongPoint.newRangeQuery(dimension, v1, v2))
+        schema.get(dimension) match {
+          case Some(SchemaField(_, t: VARCHAR)) =>
+            Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
+          case Some(_) =>
+            Failure(new RuntimeException(s"cannot use LIKE operator on dimension different from VARCHAR"))
+          case None => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+        }
+      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value)) =>
+        def buildRangeQuery[T](fieldTypeRangeQuery: (String, T, T) => Query,
+                               greaterF: T,
+                               lessThan: T,
+                               min: T,
+                               max: T,
+                               v: T): Success[Query] =
+          Success(operator match {
+            case GreaterThanOperator      => fieldTypeRangeQuery(dimension, greaterF, max)
+            case GreaterOrEqualToOperator => fieldTypeRangeQuery(dimension, v, max)
+            case LessThanOperator         => fieldTypeRangeQuery(dimension, min, lessThan)
+            case LessOrEqualToOperator    => fieldTypeRangeQuery(dimension, min, v)
+          })
+
+        (schema.get(dimension), value) match {
+          case (Some(SchemaField(_, t: INT)), v: Int) =>
+            buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)
+          case (Some(SchemaField(_, t: BIGINT)), v: Long) =>
+            buildRangeQuery[Long](LongPoint.newRangeQuery, v + 1, v - 1, Long.MinValue, Long.MaxValue, v)
+          case (Some(SchemaField(_, t: DECIMAL)), v: Double) =>
+            buildRangeQuery[Double](DoublePoint.newRangeQuery,
+                                    Math.nextAfter(v, Double.MaxValue),
+                                    Math.nextAfter(v, Double.MinValue),
+                                    Double.MinValue,
+                                    Double.MaxValue,
+                                    v)
+          case (Some(_), _) =>
+            Failure(new RuntimeException(s"cannot use comparison operator on dimension different from numerical"))
+          case (None, _) => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+        }
+      case Some(RangeExpression(dimension, v1, v2)) =>
+        (schema.get(dimension), v1, v2) match {
+          case (Some(SchemaField(_, t: BIGINT)), v1: Long, v2: Long) =>
+            Success(LongPoint.newRangeQuery(dimension, v1, v2))
+          case (Some(SchemaField(_, t: INT)), v1: Int, v2: Int) => Success(IntPoint.newRangeQuery(dimension, v1, v2))
+          case (Some(SchemaField(_, t: DECIMAL)), v1: Double, v2: Double) =>
+            Success(DoublePoint.newRangeQuery(dimension, v1, v2))
+          case (Some(SchemaField(_, t: VARCHAR)), _, _) =>
+            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type VARCHAR"))
+          case (Some(SchemaField(_, t: CHAR)), _, _) =>
+            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type CHAR"))
+          case (Some(SchemaField(_, t: BOOLEAN)), _, _) =>
+            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type BOOLEAN"))
+          case (Some(_), _, _) =>
+            Failure(new RuntimeException(s"range boundaries must be have the same type of dimension"))
+          case (None, _, _) => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+        }
       case Some(UnaryLogicalExpression(expression, _)) =>
         parseExpression(Some(expression), schema).map { e =>
           val builder = new BooleanQuery.Builder()
@@ -67,7 +112,7 @@ class StatementParser {
     parseStatement(statement, schema)
   }
 
-  private def getCollector(group: String, field: String, agg: Aggregation) = {
+  private def getCollector(group: String, field: String, agg: Aggregation): AllGroupsAggregationCollector = {
     agg match {
       case CountAggregation => new CountAllGroupsCollector(group, field)
       case MaxAggregation   => new MaxAllGroupsCollector(group, field)
