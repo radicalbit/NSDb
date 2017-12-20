@@ -1,12 +1,13 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
+import cats.data.Validated._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
+import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
 import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
-import org.apache.lucene.facet.{FacetField, FacetsConfig}
+import org.apache.lucene.facet.{FacetField, FacetsCollector, FacetsConfig}
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
@@ -69,17 +70,18 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     writer.forceMergeDeletes(true)
   }
 
-  def getGroups(query: Query, groupField: String, limit: Int): Seq[Bit] = {
-    import org.apache.lucene.facet.FacetsCollector
-    import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
-
+  def getCount(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]): Seq[Bit] = {
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, s"facet_$groupField")
 
+    val actualLimit = limit getOrElse Int.MaxValue
+
     val fc = new FacetsCollector
-    FacetsCollector.search(getSearcher, query, limit, fc)
+    sort.fold { FacetsCollector.search(getSearcher, query, actualLimit, fc) } {
+      FacetsCollector.search(getSearcher, query, actualLimit, _, fc)
+    }
     val facetsFolder = new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc)
-    val x            = facetsFolder.getTopChildren(limit, groupField)
+    val x            = facetsFolder.getTopChildren(actualLimit, groupField)
     x.labelValues.map(lv => Bit(0, lv.value.longValue(), Map(groupField -> lv.label))).toSeq
   }
 }

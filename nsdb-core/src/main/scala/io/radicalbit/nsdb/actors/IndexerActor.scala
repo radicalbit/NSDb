@@ -8,6 +8,7 @@ import akka.util.Timeout
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.IndexerActor._
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.lucene.CountAllGroupsCollector
 import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -117,12 +118,14 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       sender() ! MetricsGot(db, namespace, indexes.keys.toSeq)
     case GetCount(_, ns, metric) =>
       val index = getIndex(metric)
-      val hits = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)
+      val hits  = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)
       sender ! CountGot(db, ns, metric, hits.size)
     case ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
+        case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
+          getFacetIndex(metric).getCount(q, collector.groupField, sort, limit)
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
         case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage)

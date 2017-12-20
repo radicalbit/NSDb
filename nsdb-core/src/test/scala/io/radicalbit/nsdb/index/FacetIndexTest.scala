@@ -32,11 +32,9 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     implicit val searcher = facetIndex.getSearcher
 
-    val groups = facetIndex.getGroups(new MatchAllDocsQuery(), "content", 100)
+    val groups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
 
     groups.size shouldBe 100
-    println(groups)
-
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
@@ -61,14 +59,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     implicit val searcher = facetIndex.getSearcher
 
-    val contentGroups = facetIndex.getGroups(new MatchAllDocsQuery(), "content", 100)
+    val contentGroups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
 
     contentGroups.size shouldBe 100
 
-    val nameGroups = facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100)
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100))
 
     nameGroups.size shouldBe 100
-
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
@@ -91,14 +88,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     implicit val searcher = facetIndex.getSearcher
 
-    val contentGroups = facetIndex.getGroups(LongPoint.newRangeQuery("timestamp", 0, 50), "content", 100)
+    val contentGroups = facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", None, Some(100))
 
     contentGroups.size shouldBe 50
 
-    val nameGroups = facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100)
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100))
 
     nameGroups.size shouldBe 100
-
   }
 
   "FacetIndex" should "suppport delete" in {
@@ -121,7 +117,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     implicit val searcher = facetIndex.getSearcher
 
-    val nameGroups = facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100)
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100))
 
     nameGroups.size shouldBe 100
 
@@ -134,7 +130,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
     deleteWriter.close()
     facetIndex.refresh()
 
-    facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100).size shouldBe 99
+    facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100)).size shouldBe 99
   }
 
 }
