@@ -116,7 +116,6 @@ case class CHAR() extends StringType[Char] {
   override def indexField(fieldName: String, value: Char): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
 
-//  override def facetField(fieldName: String, value: Char): Seq[Field] = ???
   def deserialize(value: Array[Byte]) = new String(value).charAt(0)
 }
 case class VARCHAR() extends StringType[String] {
@@ -124,9 +123,7 @@ case class VARCHAR() extends StringType[String] {
   override def indexField(fieldName: String, value: String): Seq[Field] =
     Seq(
       new StringField(fieldName, value, Store.YES),
-      new SortedDocValuesField(fieldName, new BytesRef(value)),
-      new SortedSetDocValuesFacetField(fieldName, value)
+      new SortedDocValuesField(fieldName, new BytesRef(value))
     )
-//  override def facetField(fieldName: String, value: String): Seq[Field] = Seq()
   def deserialize(value: Array[Byte]) = new String(value)
 }

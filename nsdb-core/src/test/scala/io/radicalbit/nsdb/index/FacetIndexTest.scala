@@ -95,7 +95,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     val contentGroups = facetIndex.getGroups(LongPoint.newRangeQuery("timestamp", 0, 50), "content", 100)
 
-    contentGroups.size shouldBe 100
+    contentGroups.size shouldBe 50
 
     val nameGroups = facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100)
 
