@@ -58,6 +58,17 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     }
   }
 
+  def delete(query: Query)(implicit writer: IndexWriter): Unit = {
+    writer.deleteDocuments(query)
+    writer.forceMergeDeletes(true)
+  }
+
+  def delete(data: Bit)(implicit writer: IndexWriter): Unit = {
+    val query = LongPoint.newExactQuery("timestamp", data.timestamp)
+    writer.deleteDocuments(query)
+    writer.forceMergeDeletes(true)
+  }
+
   def getGroups(query: Query, groupField: String, limit: Int): Seq[Bit] = {
     import org.apache.lucene.facet.FacetsCollector
     import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts

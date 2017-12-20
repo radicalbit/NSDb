@@ -10,9 +10,10 @@ import io.radicalbit.nsdb.actors.IndexerActor._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.index.TimeSeriesIndex
+import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
+import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query}
 import org.apache.lucene.store.NIOFSDirectory
@@ -36,6 +37,8 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
 
   private val indexes: mutable.Map[String, TimeSeriesIndex]      = mutable.Map.empty
   private val indexSearchers: mutable.Map[String, IndexSearcher] = mutable.Map.empty
+
+  private val facetIndexes: mutable.Map[String, FacetIndex] = mutable.Map.empty
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
@@ -67,6 +70,17 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
         val searcher = getIndex(metric).getSearcher
         indexSearchers += (metric -> searcher)
         searcher
+      }
+    )
+
+  private def getFacetIndex(metric: String) =
+    facetIndexes.getOrElse(
+      metric, {
+        val directory     = new NIOFSDirectory(Paths.get(basePath, db, namespace, metric, "facet"))
+        val taxoDirectory = new NIOFSDirectory(Paths.get(basePath, db, namespace, metric, "facet", "taxo"))
+        val newIndex      = new FacetIndex(directory, taxoDirectory)
+        facetIndexes += (metric -> newIndex)
+        newIndex
       }
     )
 
@@ -183,23 +197,30 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
   def perform: Receive = {
     case PerformWrites =>
       opBufferMap.keys.foreach { metric =>
-        val index                        = getIndex(metric)
-        implicit val writer: IndexWriter = index.getWriter
+        val index                               = getIndex(metric)
+        val facetIndex                          = getFacetIndex(metric)
+        implicit val writer: IndexWriter        = index.getWriter
+        val facetWriter: IndexWriter            = facetIndex.getWriter
+        val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
         opBufferMap(metric).foreach {
           case WriteOperation(_, _, bit) =>
-            index.write(bit) match {
+            index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
               case Valid(_)      =>
               case Invalid(errs) => log.error(errs.toList.mkString(","))
             }
           //TODO handle errors
           case DeleteRecordOperation(_, _, bit) =>
             index.delete(bit)
+            facetIndex.delete(bit)(facetWriter)
           case DeleteQueryOperation(_, _, q) =>
             val index = getIndex(metric)
             index.delete(q)
         }
-        writer.flush()
+//        writer.flush()
         writer.close()
+        taxoWriter.close()
+        facetWriter.close()
+        facetIndex.refresh()
         indexSearchers.get(metric).foreach(index.release)
         indexSearchers -= metric
       }

@@ -7,7 +7,7 @@ import cats.scalatest.ValidatedMatchers
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.MatchAllDocsQuery
-import org.apache.lucene.store.{BaseDirectory, NIOFSDirectory}
+import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with ValidatedMatchers {
@@ -99,6 +99,42 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     nameGroups.size shouldBe 100
 
+  }
+
+  "FacetIndex" should "suppport delete" in {
+    val facetIndex = new FacetIndex(
+      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+    )
+
+    implicit val writer     = facetIndex.getWriter
+    implicit val taxoWriter = facetIndex.getTaxoWriter
+
+    (1 to 100).foreach { i =>
+      val testData =
+        Bit(timestamp = i, value = 23, dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
+      val w = facetIndex.write(testData)
+      w shouldBe valid
+    }
+    taxoWriter.close()
+    writer.close()
+
+    implicit val searcher = facetIndex.getSearcher
+
+    val nameGroups = facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100)
+
+    nameGroups.size shouldBe 100
+
+    implicit val deleteWriter = facetIndex.getWriter
+
+    facetIndex.delete(
+      Bit(timestamp = 100, value = 23, dimensions = Map("content" -> "content_100", "name" -> "name_100")))(
+      deleteWriter)
+
+    deleteWriter.close()
+    facetIndex.refresh()
+
+    facetIndex.getGroups(new MatchAllDocsQuery(), "name", 100).size shouldBe 99
   }
 
 }

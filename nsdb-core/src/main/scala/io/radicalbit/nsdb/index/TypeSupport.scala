@@ -79,8 +79,8 @@ case class INT() extends NumericType[Integer] {
   def actualType = classOf[Integer]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt),
-      new NumericDocValuesField(fieldName, value.toString.toLong),
-      new StoredField(fieldName, value.toString.toInt))
+        new NumericDocValuesField(fieldName, value.toString.toLong),
+        new StoredField(fieldName, value.toString.toInt))
   override def facetField(fieldName: String, value: Integer): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt))
   def deserialize(value: Array[Byte]) = new String(value).toInt
