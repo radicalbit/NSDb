@@ -25,8 +25,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     }
     writer.close()
 
-    implicit val searcher = timeSeriesIndex.getSearcher
-    val result            = timeSeriesIndex.query("content", "content_*", Seq.empty, 100)
+    val result = timeSeriesIndex.query("content", "content_*", Seq.empty, 100)
 
     result.size shouldBe 100
 
@@ -94,11 +93,9 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     writer.close()
 
-    var searcher = timeSeriesIndex.getSearcher
-
     val queryExist = LongPoint.newExactQuery("timestamp", timestamp)
     val resultExist =
-      timeSeriesIndex.query(queryExist, Seq.empty, 100, None)(searcher)
+      timeSeriesIndex.query(queryExist, Seq.empty, 100, None)
     resultExist.size shouldBe 1
 
     val deleteWriter = timeSeriesIndex.getWriter
@@ -106,13 +103,11 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     deleteWriter.close()
 
-    timeSeriesIndex.release(searcher)
-
-    searcher = timeSeriesIndex.getSearcher
+    timeSeriesIndex.refresh()
 
     val query = LongPoint.newExactQuery("timestamp", timestamp)
     val result =
-      timeSeriesIndex.query(query, Seq.empty, 100, None)(searcher)
+      timeSeriesIndex.query(query, Seq.empty, 100, None)
 
     result.size shouldBe 0
 
@@ -157,7 +152,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val results = timeSeriesIndex.query(new MatchAllDocsQuery(),
                                         new MaxAllGroupsCollector("content", "value"),
                                         None,
-                                        Some(ascSort))(timeSeriesIndex.getSearcher)
+                                        Some(ascSort))
 
     results shouldBe Seq(Bit(0, 3, Map("content" -> "content_0")),
                          Bit(0, 7, Map("content" -> "content_1")),
@@ -168,7 +163,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),
                                             new MaxAllGroupsCollector("content", "value"),
                                             None,
-                                            Some(descSort))(timeSeriesIndex.getSearcher)
+                                            Some(descSort))
 
     descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")),
                              Bit(0, 7, Map("content" -> "content_1")),
@@ -191,7 +186,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),
                                             new MaxAllGroupsCollector("content", "value"),
                                             Some(2),
-                                            Some(descSort))(timeSeriesIndex.getSearcher)
+                                            Some(descSort))
 
     descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")), Bit(0, 7, Map("content" -> "content_1")))
   }
