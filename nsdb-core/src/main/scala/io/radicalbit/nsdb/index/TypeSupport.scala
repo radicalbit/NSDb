@@ -82,7 +82,10 @@ case class INT() extends NumericType[Integer] {
         new NumericDocValuesField(fieldName, value.toString.toLong),
         new StoredField(fieldName, value.toString.toInt))
   override def facetField(fieldName: String, value: Integer): Seq[Field] =
-    Seq(new IntPoint(fieldName, value.toString.toInt))
+    Seq(
+      new IntPoint(fieldName, value.toString.toInt),
+      new NumericDocValuesField(fieldName, value.toString.toLong)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toInt
 }
 case class BIGINT() extends NumericType[JLong] {
@@ -94,7 +97,10 @@ case class BIGINT() extends NumericType[JLong] {
       new StoredField(fieldName, value.toString.toLong)
     )
   override def facetField(fieldName: String, value: JLong): Seq[Field] =
-    Seq(new LongPoint(fieldName, value.toString.toLong))
+    Seq(
+      new LongPoint(fieldName, value.toString.toLong),
+      new NumericDocValuesField(fieldName, value.toString.toLong)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
 case class DECIMAL() extends NumericType[JDouble] {
@@ -106,7 +112,10 @@ case class DECIMAL() extends NumericType[JDouble] {
       new StoredField(fieldName, value.toString.toFloat)
     )
   override def facetField(fieldName: String, value: JDouble): Seq[Field] =
-    Seq(new DoublePoint(fieldName, value.toString.toDouble))
+    Seq(
+      new DoublePoint(fieldName, value.toString.toDouble),
+      new DoubleDocValuesField(fieldName, value.toString.toDouble)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toDouble
 }
 case class BOOLEAN() extends IndexType[Boolean] {

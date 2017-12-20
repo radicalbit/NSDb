@@ -6,7 +6,7 @@ import java.util.UUID
 import cats.scalatest.ValidatedMatchers
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.search.MatchAllDocsQuery
+import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.NIOFSDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
@@ -131,6 +131,41 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
     facetIndex.refresh()
 
     facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100)).size shouldBe 99
+  }
+
+  "FacetIndex" should "supports ordering and limiting" in {
+    val facetIndex = new FacetIndex(
+      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+    )
+
+    implicit val writer     = facetIndex.getWriter
+    implicit val taxoWriter = facetIndex.getTaxoWriter
+
+    (1 to 100).foreach { i =>
+      val factor = i / 4
+      val testData =
+        Bit(timestamp = i, value = factor, dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"))
+      val w = facetIndex.write(testData)
+      w shouldBe valid
+    }
+    taxoWriter.close()
+    writer.close()
+
+    implicit val searcher = facetIndex.getSearcher
+
+    val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
+
+    val contentGroups = facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", Some(descSort), Some(100))
+
+    contentGroups.size shouldBe 13
+
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(50))
+
+    nameGroups.size shouldBe 26
+
+    nameGroups.head.value shouldBe 4
+    nameGroups.last.value shouldBe 1
   }
 
 }
