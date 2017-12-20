@@ -1,8 +1,8 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{invalidNel, valid}
+import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.validation.Validation.WriteValidation
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
@@ -13,13 +13,11 @@ import org.apache.lucene.store.BaseDirectory
 
 import scala.util.{Failure, Success, Try}
 
-trait FacetIndex {
-  def directory: BaseDirectory
-  def taxoDirectory: BaseDirectory
+class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirectory) extends TypeSupport {
 
-  private lazy val searcherManager: SearcherManager = new SearcherManager(directory, null)
+  private lazy val searcherManager: SearcherManager = new SearcherManager(facetDirectory, null)
 
-  def getWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
+  def getWriter = new IndexWriter(facetDirectory, new IndexWriterConfig(new StandardAnalyzer))
 
   def getTaxoWriter = new DirectoryTaxonomyWriter(taxoDirectory)
 
@@ -34,21 +32,29 @@ trait FacetIndex {
     searcherManager.release(searcher)
   }
 
+  def validateRecord(bit: Bit): FieldValidation =
+    validateSchemaTypeSupport(bit)
+      .map(se => se.flatMap(elem => elem.indexType.facetField(elem.name, elem.indexType.cast(elem.value))))
+
   def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): WriteValidation = {
-    val doc = new Document
-    val c   = new FacetsConfig
-    bit.dimensions.foreach {
-      case (name, value) if value.isInstanceOf[String] =>
-        c.setIndexFieldName(name, s"facet_$name")
-        doc.add(new FacetField(name, value.toString))
-      case _ =>
-    }
-    doc.add(new LongPoint("timestamp", bit.timestamp))
-    Try(writer.addDocument(c.build(taxonomyWriter, doc))) match {
-      case Success(id) =>
-        valid(id)
-      case Failure(ex) =>
-        invalidNel(ex.getMessage)
+    val doc       = new Document
+    val c         = new FacetsConfig
+    val allFields = validateRecord(bit)
+
+    allFields match {
+      case Valid(fields) =>
+        fields.foreach(f => {
+          doc.add(f)
+          if (f.isInstanceOf[StringField]) {
+            c.setIndexFieldName(f.name, s"facet_${f.name}")
+            doc.add(new FacetField(f.name, f.stringValue()))
+          }
+        })
+        Try(writer.addDocument(c.build(taxonomyWriter, doc))) match {
+          case Success(id) => valid(id)
+          case Failure(ex) => invalidNel(ex.getMessage)
+        }
+      case errs @ Invalid(_) => errs
     }
   }
 

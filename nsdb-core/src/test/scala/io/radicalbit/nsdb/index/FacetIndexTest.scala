@@ -10,12 +10,10 @@ import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.{BaseDirectory, NIOFSDirectory}
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
-class TestFacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory) extends FacetIndex
-
 class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with ValidatedMatchers {
 
   "FacetIndex" should "write and read properly on disk" in {
-    val facetIndex = new TestFacetIndex(
+    val facetIndex = new FacetIndex(
       new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
       new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
@@ -42,7 +40,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
-    val facetIndex = new TestFacetIndex(
+    val facetIndex = new FacetIndex(
       new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
       new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
@@ -74,7 +72,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
-    val facetIndex = new TestFacetIndex(
+    val facetIndex = new FacetIndex(
       new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
       new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )

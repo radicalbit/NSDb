@@ -11,7 +11,6 @@ import io.radicalbit.nsdb.model.{RawField, TypedField}
 import io.radicalbit.nsdb.{JDouble, JLong}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
-import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField
 import org.apache.lucene.util.BytesRef
 
 import scala.util.{Failure, Success, Try}
@@ -43,6 +42,8 @@ sealed trait IndexType[T] {
 
   def indexField(fieldName: String, value: T): Seq[Field]
 
+  def facetField(fieldName: String, value: T): Seq[Field]
+
   def serialize(value: T): Array[Byte] = value.toString.getBytes()
 
   def deserialize(value: Array[Byte]): T
@@ -54,9 +55,6 @@ sealed trait IndexType[T] {
 sealed trait NumericType[T] extends IndexType[T]
 
 sealed trait StringType[T] extends IndexType[T]
-//{
-//  def facetField(fieldName: String, value: T): Seq[Field]
-//}
 
 object IndexType {
 
@@ -81,8 +79,10 @@ case class INT() extends NumericType[Integer] {
   def actualType = classOf[Integer]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt),
-        new NumericDocValuesField(fieldName, value.toString.toLong),
-        new StoredField(fieldName, value.toString.toInt))
+      new NumericDocValuesField(fieldName, value.toString.toLong),
+      new StoredField(fieldName, value.toString.toInt))
+  override def facetField(fieldName: String, value: Integer): Seq[Field] =
+    Seq(new IntPoint(fieldName, value.toString.toInt))
   def deserialize(value: Array[Byte]) = new String(value).toInt
 }
 case class BIGINT() extends NumericType[JLong] {
@@ -93,6 +93,8 @@ case class BIGINT() extends NumericType[JLong] {
       new NumericDocValuesField(fieldName, value.toString.toLong),
       new StoredField(fieldName, value.toString.toLong)
     )
+  override def facetField(fieldName: String, value: JLong): Seq[Field] =
+    Seq(new LongPoint(fieldName, value.toString.toLong))
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
 case class DECIMAL() extends NumericType[JDouble] {
@@ -103,17 +105,23 @@ case class DECIMAL() extends NumericType[JDouble] {
       new DoubleDocValuesField(fieldName, value.toString.toDouble),
       new StoredField(fieldName, value.toString.toFloat)
     )
+  override def facetField(fieldName: String, value: JDouble): Seq[Field] =
+    Seq(new DoublePoint(fieldName, value.toString.toDouble))
   def deserialize(value: Array[Byte]) = new String(value).toDouble
 }
 case class BOOLEAN() extends IndexType[Boolean] {
   def actualType = classOf[Boolean]
   override def indexField(fieldName: String, value: Boolean): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
+  override def facetField(fieldName: String, value: Boolean): Seq[Field] =
+    Seq(new StringField(fieldName, value.toString, Store.YES))
   def deserialize(value: Array[Byte]) = new String(value).toBoolean
 }
 case class CHAR() extends StringType[Char] {
   def actualType = classOf[Char]
   override def indexField(fieldName: String, value: Char): Seq[Field] =
+    Seq(new StringField(fieldName, value.toString, Store.YES))
+  override def facetField(fieldName: String, value: Char): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
 
   def deserialize(value: Array[Byte]) = new String(value).charAt(0)
@@ -124,6 +132,10 @@ case class VARCHAR() extends StringType[String] {
     Seq(
       new StringField(fieldName, value, Store.YES),
       new SortedDocValuesField(fieldName, new BytesRef(value))
+    )
+  override def facetField(fieldName: String, value: String): Seq[Field] =
+    Seq(
+      new StringField(fieldName, value, Store.YES)
     )
   def deserialize(value: Array[Byte]) = new String(value)
 }
