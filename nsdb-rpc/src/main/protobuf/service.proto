@@ -15,6 +15,7 @@ service NSDBServiceSQL {
 }
 
 service NSDBServiceCommand {
+    rpc showNamespaces (io.radicalbit.nsdb.rpc.ShowNamespaces) returns (io.radicalbit.nsdb.rpc.Namespaces) {}
     rpc showMetrics (io.radicalbit.nsdb.rpc.ShowMetrics) returns (io.radicalbit.nsdb.rpc.MetricsGot) {}
     rpc describeMetric (io.radicalbit.nsdb.rpc.DescribeMetric) returns (io.radicalbit.nsdb.rpc.MetricSchemaRetrieved) {}
 }

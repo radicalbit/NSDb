@@ -78,7 +78,7 @@ class WriteCoordinator(namespaceSchemaActor: ActorRef,
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             namespaceDataActor ? ExecuteDeleteStatementInternal(statement, schema)
-          case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
+          case _ => Future(SelectStatementFailed(s"Metric ${statement.metric} does not exist "))
         }
         .pipeTo(sender())
     case msg @ DropMetric(_, _, _) =>

@@ -18,10 +18,11 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{MetricsGot, _}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
-import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics}
+import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
   MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
   MetricsGot => GrpcMetricsGot
 }
@@ -88,6 +89,22 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                       metric,
                                       fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)),
                                       completedSuccessfully = true)
+        }
+    }
+
+    override def showNamespaces(
+        request: ShowNamespaces
+    ): Future[Namespaces] = {
+      log.debug("Received command ShowNamespaces for db: {}", request.db)
+      (readCoordinator ? GetNamespaces(db = request.db))
+        .mapTo[NamespacesGot]
+        .map { namespaces =>
+          Namespaces(db = namespaces.db, namespaces = namespaces.namespaces, completedSuccessfully = true)
+        }
+        .recoverWith {
+          case t =>
+            Future.successful(
+              Namespaces(db = request.db, completedSuccessfully = false, errors = "Cluster unable to fulfill request"))
         }
     }
   }
@@ -229,18 +246,46 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 }
 
             case delete: DeleteSQLStatement =>
-              //TODO: add failure handling
               (writeCoordinator ? ExecuteDeleteStatement(delete))
                 .mapTo[DeleteStatementExecuted]
-                .map(x =>
-                  SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
+                .map(
+                  x =>
+                    SQLStatementResponse(db = x.db,
+                                         namespace = x.namespace,
+                                         metric = x.metric,
+                                         completedSuccessfully = true,
+                                         records = Seq.empty))
+                .recoverWith {
+                  case t =>
+                    Future.successful(
+                      SQLStatementResponse(
+                        db = requestDb,
+                        namespace = requestNamespace,
+                        completedSuccessfully = false,
+                        reason = t.getMessage
+                      ))
+                }
 
             case drop: DropSQLStatement =>
-              //TODO: add failure handling
               (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
                 .mapTo[MetricDropped]
-                .map(x =>
-                  SQLStatementResponse(db = x.db, namespace = x.namespace, metric = x.metric, records = Seq.empty))
+                .map(
+                  x =>
+                    SQLStatementResponse(db = x.db,
+                                         namespace = x.namespace,
+                                         metric = x.metric,
+                                         completedSuccessfully = true,
+                                         records = Seq.empty))
+                .recoverWith {
+                  case t =>
+                    Future.successful(
+                      SQLStatementResponse(
+                        db = requestDb,
+                        namespace = requestNamespace,
+                        completedSuccessfully = false,
+                        reason = t.getMessage
+                      ))
+                }
           }
 
         //Parsing Failure
@@ -251,7 +296,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 SQLStatementResponse(db = request.db,
                                      namespace = request.namespace,
                                      completedSuccessfully = false,
-                                     reason = r.getMessage,
+                                     reason = "sql statement not valid",
                                      message = "")
               )
             case _ =>
@@ -259,8 +304,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 SQLStatementResponse(db = request.db,
                                      namespace = request.namespace,
                                      completedSuccessfully = false,
-                                     reason = "Statement not valid",
-                                     message = "Statement not valid"))
+                                     reason = "sql statement not valid",
+                                     message = "sql statement not valid"))
 
           }
       }

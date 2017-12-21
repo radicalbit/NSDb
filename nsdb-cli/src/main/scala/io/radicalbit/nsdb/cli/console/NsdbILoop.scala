@@ -6,8 +6,13 @@ import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric => GrpcDescribeMetric, ShowMetrics => GrpcShowMetrics}
+import io.radicalbit.nsdb.rpc.requestCommand.{
+  DescribeMetric => GrpcDescribeMetric,
+  ShowMetrics => GrpcShowMetrics,
+  ShowNamespaces => GrpcShowNamespaces
+}
 import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
   MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
   MetricsGot => GrpcMetricsGot
 }
@@ -80,7 +85,14 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
   def prepareSQLStatement(statement: String): Future[SQLStatementResponse] =
     currentNamespace match {
       case Some(namespace) => clientGrpc.executeSQLStatement(SQLRequestStatement(db, namespace, statement))
-      case None            => Future.failed(new RuntimeException("Namespace must be selected"))
+      case None =>
+        Future.successful(
+          SQLStatementResponse(
+            db = db,
+            completedSuccessfully = false,
+            reason = "Namespace must be selected",
+            message = "Namespace must be selected"
+          ))
     }
 
   def toInternalCommandResponse[T](gRpcResponse: T): CommandStatementExecuted =
@@ -92,6 +104,10 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                               r.namespace,
                               r.metric,
                               r.fields.map(field => MetricField(field.name, field.`type`)).toList)
+      case r: Namespaces if r.completedSuccessfully =>
+        NamespacesListRetrieved(r.db, r.namespaces)
+      case r: Namespaces =>
+        CommandStatementExecutedWithFailure(r.errors)
       case r: GrpcMetricsGot =>
         CommandStatementExecutedWithFailure(r.errors)
       case r: GrpcMetricSchemaRetrieved =>
@@ -127,7 +143,13 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
 
   def sendCommand(stm: CommandStatement, lineToRecord: String): Result = stm match {
     case ShowNamespaces =>
-      echo("Work in progress...")
+      processCommandResponse[CommandStatementExecuted](
+        clientGrpc
+          .showNamespaces(GrpcShowNamespaces(db))
+          .map(toInternalCommandResponse[Namespaces]),
+        ASCIITableBuilder.tableFor,
+        lineToRecord
+      )
       result()
     case UseNamespace(namespace) =>
       currentNamespace = Some(namespace)
@@ -156,7 +178,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                                                             lineToRecord: String): Result =
     Try(Await.result(attemptValue, 10 seconds)) match {
       case Success(resp: CommandStatementExecutedWithFailure) =>
-        echo(s"Statement failed because ${resp.reason}")
+        echo(s"Statement failed because : ${resp.reason}")
         result(Some(lineToRecord))
       case Success(resp) =>
         echo(print(resp), lineToRecord)
@@ -172,7 +194,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
                                   lineToRecord: String): Result = {
     Try(Await.result(statementAttempt, 10 seconds)) match {
       case Success(resp: SQLStatementFailed) =>
-        echo(s"statement failed because ${resp.reason}")
+        echo(s"Statement failed because : ${resp.reason}")
         result(Some(lineToRecord))
       case Success(resp: SQLStatementExecuted) =>
         echo(print(resp), lineToRecord)

@@ -88,7 +88,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
                   case Failure(ex) => Future(SubscriptionFailed(ex.getMessage))
                 }
 
-              case _ => Future(SubscriptionFailed(s"No schema found for metric ${query.metric}"))
+              case _ => Future(SubscriptionFailed(s"Metric ${query.metric} does not exist "))
             }
           f.pipeTo(sender())
         } {

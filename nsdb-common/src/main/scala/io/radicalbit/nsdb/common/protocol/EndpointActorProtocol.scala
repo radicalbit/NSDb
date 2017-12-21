@@ -14,8 +14,6 @@ sealed trait SQLStatementResult extends EndpointOutputProtocol {
   def metric: String
 }
 
-// TODO: the result must be well structured
-// TODO: it must contain the schema (for both select and insert) and the final retrieved data (only for the select)
 case class SQLStatementExecuted(db: String, namespace: String, metric: String, res: Seq[Bit] = Seq.empty)
     extends SQLStatementResult
 case class SQLStatementFailed(db: String, namespace: String, metric: String, reason: String) extends SQLStatementResult
@@ -28,4 +26,5 @@ case class NamespaceMetricsListRetrieved(db: String, namespace: String, metrics:
     extends CommandStatementExecuted
 case class MetricSchemaRetrieved(db: String, namespace: String, metric: String, fields: List[MetricField])
     extends CommandStatementExecuted
-case class CommandStatementExecutedWithFailure(reason: String) extends CommandStatementExecuted
+case class NamespacesListRetrieved(db: String, namespaces: Seq[String]) extends CommandStatementExecuted
+case class CommandStatementExecutedWithFailure(reason: String)          extends CommandStatementExecuted
