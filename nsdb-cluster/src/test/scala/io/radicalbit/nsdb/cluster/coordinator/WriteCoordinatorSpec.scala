@@ -33,7 +33,7 @@ class WriteCoordinatorSpec
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
-    PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
+    PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
@@ -96,7 +96,7 @@ class WriteCoordinatorSpec
 
     val testSqlStatement = SelectSQLStatement(
       db = db,
-      namespace = "registry",
+      namespace = namespace,
       metric = "testMetric",
       fields = AllFields,
       condition = Some(

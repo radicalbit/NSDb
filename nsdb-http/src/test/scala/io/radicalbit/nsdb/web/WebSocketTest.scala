@@ -37,8 +37,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
   val basePath = "target/test_index/WebSocketTest"
 
   val publisherActor = system.actorOf(
-    PublisherActor.props(basePath,
-                         system.actorOf(Props[FakeReadCoordinatorActor]),
+    PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]),
                          system.actorOf(Props[FakeNamespaceSchemaActor])))
   val wsClient = WSProbe()
 

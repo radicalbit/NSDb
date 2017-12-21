@@ -37,7 +37,7 @@ class WriteCoordinatorShardSpec
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor =
     TestActorRef[PublisherActor](
-      PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
+      PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
   val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
                                                                     namespaceSchemaActor,

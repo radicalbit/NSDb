@@ -43,13 +43,11 @@ class PublisherActorSpec
     with OneInstancePerTest
     with BeforeAndAfter {
 
-  val basePath   = "target/test_index/PublisherActorSpec"
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =
     TestActorRef[PublisherActor](
-      PublisherActor.props(basePath,
-                           system.actorOf(Props[FakeReadCoordinatorActor]),
+      PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]),
                            system.actorOf(Props[FakeNamespaceSchemaActor])))
 
   val testSqlStatement = SelectSQLStatement(
@@ -66,13 +64,6 @@ class PublisherActorSpec
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
 
   val schema = Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
-
-  before {
-    val queryIndex: QueryIndex = new QueryIndex(new MMapDirectory(Paths.get(basePath, "queries")))
-    implicit val writer        = queryIndex.getWriter
-    queryIndex.deleteAll()
-    writer.close()
-  }
 
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
