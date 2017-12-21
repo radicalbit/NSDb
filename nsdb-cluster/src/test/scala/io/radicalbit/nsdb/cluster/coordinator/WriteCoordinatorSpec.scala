@@ -12,8 +12,6 @@ import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.cluster.coordinator.Facilities._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
@@ -35,9 +33,7 @@ class WriteCoordinatorSpec
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
-    PublisherActor.props("target/test_index",
-                         system.actorOf(Props[FakeReadCoordinatorActor]),
-                         system.actorOf(Props[FakeNamespaceSchemaActor])))
+    PublisherActor.props("target/test_index", system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),

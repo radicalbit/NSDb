@@ -144,7 +144,7 @@ case class CHAR() extends IndexType[Char] {
   def deserialize(value: Array[Byte]) = new String(value).charAt(0)
 }
 case class VARCHAR() extends StringType[String] {
-  def actualType = classOf[String]
+  def actualType                   = classOf[String]
   def ord: Ordering[JSerializable] = Ordering[String].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: String): Seq[Field] =
     Seq(

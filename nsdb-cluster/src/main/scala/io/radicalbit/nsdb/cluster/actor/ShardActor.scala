@@ -35,8 +35,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
   private val statementParser = new StatementParser()
 
-  val shards: mutable.Map[ShardKey, TimeSeriesIndex]               = mutable.Map.empty
-  private val indexSearchers: mutable.Map[ShardKey, IndexSearcher] = mutable.Map.empty
+  val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
@@ -61,15 +60,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
         val newIndex = new TimeSeriesIndex(directory)
         shards += (key -> newIndex)
         newIndex
-      }
-    )
-
-  private def getSearcher(key: ShardKey) =
-    indexSearchers.getOrElse(
-      key, {
-        val searcher = getIndex(key).getSearcher
-        indexSearchers += (key -> searcher)
-        searcher
       }
     )
 
@@ -101,6 +91,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
+          index.refresh()
       }
       sender ! AllMetricsDeleted(db, ns)
     case DropMetric(_, _, metric) =>
@@ -109,8 +100,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
-          indexSearchers.get(key).foreach(index.release)
-          indexSearchers -= key
+          index.refresh()
           shards -= key
       }
       sender() ! MetricDropped(db, namespace, metric)
@@ -122,12 +112,11 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     case GetCount(_, ns, metric) =>
       val hits = getMetricIndexes(metric).map {
         case (key, index) =>
-          implicit val searcher: IndexSearcher = getSearcher(key)
           index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None).size
       }.sum
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>
-      val combinedResult: Try[Seq[Bit]] = statementParser.parseStatement(statement, Some(schema)) match {
+      val combinedResult: Try[Seq[Bit]] = statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
@@ -150,7 +139,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
             eventuallyOrdered.takeWhile {
               case (key, index) =>
-                val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(getSearcher(key))))
+                val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
                 result += partials
 
                 val combined = Try(result.flatMap(_.get))
@@ -164,7 +153,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
             val shardResults = indexes.toSeq.map {
               case (key, index) =>
-                implicit val searcher: IndexSearcher = getSearcher(key)
                 handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
             }
 
@@ -181,7 +169,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           val indexes = getMetricIndexes(statement.metric)
           val shardResults = indexes.toSeq.map {
             case (key, index) =>
-              implicit val searcher: IndexSearcher = getSearcher(key)
               handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
           }
           Try(shardResults.flatMap(_.get))
@@ -218,8 +205,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           opBufferMap += (key -> (list :+ DeleteRecordOperation(ns, metric, bit)))
         }
       sender ! RecordDeleted(db, ns, metric, bit)
-    case ExecuteDeleteStatement(statement) =>
-      statementParser.parseStatement(statement) match {
+    case ExecuteDeleteStatementInternal(statement, schema) =>
+      statementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
           opBufferMap.filter(_._1.metric == metric).foreach {
             case (key, _) =>
@@ -261,8 +248,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           }
           writer.flush()
           writer.close()
-          indexSearchers.get(key).foreach(index.release)
-          indexSearchers -= key
+          index.refresh()
       }
       opBufferMap.clear()
       self ! Accumulate

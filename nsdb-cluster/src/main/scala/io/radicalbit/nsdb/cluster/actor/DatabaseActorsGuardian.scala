@@ -51,8 +51,9 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
   val metadataCoordinator = context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
   private val readCoordinator =
-    context.actorOf(ReadCoordinator.props(namespaceSchemaActor), "read-coordinator")
-  private val publisherActor = context.actorOf(PublisherActor.props(indexBasePath, readCoordinator, namespaceSchemaActor), "publisher-actor")
+    context.actorOf(ReadCoordinator.props(metadataCoordinator, namespaceSchemaActor), "read-coordinator")
+  private val publisherActor =
+    context.actorOf(PublisherActor.props(indexBasePath, readCoordinator, namespaceSchemaActor), "publisher-actor")
   private val writeCoordinator =
     context.actorOf(
       WriteCoordinator.props(metadataCoordinator, namespaceSchemaActor, commitLogService, publisherActor),

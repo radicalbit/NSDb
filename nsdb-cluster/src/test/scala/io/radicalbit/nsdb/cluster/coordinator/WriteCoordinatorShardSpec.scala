@@ -36,7 +36,8 @@ class WriteCoordinatorShardSpec
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor =
-    TestActorRef[PublisherActor](PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
+    TestActorRef[PublisherActor](
+      PublisherActor.props(basePath, system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
   val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
                                                                     namespaceSchemaActor,
@@ -55,7 +56,6 @@ class WriteCoordinatorShardSpec
     import scala.concurrent.duration._
 
     implicit val timeout = Timeout(3 seconds)
-
 
     Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 3 seconds)
     Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)

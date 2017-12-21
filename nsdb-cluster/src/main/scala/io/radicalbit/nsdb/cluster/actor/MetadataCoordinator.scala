@@ -10,7 +10,12 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, _}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{
+  AddLocationFailed,
+  LocationAdded,
+  LocationGot,
+  LocationsGot
+}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.index.Location
 
@@ -46,13 +51,13 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
               case None =>
                 val nodeName =
                   s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-                (self ? AddLocation(
-                  db,
-                  namespace,
-                  Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
-                  case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                  case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-                }
+                (self ? AddLocation(db,
+                                    namespace,
+                                    Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis)))
+                  .map {
+                    case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                    case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                  }
             }
 
           case CachedLocations(_, _) =>
