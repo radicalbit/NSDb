@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 
 trait TypeSupport {
 
-  implicit val schemaValidationMonoid = new Monoid[SchemaValidation] {
+  implicit val schemaValidationMonoid: Monoid[SchemaValidation] = new Monoid[SchemaValidation] {
     override val empty: SchemaValidation = valid(Seq.empty)
 
     override def combine(x: SchemaValidation, y: SchemaValidation): SchemaValidation =
@@ -30,7 +30,7 @@ trait TypeSupport {
   }
 
   def validateSchemaTypeSupport(bit: Bit): SchemaValidation = {
-    (bit.dimensions + ("value" -> bit.value))
+    (bit.dimensions ++ Map("value" -> bit.value, "timestamp" -> bit.timestamp.asInstanceOf[JSerializable]))
       .map { case (n, v) => IndexType.fromRawField(RawField(n, v)) }
       .toList
       .combineAll

@@ -4,6 +4,7 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, 
 
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
@@ -53,7 +54,7 @@ class QueryIndex(override val directory: BaseDirectory) extends Index[NsdbQuery]
     }
   }
 
-  override def toRecord(document: Document, fields: Seq[String]): NsdbQuery = {
+  override def toRecord(document: Document, fields: Seq[SimpleField]): NsdbQuery = {
     val binary    = document.getBinaryValue(queryField).bytes
     val b         = new ByteArrayInputStream(binary)
     val o         = new ObjectInputStream(b)

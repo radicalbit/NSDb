@@ -20,14 +20,14 @@ trait SchemaSupport { this: Actor =>
 
   lazy val schemaIndex = new SchemaIndex(new NIOFSDirectory(Paths.get(basePath, db, namespace, "schemas")))
 
-  protected lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
+  lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 
   override def preStart(): Unit = {
     try {
       implicit val searcher: IndexSearcher = schemaIndex.getSearcher
       schemas ++= schemaIndex.getAllSchemas.map(s => s.metric -> s).toMap
     } catch {
-      case e: IndexNotFoundException => //do nothing
+      case _: IndexNotFoundException => //do nothing
     }
   }
 }

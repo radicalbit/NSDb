@@ -7,7 +7,7 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLastLocation, UpdateLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, GetLastLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{AddLocationFailed, LocationAdded, LocationGot}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
   Cached,
@@ -16,8 +16,6 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
   PutInCache
 }
 import io.radicalbit.nsdb.cluster.index.Location
-
-import scala.concurrent.Future
 
 class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
@@ -45,16 +43,6 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
         }
         .pipeTo(sender)
 
-    case msg @ UpdateLocation(namespace, oldLocation, newOccupation, occurredOn) =>
-      val newLocation = oldLocation.copy(occupied = newOccupation)
-      (cache ? PutInCache(LocationKey(namespace, oldLocation.metric, oldLocation.from, oldLocation.to), newLocation))
-        .map {
-          case Cached(_, Some(_)) =>
-            mediator ! Publish("metadata", msg)
-            LocationAdded(namespace, newLocation, occurredOn)
-          case _ => AddLocationFailed(namespace, newLocation, occurredOn)
-        }
-        .pipeTo(sender)
   }
 }
 
@@ -63,16 +51,7 @@ object MetadataCoordinator {
   object commands {
 
     case class GetLocations(namespace: String, metric: String, occurredOn: Long = System.currentTimeMillis)
-//FIXME see if this has to be removed
-    //    case class GetLocation(namespace: String,
-//                           metric: String,
-//                           timestamp: Long,
-//                           occurredOn: Long = System.currentTimeMillis)
     case class GetLastLocation(namespace: String, metric: String, occurredOn: Long = System.currentTimeMillis)
-    case class UpdateLocation(namespace: String,
-                              oldLocation: Location,
-                              newOccupation: Long,
-                              occurredOn: Long = System.currentTimeMillis)
     case class AddLocation(namespace: String, location: Location, occurredOn: Long = System.currentTimeMillis)
     case class AddLocations(namespace: String, locations: Seq[Location], occurredOn: Long = System.currentTimeMillis)
     case class DeleteLocation(namespace: String, location: Location, occurredOn: Long = System.currentTimeMillis)
@@ -83,11 +62,7 @@ object MetadataCoordinator {
   object events {
 
     case class LocationsGot(namespace: String, metric: String, locations: Seq[Location], occurredOn: Long)
-    case class LocationGot(namespace: String,
-                           metric: String,
-//                           timestamp: Long,
-                           location: Option[Location])
-//                           occurredOn: Long)
+    case class LocationGot(namespace: String, metric: String, location: Option[Location])
     case class LocationUpdated(namespace: String, oldLocation: Location, newOccupation: Long, occurredOn: Long)
     case class UpdateLocationFailed(namespace: String, oldLocation: Location, newOccupation: Long, occurredOn: Long)
     case class LocationAdded(namespace: String, location: Location, occurredOn: Long)

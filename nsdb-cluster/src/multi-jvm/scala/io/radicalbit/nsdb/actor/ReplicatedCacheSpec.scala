@@ -73,7 +73,7 @@ class ReplicatedMetadataCacheSpec
 
       val metric    = "metric1"
       val key       = LocationKey("namespace", metric, 0, 1)
-      val location  = Location(metric, "node1", 0, 1, 1)
+      val location  = Location(metric, "node1", 0, 1)
       val metricKey = MetricKey("namespace", metric)
 
       val probe = TestProbe()
@@ -81,7 +81,7 @@ class ReplicatedMetadataCacheSpec
       runOn(node1) {
         awaitAssert {
 
-          replicatedCache.tell(PutInCache(LocationKey("namespace", metric, 0, 1), Location(metric, "node1", 0, 1, 1)),
+          replicatedCache.tell(PutInCache(LocationKey("namespace", metric, 0, 1), Location(metric, "node1", 0, 1)),
                                probe.ref)
           probe.expectMsg(Cached(key, Some(location)))
         }
@@ -104,13 +104,13 @@ class ReplicatedMetadataCacheSpec
       val probe     = TestProbe()
       val metric    = "metric2"
       val key       = LocationKey("namespace", metric, _: Long, _: Long)
-      val location  = Location(metric, "node1", _: Long, _: Long, _: Long)
+      val location  = Location(metric, "node1", _: Long, _: Long)
       val metricKey = MetricKey("namespace", metric)
 
       runOn(node1) {
         for (i ← 10 to 20) {
-          replicatedCache.tell(PutInCache(key(i - 1, i), location(i - 1, i, i)), probe.ref)
-          probe.expectMsg(Cached(key(i - 1, i), Some(location(i - 1, i, i))))
+          replicatedCache.tell(PutInCache(key(i - 1, i), location(i - 1, i)), probe.ref)
+          probe.expectMsg(Cached(key(i - 1, i), Some(location(i - 1, i))))
         }
       }
 
@@ -118,7 +118,7 @@ class ReplicatedMetadataCacheSpec
         awaitAssert {
           for (i ← 10 to 20) {
             replicatedCache.tell(GetFromCache(key(i - 1, i)), probe.ref)
-            probe.expectMsg(Cached(key(i - 1, i), Some(location(i - 1, i, i))))
+            probe.expectMsg(Cached(key(i - 1, i), Some(location(i - 1, i))))
           }
         }
         awaitAssert {
@@ -134,7 +134,7 @@ class ReplicatedMetadataCacheSpec
       val metric    = "metric3"
       val probe     = TestProbe()
       val key       = LocationKey("namespace", metric, 0, 1)
-      val location  = Location(metric, "node1", 0, 1, 1)
+      val location  = Location(metric, "node1", 0, 1)
       val metricKey = MetricKey("namespace", metric)
 
       runOn(node1) {
@@ -171,8 +171,8 @@ class ReplicatedMetadataCacheSpec
     "replicate updated cached entry" in within(5.seconds) {
       val metric          = "metric4"
       val key             = LocationKey("namespace", metric, 0, 1)
-      val location        = Location(metric, "node1", 0, 1, 0)
-      val updatedLocation = Location(metric, "node1", 0, 1, 0)
+      val location        = Location(metric, "node1", 0, 1)
+      val updatedLocation = Location(metric, "node1", 0, 1)
       val metricKey       = MetricKey("namespace", metric)
       val probe           = TestProbe()
 

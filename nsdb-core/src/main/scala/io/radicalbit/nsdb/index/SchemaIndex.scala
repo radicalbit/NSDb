@@ -4,15 +4,13 @@ import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import cats.data.{NonEmptyList, Validated}
 import cats.implicits._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
 import io.radicalbit.nsdb.model.SchemaField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
-import org.apache.lucene.analysis.standard.StandardAnalyzer
+import io.radicalbit.nsdb.statement.StatementParser.SimpleField
+import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation, schemaValidationMonoid}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, StringField}
-import org.apache.lucene.index.{DirectoryReader, IndexWriter}
-import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery}
+import org.apache.lucene.index.{IndexWriter, Term}
+import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.JavaConverters._
@@ -22,12 +20,12 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields.toSet == this.fields.toSet)
+      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0) && (otherSchema.fields.toSet == this.fields.toSet)
     } else false
   }
 
-  def fieldsMap(): Map[String, SchemaField] =
-    fields.map(f => f.name -> f).toMap + ("timestamp" -> SchemaField("timestamp", BIGINT()))
+  def fieldsMap: Map[String, SchemaField] =
+    fields.map(f => f.name -> f).toMap
 }
 
 object Schema extends TypeSupport {
@@ -39,6 +37,11 @@ object Schema extends TypeSupport {
 
 class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   override val _keyField: String = "_metric"
+
+  override def getSearcher: IndexSearcher = {
+    refresh()
+    super.getSearcher
+  }
 
   override def validateRecord(data: Schema): FieldValidation = {
     valid(
@@ -63,8 +66,8 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     }
   }
 
-  override def toRecord(document: Document, fields: Seq[String]): Schema = {
-    val fields = document.getFields.asScala.filterNot(_.name() == _keyField)
+  override def toRecord(document: Document, fields: Seq[SimpleField]): Schema = {
+    val fields = document.getFields.asScala.filterNot(f => f.name() == _keyField || f.name() == _countField)
     Schema(
       document.get(_keyField),
       fields.map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]])))
@@ -95,14 +98,8 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   }
 
   override def delete(data: Schema)(implicit writer: IndexWriter): Unit = {
-    val parser   = new QueryParser(_keyField, new StandardAnalyzer())
-    val query    = parser.parse(data.metric)
-    val reader   = DirectoryReader.open(directory)
-    val searcher = new IndexSearcher(reader)
-    val hits     = searcher.search(query, 1)
-    (0 until hits.totalHits).foreach { _ =>
-      writer.deleteDocuments(query)
-    }
+    val query = new TermQuery(new Term(_keyField, data.metric))
+    writer.deleteDocuments(query)
     writer.forceMergeDeletes(true)
   }
 }
@@ -113,8 +110,10 @@ object SchemaIndex {
     val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
     oldSchema.fields
       .map(oldField => {
-        if (newFields.get(oldField.name).isDefined && oldField.indexType != newFields(oldField.name).indexType)
-          invalidNel("")
+        val newField = newFields.get(oldField.name)
+        if (newField.isDefined && oldField.indexType != newField.get.indexType)
+          invalidNel(
+            s"mismatch type for field $oldField : new type is ${newField.get.indexType} while old type is ${oldField.indexType}")
         else valid(Seq(newFields.getOrElse(oldField.name, oldFields(oldField.name))))
       })
       .toList

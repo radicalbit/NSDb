@@ -48,10 +48,7 @@ class ReadCoordinatorSpec
     implicit val timeout = Timeout(5 second)
 
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
-    val schema = Schema(
-      "people",
-      Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", records.head), 3 seconds)
     namespaceDataActor ! AddRecords(db, namespace, "people", records)
 
     waitInterval
@@ -92,10 +89,16 @@ class ReadCoordinatorSpec
           expected.namespace shouldBe namespace
           expected.metric shouldBe "people"
           expected.schema shouldBe Some(
-            Schema("people",
-                   Seq(SchemaField("name", VARCHAR()),
-                       SchemaField("surname", VARCHAR()),
-                       SchemaField("creationDate", BIGINT()))))
+            Schema(
+              "people",
+              Seq(
+                SchemaField("name", VARCHAR()),
+                SchemaField("timestamp", BIGINT()),
+                SchemaField("surname", VARCHAR()),
+                SchemaField("creationDate", BIGINT()),
+                SchemaField("value", BIGINT())
+              )
+            ))
         }
       }
     }
@@ -113,14 +116,13 @@ class ReadCoordinatorSpec
                    ))
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
-
           expected.values shouldBe records
         }
       }
     }
 
     "receive a select projecting a list of fields" should {
-      "execute it successfully" in {
+      "execute it successfully with only simple fields" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -144,6 +146,75 @@ class ReadCoordinatorSpec
             Bit(8L, 1L, Map("name"  -> "Frank", "surname" -> "Doe")),
             Bit(10L, 1L, Map("name" -> "Frank", "surname" -> "Doe"))
           )
+        }
+
+      }
+      "execute it successfully with mixed aggregated and simple" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = "people",
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation)),
+                     Field("name", None),
+                     Field("creationDate", Some(CountAggregation)))),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values shouldBe Seq(
+            Bit(2L, 1L, Map("name" -> "John", "count(*)"  -> 4, "count(creationDate)" -> 4)),
+            Bit(4L, 1L, Map("name" -> "John", "count(*)"  -> 4, "count(creationDate)" -> 4)),
+            Bit(6L, 1L, Map("name" -> "Bill", "count(*)"  -> 4, "count(creationDate)" -> 4)),
+            Bit(8L, 1L, Map("name" -> "Frank", "count(*)" -> 4, "count(creationDate)" -> 4))
+          )
+        }
+      }
+      "execute it successfully with only a count" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = "people",
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation)))
+              ),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+        within(5 seconds) {
+          val expected = probe.expectMsgType[SelectStatementExecuted]
+          expected.values shouldBe Seq(
+            Bit(0, 4L, Map("count(*)" -> 4))
+          )
+        }
+      }
+      "fail when other aggregation than count is provided" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = "people",
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation)),
+                     Field("surname", None),
+                     Field("creationDate", Some(SumAggregation)))),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+        within(5 seconds) {
+          probe.expectMsgType[SelectStatementFailed]
         }
       }
     }

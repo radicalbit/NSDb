@@ -57,14 +57,6 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
       writer.close()
       sender ! LocationsAdded(namespace, metadataSeq, occurredOn)
 
-    case UpdateLocation(namespace, oldMetadata, newOccupation, occurredOn) =>
-      val index                        = getIndex(namespace)
-      implicit val writer: IndexWriter = index.getWriter
-      index.delete(oldMetadata)
-      index.write(oldMetadata.copy(occupied = newOccupation))
-      writer.close()
-      sender ! LocationUpdated(namespace, oldMetadata, newOccupation, occurredOn)
-
     case DeleteLocation(namespace, metadata, occurredOn) =>
       val index                        = getIndex(namespace)
       implicit val writer: IndexWriter = index.getWriter

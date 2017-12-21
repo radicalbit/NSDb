@@ -171,7 +171,6 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive wrong fields" should {
       "fail" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT count(name), min(surname) FROM people") shouldBe 'failure
         parser.parse(db = "db", namespace = "registry", input = "SELECT count(name,surname) FROM people") shouldBe 'failure
       }
     }

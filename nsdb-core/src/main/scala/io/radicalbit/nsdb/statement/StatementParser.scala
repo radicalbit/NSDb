@@ -20,9 +20,9 @@ class StatementParser {
           case Some(SchemaField(_, t: INT))     => Try(IntPoint.newExactQuery(dimension, t.cast(value)))
           case Some(SchemaField(_, t: BIGINT))  => Try(LongPoint.newExactQuery(dimension, t.cast(value)))
           case Some(SchemaField(_, t: DECIMAL)) => Try(DoublePoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, t: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
-          case Some(SchemaField(_, t: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
-          case Some(SchemaField(_, t: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, _: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, _: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
           case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
         }
       case Some(LikeExpression(dimension, value)) =>
@@ -63,9 +63,8 @@ class StatementParser {
     q.map(ParsedExpression)
   }
 
-  def parseDeleteStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] = {
+  def parseDeleteStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] =
     parseStatement(statement, schema)
-  }
 
   private def getCollector(group: String, field: String, agg: Aggregation) = {
     agg match {
@@ -117,18 +116,21 @@ class StatementParser {
           Failure(new RuntimeException("cannot execute a group by query with more than a field"))
         case (List(), Some(_), _) =>
           Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
-        case (fieldsSeq, None, Some(limit)) if fieldsSeq.map(_.aggregation.isEmpty).foldLeft(true)(_ && _) =>
+        case (fieldsSeq, None, Some(limit))
+            if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
           Success(
             ParsedSimpleQuery(statement.namespace,
                               statement.metric,
                               exp.q,
                               limit.value,
-                              fieldsSeq.map(_.name),
+                              fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
                               sortOpt))
         case (List(), None, Some(limit)) =>
           Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, limit.value, List(), sortOpt))
-        case (fieldsSeq, None, Some(_)) if fieldsSeq.map(_.aggregation.isDefined).foldLeft(true)(_ && _) =>
-          Failure(new RuntimeException("cannot execute a query with aggregation without a group by"))
+        case (fieldsSeq, None, Some(_))
+            if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
+          Failure(
+            new RuntimeException("cannot execute a query with aggregation different than count without a group by"))
         case (_, None, None) =>
           Failure(new RuntimeException("cannot execute query without a limit"))
     })
@@ -144,11 +146,18 @@ object StatementParser {
     val metric: String
     val q: Query
   }
+
+  case class SimpleField(name: String, count: Boolean = false) {
+    override def toString: String = {
+      if (count) s"count($name)" else name
+    }
+  }
+
   case class ParsedSimpleQuery(namespace: String,
                                metric: String,
                                q: Query,
                                limit: Int,
-                               fields: List[String] = List.empty,
+                               fields: List[SimpleField] = List.empty,
                                sort: Option[Sort] = None)
       extends ParsedQuery
   case class ParsedAggregatedQuery(namespace: String,
