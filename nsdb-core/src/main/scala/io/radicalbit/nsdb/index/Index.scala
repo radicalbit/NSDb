@@ -99,8 +99,8 @@ trait Index[T] {
   private[index] def rawQuery(query: Query,
                               collector: AllGroupsAggregationCollector,
                               limit: Option[Int],
-                              sort: Option[Sort])(implicit searcher: IndexSearcher): Seq[Document] = {
-    searcher.search(query, collector)
+                              sort: Option[Sort]): Seq[Document] = {
+    this.getSearcher.search(query, collector)
 
     val sortedGroupMap = sort
       .flatMap(_.getSort.headOption)
@@ -123,8 +123,7 @@ trait Index[T] {
     }.toSeq
   }
 
-  def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(
-      implicit searcher: IndexSearcher): Seq[T] = {
+  def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {
 
     val raws = if (fields.nonEmpty && fields.forall(_.count)) {
       executeCountQuery(this.getSearcher, query, limit)
@@ -133,8 +132,7 @@ trait Index[T] {
     raws.map(d => toRecord(d, fields))
   }
 
-  def query(query: Query, collector: AllGroupsAggregationCollector, limit: Option[Int], sort: Option[Sort])(
-      implicit searcher: IndexSearcher): Seq[T] = {
+  def query(query: Query, collector: AllGroupsAggregationCollector, limit: Option[Int], sort: Option[Sort]): Seq[T] = {
     rawQuery(query, collector, limit, sort).map(d => toRecord(d, Seq.empty))
   }
 

@@ -83,12 +83,20 @@ object Dependencies {
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
     lazy val grouping    = namespace % "lucene-grouping" % version
+    lazy val facet       = namespace % "lucene-facet" % version
   }
 
   object scalatest {
     lazy val version   = "3.0.0"
     lazy val namespace = "org.scalatest"
     lazy val core      = namespace %% "scalatest" % version
+  }
+
+  object cats_scalatest {
+    lazy val version        = "2.2.0"
+    lazy val namespace      = "com.ironcorelabs"
+    lazy val cats_scalatest = "cats-scalatest"
+    lazy val core           = namespace %% cats_scalatest % version
   }
 
   object junit {
@@ -158,8 +166,10 @@ object Dependencies {
       lucene.core,
       lucene.queryParser,
       lucene.grouping,
-      scalatest.core % Test,
-      akka.testkit   % Test
+      lucene.facet,
+      scalatest.core      % Test,
+      cats_scalatest.core % Test,
+      akka.testkit        % Test
     )
   }
 

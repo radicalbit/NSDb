@@ -42,6 +42,8 @@ sealed trait IndexType[T] {
 
   def indexField(fieldName: String, value: T): Seq[Field]
 
+  def facetField(fieldName: String, value: T): Seq[Field]
+
   def serialize(value: T): Array[Byte] = value.toString.getBytes()
 
   def deserialize(value: Array[Byte]): T
@@ -49,6 +51,10 @@ sealed trait IndexType[T] {
   def cast[T](a: Any): T = a.asInstanceOf[T]
 
 }
+
+sealed trait NumericType[T] extends IndexType[T]
+
+sealed trait StringType[T] extends IndexType[T]
 
 object IndexType {
 
@@ -69,15 +75,20 @@ object IndexType {
 
 }
 
-case class INT() extends IndexType[Integer] {
+case class INT() extends NumericType[Integer] {
   def actualType = classOf[Integer]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt),
         new NumericDocValuesField(fieldName, value.toString.toLong),
         new StoredField(fieldName, value.toString.toInt))
+  override def facetField(fieldName: String, value: Integer): Seq[Field] =
+    Seq(
+      new IntPoint(fieldName, value.toString.toInt),
+      new NumericDocValuesField(fieldName, value.toString.toLong)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toInt
 }
-case class BIGINT() extends IndexType[JLong] {
+case class BIGINT() extends NumericType[JLong] {
   def actualType = classOf[JLong]
   override def indexField(fieldName: String, value: JLong): Seq[Field] =
     Seq(
@@ -85,9 +96,14 @@ case class BIGINT() extends IndexType[JLong] {
       new NumericDocValuesField(fieldName, value.toString.toLong),
       new StoredField(fieldName, value.toString.toLong)
     )
+  override def facetField(fieldName: String, value: JLong): Seq[Field] =
+    Seq(
+      new LongPoint(fieldName, value.toString.toLong),
+      new NumericDocValuesField(fieldName, value.toString.toLong)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toLong
 }
-case class DECIMAL() extends IndexType[JDouble] {
+case class DECIMAL() extends NumericType[JDouble] {
   def actualType = classOf[JDouble]
   override def indexField(fieldName: String, value: JDouble): Seq[Field] =
     Seq(
@@ -95,24 +111,40 @@ case class DECIMAL() extends IndexType[JDouble] {
       new DoubleDocValuesField(fieldName, value.toString.toDouble),
       new StoredField(fieldName, value.toString.toFloat)
     )
+  override def facetField(fieldName: String, value: JDouble): Seq[Field] =
+    Seq(
+      new DoublePoint(fieldName, value.toString.toDouble),
+      new DoubleDocValuesField(fieldName, value.toString.toDouble)
+    )
   def deserialize(value: Array[Byte]) = new String(value).toDouble
 }
 case class BOOLEAN() extends IndexType[Boolean] {
   def actualType = classOf[Boolean]
   override def indexField(fieldName: String, value: Boolean): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
+  override def facetField(fieldName: String, value: Boolean): Seq[Field] =
+    Seq(new StringField(fieldName, value.toString, Store.YES))
   def deserialize(value: Array[Byte]) = new String(value).toBoolean
 }
-case class CHAR() extends IndexType[Char] {
+case class CHAR() extends StringType[Char] {
   def actualType = classOf[Char]
   override def indexField(fieldName: String, value: Char): Seq[Field] =
     Seq(new StringField(fieldName, value.toString, Store.YES))
+  override def facetField(fieldName: String, value: Char): Seq[Field] =
+    Seq(new StringField(fieldName, value.toString, Store.YES))
+
   def deserialize(value: Array[Byte]) = new String(value).charAt(0)
 }
-case class VARCHAR() extends IndexType[String] {
+case class VARCHAR() extends StringType[String] {
   def actualType = classOf[String]
   override def indexField(fieldName: String, value: String): Seq[Field] =
-    Seq(new StringField(fieldName, value.toString, Store.YES),
-        new SortedDocValuesField(fieldName, new BytesRef(value.toString)))
+    Seq(
+      new StringField(fieldName, value, Store.YES),
+      new SortedDocValuesField(fieldName, new BytesRef(value))
+    )
+  override def facetField(fieldName: String, value: String): Seq[Field] =
+    Seq(
+      new StringField(fieldName, value, Store.YES)
+    )
   def deserialize(value: Array[Byte]) = new String(value)
 }

@@ -20,7 +20,9 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
     val allFields = validateRecord(data)
     allFields match {
       case Valid(fields) =>
-        fields.foreach(doc.add)
+        fields.foreach(f => {
+          doc.add(f)
+        })
         Try(writer.addDocument(doc)) match {
           case Success(id) => valid(id)
           case Failure(ex) => invalidNel(ex.getMessage)
