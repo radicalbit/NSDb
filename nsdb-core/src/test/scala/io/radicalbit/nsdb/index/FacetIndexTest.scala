@@ -145,7 +145,9 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
     (1 to 100).foreach { i =>
       val factor = i / 4
       val testData =
-        Bit(timestamp = i, value = factor, dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"))
+        Bit(timestamp = i,
+            value = factor,
+            dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"))
       val w = facetIndex.write(testData)
       w shouldBe valid
     }
@@ -156,7 +158,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
-    val contentGroups = facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", Some(descSort), Some(100))
+    val contentGroups =
+      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", Some(descSort), Some(100))
 
     contentGroups.size shouldBe 13
 
