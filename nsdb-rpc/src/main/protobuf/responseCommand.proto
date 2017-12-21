@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+message MetricsGot{
+    string db = 1;
+    string namespace = 2;
+    repeated string metrics = 3;
+    bool completedSuccessfully = 4;
+    string errors = 5;
+}
+
+message MetricSchemaRetrieved{
+    message MetricField{
+        string name = 1;
+        string type = 2;
+    }
+    string db = 1;
+    string namespace = 2;
+    string metric = 3;
+    repeated MetricField fields = 4;
+    bool completedSuccessfully = 5;
+    string errors = 6;
+}
+
+message Namespaces{
+    repeated string namespaces = 1;
+    bool completedSuccessfully = 2;
+    string errors = 3;
+}

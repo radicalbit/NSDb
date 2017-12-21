@@ -4,7 +4,17 @@ package io.radicalbit.nsdb.rpc;
 
 import "request.proto";
 import "response.proto";
+import "requestSQL.proto";
+import "requestCommand.proto";
+import "responseSQL.proto";
+import "responseCommand.proto";
 
-service NSDBService {
+service NSDBServiceSQL {
     rpc InsertBit (io.radicalbit.nsdb.rpc.RPCInsert) returns (io.radicalbit.nsdb.rpc.RPCInsertResult) {}
+    rpc executeSQLStatement(io.radicalbit.nsdb.rpc.SQLRequestStatement) returns (io.radicalbit.nsdb.rpc.SQLStatementResponse) {}
+}
+
+service NSDBServiceCommand {
+    rpc showMetrics (io.radicalbit.nsdb.rpc.ShowMetrics) returns (io.radicalbit.nsdb.rpc.MetricsGot) {}
+    rpc describeMetric (io.radicalbit.nsdb.rpc.DescribeMetric) returns (io.radicalbit.nsdb.rpc.MetricSchemaRetrieved) {}
 }

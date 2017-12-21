@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import io.radicalbit.nsdb.cluster.endpoint.{EndpointActor, GrpcEndpoint}
+import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -31,8 +31,6 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
   for {
     readCoordinator  <- (guardian ? GetReadCoordinator).mapTo[ActorRef]
     writeCoordinator <- (guardian ? GetWriteCoordinator).mapTo[ActorRef]
-    _ = system.actorOf(EndpointActor.props(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator),
-                       "endpoint-actor")
     _ = new GrpcEndpoint(readCoordinator = readCoordinator, writeCoordinator = writeCoordinator)
   } ()
 }

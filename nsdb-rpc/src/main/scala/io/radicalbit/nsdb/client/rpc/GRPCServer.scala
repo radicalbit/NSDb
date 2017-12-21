@@ -1,7 +1,10 @@
 package io.radicalbit.nsdb.client.rpc
 
 import io.grpc.{Server, ServerBuilder}
-import io.radicalbit.nsdb.rpc.service.NSDBServiceGrpc
+import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
+import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
+import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
@@ -12,7 +15,11 @@ trait GRPCServer {
 
   protected[this] def port: Int
 
-  protected[this] def service: NSDBServiceGrpc.NSDBService
+  protected[this] def serviceSQL: NSDBServiceSQL
+
+  protected[this] def serviceCommand: NSDBServiceCommand
+
+  protected[this] def parserSQL: SQLStatementParser
 
   sys.addShutdownHook {
     System.err.println("Shutting down gRPC server since JVM is shutting down")
@@ -22,7 +29,8 @@ trait GRPCServer {
 
   lazy val server = ServerBuilder
     .forPort(port)
-    .addService(NSDBServiceGrpc.bindService(service, executionContextExecutor))
+    .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
+    .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
     .build
 
   def start(): Try[Server] = Try(server.start())

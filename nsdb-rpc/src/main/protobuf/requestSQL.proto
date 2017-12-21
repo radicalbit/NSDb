@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+message SQLRequestStatement{
+    string db = 1;
+    string namespace = 2;
+    string statement = 3;
+}
