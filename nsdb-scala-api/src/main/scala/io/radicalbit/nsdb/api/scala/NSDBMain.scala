@@ -16,7 +16,14 @@ object NSDBMain extends App {
     .dimension("city", "Mouseton")
     .dimension("gender", "M")
 
+  val query = nsdb
+    .namespace("registry")
+    .query("select * from people limit 1")
+
   val res: Future[RPCInsertResult] = nsdb.write(series)
 
+  val readRes = nsdb.execute(query)
+
   println(Await.result(res, 10 seconds))
+  println(Await.result(readRes, 10 seconds))
 }
