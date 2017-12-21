@@ -71,7 +71,7 @@ class ReadCoordinatorShardSpec
     val schema = Schema(
       "people",
       Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR()), SchemaField("creationDate", BIGINT())))
-    Await.result(schemaActor ? UpdateSchema(db, namespace, "people", schema), 3 seconds)
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", recordsShard1.head), 3 seconds)
 
     val location1 = Location("people", "node1", 0, 10)
     val location2 = Location("people", "node1", 11, 20)
@@ -119,10 +119,16 @@ class ReadCoordinatorShardSpec
           expected.namespace shouldBe namespace
           expected.metric shouldBe "people"
           expected.schema shouldBe Some(
-            Schema("people",
-                   Seq(SchemaField("name", VARCHAR()),
-                       SchemaField("surname", VARCHAR()),
-                       SchemaField("creationDate", BIGINT()))))
+            Schema(
+              "people",
+              Seq(
+                SchemaField("name", VARCHAR()),
+                SchemaField("timestamp", BIGINT()),
+                SchemaField("surname", VARCHAR()),
+                SchemaField("creationDate", BIGINT()),
+                SchemaField("value", BIGINT())
+              )
+            ))
         }
       }
     }

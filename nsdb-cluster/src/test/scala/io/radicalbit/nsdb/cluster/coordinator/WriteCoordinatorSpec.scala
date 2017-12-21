@@ -84,6 +84,16 @@ class WriteCoordinatorSpec
   "WriteCoordinator" should "write records and publish event to its subscriber" in {
     val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
+    val testFirstRecord = Bit(1, 1, Map("name" -> "john"))
+
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", testFirstRecord))
+
+    within(5 seconds) {
+      val expectedAdd = probe.expectMsgType[InputMapped]
+      expectedAdd.metric shouldBe "testMetric"
+      expectedAdd.record shouldBe testFirstRecord
+    }
+
     val testSqlStatement = SelectSQLStatement(
       db = db,
       namespace = "registry",

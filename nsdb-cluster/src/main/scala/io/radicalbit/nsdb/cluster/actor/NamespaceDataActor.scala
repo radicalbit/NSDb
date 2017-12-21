@@ -69,7 +69,7 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
       sender() ! NamespacesGot(db, childActors.keys.filter(_.db == db).map(_.namespace).toSet)
     case msg @ GetMetrics(db, namespace) =>
       getChild(db, namespace) forward msg
-    case msg @ ExecuteDeleteStatement(statement) =>
+    case msg @ ExecuteDeleteStatementInternal(statement, _) =>
       getChild(statement.db, statement.namespace).forward(msg)
     case DeleteNamespace(db, namespace) =>
       val indexToRemove = getChild(db, namespace)
