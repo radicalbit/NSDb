@@ -122,7 +122,7 @@ class StatementParser {
   }
 
   def parseStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedDeleteQuery] = {
-    val expParsed = parseExpression(Some(statement.condition.expression), schema.fields.map(f => f.name -> f).toMap)
+    val expParsed = parseExpression(Some(statement.condition.expression), schema.fieldsMap)
     expParsed.map(exp => ParsedDeleteQuery(statement.namespace, statement.metric, exp.q))
   }
 
