@@ -257,7 +257,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(LongPoint.newRangeQuery("timestamp", 2L + 1, Long.MaxValue), BooleanClause.Occur.MUST)
-                .add(LongPoint.newRangeQuery("timestamp", 0, 4L), BooleanClause.Occur.MUST)
+                .add(LongPoint.newRangeQuery("timestamp", Long.MinValue, 4L), BooleanClause.Occur.MUST)
                 .build(),
               4,
               List("name").map(SimpleField(_))
@@ -296,7 +296,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
-                    .add(LongPoint.newRangeQuery("timestamp", 0, 4L - 1), BooleanClause.Occur.SHOULD)
+                    .add(LongPoint.newRangeQuery("timestamp", Long.MinValue, 4L - 1), BooleanClause.Occur.SHOULD)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )
