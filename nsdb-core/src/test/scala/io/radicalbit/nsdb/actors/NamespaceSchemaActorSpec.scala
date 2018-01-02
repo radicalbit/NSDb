@@ -25,7 +25,7 @@ class NamespaceSchemaActorSpec
   val namespaceSchemaActor =
     TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props("target/test_index_schema_actor"))
 
-  val db         = "namespace"
+  val db         = "db"
   val namespace  = "namespace"
   val namespace1 = "namespace1"
 

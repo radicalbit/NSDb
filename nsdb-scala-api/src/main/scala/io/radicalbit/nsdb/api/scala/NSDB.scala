@@ -5,7 +5,9 @@ import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.request._
+import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
+import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,6 +56,12 @@ case class NSDB(host: String, port: Int, db: String)(implicit executionContextEx
   def write(bs: List[Bit]): Future[List[RPCInsertResult]] =
     Future.sequence(bs.map(x => write(x)))
 
+  def execute(sqlStatement: SQLStatement): Future[SQLStatementResponse] = {
+    val sqlStatementRequest =
+      SQLRequestStatement(db = db, namespace = sqlStatement.namespace, statement = sqlStatement.sQLStatement)
+    client.executeSQLStatement(sqlStatementRequest)
+  }
+
   def close() = {}
 }
 
@@ -61,6 +69,12 @@ case class Namespace(name: String) {
 
   def bit(bit: String): Bit = Bit(namespace = name, metric = bit)
 
+  def query(queryString: String) = SQLStatement(namespace = name, sQLStatement = queryString)
+
+}
+
+case class SQLStatement(namespace: String, sQLStatement: String) {
+  def statement(query: String) = copy(sQLStatement = query)
 }
 
 case class Bit(namespace: String,
