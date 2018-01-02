@@ -1,18 +1,15 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
-
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index._
+import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.apache.lucene.store.MMapDirectory
 import org.scalatest._
 
 import scala.concurrent.duration._

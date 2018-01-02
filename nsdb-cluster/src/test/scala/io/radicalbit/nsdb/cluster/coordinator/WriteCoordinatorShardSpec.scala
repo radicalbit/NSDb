@@ -13,7 +13,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -27,7 +27,7 @@ class WriteCoordinatorShardSpec
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfter {
 
   val basePath             = "target/test_index/WriteCoordinatorShardSpec"
   val probe                = TestProbe()
@@ -50,7 +50,7 @@ class WriteCoordinatorShardSpec
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
 
-  override def beforeAll() = {
+  before {
     import akka.pattern.ask
 
     import scala.concurrent.duration._
@@ -67,20 +67,20 @@ class WriteCoordinatorShardSpec
     val incompatibleRecord =
       Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"))
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, "testNamespace", "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
 
     val expectedAdd = probe.expectMsgType[InputMapped]
     expectedAdd.metric shouldBe "testMetric"
     expectedAdd.record shouldBe record1
 
-    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, "testNamespace", "testMetric", record2))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 
     val expectedAdd2 = probe.expectMsgType[InputMapped]
     expectedAdd2.metric shouldBe "testMetric"
     expectedAdd2.record shouldBe record2
 
     probe.send(writeCoordinatorActor,
-               MapInput(System.currentTimeMillis, db, "testNamespace", "testMetric", incompatibleRecord))
+               MapInput(System.currentTimeMillis, db, namespace, "testMetric", incompatibleRecord))
 
     probe.expectMsgType[RecordRejected]
 
@@ -163,7 +163,7 @@ class WriteCoordinatorShardSpec
   }
 
   "WriteCoordinator" should "drop a metric" in {
-    probe.send(writeCoordinatorActor, DropMetric(db, "testNamespace", "testMetric"))
+    probe.send(writeCoordinatorActor, DropMetric(db, namespace, "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[MetricDropped]
     }
