@@ -1,6 +1,7 @@
 package io.radicalbit.nsdb.api.scala
 
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
+import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -22,7 +23,7 @@ object NSDBMain extends App {
 
   val res: Future[RPCInsertResult] = nsdb.write(series)
 
-  val readRes = nsdb.execute(query)
+  val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
 
   println(Await.result(res, 10 seconds))
   println(Await.result(readRes, 10 seconds))
