@@ -1,16 +1,22 @@
 package io.radicalbit.nsdb.cluster.actor
 
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 
 trait NSDBAkkaCluster {
-  implicit val system: ActorSystem = ActorSystem("nsdb", ConfigFactory.load("cluster"))
+  private val config = ConfigFactory
+    .parseFile(Paths.get(System.getProperty("confDir"), "cluster.conf").toFile)
+    .resolve()
+    .withFallback(ConfigFactory.load("cluster"))
+
+  implicit val system: ActorSystem = ActorSystem("nsdb", config)
 }
 
 trait NSDBAActors { this: NSDBAkkaCluster =>
