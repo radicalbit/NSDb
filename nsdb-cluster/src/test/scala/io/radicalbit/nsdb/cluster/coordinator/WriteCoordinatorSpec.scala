@@ -11,7 +11,7 @@ import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{Schema, VARCHAR}
+import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -48,10 +48,11 @@ class FakeReadCoordinatorActor extends Actor {
 class FakeNamespaceSchemaActor extends Actor {
   def receive: Receive = {
     case GetSchema(_, _, _) =>
-      sender() ! SchemaGot(db = "db",
-                           namespace = "registry",
-                           metric = "people",
-                           schema = Some(Schema("people", Seq(SchemaField("surname", VARCHAR())))))
+      sender() ! SchemaGot(
+        db = "db",
+        namespace = "registry",
+        metric = "people",
+        schema = Some(Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("surname", VARCHAR())))))
   }
 }
 

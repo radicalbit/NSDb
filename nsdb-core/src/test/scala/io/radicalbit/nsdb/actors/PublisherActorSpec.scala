@@ -2,13 +2,13 @@ package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 
-import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{QueryIndex, Schema, VARCHAR}
+import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -27,10 +27,11 @@ class FakeReadCoordinatorActor extends Actor {
 class FakeNamespaceSchemaActor extends Actor {
   def receive: Receive = {
     case GetSchema(_, _, _) =>
-      sender() ! SchemaGot(db = "db",
-                           namespace = "registry",
-                           metric = "people",
-                           schema = Some(Schema("people", Seq(SchemaField("surname", VARCHAR())))))
+      sender() ! SchemaGot(
+        db = "db",
+        namespace = "registry",
+        metric = "people",
+        schema = Some(Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("surname", VARCHAR())))))
   }
 }
 
@@ -64,7 +65,7 @@ class PublisherActorSpec
   val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"))
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
 
-  val schema = Schema("people", Seq(SchemaField("name", VARCHAR())))
+  val schema = Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
 
   before {
     val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
