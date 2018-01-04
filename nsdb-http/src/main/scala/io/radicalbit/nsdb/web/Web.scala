@@ -14,7 +14,7 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-trait Web extends StaticResources with WsResources with ApiResources with CorsSupport {
+trait Web extends StaticResources with WsResources with ApiResources with CorsSupport with SSLSupport {
 
   implicit val formats = DefaultFormats
 
@@ -37,7 +37,15 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
                                                                                  writeCoordinator)
 
         val http =
-          Http().bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), config.getInt("nsdb.http.port"))
+          if (isSSLEnabled)
+            Http().bindAndHandle(withCors(api),
+                                 config.getString("nsdb.http.interface"),
+                                 config.getInt("nsdb.http.port"),
+                                 connectionContext = serverContext)
+          else
+            Http().bindAndHandle(withCors(api),
+                                 config.getString("nsdb.http.interface"),
+                                 config.getInt("nsdb.http.port"))
 
         scala.sys.addShutdownHook {
           http.flatMap(_.unbind()).onComplete { _ =>
