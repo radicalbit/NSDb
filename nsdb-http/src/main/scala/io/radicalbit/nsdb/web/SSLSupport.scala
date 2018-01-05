@@ -13,6 +13,7 @@ trait SSLSupport {
   val sslConfig = ConfigFactory
     .parseFile(Paths.get(System.getProperty("confDir"), "ssl.conf").toFile)
     .resolve()
+    .withFallback(ConfigFactory.load("ssl"))
 
   def isSSLEnabled = sslConfig.getBoolean("ssl.enabled")
 
