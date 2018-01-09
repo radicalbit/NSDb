@@ -1,5 +1,6 @@
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
 
 lazy val root = project
   .in(file("."))
@@ -53,6 +54,7 @@ lazy val `nsdb-rpc` = project
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .settings(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
@@ -71,6 +73,30 @@ lazy val `nsdb-cluster` = project
   .settings(SbtMultiJvm.multiJvmSettings)
   .configs(MultiJvm)
   .settings(assemblyJarName in assembly := "nsdb-cluster.jar")
+  .settings(
+    mappings in Docker ++= {
+      val confDir = baseDirectory.value / ".." / "conf"
+
+      for {
+        (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
+      } yield file -> s"/opt/${name.value}/conf/$relativePath"
+    },
+    packageName in Docker := name.value,
+    version in Docker := version.value,
+    maintainer in Docker := organization.value,
+    dockerRepository := Some("tools.radicalbit.io"),
+    defaultLinuxInstallLocation in Docker := s"/opt/${name.value}",
+    dockerCommands := Seq(
+      Cmd("FROM", "tools.radicalbit.io/service-java-base:1.0"),
+      Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
+      Cmd("WORKDIR", s"/opt/${name.value}"),
+      Cmd("ADD", "opt", "/opt"),
+      ExecCmd("RUN", "chown", "-R", "root:root", "."),
+      Cmd("USER", "root"),
+      Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "curl", "-f", "http://localhost:9000/status || exit 1"),
+      Cmd("CMD", s"bin/${name.value} -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
+    )
+  )
   .dependsOn(`nsdb-http`, `nsdb-rpc`)
 
 lazy val `nsdb-sql` = project

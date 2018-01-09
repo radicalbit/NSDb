@@ -122,6 +122,11 @@ trait ApiResources {
             }
           }
         }
+      } ~
+      pathPrefix("status") {
+        get {
+          complete("RUNNING")
+        }
       }
 
 }
