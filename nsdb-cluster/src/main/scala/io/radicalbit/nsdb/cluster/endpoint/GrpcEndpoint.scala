@@ -154,15 +154,15 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       GrpcBit(
         timestamp = bit.timestamp,
         value = bit.value match {
-          case v: java.lang.Long          => GrpcBit.Value.LongValue(v)
-          case Some(v: java.lang.Double)  => GrpcBit.Value.DecimalValue(v)
-          case Some(v: java.lang.Float)  => GrpcBit.Value.DecimalValue(v.doubleValue())
-          case Some(v: java.lang.Integer) => GrpcBit.Value.LongValue(v.longValue())
-          case Some(v: java.lang.Long)    => GrpcBit.Value.LongValue(v)
+          case v: java.lang.Long    => GrpcBit.Value.LongValue(v)
+          case v: java.lang.Double  => GrpcBit.Value.DecimalValue(v)
+          case v: java.lang.Float   => GrpcBit.Value.DecimalValue(v.doubleValue())
+          case v: java.lang.Integer => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.lang.Long    => GrpcBit.Value.LongValue(v)
         },
         dimensions = bit.dimensions.map {
           case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
-          case (k, v: java.lang.Float)  => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
+          case (k, v: java.lang.Float)   => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
           case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
           case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
           case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
@@ -208,7 +208,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                 }
                 .recoverWith {
                   case t =>
-                    log.error("",t)
+                    log.error("", t)
                     Future.successful(
                       SQLStatementResponse(
                         db = requestDb,

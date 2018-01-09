@@ -125,7 +125,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
         case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
-          getFacetIndex(metric).getCount(q, collector.groupField, sort, limit)
+          handleQueryResults(metric, Try(getFacetIndex(metric).getCount(q, collector.groupField, sort, limit)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
         case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage)
