@@ -12,7 +12,7 @@ import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -68,7 +68,7 @@ class PublisherActorSpec
   val schema = Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
 
   before {
-    val queryIndex: QueryIndex = new QueryIndex(new NIOFSDirectory(Paths.get(basePath, "queries")))
+    val queryIndex: QueryIndex = new QueryIndex(new MMapDirectory(Paths.get(basePath, "queries")))
     implicit val writer        = queryIndex.getWriter
     queryIndex.deleteAll()
     writer.close()

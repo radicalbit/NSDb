@@ -9,7 +9,7 @@ import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.index.MetadataIndex
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 
@@ -22,7 +22,7 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
   private def getIndex(namespace: String): MetadataIndex =
     metadataIndexes.getOrElse(
       namespace, {
-        val newIndex = new MetadataIndex(new NIOFSDirectory(Paths.get(basePath, namespace, "metadata")))
+        val newIndex = new MetadataIndex(new MMapDirectory(Paths.get(basePath, namespace, "metadata")))
         metadataIndexes += (namespace -> newIndex)
         newIndex
       }

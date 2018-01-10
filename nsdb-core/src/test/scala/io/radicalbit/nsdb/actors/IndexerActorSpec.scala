@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -35,7 +35,7 @@ class IndexerActorSpec()
     val paths = Seq(s"$basePath/$namespace/indexerActorMetric", s"$basePath/$namespace/indexerActorMetric2")
 
     paths.foreach { path =>
-      val directory = new NIOFSDirectory(Paths.get(path))
+      val directory = new MMapDirectory(Paths.get(path))
       val writer    = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
       writer.deleteAll()
       writer.flush()

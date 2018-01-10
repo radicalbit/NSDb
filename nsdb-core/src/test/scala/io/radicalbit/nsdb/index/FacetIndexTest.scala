@@ -7,15 +7,15 @@ import cats.scalatest.ValidatedMatchers
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with ValidatedMatchers {
 
   "FacetIndex" should "write and read properly on disk" in {
     val facetIndex = new FacetIndex(
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+      new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
 
     implicit val writer     = facetIndex.getWriter
@@ -39,8 +39,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
     val facetIndex = new FacetIndex(
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+      new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
 
     implicit val writer     = facetIndex.getWriter
@@ -70,8 +70,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
     val facetIndex = new FacetIndex(
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+      new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
 
     implicit val writer     = facetIndex.getWriter
@@ -99,8 +99,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
   "FacetIndex" should "suppport delete" in {
     val facetIndex = new FacetIndex(
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+      new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
 
     implicit val writer     = facetIndex.getWriter
@@ -135,8 +135,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
   "FacetIndex" should "supports ordering and limiting" in {
     val facetIndex = new FacetIndex(
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
-      new NIOFSDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+      new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
     )
 
     implicit val writer     = facetIndex.getWriter

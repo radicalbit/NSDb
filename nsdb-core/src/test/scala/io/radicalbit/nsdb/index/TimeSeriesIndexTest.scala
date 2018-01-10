@@ -8,13 +8,13 @@ import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField, TermQuery}
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "TimeSeriesIndex" should "write and read properly on disk" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     implicit val writer = timeSeriesIndex.getWriter
 
@@ -32,7 +32,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support values containing dashes" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     implicit val writer = timeSeriesIndex.getWriter
 
@@ -53,7 +53,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support range queries and sorting" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     implicit val writer = timeSeriesIndex.getWriter
 
@@ -81,7 +81,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "delete records" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     implicit val writer = timeSeriesIndex.getWriter
 
@@ -114,7 +114,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support groupBy queries" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     implicit val writer = timeSeriesIndex.getWriter
 
@@ -137,7 +137,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support groupBy queries with ordering" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     val records: Seq[Bit] = (0 to 9).map { i =>
       Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"))
@@ -171,7 +171,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   "TimeSeriesIndex" should "support groupBy queries with ordering and limiting" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new NIOFSDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     val records: Seq[Bit] = (0 to 9).map { i =>
       Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"))

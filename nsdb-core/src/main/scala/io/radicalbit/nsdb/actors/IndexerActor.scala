@@ -17,7 +17,7 @@ import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, Pars
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.{MatchAllDocsQuery, Query}
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
@@ -57,7 +57,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
   private def getIndex(metric: String) =
     indexes.getOrElse(
       metric, {
-        val directory = new NIOFSDirectory(Paths.get(basePath, db, namespace, metric))
+        val directory = new MMapDirectory(Paths.get(basePath, db, namespace, metric))
         val newIndex  = new TimeSeriesIndex(directory)
         indexes += (metric -> newIndex)
         newIndex
@@ -67,8 +67,8 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
   private def getFacetIndex(metric: String) =
     facetIndexes.getOrElse(
       metric, {
-        val directory     = new NIOFSDirectory(Paths.get(basePath, db, namespace, metric, "facet"))
-        val taxoDirectory = new NIOFSDirectory(Paths.get(basePath, db, namespace, metric, "facet", "taxo"))
+        val directory     = new MMapDirectory(Paths.get(basePath, db, namespace, metric, "facet"))
+        val taxoDirectory = new MMapDirectory(Paths.get(basePath, db, namespace, metric, "facet", "taxo"))
         val newIndex      = new FacetIndex(directory, taxoDirectory)
         facetIndexes += (metric -> newIndex)
         newIndex
