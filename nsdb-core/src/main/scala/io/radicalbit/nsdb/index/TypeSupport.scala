@@ -55,7 +55,9 @@ sealed trait IndexType[T] {
 
 }
 
-sealed trait NumericType[T] extends IndexType[T]
+sealed trait NumericType[T, ST] extends IndexType[T] {
+  def numeric: Numeric[JSerializable]
+}
 
 sealed trait StringType[T] extends IndexType[T]
 
@@ -78,7 +80,7 @@ object IndexType {
 
 }
 
-case class INT() extends IndexType[Integer] {
+case class INT() extends NumericType[Integer, Int] {
   def actualType                   = classOf[Integer]
   def ord: Ordering[JSerializable] = Ordering[Long].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: Integer): Seq[Field] =
@@ -91,8 +93,10 @@ case class INT() extends IndexType[Integer] {
       new NumericDocValuesField(fieldName, value.toString.toLong)
     )
   def deserialize(value: Array[Byte]) = new String(value).toInt
+
+  override def numeric: Numeric[JSerializable] = implicitly[Numeric[Int]].asInstanceOf[Numeric[JSerializable]]
 }
-case class BIGINT() extends IndexType[JLong] {
+case class BIGINT() extends NumericType[JLong, Long] {
   def actualType                   = classOf[JLong]
   def ord: Ordering[JSerializable] = Ordering[JLong].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JLong): Seq[Field] =
@@ -107,8 +111,10 @@ case class BIGINT() extends IndexType[JLong] {
       new NumericDocValuesField(fieldName, value.toString.toLong)
     )
   def deserialize(value: Array[Byte]) = new String(value).toLong
+
+  override def numeric: Numeric[JSerializable] = implicitly[Numeric[Long]].asInstanceOf[Numeric[JSerializable]]
 }
-case class DECIMAL() extends IndexType[JDouble] {
+case class DECIMAL() extends NumericType[JDouble, Double] {
   def actualType                   = classOf[JDouble]
   def ord: Ordering[JSerializable] = Ordering[JDouble].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JDouble): Seq[Field] =
@@ -123,6 +129,8 @@ case class DECIMAL() extends IndexType[JDouble] {
       new DoubleDocValuesField(fieldName, value.toString.toDouble)
     )
   def deserialize(value: Array[Byte]) = new String(value).toDouble
+
+  override def numeric: Numeric[JSerializable] = implicitly[Numeric[Double]].asInstanceOf[Numeric[JSerializable]]
 }
 case class BOOLEAN() extends IndexType[Boolean] {
   def actualType                   = classOf[Boolean]
