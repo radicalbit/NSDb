@@ -17,12 +17,7 @@ object NSDB {
   type DimensionAPI = (String, JSerializable)
   type Field        = (String, JSerializable)
 
-  private val host = "127.0.0.1"
-
-  private val port = 2552
-
-  def connect(host: String = host, port: Int = port, db: String)(
-      implicit executionContextExecutor: ExecutionContext): NSDB =
+  def connect(host: String, port: Int, db: String)(implicit executionContextExecutor: ExecutionContext): NSDB =
     new NSDB(host = host, port = port, db = db)
 }
 
