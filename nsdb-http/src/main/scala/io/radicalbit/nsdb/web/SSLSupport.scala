@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.web
 
-import java.io.InputStream
+import java.io.{File, FileInputStream, InputStream}
 import java.nio.file.Paths
 import java.security.{KeyStore, SecureRandom}
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
@@ -22,7 +22,7 @@ trait SSLSupport {
 
     val ks: KeyStore = KeyStore.getInstance(sslConfig.getString("ssl.http.keyManager.store.type"))
     val keystore: InputStream =
-      getClass.getResource(sslConfig.getString("ssl.http.keyManager.store.name")).openStream()
+      new FileInputStream(new File(sslConfig.getString("ssl.http.keyManager.store.name")))
 
     require(keystore != null, "Keystore required!")
     ks.load(keystore, password)
