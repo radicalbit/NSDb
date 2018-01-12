@@ -8,9 +8,10 @@ import scala.concurrent.duration._
 
 object NSDBMain extends App {
 
-  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817, db = "root")(ExecutionContext.global)
+  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global)
 
   val series = nsdb
+    .db("root")
     .namespace("registry")
     .bit("people")
     .value(10)
@@ -18,6 +19,7 @@ object NSDBMain extends App {
     .dimension("gender", "M")
 
   val query = nsdb
+    .db("root")
     .namespace("registry")
     .query("select * from people limit 1")
 

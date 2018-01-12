@@ -9,7 +9,7 @@ import scala.concurrent.ExecutionContext
 
 import org.slf4j.LoggerFactory
 
-class NSDBSink[IN](host: String, port: Int, db: String)(implicit converter: IN => Bit) extends RichSinkFunction[IN] {
+class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) extends RichSinkFunction[IN] {
 
   private val log = LoggerFactory.getLogger(classOf[NSDBSink[IN]])
 
@@ -23,7 +23,7 @@ class NSDBSink[IN](host: String, port: Int, db: String)(implicit converter: IN =
   @throws[Exception]
   override def open(parameters: Configuration): Unit = {
     super.open(parameters)
-    nsdb = Some(NSDB.connect(host, port, db))
+    nsdb = Some(NSDB.connect(host, port))
     nsdb.foreach(x => log.info("NSDBSink {} connected", x))
   }
 

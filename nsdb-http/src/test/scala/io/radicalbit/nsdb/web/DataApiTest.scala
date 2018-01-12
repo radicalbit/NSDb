@@ -36,7 +36,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   }
 
   "DataApi" should "correctly insert a record" in {
-    val b = InsertBody("namespace", "metric", Bit(0, 1, Map.empty))
+    val b = InsertBody("db", "namespace", "metric", Bit(0, 1, Map.empty))
 
     Post("/data/db", b) ~> testRoutes ~> check {
       status shouldBe OK
