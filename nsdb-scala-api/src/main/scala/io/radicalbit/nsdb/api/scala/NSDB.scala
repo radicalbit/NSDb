@@ -94,7 +94,14 @@ case class Bit(db: String,
 
   def value: Option[AnyVal] = valueDec orElse valueLong
 
-  def dimension(dim: DimensionAPI): Bit = copy(dimensions = dimensions :+ dim)
+  def dimension(dim: DimensionAPI): Bit =
+    dim._2 match {
+      case Some(d: JSerializable) => copy(dimensions = dimensions :+ (dim._1 -> d))
+      case Some(_) => this
+      case None => this
+      case d => copy(dimensions = dimensions :+ (dim._1 -> d))
+    }
+
 
   def timestamp(v: Long): Bit = copy(ts = Some(v))
 }
