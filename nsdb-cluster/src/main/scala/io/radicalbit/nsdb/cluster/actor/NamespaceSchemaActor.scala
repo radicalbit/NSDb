@@ -1,10 +1,11 @@
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
