@@ -34,7 +34,6 @@ object NSDBMainRead extends App {
     .namespace("registry")
     .query("select * from people limit 1")
 
-
   val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
 
   println(Await.result(readRes, 10 seconds))
