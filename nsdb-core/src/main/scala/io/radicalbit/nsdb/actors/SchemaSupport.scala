@@ -6,7 +6,7 @@ import akka.actor.Actor
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.search.IndexSearcher
-import org.apache.lucene.store.NIOFSDirectory
+import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 
@@ -18,7 +18,7 @@ trait SchemaSupport { this: Actor =>
 
   def namespace: String
 
-  lazy val schemaIndex = new SchemaIndex(new NIOFSDirectory(Paths.get(basePath, db, namespace, "schemas")))
+  lazy val schemaIndex = new SchemaIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "schemas")))
 
   lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 
