@@ -16,7 +16,14 @@ trait NSDBAkkaCluster {
     .resolve()
     .withFallback(ConfigFactory.load("cluster"))
 
-  implicit val system: ActorSystem = ActorSystem("nsdb", config)
+  val parsedConf = if (config.getBoolean("akka.remote.netty.tcp.enable-ssl")) {
+    config
+      .withValue("akka.remote.enabled-transports", config.getValue("akka.remote.enabled-transports-ssl"))
+      .withValue("akka.cluster.seed-nodes", config.getValue("akka.cluster.seed-nodes-ssl"))
+  } else
+    config
+
+  implicit val system: ActorSystem = ActorSystem("nsdb", parsedConf)
 }
 
 trait NSDBAActors { this: NSDBAkkaCluster =>
