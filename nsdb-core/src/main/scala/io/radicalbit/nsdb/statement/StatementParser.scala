@@ -166,7 +166,7 @@ class StatementParser {
           Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
         case (true, List(), None, _) =>
           Failure(new RuntimeException("cannot execute a select all query with distinct"))
-          //TODO: Not supported yet
+        //TODO: Not supported yet
         case (true, fieldsSeq, None, _) if fieldsSeq.size > 1 =>
           Failure(new RuntimeException("cannot execute a select distinct projecting more than one dimension"))
         case (distinct, fieldsSeq, None, Some(limit))

@@ -66,6 +66,30 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select projecting a single dimension with distinct" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(db = "db",
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = true,
+                             fields = ListFields(List(Field("name", None))),
+                             limit = Some(LimitOperator(4))),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              distinct = true,
+              4,
+              List("name").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+
     "receive a select projecting a list of fields" should {
       "parse it successfully only in simple fields" in {
         parser.parseStatement(
