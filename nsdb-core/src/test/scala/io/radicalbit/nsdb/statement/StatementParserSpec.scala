@@ -52,6 +52,20 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select projecting a wildcard with distinct" should {
+      "fail" in {
+        parser.parseStatement(
+          SelectSQLStatement(db = "db",
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = true,
+                             fields = AllFields,
+                             limit = Some(LimitOperator(4))),
+          schema
+        ) shouldBe 'failure
+      }
+    }
+
     "receive a select projecting a list of fields" should {
       "parse it successfully only in simple fields" in {
         parser.parseStatement(
@@ -76,6 +90,20 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
+      "fail if distinct (Not supported yet)" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = true,
+            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) shouldBe 'failure
+      }
+
       "parse it successfully with mixed aggregated and simple" in {
         parser.parseStatement(
           SelectSQLStatement(
