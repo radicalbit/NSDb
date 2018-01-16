@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 
@@ -16,14 +16,14 @@ trait NSDBAkkaCluster {
     .resolve()
     .withFallback(ConfigFactory.load("cluster"))
 
-  val sslConf = if (config.getBoolean("akka.remote.netty.tcp.enable-ssl")) {
+  val parsedConf = if (config.getBoolean("akka.remote.netty.tcp.enable-ssl")) {
     config
       .withValue("akka.remote.enabled-transports", config.getValue("akka.remote.enabled-transports-ssl"))
       .withValue("akka.cluster.seed-nodes", config.getValue("akka.cluster.seed-nodes-ssl"))
   } else
     config
 
-  implicit val system: ActorSystem = ActorSystem("nsdb", sslConf)
+  implicit val system: ActorSystem = ActorSystem("nsdb", parsedConf)
 }
 
 trait NSDBAActors { this: NSDBAkkaCluster =>
