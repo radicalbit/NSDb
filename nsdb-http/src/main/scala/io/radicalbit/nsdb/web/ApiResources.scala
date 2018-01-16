@@ -23,11 +23,11 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-case class QueryBody(namespace: String, queryString: String, from: Option[Long], to: Option[Long])
-case class InsertBody(namespace: String, metric: String, bit: Bit)
+case class QueryBody(db: String, namespace: String, queryString: String, from: Option[Long], to: Option[Long])
+case class InsertBody(db: String, namespace: String, metric: String, bit: Bit)
 
 object Formats extends DefaultJsonProtocol with SprayJsonSupport {
-  implicit val QbFormat = jsonFormat4(QueryBody.apply)
+  implicit val QbFormat = jsonFormat5(QueryBody.apply)
 
   implicit object JSerializableJsonFormat extends RootJsonFormat[JSerializable] {
     def write(c: JSerializable) = c match {
@@ -46,7 +46,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit val BitFormat = jsonFormat3(Bit.apply)
 
-  implicit val InsertBodyFormat = jsonFormat3(InsertBody.apply)
+  implicit val InsertBodyFormat = jsonFormat4(InsertBody.apply)
 
 }
 
@@ -74,29 +74,27 @@ trait ApiResources {
           }
         }
       }
-      path(Segment) { db =>
-        post {
-          entity(as[QueryBody]) { qb =>
-            val statementOpt =
-              (new SQLStatementParser().parse(db, qb.namespace, qb.queryString), qb.from, qb.to) match {
-                case (Success(statement: SelectSQLStatement), Some(from), Some(to)) =>
-                  Some(statement.enrichWithTimeRange("timestamp", from, to))
-                case (Success(statement: SelectSQLStatement), _, _) => Some(statement)
-                case _                                              => None
-              }
-            statementOpt match {
-              case Some(statement) =>
-                onComplete(readCoordinator ? ExecuteStatement(statement)) {
-                  case Success(SelectStatementExecuted(_, _, _, values)) =>
-                    complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
-                  case Success(SelectStatementFailed(reason)) =>
-                    complete(HttpResponse(InternalServerError, entity = reason))
-                  case Success(_) =>
-                    complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
-              case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
+      post {
+        entity(as[QueryBody]) { qb =>
+          val statementOpt =
+            (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to) match {
+              case (Success(statement: SelectSQLStatement), Some(from), Some(to)) =>
+                Some(statement.enrichWithTimeRange("timestamp", from, to))
+              case (Success(statement: SelectSQLStatement), _, _) => Some(statement)
+              case _                                              => None
             }
+          statementOpt match {
+            case Some(statement) =>
+              onComplete(readCoordinator ? ExecuteStatement(statement)) {
+                case Success(SelectStatementExecuted(_, _, _, values)) =>
+                  complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
+                case Success(SelectStatementFailed(reason)) =>
+                  complete(HttpResponse(InternalServerError, entity = reason))
+                case Success(_) =>
+                  complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+              }
+            case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
           }
         }
       }

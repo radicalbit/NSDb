@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.api.scala
 import io.radicalbit.nsdb.api.scala.NSDB.DimensionAPI
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.common.Dimension
 import io.radicalbit.nsdb.rpc.request._
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -17,20 +17,20 @@ object NSDB {
   type DimensionAPI = (String, JSerializable)
   type Field        = (String, JSerializable)
 
-  def connect(host: String, port: Int, db: String)(implicit executionContextExecutor: ExecutionContext): NSDB =
-    new NSDB(host = host, port = port, db = db)
+  def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): NSDB =
+    new NSDB(host = host, port = port)
 }
 
-case class NSDB(host: String, port: Int, db: String)(implicit executionContextExecutor: ExecutionContext) {
+case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
 
   private val client = new GRPCClient(host = host, port = port)
 
-  def namespace(name: String): Namespace = Namespace(name)
+  def db(name: String): Db = Db(name)
 
   def write(bit: Bit): Future[RPCInsertResult] =
     client.write(
       RPCInsert(
-        database = db,
+        database = bit.db,
         namespace = bit.namespace,
         metric = bit.metric,
         timestamp = bit.ts getOrElse System.currentTimeMillis,
@@ -53,39 +53,54 @@ case class NSDB(host: String, port: Int, db: String)(implicit executionContextEx
 
   def execute(sqlStatement: SQLStatement): Future[SQLStatementResponse] = {
     val sqlStatementRequest =
-      SQLRequestStatement(db = db, namespace = sqlStatement.namespace, statement = sqlStatement.sQLStatement)
+      SQLRequestStatement(db = sqlStatement.db,
+                          namespace = sqlStatement.namespace,
+                          statement = sqlStatement.sQLStatement)
     client.executeSQLStatement(sqlStatementRequest)
   }
 
-  def close() = {}
+  def close(): Unit = {}
 }
 
-case class Namespace(name: String) {
+case class Db(name: String) {
 
-  def bit(bit: String): Bit = Bit(namespace = name, metric = bit)
-
-  def query(queryString: String) = SQLStatement(namespace = name, sQLStatement = queryString)
+  def namespace(namespace: String): Namespace = Namespace(name, namespace)
 
 }
 
-case class SQLStatement(namespace: String, sQLStatement: String) {
-  def statement(query: String) = copy(sQLStatement = query)
+case class Namespace(db: String, name: String) {
+
+  def bit(bit: String): Bit = Bit(db = db, namespace = name, metric = bit)
+
+  def query(queryString: String) = SQLStatement(db = db, namespace = name, sQLStatement = queryString)
+
 }
 
-case class Bit(namespace: String,
+case class SQLStatement(db: String, namespace: String, sQLStatement: String) {
+  def statement(query: String): SQLStatement = copy(sQLStatement = query)
+}
+
+case class Bit(db: String,
+               namespace: String,
                metric: String,
                ts: Option[Long] = None,
                private val valueDec: Option[Double] = None,
                private val valueLong: Option[Long] = None,
                dimensions: List[DimensionAPI] = List.empty[DimensionAPI]) {
 
-  def value(v: Long) = copy(valueDec = None, valueLong = Some(v))
+  def value(v: Long): Bit = copy(valueDec = None, valueLong = Some(v))
 
-  def value(v: Double) = copy(valueDec = Some(v), valueLong = None)
+  def value(v: Double): Bit = copy(valueDec = Some(v), valueLong = None)
 
   def value: Option[AnyVal] = valueDec orElse valueLong
 
-  def dimension(dim: DimensionAPI): Bit = copy(dimensions = dimensions :+ dim)
+  def dimension(dim: DimensionAPI): Bit =
+    dim._2 match {
+      case Some(d: JSerializable) => copy(dimensions = dimensions :+ (dim._1 -> d))
+      case Some(_)                => this
+      case None                   => this
+      case d                      => copy(dimensions = dimensions :+ (dim._1 -> d))
+    }
 
   def timestamp(v: Long): Bit = copy(ts = Some(v))
 }

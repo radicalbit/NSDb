@@ -14,9 +14,9 @@ import io.radicalbit.nsdb.web.actor.StreamActor._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class StreamActor(db: String, publisher: ActorRef) extends Actor with ActorLogging {
+class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
 
-  implicit val timeout =
+  implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.stream.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
   import context.dispatcher
 
@@ -28,7 +28,7 @@ class StreamActor(db: String, publisher: ActorRef) extends Actor with ActorLoggi
   }
 
   def connected(wsActor: ActorRef): Receive = {
-    case RegisterQuery(namespace, queryString) =>
+    case RegisterQuery(db, namespace, queryString) =>
       new SQLStatementParser().parse(db, namespace, queryString) match {
         case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
           (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
@@ -36,29 +36,29 @@ class StreamActor(db: String, publisher: ActorRef) extends Actor with ActorLoggi
               case msg @ SubscribedByQueryString(_, _, _) =>
                 OutgoingMessage(msg)
               case SubscriptionFailed(reason) =>
-                OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, reason))
+                OutgoingMessage(QuerystringRegistrationFailed(db, namespace, queryString, reason))
             }
             .pipeTo(wsActor)
         case Success(_) =>
-          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, "not a select query"))
+          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, queryString, "not a select query"))
         case Failure(ex) =>
-          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(namespace, queryString, ex.getMessage))
+          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, queryString, ex.getMessage))
       }
     case RegisterQueries(queries: Seq[RegisterQuery]) =>
       val results = queries.map(q => {
-        new SQLStatementParser().parse(db, q.namespace, q.queryString) match {
+        new SQLStatementParser().parse(q.db, q.namespace, q.queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
             (publisher ? SubscribeBySqlStatement(self, q.queryString, statement.asInstanceOf[SelectSQLStatement]))
               .map {
                 case msg @ SubscribedByQueryString(_, _, _) =>
                   msg
                 case SubscriptionFailed(reason) =>
-                  QuerystringRegistrationFailed(q.namespace, q.queryString, reason)
+                  QuerystringRegistrationFailed(q.db, q.namespace, q.queryString, reason)
               }
           case Success(_) =>
-            Future(QuerystringRegistrationFailed(q.namespace, q.queryString, "not a select query"))
+            Future(QuerystringRegistrationFailed(q.db, q.namespace, q.queryString, "not a select query"))
           case Failure(ex) =>
-            Future(QuerystringRegistrationFailed(q.namespace, q.queryString, ex.getMessage))
+            Future(QuerystringRegistrationFailed(q.db, q.namespace, q.queryString, ex.getMessage))
         }
       })
       Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
@@ -102,12 +102,12 @@ object StreamActor {
   case class OutgoingMessage(message: AnyRef)
 
   case object Terminate
-  case class RegisterQuery(namespace: String, queryString: String)
+  case class RegisterQuery(db: String, namespace: String, queryString: String)
   case class RegisterQueries(queries: Seq[RegisterQuery])
   case class RegisterQuid(quid: String)
   case class RegisterQuids(quids: Seq[String])
-  case class QuerystringRegistrationFailed(namespace: String, queryString: String, reason: String)
+  case class QuerystringRegistrationFailed(db: String, namespace: String, queryString: String, reason: String)
   case class QuidRegistrationFailed(quid: String, reason: String)
 
-  def props(db: String, publisherActor: ActorRef) = Props(new StreamActor(db, publisherActor))
+  def props(publisherActor: ActorRef) = Props(new StreamActor(publisherActor))
 }

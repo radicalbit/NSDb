@@ -19,9 +19,9 @@ trait WsResources {
 
   implicit def system: ActorSystem
 
-  private def newStream(db: String, publisherActor: ActorRef): Flow[Message, Message, NotUsed] = {
+  private def newStream(publisherActor: ActorRef): Flow[Message, Message, NotUsed] = {
 
-    val connectedWsActor = system.actorOf(StreamActor.props(db, publisherActor))
+    val connectedWsActor = system.actorOf(StreamActor.props(publisherActor))
 
     val incomingMessages: Sink[Message, NotUsed] =
       Flow[Message]
@@ -51,9 +51,7 @@ trait WsResources {
   }
 
   def wsResources(publisherActor: ActorRef): Route =
-    pathPrefix("ws-stream") {
-      path(Segment) { db =>
-        handleWebSocketMessages(newStream(db, publisherActor))
-      }
+    path("ws-stream") {
+      handleWebSocketMessages(newStream(publisherActor))
     }
 }

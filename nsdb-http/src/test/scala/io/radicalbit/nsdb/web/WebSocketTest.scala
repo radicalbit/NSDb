@@ -42,11 +42,12 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
   val wsClient = WSProbe()
 
   "WebSocketStream" should "register to a query" in {
-    WS("/ws-stream/db", wsClient.flow) ~> wsResources(publisherActor) ~>
+    WS("/ws-stream", wsClient.flow) ~> wsResources(publisherActor) ~>
       check {
         isWebSocketUpgrade shouldEqual true
 
-        wsClient.sendMessage("""{"namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
+        wsClient.sendMessage(
+          """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
         val text = wsClient.expectMessage().asTextMessage.getStrictText
 
@@ -55,17 +56,16 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         obj.isDefined shouldBe true
         obj.get.reason shouldEqual "not a select query"
 
-        wsClient.sendMessage("""{"namespace":"registry","queryString":"select * from people limit 1"}""")
+        wsClient.sendMessage("""{"db":"db","namespace":"registry","queryString":"select * from people limit 1"}""")
 
         val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
         parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
 
         wsClient.sendMessage(
-          """{"queries":[{"namespace":"registry","queryString":"select * from people limit 1"},{"namespace":"registry","queryString":"select * from people limit 1"}]}"""
+          """{"queries":[{"db":"db","namespace":"registry","queryString":"select * from people limit 1"},{"db":"db","namespace":"registry","queryString":"select * from people limit 1"}]}"""
         )
 
         val subscribedMultipleQueryString = wsClient.expectMessage().asTextMessage.getStrictText
-        println(subscribedMultipleQueryString)
         parse(subscribedMultipleQueryString).extractOpt[Seq[SubscribedByQueryString]].isDefined shouldBe true
 
         wsClient.sendMessage(
