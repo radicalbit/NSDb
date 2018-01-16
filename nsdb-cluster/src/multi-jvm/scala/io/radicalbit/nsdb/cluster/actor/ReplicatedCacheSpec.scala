@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.actor
+package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.Props
 import akka.cluster.Cluster
@@ -9,7 +9,6 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.actor.{LocationKey, MetricKey, ReplicatedMetadataCache}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
@@ -22,10 +21,24 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     akka.loglevel = ERROR
-    akka.actor.provider = "cluster"
-    akka.log-dead-letters-during-shutdown = off
-    nsdb.write-coordinator.timeout = 5 seconds
-    """))
+ |akka.actor.provider = "cluster"
+ |akka.log-dead-letters-during-shutdown = off
+ |nsdb{
+ |
+ |  read-coordinatoor.timeout = 10 seconds
+ |  namespace-schema.timeout = 10 seconds
+ |  namespace-data.timeout = 10 seconds
+ |  publisher.timeout = 10 seconds
+ |  publisher.scheduler.interval = 5 seconds
+ |  write.scheduler.interval = 15 seconds
+ |
+ |  index.base-path = "target/test_index/ReplicatedCacheSpec"
+ |  write-coordinator.timeout = 5 seconds
+ |  commit-log {
+ |    enabled = false
+ |  }
+ |}
+    """.stripMargin))
 }
 
 // need one concrete test class per node
@@ -72,16 +85,17 @@ class ReplicatedMetadataCacheSpec
     "replicate cached entry" in within(5.seconds) {
 
       val metric    = "metric1"
-      val key       = LocationKey("namespace", metric, 0, 1)
+      val key       = LocationKey("db", "namespace", metric, 0, 1)
       val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricKey("namespace", metric)
+      val metricKey = MetricKey("db", "namespace", metric)
 
       val probe = TestProbe()
 
       runOn(node1) {
         awaitAssert {
 
-          replicatedCache.tell(PutInCache(LocationKey("namespace", metric, 0, 1), Location(metric, "node1", 0, 1)),
+          replicatedCache.tell(PutInCache(LocationKey("db", "namespace", metric, 0, 1),
+                                          Location(metric, "node1", 0, 1)),
                                probe.ref)
           probe.expectMsg(Cached(key, Some(location)))
         }
@@ -103,9 +117,9 @@ class ReplicatedMetadataCacheSpec
     "replicate many cached entries" in within(5.seconds) {
       val probe     = TestProbe()
       val metric    = "metric2"
-      val key       = LocationKey("namespace", metric, _: Long, _: Long)
+      val key       = LocationKey("db", "namespace", metric, _: Long, _: Long)
       val location  = Location(metric, "node1", _: Long, _: Long)
-      val metricKey = MetricKey("namespace", metric)
+      val metricKey = MetricKey("db", "namespace", metric)
 
       runOn(node1) {
         for (i ← 10 to 20) {
@@ -133,9 +147,9 @@ class ReplicatedMetadataCacheSpec
     "replicate evicted entry" in within(5.seconds) {
       val metric    = "metric3"
       val probe     = TestProbe()
-      val key       = LocationKey("namespace", metric, 0, 1)
+      val key       = LocationKey("db", "namespace", metric, 0, 1)
       val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricKey("namespace", metric)
+      val metricKey = MetricKey("db", "namespace", metric)
 
       runOn(node1) {
         replicatedCache.tell(PutInCache(key, location), probe.ref)
@@ -170,10 +184,10 @@ class ReplicatedMetadataCacheSpec
 
     "replicate updated cached entry" in within(5.seconds) {
       val metric          = "metric4"
-      val key             = LocationKey("namespace", metric, 0, 1)
+      val key             = LocationKey("db", "namespace", metric, 0, 1)
       val location        = Location(metric, "node1", 0, 1)
       val updatedLocation = Location(metric, "node1", 0, 1)
-      val metricKey       = MetricKey("namespace", metric)
+      val metricKey       = MetricKey("db", "namespace", metric)
       val probe           = TestProbe()
 
       runOn(node1) {

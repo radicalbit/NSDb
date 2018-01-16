@@ -1,18 +1,15 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
-
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index._
+import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.apache.lucene.store.MMapDirectory
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -43,13 +40,11 @@ class PublisherActorSpec
     with OneInstancePerTest
     with BeforeAndAfter {
 
-  val basePath   = "target/test_index_publisher_actor"
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =
     TestActorRef[PublisherActor](
-      PublisherActor.props(basePath,
-                           system.actorOf(Props[FakeReadCoordinatorActor]),
+      PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]),
                            system.actorOf(Props[FakeNamespaceSchemaActor])))
 
   val testSqlStatement = SelectSQLStatement(
@@ -66,13 +61,6 @@ class PublisherActorSpec
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
 
   val schema = Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
-
-  before {
-    val queryIndex: QueryIndex = new QueryIndex(new MMapDirectory(Paths.get(basePath, "queries")))
-    implicit val writer        = queryIndex.getWriter
-    queryIndex.deleteAll()
-    writer.close()
-  }
 
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))

@@ -10,8 +10,9 @@ case class ListFields(fields: List[Field]) extends SelectedFields
 
 case class ListAssignment(fields: Map[String, JSerializable])
 
-sealed trait Expression
 case class Condition(expression: Expression)
+
+sealed trait Expression
 case class UnaryLogicalExpression(expression: Expression, operator: SingleLogicalOperator) extends Expression
 case class TupledLogicalExpression(expression1: Expression, operator: TupledLogicalOperator, expression2: Expression)
     extends Expression
@@ -71,6 +72,12 @@ case class SelectSQLStatement(override val db: String,
     }
     this.copy(condition = Some(newCondition))
   }
+
+  def getTimeOrdering: Option[Ordering[Long]] =
+    this.order.collect {
+      case o: AscOrderOperator if o.dimension == "timestamp"  => implicitly[Ordering[Long]]
+      case o: DescOrderOperator if o.dimension == "timestamp" => implicitly[Ordering[Long]].reverse
+    }
 
 }
 

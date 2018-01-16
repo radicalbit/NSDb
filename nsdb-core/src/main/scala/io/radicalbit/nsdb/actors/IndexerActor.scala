@@ -27,6 +27,7 @@ sealed trait Operation {
   val ns: String
   val metric: String
 }
+
 case class DeleteRecordOperation(ns: String, metric: String, bit: Bit)    extends Operation
 case class DeleteQueryOperation(ns: String, metric: String, query: Query) extends Operation
 case class WriteOperation(ns: String, metric: String, bit: Bit)           extends Operation
@@ -115,7 +116,7 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
 
   def readOps: Receive = {
     case GetMetrics(_, _) =>
-      sender() ! MetricsGot(db, namespace, indexes.keys.toSeq)
+      sender() ! MetricsGot(db, namespace, indexes.keys.toSet)
     case GetCount(_, ns, metric) =>
       val index = getIndex(metric)
       val hits  = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)

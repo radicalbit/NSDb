@@ -34,12 +34,11 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
   implicit val formats = DefaultFormats
 
-  val basePath = "target/test_index_ws"
-  val publisherActor = system.actorOf(
-    PublisherActor.props(basePath,
-                         system.actorOf(Props[FakeReadCoordinatorActor]),
-                         system.actorOf(Props[FakeNamespaceSchemaActor])))
+  val basePath = "target/test_index/WebSocketTest"
 
+  val publisherActor = system.actorOf(
+    PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]),
+                         system.actorOf(Props[FakeNamespaceSchemaActor])))
   val wsClient = WSProbe()
 
   "WebSocketStream" should "register to a query" in {

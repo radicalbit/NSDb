@@ -21,8 +21,9 @@ class LocationActorTest
     with BeforeAndAfter {
 
   val probe         = TestProbe()
-  val metadataActor = system.actorOf(MetadataActor.props("target/test_index_metadata_actor", null))
+  val metadataActor = system.actorOf(MetadataActor.props("target/test_index/LocationActorTest", null))
 
+  lazy val db        = "db"
   lazy val namespace = "namespaceTest"
   lazy val metric    = "people"
 
@@ -35,18 +36,18 @@ class LocationActorTest
 
   before {
     implicit val timeout = Timeout(5 seconds)
-    Await.result(metadataActor ? DeleteNamespace(namespace), 5 seconds)
-    Await.result(metadataActor ? AddLocations(namespace, locations), 5 seconds)
+    Await.result(metadataActor ? DeleteNamespace(db, namespace), 5 seconds)
+    Await.result(metadataActor ? AddLocations(db, namespace, locations), 5 seconds)
   }
 
   "MetadataActor" should "delete locations for a namespace" in {
 
-    probe.send(metadataActor, DeleteNamespace(namespace))
+    probe.send(metadataActor, DeleteNamespace(db, namespace))
 
     val deleted = probe.expectMsgType[NamespaceDeleted]
     deleted.namespace shouldBe namespace
 
-    probe.send(metadataActor, GetLocations(namespace, metric))
+    probe.send(metadataActor, GetLocations(db, namespace, metric))
 
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
@@ -55,29 +56,28 @@ class LocationActorTest
 
   "MetadataActor" should "get locations for metric" in {
 
-    probe.send(metadataActor, GetLocations(namespace, "nonexisting"))
+    probe.send(metadataActor, GetLocations(db, namespace, "nonexisting"))
 
     val nonexistingGot = probe.expectMsgType[LocationsGot]
     nonexistingGot.metric shouldBe "nonexisting"
     nonexistingGot.locations shouldBe Seq.empty
 
-    probe.send(metadataActor, GetLocations(namespace, metric))
+    probe.send(metadataActor, GetLocations(db, namespace, metric))
 
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
     existingGot.locations shouldBe locations
-
   }
 
   "MetadataActor" should "add a new location" in {
 
     val newLocation = Location(metric, "node2", 10, 11)
-    probe.send(metadataActor, AddLocation(namespace, newLocation))
+    probe.send(metadataActor, AddLocation(db, namespace, newLocation))
 
     val added = probe.expectMsgType[LocationAdded]
     added.location shouldBe newLocation
 
-    probe.send(metadataActor, GetLocations(namespace, metric))
+    probe.send(metadataActor, GetLocations(db, namespace, metric))
 
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric

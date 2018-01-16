@@ -1,16 +1,13 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.WriteInterval
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -20,11 +17,13 @@ class IndexerActorSpec()
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter
-    with WriteInterval {
+    with BeforeAndAfter {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
+
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS)
 
   val basePath     = "target/test_index"
   val db           = "db"
@@ -32,16 +31,9 @@ class IndexerActorSpec()
   val indexerActor = system.actorOf(IndexerActor.props(basePath, db, namespace))
 
   before {
-    val paths = Seq(s"$basePath/$namespace/indexerActorMetric", s"$basePath/$namespace/indexerActorMetric2")
-
-    paths.foreach { path =>
-      val directory = new MMapDirectory(Paths.get(path))
-      val writer    = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-      writer.deleteAll()
-      writer.flush()
-      writer.close()
-    }
-
+    import scala.collection.JavaConverters._
+    if (Paths.get(basePath, db).toFile.exists())
+      Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
   }
 
   "IndexerActor" should "write and delete properly" in {
@@ -54,7 +46,7 @@ class IndexerActorSpec()
       expectedAdd.metric shouldBe "indexerActorMetric"
       expectedAdd.record shouldBe bit
     }
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
     within(5 seconds) {
@@ -68,7 +60,7 @@ class IndexerActorSpec()
       expectedDelete.metric shouldBe "indexerActorMetric"
       expectedDelete.record shouldBe bit
     }
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
     within(5 seconds) {
@@ -81,13 +73,6 @@ class IndexerActorSpec()
 
   "IndexerActor" should "write and delete properly in multiple indexes" in {
 
-    probe.send(indexerActor, DeleteAllMetrics(db, namespace))
-    within(5 seconds) {
-      probe.expectMsgType[AllMetricsDeleted]
-    }
-
-    waitInterval
-
     val bit = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
 
     probe.send(indexerActor, AddRecord(db, namespace, "indexerActorMetric2", bit))
@@ -95,7 +80,7 @@ class IndexerActorSpec()
       probe.expectMsgType[RecordAdded]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount(db, namespace, "indexerActorMetric"))
     within(5 seconds) {
@@ -123,7 +108,7 @@ class IndexerActorSpec()
     probe.expectMsgType[RecordAdded]
     probe.expectMsgType[RecordAdded]
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount("db", "testNamespace", "testMetric"))
     within(5 seconds) {
@@ -135,7 +120,7 @@ class IndexerActorSpec()
       probe.expectMsgType[MetricDropped]
     }
 
-    waitInterval
+    expectNoMessage(interval)
 
     probe.send(indexerActor, GetCount("db", "testNamespace", "testMetric"))
     within(5 seconds) {

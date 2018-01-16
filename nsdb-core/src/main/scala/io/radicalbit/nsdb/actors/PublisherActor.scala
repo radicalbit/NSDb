@@ -23,9 +23,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
-    extends Actor
-    with ActorLogging {
+class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
 
   lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
@@ -56,7 +54,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
           val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
             .map {
               case e: SelectStatementExecuted => RecordsPublished(id, e.metric, e.values)
-              case e: SelectStatementFailed   => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
+              case SelectStatementFailed(_)   => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
             }
           subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       }
@@ -72,7 +70,7 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
               case SchemaGot(_, _, _, Some(schema)) =>
                 new StatementParser().parseStatement(query, schema) match {
                   case Success(parsedQuery) =>
-                    val id = queries.find { case (k, v) => v.query == query }.map(_._1) getOrElse
+                    val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
                       UUID.randomUUID().toString
 
                     (readCoordinator ? ExecuteStatement(query))
@@ -157,8 +155,8 @@ class PublisherActor(val basePath: String, readCoordinator: ActorRef, namespaceS
 
 object PublisherActor {
 
-  def props(basePath: String, readCoordinator: ActorRef, namespaceSchemaActor: ActorRef): Props =
-    Props(new PublisherActor(basePath, readCoordinator, namespaceSchemaActor))
+  def props(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef): Props =
+    Props(new PublisherActor(readCoordinator, namespaceSchemaActor))
 
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)

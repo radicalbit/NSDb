@@ -11,8 +11,8 @@ import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.concurrent.duration._
 
-case class LocationKey(namespace: String, metric: String, from: Long, to: Long)
-case class MetricKey(namespace: String, metric: String)
+case class LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
+case class MetricKey(db: String, namespace: String, metric: String)
 
 object ReplicatedMetadataCache {
   private final case class Request(key: LocationKey, replyTo: ActorRef)
@@ -58,7 +58,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
             }
             case _ => Cached(key, None)
           }
-        metricKey = MetricKey(key.namespace, key.metric)
+        metricKey = MetricKey(key.db, key.namespace, key.metric)
         getMetric <- (replicator ? Get(metricDataKey(metricKey), ReadMajority(writeDuration))).map {
           case g @ GetSuccess(LWWMapKey(_), _) =>
             CachedLocations(
@@ -90,7 +90,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val f = for {
         loc <- (replicator ? Update(locationDataKey(key), LWWMap(), WriteMajority(writeDuration))(_ - key))
           .map(_ => Cached(key, None))
-        metricKey = MetricKey(key.namespace, key.metric)
+        metricKey = MetricKey(key.db, key.namespace, key.metric)
         getMetric <- (replicator ? Get(metricDataKey(metricKey), ReadMajority(writeDuration))).map {
           case g @ GetSuccess(LWWMapKey(_), _) =>
             CachedLocations(
@@ -130,12 +130,16 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         case None        => replyTo ! Cached(key, None)
       }
     case g @ GetSuccess(LWWMapKey(_), Some(MetricRequest(key, replyTo))) =>
-      g.dataValue.asInstanceOf[LWWMap[MetricKey, Seq[Location]]].get(MetricKey(key.namespace, key.metric)) match {
-        case Some(value) => replyTo ! CachedLocations(MetricKey(key.namespace, key.metric), value)
-        case None        => replyTo ! CachedLocations(MetricKey(key.namespace, key.metric), Seq.empty)
+      g.dataValue
+        .asInstanceOf[LWWMap[MetricKey, Seq[Location]]]
+        .get(MetricKey(key.db, key.namespace, key.metric)) match {
+        case Some(value) => replyTo ! CachedLocations(MetricKey(key.db, key.namespace, key.metric), value)
+        case None        => replyTo ! CachedLocations(MetricKey(key.db, key.namespace, key.metric), Seq.empty)
       }
     case NotFound(_, Some(Request(key, replyTo))) =>
       replyTo ! Cached(key, None)
+    case NotFound(_, Some(MetricRequest(key, replyTo))) =>
+      replyTo ! CachedLocations(key, Seq.empty)
     case msg: UpdateResponse[_] =>
       log.debug("received not handled update message {}", msg)
   }

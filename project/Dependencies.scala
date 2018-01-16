@@ -26,6 +26,12 @@ object Dependencies {
     lazy val cats      = namespace %% "cats" % version
   }
 
+  object spire {
+    lazy val version   = "0.14.1"
+    lazy val namespace = "org.typelevel"
+    lazy val spire     = namespace %% "spire" % version
+  }
+
   object akka {
     lazy val version   = "2.5.6"
     lazy val namespace = "com.typesafe.akka"
@@ -163,6 +169,7 @@ object Dependencies {
     val libraries = Seq(
       akka.actor,
       cats.cats,
+      spire.spire,
       lucene.core,
       lucene.queryParser,
       lucene.grouping,

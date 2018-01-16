@@ -94,7 +94,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       (readCoordinator ? GetNamespaces(db = request.db))
         .mapTo[NamespacesGot]
         .map { namespaces =>
-          Namespaces(db = namespaces.db, namespaces = namespaces.namespaces, completedSuccessfully = true)
+          Namespaces(db = namespaces.db, namespaces = namespaces.namespaces.toSeq)
         }
         .recoverWith {
           case t =>
@@ -153,7 +153,6 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           case v: java.lang.Double  => GrpcBit.Value.DecimalValue(v)
           case v: java.lang.Float   => GrpcBit.Value.DecimalValue(v.doubleValue())
           case v: java.lang.Integer => GrpcBit.Value.LongValue(v.longValue())
-          case v: java.lang.Long    => GrpcBit.Value.LongValue(v)
         },
         dimensions = bit.dimensions.map {
           case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
