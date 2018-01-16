@@ -123,8 +123,11 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       sender ! CountGot(db, ns, metric, hits.size)
     case ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
-        case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
+        case Success(ParsedSimpleQuery(_, metric, q, false, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) =>
+          handleQueryResults(metric,
+                             Try(getFacetIndex(metric).getDistinctField(q, fields.map(_.name).head, sort, limit)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
           handleQueryResults(metric, Try(getFacetIndex(metric).getCount(q, collector.groupField, sort, limit)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>

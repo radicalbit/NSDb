@@ -57,6 +57,7 @@ sealed trait SQLStatement extends NSDBStatement {
 case class SelectSQLStatement(override val db: String,
                               override val namespace: String,
                               override val metric: String,
+                              distinct: Boolean,
                               fields: SelectedFields,
                               condition: Option[Condition] = None,
                               groupBy: Option[String] = None,

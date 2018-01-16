@@ -14,7 +14,24 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
     "receive a select projecting a wildcard" should {
       "parse it successfully" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT * FROM people") should be(
-          Success(SelectSQLStatement(db = "db", namespace = "registry", metric = "people", fields = AllFields)))
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = AllFields)))
+      }
+    }
+
+    "receive a select projecting a wildcard with distinct" should {
+      "parse it successfully" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT * FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = true,
+                               fields = AllFields)))
       }
     }
 
@@ -25,7 +42,18 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
+                               distinct = false,
                                fields = ListFields(List(Field("name", None)))))
+        )
+      }
+      "parse it successfully with a simple field with distinct" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = true,
+              fields = ListFields(List(Field("name", None)))))
         )
       }
       "parse it successfully with an aggregated field" in {
@@ -34,6 +62,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
+                               distinct = false,
                                fields = ListFields(List(Field("value", Some(CountAggregation))))))
         )
       }
@@ -43,6 +72,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
+                               distinct = false,
                                fields = ListFields(List(Field("*", Some(CountAggregation))))))
         )
       }
@@ -51,13 +81,26 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
     "receive a select projecting a list of fields" should {
       "parse it successfully only with simple fields" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname,creationDate FROM people") should be(
-          Success(
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))))))
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None)))
+          )))
       }
+
+      "parse it successfully only with simple fields and distinct" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name,surname,creationDate FROM people") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = true,
+            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None)))
+          )))
+      }
+
       "parse it successfully with mixed aggregated and simple" in {
         parser.parse(db = "db",
                      namespace = "registry",
@@ -66,6 +109,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("*", Some(CountAggregation)),
                                      Field("surname", None),
                                      Field("creationDate", Some(SumAggregation))))
@@ -80,6 +124,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)))
           )))
@@ -100,6 +145,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10L)))
           )))
@@ -121,6 +167,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(LikeExpression(dimension = "name", value = "$ame$")))
           )))
@@ -134,6 +181,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L)))
@@ -158,6 +206,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
@@ -185,6 +234,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
@@ -213,6 +263,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
@@ -242,6 +293,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
+                               distinct = false,
                                fields = AllFields,
                                order = Some(AscOrderOperator("name")))))
       }
@@ -254,6 +306,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
+                               distinct = false,
                                fields = AllFields,
                                limit = Some(LimitOperator(10)))))
       }
@@ -268,6 +321,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
             order = Some(DescOrderOperator(dimension = "name")),
@@ -282,6 +336,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))),
             order = Some(DescOrderOperator(dimension = "name")),
@@ -302,6 +357,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(
               Condition(TupledLogicalExpression(LikeExpression("name", "$an$"),
@@ -325,6 +381,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "AreaOccupancy",
+            distinct = false,
             fields = AllFields,
             condition = Some(Condition(EqualityExpression("name", "MeetingArea"))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
@@ -342,6 +399,12 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       "fail" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT name surname FROM people") shouldBe 'failure
         parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname age FROM people") shouldBe 'failure
+      }
+    }
+
+    "receive query with distinct in wrong order " should {
+      "fail" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name, distinct surname FROM people") shouldBe 'failure
       }
     }
 

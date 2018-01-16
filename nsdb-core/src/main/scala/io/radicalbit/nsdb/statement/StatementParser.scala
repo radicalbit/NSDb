@@ -8,6 +8,7 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
+import org.apache.lucene.search.grouping.DistinctValuesCollector
 
 import scala.util.{Failure, Success, Try}
 
@@ -145,9 +146,11 @@ class StatementParser {
       case ListFields(list) => list
     }
 
+    val distinctValue = statement.distinct
+
     expParsed.flatMap(exp =>
-      (fieldList, statement.groupBy, statement.limit) match {
-        case (Seq(Field(fieldName, Some(agg))), Some(group), limit) =>
+      (distinctValue, fieldList, statement.groupBy, statement.limit) match {
+        case (false, Seq(Field(fieldName, Some(agg))), Some(group), limit) =>
           Success(
             ParsedAggregatedQuery(statement.namespace,
                                   statement.metric,
@@ -155,28 +158,31 @@ class StatementParser {
                                   getCollector(group, fieldName, agg),
                                   sortOpt,
                                   limit.map(_.value)))
-        case (List(Field(_, None)), Some(_), _) =>
+        case (_, List(Field(_, None)), Some(_), _) =>
           Failure(new RuntimeException("cannot execute a group by query without an aggregation"))
-        case (List(_), Some(_), _) =>
+        case (_, List(_), Some(_), _) =>
           Failure(new RuntimeException("cannot execute a group by query with more than a field"))
-        case (List(), Some(_), _) =>
+        case (_, List(), Some(_), _) =>
           Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
-        case (fieldsSeq, None, Some(limit))
+        case (distinct, fieldsSeq, None, Some(limit))
             if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
           Success(
             ParsedSimpleQuery(statement.namespace,
                               statement.metric,
                               exp.q,
+                              distinct,
                               limit.value,
                               fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
                               sortOpt))
-        case (List(), None, Some(limit)) =>
-          Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, limit.value, List(), sortOpt))
-        case (fieldsSeq, None, Some(_))
+        case (false, List(), None, Some(limit)) =>
+          Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, false, limit.value, List(), sortOpt))
+        case (true, List(), None, _) =>
+          Failure(new RuntimeException("cannot execute a select all query with distinct"))
+        case (_, fieldsSeq, None, Some(_))
             if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
           Failure(
             new RuntimeException("cannot execute a query with aggregation different than count without a group by"))
-        case (_, None, None) =>
+        case (_, _, None, None) =>
           Failure(new RuntimeException("cannot execute query without a limit"))
     })
   }
@@ -201,6 +207,7 @@ object StatementParser {
   case class ParsedSimpleQuery(namespace: String,
                                metric: String,
                                q: Query,
+                               distinct: Boolean,
                                limit: Int,
                                fields: List[SimpleField] = List.empty,
                                sort: Option[Sort] = None)
