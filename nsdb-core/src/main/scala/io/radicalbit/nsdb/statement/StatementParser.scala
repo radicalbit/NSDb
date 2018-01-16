@@ -164,6 +164,11 @@ class StatementParser {
           Failure(new RuntimeException("cannot execute a group by query with more than a field"))
         case (_, List(), Some(_), _) =>
           Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
+        case (true, List(), None, _) =>
+          Failure(new RuntimeException("cannot execute a select all query with distinct"))
+          //TODO: Not supported yet
+        case (true, fieldsSeq, None, _) if fieldsSeq.size > 1 =>
+          Failure(new RuntimeException("cannot execute a select distinct projecting more than one dimension"))
         case (distinct, fieldsSeq, None, Some(limit))
             if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
           Success(
@@ -176,8 +181,7 @@ class StatementParser {
                               sortOpt))
         case (false, List(), None, Some(limit)) =>
           Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, false, limit.value, List(), sortOpt))
-        case (true, List(), None, _) =>
-          Failure(new RuntimeException("cannot execute a select all query with distinct"))
+
         case (_, fieldsSeq, None, Some(_))
             if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
           Failure(
