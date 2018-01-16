@@ -51,6 +51,7 @@ class PublisherActorSpec
     db = "db",
     namespace = "registry",
     metric = "people",
+    distinct = false,
     fields = AllFields,
     condition = Some(
       Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),

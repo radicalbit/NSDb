@@ -50,10 +50,10 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
         parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name FROM people") should be(
           Success(
             SelectSQLStatement(db = "db",
-              namespace = "registry",
-              metric = "people",
-              distinct = true,
-              fields = ListFields(List(Field("name", None)))))
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = true,
+                               fields = ListFields(List(Field("name", None)))))
         )
       }
       "parse it successfully with an aggregated field" in {
@@ -91,7 +91,9 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully only with simple fields and distinct" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name,surname,creationDate FROM people") should be(
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT DISTINCT name,surname,creationDate FROM people") should be(
           Success(SelectSQLStatement(
             db = "db",
             namespace = "registry",

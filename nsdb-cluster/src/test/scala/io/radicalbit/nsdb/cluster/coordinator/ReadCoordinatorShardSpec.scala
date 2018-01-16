@@ -78,14 +78,17 @@ class ReadCoordinatorShardSpec
     "receive a select projecting a wildcard with a limit" should {
       "execute it successfully" in {
 
-        probe.send(readCoordinatorActor,
-                   ExecuteStatement(
-                     SelectSQLStatement(db = db,
-                                        namespace = namespace,
-                                        metric = "people",
-                                        fields = AllFields,
-                                        limit = Some(LimitOperator(2)))
-                   ))
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(db = db,
+                               namespace = namespace,
+                               metric = "people",
+                               distinct = false,
+                               fields = AllFields,
+                               limit = Some(LimitOperator(2)))
+          )
+        )
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
@@ -102,6 +105,7 @@ class ReadCoordinatorShardSpec
             SelectSQLStatement(db = db,
                                namespace = namespace,
                                metric = "people",
+                               distinct = false,
                                fields = AllFields,
                                limit = Some(LimitOperator(2)),
                                order = Some(DescOrderOperator("timestamp")))
@@ -121,6 +125,7 @@ class ReadCoordinatorShardSpec
             SelectSQLStatement(db = db,
                                namespace = namespace,
                                metric = "people",
+                               distinct = false,
                                fields = AllFields,
                                limit = Some(LimitOperator(2)),
                                order = Some(DescOrderOperator("name")))

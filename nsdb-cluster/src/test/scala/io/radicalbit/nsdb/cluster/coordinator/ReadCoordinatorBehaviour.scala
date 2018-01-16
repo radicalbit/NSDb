@@ -87,14 +87,17 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       "receive a select projecting a wildcard" should {
         "execute it successfully" in {
 
-          probe.send(readCoordinatorActor,
-                     ExecuteStatement(
-                       SelectSQLStatement(db = db,
-                                          namespace = namespace,
-                                          metric = "people",
-                                          fields = AllFields,
-                                          limit = Some(LimitOperator(5)))
-                     ))
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(db = db,
+                                 namespace = namespace,
+                                 metric = "people",
+                                 distinct = false,
+                                 fields = AllFields,
+                                 limit = Some(LimitOperator(5)))
+            )
+          )
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.sortBy(_.timestamp) shouldBe testRecords
@@ -111,6 +114,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None), Field("surname", None))),
                 limit = Some(LimitOperator(5))
               )
@@ -132,6 +136,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)), Field("name", None))),
                 limit = Some(LimitOperator(5))
               )
@@ -156,6 +161,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(
                   List(Field("*", Some(CountAggregation)))
                 ),
@@ -178,6 +184,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(
                   List(Field("*", Some(CountAggregation)),
                        Field("surname", None),
@@ -201,6 +208,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
                 limit = Some(LimitOperator(4))
@@ -225,6 +233,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
@@ -251,6 +260,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(
                   Condition(UnaryLogicalExpression(
@@ -279,6 +289,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(TupledLogicalExpression(
                   expression1 =
@@ -309,6 +320,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(expression = TupledLogicalExpression(
                   expression1 =
@@ -337,6 +349,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 2L))),
                 limit = Some(LimitOperator(4))
@@ -361,6 +374,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(expression = TupledLogicalExpression(
                   expression1 =
@@ -388,6 +402,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
                 condition = Some(Condition(
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
@@ -412,6 +427,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 db = db,
                 namespace = namespace,
                 metric = "people",
+                distinct = false,
                 fields = ListFields(List(Field("creationDate", None))),
                 condition = Some(Condition(
                   ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
@@ -433,6 +449,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(db = db,
                                  namespace = namespace,
                                  metric = "nonexisting",
+                                 distinct = false,
                                  fields = AllFields,
                                  limit = Some(LimitOperator(5)))
             )
