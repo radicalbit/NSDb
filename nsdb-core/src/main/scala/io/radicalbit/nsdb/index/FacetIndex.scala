@@ -84,4 +84,6 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     val x            = facetsFolder.getTopChildren(actualLimit, groupField)
     x.labelValues.map(lv => Bit(0, lv.value.longValue(), Map(groupField -> lv.label))).toSeq
   }
+
+  def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = ???
 }
