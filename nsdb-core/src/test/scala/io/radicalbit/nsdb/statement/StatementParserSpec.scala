@@ -35,6 +35,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
+                             distinct = false,
                              fields = AllFields,
                              limit = Some(LimitOperator(4))),
           schema
@@ -44,6 +45,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
+              distinct = false,
               4
             ))
         )
@@ -57,6 +59,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
             limit = Some(LimitOperator(4))
           ),
@@ -67,6 +70,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
+              distinct = false,
               4,
               List("name", "surname", "creationDate").map(SimpleField(_))
             ))
@@ -78,6 +82,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(
               List(Field("*", Some(CountAggregation)),
                    Field("surname", None),
@@ -91,6 +96,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
+              distinct = false,
               4,
               List(SimpleField("*", true), SimpleField("surname"), SimpleField("creationDate", true))
             ))
@@ -102,6 +108,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(
               List(Field("*", Some(CountAggregation)),
                    Field("surname", None),
@@ -120,6 +127,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             limit = Some(LimitOperator(4))
@@ -131,6 +139,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
+              false,
               4,
               List("name").map(SimpleField(_))
             ))
@@ -145,6 +154,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10L))),
             limit = Some(LimitOperator(4))
@@ -156,6 +166,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newExactQuery("timestamp", 10L),
+              false,
               4,
               List("name").map(SimpleField(_))
             ))
@@ -167,6 +178,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(EqualityExpression(dimension = "name", value = "TestString"))),
             limit = Some(LimitOperator(4))
@@ -178,6 +190,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new TermQuery(new Term("name", "TestString")),
+              false,
               4,
               List("name").map(SimpleField(_))
             ))
@@ -189,6 +202,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(EqualityExpression(dimension = "name", value = 0))),
             limit = Some(LimitOperator(4))
@@ -200,6 +214,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new TermQuery(new Term("name", "0")),
+              false,
               4,
               List("name").map(SimpleField(_))
             ))
@@ -214,6 +229,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
@@ -226,6 +242,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 10L, Long.MaxValue),
+              false,
               4,
               List("name").map(SimpleField(_))
             ))
@@ -240,6 +257,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
@@ -259,6 +277,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("timestamp", 2L + 1, Long.MaxValue), BooleanClause.Occur.MUST)
                 .add(LongPoint.newRangeQuery("timestamp", Long.MinValue, 4L), BooleanClause.Occur.MUST)
                 .build(),
+              false,
               4,
               List("name").map(SimpleField(_))
             )
@@ -273,6 +292,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
@@ -301,6 +321,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                   BooleanClause.Occur.MUST_NOT
                 )
                 .build(),
+              false,
               4,
               List("name").map(SimpleField(_))
             )
@@ -316,6 +337,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
@@ -344,6 +366,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                   BooleanClause.Occur.MUST_NOT
                 )
                 .build(),
+              false,
               4,
               List("name").map(SimpleField(_))
             )
@@ -359,6 +382,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
@@ -387,6 +411,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                   BooleanClause.Occur.MUST_NOT
                 )
                 .build(),
+              false,
               4,
               List("name").map(SimpleField(_))
             )
@@ -401,6 +426,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
+                             distinct = false,
                              fields = AllFields,
                              order = Some(AscOrderOperator("name")),
                              limit = Some(LimitOperator(4))),
@@ -411,6 +437,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
+              false,
               4,
               List.empty,
               Some(new Sort(new SortField("name", SortField.Type.STRING, false)))
@@ -425,6 +452,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
+                             distinct = false,
                              fields = AllFields,
                              order = Some(AscOrderOperator("value")),
                              limit = Some(LimitOperator(4))),
@@ -435,6 +463,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
+              false,
               4,
               List.empty,
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, false)))
@@ -450,6 +479,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             order = Some(DescOrderOperator(dimension = "creationDate")),
@@ -462,6 +492,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
+              false,
               5,
               List("name").map(SimpleField(_)),
               Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true)))
@@ -475,6 +506,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         parser.parseStatement(SelectSQLStatement(db = "db",
                                                  namespace = "registry",
                                                  metric = "people",
+                                                 distinct = false,
                                                  fields = AllFields),
                               schema) shouldBe 'failure
       }
@@ -487,6 +519,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("value", Some(SumAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             groupBy = Some("name")
@@ -511,6 +544,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
+            distinct = false,
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             groupBy = Some("name"),

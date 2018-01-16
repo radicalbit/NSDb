@@ -18,7 +18,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
-              distinct = false,
+                               distinct = false,
                                fields = ListFields(List(Field("value", Some(SumAggregation)))),
                                groupBy = Some("name"))
           ))
