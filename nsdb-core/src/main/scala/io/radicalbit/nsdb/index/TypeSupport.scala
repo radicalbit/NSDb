@@ -161,7 +161,8 @@ case class VARCHAR() extends StringType[String] {
     )
   override def facetField(fieldName: String, value: String): Seq[Field] =
     Seq(
-      new StringField(fieldName, value, Store.YES)
+      new StringField(fieldName, value, Store.YES),
+      new SortedDocValuesField(fieldName, new BytesRef(value))
     )
   def deserialize(value: Array[Byte]) = new String(value)
 }
