@@ -32,9 +32,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
 
     implicit val searcher = facetIndex.getSearcher
 
-    val groups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
+    val groups   = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
+    val distinct = facetIndex.getDistinctField(new MatchAllDocsQuery(), "content", None, 100)
 
     groups.size shouldBe 100
+    distinct.toSet.size shouldBe 100
+
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
