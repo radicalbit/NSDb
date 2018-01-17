@@ -8,13 +8,17 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
+class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvider: NSDBAuthProvider)
+    extends Actor
+    with ActorLogging {
 
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.stream.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
@@ -28,61 +32,37 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
   }
 
   def connected(wsActor: ActorRef): Receive = {
-    case RegisterQuery(db, namespace, queryString) =>
-      new SQLStatementParser().parse(db, namespace, queryString) match {
-        case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
-          (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
-            .map {
-              case msg @ SubscribedByQueryString(_, _, _) =>
-                OutgoingMessage(msg)
-              case SubscriptionFailed(reason) =>
-                OutgoingMessage(QuerystringRegistrationFailed(db, namespace, queryString, reason))
-            }
-            .pipeTo(wsActor)
-        case Success(_) =>
-          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, queryString, "not a select query"))
-        case Failure(ex) =>
-          wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, queryString, ex.getMessage))
-      }
-    case RegisterQueries(queries: Seq[RegisterQuery]) =>
-      val results = queries.map(q => {
-        new SQLStatementParser().parse(q.db, q.namespace, q.queryString) match {
+    case msg @ RegisterQuery(db, namespace, metric, queryString) =>
+      if (authProvider.checkMetricAuth(msg, securityHeader))
+        new SQLStatementParser().parse(db, namespace, queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
-            (publisher ? SubscribeBySqlStatement(self, q.queryString, statement.asInstanceOf[SelectSQLStatement]))
+            (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
               .map {
                 case msg @ SubscribedByQueryString(_, _, _) =>
-                  msg
+                  OutgoingMessage(msg)
                 case SubscriptionFailed(reason) =>
-                  QuerystringRegistrationFailed(q.db, q.namespace, q.queryString, reason)
+                  OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, reason))
               }
+              .pipeTo(wsActor)
           case Success(_) =>
-            Future(QuerystringRegistrationFailed(q.db, q.namespace, q.queryString, "not a select query"))
+            wsActor ! OutgoingMessage(
+              QuerystringRegistrationFailed(db, namespace, metric, queryString, "not a select query"))
           case Failure(ex) =>
-            Future(QuerystringRegistrationFailed(q.db, q.namespace, q.queryString, ex.getMessage))
-        }
-      })
-      Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
-    case RegisterQuid(quid) =>
+            wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, ex.getMessage))
+        } else
+        wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, "unauthorized"))
+    case msg @ RegisterQuid(db, namespace, metric, quid) =>
       log.debug(s"registering quid $quid")
-      (publisher ? SubscribeByQueryId(self, quid))
-        .map {
-          case msg @ SubscribedByQuid(_, _) =>
-            OutgoingMessage(msg)
-          case SubscriptionFailed(reason) =>
-            OutgoingMessage(QuidRegistrationFailed(quid, reason))
-        }
-        .pipeTo(wsActor)
-    case RegisterQuids(quids) =>
-      val results = quids.map(quid => {
-        (publisher ? SubscribeByQueryId(self, quid))
-          .map {
-            case msg @ SubscribeByQueryId(_, _) =>
-              msg
-            case SubscriptionFailed(reason) =>
-              QuidRegistrationFailed(quid, reason)
-          }
-      })
-      Future.sequence(results).map(OutgoingMessage).pipeTo(wsActor)
+      val result =
+        if (authProvider.checkMetricAuth(msg, securityHeader))
+          (publisher ? SubscribeByQueryId(self, quid))
+            .map {
+              case msg @ SubscribedByQuid(_, _) =>
+                OutgoingMessage(msg)
+              case SubscriptionFailed(reason) =>
+                OutgoingMessage(QuidRegistrationFailed(db, namespace, metric, quid, reason))
+            } else Future(QuidRegistrationFailed(db, namespace, metric, quid, "unauthorized"))
+      result.pipeTo(wsActor)
     case msg @ RecordsPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
@@ -91,8 +71,7 @@ class StreamActor(publisher: ActorRef) extends Actor with ActorLogging {
         self ! PoisonPill
         wsActor ! PoisonPill
       }
-    case e =>
-      println(e)
+    case _ =>
       wsActor ! OutgoingMessage("invalid message sent")
   }
 }
@@ -102,12 +81,15 @@ object StreamActor {
   case class OutgoingMessage(message: AnyRef)
 
   case object Terminate
-  case class RegisterQuery(db: String, namespace: String, queryString: String)
-  case class RegisterQueries(queries: Seq[RegisterQuery])
-  case class RegisterQuid(quid: String)
-  case class RegisterQuids(quids: Seq[String])
-  case class QuerystringRegistrationFailed(db: String, namespace: String, queryString: String, reason: String)
-  case class QuidRegistrationFailed(quid: String, reason: String)
+  case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String) extends Metric
+  case class RegisterQuid(db: String, namespace: String, metric: String, quid: String) extends Metric
+  case class QuerystringRegistrationFailed(db: String,
+                                           namespace: String,
+                                           metric: String,
+                                           queryString: String,
+                                           reason: String)
+  case class QuidRegistrationFailed(db: String, namespace: String, metric: String, quid: String, reason: String)
 
-  def props(publisherActor: ActorRef) = Props(new StreamActor(publisherActor))
+  def props(publisherActor: ActorRef, securityHeader: Option[String], authProvider: NSDBAuthProvider) =
+    Props(new StreamActor(publisherActor, securityHeader, authProvider))
 }

@@ -8,6 +8,7 @@ import io.radicalbit.nsdb.index.{Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, GetSchema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SchemaGot, SelectStatementExecuted}
+import io.radicalbit.nsdb.security.http.EmptyAuthorization
 import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -42,12 +43,17 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
   val wsClient = WSProbe()
 
   "WebSocketStream" should "register to a query" in {
-    WS("/ws-stream", wsClient.flow) ~> wsResources(publisherActor) ~>
+    WS("/ws-stream", wsClient.flow) ~> wsResources(publisherActor, new EmptyAuthorization) ~>
       check {
         isWebSocketUpgrade shouldEqual true
 
         wsClient.sendMessage(
           """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
+
+        wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
+
+        wsClient.sendMessage(
+          """{"db":"db","namespace":"a","metric":"people","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
         val text = wsClient.expectMessage().asTextMessage.getStrictText
 
@@ -56,25 +62,10 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         obj.isDefined shouldBe true
         obj.get.reason shouldEqual "not a select query"
 
-        wsClient.sendMessage("""{"db":"db","namespace":"registry","queryString":"select * from people limit 1"}""")
+        wsClient.sendMessage("""{"db":"db","namespace":"registry","metric":"people","queryString":"select * from people limit 1"}""")
 
         val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
         parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
-
-        wsClient.sendMessage(
-          """{"queries":[{"db":"db","namespace":"registry","queryString":"select * from people limit 1"},{"db":"db","namespace":"registry","queryString":"select * from people limit 1"}]}"""
-        )
-
-        val subscribedMultipleQueryString = wsClient.expectMessage().asTextMessage.getStrictText
-        parse(subscribedMultipleQueryString).extractOpt[Seq[SubscribedByQueryString]].isDefined shouldBe true
-
-        wsClient.sendMessage(
-          """{"queries":[{"quid":"426c2c59-a71e-451f-84df-aa18315faa6a"},{"quid":"426c2c59-a71e-451f-84df-aa18315faa6a"}]}"""
-        )
-
-        val subscribedMultipleQuuid = wsClient.expectMessage().asTextMessage.getStrictText
-        println(subscribedMultipleQuuid)
-        parse(subscribedMultipleQuuid).extractOpt[Seq[SubscribedByQuid]].isDefined shouldBe true
 
         //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
       }
