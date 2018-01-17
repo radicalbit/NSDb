@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, Props}
 import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
@@ -11,6 +12,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
 import io.radicalbit.nsdb.web.Formats._
+import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest._
@@ -45,6 +47,10 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
 
   val testRoutes = Route.seal(
     apiResources(null, system.actorOf(Props[FakeReadCoordinator]), null, new EmptyAuthorization)
+  )
+
+  val testSecuredRoutes = Route.seal(
+    apiResources(null, system.actorOf(Props[FakeReadCoordinator]), null, new TestAuthProvider)
   )
 
   "QueryApi" should "not allow get" in {
@@ -112,16 +118,37 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
           |}""".stripMargin
 
     }
+  }
+
+  "Secured QueryApi" should "not allow a request without the security header" in {
+    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2))
+
+    Post("/query", q) ~> testSecuredRoutes ~> check {
+      status shouldBe Forbidden
+        entityAs[String] shouldBe "not authorized header not provided"
+    }
+
+    Post("/query", q).withHeaders(RawHeader("wrong","wrong")) ~> testSecuredRoutes ~> check {
+      status shouldBe Forbidden
+      entityAs[String] shouldBe "not authorized header not provided"
+    }
 
   }
 
-  "QueryApi" should "return if query is not valid" in {
+  "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
+    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2))
+
+    Post("/query", q).withHeaders(RawHeader("testHeader","testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe Forbidden
+      entityAs[String] shouldBe "not authorized forbidden access to db notAuthorizedMetric"
+    }
+  }
+
+  "Secured QueryApi" should "allow a request for an authorized resources" in {
     val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe BadRequest
-
+    Post("/query", q).withHeaders(RawHeader("testHeader","testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe OK
     }
-
   }
 }
