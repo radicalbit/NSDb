@@ -293,9 +293,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
               .groupBy(_.dimensions(statement.groupBy.get))
               .mapValues(values => {
                 val v = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-//                                val o = v.ord
-//                                implicit val ord: Ordering[JSerializable] =
-//                                  if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+//              val o = v.ord
+//              implicit val ord: Ordering[JSerializable] =
+//              if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
                   case _: MaxAllGroupsCollector =>
