@@ -182,6 +182,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
         case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) =>
           //TODO: Handle distinct case in shards
+          Failure(new RuntimeException("Not supported yet..."))
 
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           val indexes = getMetricShards(statement.metric)
