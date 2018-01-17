@@ -33,7 +33,8 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
 
   def connected(wsActor: ActorRef): Receive = {
     case msg @ RegisterQuery(db, namespace, metric, queryString) =>
-      if (authProvider.checkMetricAuth(msg, securityHeader))
+      val checkAuthorization = authProvider.checkMetricAuth(msg, securityHeader)
+      if (checkAuthorization.success)
         new SQLStatementParser().parse(db, namespace, queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
             (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
@@ -50,18 +51,25 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
           case Failure(ex) =>
             wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, ex.getMessage))
         } else
-        wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, "unauthorized"))
+        wsActor ! OutgoingMessage(
+          QuerystringRegistrationFailed(db,
+                                        namespace,
+                                        metric,
+                                        queryString,
+                                        s"unauthorized ${checkAuthorization.failReason}"))
     case msg @ RegisterQuid(db, namespace, metric, quid) =>
       log.debug(s"registering quid $quid")
+      val checkAuthorization = authProvider.checkMetricAuth(msg, securityHeader)
       val result =
-        if (authProvider.checkMetricAuth(msg, securityHeader))
+        if (checkAuthorization.success)
           (publisher ? SubscribeByQueryId(self, quid))
             .map {
               case msg @ SubscribedByQuid(_, _) =>
                 OutgoingMessage(msg)
               case SubscriptionFailed(reason) =>
                 OutgoingMessage(QuidRegistrationFailed(db, namespace, metric, quid, reason))
-            } else Future(QuidRegistrationFailed(db, namespace, metric, quid, "unauthorized"))
+            } else
+          Future(QuidRegistrationFailed(db, namespace, metric, quid, s"unauthorized ${checkAuthorization.failReason}"))
       result.pipeTo(wsActor)
     case msg @ RecordsPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
@@ -82,7 +90,7 @@ object StreamActor {
 
   case object Terminate
   case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String) extends Metric
-  case class RegisterQuid(db: String, namespace: String, metric: String, quid: String) extends Metric
+  case class RegisterQuid(db: String, namespace: String, metric: String, quid: String)         extends Metric
   case class QuerystringRegistrationFailed(db: String,
                                            namespace: String,
                                            metric: String,

@@ -16,7 +16,7 @@ import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, MapInput}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.{Metric, Namespace}
+import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
@@ -25,12 +25,17 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-case class QueryBody(db: String, namespace: String, queryString: String, from: Option[Long], to: Option[Long])
-    extends Namespace
+case class QueryBody(db: String,
+                     namespace: String,
+                     metric: String,
+                     queryString: String,
+                     from: Option[Long],
+                     to: Option[Long])
+    extends Metric
 case class InsertBody(db: String, namespace: String, metric: String, bit: Bit) extends Metric
 
 object Formats extends DefaultJsonProtocol with SprayJsonSupport {
-  implicit val QbFormat = jsonFormat5(QueryBody.apply)
+  implicit val QbFormat = jsonFormat6(QueryBody.apply)
 
   implicit object JSerializableJsonFormat extends RootJsonFormat[JSerializable] {
     def write(c: JSerializable) = c match {
@@ -82,7 +87,7 @@ trait ApiResources {
       post {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authProvider.headerName) { header =>
-            authProvider.authorizeDb(qb, header) {
+            authProvider.authorizeMetric(qb, header) {
               val statementOpt =
                 (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to) match {
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to)) =>

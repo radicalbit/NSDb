@@ -62,7 +62,8 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         obj.isDefined shouldBe true
         obj.get.reason shouldEqual "not a select query"
 
-        wsClient.sendMessage("""{"db":"db","namespace":"registry","metric":"people","queryString":"select * from people limit 1"}""")
+        wsClient.sendMessage(
+          """{"db":"db","namespace":"registry","metric":"people","queryString":"select * from people limit 1"}""")
 
         val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
         parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
