@@ -118,7 +118,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>
       val combinedResult: Try[Seq[Bit]] = statementParser.parseStatement(statement, schema) match {
-        case Success(ParsedSimpleQuery(_, metric, q, _, limit, fields, sort)) =>
+        case Success(ParsedSimpleQuery(_, metric, q, false, limit, fields, sort)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
           val metricIn: mutable.Map[ShardKey, TimeSeriesIndex] = getMetricShards(statement.metric)
@@ -179,6 +179,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                 s.map(b =>
                   if (b.dimensions.contains("count(*)")) b.copy(dimensions = b.dimensions + ("count(*)" -> s.size))
                   else b))
+
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) =>
+          //TODO: Handle distinct case in shards
 
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           val indexes = getMetricShards(statement.metric)

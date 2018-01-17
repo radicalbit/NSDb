@@ -124,7 +124,6 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
     case ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, false, limit, fields, sort)) =>
-          println("entered wrong")
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
         case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.size == 1 =>
           handleQueryResults(metric,
