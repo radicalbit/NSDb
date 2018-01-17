@@ -90,27 +90,19 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
     }
   }
 
-  private def deleteIndex(index: TimeSeriesIndex) = {
-    implicit val writer: IndexWriter = index.getWriter
-    index.deleteAll()
-    writer.close()
-  }
-
-  private def deleteFacetIndex(index: FacetIndex) = {
-    implicit val writer: IndexWriter = index.getWriter
-    index.deleteAll()
-    writer.close()
-  }
-
   def ddlOps: Receive = {
     case DeleteAllMetrics(_, ns) =>
       indexes.foreach {
         case (_, index) =>
-          deleteIndex(index)
+          implicit val iWriter: IndexWriter = index.getWriter
+          index.deleteAll()
+          iWriter.close()
       }
       facetIndexes.foreach {
         case (k, index) =>
-          deleteFacetIndex(index)
+          implicit val iWriter: IndexWriter = index.getWriter
+          index.deleteAll()
+          iWriter.close()
           facetIndexes -= k
       }
       sender ! AllMetricsDeleted(db, ns)
@@ -118,19 +110,28 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       opBufferMap -= metric
       val index      = indexes.get(metric)
       val facetIndex = facetIndexes.get(metric)
+
       (index, facetIndex) match {
         case (Some(i), Some(fi)) =>
-          deleteIndex(i)
+          val iWriter: IndexWriter = i.getWriter
+          i.deleteAll()(iWriter)
+          iWriter.close()
           indexes -= metric
-          deleteFacetIndex(fi)
+          val fiWriter: IndexWriter = fi.getWriter
+          fi.deleteAll()(fiWriter)
+          fiWriter.close()
           facetIndexes -= metric
           sender() ! MetricDropped(db, namespace, metric)
         case (Some(i), None) =>
-          deleteIndex(i)
+          implicit val iWriter = i.getWriter
+          i.deleteAll()
+          iWriter.close()
           indexes -= metric
           sender() ! MetricDropped(db, namespace, metric)
         case (None, Some(fi)) =>
-          deleteFacetIndex(fi)
+          implicit val fiWriter = fi.getWriter
+          fi.deleteAll()
+          fiWriter.close()
           facetIndexes -= metric
           sender() ! MetricDropped(db, namespace, metric)
         case (None, None) =>
