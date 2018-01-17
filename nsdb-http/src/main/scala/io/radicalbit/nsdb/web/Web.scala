@@ -8,6 +8,7 @@ import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
+import io.radicalbit.nsdb.security.http.EmpyAuthorization
 import org.json4s.DefaultFormats
 
 import scala.concurrent.{Await, Future}
@@ -34,7 +35,8 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
       case Success(Seq(publisher, readCoordinator, writeCoordinator)) =>
         val api: Route = staticResources ~ wsResources(publisher) ~ apiResources(publisher,
                                                                                  readCoordinator,
-                                                                                 writeCoordinator)
+                                                                                 writeCoordinator,
+                                                                                 new EmpyAuthorization)
 
         val http =
           if (isSSLEnabled)

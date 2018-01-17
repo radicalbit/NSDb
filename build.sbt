@@ -39,8 +39,7 @@ lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .dependsOn(`nsdb-core`, `nsdb-sql`)
-  .dependsOn(`nsdb-core`)
+  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
@@ -102,8 +101,8 @@ lazy val `nsdb-cluster` = project
 
 lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Security.libraries)
+  .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)

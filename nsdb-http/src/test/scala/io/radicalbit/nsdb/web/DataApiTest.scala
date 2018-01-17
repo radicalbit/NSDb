@@ -8,6 +8,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
+import io.radicalbit.nsdb.security.http.EmpyAuthorization
 import io.radicalbit.nsdb.web.Formats._
 import org.json4s._
 import org.scalatest._
@@ -26,11 +27,11 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   implicit val timeout: Timeout = 5 seconds
 
   val testRoutes = Route.seal(
-    apiResources(null, null, system.actorOf(Props[FakeWriteCoordinator]))
+    apiResources(null, null, system.actorOf(Props[FakeWriteCoordinator]), new EmpyAuthorization)
   )
 
   "DataApi" should "not allow get" in {
-    Get("/data/db") ~> testRoutes ~> check {
+    Get("/data") ~> testRoutes ~> check {
       status shouldEqual MethodNotAllowed
     }
   }
@@ -38,7 +39,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   "DataApi" should "correctly insert a record" in {
     val b = InsertBody("db", "namespace", "metric", Bit(0, 1, Map.empty))
 
-    Post("/data/db", b) ~> testRoutes ~> check {
+    Post("/data", b) ~> testRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
       println(entity)

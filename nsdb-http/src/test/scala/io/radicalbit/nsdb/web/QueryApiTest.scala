@@ -9,6 +9,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
+import io.radicalbit.nsdb.security.http.EmpyAuthorization
 import io.radicalbit.nsdb.web.Formats._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -43,11 +44,11 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   implicit val timeout: Timeout = 5 seconds
 
   val testRoutes = Route.seal(
-    apiResources(null, system.actorOf(Props[FakeReadCoordinator]), null)
+    apiResources(null, system.actorOf(Props[FakeReadCoordinator]), null, new EmpyAuthorization)
   )
 
   "QueryApi" should "not allow get" in {
-    Get("/query/db") ~> testRoutes ~> check {
+    Get("/query") ~> testRoutes ~> check {
       status shouldEqual MethodNotAllowed
     }
   }

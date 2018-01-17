@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.actor
+package akka.contrib.pattern
 
 import akka.actor.Actor
 

@@ -217,7 +217,8 @@ object Dependencies {
 
   object Security {
     val libraries = Seq(
-      akka.actor
+      akka.actor,
+      akka_http.default
     )
   }
 
