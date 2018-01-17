@@ -72,7 +72,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     facetIndexShards.getOrElse(
       key, {
         val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
+          new MMapDirectory(
+            Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
         val taxoDirectory = new MMapDirectory(
           Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet", "taxo"))
         val newIndex = new FacetIndex(directory, taxoDirectory)
@@ -100,9 +101,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           val newIndex = new TimeSeriesIndex(directory)
           shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
           val directoryFacets =
-            new MMapDirectory(Paths.get(basePath, db, namespace, s"${metric}_${from}_${to}", "facet"))
+            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}", "facet"))
           val taxoDirectoryFacets = new MMapDirectory(
-            Paths.get(basePath, db, namespace, s"${metric}_${from}_${to}", "facet", "taxo"))
+            Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}", "facet", "taxo"))
           val newFacetIndex = new FacetIndex(directoryFacets, taxoDirectoryFacets)
           facetIndexShards += (ShardKey(metric, from.toLong, to.toLong) -> newFacetIndex)
       }
@@ -220,7 +221,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                     else b)
             )
 
-        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
           val facetIn = getMetricFacetShards(statement.metric)
@@ -275,9 +276,28 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
               .mapValues(values => {
                 val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
+                Bit(0, values.map(_.value).sum, values.head.dimensions)
+              })
+              .values
+              .toSeq)
+
+        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
+          val indexes = getMetricShards(statement.metric)
+          val shardResults = indexes.toSeq.map {
+            case (_, index) =>
+              handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
+          }
+          Try(
+            shardResults
+              .flatMap(_.get)
+              .groupBy(_.dimensions(statement.groupBy.get))
+              .mapValues(values => {
+                val v = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
+//                                val o = v.ord
+//                                implicit val ord: Ordering[JSerializable] =
+//                                  if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+                implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
-                  case _: CountAllGroupsCollector =>
-                    Bit(0, values.map(_.value).size, values.head.dimensions)
                   case _: MaxAllGroupsCollector =>
                     Bit(0, values.map(_.value).max, values.head.dimensions)
                   case _: MinAllGroupsCollector =>
@@ -287,7 +307,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                 }
               })
               .values
-              .toSeq)
+              .toSeq
+          )
 
         case Failure(ex) => Failure(ex)
         case _           => Failure(new RuntimeException("Not a select statement."))
