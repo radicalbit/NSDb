@@ -145,7 +145,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2))
+    val q = QueryBody("db", "namespace", "metric", "select * from metric", Some(1), Some(2))
 
     Post("/query", q).withHeaders(RawHeader("testHeader","testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
