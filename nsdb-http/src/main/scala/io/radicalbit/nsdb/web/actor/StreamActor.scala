@@ -34,7 +34,7 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
   def connected(wsActor: ActorRef): Receive = {
     case msg @ RegisterQuery(db, namespace, metric, queryString) =>
       val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeader, writePermission = false)
+        authProvider.checkMetricAuth(ent = msg, header = securityHeader getOrElse "", writePermission = false)
       if (checkAuthorization.success)
         new SQLStatementParser().parse(db, namespace, queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
@@ -61,7 +61,7 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
     case msg @ RegisterQuid(db, namespace, metric, quid) =>
       log.debug(s"registering quid $quid")
       val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeader, writePermission = false)
+        authProvider.checkMetricAuth(ent = msg, header = securityHeader getOrElse "", writePermission = false)
       val result =
         if (checkAuthorization.success)
           (publisher ? SubscribeByQueryId(self, quid))

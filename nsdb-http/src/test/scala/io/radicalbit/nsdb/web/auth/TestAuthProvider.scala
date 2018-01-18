@@ -7,7 +7,7 @@ class TestAuthProvider extends NSDBAuthProvider {
 
   def headerName: String = "testHeader"
 
-  override def checkDbAuth(ent: Db, header: Option[String], writePermission: Boolean): AuthResponse =
+  override def checkDbAuth(ent: Db, header: String, writePermission: Boolean): AuthResponse =
     if (header.isEmpty) AuthResponse(success = false, failReason = "header not provided")
     else if (ent.db == "notAuthorizedDb")
       AuthResponse(success = false, failReason = s"forbidden access to db ${ent.db}")
@@ -15,7 +15,7 @@ class TestAuthProvider extends NSDBAuthProvider {
       AuthResponse(success = false, failReason = s"forbidden write access to namespace ${ent.db}")
     else AuthResponse(success = true)
 
-  override def checkNamespaceAuth(ent: Namespace, header: Option[String], writePermission: Boolean): AuthResponse =
+  override def checkNamespaceAuth(ent: Namespace, header: String, writePermission: Boolean): AuthResponse =
     if (header.isEmpty) AuthResponse(success = false, failReason = "header not provided")
     else if (ent.namespace == "notAuthorizedNamespace")
       AuthResponse(success = false, failReason = s"forbidden access to namespace ${ent.namespace}")
@@ -23,7 +23,7 @@ class TestAuthProvider extends NSDBAuthProvider {
       AuthResponse(success = false, failReason = s"forbidden write access to namespace ${ent.namespace}")
     else AuthResponse(success = true)
 
-  override def checkMetricAuth(ent: Metric, header: Option[String], writePermission: Boolean): AuthResponse =
+  override def checkMetricAuth(ent: Metric, header: String, writePermission: Boolean): AuthResponse =
     if (header.isEmpty) AuthResponse(success = false, failReason = "header not provided")
     else if (ent.metric == "notAuthorizedMetric")
       AuthResponse(success = false, failReason = s"forbidden access to metric ${ent.metric}")
