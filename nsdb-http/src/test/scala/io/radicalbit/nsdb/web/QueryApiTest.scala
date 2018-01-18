@@ -140,7 +140,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized forbidden access to db notAuthorizedMetric"
+      entityAs[String] shouldBe "not authorized forbidden access to metric notAuthorizedMetric"
     }
   }
 

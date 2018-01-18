@@ -87,7 +87,7 @@ trait ApiResources {
       post {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authProvider.headerName) { header =>
-            authProvider.authorizeMetric(qb, header) {
+            authProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
               val statementOpt =
                 (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to) match {
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to)) =>
@@ -117,7 +117,7 @@ trait ApiResources {
         post {
           entity(as[InsertBody]) { insertBody =>
             optionalHeaderValueByName(authProvider.headerName) { header =>
-              authProvider.authorizeMetric(insertBody, header) {
+              authProvider.authorizeMetric(ent = insertBody, header = header, writePermission = true) {
                 onComplete(
                   writeCoordinator ? MapInput(insertBody.bit.timestamp,
                                               insertBody.db,
