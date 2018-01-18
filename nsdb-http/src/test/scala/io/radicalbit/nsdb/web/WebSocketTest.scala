@@ -163,7 +163,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
 
         obj.isDefined shouldBe true
-        obj.get.reason shouldEqual "unauthorized forbidden access to db notAuthorizedMetric"
+        obj.get.reason shouldEqual "unauthorized forbidden access to metric notAuthorizedMetric"
 
         wsClient.sendMessage(
           """{"db":"db","namespace":"registry","metric":"people","queryString":"select * from people limit 1"}""")
