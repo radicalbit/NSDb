@@ -84,6 +84,84 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
         }
       }
 
+      "receive a select distinct over a single field" should {
+        "execute it successfully" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = true,
+                fields = ListFields(List(Field("name", None))),
+                limit = Some(LimitOperator(5))
+              )
+            )
+          )
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            val names    = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
+            names.contains("Bill") shouldBe true
+            names.contains("Frank") shouldBe true
+            names.contains("Frankie") shouldBe true
+            names.contains("John") shouldBe true
+            names.size shouldBe 4
+//            shouldBe Seq(
+//              Bit(0L, 0L, Map("name"  -> "Bill")),
+//              Bit(0L, 0L, Map("name"  -> "Frank")),
+//              Bit(0L, 0L, Map("name" -> "Frankie")),
+//              Bit(0L, 0L, Map("name"  -> "John"))
+//            )
+          }
+        }
+        "execute successfully with limit over distinct values" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = true,
+                fields = ListFields(List(Field("name", None))),
+                limit = Some(LimitOperator(2))
+              )
+            )
+          )
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            val names    = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
+            names.size shouldBe 2
+          }
+        }
+        "execute successfully with ordering" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = true,
+                fields = ListFields(List(Field("name", None))),
+                order = Some(AscOrderOperator("name")),
+                limit = Some(LimitOperator(5))
+              )
+            )
+          )
+          within(5 seconds) {
+
+            probe.expectMsgType[SelectStatementExecuted].values shouldBe Seq(
+              Bit(0L, 0L, Map("name" -> "Bill")),
+              Bit(0L, 0L, Map("name" -> "Frank")),
+              Bit(0L, 0L, Map("name" -> "Frankie")),
+              Bit(0L, 0L, Map("name" -> "John"))
+            )
+          }
+        }
+      }
+
       "receive a select projecting a wildcard" should {
         "execute it successfully" in {
 
@@ -101,6 +179,22 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.sortBy(_.timestamp) shouldBe testRecords
+          }
+        }
+        "fail if distinct" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(db = db,
+                                 namespace = namespace,
+                                 metric = "people",
+                                 distinct = true,
+                                 fields = AllFields,
+                                 limit = Some(LimitOperator(5)))
+            )
+          )
+          within(5 seconds) {
+            probe.expectMsgType[SelectStatementFailed]
           }
         }
       }
@@ -193,6 +287,25 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
+          within(5 seconds) {
+            probe.expectMsgType[SelectStatementFailed]
+          }
+        }
+        "fail when is select distinct" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = true,
+                fields = ListFields(List(Field("name", None), Field("surname", None))),
+                limit = Some(LimitOperator(5))
+              )
+            )
+          )
+
           within(5 seconds) {
             probe.expectMsgType[SelectStatementFailed]
           }
