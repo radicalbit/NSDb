@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.ActorSystem
 import akka.pattern.ask

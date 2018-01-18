@@ -7,7 +7,7 @@ import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props, SupervisorStra
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.actors.{NamespaceSchemaActor, PublisherActor}
+import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian._
 import io.radicalbit.nsdb.cluster.coordinator.{ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._

@@ -19,7 +19,7 @@ abstract class WSClient(url: String) extends WebSocketClient(new URI(url), new D
 
 }
 
-private class WSClientByQueryString(url: String, db: String, namespace: String, queryString: String)
+private class WSClientByQueryString(url: String, db: String, namespace: String, metric: String, queryString: String)
     extends WSClient(url) {
 
   override def onOpen(handshakedata: ServerHandshake): Unit = {
@@ -27,31 +27,32 @@ private class WSClientByQueryString(url: String, db: String, namespace: String, 
     implicit val formats = DefaultFormats
 
     println("Websocket opened")
-    val registerQueryMessage = RegisterQuery(db, namespace, queryString)
+    val registerQueryMessage = RegisterQuery(db, namespace, metric, queryString)
     send(write(registerQueryMessage))
   }
 
 }
 
-private class WSClientByQuid(url: String, quid: String) extends WSClient(url) {
+private class WSClientByQuid(url: String, db: String, namespace: String, metric: String, quid: String)
+    extends WSClient(url) {
 
   override def onOpen(handshakedata: ServerHandshake): Unit = {
 
     implicit val formats = DefaultFormats
 
     println("Websocket opened")
-    val registerQueryMessage = RegisterQuid(quid)
+    val registerQueryMessage = RegisterQuid(db, namespace, metric, quid)
     send(write(registerQueryMessage))
   }
 
 }
 
 object WSClient {
-  def apply(url: String, db: String, namespace: String, queryString: String): WSClient = {
-    new WSClientByQueryString(url, db, namespace, queryString)
+  def byQueryString(url: String, db: String, namespace: String, metric: String, queryString: String): WSClient = {
+    new WSClientByQueryString(url, db, namespace, metric, queryString)
   }
 
-  def apply(url: String, quid: String): WSClient = {
-    new WSClientByQuid(url, quid)
+  def byQueryId(url: String, db: String, namespace: String, metric: String, quid: String): WSClient = {
+    new WSClientByQuid(url, db, namespace, metric, quid)
   }
 }

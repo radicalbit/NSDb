@@ -215,6 +215,13 @@ object Dependencies {
     )
   }
 
+  object Security {
+    val libraries = Seq(
+      akka.actor,
+      akka_http.default
+    )
+  }
+
   object ScalaAPI {
     val libraries = Seq.empty
   }

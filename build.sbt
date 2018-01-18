@@ -15,6 +15,7 @@ lazy val root = project
     `nsdb-core`,
     `nsdb-http`,
     `nsdb-cluster`,
+    `nsdb-security`,
     `nsdb-rpc`,
     `nsdb-scala-api`,
     `nsdb-sql`,
@@ -38,8 +39,7 @@ lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .dependsOn(`nsdb-core`, `nsdb-sql`)
-  .dependsOn(`nsdb-core`)
+  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
@@ -97,7 +97,12 @@ lazy val `nsdb-cluster` = project
       Cmd("CMD", s"bin/${name.value} -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
   )
-  .dependsOn(`nsdb-http`, `nsdb-rpc`)
+  .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`)
+
+lazy val `nsdb-security` = project
+  .settings(Commons.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.Security.libraries)
+  .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
