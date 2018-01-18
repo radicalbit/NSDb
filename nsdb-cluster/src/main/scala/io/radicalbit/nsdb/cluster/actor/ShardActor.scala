@@ -11,9 +11,9 @@ import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation,
 import io.radicalbit.nsdb.cluster.actor.ShardActor.{Accumulate, PerformWrites}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.DescOrderOperator
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.lucene._
-import io.radicalbit.nsdb.index.{FacetIndex, NumericType, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.{FacetIndex, NumericType, Schema, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -86,6 +86,19 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
     }
+  }
+
+  private def applyOrderingWithLimit(shardResult: Try[Seq[Bit]], statement: SelectSQLStatement, schema: Schema) = {
+    Try(shardResult.get).map(s => {
+      val maybeSorted = if (statement.order.isDefined) {
+        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+        implicit val ord: Ordering[JSerializable] =
+          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+        s.sortBy(_.dimensions(statement.order.get.dimension))
+      } else s
+
+      if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
+    })
   }
 
   override def preStart: Unit = {
@@ -228,7 +241,6 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
           val indexes = facetIn
             .filter {
-              //FIXME see if it can be refactored
               case (key, _) if intervals.nonEmpty =>
                 intervals
                   .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
@@ -236,42 +248,14 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
               case _ => true
             }
 
-          val shardResults: Try[Seq[Bit]] = if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
-            val result: ListBuffer[Try[Seq[Bit]]] = ListBuffer.empty
-
-            val eventuallyOrdered =
-              statement.getTimeOrdering.map(indexes.toSeq.sortBy(_._1.from)(_)).getOrElse(indexes.toSeq)
-
-            eventuallyOrdered.takeWhile {
-              case (_, index) =>
-                val partials = handleQueryResults(metric, Try(index.getCount(q, collector.groupField, sort, limit)))
-                result += partials
-
-                val combined = Try(result.flatMap(_.get))
-
-                combined.isSuccess && combined.get.lengthCompare(statement.limit.map(_.value).getOrElse(Int.MaxValue)) < 0
-            }
-
-            Try(result.flatMap(_.get))
-
-          } else {
-
-            val shardResults = indexes.toSeq.map {
-              case (_, index) =>
-                handleQueryResults(metric, Try(index.getCount(q, collector.groupField, sort, limit)))
-            }
-
-            Try(shardResults.flatMap(_.get)).map(s => {
-              val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-              implicit val ord: Ordering[JSerializable] =
-                if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-              val sorted = s.sortBy(_.dimensions(statement.order.get.dimension))
-              sorted.take(statement.limit.get.value)
-            })
+          val result = indexes.toSeq.map {
+            case (_, index) =>
+              handleQueryResults(metric, Try(index.getCount(q, collector.groupField, sort, limit)))
           }
 
-          Try(
-            shardResults.get
+          val shardResults = Try(
+            result
+              .flatMap(_.get)
               .groupBy(_.dimensions(statement.groupBy.get))
               .mapValues(values => {
                 val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
@@ -281,21 +265,20 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
               .values
               .toSeq)
 
+          applyOrderingWithLimit(shardResults, statement, schema)
+
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           val indexes = getMetricShards(statement.metric)
           val shardResults = indexes.toSeq.map {
             case (_, index) =>
               handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
           }
-          Try(
+          val rawResult = Try(
             shardResults
               .flatMap(_.get)
               .groupBy(_.dimensions(statement.groupBy.get))
               .mapValues(values => {
-                val v = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-//              val o = v.ord
-//              implicit val ord: Ordering[JSerializable] =
-//              if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+                val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
                   case _: MaxAllGroupsCollector =>
@@ -309,6 +292,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
               .values
               .toSeq
           )
+
+          applyOrderingWithLimit(rawResult, statement, schema)
 
         case Failure(ex) => Failure(ex)
         case _           => Failure(new RuntimeException("Not a select statement."))
