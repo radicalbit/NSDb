@@ -11,13 +11,14 @@ import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation,
 import io.radicalbit.nsdb.cluster.actor.ShardActor.{Accumulate, PerformWrites}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.DescOrderOperator
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.lucene._
-import io.radicalbit.nsdb.index.{NumericType, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.{FacetIndex, NumericType, Schema, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
+import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
@@ -38,6 +39,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
   val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
 
+  val facetIndexShards: mutable.Map[ShardKey, FacetIndex] = mutable.Map.empty
+
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   implicit val timeout: Timeout =
@@ -51,7 +54,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     self ! PerformWrites
   }
 
-  private def getMetricShards(metric: String) = shards.filter(_._1.metric == metric)
+  private def getMetricShards(metric: String)      = shards.filter(_._1.metric == metric)
+  private def getMetricFacetShards(metric: String) = facetIndexShards.filter(_._1.metric == metric)
 
   private def getIndex(key: ShardKey) =
     shards.getOrElse(
@@ -64,10 +68,37 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       }
     )
 
+  private def getFacetIndex(key: ShardKey) =
+    facetIndexShards.getOrElse(
+      key, {
+        val directory =
+          new MMapDirectory(
+            Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
+        val taxoDirectory = new MMapDirectory(
+          Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet", "taxo"))
+        val newIndex = new FacetIndex(directory, taxoDirectory)
+        facetIndexShards += (key -> newIndex)
+        newIndex
+      }
+    )
+
   private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
     }
+  }
+
+  private def applyOrderingWithLimit(shardResult: Try[Seq[Bit]], statement: SelectSQLStatement, schema: Schema) = {
+    Try(shardResult.get).map(s => {
+      val maybeSorted = if (statement.order.isDefined) {
+        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+        implicit val ord: Ordering[JSerializable] =
+          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+        s.sortBy(_.dimensions(statement.order.get.dimension))
+      } else s
+
+      if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
+    })
   }
 
   override def preStart: Unit = {
@@ -82,6 +113,12 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
             new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to"))
           val newIndex = new TimeSeriesIndex(directory)
           shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
+          val directoryFacets =
+            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}", "facet"))
+          val taxoDirectoryFacets = new MMapDirectory(
+            Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}", "facet", "taxo"))
+          val newFacetIndex = new FacetIndex(directoryFacets, taxoDirectoryFacets)
+          facetIndexShards += (ShardKey(metric, from.toLong, to.toLong) -> newFacetIndex)
       }
   }
 
@@ -94,6 +131,13 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           writer.close()
           index.refresh()
       }
+      facetIndexShards.foreach {
+        case (k, index) =>
+          implicit val writer: IndexWriter = index.getWriter
+          index.deleteAll()
+          writer.close()
+          facetIndexShards -= k
+      }
       sender ! AllMetricsDeleted(db, ns)
     case DropMetric(_, _, metric) =>
       getMetricShards(metric).foreach {
@@ -103,6 +147,14 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           writer.close()
           index.refresh()
           shards -= key
+      }
+      getMetricFacetShards(metric).foreach {
+        case (key, index) =>
+          implicit val writer: IndexWriter = index.getWriter
+          index.deleteAll()
+          writer.close()
+          index.refresh()
+          facetIndexShards -= key
       }
       sender() ! MetricDropped(db, namespace, metric)
   }
@@ -176,13 +228,77 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           } else
             orderedResults.map(
               s =>
-                s.map(b =>
-                  if (b.dimensions.contains("count(*)")) b.copy(dimensions = b.dimensions + ("count(*)" -> s.size))
-                  else b))
+                s.map(
+                  b =>
+                    if (b.dimensions.contains("count(*)")) b.copy(dimensions = b.dimensions + ("count(*)" -> s.size))
+                    else b)
+            )
 
-        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) =>
-          //TODO: Handle distinct case in shards
-          Failure(new RuntimeException("Not supported yet..."))
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.size == 1 =>
+          val distinctField = fields.head.name
+
+          val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
+
+          val facetIn = getMetricFacetShards(statement.metric)
+
+          val indexes = facetIn
+            .filter {
+              case (key, _) if intervals.nonEmpty =>
+                intervals
+                  .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
+                  .foldLeft(false)((x, y) => x || y)
+              case _ => true
+            }
+
+          val results = indexes.toSeq.map {
+            case (_, index) =>
+              handleQueryResults(metric, Try(index.getDistinctField(q, fields.map(_.name).head, sort, limit)))
+          }
+
+          val shardResults = Try(
+            results
+              .flatMap(_.get)
+              .groupBy(_.dimensions(distinctField))
+              .mapValues(values => {
+                Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))))
+              })
+              .values
+              .toSet)
+
+          applyOrderingWithLimit(shardResults.map(_.toSeq), statement, schema)
+
+        case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
+          val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
+
+          val facetIn = getMetricFacetShards(statement.metric)
+
+          val indexes = facetIn
+            .filter {
+              case (key, _) if intervals.nonEmpty =>
+                intervals
+                  .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
+                  .foldLeft(false)((x, y) => x || y)
+              case _ => true
+            }
+
+          val result = indexes.toSeq.map {
+            case (_, index) =>
+              handleQueryResults(metric, Try(index.getCount(q, collector.groupField, sort, limit)))
+          }
+
+          val shardResults = Try(
+            result
+              .flatMap(_.get)
+              .groupBy(_.dimensions(statement.groupBy.get))
+              .mapValues(values => {
+                val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
+                implicit val numeric: Numeric[JSerializable] = v.numeric
+                Bit(0, values.map(_.value).sum, values.head.dimensions)
+              })
+              .values
+              .toSeq)
+
+          applyOrderingWithLimit(shardResults, statement, schema)
 
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           val indexes = getMetricShards(statement.metric)
@@ -190,19 +306,14 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
             case (_, index) =>
               handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
           }
-          Try(
+          val rawResult = Try(
             shardResults
               .flatMap(_.get)
               .groupBy(_.dimensions(statement.groupBy.get))
               .mapValues(values => {
-                val v = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-//                val o = v.ord
-//                implicit val ord: Ordering[JSerializable] =
-//                  if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+                val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
-                  case _: CountAllGroupsCollector =>
-                    Bit(0, values.map(_.value).size, values.head.dimensions)
                   case _: MaxAllGroupsCollector =>
                     Bit(0, values.map(_.value).max, values.head.dimensions)
                   case _: MinAllGroupsCollector =>
@@ -214,6 +325,9 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
               .values
               .toSeq
           )
+
+          applyOrderingWithLimit(rawResult, statement, schema)
+
         case Failure(ex) => Failure(ex)
         case _           => Failure(new RuntimeException("Not a select statement."))
       }
@@ -273,23 +387,30 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     case PerformWrites =>
       opBufferMap.foreach {
         case (key, ops) =>
-          val index                        = getIndex(key)
-          implicit val writer: IndexWriter = index.getWriter
+          val index                               = getIndex(key)
+          val facetIndex                          = getFacetIndex(key)
+          implicit val writer: IndexWriter        = index.getWriter
+          val facetWriter: IndexWriter            = facetIndex.getWriter
+          val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
           ops.foreach {
             case WriteOperation(_, _, bit) =>
-              index.write(bit) match {
+              index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
                 case Valid(_)      =>
                 case Invalid(errs) => log.error(errs.toList.mkString(","))
               }
             //TODO handle errors
             case DeleteRecordOperation(_, _, bit) =>
               index.delete(bit)
+              facetIndex.delete(bit)(facetWriter)
             case DeleteQueryOperation(_, _, q) =>
               implicit val writer: IndexWriter = index.getWriter
               index.delete(q)
           }
           writer.flush()
           writer.close()
+          taxoWriter.close()
+          facetWriter.close()
+          facetIndex.refresh()
           index.refresh()
       }
       opBufferMap.clear()

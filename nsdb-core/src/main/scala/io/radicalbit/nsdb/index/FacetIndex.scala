@@ -70,6 +70,12 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     writer.forceMergeDeletes(true)
   }
 
+  def deleteAll()(implicit writer: IndexWriter): Unit = {
+    writer.deleteAll()
+    writer.forceMergeDeletes(true)
+    writer.flush()
+  }
+
   private def getFacetResult(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]) = {
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, s"facet_$groupField")

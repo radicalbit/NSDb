@@ -94,24 +94,49 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
     case DeleteAllMetrics(_, ns) =>
       indexes.foreach {
         case (_, index) =>
-          implicit val writer: IndexWriter = index.getWriter
+          implicit val iWriter: IndexWriter = index.getWriter
           index.deleteAll()
-          writer.close()
+          iWriter.close()
+      }
+      facetIndexes.foreach {
+        case (k, index) =>
+          implicit val iWriter: IndexWriter = index.getWriter
+          index.deleteAll()
+          iWriter.close()
+          facetIndexes -= k
       }
       sender ! AllMetricsDeleted(db, ns)
     case DropMetric(_, _, metric) =>
       opBufferMap -= metric
-      indexes
-        .get(metric)
-        .fold {
+      val index      = indexes.get(metric)
+      val facetIndex = facetIndexes.get(metric)
+
+      (index, facetIndex) match {
+        case (Some(i), Some(fi)) =>
+          val iWriter: IndexWriter = i.getWriter
+          i.deleteAll()(iWriter)
+          iWriter.close()
+          indexes -= metric
+          val fiWriter: IndexWriter = fi.getWriter
+          fi.deleteAll()(fiWriter)
+          fiWriter.close()
+          facetIndexes -= metric
           sender() ! MetricDropped(db, namespace, metric)
-        } { index =>
-          implicit val writer: IndexWriter = index.getWriter
-          index.deleteAll()
-          writer.close()
+        case (Some(i), None) =>
+          implicit val iWriter = i.getWriter
+          i.deleteAll()
+          iWriter.close()
           indexes -= metric
           sender() ! MetricDropped(db, namespace, metric)
-        }
+        case (None, Some(fi)) =>
+          implicit val fiWriter = fi.getWriter
+          fi.deleteAll()
+          fiWriter.close()
+          facetIndexes -= metric
+          sender() ! MetricDropped(db, namespace, metric)
+        case (None, None) =>
+          sender() ! MetricDropped(db, namespace, metric)
+      }
   }
 
   def readOps: Receive = {
