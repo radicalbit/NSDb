@@ -107,12 +107,6 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             names.contains("Frankie") shouldBe true
             names.contains("John") shouldBe true
             names.size shouldBe 4
-//            shouldBe Seq(
-//              Bit(0L, 0L, Map("name"  -> "Bill")),
-//              Bit(0L, 0L, Map("name"  -> "Frank")),
-//              Bit(0L, 0L, Map("name" -> "Frankie")),
-//              Bit(0L, 0L, Map("name"  -> "John"))
-//            )
           }
         }
         "execute successfully with limit over distinct values" in {
