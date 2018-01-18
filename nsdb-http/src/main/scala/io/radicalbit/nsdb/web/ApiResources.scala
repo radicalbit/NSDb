@@ -127,7 +127,7 @@ trait ApiResources {
                   case Success(_: InputMapped) =>
                     complete("OK")
                   case Success(RecordRejected(_, _, _, _, reasons)) =>
-                    complete(HttpResponse(InternalServerError, entity = reasons.mkString(",")))
+                    complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
                   case Success(_) =>
                     complete(HttpResponse(InternalServerError, entity = "unknown response"))
                   case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
