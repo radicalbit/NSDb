@@ -125,10 +125,10 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
 
     Post("/query", q) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
-        entityAs[String] shouldBe "not authorized header not provided"
+      entityAs[String] shouldBe "not authorized header not provided"
     }
 
-    Post("/query", q).withHeaders(RawHeader("wrong","wrong")) ~> testSecuredRoutes ~> check {
+    Post("/query", q).withHeaders(RawHeader("wrong", "wrong")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
       entityAs[String] shouldBe "not authorized header not provided"
     }
@@ -138,7 +138,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
     val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2))
 
-    Post("/query", q).withHeaders(RawHeader("testHeader","testHeader")) ~> testSecuredRoutes ~> check {
+    Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
       entityAs[String] shouldBe "not authorized forbidden access to db notAuthorizedMetric"
     }
@@ -147,7 +147,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "Secured QueryApi" should "allow a request for an authorized resources" in {
     val q = QueryBody("db", "namespace", "metric", "select * from metric", Some(1), Some(2))
 
-    Post("/query", q).withHeaders(RawHeader("testHeader","testHeader")) ~> testSecuredRoutes ~> check {
+    Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
     }
   }

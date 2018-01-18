@@ -60,7 +60,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
       entityAs[String] shouldBe "not authorized header not provided"
     }
 
-    Post("/data", b).withHeaders(RawHeader("wrong","wrong")) ~> testSecuredRoutes ~> check {
+    Post("/data", b).withHeaders(RawHeader("wrong", "wrong")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
       entityAs[String] shouldBe "not authorized header not provided"
     }
@@ -70,7 +70,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   "Secured DataApi" should "not allow a request for an unauthorized resources" in {
     val b = InsertBody("db", "namespace", "notAuthorizedMetric", Bit(0, 1, Map.empty))
 
-    Post("/data", b).withHeaders(RawHeader("testHeader","testHeader")) ~> testSecuredRoutes ~> check {
+    Post("/data", b).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
       entityAs[String] shouldBe "not authorized forbidden access to db notAuthorizedMetric"
     }
@@ -79,7 +79,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with Ap
   "Secured DataApi" should "allow a request for an authorized resources" in {
     val b = InsertBody("db", "namespace", "metric", Bit(0, 1, Map.empty))
 
-    Post("/data", b).withHeaders(RawHeader("testHeader","testHeader")) ~> testRoutes ~> check {
+    Post("/data", b).withHeaders(RawHeader("testHeader", "testHeader")) ~> testRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
       entity shouldBe "OK"
