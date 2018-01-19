@@ -33,7 +33,7 @@ class WriteCoordinatorSpec
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
-    PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
+    PublisherActor.props(system.actorOf(Props[Facilities.FakeReadCoordinatorActor]), namespaceSchemaActor))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
