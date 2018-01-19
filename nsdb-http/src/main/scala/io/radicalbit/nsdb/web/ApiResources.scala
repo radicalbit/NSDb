@@ -25,17 +25,23 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+case class Filter(
+    dimension: String,
+    value: JSerializable,
+    operator: String
+)
+
 case class QueryBody(db: String,
                      namespace: String,
                      metric: String,
                      queryString: String,
                      from: Option[Long],
-                     to: Option[Long])
+                     to: Option[Long],
+                     filters: Seq[Filter])
     extends Metric
 case class InsertBody(db: String, namespace: String, metric: String, bit: Bit) extends Metric
 
 object Formats extends DefaultJsonProtocol with SprayJsonSupport {
-  implicit val QbFormat = jsonFormat6(QueryBody.apply)
 
   implicit object JSerializableJsonFormat extends RootJsonFormat[JSerializable] {
     def write(c: JSerializable) = c match {
@@ -51,6 +57,10 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       case JsString(v)                  => v
     }
   }
+
+  implicit val FilterFormat = jsonFormat3(Filter.apply)
+
+  implicit val QbFormat = jsonFormat7(QueryBody.apply)
 
   implicit val BitFormat = jsonFormat3(Bit.apply)
 
@@ -89,11 +99,23 @@ trait ApiResources {
           optionalHeaderValueByName(authProvider.headerName) { header =>
             authProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
               val statementOpt =
-                (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to) match {
-                  case (Success(statement: SelectSQLStatement), Some(from), Some(to)) =>
-                    Some(statement.enrichWithTimeRange("timestamp", from, to))
-                  case (Success(statement: SelectSQLStatement), _, _) => Some(statement)
-                  case _                                              => None
+                (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to, qb.filters) match {
+                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), filters) if filters.nonEmpty =>
+                    Some(
+                      statement
+                        .enrichWithTimeRange("timestamp", from, to)
+                        .addConditions(filters.map(f => Filter.unapply(f).get)))
+                  case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
+                    Some(statement
+                      .addConditions(filters.map(f => Filter.unapply(f).get))
+                    )
+                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
+                    Some(statement
+                      .enrichWithTimeRange("timestamp", from, to)
+                    )
+                  case (Success(statement: SelectSQLStatement), _, _, _) =>
+                    Some(statement)
+                  case _                                                 => None
                 }
               statementOpt match {
                 case Some(statement) =>

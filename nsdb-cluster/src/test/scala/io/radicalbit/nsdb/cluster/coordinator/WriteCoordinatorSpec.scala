@@ -9,7 +9,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
 import io.radicalbit.nsdb.actors.{PublisherActor, _}
 import io.radicalbit.nsdb.cluster.actor.{NamespaceDataActor, NamespaceSchemaActor}
-import io.radicalbit.nsdb.cluster.coordinator.Facilities._
+import io.radicalbit.nsdb.cluster.coordinator.Facilities.{TestSubscriber, TestCommitLogService}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._

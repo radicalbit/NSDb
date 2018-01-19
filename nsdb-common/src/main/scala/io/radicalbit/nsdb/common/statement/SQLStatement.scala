@@ -10,9 +10,9 @@ case class ListFields(fields: List[Field]) extends SelectedFields
 
 case class ListAssignment(fields: Map[String, JSerializable])
 
+sealed trait Expression
 case class Condition(expression: Expression)
 
-sealed trait Expression
 case class UnaryLogicalExpression(expression: Expression, operator: SingleLogicalOperator) extends Expression
 case class TupledLogicalExpression(expression1: Expression, operator: TupledLogicalOperator, expression2: Expression)
     extends Expression
@@ -70,6 +70,28 @@ case class SelectSQLStatement(override val db: String,
     val newCondition = this.condition match {
       case Some(cond) => Condition(TupledLogicalExpression(tsRangeExpression, AndOperator, cond.expression))
       case None       => Condition(tsRangeExpression)
+    }
+    this.copy(condition = Some(newCondition))
+  }
+
+  private def filterToExpression(dimension: String, value: JSerializable, operator: String): Expression = {
+    operator.toUpperCase match {
+      case ">"    => ComparisonExpression(dimension, GreaterThanOperator, value)
+      case ">="   => ComparisonExpression(dimension, GreaterOrEqualToOperator, value)
+      case "="    => EqualityExpression(dimension, value)
+      case "<="   => ComparisonExpression(dimension, LessOrEqualToOperator, value)
+      case "<"    => ComparisonExpression(dimension, LessThanOperator, value)
+      case "LIKE" => LikeExpression(dimension, value.asInstanceOf[String])
+    }
+  }
+
+  def addConditions(filters: Seq[(String, JSerializable, String)]): SelectSQLStatement = {
+    val expressions: Seq[Expression] = filters.map(f => filterToExpression(f._1, f._2, f._3))
+    val filtersExpression =
+      expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
+    val newCondition: Condition = this.condition match {
+      case Some(cond) => Condition(TupledLogicalExpression(cond.expression, AndOperator, filtersExpression))
+      case None       => Condition(filtersExpression)
     }
     this.copy(condition = Some(newCondition))
   }
