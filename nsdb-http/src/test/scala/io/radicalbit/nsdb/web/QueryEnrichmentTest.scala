@@ -321,6 +321,50 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
     }
+    "be correctly converted with different operators (also Not) and existing Conditions" in {
+      val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
+      val originalStatement = SelectSQLStatement(
+        "db",
+        "namespace",
+        "people",
+        ListFields(List(Field("name", None))),
+        Some(
+          Condition(
+            TupledLogicalExpression(LikeExpression("surname", "poe"),
+                                    OrOperator,
+                                    UnaryLogicalExpression(EqualityExpression("number", 1.0), NotOperator)))),
+        None,
+        None,
+        Some(LimitOperator(1))
+      )
+
+      val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
+
+      enrichedStatement shouldEqual
+        SelectSQLStatement(
+          "db",
+          "namespace",
+          "people",
+          ListFields(List(Field("name", None))),
+          Some(
+            Condition(
+              TupledLogicalExpression(
+                TupledLogicalExpression(LikeExpression("surname", "poe"),
+                                        OrOperator,
+                                        UnaryLogicalExpression(EqualityExpression("number", 1.0), NotOperator)),
+                AndOperator,
+                TupledLogicalExpression(
+                  ComparisonExpression("age", GreaterThanOperator, 1L),
+                  AndOperator,
+                  ComparisonExpression("height", LessOrEqualToOperator, 100L)
+                )
+              )
+            )),
+          None,
+          None,
+          Some(LimitOperator(1))
+        )
+    }
   }
 
 }
