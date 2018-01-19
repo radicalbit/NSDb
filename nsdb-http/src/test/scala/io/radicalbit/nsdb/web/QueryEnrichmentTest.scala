@@ -11,6 +11,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
+                                                 false,
                                                  ListFields(List(Field("name", None))),
                                                  None,
                                                  None,
@@ -23,6 +24,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         SelectSQLStatement("db",
                            "namespace",
                            "people",
+                           false,
                            ListFields(List(Field("name", None))),
                            Some(Condition(EqualityExpression("age", 1L))),
                            None,
@@ -34,6 +36,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
+                                                 false,
                                                  ListFields(List(Field("name", None))),
                                                  None,
                                                  None,
@@ -47,6 +50,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(Condition(ComparisonExpression("age", GreaterThanOperator, 1L))),
           None,
@@ -59,6 +63,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
+                                                 false,
                                                  ListFields(List(Field("name", None))),
                                                  None,
                                                  None,
@@ -72,6 +77,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(Condition(ComparisonExpression("age", GreaterOrEqualToOperator, 1L))),
           None,
@@ -84,6 +90,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
+                                                 false,
                                                  ListFields(List(Field("name", None))),
                                                  None,
                                                  None,
@@ -97,6 +104,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(Condition(ComparisonExpression("age", LessThanOperator, 1L))),
           None,
@@ -109,6 +117,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
+                                                 false,
                                                  ListFields(List(Field("name", None))),
                                                  None,
                                                  None,
@@ -122,6 +131,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(Condition(ComparisonExpression("age", LessOrEqualToOperator, 1L))),
           None,
@@ -137,55 +147,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
-                                                 ListFields(List(Field("name", None))),
-                                                 None,
-                                                 None,
-                                                 None,
-                                                 Some(LimitOperator(1)))
-
-      val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
-
-      enrichedStatement shouldEqual
-        SelectSQLStatement("db",
-                           "namespace",
-                           "people",
-                           ListFields(List(Field("name", None))),
-                           Some(Condition(EqualityExpression("surname", "Poe"))),
-                           None,
-                           None,
-                           Some(LimitOperator(1)))
-    }
-    "be correctly converted with LIKE operator" in {
-      val filters = Seq(Filter("surname", "Poe", "like"))
-      val originalStatement = SelectSQLStatement("db",
-                                                 "namespace",
-                                                 "people",
-                                                 ListFields(List(Field("name", None))),
-                                                 None,
-                                                 None,
-                                                 None,
-                                                 Some(LimitOperator(1)))
-
-      val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
-
-      enrichedStatement shouldEqual
-        SelectSQLStatement("db",
-                           "namespace",
-                           "people",
-                           ListFields(List(Field("name", None))),
-                           Some(Condition(LikeExpression("surname", "Poe"))),
-                           None,
-                           None,
-                           Some(LimitOperator(1)))
-    }
-  }
-
-  "Query with multiple filters of different types" should {
-    "be correctly converted with equal operators" in {
-      val filters = Seq(Filter("age", 1L, "="), Filter("height", 100L, "="))
-      val originalStatement = SelectSQLStatement("db",
-                                                 "namespace",
-                                                 "people",
+                                                 false,
                                                  ListFields(List(Field("name", None))),
                                                  None,
                                                  None,
@@ -199,6 +161,64 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
+          ListFields(List(Field("name", None))),
+          Some(Condition(EqualityExpression("surname", "Poe"))),
+          None,
+          None,
+          Some(LimitOperator(1))
+        )
+    }
+    "be correctly converted with LIKE operator" in {
+      val filters = Seq(Filter("surname", "Poe", "like"))
+      val originalStatement = SelectSQLStatement("db",
+                                                 "namespace",
+                                                 "people",
+                                                 false,
+                                                 ListFields(List(Field("name", None))),
+                                                 None,
+                                                 None,
+                                                 None,
+                                                 Some(LimitOperator(1)))
+
+      val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
+
+      enrichedStatement shouldEqual
+        SelectSQLStatement(
+          "db",
+          "namespace",
+          "people",
+          false,
+          ListFields(List(Field("name", None))),
+          Some(Condition(LikeExpression("surname", "Poe"))),
+          None,
+          None,
+          Some(LimitOperator(1))
+        )
+    }
+  }
+
+  "Query with multiple filters of different types" should {
+    "be correctly converted with equal operators" in {
+      val filters = Seq(Filter("age", 1L, "="), Filter("height", 100L, "="))
+      val originalStatement = SelectSQLStatement("db",
+                                                 "namespace",
+                                                 "people",
+                                                 false,
+                                                 ListFields(List(Field("name", None))),
+                                                 None,
+                                                 None,
+                                                 None,
+                                                 Some(LimitOperator(1)))
+
+      val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
+
+      enrichedStatement shouldEqual
+        SelectSQLStatement(
+          "db",
+          "namespace",
+          "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(Condition(
             TupledLogicalExpression(EqualityExpression("age", 1L), AndOperator, EqualityExpression("height", 100L)))),
@@ -209,14 +229,17 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
     }
     "be correctly converted with equal operators and existing Condition" in {
       val filters = Seq(Filter("age", 1L, "="), Filter("height", 100L, "="))
-      val originalStatement = SelectSQLStatement("db",
-                                                 "namespace",
-                                                 "people",
-                                                 ListFields(List(Field("name", None))),
-                                                 Some(Condition(EqualityExpression("surname", "poe"))),
-                                                 None,
-                                                 None,
-                                                 Some(LimitOperator(1)))
+      val originalStatement = SelectSQLStatement(
+        "db",
+        "namespace",
+        "people",
+        false,
+        ListFields(List(Field("name", None))),
+        Some(Condition(EqualityExpression("surname", "poe"))),
+        None,
+        None,
+        Some(LimitOperator(1))
+      )
 
       val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
@@ -225,6 +248,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(
             Condition(
@@ -245,14 +269,17 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
     }
     "be correctly converted with different operators and existing Condition" in {
       val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
-      val originalStatement = SelectSQLStatement("db",
-                                                 "namespace",
-                                                 "people",
-                                                 ListFields(List(Field("name", None))),
-                                                 Some(Condition(LikeExpression("surname", "poe"))),
-                                                 None,
-                                                 None,
-                                                 Some(LimitOperator(1)))
+      val originalStatement = SelectSQLStatement(
+        "db",
+        "namespace",
+        "people",
+        false,
+        ListFields(List(Field("name", None))),
+        Some(Condition(LikeExpression("surname", "poe"))),
+        None,
+        None,
+        Some(LimitOperator(1))
+      )
 
       val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
@@ -261,6 +288,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(
             Condition(
@@ -285,6 +313,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         "db",
         "namespace",
         "people",
+        false,
         ListFields(List(Field("name", None))),
         Some(
           Condition(
@@ -301,6 +330,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(
             Condition(
@@ -327,6 +357,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         "db",
         "namespace",
         "people",
+        false,
         ListFields(List(Field("name", None))),
         Some(
           Condition(
@@ -345,6 +376,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "db",
           "namespace",
           "people",
+          false,
           ListFields(List(Field("name", None))),
           Some(
             Condition(
