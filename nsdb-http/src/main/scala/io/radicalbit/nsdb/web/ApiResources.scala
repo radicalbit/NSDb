@@ -104,18 +104,16 @@ trait ApiResources {
                     Some(
                       statement
                         .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.map(f => Filter.unapply(f).get)))
+                        .addConditions(filters.map(Filter.unapply(_).get)))
                   case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
                     Some(statement
-                      .addConditions(filters.map(f => Filter.unapply(f).get))
-                    )
+                      .addConditions(filters.map(f => Filter.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
                     Some(statement
-                      .enrichWithTimeRange("timestamp", from, to)
-                    )
+                      .enrichWithTimeRange("timestamp", from, to))
                   case (Success(statement: SelectSQLStatement), _, _, _) =>
                     Some(statement)
-                  case _                                                 => None
+                  case _ => None
                 }
               statementOpt match {
                 case Some(statement) =>

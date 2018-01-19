@@ -93,7 +93,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
 
   "QueryApi" should "correctly query the db with a single filter and with time range" in {
     val q =
-      QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), Seq(Filter("value", 1L, "=")))
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric limit 1",
+                Some(100),
+                Some(200),
+                Seq(Filter("value", 1L, "=")))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
