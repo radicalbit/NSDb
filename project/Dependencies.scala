@@ -209,6 +209,7 @@ object Dependencies {
       akka.cluster,
       akka.clusterTools,
       akka.distributedData,
+      scala_logging.scala_logging,
       akka.slf4j,
       logback.logback,
       scalatest.core % Test,
@@ -219,6 +220,7 @@ object Dependencies {
 
   object Security {
     val libraries = Seq(
+      scala_logging.scala_logging,
       akka.actor,
       akka_http.default
     )

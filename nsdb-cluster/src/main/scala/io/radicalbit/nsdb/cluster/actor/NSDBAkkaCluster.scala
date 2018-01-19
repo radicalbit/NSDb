@@ -1,39 +1,29 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 
 trait NSDBAkkaCluster {
-  private val config = ConfigFactory
-    .parseFile(Paths.get(System.getProperty("confDir"), "cluster.conf").toFile)
-    .resolve()
-    .withFallback(ConfigFactory.load("cluster"))
 
-  val parsedConf = if (config.getBoolean("akka.remote.netty.tcp.enable-ssl")) {
-    config
-      .withValue("akka.remote.enabled-transports", config.getValue("akka.remote.enabled-transports-ssl"))
-      .withValue("akka.cluster.seed-nodes", config.getValue("akka.cluster.seed-nodes-ssl"))
-  } else
-    config
+  def config: Config
 
-  implicit val system: ActorSystem = ActorSystem("nsdb", parsedConf)
+  implicit lazy val system: ActorSystem = ActorSystem("nsdb", config)
 }
 
 trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val timeout =
-    Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+    Timeout(config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   implicit val executionContext = system.dispatcher
 
-  val guardian = system.actorOf(DatabaseActorsGuardian.props, "guardian")
+  lazy val guardian = system.actorOf(DatabaseActorsGuardian.props, "guardian")
 
   for {
     readCoordinator  <- (guardian ? GetReadCoordinator).mapTo[ActorRef]
