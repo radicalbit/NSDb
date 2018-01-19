@@ -93,6 +93,7 @@ class WriteCoordinatorShardSpec
       db = db,
       namespace = namespace,
       metric = "testMetric",
+      distinct = false,
       fields = AllFields,
       condition = Some(
         Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),

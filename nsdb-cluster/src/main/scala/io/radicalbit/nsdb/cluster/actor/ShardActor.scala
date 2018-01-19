@@ -170,7 +170,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>
       val combinedResult: Try[Seq[Bit]] = statementParser.parseStatement(statement, schema) match {
-        case Success(ParsedSimpleQuery(_, metric, q, limit, fields, sort)) =>
+        case Success(ParsedSimpleQuery(_, metric, q, false, limit, fields, sort)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
           val metricIn: mutable.Map[ShardKey, TimeSeriesIndex] = getMetricShards(statement.metric)
@@ -233,6 +233,39 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                     if (b.dimensions.contains("count(*)")) b.copy(dimensions = b.dimensions + ("count(*)" -> s.size))
                     else b)
             )
+
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.size == 1 =>
+          val distinctField = fields.head.name
+
+          val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
+
+          val facetIn = getMetricFacetShards(statement.metric)
+
+          val indexes = facetIn
+            .filter {
+              case (key, _) if intervals.nonEmpty =>
+                intervals
+                  .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
+                  .foldLeft(false)((x, y) => x || y)
+              case _ => true
+            }
+
+          val results = indexes.toSeq.map {
+            case (_, index) =>
+              handleQueryResults(metric, Try(index.getDistinctField(q, fields.map(_.name).head, sort, limit)))
+          }
+
+          val shardResults = Try(
+            results
+              .flatMap(_.get)
+              .groupBy(_.dimensions(distinctField))
+              .mapValues(values => {
+                Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))))
+              })
+              .values
+              .toSet)
+
+          applyOrderingWithLimit(shardResults.map(_.toSeq), statement, schema)
 
         case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))

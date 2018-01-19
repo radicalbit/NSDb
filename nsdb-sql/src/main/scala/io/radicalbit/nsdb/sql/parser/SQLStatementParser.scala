@@ -24,6 +24,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val All              = "*"
   private val From             = "FROM" ignoreCase
   private val Where            = "WHERE" ignoreCase
+  private val Distinct         = "DISTINCT" ignoreCase
   private val Comma            = ","
   private val In               = "IN" ignoreCase
   private val Order            = "ORDER BY" ignoreCase
@@ -87,8 +88,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timestamp = delta | longValue
 
-  private val selectFields = (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
-    case f ~ fs =>
+  private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
+    case d ~ f ~ fs =>
       f match {
         case All      => AllFields
         case f: Field => ListFields(f +: fs)
@@ -164,7 +165,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
       case (d ~ v1 ~ v2) => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
 
-  lazy val select: PackratParser[SelectedFields with Product with Serializable] = Select ~> selectFields
+  lazy val select
+    : Parser[~[Option[String], SelectedFields with Product with Serializable]] = Select ~> Distinct.? ~ selectFields
 
   lazy val from: PackratParser[String] = From ~> metric
 
@@ -183,10 +185,11 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def selectQuery(db: String, namespace: String) =
     select ~ from ~ (where ?) ~ groupBy ~ order ~ limit <~ ";" ^^ {
-      case fs ~ met ~ cond ~ gr ~ ord ~ lim =>
+      case d ~ fs ~ met ~ cond ~ gr ~ ord ~ lim =>
         SelectSQLStatement(db = db,
                            namespace = namespace,
                            metric = met,
+                           distinct = d.isDefined,
                            fields = fs,
                            condition = cond.map(Condition),
                            groupBy = gr,

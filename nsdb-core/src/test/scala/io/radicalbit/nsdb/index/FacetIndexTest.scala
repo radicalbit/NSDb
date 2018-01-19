@@ -27,14 +27,23 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
       val w = facetIndex.write(testData)
       w shouldBe valid
     }
+
+    val repeatedValue =
+      Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_100"))
+    val w = facetIndex.write(repeatedValue)
+    w shouldBe valid
+
     taxoWriter.close()
     writer.close()
 
     implicit val searcher = facetIndex.getSearcher
 
-    val groups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
+    val groups   = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
+    val distinct = facetIndex.getDistinctField(new MatchAllDocsQuery(), "content", None, 100)
 
     groups.size shouldBe 100
+    distinct.size shouldBe 100
+
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
