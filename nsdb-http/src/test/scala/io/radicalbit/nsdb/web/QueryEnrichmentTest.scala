@@ -7,7 +7,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
 
   "Query with a single filter over a dimension of Long type" should {
     "be correctly converted with equal operator" in {
-      val filters = Seq(Filter("age", 1L, "="))
+      val filters = Seq(Filter("age", 1L, FilterOperators.Equality))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -32,7 +32,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                            Some(LimitOperator(1)))
     }
     "be correctly converted with GT operator" in {
-      val filters = Seq(Filter("age", 1L, ">"))
+      val filters = Seq(Filter("age", 1L, FilterOperators.GreaterThan))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -59,7 +59,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with GTE operator" in {
-      val filters = Seq(Filter("age", 1L, ">="))
+      val filters = Seq(Filter("age", 1L, FilterOperators.GreaterOrEqual))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -86,7 +86,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with LT operator" in {
-      val filters = Seq(Filter("age", 1L, "<"))
+      val filters = Seq(Filter("age", 1L, FilterOperators.LessThan))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -113,7 +113,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with LTE operator" in {
-      val filters = Seq(Filter("age", 1L, "<="))
+      val filters = Seq(Filter("age", 1L, FilterOperators.LessOrEqual))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -143,7 +143,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
 
   "Query with a single filter over a dimension of String type" should {
     "be correctly converted with equal operator" in {
-      val filters = Seq(Filter("surname", "Poe", "="))
+      val filters = Seq(Filter("surname", "Poe", FilterOperators.Equality))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -170,7 +170,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with LIKE operator" in {
-      val filters = Seq(Filter("surname", "Poe", "like"))
+      val filters = Seq(Filter("surname", "Poe", FilterOperators.Like))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -200,7 +200,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
 
   "Query with multiple filters of different types" should {
     "be correctly converted with equal operators" in {
-      val filters = Seq(Filter("age", 1L, "="), Filter("height", 100L, "="))
+      val filters = Seq(Filter("age", 1L, FilterOperators.Equality), Filter("height", 100L, FilterOperators.Equality))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
                                                  "people",
@@ -228,7 +228,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with equal operators and existing Condition" in {
-      val filters = Seq(Filter("age", 1L, "="), Filter("height", 100L, "="))
+      val filters = Seq(Filter("age", 1L, FilterOperators.Equality), Filter("height", 100L, FilterOperators.Equality))
       val originalStatement = SelectSQLStatement(
         "db",
         "namespace",
@@ -268,7 +268,8 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with different operators and existing Condition" in {
-      val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
+      val filters =
+        Seq(Filter("age", 1L, FilterOperators.GreaterThan), Filter("height", 100L, FilterOperators.LessOrEqual))
       val originalStatement = SelectSQLStatement(
         "db",
         "namespace",
@@ -308,7 +309,8 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with different operators and existing Conditions" in {
-      val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
+      val filters =
+        Seq(Filter("age", 1L, FilterOperators.GreaterThan), Filter("height", 100L, FilterOperators.LessOrEqual))
       val originalStatement = SelectSQLStatement(
         "db",
         "namespace",
@@ -352,7 +354,8 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         )
     }
     "be correctly converted with different operators (also Not) and existing Conditions" in {
-      val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
+      val filters =
+        Seq(Filter("age", 1L, FilterOperators.GreaterThan), Filter("height", 100L, FilterOperators.LessOrEqual))
       val originalStatement = SelectSQLStatement(
         "db",
         "namespace",

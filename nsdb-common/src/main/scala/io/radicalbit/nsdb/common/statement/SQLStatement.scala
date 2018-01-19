@@ -2,6 +2,8 @@ package io.radicalbit.nsdb.common.statement
 
 import io.radicalbit.nsdb.common.JSerializable
 
+import scala.util.Try
+
 case class Field(name: String, aggregation: Option[Aggregation])
 
 sealed trait SelectedFields
@@ -9,10 +11,9 @@ case object AllFields                      extends SelectedFields
 case class ListFields(fields: List[Field]) extends SelectedFields
 
 case class ListAssignment(fields: Map[String, JSerializable])
-
-sealed trait Expression
 case class Condition(expression: Expression)
 
+sealed trait Expression
 case class UnaryLogicalExpression(expression: Expression, operator: SingleLogicalOperator) extends Expression
 case class TupledLogicalExpression(expression1: Expression, operator: TupledLogicalOperator, expression2: Expression)
     extends Expression

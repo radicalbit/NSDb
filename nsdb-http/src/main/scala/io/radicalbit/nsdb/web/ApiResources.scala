@@ -25,11 +25,25 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+object FilterOperators extends Enumeration {
+  val Equality       = Value("=")
+  val GreaterThan    = Value(">")
+  val GreaterOrEqual = Value(">=")
+  val LessThan       = Value("<")
+  val LessOrEqual    = Value("<=")
+  val Like           = Value("LIKE")
+}
+
 case class Filter(
     dimension: String,
     value: JSerializable,
-    operator: String
+    operator: FilterOperators.Value
 )
+
+case object Filter {
+  def unapply(arg: Filter): Option[(String, JSerializable, String)] =
+    Some((arg.dimension, arg.value, arg.operator.toString))
+}
 
 case class QueryBody(db: String,
                      namespace: String,
@@ -58,6 +72,20 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
     }
   }
 
+  implicit def enumFormat[T <: Enumeration](implicit enu: T): RootJsonFormat[T#Value] =
+    new RootJsonFormat[T#Value] {
+      def write(obj: T#Value): JsValue = JsString(obj.toString)
+      def read(json: JsValue): T#Value = {
+        json match {
+          case JsString(txt) => enu.withName(txt.toUpperCase)
+          case somethingElse =>
+            throw DeserializationException(s"Expected a value from enum $enu instead of $somethingElse")
+        }
+      }
+    }
+
+  implicit val FilterOperatorFormat: RootJsonFormat[FilterOperators.Value] = enumFormat(FilterOperators)
+
   implicit val FilterFormat = jsonFormat3(Filter.apply)
 
   implicit val QbFormat = jsonFormat7(QueryBody.apply)
@@ -69,6 +97,8 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 }
 
 trait ApiResources {
+
+  type FilterOperator = FilterOperators.Value
 
   implicit val formats: DefaultFormats
 
