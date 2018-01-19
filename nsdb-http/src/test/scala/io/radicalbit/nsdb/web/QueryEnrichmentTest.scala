@@ -207,7 +207,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
     }
-    "be correctly converted with differt operators and existing Condition" in {
+    "be correctly converted with equal operators and existing Condition" in {
       val filters = Seq(Filter("age", 1L, "="), Filter("height", 100L, "="))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
@@ -243,7 +243,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
     }
-    "be correctly converted with differet operators and existing Condition" in {
+    "be correctly converted with different operators and existing Condition" in {
       val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
       val originalStatement = SelectSQLStatement("db",
                                                  "namespace",
@@ -279,7 +279,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
     }
-    "be correctly converted with differet operators and existing Conditions" in {
+    "be correctly converted with different operators and existing Conditions" in {
       val filters = Seq(Filter("age", 1L, ">"), Filter("height", 100L, "<="))
       val originalStatement = SelectSQLStatement(
         "db",
