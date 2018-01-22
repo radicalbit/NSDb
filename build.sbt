@@ -70,6 +70,7 @@ lazy val `nsdb-cluster` = project
                      testResults.summaries ++ multiNodeResults.summaries)
     }
   )
+  .settings(scriptClasspath in bashScriptDefines += "../ext-lib/*")
   .settings(SbtMultiJvm.multiJvmSettings)
   .configs(MultiJvm)
   .settings(assemblyJarName in assembly := "nsdb-cluster.jar")
@@ -101,6 +102,7 @@ lazy val `nsdb-cluster` = project
 
 lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)
+  .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Security.libraries)
   .dependsOn(`nsdb-common`)
 
