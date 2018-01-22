@@ -51,7 +51,7 @@ case class QueryBody(db: String,
                      queryString: String,
                      from: Option[Long],
                      to: Option[Long],
-                     filters: Seq[Filter])
+                     filters: Option[Seq[Filter]])
     extends Metric
 case class InsertBody(db: String, namespace: String, metric: String, bit: Bit) extends Metric
 
@@ -134,10 +134,10 @@ trait ApiResources {
                     Some(
                       statement
                         .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.map(Filter.unapply(_).get)))
+                        .addConditions(filters.getOrElse(Seq.empty).map(Filter.unapply(_).get)))
                   case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
                     Some(statement
-                      .addConditions(filters.map(f => Filter.unapply(f).get)))
+                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
                     Some(statement
                       .enrichWithTimeRange("timestamp", from, to))

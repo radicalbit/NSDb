@@ -67,7 +67,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
                 "select * from metric limit 1",
                 None,
                 None,
-                Seq(Filter("value", 1L, FilterOperators.Equality)))
+                Some(Seq(Filter("value", 1L, FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -105,7 +105,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
                 "select * from metric limit 1",
                 Some(100),
                 Some(200),
-                Seq(Filter("value", 1L, FilterOperators.Equality)))
+                Some(Seq(Filter("value", 1L, FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -136,7 +136,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "QueryApi" should "correctly query the db with time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), Seq.empty)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -167,7 +167,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "QueryApi" should "correctly query the db without time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", None, None, Seq.empty)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", None, None, None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -197,7 +197,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "Secured QueryApi" should "not allow a request without the security header" in {
-    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), Seq.empty)
+    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None)
 
     Post("/query", q) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -212,7 +212,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
-    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2), Seq.empty)
+    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2), None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -221,7 +221,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric", Some(1), Some(2), Seq.empty)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric", Some(1), Some(2), None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
