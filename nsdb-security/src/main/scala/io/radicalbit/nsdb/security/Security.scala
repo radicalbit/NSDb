@@ -15,24 +15,14 @@ trait NsdbSecurity {
   lazy val security              = config.getBoolean("nsdb.security.enabled")
   lazy val authProviderClassName = config.getString("nsdb.security.auth-provider-class")
 
-  lazy val authProvider: NSDBAuthProvider =
+  lazy val authProvider: Try[NSDBAuthProvider] =
     if (!security) {
       logger.info("Security is not enabled")
-      new EmptyAuthorization
+      Success(new EmptyAuthorization)
     } else if (authProviderClassName != "") {
       logger.debug(s"Trying to load class $authProviderClassName")
-      Try(Class.forName(authProviderClassName).asSubclass(classOf[NSDBAuthProvider]).newInstance) match {
-        case Success(instance) =>
-          logger.debug(s"$authProviderClassName successfully loaded")
-          instance
-        case Failure(ex) =>
-          logger.error("", ex)
-          System.exit(0)
-          null
-      }
+      Try(Class.forName(authProviderClassName).asSubclass(classOf[NSDBAuthProvider]).newInstance)
     } else {
-      logger.error("a valid classname must be provided if security is enabled")
-      System.exit(1)
-      null
+      Failure(new RuntimeException("a valid classname must be provided if security is enabled"))
     }
 }

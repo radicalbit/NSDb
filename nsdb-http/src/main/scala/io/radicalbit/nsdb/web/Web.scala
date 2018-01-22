@@ -26,37 +26,45 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
 
   def guardian: ActorRef
 
-  Future
-    .sequence(
-      Seq((guardian ? GetPublisher).mapTo[ActorRef],
-          (guardian ? GetReadCoordinator).mapTo[ActorRef],
-          (guardian ? GetWriteCoordinator).mapTo[ActorRef]))
-    .onComplete {
-      case Success(Seq(publisher, readCoordinator, writeCoordinator)) =>
-        val api: Route = staticResources ~ wsResources(publisher, authProvider) ~ apiResources(publisher,
+  authProvider match {
+    case Success(provider) =>
+      Future
+        .sequence(
+          Seq((guardian ? GetPublisher).mapTo[ActorRef],
+              (guardian ? GetReadCoordinator).mapTo[ActorRef],
+              (guardian ? GetWriteCoordinator).mapTo[ActorRef]))
+        .onComplete {
+          case Success(Seq(publisher, readCoordinator, writeCoordinator)) =>
+            val api: Route = staticResources ~ wsResources(publisher, provider) ~ apiResources(publisher,
                                                                                                readCoordinator,
                                                                                                writeCoordinator,
-                                                                                               authProvider)
+                                                                                               provider)
 
-        val http =
-          if (isSSLEnabled)
-            Http().bindAndHandle(withCors(api),
-                                 config.getString("nsdb.http.interface"),
-                                 config.getInt("nsdb.http.ssl-port"),
-                                 connectionContext = serverContext)
-          else
-            Http().bindAndHandle(withCors(api),
-                                 config.getString("nsdb.http.interface"),
-                                 config.getInt("nsdb.http.port"))
+            val http =
+              if (isSSLEnabled)
+                Http().bindAndHandle(withCors(api),
+                                     config.getString("nsdb.http.interface"),
+                                     config.getInt("nsdb.http.ssl-port"),
+                                     connectionContext = serverContext)
+              else
+                Http().bindAndHandle(withCors(api),
+                                     config.getString("nsdb.http.interface"),
+                                     config.getInt("nsdb.http.port"))
 
-        scala.sys.addShutdownHook {
-          http.flatMap(_.unbind()).onComplete { _ =>
-            system.terminate()
-          }
+            scala.sys.addShutdownHook {
+              http.flatMap(_.unbind()).onComplete { _ =>
+                system.terminate()
+              }
 
-          Await.result(system.whenTerminated, 60 seconds)
+              Await.result(system.whenTerminated, 60 seconds)
+            }
+          case Failure(ex) =>
+            logger.error("error on loading coordinators", ex)
+            System.exit(1)
         }
-      case Failure(ex) =>
-    }
+    case Failure(ex) =>
+      logger.error("error on loading authorization provider", ex)
+      System.exit(1)
+  }
 
 }
