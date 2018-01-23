@@ -1,8 +1,7 @@
 package io.radicalbit.nsdb.common.statement
 
+import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.JSerializable
-
-import scala.util.Try
 
 case class Field(name: String, aggregation: Option[Aggregation])
 
@@ -64,7 +63,8 @@ case class SelectSQLStatement(override val db: String,
                               groupBy: Option[String] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
-    extends SQLStatement {
+    extends SQLStatement
+    with LazyLogging {
 
   def enrichWithTimeRange(dimension: String, from: Long, to: Long): SelectSQLStatement = {
     val tsRangeExpression = RangeExpression(dimension, from, to)
@@ -75,19 +75,22 @@ case class SelectSQLStatement(override val db: String,
     this.copy(condition = Some(newCondition))
   }
 
-  private def filterToExpression(dimension: String, value: JSerializable, operator: String): Expression = {
+  private def filterToExpression(dimension: String, value: JSerializable, operator: String): Option[Expression] = {
     operator.toUpperCase match {
-      case ">"    => ComparisonExpression(dimension, GreaterThanOperator, value)
-      case ">="   => ComparisonExpression(dimension, GreaterOrEqualToOperator, value)
-      case "="    => EqualityExpression(dimension, value)
-      case "<="   => ComparisonExpression(dimension, LessOrEqualToOperator, value)
-      case "<"    => ComparisonExpression(dimension, LessThanOperator, value)
-      case "LIKE" => LikeExpression(dimension, value.asInstanceOf[String])
+      case ">"    => Some(ComparisonExpression(dimension, GreaterThanOperator, value))
+      case ">="   => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value))
+      case "="    => Some(EqualityExpression(dimension, value))
+      case "<="   => Some(ComparisonExpression(dimension, LessOrEqualToOperator, value))
+      case "<"    => Some(ComparisonExpression(dimension, LessThanOperator, value))
+      case "LIKE" => Some(LikeExpression(dimension, value.asInstanceOf[String]))
+      case op @ _ =>
+        logger.warn("Ignored filter with invalid operator: {}", op)
+        None
     }
   }
 
   def addConditions(filters: Seq[(String, JSerializable, String)]): SelectSQLStatement = {
-    val expressions: Seq[Expression] = filters.map(f => filterToExpression(f._1, f._2, f._3))
+    val expressions: Seq[Expression] = filters.flatMap(f => filterToExpression(f._1, f._2, f._3))
     val filtersExpression =
       expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
     val newCondition: Condition = this.condition match {
