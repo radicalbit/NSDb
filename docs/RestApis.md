@@ -24,7 +24,7 @@ Filter elements are combined through AND operator.
     "metric": "[string]",
     "queryString": "[string]",
     "from": "[optional timestamp in epoch format]",
-    "to": "[optional timestampin epoch format]",
+    "to": "[optional timestamp in epoch format]",
     "filters": "[ optional array of Filter] "
 }
 ```
@@ -65,7 +65,7 @@ From and To fields are optionals.
     "metric": "people",
     "queryString": "select * from people limit 100",
     "from": 0,
-    "to": 100000,
+    "to": 100000
 }
 ```
 
