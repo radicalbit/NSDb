@@ -9,7 +9,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
 import io.radicalbit.nsdb.actors.{PublisherActor, _}
 import io.radicalbit.nsdb.cluster.actor.{NamespaceDataActor, NamespaceSchemaActor}
-import io.radicalbit.nsdb.cluster.coordinator.Facilities._
+import io.radicalbit.nsdb.cluster.coordinator.Facilities.{TestSubscriber, TestCommitLogService}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -33,7 +33,7 @@ class WriteCoordinatorSpec
   val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
-    PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
+    PublisherActor.props(system.actorOf(Props[Facilities.FakeReadCoordinatorActor]), namespaceSchemaActor))
   val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),

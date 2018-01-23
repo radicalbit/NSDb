@@ -13,6 +13,9 @@ Retrieve data from nsdb according to a query provided
 **Data params**
 
 Provide `db`, `namespace`, `metric` and the query to be executed, and optionally `from` and `to` timestamp to filter the results.
+ 
+ Dynamic where conditions can be specified using filter definition.
+Filter elements are combined through AND operator.
 
 ```json
 {
@@ -21,7 +24,17 @@ Provide `db`, `namespace`, `metric` and the query to be executed, and optionally
     "metric": "[string]",
     "queryString": "[string]",
     "from": "[optional timestamp in epoch format]",
-    "to": "[optional timestampin epoch format]"
+    "to": "[optional timestamp in epoch format]",
+    "filters": "[ optional array of Filter] "
+}
+```
+Filter object is defines as below
+
+```json
+{
+    "dimension": "[string]",
+    "value": "[string|numerical depending on dimension type]",
+    "operator" : "[string which value must me in [=, >, >=, <, <=, like]]"
 }
 ```
 
@@ -34,7 +47,14 @@ From and To fields are optionals.
     "db": "db",
     "namespace": "namespace",
     "metric": "people",
-    "queryString": "select * from people limit 100"
+    "queryString": "select * from people limit 100",
+    "filters": [{ "dimension": "dimName1", 
+                  "value" : "value", 
+                  "operator": "like" },
+                { "dimension": "dimName2", 
+                  "value" : 1, 
+                  "operator": ">" }
+                ]
 }
 ```
 
@@ -46,6 +66,24 @@ From and To fields are optionals.
     "queryString": "select * from people limit 100",
     "from": 0,
     "to": 100000
+}
+```
+
+```json
+{
+    "db": "db",
+    "namespace": "namespace",
+    "metric": "people",
+    "queryString": "select * from people limit 100",
+    "from": 0,
+    "to": 100000,
+    "filters": [{ "dimension": "dimName1", 
+                  "value" : "value", 
+                  "operator": "=" },
+                { "dimension": "dimName2", 
+                  "value" : 1, 
+                  "operator": "=" }
+                ]
 }
 ```
 
@@ -189,7 +227,8 @@ Provide `db`, `namespace`, `metric` and the query to be subscribed to
     "db": "[string]",
     "namespace": "[string]",
     "metric": "[string]",
-    "queryString" : "[string]"
+    "queryString" : "[string]",
+    "filters": "[optional array of Filter]"
 }
 ```
 
@@ -200,7 +239,13 @@ Provide `db`, `namespace`, `metric` and the query to be subscribed to
     "db": "db",
     "namespace": "namespace",
     "metric": "metric",
-    "queryString" : "select * from metric limit 1"
+    "queryString" : "select * from metric limit 1",
+    "filters": [{ "dimension": "dimName1", 
+                  "value" : "value", 
+                  "operator": "=" },
+                { "dimension": "dimName2", 
+                  "value" : 1, 
+                  "operator": ">=" }]
 }
 ```
 

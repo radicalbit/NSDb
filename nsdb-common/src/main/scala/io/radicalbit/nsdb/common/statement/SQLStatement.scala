@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.common.statement
 
+import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.JSerializable
 
 case class Field(name: String, aggregation: Option[Aggregation])
@@ -9,7 +10,6 @@ case object AllFields                      extends SelectedFields
 case class ListFields(fields: List[Field]) extends SelectedFields
 
 case class ListAssignment(fields: Map[String, JSerializable])
-
 case class Condition(expression: Expression)
 
 sealed trait Expression
@@ -63,13 +63,39 @@ case class SelectSQLStatement(override val db: String,
                               groupBy: Option[String] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
-    extends SQLStatement {
+    extends SQLStatement
+    with LazyLogging {
 
   def enrichWithTimeRange(dimension: String, from: Long, to: Long): SelectSQLStatement = {
     val tsRangeExpression = RangeExpression(dimension, from, to)
     val newCondition = this.condition match {
       case Some(cond) => Condition(TupledLogicalExpression(tsRangeExpression, AndOperator, cond.expression))
       case None       => Condition(tsRangeExpression)
+    }
+    this.copy(condition = Some(newCondition))
+  }
+
+  private def filterToExpression(dimension: String, value: JSerializable, operator: String): Option[Expression] = {
+    operator.toUpperCase match {
+      case ">"    => Some(ComparisonExpression(dimension, GreaterThanOperator, value))
+      case ">="   => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value))
+      case "="    => Some(EqualityExpression(dimension, value))
+      case "<="   => Some(ComparisonExpression(dimension, LessOrEqualToOperator, value))
+      case "<"    => Some(ComparisonExpression(dimension, LessThanOperator, value))
+      case "LIKE" => Some(LikeExpression(dimension, value.asInstanceOf[String]))
+      case op @ _ =>
+        logger.warn("Ignored filter with invalid operator: {}", op)
+        None
+    }
+  }
+
+  def addConditions(filters: Seq[(String, JSerializable, String)]): SelectSQLStatement = {
+    val expressions: Seq[Expression] = filters.flatMap(f => filterToExpression(f._1, f._2, f._3))
+    val filtersExpression =
+      expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
+    val newCondition: Condition = this.condition match {
+      case Some(cond) => Condition(TupledLogicalExpression(cond.expression, AndOperator, filtersExpression))
+      case None       => Condition(filtersExpression)
     }
     this.copy(condition = Some(newCondition))
   }

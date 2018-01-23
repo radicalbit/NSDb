@@ -181,7 +181,9 @@ object Dependencies {
   }
 
   object Common {
-    val libraries = Seq.empty
+    val libraries = Seq(
+      scala_logging.scala_logging
+    )
   }
 
   object RPC {
