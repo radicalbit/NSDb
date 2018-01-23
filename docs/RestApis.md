@@ -14,7 +14,7 @@ Retrieve data from nsdb according to a query provided
 
 Provide `db`, `namespace`, `metric` and the query to be executed, and optionally `from` and `to` timestamp to filter the results.
  
- Dynamic where conditions can be specified using filter definition. If no filters are defined empty array must be defined.
+ Dynamic where conditions can be specified using filter definition.
 Filter elements are combined through AND operator.
 
 ```json
@@ -25,7 +25,7 @@ Filter elements are combined through AND operator.
     "queryString": "[string]",
     "from": "[optional timestamp in epoch format]",
     "to": "[optional timestampin epoch format]",
-    "filters": "[array of Filter] "
+    "filters": "[ optional array of Filter] "
 }
 ```
 Filter object is defines as below
@@ -48,13 +48,13 @@ From and To fields are optionals.
     "namespace": "namespace",
     "metric": "people",
     "queryString": "select * from people limit 100",
-    "filters": "filters": [{ "dimension": "dimName1", 
-                             "value" : "value", 
-                             "operator": "like" },
-                           { "dimension": "dimName2", 
-                             "value" : 1, 
-                             "operator": ">" }
-                           ]
+    "filters": [{ "dimension": "dimName1", 
+                  "value" : "value", 
+                  "operator": "like" },
+                { "dimension": "dimName2", 
+                  "value" : 1, 
+                  "operator": ">" }
+                ]
 }
 ```
 
@@ -66,7 +66,6 @@ From and To fields are optionals.
     "queryString": "select * from people limit 100",
     "from": 0,
     "to": 100000,
-    "filters": []
 }
 ```
 
@@ -229,7 +228,7 @@ Provide `db`, `namespace`, `metric` and the query to be subscribed to
     "namespace": "[string]",
     "metric": "[string]",
     "queryString" : "[string]",
-    "filters": "[Filter]"
+    "filters": "[optional array of Filter]"
 }
 ```
 
