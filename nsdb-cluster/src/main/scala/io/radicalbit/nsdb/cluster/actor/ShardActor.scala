@@ -10,6 +10,7 @@ import io.radicalbit.nsdb.actors._
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.cluster.actor.ShardActor.{Accumulate, PerformWrites}
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.lucene._
@@ -329,7 +330,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           applyOrderingWithLimit(rawResult, statement, schema)
 
         case Failure(ex) => Failure(ex)
-        case _           => Failure(new RuntimeException("Not a select statement."))
+        case _           => Failure(new InvalidStatementException("Not a select statement."))
       }
 
       combinedResult match {

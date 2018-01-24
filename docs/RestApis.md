@@ -126,6 +126,12 @@ From and To fields are optionals.
 
 ### Or
 
+**Condition** : If metric does not exist
+
+**Code** : `404 NOT FOUND`
+
+### Or
+
 **Condition** : If a generic error occurs.
 
 **Code** : `500 INTERNAL SERVER ERROR`

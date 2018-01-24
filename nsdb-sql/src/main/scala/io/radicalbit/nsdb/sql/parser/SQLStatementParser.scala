@@ -1,6 +1,7 @@
 package io.radicalbit.nsdb.sql.parser
 
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
@@ -166,7 +167,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     }
 
   lazy val select
-    : Parser[~[Option[String], SelectedFields with Product with Serializable]] = Select ~> Distinct.? ~ selectFields
+    : PackratParser[~[Option[String], SelectedFields with Product with Serializable]] = Select ~> Distinct.? ~ selectFields
 
   lazy val from: PackratParser[String] = From ~> metric
 
@@ -225,8 +226,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     Try(parse(query(db, namespace), new PackratReader[Char](new CharSequenceReader(s"$input;")))) flatMap {
       case Success(res, _) => ScalaSuccess(res)
       case Error(msg, next) =>
-        ScalaFailure(new RuntimeException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
+        ScalaFailure(new InvalidStatementException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
       case Failure(msg, next) =>
-        ScalaFailure(new RuntimeException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
+        ScalaFailure(new InvalidStatementException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
     }
 }

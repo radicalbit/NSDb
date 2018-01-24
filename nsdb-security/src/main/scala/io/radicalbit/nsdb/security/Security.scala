@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.security
 
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.Logger
+import io.radicalbit.nsdb.common.exception.NsdbSecurityException
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 
 import scala.util.{Failure, Success, Try}
@@ -23,6 +24,6 @@ trait NsdbSecurity {
       logger.debug(s"Trying to load class $authProviderClassName")
       Try(Class.forName(authProviderClassName).asSubclass(classOf[NSDBAuthProvider]).newInstance)
     } else {
-      Failure(new RuntimeException("a valid classname must be provided if security is enabled"))
+      Failure(new NsdbSecurityException("a valid classname must be provided if security is enabled"))
     }
 }

@@ -150,7 +150,9 @@ trait ApiResources {
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, _, _, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
-                    case Success(SelectStatementFailed(reason)) =>
+                    case Success(SelectStatementFailed(reason, MetricNotFound(metric))) =>
+                      complete(HttpResponse(NotFound, entity = reason))
+                    case Success(SelectStatementFailed(reason, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))
                     case Success(_) =>
                       complete(HttpResponse(InternalServerError, entity = "unknown response"))

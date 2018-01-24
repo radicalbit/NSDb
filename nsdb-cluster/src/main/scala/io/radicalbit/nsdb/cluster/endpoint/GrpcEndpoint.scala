@@ -7,6 +7,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{Bit, MetricField}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -191,7 +192,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       records = values.map(toGrpcBit)
                     )
                   // SelectExecution Failure
-                  case SelectStatementFailed(reason) =>
+                  case SelectStatementFailed(reason, _) =>
                     SQLStatementResponse(
                       db = requestDb,
                       namespace = requestNamespace,
@@ -225,7 +226,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                                     value = value,
                                                     dimensions = dimensions.map(_.fields).getOrElse(Map.empty)))
                 }
-                .getOrElse(Future(throw new RuntimeException("The insert SQL statement is invalid.")))
+                .getOrElse(Future(throw new InvalidStatementException("The insert SQL statement is invalid.")))
               result
                 .map {
                   case InputMapped(db, namespace, metric, record) =>
@@ -286,25 +287,22 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           }
 
         //Parsing Failure
-        case Failure(exception) =>
-          exception match {
-            case r: RuntimeException =>
-              Future.successful(
-                SQLStatementResponse(db = request.db,
-                                     namespace = request.namespace,
-                                     completedSuccessfully = false,
-                                     reason = "sql statement not valid",
-                                     message = "")
-              )
-            case _ =>
-              Future.successful(
-                SQLStatementResponse(db = request.db,
-                                     namespace = request.namespace,
-                                     completedSuccessfully = false,
-                                     reason = "sql statement not valid",
-                                     message = "sql statement not valid"))
-
-          }
+        case Failure(exception: InvalidStatementException) =>
+          Future.successful(
+            SQLStatementResponse(db = request.db,
+                                 namespace = request.namespace,
+                                 completedSuccessfully = false,
+                                 reason = "sql statement not valid",
+                                 message = exception.message)
+          )
+        case Failure(ex) =>
+          Future.successful(
+            SQLStatementResponse(db = request.db,
+                                 namespace = request.namespace,
+                                 completedSuccessfully = false,
+                                 reason = "internal error",
+                                 message = ex.getMessage)
+          )
       }
     }
   }

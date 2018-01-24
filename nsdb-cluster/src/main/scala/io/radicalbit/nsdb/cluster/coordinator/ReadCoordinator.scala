@@ -71,7 +71,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
                   SelectStatementFailed(errs.mkString(","))
                 }
               }
-          case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
+          case _ =>
+            Future(
+              SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
         .pipeTo(sender())
   }
@@ -95,7 +97,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             namespaceDataActor ? ExecuteSelectStatement(statement, schema)
-          case _ => Future(SelectStatementFailed(s"Metric ${statement.metric} does not exist "))
+          case _ =>
+            Future(
+              SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
         .pipeTo(sender())
   }

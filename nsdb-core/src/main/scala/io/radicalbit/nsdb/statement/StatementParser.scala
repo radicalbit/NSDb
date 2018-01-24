@@ -1,6 +1,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene._
@@ -25,15 +26,15 @@ class StatementParser {
           case Some(SchemaField(_, t: DECIMAL)) =>
             Try(DoublePoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
           case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
-          case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+          case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
       case Some(LikeExpression(dimension, value)) =>
         schema.get(dimension) match {
           case Some(SchemaField(_, _: VARCHAR)) =>
             Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
           case Some(_) =>
-            Failure(new RuntimeException(s"cannot use LIKE operator on dimension different from VARCHAR"))
-          case None => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+            Failure(new InvalidStatementException(s"cannot use LIKE operator on dimension different from VARCHAR"))
+          case None => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value)) =>
         def buildRangeQuery[T](fieldTypeRangeQuery: (String, T, T) => Query,
@@ -62,8 +63,9 @@ class StatementParser {
                                     Double.MaxValue,
                                     v)
           case (Some(_), _) =>
-            Failure(new RuntimeException(s"cannot use comparison operator on dimension different from numerical"))
-          case (None, _) => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+            Failure(
+              new InvalidStatementException(s"cannot use comparison operator on dimension different from numerical"))
+          case (None, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
       case Some(RangeExpression(dimension, v1, v2)) =>
         (schema.get(dimension), v1, v2) match {
@@ -73,10 +75,10 @@ class StatementParser {
           case (Some(SchemaField(_, _: DECIMAL)), v1: Double, v2: Double) =>
             Success(DoublePoint.newRangeQuery(dimension, v1, v2))
           case (Some(SchemaField(_, _: VARCHAR)), _, _) =>
-            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type VARCHAR"))
+            Failure(new InvalidStatementException(s"range operator cannot be defined on dimension of type VARCHAR"))
           case (Some(_), _, _) =>
-            Failure(new RuntimeException(s"range boundaries must be have the same type of dimension"))
-          case (None, _, _) => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
+            Failure(new InvalidStatementException(s"range boundaries must be have the same type of dimension"))
+          case (None, _, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
       case Some(UnaryLogicalExpression(expression, _)) =>
         parseExpression(Some(expression), schema).map { e =>
@@ -156,16 +158,16 @@ class StatementParser {
                                   sortOpt,
                                   limit.map(_.value)))
         case (_, List(Field(_, None)), Some(_), _) =>
-          Failure(new RuntimeException("cannot execute a group by query without an aggregation"))
+          Failure(new InvalidStatementException("cannot execute a group by query without an aggregation"))
         case (_, List(_), Some(_), _) =>
-          Failure(new RuntimeException("cannot execute a group by query with more than a field"))
+          Failure(new InvalidStatementException("cannot execute a group by query with more than a field"))
         case (_, List(), Some(_), _) =>
-          Failure(new RuntimeException("cannot execute a group by query with all fields selected"))
+          Failure(new InvalidStatementException("cannot execute a group by query with all fields selected"))
         case (true, List(), None, _) =>
-          Failure(new RuntimeException("cannot execute a select all query with distinct"))
+          Failure(new InvalidStatementException("cannot execute a select all query with distinct"))
         //TODO: Not supported yet
-        case (true, fieldsSeq, None, _) if fieldsSeq.size > 1 =>
-          Failure(new RuntimeException("cannot execute a select distinct projecting more than one dimension"))
+        case (true, fieldsSeq, None, _) if fieldsSeq.lengthCompare(1) > 0 =>
+          Failure(new InvalidStatementException("cannot execute a select distinct projecting more than one dimension"))
         case (distinct, fieldsSeq, None, Some(limit))
             if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
           Success(
@@ -182,9 +184,10 @@ class StatementParser {
         case (_, fieldsSeq, None, Some(_))
             if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
           Failure(
-            new RuntimeException("cannot execute a query with aggregation different than count without a group by"))
+            new InvalidStatementException(
+              "cannot execute a query with aggregation different than count without a group by"))
         case (_, _, None, None) =>
-          Failure(new RuntimeException("cannot execute query without a limit"))
+          Failure(new InvalidStatementException("cannot execute query without a limit"))
     })
   }
 }
