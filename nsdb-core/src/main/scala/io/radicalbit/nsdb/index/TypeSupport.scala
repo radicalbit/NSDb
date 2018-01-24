@@ -4,8 +4,9 @@ import cats.Monoid
 import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import cats.data.{NonEmptyList, Validated}
 import cats.implicits._
-import io.radicalbit.nsdb.common.{JDouble, JLong, JSerializable}
+import io.radicalbit.nsdb.common.exception.TypeNotSupportedException
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.{JDouble, JLong, JSerializable}
 import io.radicalbit.nsdb.index.IndexType.SchemaValidation
 import io.radicalbit.nsdb.model.{RawField, TypedField}
 import org.apache.lucene.document.Field.Store
@@ -74,7 +75,7 @@ object IndexType {
 
   def fromClass(clazz: Class[_]): Try[IndexType[_]] = supportedType.find(_.actualType == clazz) match {
     case Some(indexType: IndexType[_]) => Success(indexType)
-    case None                          => Failure(new RuntimeException(s"unsupported type $clazz"))
+    case None                          => Failure(new TypeNotSupportedException(s"unsupported type $clazz"))
   }
 
 }

@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
@@ -44,7 +45,7 @@ class CommandStatementParser(db: String) extends RegexParsers with PackratParser
   def parse(namespace: Option[String], input: String): Try[CommandStatement] =
     Try(parse(commands(namespace), s"$input;")).flatMap {
       case Success(res, _) => ScalaSuccess(res.asInstanceOf[CommandStatement])
-      case Error(msg, _)   => ScalaFailure(new RuntimeException(msg))
-      case Failure(msg, _) => ScalaFailure(new RuntimeException(msg))
+      case Error(msg, _)   => ScalaFailure(new InvalidStatementException(msg))
+      case Failure(msg, _) => ScalaFailure(new InvalidStatementException(msg))
     }
 }
