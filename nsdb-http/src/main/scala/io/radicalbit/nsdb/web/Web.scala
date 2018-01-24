@@ -44,7 +44,7 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
               if (isSSLEnabled)
                 Http().bindAndHandle(withCors(api),
                                      config.getString("nsdb.http.interface"),
-                                     config.getInt("nsdb.http.ssl-port"),
+                                     config.getInt("nsdb.http.https-port"),
                                      connectionContext = serverContext)
               else
                 Http().bindAndHandle(withCors(api),
