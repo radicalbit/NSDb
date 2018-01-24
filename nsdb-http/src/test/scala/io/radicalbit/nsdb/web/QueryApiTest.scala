@@ -214,7 +214,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
       val entity       = entityAs[String]
-      val recordString = pretty(render((parse(entity))))
+      val recordString = pretty(render(parse(entity)))
 
       recordString shouldBe
         """{
