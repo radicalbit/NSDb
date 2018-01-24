@@ -53,8 +53,8 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
         case (id, nsdbQuery) =>
           val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
             .map {
-              case e: SelectStatementExecuted => RecordsPublished(id, e.metric, e.values)
-              case SelectStatementFailed(_)   => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
+              case e: SelectStatementExecuted  => RecordsPublished(id, e.metric, e.values)
+              case SelectStatementFailed(_, _) => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
             }
           subscribedActors.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       }
@@ -80,7 +80,7 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
                           subscribedActors += (id -> (previousRegisteredActors + actor))
                           queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
                           SubscribedByQueryString(queryString, id, e.values)
-                        case SelectStatementFailed(reason) => SubscriptionFailed(reason)
+                        case SelectStatementFailed(reason, _) => SubscriptionFailed(reason)
                       }
 
                   case Failure(ex) => Future(SubscriptionFailed(ex.getMessage))
@@ -106,7 +106,7 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
                 val previousRegisteredActors = subscribedActors.getOrElse(quid, Set.empty)
                 subscribedActors += (quid -> (previousRegisteredActors + actor))
                 SubscribedByQuid(quid, e.values)
-              case SelectStatementFailed(reason) => SubscriptionFailed(reason)
+              case SelectStatementFailed(reason, _) => SubscriptionFailed(reason)
             }
             .pipeTo(sender())
         case None => sender ! SubscriptionFailed(s"quid $quid not found")

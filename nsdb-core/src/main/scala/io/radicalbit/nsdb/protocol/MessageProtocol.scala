@@ -41,11 +41,16 @@ object MessageProtocol {
   }
 
   object Events {
+
+    sealed trait ErrorCode
+    case class MetricNotFound(metric: String) extends ErrorCode
+    case object Generic                       extends ErrorCode
+
     case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
-    case class SelectStatementFailed(reason: String)
+    case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
 
     case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
     case class DeleteStatementExecuted(db: String, namespace: String, metric: String)

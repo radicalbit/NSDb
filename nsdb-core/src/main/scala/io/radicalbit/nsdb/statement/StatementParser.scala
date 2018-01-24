@@ -63,7 +63,8 @@ class StatementParser {
                                     Double.MaxValue,
                                     v)
           case (Some(_), _) =>
-            Failure(new InvalidStatementException(s"cannot use comparison operator on dimension different from numerical"))
+            Failure(
+              new InvalidStatementException(s"cannot use comparison operator on dimension different from numerical"))
           case (None, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
       case Some(RangeExpression(dimension, v1, v2)) =>
@@ -183,7 +184,8 @@ class StatementParser {
         case (_, fieldsSeq, None, Some(_))
             if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
           Failure(
-            new InvalidStatementException("cannot execute a query with aggregation different than count without a group by"))
+            new InvalidStatementException(
+              "cannot execute a query with aggregation different than count without a group by"))
         case (_, _, None, None) =>
           Failure(new InvalidStatementException("cannot execute query without a limit"))
     })

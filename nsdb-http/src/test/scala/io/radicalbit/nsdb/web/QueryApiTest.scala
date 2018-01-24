@@ -27,19 +27,21 @@ class FakeReadCoordinator extends Actor {
   override def receive: Receive = {
     case ExecuteStatement(statement)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
-      new StatementParser().parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
+      new StatementParser()
+        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
         case scala.util.Success(_) =>
           val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
           sender ! SelectStatementExecuted(statement.db,
-            statement.namespace,
-            statement.metric,
-            bitsParametrized(e.value1, e.value2))
+                                           statement.namespace,
+                                           statement.metric,
+                                           bitsParametrized(e.value1, e.value2))
         case Failure(_) => sender ! SelectStatementFailed("statement not valid")
       }
     case ExecuteStatement(statement) =>
-      new StatementParser().parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
+      new StatementParser()
+        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
         case scala.util.Success(_) =>
-      sender ! SelectStatementExecuted (statement.db, statement.namespace, statement.metric, bits)
+          sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
         case Failure(_) => sender ! SelectStatementFailed("statement not valid")
       }
   }
@@ -149,12 +151,12 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "QueryApi" should "correctly query the db with a single filter with compatible type" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select * from metric limit 1",
-        None,
-        None,
-        Some(Seq(Filter("value", "1", FilterOperators.Equality))))
+                "namespace",
+                "metric",
+                "select * from metric limit 1",
+                None,
+                None,
+                Some(Seq(Filter("value", "1", FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -165,12 +167,12 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   "QueryApi" should "fail with a single filter with incompatible type" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select * from metric limit 1",
-        None,
-        None,
-        Some(Seq(Filter("value", "vd", FilterOperators.Equality))))
+                "namespace",
+                "metric",
+                "select * from metric limit 1",
+                None,
+                None,
+                Some(Seq(Filter("value", "vd", FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe InternalServerError

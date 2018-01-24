@@ -11,6 +11,7 @@ import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetWriteLoc
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
@@ -125,7 +126,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
       else
         (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(sender)
-    case msg @ ExecuteDeleteStatement(statement) =>
+    case ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       if (namespaces.isEmpty)
         sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
       else
@@ -133,7 +134,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
           .flatMap {
             case SchemaGot(_, _, _, Some(schema)) =>
               broadcastMessage(ExecuteDeleteStatementInternal(statement, schema))
-            case _ => Future(SelectStatementFailed(s"No schema found for metric ${statement.metric}"))
+            case _ =>
+              Future(DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"),
+                     MetricNotFound(statement.metric))
           }
           .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
@@ -181,13 +184,13 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         .flatMap(_ => namespaceSchemaActor ? msg)
         .mapTo[NamespaceDeleted]
         .pipeTo(sender())
-    case ExecuteDeleteStatement(statement) =>
+    case ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       log.debug(s"executing $statement")
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             namespaceDataActor ? ExecuteDeleteStatementInternal(statement, schema)
-          case _ => Future(SelectStatementFailed(s"Metric ${statement.metric} does not exist "))
+          case _ => Future(DeleteStatementFailed(db, namespace, metric, s"Metric ${statement.metric} does not exist "))
         }
         .pipeTo(sender())
     case msg @ DropMetric(_, _, _) =>
