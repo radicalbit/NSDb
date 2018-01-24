@@ -135,8 +135,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             case SchemaGot(_, _, _, Some(schema)) =>
               broadcastMessage(ExecuteDeleteStatementInternal(statement, schema))
             case _ =>
-              Future(DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"),
-                     MetricNotFound(statement.metric))
+              Future(DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
           }
           .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
