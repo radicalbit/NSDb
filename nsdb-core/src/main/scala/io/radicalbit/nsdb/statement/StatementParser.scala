@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene._
@@ -8,7 +9,6 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
-import org.apache.lucene.search.grouping.DistinctValuesCollector
 
 import scala.util.{Failure, Success, Try}
 
@@ -18,17 +18,18 @@ class StatementParser {
     val q = exp match {
       case Some(EqualityExpression(dimension, value)) =>
         schema.get(dimension) match {
-          case Some(SchemaField(_, t: INT))     => Try(IntPoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, t: BIGINT))  => Try(LongPoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, t: DECIMAL)) => Try(DoublePoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, _: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
-          case Some(SchemaField(_, _: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, t: INT)) =>
+            Try(IntPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+          case Some(SchemaField(_, t: BIGINT)) =>
+            Try(LongPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+          case Some(SchemaField(_, t: DECIMAL)) =>
+            Try(DoublePoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
           case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
           case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
         }
       case Some(LikeExpression(dimension, value)) =>
         schema.get(dimension) match {
-          case Some(SchemaField(_, t: VARCHAR)) =>
+          case Some(SchemaField(_, _: VARCHAR)) =>
             Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
           case Some(_) =>
             Failure(new RuntimeException(s"cannot use LIKE operator on dimension different from VARCHAR"))
@@ -49,11 +50,11 @@ class StatementParser {
           })
 
         (schema.get(dimension), value) match {
-          case (Some(SchemaField(_, t: INT)), v: Int) =>
+          case (Some(SchemaField(_, _: INT)), v: Int) =>
             buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)
-          case (Some(SchemaField(_, t: BIGINT)), v: Long) =>
+          case (Some(SchemaField(_, _: BIGINT)), v: Long) =>
             buildRangeQuery[Long](LongPoint.newRangeQuery, v + 1, v - 1, Long.MinValue, Long.MaxValue, v)
-          case (Some(SchemaField(_, t: DECIMAL)), v: Double) =>
+          case (Some(SchemaField(_, _: DECIMAL)), v: Double) =>
             buildRangeQuery[Double](DoublePoint.newRangeQuery,
                                     Math.nextAfter(v, Double.MaxValue),
                                     Math.nextAfter(v, Double.MinValue),
@@ -66,17 +67,13 @@ class StatementParser {
         }
       case Some(RangeExpression(dimension, v1, v2)) =>
         (schema.get(dimension), v1, v2) match {
-          case (Some(SchemaField(_, t: BIGINT)), v1: Long, v2: Long) =>
+          case (Some(SchemaField(_, _: BIGINT)), v1: Long, v2: Long) =>
             Success(LongPoint.newRangeQuery(dimension, v1, v2))
-          case (Some(SchemaField(_, t: INT)), v1: Int, v2: Int) => Success(IntPoint.newRangeQuery(dimension, v1, v2))
-          case (Some(SchemaField(_, t: DECIMAL)), v1: Double, v2: Double) =>
+          case (Some(SchemaField(_, _: INT)), v1: Int, v2: Int) => Success(IntPoint.newRangeQuery(dimension, v1, v2))
+          case (Some(SchemaField(_, _: DECIMAL)), v1: Double, v2: Double) =>
             Success(DoublePoint.newRangeQuery(dimension, v1, v2))
-          case (Some(SchemaField(_, t: VARCHAR)), _, _) =>
+          case (Some(SchemaField(_, _: VARCHAR)), _, _) =>
             Failure(new RuntimeException(s"range operator cannot be defined on dimension of type VARCHAR"))
-          case (Some(SchemaField(_, t: CHAR)), _, _) =>
-            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type CHAR"))
-          case (Some(SchemaField(_, t: BOOLEAN)), _, _) =>
-            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type BOOLEAN"))
           case (Some(_), _, _) =>
             Failure(new RuntimeException(s"range boundaries must be have the same type of dimension"))
           case (None, _, _) => Failure(new RuntimeException(s"dimension $dimension not present in metric"))

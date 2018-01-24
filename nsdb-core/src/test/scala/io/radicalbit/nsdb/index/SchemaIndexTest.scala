@@ -23,7 +23,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     (0 to 100).foreach { i =>
       val testData = Schema(
         s"metric_$i",
-        Seq(SchemaField("field1", BOOLEAN()), SchemaField("field2", VARCHAR()), SchemaField(s"field$i", VARCHAR())))
+        Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field$i", VARCHAR())))
       schemaIndex.write(testData)
     }
     writer.close()
@@ -37,7 +37,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     firstSchema shouldBe Some(
       Schema(
         s"metric_0",
-        Seq(SchemaField("field1", BOOLEAN()), SchemaField("field2", VARCHAR()), SchemaField(s"field0", VARCHAR()))))
+        Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field0", VARCHAR()))))
   }
 
   "SchemaIndex" should "update records" in {
@@ -48,7 +48,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(s"metric_1", Seq(SchemaField("field1", BOOLEAN()), SchemaField("field2", VARCHAR())))
+    val testData = Schema(s"metric_1", Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
     schemaIndex.write(testData)
     writer.close()
 

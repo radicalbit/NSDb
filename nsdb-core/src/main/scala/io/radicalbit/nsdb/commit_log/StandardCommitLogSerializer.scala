@@ -22,14 +22,14 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     dimensions.map {
       case (k, v) =>
         val i = IndexType.fromClass(v.getClass).get
-        (k, i.getClass.getCanonicalName, i.serialize(i.cast(v)))
+        (k, i.getClass.getCanonicalName, i.serialize(v))
     }.toList
 
   private def createDimensions(dimensions: List[Dimension]): Map[String, JSerializable] =
     dimensions.map {
       case (n, t, v) =>
         val i = Class.forName(t).newInstance().asInstanceOf[IndexType[_]]
-        n -> i.deserialize(i.cast(v)).asInstanceOf[JSerializable]
+        n -> i.deserialize(v).asInstanceOf[JSerializable]
     }.toMap
 
   override def deserialize(entry: Array[Byte]): InsertNewEntry = {

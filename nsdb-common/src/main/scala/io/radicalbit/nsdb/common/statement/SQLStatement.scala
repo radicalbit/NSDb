@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.common.statement
 
 import com.typesafe.scalalogging.LazyLogging
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{JLong, JSerializable}
 
 case class Field(name: String, aggregation: Option[Aggregation])
 
