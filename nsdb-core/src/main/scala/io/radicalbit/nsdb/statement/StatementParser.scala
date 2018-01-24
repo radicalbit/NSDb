@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene._
@@ -8,7 +9,6 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
-import org.apache.lucene.search.grouping.DistinctValuesCollector
 
 import scala.util.{Failure, Success, Try}
 
@@ -18,11 +18,14 @@ class StatementParser {
     val q = exp match {
       case Some(EqualityExpression(dimension, value)) =>
         schema.get(dimension) match {
-          case Some(SchemaField(_, t: INT))     => Try(IntPoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, t: BIGINT))  => Try(LongPoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, t: DECIMAL)) => Try(DoublePoint.newExactQuery(dimension, t.cast(value)))
-          case Some(SchemaField(_, _: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
-          case Some(SchemaField(_, _: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
+          case Some(SchemaField(_, t: INT)) =>
+            Try(IntPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+          case Some(SchemaField(_, t: BIGINT)) =>
+            Try(LongPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+          case Some(SchemaField(_, t: DECIMAL)) =>
+            Try(DoublePoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+//          case Some(SchemaField(_, _: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
+//          case Some(SchemaField(_, _: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
           case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
           case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
         }
@@ -73,10 +76,10 @@ class StatementParser {
             Success(DoublePoint.newRangeQuery(dimension, v1, v2))
           case (Some(SchemaField(_, t: VARCHAR)), _, _) =>
             Failure(new RuntimeException(s"range operator cannot be defined on dimension of type VARCHAR"))
-          case (Some(SchemaField(_, t: CHAR)), _, _) =>
-            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type CHAR"))
-          case (Some(SchemaField(_, t: BOOLEAN)), _, _) =>
-            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type BOOLEAN"))
+//          case (Some(SchemaField(_, t: CHAR)), _, _) =>
+//            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type CHAR"))
+//          case (Some(SchemaField(_, t: BOOLEAN)), _, _) =>
+//            Failure(new RuntimeException(s"range operator cannot be defined on dimension of type BOOLEAN"))
           case (Some(_), _, _) =>
             Failure(new RuntimeException(s"range boundaries must be have the same type of dimension"))
           case (None, _, _) => Failure(new RuntimeException(s"dimension $dimension not present in metric"))

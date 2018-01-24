@@ -33,7 +33,7 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
 
   override def validateRecord(bit: Bit): FieldValidation =
     validateSchemaTypeSupport(bit)
-      .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.indexType.cast(elem.value))))
+      .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Bit = {
     val dimensions: Map[String, JSerializable] =

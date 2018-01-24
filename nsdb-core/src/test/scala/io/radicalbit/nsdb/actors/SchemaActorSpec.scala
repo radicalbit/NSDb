@@ -72,7 +72,7 @@ class SchemaActorSpec
 
   "SchemaActor" should "not update schemas in case of failure" in {
     probe.send(schemaActor,
-               UpdateSchema("db", "namespace", "people", Schema("people", Seq(SchemaField("name", BOOLEAN())))))
+               UpdateSchema("db", "namespace", "people", Schema("people", Seq(SchemaField("name", BIGINT())))))
 
     val failed = probe.expectMsgType[UpdateSchemaFailed]
     failed.errors.size shouldBe 1

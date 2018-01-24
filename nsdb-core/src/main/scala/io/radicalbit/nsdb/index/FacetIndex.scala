@@ -35,7 +35,7 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
 
   def validateRecord(bit: Bit): FieldValidation =
     validateSchemaTypeSupport(bit)
-      .map(se => se.flatMap(elem => elem.indexType.facetField(elem.name, elem.indexType.cast(elem.value))))
+      .map(se => se.flatMap(elem => elem.indexType.facetField(elem.name, elem.value)))
 
   def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): WriteValidation = {
     val doc       = new Document

@@ -589,7 +589,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a complex select containing a range selection a desc ordering statement and a limit statement and a group by" should {
+    "receive a complex select containing a range selection a desc ordering statement, a limit statement and a group by" should {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(
