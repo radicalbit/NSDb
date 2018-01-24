@@ -50,5 +50,6 @@ keytool -import -alias client-cert \
 keytool -import -alias server-cert \
                 -file diagserverCA.pem -keystore server.truststore
 ```
-
+Key-store and trust-store password are defined in configuration at keys:
+`key-store-password` and `trust-store-password` .
 
