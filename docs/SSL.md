@@ -21,3 +21,34 @@ cat server.crt server.key > cert.pem
 openssl pkcs12 -export -in cert.pem -out nsdb.keystore.p12 -name nsdb-test
 ```
 Note: as password use the one specified in `keyManager.store.password`
+
+# SSL/TLS Configuration for intra-node communication
+
+Akka intra-node SSL/TLS communication can be enabled configuration setting to true
+`akka.remote.netty.tcp.enable-ssl` config.
+In order to allow SSL/TLS protocols keystore and truststore must be defined in akka config file.
+Default values locate :
+- key-store in `/opt/certs/server.keystore`
+- trust-store in `/opt/certs/server.truststore`
+- both with password `nsdb.key`
+
+### Generate sef-signed keystore and truststore certificates
+
+Move in the configuration certs directory and execute the following commands:
+
+```
+openssl genrsa -out diagserverCA.key 2048
+openssl req -x509 -new -nodes -key diagserverCA.key -sha256 -days 1024 -out diagserverCA.pem
+openssl pkcs12 -export -name server-cert \
+               -in diagserverCA.pem -inkey diagserverCA.key \
+               -out serverkeystore.p12
+keytool -importkeystore -destkeystore server.keystore \
+                -srckeystore serverkeystore.p12 -srcstoretype pkcs12 \
+                -alias server-cert
+keytool -import -alias client-cert \
+                -file diagclientCA.pem -keystore server.truststore
+keytool -import -alias server-cert \
+                -file diagserverCA.pem -keystore server.truststore
+```
+
+
