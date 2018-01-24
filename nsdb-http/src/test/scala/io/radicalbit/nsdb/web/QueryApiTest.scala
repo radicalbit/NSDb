@@ -8,9 +8,11 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
+import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
+import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.web.Formats._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
@@ -18,19 +20,28 @@ import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
+import scala.util.Failure
 
 class FakeReadCoordinator extends Actor {
   import FakeReadCoordinator._
   override def receive: Receive = {
     case ExecuteStatement(statement)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
-      val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
-      sender ! SelectStatementExecuted(statement.db,
-                                       statement.namespace,
-                                       statement.metric,
-                                       bitsParametrized(e.value1, e.value2))
+      new StatementParser().parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
+        case scala.util.Success(_) =>
+          val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
+          sender ! SelectStatementExecuted(statement.db,
+            statement.namespace,
+            statement.metric,
+            bitsParametrized(e.value1, e.value2))
+        case Failure(_) => sender ! SelectStatementFailed("statement not valid")
+      }
     case ExecuteStatement(statement) =>
-      sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+      new StatementParser().parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
+        case scala.util.Success(_) =>
+      sender ! SelectStatementExecuted (statement.db, statement.namespace, statement.metric, bits)
+        case Failure(_) => sender ! SelectStatementFailed("statement not valid")
+      }
   }
 }
 
@@ -135,6 +146,37 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
 
   }
 
+  "QueryApi" should "correctly query the db with a single filter with compatible type" in {
+    val q =
+      QueryBody("db",
+        "namespace",
+        "metric",
+        "select * from metric limit 1",
+        None,
+        None,
+        Some(Seq(Filter("value", "1", FilterOperators.Equality))))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+    }
+
+  }
+
+  "QueryApi" should "fail with a single filter with incompatible type" in {
+    val q =
+      QueryBody("db",
+        "namespace",
+        "metric",
+        "select * from metric limit 1",
+        None,
+        None,
+        Some(Seq(Filter("value", "vd", FilterOperators.Equality))))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe InternalServerError
+    }
+  }
+
   "QueryApi" should "correctly query the db with time range passed" in {
     val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), None)
 
@@ -221,7 +263,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
   }
 
   "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric", Some(1), Some(2), None)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(1), Some(2), None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK

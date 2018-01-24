@@ -24,8 +24,6 @@ class StatementParser {
             Try(LongPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
           case Some(SchemaField(_, t: DECIMAL)) =>
             Try(DoublePoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
-//          case Some(SchemaField(_, _: BOOLEAN)) => Try(new TermQuery(new Term(dimension, value.toString)))
-//          case Some(SchemaField(_, _: CHAR))    => Try(new TermQuery(new Term(dimension, value.toString)))
           case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
           case None                             => Failure(new RuntimeException(s"dimension $dimension not present in metric"))
         }

@@ -50,7 +50,7 @@ sealed trait IndexType[T] {
 
   def deserialize(value: Array[Byte]): T
 
-  def cast(value: JSerializable): T //= a.asInstanceOf[T]
+  def cast(value: JSerializable): T
 
 }
 
