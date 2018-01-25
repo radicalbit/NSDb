@@ -45,8 +45,6 @@ openssl pkcs12 -export -name server-cert \
 keytool -importkeystore -destkeystore server.keystore \
                 -srckeystore serverkeystore.p12 -srcstoretype pkcs12 \
                 -alias server-cert
-keytool -import -alias client-cert \
-                -file diagclientCA.pem -keystore server.truststore
 keytool -import -alias server-cert \
                 -file diagserverCA.pem -keystore server.truststore
 ```

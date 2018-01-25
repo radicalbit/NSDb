@@ -8,6 +8,8 @@ services:
         - ./conf:/opt/nsdb-cluster/conf
         - ./data:/opt/nsdb-cluster/data
         - ./lib:/opt/nsdb-cluster/ext-lib
+        - /opt/certs:/opt/certs
       ports:
+        - 9443:9443
         - 9000:9000
         - 7817:7817
