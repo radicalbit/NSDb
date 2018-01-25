@@ -41,15 +41,20 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
                                                                                                provider)
 
             val http =
-              if (isSSLEnabled)
+              if (isSSLEnabled) {
+                val port = config.getInt("nsdb.http.https-port")
+                logger.info(s"Cluster started with https protocol on port $port")
                 Http().bindAndHandle(withCors(api),
                                      config.getString("nsdb.http.interface"),
                                      config.getInt("nsdb.http.https-port"),
                                      connectionContext = serverContext)
-              else
+              } else {
+                val port = config.getInt("nsdb.http.port")
+                logger.info(s"Cluster started with http protocol on port $port")
                 Http().bindAndHandle(withCors(api),
                                      config.getString("nsdb.http.interface"),
                                      config.getInt("nsdb.http.port"))
+              }
 
             scala.sys.addShutdownHook {
               http.flatMap(_.unbind()).onComplete { _ =>
