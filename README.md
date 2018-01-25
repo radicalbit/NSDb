@@ -26,7 +26,7 @@ services:
         - 9000:7817
 ```
 
-It's also possible to run an NSDB container mounting the configuration, data and external library directories:
+It's also possible to run an NSDB container mounting the configuration, data, certificates and external library directories:
 
 ```yaml
 version: '3'
@@ -39,7 +39,9 @@ services:
         - .conf:/opt/nsdb-cluster/conf
         - /host/data/path:/opt/nsdb-cluster/data
         - /host/ext-lib/path:/opt/nsdb-cluster/ext-lib
+        - /host/certs/path:/opt/certs
       ports:
         - 9000:9000
         - 7817:7817
+        - 9443:9443
 ```
