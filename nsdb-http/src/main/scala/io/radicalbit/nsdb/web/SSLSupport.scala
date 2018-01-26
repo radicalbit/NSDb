@@ -11,9 +11,9 @@ import com.typesafe.config.ConfigFactory
 trait SSLSupport {
 
   val sslConfig = ConfigFactory
-    .parseFile(Paths.get(System.getProperty("confDir"), "ssl-http.conf").toFile)
+    .parseFile(Paths.get(System.getProperty("confDir"), "https.conf").toFile)
     .resolve()
-    .withFallback(ConfigFactory.load("ssl-http.conf"))
+    .withFallback(ConfigFactory.load("https.conf"))
 
   def isSSLEnabled = sslConfig.getBoolean("ssl.enabled")
 
