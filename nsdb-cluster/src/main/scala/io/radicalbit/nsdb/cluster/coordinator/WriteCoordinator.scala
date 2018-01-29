@@ -192,8 +192,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
           case _ => Future(DeleteStatementFailed(db, namespace, metric, s"Metric ${statement.metric} does not exist "))
         }
         .pipeTo(sender())
-    case msg @ DropMetric(_, _, _) =>
-      namespaceDataActor forward msg
+    case msg @ DropMetric(db, namespace, metric) =>
+      (namespaceSchemaActor ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted].flatMap(_ =>
+        namespaceDataActor ? msg).mapTo[MetricDropped].pipeTo(sender)
   }
 }
 
