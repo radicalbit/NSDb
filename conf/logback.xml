@@ -4,12 +4,12 @@
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.out</target>
         <encoder>
-            <pattern>%X{akkaTimestamp} %-5level[%thread] %logger{0} - %msg%n</pattern>
+            <pattern>%date{yyyy-MM-dd} %X{akkaTimestamp} %-5level[%thread] %logger{0} - %msg%n</pattern>
         </encoder>
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>log/akka.log</file>
+        <file>log/cluster.log</file>
         <append>false</append>
         <encoder>
             <pattern>%date{yyyy-MM-dd} %X{akkaTimestamp} %-5level[%thread] %logger{1} - %msg%n</pattern>
@@ -19,10 +19,10 @@
     <logger name="com.ning.http.client" level="WARN"/>
     <logger name="io.grpc.netty" level="WARN"/>
     <logger name="io.netty" level="WARN"/>
+    <logger name="akka" level="ERROR" />
+    <logger name="com.typesafe" level="ERROR"/>
 
-    <logger name="akka" level="DEBUG" />
-
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
     </root>
