@@ -141,8 +141,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     case msg @ DropMetric(db, namespace, metric) =>
       if (namespaces.isEmpty)
         sender() ! MetricDropped(db, namespace, metric)
-      else
-        broadcastMessage(msg).pipeTo(sender())
+      else {
+        broadcastMessage(msg)
+          .map { result =>
+            namespaceSchemaActor ! DeleteSchema(db, namespace, metric)
+            result
+          }
+          .pipeTo(sender())
+      }
   }
 
   def init: Receive = {
@@ -193,8 +199,11 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      (namespaceSchemaActor ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted].flatMap(_ =>
-        namespaceDataActor ? msg).mapTo[MetricDropped].pipeTo(sender)
+      (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
+        .mapTo[SchemaDeleted]
+        .flatMap(_ => namespaceDataActor ? msg)
+        .mapTo[MetricDropped]
+        .pipeTo(sender)
   }
 }
 

@@ -80,6 +80,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
     schemas -= schema.metric
     implicit val writer: IndexWriter = schemaIndex.getWriter
     schemaIndex.delete(schema)
+    writer.commit()
     writer.close()
   }
 

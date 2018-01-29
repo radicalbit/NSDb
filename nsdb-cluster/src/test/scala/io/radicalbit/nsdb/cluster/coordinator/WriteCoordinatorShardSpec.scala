@@ -53,7 +53,7 @@ class WriteCoordinatorShardSpec
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-    TimeUnit.SECONDS)
+                                TimeUnit.SECONDS)
 
   before {
     import akka.pattern.ask
