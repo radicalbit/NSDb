@@ -5,21 +5,21 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.ask
-
-import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
-
 import akka.util.Timeout
-import com.typesafe.scalalogging.Logger
+import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.slf4j.LoggerFactory
+import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
 import scala.concurrent.Future
 
-class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
+class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
+    extends Actor
+    with ActorLogging
+    with NsdbPerfLogger {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
@@ -31,8 +31,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
   import context.dispatcher
 
   private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
-
-  protected val perfLogger = LoggerFactory.getLogger("perf")
 
   override def receive: Receive = if (sharding) shardBehaviour else init
 

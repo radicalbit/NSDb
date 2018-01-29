@@ -33,7 +33,7 @@
     <logger name="akka" level="ERROR" />
     <logger name="com.typesafe" level="ERROR"/>
 
-    <logger name="perf" level="DEBUG" additivity="false">
+    <logger name="perf" level="OFF" additivity="false">
         <appender-ref ref="PERF_ASYNC"/>
     </logger>
 
