@@ -176,6 +176,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         case Success(statement) =>
           statement match {
             case select: SelectSQLStatement =>
+              log.debug("Received a select request {}", select)
               (readCoordinator ? ExecuteStatement(select))
                 .map {
                   // SelectExecution Success
@@ -213,6 +214,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       ))
                 }
             case insert: InsertSQLStatement =>
+              log.debug("Received a insert request {}", insert)
               val result = InsertSQLStatement
                 .unapply(insert)
                 .map {

@@ -20,11 +20,11 @@
     <logger name="io.grpc.netty" level="WARN"/>
     <logger name="io.netty" level="WARN"/>
 
-    <logger name="akka" level="INFO" />
+    <logger name="akka" level="DEBUG" />
 
-    <root level="INFO">
+    <root level="DEBUG">
         <appender-ref ref="CONSOLE"/>
-        <!--<appender-ref ref="FILE"/>-->
+        <appender-ref ref="FILE"/>
     </root>
 
 </configuration>

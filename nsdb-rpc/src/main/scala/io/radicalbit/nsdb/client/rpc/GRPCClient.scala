@@ -21,27 +21,27 @@ class GRPCClient(host: String, port: Int) {
   private val stubCommand = NSDBServiceCommandGrpc.stub(channel)
 
   def write(request: RPCInsert): Future[RPCInsertResult] = {
-    log.info("Preparing a write request for {}...", request)
+    log.debug("Preparing a write request for {}...", request)
     stubSql.insertBit(request)
   }
 
   def executeSQLStatement(request: SQLRequestStatement): Future[SQLStatementResponse] = {
-    log.info("Preparing execution of SQL request: {} ", request.statement)
+    log.debug("Preparing execution of SQL request: {} ", request.statement)
     stubSql.executeSQLStatement(request)
   }
 
   def showNamespaces(request: ShowNamespaces) = {
-    log.info("Preparing of command show namespaces")
+    log.debug("Preparing of command show namespaces")
     stubCommand.showNamespaces(request)
   }
 
   def showMetrics(request: ShowMetrics): Future[MetricsGot] = {
-    log.info("Preparing of command show metrics for namespace: {} ", request.namespace)
+    log.debug("Preparing of command show metrics for namespace: {} ", request.namespace)
     stubCommand.showMetrics(request)
   }
 
   def describeMetrics(request: DescribeMetric): Future[MetricSchemaRetrieved] = {
-    log.info("Preparing of command describe metric for namespace: {} ", request.namespace)
+    log.debug("Preparing of command describe metric for namespace: {} ", request.namespace)
     stubCommand.describeMetric(request)
   }
 }
