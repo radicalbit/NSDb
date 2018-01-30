@@ -98,7 +98,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   }
 
   override def delete(data: Schema)(implicit writer: IndexWriter): Unit = {
-    val query = new TermQuery(new Term(_keyField, data.metric))
+    val query = new TermQuery(new Term(_keyField, data.metric.toLowerCase))
     writer.deleteDocuments(query)
     writer.forceMergeDeletes(true)
   }
