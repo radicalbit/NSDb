@@ -4,10 +4,10 @@ import io.radicalbit.nsdb.api.scala.{Bit, NSDB}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.runtime.concurrent.Executors
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
-
-import scala.concurrent.ExecutionContext
-
 import org.slf4j.LoggerFactory
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
 class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) extends RichSinkFunction[IN] {
 
@@ -23,7 +23,7 @@ class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) exten
   @throws[Exception]
   override def open(parameters: Configuration): Unit = {
     super.open(parameters)
-    nsdb = Some(NSDB.connect(host, port))
+    nsdb = Some(Await.result(NSDB.connect(host, port), 10.seconds))
     nsdb.foreach(x => log.info("NSDBSink {} connected", x))
   }
 
@@ -38,7 +38,7 @@ class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) exten
 
   @throws[Exception]
   override def close(): Unit = {
-    nsdb.foreach(_.close)
+    nsdb.foreach(_.close())
     nsdb.foreach(x => log.info("NSDBSink {} closed", x))
     nsdb = None
   }

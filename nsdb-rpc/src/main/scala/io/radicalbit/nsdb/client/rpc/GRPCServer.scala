@@ -1,9 +1,11 @@
 package io.radicalbit.nsdb.client.rpc
 
 import io.grpc.{Server, ServerBuilder}
+import io.radicalbit.nsdb.rpc.health.HealthGrpc
+import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
-import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
+import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
 import scala.concurrent.ExecutionContext
@@ -19,6 +21,8 @@ trait GRPCServer {
 
   protected[this] def serviceCommand: NSDBServiceCommand
 
+  protected[this] def health: Health
+
   protected[this] def parserSQL: SQLStatementParser
 
   sys.addShutdownHook {
@@ -31,6 +35,7 @@ trait GRPCServer {
     .forPort(port)
     .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
     .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
+    .addService(HealthGrpc.bindService(health, executionContextExecutor))
     .build
 
   def start(): Try[Server] = Try(server.start())
