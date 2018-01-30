@@ -142,11 +142,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       if (namespaces.isEmpty)
         sender() ! MetricDropped(db, namespace, metric)
       else {
-        broadcastMessage(msg)
-          .map { result =>
-            namespaceSchemaActor ! DeleteSchema(db, namespace, metric)
-            result
-          }
+        (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
+          .mapTo[SchemaDeleted]
+          .flatMap(_ => broadcastMessage(msg))
           .pipeTo(sender())
       }
   }

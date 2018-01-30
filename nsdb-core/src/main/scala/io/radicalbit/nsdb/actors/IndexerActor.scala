@@ -114,15 +114,15 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       index.foreach { i =>
         implicit val iWriter = i.getWriter
         i.deleteAll()
-        iWriter.commit()
         iWriter.close()
+        i.refresh()
         indexes -= metric
       }
       facetIndex.foreach { fi =>
         implicit val fiWriter = fi.getWriter
         fi.deleteAll()
-        fiWriter.commit()
         fiWriter.close()
+        fi.refresh()
         facetIndexes -= metric
       }
 

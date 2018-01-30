@@ -140,4 +140,69 @@ class SchemaActorSpec
     newGot.metric shouldBe "people"
     newGot.schema shouldBe existingGot.schema
   }
+
+  "SchemaActor" should "drop a schema" in {
+
+    implicit val timeout = Timeout(3 seconds)
+
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
+
+    probe.expectMsgType[SchemaUpdated]
+
+    probe.send(schemaActor, GetSchema("db", "namespace", "people"))
+
+    val existingGot = probe.expectMsgType[SchemaGot]
+    existingGot.metric shouldBe "people"
+    existingGot.schema shouldBe Some(
+      Schema("people",
+             Seq(SchemaField("name", VARCHAR()),
+                 SchemaField("surname", VARCHAR()),
+                 SchemaField("value", INT()),
+                 SchemaField("timestamp", BIGINT())))
+    )
+
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord("db", "namespace", "offices", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
+
+    probe.expectMsgType[SchemaUpdated]
+
+    probe.send(schemaActor, GetSchema("db", "namespace", "offices"))
+
+    val schema = probe.expectMsgType[SchemaGot]
+    schema.metric shouldBe "offices"
+    schema.schema shouldBe Some(
+      Schema("offices",
+             Seq(SchemaField("name", VARCHAR()),
+                 SchemaField("surname", VARCHAR()),
+                 SchemaField("value", INT()),
+                 SchemaField("timestamp", BIGINT())))
+    )
+
+    probe.send(
+      schemaActor,
+      DeleteSchema("db", "namespace", "offices")
+    )
+
+    val deletion = probe.expectMsgType[SchemaDeleted]
+    deletion.metric shouldBe "offices"
+
+    probe.send(
+      schemaActor,
+      DeleteSchema("db", "namespace", "offices")
+    )
+
+    Await
+      .result((schemaActor ? GetSchema("db", "namespace", "offices")).mapTo[SchemaGot], 3 seconds)
+      .schema
+      .isDefined shouldBe false
+
+    Await
+      .result((schemaActor ? GetSchema("db", "namespace", "people")).mapTo[SchemaGot], 3 seconds)
+      .schema
+      .isDefined shouldBe true
+
+  }
 }
