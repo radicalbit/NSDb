@@ -410,10 +410,9 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
           ))
-
     }
 
-    "receive a select containing condition of not nullable" in {
+    "receive a select containing a condition of not nullable" in {
       parser.parse(
         db = "db",
         namespace = "registry",
@@ -433,7 +432,34 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
           ))
+    }
 
+    "receive a select containing two conditions of not nullable" in {
+      parser.parse(
+        db = "db",
+        namespace = "registry",
+        input =
+          "select * from AreaOccupancy where name=MeetingArea and name is not null or floor is not null order by timestamp desc limit 1"
+      ) shouldBe
+        Success(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "AreaOccupancy",
+            distinct = false,
+            fields = AllFields,
+            condition = Some(Condition(TupledLogicalExpression(
+              EqualityExpression("name", "MeetingArea"),
+              AndOperator,
+              TupledLogicalExpression(
+                UnaryLogicalExpression(NullableExpression("name"), NotOperator),
+                OrOperator,
+                UnaryLogicalExpression(NullableExpression("floor"), NotOperator)
+              )
+            ))),
+            order = Some(DescOrderOperator(dimension = "timestamp")),
+            limit = Some(LimitOperator(1))
+          ))
     }
 
     "receive random string sequences" should {
