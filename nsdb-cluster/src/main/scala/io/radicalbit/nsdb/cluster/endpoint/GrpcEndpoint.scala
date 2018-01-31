@@ -20,7 +20,11 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.{Namespaces, MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
+import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
+  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  MetricsGot => GrpcMetricsGot
+}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
@@ -157,17 +161,22 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       GrpcBit(
         timestamp = bit.timestamp,
         value = bit.value match {
-          case v: java.lang.Long    => GrpcBit.Value.LongValue(v)
-          case v: java.lang.Double  => GrpcBit.Value.DecimalValue(v)
-          case v: java.lang.Float   => GrpcBit.Value.DecimalValue(v.doubleValue())
-          case v: java.lang.Integer => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.lang.Long                         => GrpcBit.Value.LongValue(v)
+          case v: java.lang.Double                       => GrpcBit.Value.DecimalValue(v)
+          case v: java.lang.Float                        => GrpcBit.Value.DecimalValue(v.doubleValue())
+          case v: java.lang.Integer                      => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.math.BigDecimal if v.scale() == 0 => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.math.BigDecimal                   => GrpcBit.Value.DecimalValue(v.doubleValue())
         },
         dimensions = bit.dimensions.map {
           case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
           case (k, v: java.lang.Float)   => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
           case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
           case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
+            (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+          case (k, v: java.math.BigDecimal) => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
+          case (k, v)                       => (k, Dimension(Dimension.Value.StringValue(v.toString)))
         }
       )
     }

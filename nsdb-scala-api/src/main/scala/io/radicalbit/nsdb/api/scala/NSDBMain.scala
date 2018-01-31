@@ -19,6 +19,8 @@ object NSDBMainWrite extends App {
     .dimension("notimportant", None)
     .dimension("Someimportant", Some(2))
     .dimension("gender", "M")
+    .dimension("bigDecimalLong", new java.math.BigDecimal("12"))
+    .dimension("bigDecimalDouble", new java.math.BigDecimal("12.5"))
 
   val res: Future[RPCInsertResult] = nsdb.write(series)
 

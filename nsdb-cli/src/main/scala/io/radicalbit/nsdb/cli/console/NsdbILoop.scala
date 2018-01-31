@@ -10,9 +10,17 @@ import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
-import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric => GrpcDescribeMetric, ShowMetrics => GrpcShowMetrics, ShowNamespaces => GrpcShowNamespaces}
+import io.radicalbit.nsdb.rpc.requestCommand.{
+  DescribeMetric => GrpcDescribeMetric,
+  ShowMetrics => GrpcShowMetrics,
+  ShowNamespaces => GrpcShowNamespaces
+}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
-import io.radicalbit.nsdb.rpc.responseCommand.{Namespaces, MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
+import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
+  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  MetricsGot => GrpcMetricsGot
+}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.sql.parser.CommandStatementParser
 
