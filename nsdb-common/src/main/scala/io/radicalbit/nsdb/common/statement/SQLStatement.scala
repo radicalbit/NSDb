@@ -25,7 +25,6 @@ case class NullableExpression(dimension: String)                                
 sealed trait LogicalOperator
 sealed trait SingleLogicalOperator extends LogicalOperator
 case object NotOperator            extends SingleLogicalOperator
-case object Identity               extends SingleLogicalOperator
 sealed trait TupledLogicalOperator extends LogicalOperator
 case object AndOperator            extends TupledLogicalOperator
 case object OrOperator             extends TupledLogicalOperator
