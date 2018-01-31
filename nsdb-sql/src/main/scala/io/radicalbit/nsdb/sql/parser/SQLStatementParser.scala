@@ -113,7 +113,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
-    nullableExpression | unaryLogicalExpression | tupledLogicalExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
+     unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
 
   private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 

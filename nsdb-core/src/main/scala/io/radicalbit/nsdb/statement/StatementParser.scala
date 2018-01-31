@@ -25,7 +25,7 @@ class StatementParser {
             Try(LongPoint.newRangeQuery(dimension, Long.MinValue, Long.MaxValue))
           case Some(SchemaField(_, t: DECIMAL)) =>
             Try(DoublePoint.newRangeQuery(dimension, Double.MinValue, Double.MaxValue))
-          case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, "*")))
+          case Some(SchemaField(_, _: VARCHAR)) => Try(new WildcardQuery(new Term(dimension, "*")))
           case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
         query.map { qq =>
@@ -47,7 +47,7 @@ class StatementParser {
       case Some(LikeExpression(dimension, value)) =>
         schema.get(dimension) match {
           case Some(SchemaField(_, _: VARCHAR)) =>
-            Success(new TermQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
+            Success(new WildcardQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
           case Some(_) =>
             Failure(new InvalidStatementException(s"cannot use LIKE operator on dimension different from VARCHAR"))
           case None => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
