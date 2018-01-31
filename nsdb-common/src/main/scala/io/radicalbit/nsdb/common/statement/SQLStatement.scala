@@ -20,10 +20,12 @@ case class ComparisonExpression[T](dimension: String, comparison: ComparisonOper
 case class RangeExpression[T](dimension: String, value1: T, value2: T)                          extends Expression
 case class EqualityExpression[T](dimension: String, value: T)                                   extends Expression
 case class LikeExpression(dimension: String, value: String)                                     extends Expression
+case class NullableExpression(dimension: String)                                                extends Expression
 
 sealed trait LogicalOperator
 sealed trait SingleLogicalOperator extends LogicalOperator
 case object NotOperator            extends SingleLogicalOperator
+case object Identity               extends SingleLogicalOperator
 sealed trait TupledLogicalOperator extends LogicalOperator
 case object AndOperator            extends TupledLogicalOperator
 case object OrOperator             extends TupledLogicalOperator

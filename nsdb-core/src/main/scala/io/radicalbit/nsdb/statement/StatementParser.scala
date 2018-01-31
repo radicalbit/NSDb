@@ -17,6 +17,22 @@ class StatementParser {
 
   private def parseExpression(exp: Option[Expression], schema: Map[String, SchemaField]): Try[ParsedExpression] = {
     val q = exp match {
+      case Some(NullableExpression(dimension)) =>
+        val query = schema.get(dimension) match {
+          case Some(SchemaField(_, t: INT)) =>
+            Try(IntPoint.newRangeQuery(dimension, Int.MinValue, Int.MaxValue))
+          case Some(SchemaField(_, t: BIGINT)) =>
+            Try(LongPoint.newRangeQuery(dimension, Long.MinValue, Long.MaxValue))
+          case Some(SchemaField(_, t: DECIMAL)) =>
+            Try(DoublePoint.newRangeQuery(dimension, Double.MinValue, Double.MaxValue))
+          case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, "*")))
+          case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
+        }
+        query.map { qq =>
+          val builder = new BooleanQuery.Builder()
+          builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+          builder.add(qq, BooleanClause.Occur.MUST_NOT).build()
+        }
       case Some(EqualityExpression(dimension, value)) =>
         schema.get(dimension) match {
           case Some(SchemaField(_, t: INT)) =>
@@ -80,6 +96,14 @@ class StatementParser {
             Failure(new InvalidStatementException(s"range boundaries must be have the same type of dimension"))
           case (None, _, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
+
+      case Some(UnaryLogicalExpression(expression: NullableExpression, NotOperator)) =>
+        parseExpression(Some(expression), schema).map { e =>
+          val builder = new BooleanQuery.Builder()
+          builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+          builder.add(e.q, BooleanClause.Occur.MUST_NOT).build()
+        }
+
       case Some(UnaryLogicalExpression(expression, _)) =>
         parseExpression(Some(expression), schema).map { e =>
           val builder = new BooleanQuery.Builder()

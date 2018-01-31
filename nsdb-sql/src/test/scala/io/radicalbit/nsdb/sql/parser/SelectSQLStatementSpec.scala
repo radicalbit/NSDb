@@ -391,6 +391,51 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           ))
     }
 
+    "receive a select containing condition of nullable" in {
+      parser.parse(
+        db = "db",
+        namespace = "registry",
+        input = "select * from AreaOccupancy where name=MeetingArea and name is null order by timestamp desc limit 1") shouldBe
+        Success(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "AreaOccupancy",
+            distinct = false,
+            fields = AllFields,
+            condition = Some(
+              Condition(TupledLogicalExpression(EqualityExpression("name", "MeetingArea"),
+                                                AndOperator,
+                                                NullableExpression("name")))),
+            order = Some(DescOrderOperator(dimension = "timestamp")),
+            limit = Some(LimitOperator(1))
+          ))
+
+    }
+
+    "receive a select containing condition of not nullable" in {
+      parser.parse(
+        db = "db",
+        namespace = "registry",
+        input =
+          "select * from AreaOccupancy where name=MeetingArea and name is not null order by timestamp desc limit 1") shouldBe
+        Success(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "AreaOccupancy",
+            distinct = false,
+            fields = AllFields,
+            condition = Some(
+              Condition(TupledLogicalExpression(EqualityExpression("name", "MeetingArea"),
+                                                AndOperator,
+                                                UnaryLogicalExpression(NullableExpression("name"), NotOperator)))),
+            order = Some(DescOrderOperator(dimension = "timestamp")),
+            limit = Some(LimitOperator(1))
+          ))
+
+    }
+
     "receive random string sequences" should {
       "fail" in {
         parser.parse(db = "db", namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure
