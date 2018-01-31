@@ -51,7 +51,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   override protected[this] def serviceCommand = GrpcEndpointServiceCommand
 
-  override protected[this] def health: Health = ???
+  override protected[this] def health: Health = GrpcEndpointServiceHealth
 
   override protected[this] val port: Int = 7817
 
