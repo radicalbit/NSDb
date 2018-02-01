@@ -15,8 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object NSDB {
 
   type Metric[T]    = (String, T)
-  type DimensionAPI = (String, JSerializable)
-  type Field        = (String, JSerializable)
+  type DimensionAPI = (String, Any)
 
   def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
     val connection = new NSDB(host = host, port = port)
@@ -39,7 +38,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         namespace = bit.namespace,
         metric = bit.metric,
         timestamp = bit.ts getOrElse System.currentTimeMillis,
-        value = bit.value match {
+        value = bit.concreteValue match {
           case Some(v: Double) => RPCInsert.Value.DecimalValue(v)
           case Some(v: Long)   => RPCInsert.Value.LongValue(v)
           case unknown         => sys.error(s"The data type ${unknown.getClass.getTypeName} is not supported at the moment.")
@@ -95,16 +94,41 @@ case class Bit(db: String,
 
   def value(v: Long): Bit = copy(valueDec = None, valueLong = Some(v))
 
+  def value(v: Int): Bit = copy(valueDec = None, valueLong = Some(v))
+
   def value(v: Double): Bit = copy(valueDec = Some(v), valueLong = None)
 
-  def value: Option[AnyVal] = valueDec orElse valueLong
+  def value(v: java.math.BigDecimal): Bit = if (v.scale() > 0) value(v.doubleValue()) else value(v.longValue())
 
-  def dimension(dim: DimensionAPI): Bit =
-    dim._2 match {
-      case Some(d: JSerializable) => copy(dimensions = dimensions :+ (dim._1 -> d))
-      case Some(_)                => this
-      case None                   => this
-      case d                      => copy(dimensions = dimensions :+ (dim._1 -> d))
+  def value[T](v: Option[T]): Bit = v match {
+    case Some(v: Long)                 => value(v)
+    case Some(v: Int)                  => value(v)
+    case Some(v: Double)               => value(v)
+    case Some(v: java.math.BigDecimal) => value(v)
+    case _                             => this
+  }
+
+  def concreteValue: Option[AnyVal] = valueDec orElse valueLong
+
+  def dimension(k: String, d: Long): Bit = copy(dimensions = dimensions :+ (k, d))
+
+  def dimension(k: String, d: Int): Bit = copy(dimensions = dimensions :+ (k, d.toLong))
+
+  def dimension(k: String, d: Double): Bit = copy(dimensions = dimensions :+ (k, d))
+
+  def dimension(k: String, d: String): Bit = copy(dimensions = dimensions :+ (k, d))
+
+  def dimension(k: String, d: java.math.BigDecimal): Bit =
+    if (d.scale() > 0) dimension(k, d.doubleValue()) else dimension(k, d.longValue())
+
+  def dimension[T](k: String, d: Option[T]): Bit =
+    d match {
+      case Some(v: java.math.BigDecimal) => dimension(k, v)
+      case Some(v: Long)                 => dimension(k, v)
+      case Some(v: Int)                  => dimension(k, v)
+      case Some(v: Double)               => dimension(k, v)
+      case Some(v: String)               => dimension(k, v)
+      case _                             => this
     }
 
   def timestamp(v: Long): Bit = copy(ts = Some(v))
