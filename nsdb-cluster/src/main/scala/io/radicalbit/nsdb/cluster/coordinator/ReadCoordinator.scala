@@ -4,17 +4,22 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.pattern.{ask, pipe}
+import akka.pattern.ask
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
 import scala.concurrent.Future
 
-class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
+class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
+    extends Actor
+    with ActorLogging
+    with NsdbPerfLogger {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
@@ -50,7 +55,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     case msg: GetSchema =>
       namespaceSchemaActor forward msg
     case ExecuteStatement(statement) =>
-      log.debug(s"executing $statement")
+      log.debug("executing {} ", statement)
+      perfLogger.debug("executing {}", statement)
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .mapTo[SchemaGot]
         .flatMap {
@@ -75,7 +81,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
             Future(
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
-        .pipeTo(sender())
+        .pipeToWithEffect(sender()) { () =>
+          perfLogger.debug("executed statement {}", statement)
+        }
   }
 
   def init: Receive = {
@@ -93,6 +101,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
       namespaceSchemaActor forward msg
     case ExecuteStatement(statement) =>
       log.debug(s"executing $statement")
+      perfLogger.debug(s"executing $statement")
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
@@ -101,7 +110,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
             Future(
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
-        .pipeTo(sender())
+        .pipeToWithEffect(sender()) { () =>
+          perfLogger.debug("executed statement {}", statement)
+        }
   }
 }
 

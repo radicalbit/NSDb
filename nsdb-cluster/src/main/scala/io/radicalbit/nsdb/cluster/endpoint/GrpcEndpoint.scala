@@ -13,6 +13,9 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
+import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
+import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -30,6 +33,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+
 class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implicit system: ActorSystem)
     extends GRPCServer {
 
@@ -47,6 +51,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   override protected[this] def serviceCommand = GrpcEndpointServiceCommand
 
+  override protected[this] def health: Health = GrpcEndpointServiceHealth
+
   override protected[this] val port: Int = 7817
 
   override protected[this] val parserSQL = new SQLStatementParser
@@ -54,6 +60,11 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
   val innerServer = start()
 
   log.info("GrpcEndpoint started on port {}", port)
+
+  protected[this] object GrpcEndpointServiceHealth extends Health {
+    override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
+      Future.successful(HealthCheckResponse(ServingStatus.SERVING))
+  }
 
   protected[this] object GrpcEndpointServiceCommand extends NSDBServiceCommand {
     override def showMetrics(
@@ -150,17 +161,22 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       GrpcBit(
         timestamp = bit.timestamp,
         value = bit.value match {
-          case v: java.lang.Long    => GrpcBit.Value.LongValue(v)
-          case v: java.lang.Double  => GrpcBit.Value.DecimalValue(v)
-          case v: java.lang.Float   => GrpcBit.Value.DecimalValue(v.doubleValue())
-          case v: java.lang.Integer => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.lang.Long                         => GrpcBit.Value.LongValue(v)
+          case v: java.lang.Double                       => GrpcBit.Value.DecimalValue(v)
+          case v: java.lang.Float                        => GrpcBit.Value.DecimalValue(v.doubleValue())
+          case v: java.lang.Integer                      => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.math.BigDecimal if v.scale() == 0 => GrpcBit.Value.LongValue(v.longValue())
+          case v: java.math.BigDecimal                   => GrpcBit.Value.DecimalValue(v.doubleValue())
         },
         dimensions = bit.dimensions.map {
           case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
           case (k, v: java.lang.Float)   => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
           case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
           case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v)                    => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
+            (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+          case (k, v: java.math.BigDecimal) => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
+          case (k, v)                       => (k, Dimension(Dimension.Value.StringValue(v.toString)))
         }
       )
     }
@@ -176,6 +192,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         case Success(statement) =>
           statement match {
             case select: SelectSQLStatement =>
+              log.debug("Received a select request {}", select)
               (readCoordinator ? ExecuteStatement(select))
                 .map {
                   // SelectExecution Success
@@ -213,6 +230,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       ))
                 }
             case insert: InsertSQLStatement =>
+              log.debug("Received a insert request {}", insert)
               val result = InsertSQLStatement
                 .unapply(insert)
                 .map {

@@ -40,10 +40,6 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
 
   context.system.scheduler.schedule(interval, interval) {
 
-    log.debug("{} actors subscribed {} ",
-              subscribedActors.values.flatten.toSet.size,
-              subscribedActors.values.flatten.toSet.map((a: ActorRef) => a.path).mkString(","))
-
     queries
       .filter {
         case (id, q) =>

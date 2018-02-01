@@ -8,16 +8,10 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 
 class ReadCoordinatorSpec
     extends TestKit(ActorSystem("nsdb-test"))

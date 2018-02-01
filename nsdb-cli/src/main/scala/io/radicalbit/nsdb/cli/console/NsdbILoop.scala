@@ -6,27 +6,29 @@ import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
+import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
+import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.requestCommand.{
   DescribeMetric => GrpcDescribeMetric,
   ShowMetrics => GrpcShowMetrics,
   ShowNamespaces => GrpcShowNamespaces
 }
+import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.responseCommand.{
   Namespaces,
   MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
   MetricsGot => GrpcMetricsGot
 }
-import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
-import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.sql.parser.CommandStatementParser
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option[BufferedReader], out: JPrintWriter)
     extends ILoop(in0, out)
@@ -34,8 +36,21 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
 
   def this(in: BufferedReader, out: JPrintWriter) = this(None, None, "root", Some(in), out)
 
-  def this(host: Option[String], port: Option[Int], db: String) =
+  def this(host: Option[String], port: Option[Int], db: String) = {
     this(host, port, db, None, new JPrintWriter(Console.out, true))
+    val instance = s"${host.getOrElse("127.0.0.1")} : ${port.getOrElse(7817)}"
+    Await
+      .ready(clientGrpc.checkConnection(), 10.seconds)
+      .value
+      .getOrElse(Success(HealthCheckResponse(ServingStatus.UNKNOWN))) match {
+      case Success(response) if response.status.isServing => //do nothing
+      case Success(_) =>
+        sys.error(s"instance $instance is not available at the moment.")
+      case Failure(ex) =>
+        logger.error("", ex)
+        sys.error(s"error while connecting to instance $instance : ${ex.getMessage}")
+    }
+  }
 
   val commandStatementParser = new CommandStatementParser(db)
 

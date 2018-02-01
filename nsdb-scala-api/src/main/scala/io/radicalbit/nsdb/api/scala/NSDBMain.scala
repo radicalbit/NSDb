@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 
 object NSDBMainWrite extends App {
 
-  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global)
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
 
   val series = nsdb
     .db("root")
@@ -19,15 +19,17 @@ object NSDBMainWrite extends App {
     .dimension("notimportant", None)
     .dimension("Someimportant", Some(2))
     .dimension("gender", "M")
+    .dimension("bigDecimalLong", new java.math.BigDecimal("12"))
+    .dimension("bigDecimalDouble", new java.math.BigDecimal("12.5"))
 
   val res: Future[RPCInsertResult] = nsdb.write(series)
 
-  println(Await.result(res, 10 seconds))
+  println(Await.result(res, 10.seconds))
 }
 
 object NSDBMainRead extends App {
 
-  val nsdb = NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global)
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
 
   val query = nsdb
     .db("root")
@@ -36,5 +38,5 @@ object NSDBMainRead extends App {
 
   val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
 
-  println(Await.result(readRes, 10 seconds))
+  println(Await.result(readRes, 10.seconds))
 }

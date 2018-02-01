@@ -4,6 +4,7 @@ import io.radicalbit.nsdb.api.scala.NSDB.DimensionAPI
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.rpc.common.Dimension
+import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.request._
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -17,8 +18,10 @@ object NSDB {
   type DimensionAPI = (String, JSerializable)
   type Field        = (String, JSerializable)
 
-  def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): NSDB =
-    new NSDB(host = host, port = port)
+  def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
+    val connection = new NSDB(host = host, port = port)
+    connection.check.map(_ => connection)
+  }
 }
 
 case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
@@ -26,6 +29,8 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   private val client = new GRPCClient(host = host, port = port)
 
   def db(name: String): Db = Db(name)
+
+  def check: Future[HealthCheckResponse] = client.checkConnection()
 
   def write(bit: Bit): Future[RPCInsertResult] =
     client.write(
