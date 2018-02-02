@@ -21,13 +21,16 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
 
     case UpdateSchema(_, _, metric, newSchema) =>
       checkAndUpdateSchema(db, namespace, metric, newSchema)
+      schemaIndex.refresh()
 
     case UpdateSchemaFromRecord(_, _, metric, record) =>
       (Schema(metric, record), getSchema(metric)) match {
         case (Valid(newSchema), Some(oldSchema)) =>
           checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
+          schemaIndex.refresh()
         case (Valid(newSchema), None) =>
           updateSchema(newSchema)
+          schemaIndex.refresh()
           sender ! SchemaUpdated(db, namespace, metric, newSchema)
         case (Invalid(errs), _) => sender ! UpdateSchemaFailed(db, namespace, metric, errs.toList)
       }
@@ -36,11 +39,13 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
       getSchema(metric) match {
         case Some(s) =>
           deleteSchema(s)
+          schemaIndex.refresh()
           sender ! SchemaDeleted(db, namespace, metric)
         case None => sender ! SchemaDeleted(db, namespace, metric)
       }
     case DeleteAllSchemas(_, _) =>
       deleteAllSchemas()
+      schemaIndex.refresh()
       sender ! AllSchemasDeleted(db, namespace)
   }
 

@@ -111,32 +111,22 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       val index      = indexes.get(metric)
       val facetIndex = facetIndexes.get(metric)
 
-      (index, facetIndex) match {
-        case (Some(i), Some(fi)) =>
-          val iWriter: IndexWriter = i.getWriter
-          i.deleteAll()(iWriter)
-          iWriter.close()
-          indexes -= metric
-          val fiWriter: IndexWriter = fi.getWriter
-          fi.deleteAll()(fiWriter)
-          fiWriter.close()
-          facetIndexes -= metric
-          sender() ! MetricDropped(db, namespace, metric)
-        case (Some(i), None) =>
-          implicit val iWriter = i.getWriter
-          i.deleteAll()
-          iWriter.close()
-          indexes -= metric
-          sender() ! MetricDropped(db, namespace, metric)
-        case (None, Some(fi)) =>
-          implicit val fiWriter = fi.getWriter
-          fi.deleteAll()
-          fiWriter.close()
-          facetIndexes -= metric
-          sender() ! MetricDropped(db, namespace, metric)
-        case (None, None) =>
-          sender() ! MetricDropped(db, namespace, metric)
+      index.foreach { i =>
+        implicit val iWriter = i.getWriter
+        i.deleteAll()
+        iWriter.close()
+        i.refresh()
+        indexes -= metric
       }
+      facetIndex.foreach { fi =>
+        implicit val fiWriter = fi.getWriter
+        fi.deleteAll()
+        fiWriter.close()
+        fi.refresh()
+        facetIndexes -= metric
+      }
+
+      sender() ! MetricDropped(db, namespace, metric)
   }
 
   def readOps: Receive = {

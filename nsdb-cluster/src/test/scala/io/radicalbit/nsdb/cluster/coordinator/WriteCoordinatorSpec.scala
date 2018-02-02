@@ -177,6 +177,9 @@ class WriteCoordinatorSpec
 
     expectNoMessage(interval)
 
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
+    probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
+
     probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[CountGot].count shouldBe 2
@@ -193,6 +196,9 @@ class WriteCoordinatorSpec
     within(5 seconds) {
       probe.expectMsgType[CountGot].count shouldBe 0
     }
+
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
+    probe.expectMsgType[SchemaGot].schema.isDefined shouldBe false
   }
 
 }

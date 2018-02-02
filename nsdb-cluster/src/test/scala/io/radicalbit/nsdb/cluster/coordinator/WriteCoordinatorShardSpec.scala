@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
@@ -49,6 +51,9 @@ class WriteCoordinatorShardSpec
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
+
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS)
 
   before {
     import akka.pattern.ask
@@ -164,10 +169,36 @@ class WriteCoordinatorShardSpec
   }
 
   "WriteCoordinator" should "drop a metric" in {
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
+    probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
+
+    probe.expectMsgType[InputMapped]
+    probe.expectMsgType[InputMapped]
+
+    expectNoMessage(interval)
+
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
+    probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
+
+    probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 2
+    }
+
     probe.send(writeCoordinatorActor, DropMetric(db, namespace, "testMetric"))
     within(5 seconds) {
       probe.expectMsgType[MetricDropped]
     }
+
+    expectNoMessage(interval)
+
+    probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 0
+    }
+
+    probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
+    probe.expectMsgType[SchemaGot].schema.isDefined shouldBe false
   }
 
 }

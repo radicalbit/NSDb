@@ -57,4 +57,35 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     result shouldBe Some(testData)
 
   }
+
+  "SchemaIndex" should "drop schema" in {
+
+    lazy val directory = new RAMDirectory()
+
+    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
+
+    val schemaIndex = new SchemaIndex(directory)
+
+    val testData = Schema(s"metric_2", Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    schemaIndex.write(testData)
+
+    val testDataBis = Schema(s"metric_3", Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    schemaIndex.write(testDataBis)
+    writer.close()
+
+    implicit val writerDrop = schemaIndex.getWriter
+
+    val result = schemaIndex.getSchema("metric_2")
+
+    result shouldBe Some(testData)
+
+    schemaIndex.delete(testData)(writerDrop)
+
+    writerDrop.close()
+
+    schemaIndex.getSchema("metric_2") shouldBe None
+    schemaIndex.getSchema("metric_3") shouldBe Some(testDataBis)
+
+  }
+
 }
