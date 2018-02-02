@@ -458,7 +458,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
-                    .add(new TermQuery(new Term("name", "*john*")), BooleanClause.Occur.SHOULD)
+                    .add(new WildcardQuery(new Term("name", "*john*")), BooleanClause.Occur.SHOULD)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )

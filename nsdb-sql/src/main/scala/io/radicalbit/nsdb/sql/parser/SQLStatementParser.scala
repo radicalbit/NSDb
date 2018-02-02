@@ -37,6 +37,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val LessOrEqualTo    = "<="
   private val Equal            = "="
   private val Like             = "LIKE" ignoreCase
+  private val Is               = "is" ignoreCase
+  private val Null             = "null" ignoreCase
   private val Not              = "NOT" ignoreCase
   private val And              = "AND" ignoreCase
   private val Or               = "OR" ignoreCase
@@ -111,7 +113,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
-    unaryLogicalExpression | tupledLogicalExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
+    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
 
   private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 
@@ -141,6 +143,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val likeExpression: PackratParser[LikeExpression] =
     (dimension <~ Like) ~ stringValueWithWildcards ^^ {
       case dim ~ v => LikeExpression(dim, v)
+    }
+
+  lazy val nullableExpression: PackratParser[Expression] =
+    (dimension <~ Is) ~ (Not ?) ~ Null ^^ {
+      case dim ~ Some(not) ~ nullable => UnaryLogicalExpression(NullableExpression(dim), NotOperator)
+      case dim ~ None ~ nullable      => NullableExpression(dim)
     }
 
   lazy val comparisonExpression: PackratParser[ComparisonExpression[_]] =
