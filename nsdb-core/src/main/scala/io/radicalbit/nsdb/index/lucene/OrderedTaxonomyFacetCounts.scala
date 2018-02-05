@@ -11,12 +11,10 @@ class OrderedTaxonomyFacetCounts(
     config: FacetsConfig,
     fc: FacetsCollector,
     order: Sort
-) extends FastTaxonomyFacetCounts(
-      indexFieldName: String,
-      taxoReader: TaxonomyReader,
-      config: FacetsConfig,
-      fc: FacetsCollector
-    ) {
+) extends FastTaxonomyFacetCounts(indexFieldName: String,
+                                    taxoReader: TaxonomyReader,
+                                    config: FacetsConfig,
+                                    fc: FacetsCollector) {
   override def getTopChildren(topN: Int, dim: String, path: String*): FacetResult = {
     if (topN <= 0) throw new IllegalArgumentException("topN must be > 0 (got: " + topN + ")")
     val dimConfig: FacetsConfig.DimConfig = verifyDim(dim)
