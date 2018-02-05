@@ -5,6 +5,15 @@ import org.apache.lucene.facet.taxonomy.{FacetLabel, FastTaxonomyFacetCounts, Ta
 import org.apache.lucene.search.Sort
 import org.apache.lucene.search.SortField.Type
 
+/**
+  * Implementation of FastTaxonomyFacetCounts handling results ordering and applying limit as last operation.
+  *
+  * @param indexFieldName: grouping dimension name
+  * @param taxoReader: searcher used to access categories by ordinal
+  * @param config
+  * @param fc
+  * @param order: Sort class used to define sorting
+  */
 class OrderedTaxonomyFacetCounts(
     indexFieldName: String,
     taxoReader: TaxonomyReader,
@@ -15,6 +24,7 @@ class OrderedTaxonomyFacetCounts(
                                     taxoReader: TaxonomyReader,
                                     config: FacetsConfig,
                                     fc: FacetsCollector) {
+
   override def getTopChildren(topN: Int, dim: String, path: String*): FacetResult = {
     if (topN <= 0) throw new IllegalArgumentException("topN must be > 0 (got: " + topN + ")")
     val dimConfig: FacetsConfig.DimConfig = verifyDim(dim)
@@ -76,16 +86,25 @@ class OrderedTaxonomyFacetCounts(
 
   }
 
-  private def toList(la: Array[LabelAndValue],
+  /**
+    * Utility method used to convert a TopOrdAndIntQueue into an Array of
+    * LabelAndValue so that it can be sorted later
+    *
+    * @param lv
+    * @param queue
+    * @param facetLabel
+    * @return
+    */
+  private def toList(lv: Array[LabelAndValue],
                      queue: TopOrdAndIntQueue,
                      facetLabel: FacetLabel): Array[LabelAndValue] = {
     if (queue.size() != 0) {
       val ordAndValue   = queue.pop
       val child         = taxoReader.getPath(ordAndValue.ord)
       val labelAndValue = new LabelAndValue(child.components(facetLabel.length), ordAndValue.value)
-      val newArray      = la :+ labelAndValue
+      val newArray      = lv :+ labelAndValue
       toList(newArray, queue, facetLabel)
-    } else la
+    } else lv
   }
 
 }
