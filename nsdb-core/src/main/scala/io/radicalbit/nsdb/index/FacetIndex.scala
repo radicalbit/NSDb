@@ -2,12 +2,13 @@ package io.radicalbit.nsdb.index
 
 import cats.data.Validated._
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.lucene.OrderedTaxonomyFacetCounts
 import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
 import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
-import org.apache.lucene.facet.{FacetField, FacetsCollector, FacetsConfig}
+import org.apache.lucene.facet.{FacetField, FacetResult, FacetsCollector, FacetsConfig}
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
@@ -86,12 +87,15 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     sort.fold { FacetsCollector.search(getSearcher, query, actualLimit, fc) } {
       FacetsCollector.search(getSearcher, query, actualLimit, _, fc)
     }
-    val facetsFolder = new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc)
+
+    val facetsFolder =
+      sort.fold(new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc))(s =>
+        new OrderedTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc, s))
     facetsFolder.getTopChildren(actualLimit, groupField)
   }
 
   def getCount(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]): Seq[Bit] = {
-    val facetResult = getFacetResult(query, groupField, sort, limit)
+    val facetResult: FacetResult = getFacetResult(query, groupField, sort, limit)
     facetResult.labelValues.map(lv => Bit(0, lv.value.longValue(), Map(groupField -> lv.label))).toSeq
   }
 
