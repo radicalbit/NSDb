@@ -89,9 +89,8 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     }
 
     val facetsFolder =
-      if (sort.isDefined)
-        new OrderedTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc, sort.get)
-      else new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc)
+      sort.fold(new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc))(s =>
+        new OrderedTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc, s))
     facetsFolder.getTopChildren(actualLimit, groupField)
   }
 
