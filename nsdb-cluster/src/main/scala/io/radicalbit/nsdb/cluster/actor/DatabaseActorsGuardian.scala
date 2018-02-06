@@ -4,9 +4,8 @@ import java.util.concurrent.TimeoutException
 
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props, SupervisorStrategy}
-import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.cluster.coordinator.{ReadCoordinator, WriteCoordinator}
+import io.radicalbit.nsdb.cluster.coordinator.{CommitLogCoordinator, ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
 object DatabaseActorsGuardian {
@@ -30,28 +29,28 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   private val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
 
-  private val commitLogService =
-    if (writeToCommitLog) Some(context.actorOf(CommitLogService.props, "commit-log-service")) else None
-
   private val namespaceSchemaActor = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
 
   val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
 
   val metadataCoordinator = context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
+  private val commitLogCoordinator =
+    if (writeToCommitLog) Some(context.actorOf(CommitLogCoordinator.props, "commit-log-coordinator")) else None
   private val readCoordinator =
     context.actorOf(ReadCoordinator.props(metadataCoordinator, namespaceSchemaActor), "read-coordinator")
   private val publisherActor =
     context.actorOf(PublisherActor.props(readCoordinator, namespaceSchemaActor), "publisher-actor")
   private val writeCoordinator =
     context.actorOf(
-      WriteCoordinator.props(metadataCoordinator, namespaceSchemaActor, commitLogService, publisherActor),
+      WriteCoordinator.props(metadataCoordinator, namespaceSchemaActor, commitLogCoordinator, publisherActor),
       "write-coordinator")
 
   context.actorOf(
     ClusterListener.props(readCoordinator = readCoordinator,
                           writeCoordinator = writeCoordinator,
-                          metadataCoordinator = metadataCoordinator),
+                          metadataCoordinator = metadataCoordinator,
+                          commitLogCoordinator = commitLogCoordinator),
     name = "clusterListener"
   )
 

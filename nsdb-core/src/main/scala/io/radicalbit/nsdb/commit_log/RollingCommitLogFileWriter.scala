@@ -4,8 +4,7 @@ import java.io.{File, FileOutputStream}
 
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
-import io.radicalbit.commit_log.{DeleteExistingEntry, InsertNewEntry}
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WriteToCommitLogSucceeded
 import io.radicalbit.nsdb.util.Config._
 
 object RollingCommitLogFileWriter {
@@ -59,7 +58,7 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   override protected def createEntry(entry: InsertNewEntry): Unit = {
     log.debug("Received the entry {}.", entry)
     appendToDisk(entry)
-    sender() ! WroteToCommitLogAck(ts = entry.ts, metric = entry.metric, bit = entry.record)
+    sender() ! WriteToCommitLogSucceeded(ts = entry.bit.timestamp, metric = entry.metric, bit = entry.bit)
 
     // this check can be done in an async fashion
     checkAndUpdateRollingFile(file).foreach {
@@ -69,7 +68,7 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
     }
   }
 
-  override protected def deleteEntry(commitLogEntry: DeleteExistingEntry): Unit = {}
+//  override protected def deleteEntry(commitLogEntry: DeleteExistingEntry): Unit = {}
 
   protected def close(): Unit = fileOS.close()
 

@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
-import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
@@ -14,7 +13,12 @@ import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
   ExecuteDeleteStatementInternalInLocations
 }
 import io.radicalbit.nsdb.cluster.index.Location
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
+  CommitLogWriterResponse,
+  WriteToCommitLogFailed,
+  WriteToCommitLogSucceeded
+}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.Schema
@@ -64,12 +68,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
 
-  def writeCommitLog(db: String, namespace: String, metric: String, bit: Bit): Future[WroteToCommitLogAck] = {
-    if (commitLogService.isDefined)
-      (commitLogService.get ? CommitLogService.Insert(ts = bit.timestamp, metric = metric, record = bit))
-        .mapTo[WroteToCommitLogAck]
-    else Future.successful(WroteToCommitLogAck(bit.timestamp, metric, bit))
-  }
+    private def commitLogFuture(ts: Long, metric: String, bit: Bit) = {
+        if (commitLogService.isDefined)
+            (commitLogService.get ? CommitLogCoordinator.Insert(metric = metric, bit = bit))
+              .mapTo[CommitLogWriterResponse]
+        else Future.successful(WriteToCommitLogSucceeded(ts, metric, bit))
+    }
 
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
     (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
@@ -117,7 +121,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       updateSchema(db, namespace, metric, bit) { schema =>
-        writeCommitLog(db, namespace, metric, bit)
+        commitLogFuture(db, namespace, metric, bit)
           .flatMap(ack => {
             publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
             getMetadataLocation(db, namespace, metric, bit, ack.ts) { loc =>
