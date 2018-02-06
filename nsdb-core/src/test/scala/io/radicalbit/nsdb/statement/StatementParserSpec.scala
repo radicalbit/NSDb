@@ -756,6 +756,68 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
     }
+    "receive a select containing a not nullable expression on long" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "creationDate"), NotOperator))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add( new BooleanQuery.Builder()
+                  .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                  .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue), BooleanClause.Occur.MUST_NOT)
+                  .build(), BooleanClause.Occur.MUST_NOT)
+                .build()
+              ,
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+    "receive a select containing a nullable expression on long" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue), BooleanClause.Occur.MUST_NOT)
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
 
   }
 }
