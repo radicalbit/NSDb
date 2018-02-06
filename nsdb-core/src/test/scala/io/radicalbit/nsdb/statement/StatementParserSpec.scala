@@ -652,12 +652,14 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                .add( new BooleanQuery.Builder()
-                  .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                  .add(new WildcardQuery(new Term("name", "*")), BooleanClause.Occur.MUST_NOT)
-                  .build(), BooleanClause.Occur.MUST_NOT)
-                .build()
-             ,
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                    .add(new WildcardQuery(new Term("name", "*")), BooleanClause.Occur.MUST_NOT)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
               false,
               5,
               List("value").map(SimpleField(_))
@@ -684,9 +686,9 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new BooleanQuery.Builder()
-                  .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                  .add(new WildcardQuery(new Term("name", "*")), BooleanClause.Occur.MUST_NOT)
-                  .build(),
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(new WildcardQuery(new Term("name", "*")), BooleanClause.Occur.MUST_NOT)
+                .build(),
               false,
               5,
               List("value").map(SimpleField(_))
@@ -714,12 +716,15 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                .add( new BooleanQuery.Builder()
-                  .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                  .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue), BooleanClause.Occur.MUST_NOT)
-                  .build(), BooleanClause.Occur.MUST_NOT)
-                .build()
-              ,
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                    .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
+                         BooleanClause.Occur.MUST_NOT)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
               false,
               5,
               List("value").map(SimpleField(_))
@@ -747,7 +752,8 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue), BooleanClause.Occur.MUST_NOT)
+                .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
+                     BooleanClause.Occur.MUST_NOT)
                 .build(),
               false,
               5,
@@ -765,7 +771,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", None))),
-            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "creationDate"), NotOperator))),
+            condition =
+              Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "creationDate"), NotOperator))),
             limit = Some(LimitOperator(5))
           ),
           schema
@@ -776,12 +783,15 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                .add( new BooleanQuery.Builder()
-                  .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                  .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue), BooleanClause.Occur.MUST_NOT)
-                  .build(), BooleanClause.Occur.MUST_NOT)
-                .build()
-              ,
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                    .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
+                         BooleanClause.Occur.MUST_NOT)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
               false,
               5,
               List("value").map(SimpleField(_))
@@ -809,7 +819,8 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue), BooleanClause.Occur.MUST_NOT)
+                .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
+                     BooleanClause.Occur.MUST_NOT)
                 .build(),
               false,
               5,

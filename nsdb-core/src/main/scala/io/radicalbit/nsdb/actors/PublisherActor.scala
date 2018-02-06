@@ -141,13 +141,7 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
             subscribedActors += (k -> (v - actor))
           sender() ! Unsubscribed(actor)
       }
-    case RemoveQuery(quid) =>
-      subscribedActors.get(quid).foreach { actors =>
-        actors.foreach(_ ! PoisonPill)
-      }
-      subscribedActors -= quid
-      queries -= quid
-      sender() ! QueryRemoved(quid)
+
   }
 }
 
@@ -160,7 +154,6 @@ object PublisherActor {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)
     case class SubscribeByQueryId(actor: ActorRef, qid: String)
     case class Unsubscribe(actor: ActorRef)
-    case class RemoveQuery(quid: String)
   }
 
   object Events {
@@ -170,6 +163,5 @@ object PublisherActor {
 
     case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
     case class Unsubscribed(actor: ActorRef)
-    case class QueryRemoved(quid: String)
   }
 }
