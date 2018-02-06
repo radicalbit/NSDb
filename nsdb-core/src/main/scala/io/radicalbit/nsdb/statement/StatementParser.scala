@@ -28,6 +28,7 @@ class StatementParser {
           case Some(SchemaField(_, _: VARCHAR)) => Try(new WildcardQuery(new Term(dimension, "*")))
           case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
+        // Used to apply negation due to the fact Lucene does not support nullable fields, query the values range and apply negation
         query.map { qq =>
           val builder = new BooleanQuery.Builder()
           builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
@@ -97,13 +98,6 @@ class StatementParser {
           case (None, _, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
 
-      case Some(UnaryLogicalExpression(expression: NullableExpression, NotOperator)) =>
-        parseExpression(Some(expression), schema).map { e =>
-          val builder = new BooleanQuery.Builder()
-          builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-          builder.add(e.q, BooleanClause.Occur.MUST_NOT).build()
-        }
-
       case Some(UnaryLogicalExpression(expression, _)) =>
         parseExpression(Some(expression), schema).map { e =>
           val builder = new BooleanQuery.Builder()
@@ -165,15 +159,23 @@ class StatementParser {
     })
     val expParsed = parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
     val fieldList = statement.fields match {
-      case AllFields        => List.empty
-      case ListFields(list) => list
+      case AllFields => Success(List.empty)
+      case ListFields(list) =>
+        val metricDimensions     = schema.fields.map(_.name)
+        val projectionDimensions = list.map(_.name).filterNot(_ == "*")
+        val diff                 = projectionDimensions.filterNot(metricDimensions.contains(_))
+        if (diff.isEmpty)
+          Success(list)
+        else
+          Failure(new InvalidStatementException(s"cannot project on not existing dimensions:  ${diff.mkString(", ")}"))
     }
 
     val distinctValue = statement.distinct
 
     expParsed.flatMap(exp =>
       (distinctValue, fieldList, statement.groupBy, statement.limit) match {
-        case (false, Seq(Field(fieldName, Some(agg))), Some(group), limit) =>
+        case (_, Failure(exception), _, _) => Failure(exception)
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group), limit) =>
           Success(
             ParsedAggregatedQuery(statement.namespace,
                                   statement.metric,
@@ -181,18 +183,18 @@ class StatementParser {
                                   getCollector(group, fieldName, agg),
                                   sortOpt,
                                   limit.map(_.value)))
-        case (_, List(Field(_, None)), Some(_), _) =>
+        case (_, Success(List(Field(_, None))), Some(_), _) =>
           Failure(new InvalidStatementException("cannot execute a group by query without an aggregation"))
-        case (_, List(_), Some(_), _) =>
+        case (_, Success(List(_)), Some(_), _) =>
           Failure(new InvalidStatementException("cannot execute a group by query with more than a field"))
-        case (_, List(), Some(_), _) =>
+        case (_, Success(List()), Some(_), _) =>
           Failure(new InvalidStatementException("cannot execute a group by query with all fields selected"))
-        case (true, List(), None, _) =>
+        case (true, Success(List()), None, _) =>
           Failure(new InvalidStatementException("cannot execute a select all query with distinct"))
         //TODO: Not supported yet
-        case (true, fieldsSeq, None, _) if fieldsSeq.lengthCompare(1) > 0 =>
+        case (true, Success(fieldsSeq), None, _) if fieldsSeq.lengthCompare(1) > 0 =>
           Failure(new InvalidStatementException("cannot execute a select distinct projecting more than one dimension"))
-        case (distinct, fieldsSeq, None, Some(limit))
+        case (distinct, Success(fieldsSeq), None, Some(limit))
             if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
           Success(
             ParsedSimpleQuery(statement.namespace,
@@ -202,10 +204,10 @@ class StatementParser {
                               limit.value,
                               fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
                               sortOpt))
-        case (false, List(), None, Some(limit)) =>
+        case (false, Success(List()), None, Some(limit)) =>
           Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, false, limit.value, List(), sortOpt))
 
-        case (_, fieldsSeq, None, Some(_))
+        case (_, Success(fieldsSeq), None, Some(_))
             if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
           Failure(
             new InvalidStatementException(

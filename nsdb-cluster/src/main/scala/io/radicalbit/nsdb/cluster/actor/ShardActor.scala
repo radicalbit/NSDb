@@ -235,7 +235,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                     else b)
             )
 
-        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.size == 1 =>
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))

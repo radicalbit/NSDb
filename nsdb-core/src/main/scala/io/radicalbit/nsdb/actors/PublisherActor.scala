@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.index.{NsdbQuery, TemporaryIndex}
+import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -22,6 +22,8 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
+
+case class NsdbQuery(uuid: String, aggregated: Boolean, query: SelectSQLStatement)
 
 class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
 
