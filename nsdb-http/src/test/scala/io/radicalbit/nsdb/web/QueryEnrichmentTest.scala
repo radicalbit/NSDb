@@ -20,7 +20,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement("db",
@@ -45,7 +45,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -72,7 +72,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -99,7 +99,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -126,7 +126,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -156,7 +156,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -183,7 +183,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -214,7 +214,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -248,7 +248,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -290,7 +290,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -333,7 +333,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -381,7 +381,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           Some(LimitOperator(1))
         )
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -413,7 +413,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
 
     "Query with a single filter of nullable conditions" should {
       "be correctly converted with is null" in {
-        val filters = Seq(FilterNullableValue("age", CheckOperators.IsNull))
+        val filters = Seq(FilterNullableValue("age", NullableOperators.IsNull))
         val originalStatement = SelectSQLStatement("db",
                                                    "namespace",
                                                    "people",
@@ -424,7 +424,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -441,7 +441,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       }
 
       "be correctly converted with is not null" in {
-        val filters = Seq(FilterNullableValue("age", CheckOperators.IsNotNull))
+        val filters = Seq(FilterNullableValue("age", NullableOperators.IsNotNull))
         val originalStatement = SelectSQLStatement("db",
                                                    "namespace",
                                                    "people",
@@ -452,7 +452,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(
@@ -469,8 +469,8 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
       }
 
       "be correctly converted with is null and is not null" in {
-        val filters = Seq(FilterNullableValue("age", CheckOperators.IsNull),
-                          FilterNullableValue("height", CheckOperators.IsNotNull))
+        val filters = Seq(FilterNullableValue("age", NullableOperators.IsNull),
+                          FilterNullableValue("height", NullableOperators.IsNotNull))
         val originalStatement = SelectSQLStatement("db",
                                                    "namespace",
                                                    "people",
@@ -481,7 +481,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                                                    None,
                                                    Some(LimitOperator(1)))
 
-        val enrichedStatement = originalStatement.addConditions(filters.map(Filters.unapply(_).get))
+        val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
           SelectSQLStatement(

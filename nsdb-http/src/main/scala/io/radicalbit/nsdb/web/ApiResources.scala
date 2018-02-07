@@ -32,14 +32,14 @@ object FilterOperators extends Enumeration {
   val Like           = Value("LIKE")
 }
 
-object CheckOperators extends Enumeration {
+object NullableOperators extends Enumeration {
   val IsNull    = Value("ISNULL")
   val IsNotNull = Value("ISNOTNULL")
 }
 
-sealed trait Filters
-case object Filters {
-  def unapply(arg: Filters): Option[(String, Option[JSerializable], String)] =
+sealed trait Filter
+case object Filter {
+  def unapply(arg: Filter): Option[(String, Option[JSerializable], String)] =
     arg match {
       case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
       case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
@@ -50,12 +50,12 @@ case class FilterByValue(
     dimension: String,
     value: JSerializable,
     operator: FilterOperators.Value
-) extends Filters
+) extends Filter
 
 case class FilterNullableValue(
     dimension: String,
-    operator: CheckOperators.Value
-) extends Filters
+    operator: NullableOperators.Value
+) extends Filter
 
 case class QueryBody(db: String,
                      namespace: String,
@@ -63,7 +63,7 @@ case class QueryBody(db: String,
                      queryString: String,
                      from: Option[Long],
                      to: Option[Long],
-                     filters: Option[Seq[Filters]])
+                     filters: Option[Seq[Filter]])
     extends Metric
 case class InsertBody(db: String, namespace: String, metric: String, bit: Bit) extends Metric
 
@@ -96,17 +96,17 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       }
     }
 
-  implicit val FilterOperatorFormat: RootJsonFormat[FilterOperators.Value] = enumFormat(FilterOperators)
-  implicit val CheckOperatorFormat: RootJsonFormat[CheckOperators.Value]   = enumFormat(CheckOperators)
-  implicit val FilterByValueFormat                                         = jsonFormat3(FilterByValue.apply)
-  implicit val FilterNullableValueFormat                                   = jsonFormat2(FilterNullableValue.apply)
+  implicit val FilterOperatorFormat: RootJsonFormat[FilterOperators.Value]  = enumFormat(FilterOperators)
+  implicit val CheckOperatorFormat: RootJsonFormat[NullableOperators.Value] = enumFormat(NullableOperators)
+  implicit val FilterByValueFormat                                          = jsonFormat3(FilterByValue.apply)
+  implicit val FilterNullableValueFormat                                    = jsonFormat2(FilterNullableValue.apply)
 
-  implicit object FilterJsonFormat extends RootJsonFormat[Filters] {
-    def write(a: Filters) = a match {
+  implicit object FilterJsonFormat extends RootJsonFormat[Filter] {
+    def write(a: Filter) = a match {
       case f: FilterByValue       => f.toJson
       case f: FilterNullableValue => f.toJson
     }
-    def read(value: JsValue): Filters =
+    def read(value: JsValue): Filter =
       value.asJsObject.fields.get("value") match {
         case Some(_) => value.convertTo[FilterByValue]
         case None    => value.convertTo[FilterNullableValue]
@@ -148,10 +148,10 @@ trait ApiResources {
                     Some(
                       statement
                         .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.getOrElse(Seq.empty).map(f => Filters.unapply(f).get)))
+                        .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
                     Some(statement
-                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filters.unapply(f).get)))
+                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
                     Some(statement
                       .enrichWithTimeRange("timestamp", from, to))
