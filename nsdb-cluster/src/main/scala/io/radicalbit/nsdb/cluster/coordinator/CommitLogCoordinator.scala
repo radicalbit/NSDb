@@ -1,20 +1,38 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.Cluster
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.Insert
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WriteToCommitLogSucceeded
-import io.radicalbit.nsdb.commit_log.InsertNewEntry
+import com.typesafe.config.Config
+import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{
+  Insert,
+  SubscribeWriter,
+  WriteToCommitLogSucceeded,
+  WriterSubscribed
+}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{InsertNewEntry, NewEntryInserted}
+import io.radicalbit.nsdb.commit_log.InsertEntry
 import io.radicalbit.nsdb.common.protocol.Bit
+
+import scala.collection.mutable
 
 object CommitLogCoordinator {
 
-  def props = Props[CommitLogCoordinator]
+  def props: Props = Props[CommitLogCoordinator]
 
   sealed trait JournalServiceProtocol
 
+  case class SubscribeWriter(nameNode: String, actor: ActorRef)
+  case class WriterSubscribed(nameNode: String, actor: ActorRef)
+
   case class Insert(metric: String, bit: Bit) extends JournalServiceProtocol
+  case class Commit(metric: String, bit: Bit) extends JournalServiceProtocol
+  case class Reject(metric: String, bit: Bit) extends JournalServiceProtocol
+
+  sealed trait JournalServiceResponse extends JournalServiceProtocol
+
+  case class WriteToCommitLogSucceeded(ts: Long, metric: String, bit: Bit)              extends JournalServiceResponse
+  case class WriteToCommitLogFailed(ts: Long, metric: String, bit: Bit, reason: String) extends JournalServiceResponse
 
 }
 
@@ -22,24 +40,39 @@ class CommitLogCoordinator() extends Actor with ActorLogging {
 
   val cluster = Cluster(context.system)
 
-  import akka.pattern.{ask, pipe}
-  import context.dispatcher
-  import io.radicalbit.nsdb.util.Config.{CommitLogWriterConf, getString}
-
   import scala.concurrent.duration._
 
-  implicit private val timeout = Timeout(1 second)
-  implicit private val config  = context.system.settings.config
+  implicit private val timeout: Timeout = Timeout(10.second)
+  implicit private val config: Config   = context.system.settings.config
 
-  private val commitLogWriterClass = getString(CommitLogWriterConf)
+  private var writers: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  private val commitLogWriterActor =
-    context.system.actorOf(Props(Class.forName(commitLogWriterClass)), "commit-log-coordinator")
+  private var acks: Int = 0
 
-  def receive = {
+  def receive: Receive = write
+
+  def subscribe: Receive = {
+    case SubscribeWriter(nameNode, actor) =>
+      writers += (nameNode -> actor)
+      sender ! WriterSubscribed(nameNode, actor)
+  }
+
+  def write: Receive = {
     case Insert(metric, bit) =>
-      val entry = InsertNewEntry(metric = metric, bit = bit, replyTo = self)
-      (commitLogWriterActor ? entry).mapTo[WriteToCommitLogSucceeded].pipeTo(sender())
+      context.become(waitForAck)
+      writers.foreach {
+        case (_, actor) =>
+          actor ! InsertNewEntry(InsertEntry(metric = metric, bit = bit), replyTo = self)
+      }
+  }
 
+  def waitForAck: Receive = {
+    case NewEntryInserted(InsertEntry(metric, bit), replyTo) =>
+      acks += 1
+      if (acks == writers.size) {
+        acks = 0
+        replyTo ! WriteToCommitLogSucceeded(bit.timestamp, metric, bit)
+        context.become(write)
+      }
   }
 }

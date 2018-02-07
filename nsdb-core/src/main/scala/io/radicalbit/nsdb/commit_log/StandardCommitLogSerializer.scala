@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.commit_log
 
-import java.nio.ByteBuffer
+import java.nio.{Buffer, ByteBuffer}
 
 import io.radicalbit.nsdb.commit_log.CommitLogEntry.Dimension
 import io.radicalbit.nsdb.common.JSerializable
@@ -31,9 +31,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         n -> i.deserialize(v).asInstanceOf[JSerializable]
     }.toMap
 
-  override def deserialize(entry: Array[Byte]): InsertNewEntry = {
+  override def deserialize(entry: Array[Byte]): CommitLogEntry = {
     readByteBuffer.clear(entry)
-
+    //classname
+    val className = readByteBuffer.read
     // timestamp
     val ts = readByteBuffer.read.toLong
     // metric
@@ -48,15 +49,29 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       _     = readByteBuffer.get(value)
     } yield (name, typ, value)).toList
 
-    InsertNewEntry(metric = metric, Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)), null)
+    className match {
+      case c if c == classOf[InsertEntry].getCanonicalName =>
+        InsertEntry(metric = metric, Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+      case c if c == classOf[CommitEntry].getCanonicalName =>
+        CommitEntry(metric = metric, Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+      case c if c == classOf[RejectEntry].getCanonicalName =>
+        RejectEntry(metric = metric, Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+    }
   }
 
-  override def serialize(entry: InsertNewEntry): Array[Byte] =
-    deserialize(ts = entry.bit.timestamp, metric = entry.metric, dimensions = extractDimensions(entry.bit.dimensions))
+  override def serialize(entry: CommitLogEntry): Array[Byte] =
+    serialize(entry.getClass.getCanonicalName,
+              ts = entry.bit.timestamp,
+              metric = entry.metric,
+              dimensions = extractDimensions(entry.bit.dimensions))
 
-  private def deserialize(ts: Long, metric: String, dimensions: List[(String, String, Array[Byte])]): Array[Byte] = {
+  private def serialize(className: String,
+                        ts: Long,
+                        metric: String,
+                        dimensions: List[(String, String, Array[Byte])]): Array[Byte] = {
     writeBuffer.clear()
-
+    //classname
+    writeBuffer.write(className)
     // timestamp
     writeBuffer.write(ts.toString)
     // metric
@@ -77,18 +92,18 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
 
 abstract class BaseBuffer(maxSize: Int) {
 
-  protected val buffer = ByteBuffer.allocate(maxSize)
+  protected val buffer: ByteBuffer = ByteBuffer.allocate(maxSize)
 }
 
 private class WriteBuffer(maxSize: Int) extends BaseBuffer(maxSize) {
 
-  def array = buffer.array
+  def array: Array[Byte] = buffer.array
 
-  def clear() = buffer.clear()
+  def clear(): Buffer = buffer.clear()
 
-  def put(v: Array[Byte]) = buffer.put(v)
+  def put(v: Array[Byte]): ByteBuffer = buffer.put(v)
 
-  def putInt(v: Int) = buffer.putInt(v)
+  def putInt(v: Int): ByteBuffer = buffer.putInt(v)
 
   def write(s: String): Unit = {
     val xs = s.getBytes
@@ -99,7 +114,7 @@ private class WriteBuffer(maxSize: Int) extends BaseBuffer(maxSize) {
 
 private class ReadBuffer(maxSize: Int) extends BaseBuffer(maxSize) {
 
-  def clear(array: Array[Byte]) = {
+  def clear(array: Array[Byte]): Buffer = {
     buffer.clear()
     buffer.put(array)
     buffer.position(0)

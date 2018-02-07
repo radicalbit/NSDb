@@ -2,8 +2,8 @@ package io.radicalbit.nsdb.commit_log
 
 trait CommitLogSerializer {
 
-  def deserialize(entry: Array[Byte]): InsertNewEntry
+  def deserialize(entry: Array[Byte]): CommitLogEntry
 
-  def serialize(entry: InsertNewEntry): Array[Byte]
+  def serialize(entry: CommitLogEntry): Array[Byte]
 
 }

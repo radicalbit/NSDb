@@ -1,15 +1,20 @@
 package io.radicalbit.nsdb.commit_log
 
-import akka.actor.Actor
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WriteToCommitLogSucceeded
-import io.radicalbit.nsdb.common.protocol.Bit
+import akka.actor.{Actor, ActorRef}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{InsertNewEntry, NewEntryInserted}
 
 object CommitLogWriterActor {
 
-  sealed trait CommitLogWriterResponse
+  sealed trait CommitLogWriterProtocol
 
-  case class WriteToCommitLogSucceeded(ts: Long, metric: String, bit: Bit)              extends CommitLogWriterResponse
-  case class WriteToCommitLogFailed(ts: Long, metric: String, bit: Bit, reason: String) extends CommitLogWriterResponse
+  case class InsertNewEntry(entry: CommitLogEntry, replyTo: ActorRef)   extends CommitLogWriterProtocol
+  case class NewEntryInserted(entry: CommitLogEntry, replyTo: ActorRef) extends CommitLogWriterProtocol
+
+//  case class CommitNewEntry(metric: String, bit: Bit, replyTo: ActorRef) extends CommitLogWriterProtocol
+//  case class NewEntryCommitted(metric: String, bit: Bit) extends CommitLogWriterProtocol
+
+//  case class RejectNewEntry(metric: String, bit: Bit, replyTo: ActorRef) extends CommitLogWriterProtocol
+//  case class NewEntryRejected(metric: String, bit: Bit) extends CommitLogWriterProtocol
 
 }
 
@@ -17,14 +22,11 @@ trait CommitLogWriterActor extends Actor {
 
   protected def serializer: CommitLogSerializer
 
-  final def receive = {
-    case msg @ InsertNewEntry(metric, bit, replyTo) =>
-      createEntry(msg)
-      if (msg.replyTo != null) replyTo ! WriteToCommitLogSucceeded(bit.timestamp, metric, bit)
-//    case x: DeleteExistingEntry => deleteEntry(x)
+  final def receive: Receive = {
+    case msg @ InsertNewEntry(entry, replyTo) =>
+      createEntry(msg.entry)
+      if (msg.replyTo != null) replyTo ! NewEntryInserted(entry, replyTo)
   }
 
-  protected def createEntry(commitLogEntry: InsertNewEntry): Unit
-
-//  protected def deleteEntry(commitLogEntry: DeleteExistingEntry): Unit
+  protected def createEntry(commitLogEntry: CommitLogEntry): Unit
 }

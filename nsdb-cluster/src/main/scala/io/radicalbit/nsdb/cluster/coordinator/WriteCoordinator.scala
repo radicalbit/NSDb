@@ -8,17 +8,12 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{JournalServiceResponse, WriteToCommitLogFailed, WriteToCommitLogSucceeded}
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
 import io.radicalbit.nsdb.cluster.index.Location
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
-  CommitLogWriterResponse,
-  WriteToCommitLogFailed,
-  WriteToCommitLogSucceeded
-}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.Schema
@@ -68,12 +63,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
 
-    private def commitLogFuture(ts: Long, metric: String, bit: Bit) = {
-        if (commitLogService.isDefined)
-            (commitLogService.get ? CommitLogCoordinator.Insert(metric = metric, bit = bit))
-              .mapTo[CommitLogWriterResponse]
-        else Future.successful(WriteToCommitLogSucceeded(ts, metric, bit))
-    }
+  private def commitLogFuture(ts: Long, metric: String, bit: Bit) = {
+    if (commitLogService.isDefined)
+      (commitLogService.get ? CommitLogCoordinator.Insert(metric = metric, bit = bit))
+        .mapTo[JournalServiceResponse]
+    else Future.successful(WriteToCommitLogSucceeded(ts, metric, bit))
+  }
 
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
     (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))

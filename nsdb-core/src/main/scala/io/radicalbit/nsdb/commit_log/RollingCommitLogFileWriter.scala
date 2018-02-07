@@ -4,7 +4,6 @@ import java.io.{File, FileOutputStream}
 
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WriteToCommitLogSucceeded
 import io.radicalbit.nsdb.util.Config._
 
 object RollingCommitLogFileWriter {
@@ -55,10 +54,10 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   private var file   = newFile(directory)
   private var fileOS = newOutputStream(file)
 
-  override protected def createEntry(entry: InsertNewEntry): Unit = {
+  override protected def createEntry(entry: CommitLogEntry): Unit = {
     log.debug("Received the entry {}.", entry)
     appendToDisk(entry)
-    sender() ! WriteToCommitLogSucceeded(ts = entry.bit.timestamp, metric = entry.metric, bit = entry.bit)
+//    sender() ! WriteToCommitLogSucceeded(ts = entry.bit.timestamp, metric = entry.metric, bit = entry.bit)
 
     // this check can be done in an async fashion
     checkAndUpdateRollingFile(file).foreach {
@@ -68,11 +67,9 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
     }
   }
 
-//  override protected def deleteEntry(commitLogEntry: DeleteExistingEntry): Unit = {}
-
   protected def close(): Unit = fileOS.close()
 
-  protected def appendToDisk(entry: InsertNewEntry): Unit = {
+  protected def appendToDisk(entry: CommitLogEntry): Unit = {
     fileOS.write(serializer.serialize(entry))
     fileOS.write(separator)
     fileOS.flush()

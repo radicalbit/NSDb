@@ -36,7 +36,7 @@ class RollingCommitLogFileWriterSpec
     val prefix            = "DummyFileNamePrefix"
     val fileNameSeparator = RollingCommitLogFileWriter.FileNameSeparator
 
-    def name(counter: String) = s"$prefix${fileNameSeparator}$counter"
+    def name(counter: String) = s"$prefix$fileNameSeparator$counter"
 
     "starting from an empty commit log directory" should {
       "use the correct name" in {

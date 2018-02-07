@@ -79,10 +79,16 @@ object Dependencies {
   }
 
   object json4s {
-    val version = "3.5.2"
-    val jackson = "org.json4s" %% "json4s-jackson" % version
+    lazy val version   = "3.5.2"
+    lazy val namespace = "org.json4s"
+    lazy val jackson   = namespace %% "json4s-jackson" % version
   }
 
+  object kryo {
+    lazy val version   = "4.0.1"
+    lazy val namespace = "com.esotericsoftware"
+    lazy val kryo      = namespace % "kryo" % version
+  }
   object lucene {
     lazy val version     = "6.6.0"
     lazy val namespace   = "org.apache.lucene"
@@ -162,6 +168,7 @@ object Dependencies {
     val libraries = Seq(
       akka.actor,
       spire.spire,
+      kryo.kryo,
       lucene.core,
       lucene.queryParser,
       lucene.grouping,
@@ -188,7 +195,7 @@ object Dependencies {
   }
 
   object AkkaClient {
-    val libraries = Seq(
+    lazy val libraries = Seq(
       akka.actor,
       akka.cluster,
       akka.clusterTools
@@ -196,7 +203,7 @@ object Dependencies {
   }
 
   object Cluster {
-    val libraries = Seq(
+    lazy val libraries = Seq(
       akka.cluster,
       akka.clusterTools,
       akka.distributedData,
@@ -210,7 +217,7 @@ object Dependencies {
   }
 
   object Security {
-    val libraries = Seq(
+    lazy val libraries = Seq(
       scala_logging.scala_logging,
       akka.actor,
       akka_http.default
@@ -218,7 +225,7 @@ object Dependencies {
   }
 
   object ScalaAPI {
-    val libraries = Seq.empty
+    lazy val libraries = Seq.empty
   }
 
   object SQL {
