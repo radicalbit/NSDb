@@ -5,7 +5,7 @@ import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
-import org.apache.lucene.document.LongPoint
+import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
@@ -49,6 +49,20 @@ class StatementParserSpec extends WordSpec with Matchers {
               4
             ))
         )
+      }
+    }
+
+    "receive a select projecting a not existing dimension" should {
+      "fails" in {
+        parser.parseStatement(
+          SelectSQLStatement(db = "db",
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = false,
+                             fields = ListFields(List(Field("address", None))),
+                             limit = Some(LimitOperator(4))),
+          schema
+        ) shouldBe 'failure
       }
     }
 
@@ -617,5 +631,204 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
     }
+
+    "receive a select containing a not nullable expression on string" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "name"), NotOperator))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                    .add(new WildcardQuery(new Term("name", "*")), BooleanClause.Occur.MUST_NOT)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+    "receive a select containing a nullable expression on string" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(NullableExpression(dimension = "name"))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(new WildcardQuery(new Term("name", "*")), BooleanClause.Occur.MUST_NOT)
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+    "receive a select containing a not nullable expression on decimal" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "value"), NotOperator))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                    .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
+                         BooleanClause.Occur.MUST_NOT)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+    "receive a select containing a nullable expression on decimal" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(NullableExpression(dimension = "value"))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
+                     BooleanClause.Occur.MUST_NOT)
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+    "receive a select containing a not nullable expression on long" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition =
+              Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "creationDate"), NotOperator))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(
+                  new BooleanQuery.Builder()
+                    .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                    .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
+                         BooleanClause.Occur.MUST_NOT)
+                    .build(),
+                  BooleanClause.Occur.MUST_NOT
+                )
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+    "receive a select containing a nullable expression on long" should {
+      "parse it successfully" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", None))),
+            condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
+                     BooleanClause.Occur.MUST_NOT)
+                .build(),
+              false,
+              5,
+              List("value").map(SimpleField(_))
+            ))
+        )
+      }
+    }
+
   }
 }

@@ -31,6 +31,12 @@ abstract class AllGroupsAggregationCollector extends AllGroupsCollector[String] 
 
   def getGroupMap: Map[String, Long] = groups.toMap
 
+  def clear = {
+    ordSet.clear()
+    groups.clear()
+    this
+  }
+
   override def collect(doc: Int): Unit = {
     val key = index.getOrd(doc)
 

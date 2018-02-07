@@ -95,7 +95,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
         val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
         implicit val ord: Ordering[JSerializable] =
           if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-        s.sortBy(_.dimensions(statement.order.get.dimension))
+        s.sortBy(_.fields(statement.order.get.dimension))
       } else s
 
       if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
@@ -235,7 +235,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
                     else b)
             )
 
-        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.size == 1 =>
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
@@ -305,7 +305,7 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           val indexes = getMetricShards(statement.metric)
           val shardResults = indexes.toSeq.map {
             case (_, index) =>
-              handleQueryResults(metric, Try(index.query(q, collector, limit, sort)))
+              handleQueryResults(metric, Try(index.query(q, collector.clear, limit, sort)))
           }
           val rawResult = Try(
             shardResults

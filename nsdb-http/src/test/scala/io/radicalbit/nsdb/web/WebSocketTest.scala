@@ -4,7 +4,7 @@ import akka.actor.{Actor, Props}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryString, SubscribedByQuid}
 import io.radicalbit.nsdb.index.{Schema, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, GetSchema}
@@ -76,6 +76,32 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
         parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
+
+        //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
+      }
+  }
+
+  "WebSocketStream" should "register to a queryID" in {
+
+    val wsClient = WSProbe()
+
+    WS("/ws-stream", wsClient.flow) ~> wsStandardResources ~>
+      check {
+
+        isWebSocketUpgrade shouldEqual true
+
+        wsClient.sendMessage(
+          """{"db":"db","namespace":"registry","metric":"people","queryString":"select * from people limit 1"}""")
+
+        val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
+        parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
+        val response = parse(subscribed).extractOpt[SubscribedByQueryString].get
+
+        wsClient.sendMessage(
+          s"""{"db":"db","namespace":"registry","metric":"people","quid":${response.quid}} """
+        )
+        val subscribedQId = wsClient.expectMessage().asTextMessage.getStrictText
+        parse(subscribed).extractOpt[SubscribedByQuid].isDefined shouldBe true
 
         //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
       }

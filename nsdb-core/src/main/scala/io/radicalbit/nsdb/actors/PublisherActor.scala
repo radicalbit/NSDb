@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.index.{NsdbQuery, TemporaryIndex}
+import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -22,6 +22,8 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
+
+case class NsdbQuery(uuid: String, aggregated: Boolean, query: SelectSQLStatement)
 
 class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
 
@@ -139,13 +141,7 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
             subscribedActors += (k -> (v - actor))
           sender() ! Unsubscribed(actor)
       }
-    case RemoveQuery(quid) =>
-      subscribedActors.get(quid).foreach { actors =>
-        actors.foreach(_ ! PoisonPill)
-      }
-      subscribedActors -= quid
-      queries -= quid
-      sender() ! QueryRemoved(quid)
+
   }
 }
 
@@ -158,7 +154,6 @@ object PublisherActor {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)
     case class SubscribeByQueryId(actor: ActorRef, qid: String)
     case class Unsubscribe(actor: ActorRef)
-    case class RemoveQuery(quid: String)
   }
 
   object Events {
@@ -168,6 +163,5 @@ object PublisherActor {
 
     case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
     case class Unsubscribed(actor: ActorRef)
-    case class QueryRemoved(quid: String)
   }
 }

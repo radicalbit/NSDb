@@ -130,7 +130,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           }
         }
 
-        "execute successfully with ordering" in {
+        "execute successfully with ascending order" in {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -152,6 +152,33 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               Bit(0L, 0L, Map("name" -> "Frank")),
               Bit(0L, 0L, Map("name" -> "Frankie")),
               Bit(0L, 0L, Map("name" -> "John"))
+            )
+          }
+
+        }
+
+        "execute successfully with descending order" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = true,
+                fields = ListFields(List(Field("name", None))),
+                order = Some(DescOrderOperator("name")),
+                limit = Some(LimitOperator(5))
+              )
+            )
+          )
+          within(5 seconds) {
+
+            probe.expectMsgType[SelectStatementExecuted].values shouldBe Seq(
+              Bit(0L, 0L, Map("name" -> "John")),
+              Bit(0L, 0L, Map("name" -> "Frankie")),
+              Bit(0L, 0L, Map("name" -> "Frank")),
+              Bit(0L, 0L, Map("name" -> "Bill"))
             )
           }
         }
@@ -566,6 +593,105 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             probe.expectMsgType[SelectStatementFailed]
           }
         }
+      }
+
+      "receive a select containing a group by" should {
+        "execute it successfully with asc ordering over string dimension" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                groupBy = Some("name"),
+                order = Some(AscOrderOperator("name"))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values shouldBe Seq(
+              Bit(0L, 1L, Map("name" -> "Bill")),
+              Bit(0L, 1L, Map("name" -> "Frank")),
+              Bit(0L, 1L, Map("name" -> "Frankie")),
+              Bit(0L, 2L, Map("name" -> "John"))
+            )
+          }
+        }
+        "execute it successfully with desc ordering over string dimension" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("name"),
+                order = Some(DescOrderOperator("name"))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values shouldBe Seq(
+              Bit(0L, 2L, Map("name" -> "John")),
+              Bit(0L, 1L, Map("name" -> "Frankie")),
+              Bit(0L, 1L, Map("name" -> "Frank")),
+              Bit(0L, 1L, Map("name" -> "Bill"))
+            )
+          }
+        }
+        "execute it successfully with desc ordering over numerical dimension" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("name"),
+                order = Some(DescOrderOperator("value"))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values.map(_.value) shouldBe Seq(2l, 1L, 1L, 1l)
+          }
+        }
+        "execute it successfully with asc ordering over numerical dimension" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = "people",
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("name"),
+                order = Some(AscOrderOperator("value")),
+                limit = Some(LimitOperator(2))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values.map(_.value) shouldBe Seq(1l, 1L)
+          }
+        }
+
       }
     }
   }

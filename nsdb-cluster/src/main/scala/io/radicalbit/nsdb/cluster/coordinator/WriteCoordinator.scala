@@ -65,20 +65,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       sender() ! NamespaceDataActorSubscribed(actor, Some(nodeName))
     case SubscribeNamespaceDataActor(actor: ActorRef, None) =>
       sender() ! NamespaceDataActorSubscriptionFailed(actor, None, "cannot subscribe ")
-
-    case msg @ GetNamespaces(db) =>
-      Future
-        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
-        .map(_.flatten.toSet)
-        .map(namespaces => NamespacesGot(db, namespaces))
-        .pipeTo(sender)
-    case msg @ GetMetrics(db, namespace) =>
-      Future
-        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[MetricsGot].map(_.metrics)))
-        .map(_.flatten.toSet)
-        .map(metrics => MetricsGot(db, namespace, metrics))
-        .pipeTo(sender)
-
     case MapInput(ts, db, namespace, metric, bit) =>
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
