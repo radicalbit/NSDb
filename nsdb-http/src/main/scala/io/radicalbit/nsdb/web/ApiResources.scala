@@ -32,16 +32,30 @@ object FilterOperators extends Enumeration {
   val Like           = Value("LIKE")
 }
 
-case class Filter(
+object CheckOperators extends Enumeration {
+  val IsNull    = Value("ISNULL")
+  val IsNotNull = Value("ISNOTNULL")
+}
+
+sealed trait Filters
+case object Filters {
+  def unapply(arg: Filters): Option[(String, Option[JSerializable], String)] =
+    arg match {
+      case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
+      case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
+    }
+}
+
+case class FilterByValue(
     dimension: String,
     value: JSerializable,
     operator: FilterOperators.Value
-)
+) extends Filters
 
-case object Filter {
-  def unapply(arg: Filter): Option[(String, JSerializable, String)] =
-    Some((arg.dimension, arg.value, arg.operator.toString))
-}
+case class FilterNullableValue(
+    dimension: String,
+    operator: CheckOperators.Value
+) extends Filters
 
 case class QueryBody(db: String,
                      namespace: String,
@@ -49,7 +63,7 @@ case class QueryBody(db: String,
                      queryString: String,
                      from: Option[Long],
                      to: Option[Long],
-                     filters: Option[Seq[Filter]])
+                     filters: Option[Seq[Filters]])
     extends Metric
 case class InsertBody(db: String, namespace: String, metric: String, bit: Bit) extends Metric
 
@@ -75,7 +89,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       def write(obj: T#Value): JsValue = JsString(obj.toString)
       def read(json: JsValue): T#Value = {
         json match {
-          case JsString(txt) => enu.withName(txt.toUpperCase)
+          case JsString(txt) => enu.withName(txt.trim.toUpperCase)
           case somethingElse =>
             throw DeserializationException(s"Expected a value from enum $enu instead of $somethingElse")
         }
@@ -83,8 +97,21 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
     }
 
   implicit val FilterOperatorFormat: RootJsonFormat[FilterOperators.Value] = enumFormat(FilterOperators)
+  implicit val CheckOperatorFormat: RootJsonFormat[CheckOperators.Value]   = enumFormat(CheckOperators)
+  implicit val FilterByValueFormat                                         = jsonFormat3(FilterByValue.apply)
+  implicit val FilterNullableValueFormat                                   = jsonFormat2(FilterNullableValue.apply)
 
-  implicit val FilterFormat = jsonFormat3(Filter.apply)
+  implicit object FilterJsonFormat extends RootJsonFormat[Filters] {
+    def write(a: Filters) = a match {
+      case f: FilterByValue       => f.toJson
+      case f: FilterNullableValue => f.toJson
+    }
+    def read(value: JsValue) =
+      value.asJsObject.fields("value") match {
+        case JsNull     => value.convertTo[FilterNullableValue]
+        case v: JsValue => value.convertTo[FilterByValue]
+      }
+  }
 
   implicit val QbFormat = jsonFormat7(QueryBody.apply)
 
@@ -121,10 +148,10 @@ trait ApiResources {
                     Some(
                       statement
                         .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.getOrElse(Seq.empty).map(Filter.unapply(_).get)))
+                        .addConditions(filters.getOrElse(Seq.empty).map(f => Filters.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
                     Some(statement
-                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
+                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filters.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
                     Some(statement
                       .enrichWithTimeRange("timestamp", from, to))

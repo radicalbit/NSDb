@@ -80,7 +80,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
                 "select * from metric limit 1",
                 None,
                 None,
-                Some(Seq(Filter("value", 1L, FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -118,7 +118,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
                 "select * from metric limit 1",
                 Some(100),
                 Some(200),
-                Some(Seq(Filter("value", 1L, FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -156,7 +156,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
                 "select * from metric limit 1",
                 None,
                 None,
-                Some(Seq(Filter("value", "1", FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", "1", FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -172,7 +172,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest with A
                 "select * from metric limit 1",
                 None,
                 None,
-                Some(Seq(Filter("value", "vd", FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", "vd", FilterOperators.Equality))))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe InternalServerError
