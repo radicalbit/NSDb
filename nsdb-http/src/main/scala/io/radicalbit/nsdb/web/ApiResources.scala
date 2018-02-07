@@ -89,7 +89,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       def write(obj: T#Value): JsValue = JsString(obj.toString)
       def read(json: JsValue): T#Value = {
         json match {
-          case JsString(txt) => enu.withName(txt.trim.toUpperCase)
+          case JsString(txt) => enu.withName(txt.replace(" ", "").toUpperCase)
           case somethingElse =>
             throw DeserializationException(s"Expected a value from enum $enu instead of $somethingElse")
         }
@@ -106,10 +106,10 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       case f: FilterByValue       => f.toJson
       case f: FilterNullableValue => f.toJson
     }
-    def read(value: JsValue) =
-      value.asJsObject.fields("value") match {
-        case JsNull     => value.convertTo[FilterNullableValue]
-        case v: JsValue => value.convertTo[FilterByValue]
+    def read(value: JsValue): Filters =
+      value.asJsObject.fields.get("value") match {
+        case Some(_) => value.convertTo[FilterByValue]
+        case None    => value.convertTo[FilterNullableValue]
       }
   }
 
