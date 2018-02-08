@@ -1,15 +1,9 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.cluster.Cluster
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{
-  Insert,
-  SubscribeWriter,
-  WriteToCommitLogSucceeded,
-  WriterSubscribed
-}
+import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{Insert, SubscribeWriter, WriteToCommitLogSucceeded, WriterSubscribed}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{InsertNewEntry, NewEntryInserted}
 import io.radicalbit.nsdb.commit_log.InsertEntry
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -38,7 +32,7 @@ object CommitLogCoordinator {
 
 class CommitLogCoordinator() extends Actor with ActorLogging {
 
-  val cluster = Cluster(context.system)
+//  val cluster = Cluster(context.system)
 
   import scala.concurrent.duration._
 
@@ -49,7 +43,7 @@ class CommitLogCoordinator() extends Actor with ActorLogging {
 
   private var acks: Int = 0
 
-  def receive: Receive = write
+  def receive: Receive = subscribe orElse write
 
   def subscribe: Receive = {
     case SubscribeWriter(nameNode, actor) =>
@@ -59,7 +53,7 @@ class CommitLogCoordinator() extends Actor with ActorLogging {
 
   def write: Receive = {
     case Insert(metric, bit) =>
-      context.become(waitForAck)
+      context.become(subscribe orElse waitForAck)
       writers.foreach {
         case (_, actor) =>
           actor ! InsertNewEntry(InsertEntry(metric = metric, bit = bit), replyTo = self)
@@ -72,7 +66,7 @@ class CommitLogCoordinator() extends Actor with ActorLogging {
       if (acks == writers.size) {
         acks = 0
         replyTo ! WriteToCommitLogSucceeded(bit.timestamp, metric, bit)
-        context.become(write)
+        context.become(subscribe orElse write)
       }
   }
 }

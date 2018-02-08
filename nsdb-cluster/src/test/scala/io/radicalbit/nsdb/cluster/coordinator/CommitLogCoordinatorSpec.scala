@@ -47,7 +47,7 @@ class CommitLogCoordinatorSpec
   }
 
   "CommitLogCoordinator" should {
-    "write a insert entry and commit it" in within(10.seconds) {
+    "write a insert entry and commit it" in within(5.seconds){
 
       awaitAssert {
         commitLogCoordinatorActor ! Insert("testMetric", Bit(0, 1, Map("dim" -> "v")))
