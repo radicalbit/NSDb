@@ -11,26 +11,6 @@ class RollingCommitLogFileWriterSpec
     with Matchers
     with BeforeAndAfterAll {
 
-  //  val output = Array[Byte](1, 2, 3, 4, 3, 42, 6, 21, 87, 43, 21, 43, 76, 1, 97, 9, 15)
-  //
-  //  private val serStub = new CommitLogSerializer {
-  //    override def deserialize(entry: Array[Byte]): InsertNewEntry = ???
-  //    override def serialize(entry: InsertNewEntry): Array[Byte]   = output
-  //  }
-  //
-  //  val path      = "/tmp/commit.log"
-  //  val maxSize = 5000
-  //  val logWriter = new RollingCommitLogFileWriter
-  //
-  //  "A FileCommitLogWriter" when {
-  //    "receive a single entry" should {
-  //      "stored it succesfully" in {
-  //
-  ////        logWriter.write(0L, "", Map.empty[String, JSerializable])
-  //      }
-  //    }
-  //  }
-
   "A commit log file name" when {
 
     val prefix            = "DummyFileNamePrefix"

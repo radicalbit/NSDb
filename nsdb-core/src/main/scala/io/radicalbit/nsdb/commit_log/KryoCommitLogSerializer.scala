@@ -1,55 +1,69 @@
 package io.radicalbit.nsdb.commit_log
 
+import java.io.ByteArrayOutputStream
+
 import com.esotericsoftware.kryo.io.{Input, Output}
 import com.esotericsoftware.kryo.{Kryo, Serializer}
-import io.radicalbit.nsdb.commit_log.CommitLogEntry.Dimension
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
-class BitSerializer extends Serializer[Bit] {
+class CommitLogEntrySerializer extends Serializer[CommitLogEntry] {
 
-  private def extractDimensions(dimensions: Map[String, JSerializable]): List[Dimension] =
-    dimensions.map {
-      case (k, v) =>
-        val i = IndexType.fromClass(v.getClass).get
-        (k, i.getClass.getCanonicalName, i.serialize(v))
-    }.toList
+  override def read(kryo: Kryo, input: Input, clazz: Class[CommitLogEntry]): CommitLogEntry = {
+    val className = input.readString()
+    val metric    = input.readString()
 
-  override def write(kryo: Kryo, output: Output, bit: Bit): Unit = {
-    output.writeLong(bit.timestamp)
-    val dimensions = extractDimensions(bit.dimensions)
-
-    output.writeInt(dimensions.size)
-    dimensions.foreach {
-      case (name, typ, value) =>
-        output.writeString(name)
-        output.writeString(typ)
-        output.writeInt(value.length)
-        output.write(value)
-    }
-
-    val i = IndexType.fromClass(bit.value.getClass).get
-    output.writeString(i.getClass.getCanonicalName)
-    val valueBytes = bit.value.toString.getBytes
-    output.write(valueBytes.length)
-    output.write(valueBytes)
-  }
-
-  override def read(kryo: Kryo, input: Input, clazz: Class[Bit]): Bit = {
     val ts      = input.readLong()
     val dimSize = input.readInt()
     val dimensions = (1 to dimSize).map { _ =>
       val name = input.readString()
       val typ  = input.readString()
-      val i    = IndexType.fromClass(Class.forName(typ)).get
+      val i    = Class.forName(typ).newInstance().asInstanceOf[IndexType[_]]
       name -> i.deserialize(input.readBytes(input.readInt())).asInstanceOf[JSerializable]
     }.toMap
 
-    val valueClass = IndexType.fromClass(Class.forName(input.readString())).get
+    val valueClass = Class.forName(input.readString()).newInstance().asInstanceOf[IndexType[_]]
     val valueSize  = input.readInt()
     val value      = valueClass.deserialize(input.readBytes(valueSize)).asInstanceOf[JSerializable]
-    Bit(ts, value, dimensions)
+    val bit        = Bit(ts, value, dimensions)
+
+    className match {
+      case c if classOf[InsertEntry].getSimpleName == c => InsertEntry(metric, bit)
+      case c if classOf[DeleteEntry].getSimpleName == c => InsertEntry(metric, bit)
+      case c if classOf[CommitEntry].getSimpleName == c => CommitEntry(metric, bit)
+      case c if classOf[RejectEntry].getSimpleName == c => RejectEntry(metric, bit)
+    }
+  }
+
+  override def write(kryo: Kryo, output: Output, entry: CommitLogEntry): Unit = {
+    output.writeString(entry.getClass.getSimpleName)
+    output.writeString(entry.metric)
+
+    //bit
+
+    val bit = entry.bit
+
+    output.writeLong(bit.timestamp)
+
+    output.writeInt(bit.dimensions.size)
+
+    bit.dimensions.foreach {
+      case (name, value) =>
+        val typ      = IndexType.fromClass(value.getClass).get
+        val rawValue = typ.serialize(value)
+
+        output.writeString(name)
+        output.writeString(typ.getClass.getCanonicalName)
+        output.writeInt(rawValue.length)
+        output.write(rawValue)
+    }
+
+    val i = IndexType.fromClass(bit.value.getClass).get
+    output.writeString(i.getClass.getCanonicalName)
+    val valueBytes = bit.value.toString.getBytes
+    output.writeInt(valueBytes.length)
+    output.write(valueBytes)
   }
 }
 
@@ -60,16 +74,17 @@ class BitSerializer extends Serializer[Bit] {
 class KryoCommitLogSerializer extends CommitLogSerializer with TypeSupport {
 
   val kryo = new Kryo()
-  kryo.register(classOf[Bit], new BitSerializer)
 
-  override def deserialize(entry: Array[Byte]): InsertEntry = {
+  override def deserialize(entry: Array[Byte]): CommitLogEntry = {
     val input = new Input(entry)
-    kryo.readObject(input, classOf[InsertEntry])
+    kryo.readObject(input, classOf[CommitLogEntry], new CommitLogEntrySerializer)
   }
 
   override def serialize(entry: CommitLogEntry): Array[Byte] = {
-    val out = new Output()
-    kryo.writeObject(out, entry)
-    out.toBytes
+    val baos = new ByteArrayOutputStream()
+    val out  = new Output(baos)
+    kryo.writeObject(out, entry, new CommitLogEntrySerializer)
+    out.close()
+    baos.toByteArray
   }
 }

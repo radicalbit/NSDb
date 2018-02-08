@@ -8,12 +8,16 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{JournalServiceResponse, WriteToCommitLogFailed, WriteToCommitLogSucceeded}
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{
+  JournalServiceResponse,
+  WriteToCommitLogFailed,
+  WriteToCommitLogSucceeded
+}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.Schema
@@ -36,7 +40,7 @@ object WriteCoordinator {
 
 class WriteCoordinator(metadataCoordinator: ActorRef,
                        namespaceSchemaActor: ActorRef,
-                       commitLogService: Option[ActorRef],
+                       commitLogCoordinator: Option[ActorRef],
                        publisherActor: ActorRef)
     extends Actor
     with ActorLogging
@@ -50,7 +54,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
   import context.dispatcher
 
   log.info("WriteCoordinator is ready.")
-  if (commitLogService.isEmpty)
+  if (commitLogCoordinator.isEmpty)
     log.info("Commit Log is disabled")
 
   lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
@@ -64,8 +68,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       .map(_.head)
 
   private def commitLogFuture(ts: Long, metric: String, bit: Bit) = {
-    if (commitLogService.isDefined)
-      (commitLogService.get ? CommitLogCoordinator.Insert(metric = metric, bit = bit))
+    if (commitLogCoordinator.isDefined)
+      (commitLogCoordinator.get ? CommitLogCoordinator.Insert(metric = metric, bit = bit))
         .mapTo[JournalServiceResponse]
     else Future.successful(WriteToCommitLogSucceeded(ts, metric, bit))
   }

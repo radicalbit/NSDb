@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.commit_log
 
-import akka.actor.ActorRef
 import io.radicalbit.nsdb.common.protocol.Bit
 
 object CommitLogEntry {
@@ -16,5 +15,6 @@ sealed trait CommitLogEntry {
 }
 
 case class InsertEntry(override val metric: String, override val bit: Bit) extends CommitLogEntry
+case class DeleteEntry(override val metric: String, override val bit: Bit) extends CommitLogEntry
 case class CommitEntry(override val metric: String, override val bit: Bit) extends CommitLogEntry
 case class RejectEntry(override val metric: String, override val bit: Bit) extends CommitLogEntry
