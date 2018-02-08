@@ -7,6 +7,7 @@ import akka.actor.{Actor, ActorLogging, Props, Stash}
 import akka.util.Timeout
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.IndexerActor._
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.CountAllGroupsCollector
 import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
@@ -147,8 +148,8 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
           handleQueryResults(metric, Try(getFacetIndex(metric).getCount(q, collector.groupField, sort, limit)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
-        case Failure(ex) => sender() ! SelectStatementFailed(ex.getMessage)
-        case _           => sender() ! SelectStatementFailed("Not a select statement.")
+        case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
+        case _                                      => sender() ! SelectStatementFailed("Not a select statement.")
       }
   }
 
