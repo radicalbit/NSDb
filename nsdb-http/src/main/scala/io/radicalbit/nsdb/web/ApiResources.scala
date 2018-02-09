@@ -144,14 +144,15 @@ trait ApiResources {
             authProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
               val statementOpt =
                 (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to, qb.filters) match {
-                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), filters) if filters.nonEmpty =>
+                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), Some(filters))
+                      if filters.nonEmpty =>
                     Some(
                       statement
                         .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
-                  case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
+                        .addConditions(filters.map(f => Filter.unapply(f).get)))
+                  case (Success(statement: SelectSQLStatement), None, None, Some(filters)) if filters.nonEmpty =>
                     Some(statement
-                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
+                      .addConditions(filters.map(f => Filter.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
                     Some(statement
                       .enrichWithTimeRange("timestamp", from, to))
