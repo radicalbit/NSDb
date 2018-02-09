@@ -32,16 +32,30 @@ object FilterOperators extends Enumeration {
   val Like           = Value("LIKE")
 }
 
-case class Filter(
+object NullableOperators extends Enumeration {
+  val IsNull    = Value("ISNULL")
+  val IsNotNull = Value("ISNOTNULL")
+}
+
+sealed trait Filter
+case object Filter {
+  def unapply(arg: Filter): Option[(String, Option[JSerializable], String)] =
+    arg match {
+      case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
+      case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
+    }
+}
+
+case class FilterByValue(
     dimension: String,
     value: JSerializable,
     operator: FilterOperators.Value
-)
+) extends Filter
 
-case object Filter {
-  def unapply(arg: Filter): Option[(String, JSerializable, String)] =
-    Some((arg.dimension, arg.value, arg.operator.toString))
-}
+case class FilterNullableValue(
+    dimension: String,
+    operator: NullableOperators.Value
+) extends Filter
 
 case class QueryBody(db: String,
                      namespace: String,
@@ -75,16 +89,29 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       def write(obj: T#Value): JsValue = JsString(obj.toString)
       def read(json: JsValue): T#Value = {
         json match {
-          case JsString(txt) => enu.withName(txt.toUpperCase)
+          case JsString(txt) => enu.withName(txt.replace(" ", "").toUpperCase)
           case somethingElse =>
             throw DeserializationException(s"Expected a value from enum $enu instead of $somethingElse")
         }
       }
     }
 
-  implicit val FilterOperatorFormat: RootJsonFormat[FilterOperators.Value] = enumFormat(FilterOperators)
+  implicit val FilterOperatorFormat: RootJsonFormat[FilterOperators.Value]  = enumFormat(FilterOperators)
+  implicit val CheckOperatorFormat: RootJsonFormat[NullableOperators.Value] = enumFormat(NullableOperators)
+  implicit val FilterByValueFormat                                          = jsonFormat3(FilterByValue.apply)
+  implicit val FilterNullableValueFormat                                    = jsonFormat2(FilterNullableValue.apply)
 
-  implicit val FilterFormat = jsonFormat3(Filter.apply)
+  implicit object FilterJsonFormat extends RootJsonFormat[Filter] {
+    def write(a: Filter) = a match {
+      case f: FilterByValue       => f.toJson
+      case f: FilterNullableValue => f.toJson
+    }
+    def read(value: JsValue): Filter =
+      value.asJsObject.fields.get("value") match {
+        case Some(_) => value.convertTo[FilterByValue]
+        case None    => value.convertTo[FilterNullableValue]
+      }
+  }
 
   implicit val QbFormat = jsonFormat7(QueryBody.apply)
 
@@ -117,14 +144,15 @@ trait ApiResources {
             authProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
               val statementOpt =
                 (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to, qb.filters) match {
-                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), filters) if filters.nonEmpty =>
+                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), Some(filters))
+                      if filters.nonEmpty =>
                     Some(
                       statement
                         .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.getOrElse(Seq.empty).map(Filter.unapply(_).get)))
-                  case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
+                        .addConditions(filters.map(f => Filter.unapply(f).get)))
+                  case (Success(statement: SelectSQLStatement), None, None, Some(filters)) if filters.nonEmpty =>
                     Some(statement
-                      .addConditions(filters.getOrElse(Seq.empty).map(f => Filter.unapply(f).get)))
+                      .addConditions(filters.map(f => Filter.unapply(f).get)))
                   case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
                     Some(statement
                       .enrichWithTimeRange("timestamp", from, to))

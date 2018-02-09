@@ -76,21 +76,25 @@ case class SelectSQLStatement(override val db: String,
     this.copy(condition = Some(newCondition))
   }
 
-  private def filterToExpression(dimension: String, value: JSerializable, operator: String): Option[Expression] = {
+  private def filterToExpression(dimension: String,
+                                 value: Option[JSerializable],
+                                 operator: String): Option[Expression] = {
     operator.toUpperCase match {
-      case ">"    => Some(ComparisonExpression(dimension, GreaterThanOperator, value))
-      case ">="   => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value))
-      case "="    => Some(EqualityExpression(dimension, value))
-      case "<="   => Some(ComparisonExpression(dimension, LessOrEqualToOperator, value))
-      case "<"    => Some(ComparisonExpression(dimension, LessThanOperator, value))
-      case "LIKE" => Some(LikeExpression(dimension, value.asInstanceOf[String]))
+      case ">"         => Some(ComparisonExpression(dimension, GreaterThanOperator, value.get))
+      case ">="        => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.get))
+      case "="         => Some(EqualityExpression(dimension, value.get))
+      case "<="        => Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.get))
+      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.get))
+      case "LIKE"      => Some(LikeExpression(dimension, value.get.asInstanceOf[String]))
+      case "ISNULL"    => Some(NullableExpression(dimension))
+      case "ISNOTNULL" => Some(UnaryLogicalExpression(NullableExpression(dimension), NotOperator))
       case op @ _ =>
         logger.warn("Ignored filter with invalid operator: {}", op)
         None
     }
   }
 
-  def addConditions(filters: Seq[(String, JSerializable, String)]): SelectSQLStatement = {
+  def addConditions(filters: Seq[(String, Option[JSerializable], String)]): SelectSQLStatement = {
     val expressions: Seq[Expression] = filters.flatMap(f => filterToExpression(f._1, f._2, f._3))
     val filtersExpression =
       expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
