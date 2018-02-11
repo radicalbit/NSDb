@@ -20,11 +20,7 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.{
-  Namespaces,
-  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
-  MetricsGot => GrpcMetricsGot
-}
+import io.radicalbit.nsdb.rpc.responseCommand.{Namespaces, MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
@@ -129,7 +125,17 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         record = Bit(timestamp = request.timestamp, dimensions = request.dimensions.map {
           case (k, v) => (k, dimensionFor(v.value))
         }, value = valueFor(request.value))
-      )).mapTo[InputMapped] map (_ => RPCInsertResult(completedSuccessfully = true)) recover {
+      )).map {
+          case _ : InputMapped =>
+            RPCInsertResult(completedSuccessfully = true)
+          case msg: RecordRejected =>
+            RPCInsertResult(
+              completedSuccessfully = false,
+              errors = msg.reasons.mkString(","))
+          case _ => RPCInsertResult(
+            completedSuccessfully = false,
+            errors = "unknown reason")
+        } recover {
         case t => RPCInsertResult(completedSuccessfully = false, t.getMessage)
       }
 
@@ -253,12 +259,17 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                          metric = metric,
                                          completedSuccessfully = true,
                                          records = Seq(toGrpcBit(record)))
-                  case x: RecordRejected =>
-                    SQLStatementResponse(db = x.db,
-                                         namespace = x.namespace,
-                                         metric = x.metric,
+                  case msg: RecordRejected =>
+                    SQLStatementResponse(db = msg.db,
+                                         namespace = msg.namespace,
+                                         metric = msg.metric,
                                          completedSuccessfully = false,
-                                         reason = x.reasons.mkString(","))
+                                         reason = msg.reasons.mkString(","))
+                  case _ => SQLStatementResponse(db = insert.db,
+                    namespace = insert.namespace,
+                    metric = insert.metric,
+                    completedSuccessfully = false,
+                    reason = "unknown reason")
                 }
 
             case delete: DeleteSQLStatement =>
@@ -282,7 +293,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       ))
                 }
 
-            case drop: DropSQLStatement =>
+            case _: DropSQLStatement =>
               (writeCoordinator ? DropMetric(statement.db, statement.namespace, statement.metric))
                 .mapTo[MetricDropped]
                 .map(

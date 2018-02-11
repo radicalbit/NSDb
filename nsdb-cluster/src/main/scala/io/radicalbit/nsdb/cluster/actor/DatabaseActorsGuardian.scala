@@ -28,9 +28,11 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
-      context.system.log.error("Got the following TimeoutException, resuming the processing", e)
+      log.error("Got the following TimeoutException, resuming the processing", e)
       Resume
-    case t => super.supervisorStrategy.decider.apply(t)
+    case t =>
+      log.error("generic error in writecoordinator", t)
+      super.supervisorStrategy.decider.apply(t)
   }
 
   private val config = context.system.settings.config
