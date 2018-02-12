@@ -20,7 +20,11 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.{Namespaces, MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
+import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
+  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  MetricsGot => GrpcMetricsGot
+}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
@@ -126,16 +130,12 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           case (k, v) => (k, dimensionFor(v.value))
         }, value = valueFor(request.value))
       )).map {
-          case _ : InputMapped =>
-            RPCInsertResult(completedSuccessfully = true)
-          case msg: RecordRejected =>
-            RPCInsertResult(
-              completedSuccessfully = false,
-              errors = msg.reasons.mkString(","))
-          case _ => RPCInsertResult(
-            completedSuccessfully = false,
-            errors = "unknown reason")
-        } recover {
+        case _: InputMapped =>
+          RPCInsertResult(completedSuccessfully = true)
+        case msg: RecordRejected =>
+          RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
+        case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
+      } recover {
         case t => RPCInsertResult(completedSuccessfully = false, t.getMessage)
       }
 
@@ -265,11 +265,12 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                                          metric = msg.metric,
                                          completedSuccessfully = false,
                                          reason = msg.reasons.mkString(","))
-                  case _ => SQLStatementResponse(db = insert.db,
-                    namespace = insert.namespace,
-                    metric = insert.metric,
-                    completedSuccessfully = false,
-                    reason = "unknown reason")
+                  case _ =>
+                    SQLStatementResponse(db = insert.db,
+                                         namespace = insert.namespace,
+                                         metric = insert.metric,
+                                         completedSuccessfully = false,
+                                         reason = "unknown reason")
                 }
 
             case delete: DeleteSQLStatement =>

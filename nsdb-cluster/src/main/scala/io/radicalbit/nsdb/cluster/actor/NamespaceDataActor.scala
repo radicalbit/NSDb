@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.IndexerActor
+import io.radicalbit.nsdb.actors.IndexAccumulatorActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -30,7 +30,8 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
         val child =
           if (sharding) context.actorOf(ShardActor.props(basePath, db, namespace), s"shard-service-$db-$namespace")
           else
-            context.actorOf(IndexerActor.props(basePath, db, namespace), s"indexer-service-$db-$namespace")
+            context.actorOf(IndexAccumulatorActor.props(basePath, db, namespace),
+                            s"index-accumulator-service-$db-$namespace")
         childActors += (NamespaceKey(db, namespace) -> child)
         child
       }
@@ -57,7 +58,7 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
                                                                             s"shard-service-$db-$namespace")
                                                           else
                                                             context.actorOf(
-                                                              IndexerActor.props(basePath, db, namespace),
+                                                              IndexAccumulatorActor.props(basePath, db, namespace),
                                                               s"indexer-service-$db-$namespace")))
       }
   }
@@ -97,8 +98,6 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
 
   def receiveNoShard: Receive = {
     case msg @ AddRecord(db, namespace, _, _) =>
-      getChild(db, namespace).forward(msg)
-    case msg @ AddRecords(db, namespace, _, _) =>
       getChild(db, namespace).forward(msg)
     case msg @ DeleteRecord(db, namespace, _, _) =>
       getChild(db, namespace).forward(msg)

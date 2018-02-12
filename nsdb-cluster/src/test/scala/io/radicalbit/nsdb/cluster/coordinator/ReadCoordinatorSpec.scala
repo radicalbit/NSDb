@@ -45,7 +45,10 @@ class ReadCoordinatorSpec
     expectNoMessage(interval)
 
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", testRecords.head), 3 seconds)
-    Await.result(namespaceDataActor ? AddRecords(db, namespace, "people", testRecords), 3 seconds)
+
+    testRecords.foreach { record =>
+      Await.result(namespaceDataActor ? AddRecord(db, namespace, "people", record), 3 seconds)
+    }
 
     expectNoMessage(interval)
   }

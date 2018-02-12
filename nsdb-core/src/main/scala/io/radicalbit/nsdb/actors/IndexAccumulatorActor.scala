@@ -1,12 +1,13 @@
 package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, Props, Stash}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
-import cats.data.Validated.{Invalid, Valid}
-import io.radicalbit.nsdb.actors.IndexerActor._
+import io.radicalbit.nsdb.actors.IndexAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.IndexPerformerActor.PerformWrites
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.CountAllGroupsCollector
@@ -15,25 +16,15 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedDeleteQuery, ParsedSimpleQuery}
-import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
-import org.apache.lucene.search.{MatchAllDocsQuery, Query}
+import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
-sealed trait Operation {
-  val ns: String
-  val metric: String
-}
-
-case class DeleteRecordOperation(ns: String, metric: String, bit: Bit)    extends Operation
-case class DeleteQueryOperation(ns: String, metric: String, query: Query) extends Operation
-case class WriteOperation(ns: String, metric: String, bit: Bit)           extends Operation
-
-class IndexerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging with Stash {
+class IndexAccumulatorActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
@@ -51,9 +42,19 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
-  context.system.scheduler.schedule(interval, interval) {
-    if (opBufferMap.nonEmpty)
-      self ! PerformWrites
+  var performerActor: ActorRef = _
+
+  override def preStart(): Unit = {
+    performerActor =
+      context.actorOf(IndexPerformerActor.props(basePath, db, namespace), s"index-performer-service-$db-$namespace")
+
+    context.system.scheduler.schedule(interval, interval) {
+      if (opBufferMap.nonEmpty && performingOps.isEmpty) {
+        performingOps = opBufferMap.toMap
+        performerActor ! PerformWrites(performingOps)
+      }
+    }
+
   }
 
   private def getIndex(metric: String) =
@@ -113,14 +114,14 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       val facetIndex = facetIndexes.get(metric)
 
       index.foreach { i =>
-        implicit val iWriter = i.getWriter
+        implicit val iWriter: IndexWriter = i.getWriter
         i.deleteAll()
         iWriter.close()
         i.refresh()
         indexes -= metric
       }
       facetIndex.foreach { fi =>
-        implicit val fiWriter = fi.getWriter
+        implicit val fiWriter: IndexWriter = fi.getWriter
         fi.deleteAll()
         fiWriter.close()
         fi.refresh()
@@ -135,13 +136,13 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
       sender() ! MetricsGot(db, namespace, indexes.keys.toSet)
     case GetCount(_, ns, metric) =>
       val index = getIndex(metric)
-      val hits  = index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)
+      val hits  = Try(index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)).getOrElse(Seq.empty)
       sender ! CountGot(db, ns, metric, hits.size)
     case ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, metric, q, false, limit, fields, sort)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, fields, limit, sort)))
-        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.size == 1 =>
+        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
           handleQueryResults(metric,
                              Try(getFacetIndex(metric).getDistinctField(q, fields.map(_.name).head, sort, limit)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
@@ -154,34 +155,25 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
   }
 
   private val opBufferMap: mutable.Map[String, Seq[Operation]] = mutable.Map.empty
+  private var performingOps: Map[String, Seq[Operation]]       = Map.empty
 
   def accumulate: Receive = {
     case AddRecord(_, ns, metric, bit) =>
       opBufferMap
         .get(metric)
         .fold {
-          opBufferMap += (metric -> Seq(WriteOperation(ns, metric, bit)))
+          opBufferMap += (UUID.randomUUID().toString -> Seq(WriteOperation(ns, metric, bit)))
         } { list =>
-          opBufferMap += (metric -> (list :+ WriteOperation(ns, metric, bit)))
+          opBufferMap += (UUID.randomUUID().toString -> (list :+ WriteOperation(ns, metric, bit)))
         }
       sender ! RecordAdded(db, ns, metric, bit)
-    case AddRecords(_, ns, metric, bits) =>
-      val ops = bits.map(WriteOperation(ns, metric, _))
-      opBufferMap
-        .get(metric)
-        .fold {
-          opBufferMap += (metric -> ops)
-        } { list =>
-          opBufferMap += (metric -> (list ++ ops))
-        }
-      sender ! RecordsAdded(db, ns, metric, bits)
     case DeleteRecord(_, ns, metric, bit) =>
       opBufferMap
         .get(metric)
         .fold {
-          opBufferMap += (metric -> Seq(DeleteRecordOperation(ns, metric, bit)))
+          opBufferMap += (UUID.randomUUID().toString -> Seq(DeleteRecordOperation(ns, metric, bit)))
         } { list =>
-          opBufferMap += (metric -> (list :+ DeleteRecordOperation(ns, metric, bit)))
+          opBufferMap += (UUID.randomUUID().toString -> (list :+ DeleteRecordOperation(ns, metric, bit)))
         }
       sender ! RecordDeleted(db, ns, metric, bit)
     case ExecuteDeleteStatementInternal(statement, schema) =>
@@ -190,53 +182,20 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
           opBufferMap
             .get(metric)
             .fold {
-              opBufferMap += (metric -> Seq(DeleteQueryOperation(ns, metric, q)))
+              opBufferMap += (UUID.randomUUID().toString -> Seq(DeleteQueryOperation(ns, metric, q)))
             } { list =>
-              opBufferMap += (metric -> (list :+ DeleteQueryOperation(ns, metric, q)))
+              opBufferMap += (UUID.randomUUID().toString -> (list :+ DeleteQueryOperation(ns, metric, q)))
             }
           sender() ! DeleteStatementExecuted(db = db, namespace = namespace, metric = metric)
         case Failure(ex) =>
           sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
       }
-    case PerformWrites =>
-      context.become(perform)
-      self ! PerformWrites
-  }
-
-  def perform: Receive = {
-    case PerformWrites =>
-      opBufferMap.keys.foreach { metric =>
-        val index                               = getIndex(metric)
-        val facetIndex                          = getFacetIndex(metric)
-        implicit val writer: IndexWriter        = index.getWriter
-        val facetWriter: IndexWriter            = facetIndex.getWriter
-        val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
-        opBufferMap(metric).foreach {
-          case WriteOperation(_, _, bit) =>
-            index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
-              case Valid(_)      =>
-              case Invalid(errs) => log.error(errs.toList.mkString(","))
-            }
-          //TODO handle errors
-          case DeleteRecordOperation(_, _, bit) =>
-            index.delete(bit)
-            facetIndex.delete(bit)(facetWriter)
-          case DeleteQueryOperation(_, _, q) =>
-            val index = getIndex(metric)
-            index.delete(q)
-        }
-        writer.close()
-        taxoWriter.close()
-        facetWriter.close()
-        facetIndex.refresh()
-        index.refresh()
+    case Refresh(writeIds) =>
+      opBufferMap --= writeIds
+      performingOps = Map.empty
+      indexes.foreach {
+        case (_, index) => index.refresh()
       }
-      opBufferMap.clear()
-      self ! Accumulate
-    case Accumulate =>
-      unstashAll()
-      context.become(readOps orElse ddlOps orElse accumulate)
-    case _ => stash()
   }
 
   override def receive: Receive = {
@@ -244,10 +203,10 @@ class IndexerActor(basePath: String, db: String, namespace: String) extends Acto
   }
 }
 
-object IndexerActor {
+object IndexAccumulatorActor {
 
-  case object PerformWrites
-  case object Accumulate
+  case class Refresh(writeIds: Seq[String])
 
-  def props(basePath: String, db: String, namespace: String): Props = Props(new IndexerActor(basePath, db, namespace))
+  def props(basePath: String, db: String, namespace: String): Props =
+    Props(new IndexAccumulatorActor(basePath, db, namespace))
 }
