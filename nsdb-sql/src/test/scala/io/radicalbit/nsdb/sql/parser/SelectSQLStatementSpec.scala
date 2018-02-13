@@ -462,6 +462,21 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           ))
     }
 
+    "receive a select with where condition on string dimension with spaces" in {
+      parser.parse(db = "db",
+                   namespace = "registry",
+                   input = "select name from people where name = 'string spaced' limit 5") should be(
+        Success(SelectSQLStatement(
+          db = "db",
+          namespace = "registry",
+          metric = "people",
+          distinct = false,
+          fields = ListFields(List(Field("name", None))),
+          condition = Some(Condition(EqualityExpression(dimension = "name", value = "string spaced"))),
+          limit = Some(LimitOperator(5))
+        )))
+    }
+
     "receive random string sequences" should {
       "fail" in {
         parser.parse(db = "db", namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure

@@ -73,9 +73,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     e =>
       Field(e._2, Some(e._1))
   }
-  private val metric                   = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
-  private val dimension                = digits
-  private val stringValue              = digitsWithDashes
+  private val metric    = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
+  private val dimension = digits
+  private val stringValue = (digitsWithDashes | (("'" ?) ~> (digitsWithDashes +) <~ ("'" ?))) ^^ {
+    case string: String        => string
+    case strings: List[String] => strings.mkString(" ")
+  }
   private val stringValueWithWildcards = """(^[a-zA-Z_\\$][a-zA-Z0-9_\\-\\$]*[a-zA-Z0-9\\$])""".r
 
   private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
