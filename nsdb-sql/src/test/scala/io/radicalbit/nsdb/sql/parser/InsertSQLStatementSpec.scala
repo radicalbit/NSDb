@@ -104,5 +104,22 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
         )
       }
     }
+
+    "receive a insert metric with dimension string with spaces" should {
+      "succeed" in {
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "INSERT INTO people DIM(name = 'spaced string')val=23) ") should be(
+          Success(
+            InsertSQLStatement(db = "db",
+                               "registry",
+                               "people",
+                               None,
+                               Some(ListAssignment(Map("name" -> "spaced string"))),
+                               23)
+          )
+        )
+      }
+    }
   }
 }
