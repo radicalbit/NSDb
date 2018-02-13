@@ -90,9 +90,7 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
 
     val facetsFolder = sort.fold(new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc))(s =>
       new OrderedTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc, s))
-    val result = facetsFolder.getTopChildren(actualLimit, groupField)
-    Option(result)
-
+    Option(facetsFolder.getTopChildren(actualLimit, groupField))
   }
 
   def getCount(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]): Seq[Bit] = {
