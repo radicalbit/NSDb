@@ -157,6 +157,7 @@ class StatementParser {
         case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
       }
     })
+
     val expParsed = parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
     val fieldList = statement.fields match {
       case AllFields => Success(List.empty)
@@ -175,7 +176,8 @@ class StatementParser {
     expParsed.flatMap(exp =>
       (distinctValue, fieldList, statement.groupBy, statement.limit) match {
         case (_, Failure(exception), _, _) => Failure(exception)
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group), limit) =>
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group), limit)
+            if schema.fields.map(_.name).contains(group) =>
           Success(
             ParsedAggregatedQuery(statement.namespace,
                                   statement.metric,
@@ -183,6 +185,8 @@ class StatementParser {
                                   getCollector(group, fieldName, agg),
                                   sortOpt,
                                   limit.map(_.value)))
+        case (false, Success(Seq(Field(_, Some(_)))), Some(group), _) =>
+          Failure(new InvalidStatementException(s"cannot group by on not existing dimension: $group"))
         case (_, Success(List(Field(_, None))), Some(_), _) =>
           Failure(new InvalidStatementException("cannot execute a group by query without an aggregation"))
         case (_, Success(List(_)), Some(_), _) =>

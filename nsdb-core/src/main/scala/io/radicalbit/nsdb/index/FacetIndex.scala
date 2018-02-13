@@ -88,19 +88,19 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
       FacetsCollector.search(getSearcher, query, actualLimit, _, fc)
     }
 
-    val facetsFolder =
-      sort.fold(new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc))(s =>
-        new OrderedTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc, s))
-    facetsFolder.getTopChildren(actualLimit, groupField)
+    val facetsFolder = sort.fold(new FastTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc))(s =>
+      new OrderedTaxonomyFacetCounts(s"facet_$groupField", getReader, c, fc, s))
+    Option(facetsFolder.getTopChildren(actualLimit, groupField))
   }
 
   def getCount(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]): Seq[Bit] = {
-    val facetResult: FacetResult = getFacetResult(query, groupField, sort, limit)
-    facetResult.labelValues.map(lv => Bit(0, lv.value.longValue(), Map(groupField -> lv.label))).toSeq
+    val facetResult: Option[FacetResult] = getFacetResult(query, groupField, sort, limit)
+    facetResult.fold(Seq.empty[Bit])(
+      _.labelValues.map(lv => Bit(0, lv.value.longValue(), Map(groupField -> lv.label))).toSeq)
   }
 
   def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
     val facetResult = getFacetResult(query, field, sort, Some(limit))
-    facetResult.labelValues.map(lv => Bit(0, 0, Map(field -> lv.label))).toSeq
+    facetResult.fold(Seq.empty[Bit])(_.labelValues.map(lv => Bit(0, 0, Map(field -> lv.label))).toSeq)
   }
 }
