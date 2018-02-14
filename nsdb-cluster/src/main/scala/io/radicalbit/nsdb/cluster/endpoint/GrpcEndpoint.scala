@@ -106,7 +106,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       (readCoordinator ? GetNamespaces(db = request.db))
         .mapTo[NamespacesGot]
         .map { namespaces =>
-          Namespaces(db = namespaces.db, namespaces = namespaces.namespaces.toSeq)
+          Namespaces(db = namespaces.db, namespaces = namespaces.namespaces.toSeq, completedSuccessfully = true)
         }
         .recoverWith {
           case t =>

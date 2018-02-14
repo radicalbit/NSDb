@@ -1,8 +1,10 @@
 package io.radicalbit.nsdb.actors
 
+import java.io.File
 import java.nio.file.Paths
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import collection.JavaConverters._
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
@@ -45,6 +47,17 @@ class IndexAccumulatorActor(basePath: String, db: String, namespace: String) ext
   var performerActor: ActorRef = _
 
   override def preStart(): Unit = {
+    Option(Paths.get(basePath, db, namespace).toFile.list())
+      .map(_.toList)
+      .getOrElse(List.empty)
+      .filter(f => new File(Paths.get(basePath, db, namespace, f).toString).isDirectory)
+      .filterNot(m => List("metadata", "shards", "schemas").contains(m))
+      .foreach { metric =>
+        val directory = new MMapDirectory(Paths.get(basePath, db, namespace, metric))
+        val newIndex  = new TimeSeriesIndex(directory)
+        indexes += (metric -> newIndex)
+      }
+
     performerActor =
       context.actorOf(IndexPerformerActor.props(basePath, db, namespace), s"index-performer-service-$db-$namespace")
 
