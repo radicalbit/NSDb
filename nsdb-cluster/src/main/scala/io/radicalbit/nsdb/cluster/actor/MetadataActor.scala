@@ -34,9 +34,9 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
 
   override def receive: Receive = {
 
-    case GetLocations(db, namespace, metric, occurredOn) =>
+    case GetLocations(db, namespace, metric) =>
       val metadata = getIndex(db, namespace).getMetadata(metric)
-      sender ! LocationsGot(db, namespace, metric, metadata, occurredOn)
+      sender ! LocationsGot(db, namespace, metric, metadata)
 
     case AddLocation(db, namespace, metadata, occurredOn) =>
       val index                        = getIndex(db, namespace)

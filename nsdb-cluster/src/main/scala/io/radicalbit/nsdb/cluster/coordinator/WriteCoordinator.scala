@@ -7,9 +7,12 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetWriteLocation
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
+  AddRecordToLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -79,7 +82,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             commitLogFuture
               .flatMap(ack => {
                 publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-                (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ack.ts)).mapTo[LocationGot].flatMap {
+                (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ack.ts)).flatMap {
                   case LocationGot(_, _, _, Some(loc)) =>
                     log.debug(s"received location for metric $metric, $loc")
                     namespaces.get(loc.node) match {
@@ -119,7 +122,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
           .flatMap {
             case SchemaGot(_, _, _, Some(schema)) =>
-              broadcastMessage(ExecuteDeleteStatementInternal(statement, schema))
+              (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
+                case LocationsGot(_, _, _, locations) if locations.isEmpty =>
+                  Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+                case LocationsGot(_, _, _, locations) =>
+                  broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
+                case _ =>
+                  Future(
+                    DeleteStatementFailed(db,
+                                          namespace,
+                                          metric,
+                                          s"Unable to fetch locations for metric ${statement.metric}"))
+              }
             case _ =>
               Future(DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
           }
@@ -156,9 +170,13 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             commitLogFuture
               .flatMap(ack => {
                 publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-                (namespaceDataActor ? AddRecord(db, namespace, ack.metric, ack.bit)).mapTo[RecordAdded]
+                (namespaceDataActor ? AddRecord(db, namespace, ack.metric, ack.bit)).map {
+                  case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
+                  case msg: RecordRejected => msg
+                  case _ =>
+                    RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
+                }
               })
-              .map(r => InputMapped(db, namespace, metric, r.record))
           case UpdateSchemaFailed(_, _, _, errs) =>
             log.error("Invalid schema for the metric {} and the bit {}. Error are {}.",
                       metric,
@@ -190,7 +208,3 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         .pipeTo(sender)
   }
 }
-
-trait JournalWriter
-
-class AsyncJournalWriter {}

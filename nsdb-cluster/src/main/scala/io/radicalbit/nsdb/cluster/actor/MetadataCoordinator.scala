@@ -37,10 +37,10 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
   override def receive: Receive = {
-    case GetLocations(db, namespace, metric, occurredOn) =>
+    case GetLocations(db, namespace, metric) =>
       val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .mapTo[CachedLocations]
-        .map(l => LocationsGot(db, namespace, metric, l.value, occurredOn))
+        .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
       (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
@@ -87,11 +87,7 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetLocations(db: String, namespace: String, metric: String, occurredOn: Long = System.currentTimeMillis)
-//    case class GetLastLocation(db: String,
-//                               namespace: String,
-//                               metric: String,
-//                               occurredOn: Long = System.currentTimeMillis)
+    case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String,
                            namespace: String,
@@ -110,7 +106,7 @@ object MetadataCoordinator {
 
   object events {
 
-    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location], occurredOn: Long)
+    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])
     case class UpdateLocationFailed(db: String,
                                     namespace: String,

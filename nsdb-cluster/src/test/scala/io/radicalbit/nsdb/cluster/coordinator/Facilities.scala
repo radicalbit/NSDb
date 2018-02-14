@@ -5,12 +5,14 @@ import java.time.Duration
 import akka.actor.{Actor, ActorLogging}
 import io.radicalbit.commit_log.CommitLogService.{Delete, Insert}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordsPublished
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetWriteLocation
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationGot
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
+
+import scala.collection.mutable
 
 object Facilities {
 
@@ -44,9 +46,20 @@ object Facilities {
 
     lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
+    val locations: mutable.Map[(String, String), Seq[Location]] = mutable.Map.empty
+
     override def receive: Receive = {
+      case GetLocations(db, namespace, metric) =>
+        sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
       case GetWriteLocation(db, namespace, metric, timestamp) =>
         val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
+        locations
+          .get((namespace, metric))
+          .fold {
+            locations += (namespace, metric) -> Seq(location)
+          } { oldSeq =>
+            locations += (namespace, metric) -> (oldSeq :+ location)
+          }
         sender() ! LocationGot(db, namespace, metric, Some(location))
     }
   }

@@ -1,11 +1,11 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.nio.file.{Files, Paths}
-import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.coordinator.WriteInterval
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -14,23 +14,22 @@ import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-class ShardActorSpec()
+class ShardAccumulatorActorSpec()
     extends TestKit(ActorSystem("shardActorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
+    with WriteInterval
     with BeforeAndAfter {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
 
-  val basePath   = "target/test_index"
-  val db         = "db_shard"
-  val namespace  = "namespace"
-  val shardActor = TestActorRef[ShardActor](ShardActor.props(basePath, db, namespace))
-
-  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-                                TimeUnit.SECONDS)
+  val basePath  = "target/test_index"
+  val db        = "db_shard"
+  val namespace = "namespace"
+  val shardActor =
+    TestActorRef[ShardAccumulatorActor](ShardAccumulatorActor.props(basePath, db, namespace), probeActor)
 
   before {
     import scala.collection.JavaConverters._
@@ -38,7 +37,7 @@ class ShardActorSpec()
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
   }
 
-  "ShardActor" should "not handle non location aware messages" in {
+  "ShardAccumulatorActor" should "not handle non location aware messages" in {
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
     probe.send(shardActor, AddRecord(db, namespace, "shardActorMetric", bit))
     expectNoMessage(5 seconds)
@@ -47,7 +46,7 @@ class ShardActorSpec()
     expectNoMessage(5 seconds)
   }
 
-  "ShardActor" should "write and delete properly" in {
+  "ShardAccumulatorActor" should "write and delete properly" in {
 
     val bit      = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
     val location = Location("shardActorMetric", "node1", 0, 100)
@@ -83,7 +82,7 @@ class ShardActorSpec()
 
   }
 
-  "ShardActor" should "write and delete properly the same metric in multiple locations" in {
+  "ShardAccumulatorActor" should "write and delete properly the same metric in multiple locations" in {
 
     val location  = Location("shardActorMetric", "node1", 0, 100)
     val location2 = Location("shardActorMetric", "node1", 101, 200)
