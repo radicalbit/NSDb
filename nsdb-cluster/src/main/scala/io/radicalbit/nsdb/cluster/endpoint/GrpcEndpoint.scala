@@ -121,18 +121,20 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {
       log.debug("Received a write request {}", request)
 
+      val bit = Bit(
+        timestamp = request.timestamp,
+        dimensions = request.dimensions.collect {
+          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
+        },
+        value = valueFor(request.value)
+      )
+
       val res = (writeCoordinator ? MapInput(
         db = request.database,
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record = Bit(
-          timestamp = request.timestamp,
-          dimensions = request.dimensions.collect {
-            case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
-          },
-          value = valueFor(request.value)
-        )
+        record = bit
       )).map {
         case _: InputMapped =>
           RPCInsertResult(completedSuccessfully = true)
@@ -140,7 +142,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
         case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
       } recover {
-        case t => RPCInsertResult(completedSuccessfully = false, t.getMessage)
+        case t =>
+          log.error(s"error while inserting $bit", t)
+          RPCInsertResult(completedSuccessfully = false, t.getMessage)
       }
 
       res.onComplete {

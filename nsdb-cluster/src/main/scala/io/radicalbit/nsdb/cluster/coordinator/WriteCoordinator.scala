@@ -170,19 +170,24 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             commitLogFuture
               .flatMap(ack => {
                 publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-                (namespaceDataActor ? AddRecord(db, namespace, ack.metric, ack.bit)).map {
-                  case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
-                  case msg: RecordRejected => msg
-                  case _ =>
-                    RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
-                }
+                namespaceDataActor ? AddRecord(db, namespace, ack.metric, ack.bit)
               })
+              .map {
+                case RecordAdded(_, _, _, record)        => InputMapped(db, namespace, metric, record)
+                case RecordRejected(_, _, _, _, reasons) => RecordRejected(db, namespace, metric, bit, reasons)
+                case _                                   => RecordRejected(db, namespace, metric, bit, List(s"unknown error while adding record $bit"))
+              }
           case UpdateSchemaFailed(_, _, _, errs) =>
             log.error("Invalid schema for the metric {} and the bit {}. Error are {}.",
                       metric,
                       bit,
                       errs.mkString(","))
             Future(RecordRejected(db, namespace, metric, bit, errs))
+          case t =>
+            Future(RecordRejected(db, namespace, metric, bit, List("unknown error while updating schema")))
+        }
+        .recoverWith {
+          case t => Future(RecordRejected(db, namespace, metric, bit, List(t.getMessage)))
         }
         .pipeTo(sender())
     case msg @ DeleteNamespace(_, _) =>
