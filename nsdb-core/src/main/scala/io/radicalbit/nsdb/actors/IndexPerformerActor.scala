@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.actors.IndexAccumulatorActor.Refresh
@@ -15,9 +15,7 @@ import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 
-class IndexPerformerActor(basePath: String, db: String, namespace: String, accumulatorActor: Option[ActorRef])
-    extends Actor
-    with ActorLogging {
+class IndexPerformerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 
   private val indexes: mutable.Map[String, TimeSeriesIndex] = mutable.Map.empty
@@ -79,7 +77,7 @@ class IndexPerformerActor(basePath: String, db: String, namespace: String, accum
         facetIndex.refresh()
         index.refresh()
       }
-      accumulatorActor getOrElse context.parent ! Refresh(opBufferMap.keys.toSeq)
+      context.parent ! Refresh(opBufferMap.keys.toSeq)
   }
 }
 
@@ -87,6 +85,6 @@ object IndexPerformerActor {
 
   case class PerformWrites(opBufferMap: Map[String, Seq[Operation]])
 
-  def props(basePath: String, db: String, namespace: String, accumulatorActor: Option[ActorRef] = None): Props =
-    Props(new IndexPerformerActor(basePath, db, namespace, accumulatorActor))
+  def props(basePath: String, db: String, namespace: String): Props =
+    Props(new IndexPerformerActor(basePath, db, namespace))
 }

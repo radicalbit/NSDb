@@ -19,6 +19,7 @@ class ReadCoordinatorSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll
+    with WriteInterval
     with ReadCoordinatorBehaviour {
 
   override val probe       = TestProbe()
@@ -33,10 +34,6 @@ class ReadCoordinatorSpec
   override def beforeAll(): Unit = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
-
-    val interval = FiniteDuration(
-      system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS) //+ (1 second)
 
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)

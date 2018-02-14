@@ -1,15 +1,13 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
-import io.radicalbit.nsdb.actors.{PublisherActor, _}
 import io.radicalbit.nsdb.cluster.actor.{NamespaceDataActor, NamespaceSchemaActor}
-import io.radicalbit.nsdb.cluster.coordinator.Facilities.{TestSubscriber, TestCommitLogService}
+import io.radicalbit.nsdb.cluster.coordinator.Facilities.{TestCommitLogService, TestSubscriber}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -24,6 +22,7 @@ class WriteCoordinatorSpec
     with ImplicitSender
     with FlatSpecLike
     with Matchers
+    with WriteInterval
     with BeforeAndAfterAll {
 
   val basePath             = "target/test_index/WriteCoordinatorSpec"
@@ -44,9 +43,6 @@ class WriteCoordinatorSpec
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
-
-  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-                                TimeUnit.SECONDS)
 
   override def beforeAll() = {
     import akka.pattern.ask
