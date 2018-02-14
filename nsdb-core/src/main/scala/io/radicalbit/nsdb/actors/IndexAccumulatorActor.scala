@@ -4,7 +4,6 @@ import java.io.File
 import java.nio.file.Paths
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import collection.JavaConverters._
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
