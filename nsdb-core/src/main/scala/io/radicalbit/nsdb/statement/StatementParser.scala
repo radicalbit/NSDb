@@ -28,7 +28,7 @@ class StatementParser {
           case Some(SchemaField(_, _: VARCHAR)) => Try(new WildcardQuery(new Term(dimension, "*")))
           case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
-        // Used to apply negation due to the fact Lucene does not support nullable fields, query the values range and apply negation
+        // Used to apply negation due to the fact Lucene does not support nullable fields, query the value's range and apply negation
         query.map { qq =>
           val builder = new BooleanQuery.Builder()
           builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
@@ -198,6 +198,19 @@ class StatementParser {
         //TODO: Not supported yet
         case (true, Success(fieldsSeq), None, _) if fieldsSeq.lengthCompare(1) > 0 =>
           Failure(new InvalidStatementException("cannot execute a select distinct projecting more than one dimension"))
+        case (false, Success(Seq(fieldCountStar)), None, limit)
+            if fieldCountStar.aggregation.isDefined && fieldCountStar.aggregation.get == CountAggregation =>
+          Success(
+            ParsedSimpleQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              false,
+              limit.map(_.value).getOrElse(Integer.MAX_VALUE),
+              List(SimpleField(fieldCountStar.name, fieldCountStar.aggregation.isDefined)),
+              sortOpt
+            )
+          )
         case (distinct, Success(fieldsSeq), None, Some(limit))
             if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
           Success(
