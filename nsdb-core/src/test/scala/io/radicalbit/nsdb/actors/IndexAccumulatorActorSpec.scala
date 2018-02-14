@@ -12,7 +12,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-class IndexerActorSpec()
+class IndexAccumulatorActorSpec()
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
     with FlatSpecLike
