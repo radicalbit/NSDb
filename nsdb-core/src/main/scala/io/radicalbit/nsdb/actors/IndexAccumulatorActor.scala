@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.actors
 
-import java.io.File
 import java.nio.file.Paths
 import java.util.UUID
 import java.util.concurrent.TimeUnit
