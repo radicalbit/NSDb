@@ -8,17 +8,13 @@ import akka.util.Timeout
 import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.cluster.actor.ShardAccumulatorActor.Refresh
 import io.radicalbit.nsdb.cluster.actor.ShardPerformerActor.PerformShardWrites
-import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
-import io.radicalbit.nsdb.index.{FacetIndex, Schema, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
+import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Success, Try}
 
 class ShardPerformerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
@@ -61,25 +57,6 @@ class ShardPerformerActor(basePath: String, db: String, namespace: String) exten
       }
     )
 
-  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
-    out.recoverWith {
-      case _: IndexNotFoundException => Success(Seq.empty)
-    }
-  }
-
-  private def applyOrderingWithLimit(shardResult: Try[Seq[Bit]], statement: SelectSQLStatement, schema: Schema) = {
-    Try(shardResult.get).map(s => {
-      val maybeSorted = if (statement.order.isDefined) {
-        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-        implicit val ord: Ordering[JSerializable] =
-          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-        s.sortBy(_.fields(statement.order.get.dimension))
-      } else s
-
-      if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
-    })
-  }
-
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.shardKey)
@@ -107,8 +84,6 @@ class ShardPerformerActor(basePath: String, db: String, namespace: String) exten
           writer.close()
           taxoWriter.close()
           facetWriter.close()
-          facetIndex.refresh()
-          index.refresh()
       }
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
   }

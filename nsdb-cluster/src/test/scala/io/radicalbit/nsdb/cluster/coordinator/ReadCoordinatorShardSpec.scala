@@ -66,6 +66,7 @@ class ReadCoordinatorShardSpec
       Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, "people", r, location2), 3 seconds))
 
     expectNoMessage(interval)
+    expectNoMessage(interval)
   }
 
   "ReadCoordinator in shard mode" should behave.like(defaultBehaviour)
@@ -131,7 +132,9 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
-          expected.values shouldBe recordsShard1.reverse
+          recordsShard1 foreach { r =>
+            expected.values.contains(r) shouldBe true
+          }
         }
       }
     }

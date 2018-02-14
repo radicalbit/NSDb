@@ -74,8 +74,6 @@ class IndexPerformerActor(basePath: String, db: String, namespace: String) exten
         writer.close()
         taxoWriter.close()
         facetWriter.close()
-        facetIndex.refresh()
-        index.refresh()
       }
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupdByMetric.keys.toSeq)
   }
