@@ -28,7 +28,7 @@ class StatementParser {
           case Some(SchemaField(_, _: VARCHAR)) => Try(new WildcardQuery(new Term(dimension, "*")))
           case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
         }
-        // Used to apply negation due to the fact Lucene does not support nullable fields, query the value's range and apply negation
+        // Used to apply negation due to the fact Lucene does not support nullable fields, query the values' range and apply negation
         query.map { qq =>
           val builder = new BooleanQuery.Builder()
           builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
