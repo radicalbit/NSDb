@@ -39,7 +39,7 @@ class IndexerPerformerActorSpec
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
 
     val operations =
-      Map(UUID.randomUUID().toString -> Seq(WriteOperation(namespace, "IndexerPerformerActorMetric", bit)))
+      Map(UUID.randomUUID().toString -> WriteOperation(namespace, "IndexerPerformerActorMetric", bit))
 
     probe.send(indexerPerformerActor, PerformWrites(operations))
     awaitAssert {

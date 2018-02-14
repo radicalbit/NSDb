@@ -1,7 +1,5 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -9,6 +7,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricsGot
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -50,5 +49,19 @@ class ReadCoordinatorSpec
     expectNoMessage(interval)
   }
 
-  "ReadCoordinator" should behave.like(defaultBehaviour)
+  import scala.concurrent.duration._
+
+  "ReadCoordinator" should {
+    "receive a GetMetrics given a namespace" should {
+      "return it properly" in {
+        probe.send(readCoordinatorActor, GetMetrics(db, namespace))
+
+        within(5 seconds) {
+          val expected = probe.expectMsgType[MetricsGot]
+          expected.namespace shouldBe namespace
+          expected.metrics shouldBe Set("people")
+        }
+      }
+    }
+  }
 }

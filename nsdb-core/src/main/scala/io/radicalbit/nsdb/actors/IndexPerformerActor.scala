@@ -49,15 +49,15 @@ class IndexPerformerActor(basePath: String, db: String, namespace: String) exten
     )
 
   def receive: Receive = {
-    case PerformWrites(opBufferMap: Map[String, Seq[Operation]]) =>
-      val groupdByMetric = opBufferMap.values.flatten.groupBy(_.metric)
+    case PerformWrites(opBufferMap) =>
+      val groupdByMetric = opBufferMap.values.groupBy(_.metric)
       groupdByMetric.keys.foreach { metric =>
         val index                               = getIndex(metric)
         val facetIndex                          = getFacetIndex(metric)
         implicit val writer: IndexWriter        = index.getWriter
         val facetWriter: IndexWriter            = facetIndex.getWriter
         val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
-        groupdByMetric(metric).foreach {
+        groupdByMetric(metric).toSeq.foreach {
           case WriteOperation(_, _, bit) =>
             index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
               case Valid(_)      =>
@@ -77,13 +77,13 @@ class IndexPerformerActor(basePath: String, db: String, namespace: String) exten
         facetIndex.refresh()
         index.refresh()
       }
-      context.parent ! Refresh(opBufferMap.keys.toSeq)
+      context.parent ! Refresh(opBufferMap.keys.toSeq, groupdByMetric.keys.toSeq)
   }
 }
 
 object IndexPerformerActor {
 
-  case class PerformWrites(opBufferMap: Map[String, Seq[Operation]])
+  case class PerformWrites(opBufferMap: Map[String, Operation])
 
   def props(basePath: String, db: String, namespace: String): Props =
     Props(new IndexPerformerActor(basePath, db, namespace))

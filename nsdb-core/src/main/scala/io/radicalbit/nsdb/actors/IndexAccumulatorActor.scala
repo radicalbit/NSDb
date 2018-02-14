@@ -154,47 +154,29 @@ class IndexAccumulatorActor(basePath: String, db: String, namespace: String) ext
       }
   }
 
-  private val opBufferMap: mutable.Map[String, Seq[Operation]] = mutable.Map.empty
-  private var performingOps: Map[String, Seq[Operation]]       = Map.empty
+  private val opBufferMap: mutable.Map[String, Operation] = mutable.Map.empty
+  private var performingOps: Map[String, Operation]       = Map.empty
 
   def accumulate: Receive = {
     case AddRecord(_, ns, metric, bit) =>
-      opBufferMap
-        .get(metric)
-        .fold {
-          opBufferMap += (UUID.randomUUID().toString -> Seq(WriteOperation(ns, metric, bit)))
-        } { list =>
-          opBufferMap += (UUID.randomUUID().toString -> (list :+ WriteOperation(ns, metric, bit)))
-        }
+      opBufferMap += (UUID.randomUUID().toString -> WriteOperation(ns, metric, bit))
       sender ! RecordAdded(db, ns, metric, bit)
     case DeleteRecord(_, ns, metric, bit) =>
-      opBufferMap
-        .get(metric)
-        .fold {
-          opBufferMap += (UUID.randomUUID().toString -> Seq(DeleteRecordOperation(ns, metric, bit)))
-        } { list =>
-          opBufferMap += (UUID.randomUUID().toString -> (list :+ DeleteRecordOperation(ns, metric, bit)))
-        }
+      opBufferMap += (UUID.randomUUID().toString -> DeleteRecordOperation(ns, metric, bit))
       sender ! RecordDeleted(db, ns, metric, bit)
     case ExecuteDeleteStatementInternal(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
-          opBufferMap
-            .get(metric)
-            .fold {
-              opBufferMap += (UUID.randomUUID().toString -> Seq(DeleteQueryOperation(ns, metric, q)))
-            } { list =>
-              opBufferMap += (UUID.randomUUID().toString -> (list :+ DeleteQueryOperation(ns, metric, q)))
-            }
+          opBufferMap += (UUID.randomUUID().toString -> DeleteQueryOperation(ns, metric, q))
           sender() ! DeleteStatementExecuted(db = db, namespace = namespace, metric = metric)
         case Failure(ex) =>
           sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
       }
-    case Refresh(writeIds) =>
+    case Refresh(writeIds, metrics) =>
       opBufferMap --= writeIds
       performingOps = Map.empty
-      indexes.foreach {
-        case (_, index) => index.refresh()
+      metrics.foreach { metric =>
+        getIndex(metric).refresh()
       }
   }
 
@@ -205,7 +187,7 @@ class IndexAccumulatorActor(basePath: String, db: String, namespace: String) ext
 
 object IndexAccumulatorActor {
 
-  case class Refresh(writeIds: Seq[String])
+  case class Refresh(writeIds: Seq[String], metrics: Seq[String])
 
   def props(basePath: String, db: String, namespace: String): Props =
     Props(new IndexAccumulatorActor(basePath, db, namespace))
