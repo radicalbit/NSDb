@@ -36,8 +36,8 @@ class NamespaceActorSpec()
     import scala.concurrent.duration._
     implicit val timeout: Timeout = 10 second
 
-    Await.result(namespaceActor ? DeleteNamespace(db, namespace), 1 seconds)
-    Await.result(namespaceActor ? DeleteNamespace(db, namespace1), 1 seconds)
+    Await.result(namespaceActor ? DeleteNamespace(db, namespace), 3 seconds)
+    Await.result(namespaceActor ? DeleteNamespace(db, namespace1), 3 seconds)
   }
 
   "namespaceActor" should "write and delete properly" in {

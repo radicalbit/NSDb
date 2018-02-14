@@ -198,8 +198,7 @@ class StatementParser {
         //TODO: Not supported yet
         case (true, Success(fieldsSeq), None, _) if fieldsSeq.lengthCompare(1) > 0 =>
           Failure(new InvalidStatementException("cannot execute a select distinct projecting more than one dimension"))
-        case (false, Success(Seq(fieldCountStar)), None, limit)
-            if fieldCountStar.aggregation.isDefined && fieldCountStar.aggregation.get == CountAggregation =>
+        case (false, Success(Seq(Field(name, Some(CountAggregation)))), None, limit) =>
           Success(
             ParsedSimpleQuery(
               statement.namespace,
@@ -207,7 +206,7 @@ class StatementParser {
               exp.q,
               false,
               limit.map(_.value).getOrElse(Integer.MAX_VALUE),
-              List(SimpleField(fieldCountStar.name, fieldCountStar.aggregation.isDefined)),
+              List(SimpleField(name, true)),
               sortOpt
             )
           )

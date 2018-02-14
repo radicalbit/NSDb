@@ -45,6 +45,17 @@ class IndexAccumulatorActor(basePath: String, db: String, namespace: String) ext
   var performerActor: ActorRef = _
 
   override def preStart(): Unit = {
+    Option(Paths.get(basePath, db, namespace).toFile.list())
+      .map(_.toList)
+      .getOrElse(List.empty)
+      .filter(f => Paths.get(basePath, db, namespace, f).toFile.isDirectory)
+      .filterNot(m => List("metadata", "shards", "schemas").contains(m))
+      .foreach { metric =>
+        val directory = new MMapDirectory(Paths.get(basePath, db, namespace, metric))
+        val newIndex  = new TimeSeriesIndex(directory)
+        indexes += (metric -> newIndex)
+      }
+
     performerActor =
       context.actorOf(IndexPerformerActor.props(basePath, db, namespace), s"index-performer-service-$db-$namespace")
 
