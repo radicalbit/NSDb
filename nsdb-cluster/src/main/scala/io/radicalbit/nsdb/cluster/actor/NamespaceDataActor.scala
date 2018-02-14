@@ -47,7 +47,7 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
     Option(Paths.get(basePath).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
-      .filter(f => new File(Paths.get(basePath, f).toString).isDirectory)
+      .filter(f => Paths.get(basePath, f).toFile.isDirectory)
       .flatMap(db => {
         Paths.get(basePath, db).toFile.list().map(namespace => (db, namespace))
       })
