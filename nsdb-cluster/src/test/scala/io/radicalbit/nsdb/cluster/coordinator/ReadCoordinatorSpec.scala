@@ -1,7 +1,5 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -9,6 +7,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricsGot
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -19,6 +18,7 @@ class ReadCoordinatorSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll
+    with WriteInterval
     with ReadCoordinatorBehaviour {
 
   override val probe       = TestProbe()
@@ -34,10 +34,6 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    val interval = FiniteDuration(
-      system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS) //+ (1 second)
-
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
     Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", testRecords.head), 3 seconds)
@@ -45,10 +41,27 @@ class ReadCoordinatorSpec
     expectNoMessage(interval)
 
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", testRecords.head), 3 seconds)
-    Await.result(namespaceDataActor ? AddRecords(db, namespace, "people", testRecords), 3 seconds)
+
+    testRecords.foreach { record =>
+      Await.result(namespaceDataActor ? AddRecord(db, namespace, "people", record), 3 seconds)
+    }
 
     expectNoMessage(interval)
   }
 
-  "ReadCoordinator" should behave.like(defaultBehaviour)
+  import scala.concurrent.duration._
+
+  "ReadCoordinator" should {
+    "receive a GetMetrics given a namespace" should {
+      "return it properly" in {
+        probe.send(readCoordinatorActor, GetMetrics(db, namespace))
+
+        within(5 seconds) {
+          val expected = probe.expectMsgType[MetricsGot]
+          expected.namespace shouldBe namespace
+          expected.metrics shouldBe Set("people")
+        }
+      }
+    }
+  }
 }

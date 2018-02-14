@@ -125,7 +125,6 @@ trait Index[T] {
   }
 
   def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {
-
     val raws = if (fields.nonEmpty && fields.forall(_.count)) {
       executeCountQuery(this.getSearcher, query, limit)
     } else

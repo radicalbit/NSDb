@@ -29,7 +29,6 @@ object MessageProtocol {
 
     case class GetCount(db: String, namespace: String, metric: String)
     case class AddRecord(db: String, namespace: String, metric: String, bit: Bit)
-    case class AddRecords(db: String, namespace: String, metric: String, bits: Seq[Bit])
     case class DeleteRecord(db: String, namespace: String, metric: String, bit: Bit)
     case class DeleteAllMetrics(db: String, namespace: String)
 
@@ -65,7 +64,6 @@ object MessageProtocol {
 
     case class CountGot(db: String, namespace: String, metric: String, count: Int)
     case class RecordAdded(db: String, namespace: String, metric: String, record: Bit)
-    case class RecordsAdded(db: String, namespace: String, metric: String, record: Seq[Bit])
     case class RecordRejected(db: String, namespace: String, metric: String, record: Bit, reasons: List[String])
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)

@@ -29,10 +29,7 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
 
   def refresh(): Unit = searcherManager.maybeRefreshBlocking()
 
-  def release(searcher: IndexSearcher): Unit = {
-    searcherManager.maybeRefreshBlocking()
-    searcherManager.release(searcher)
-  }
+  def release(searcher: IndexSearcher): Unit = searcherManager.release(searcher)
 
   def validateRecord(bit: Bit): FieldValidation =
     validateSchemaTypeSupport(bit)
