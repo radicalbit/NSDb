@@ -1,14 +1,18 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.nio.file.Paths
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, Props, Stash}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.util.Timeout
-import cats.data.Validated.{Invalid, Valid}
-import io.radicalbit.nsdb.actors._
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
-import io.radicalbit.nsdb.cluster.actor.ShardActor.{Accumulate, PerformWrites}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
+  AddRecordToLocation,
+  DeleteRecordFromLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
+import io.radicalbit.nsdb.cluster.actor.ShardAccumulatorActor.Refresh
+import io.radicalbit.nsdb.cluster.actor.ShardPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -19,7 +23,6 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
-import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
@@ -28,12 +31,13 @@ import spire.math.Interval
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContextExecutor
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{FiniteDuration, _}
 import scala.util.{Failure, Success, Try}
 
-case class ShardKey(metric: String, from: Long, to: Long)
-
-class ShardActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging with Stash {
+class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
+    extends Actor
+    with ActorLogging
+    with Stash {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
@@ -44,6 +48,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
+  var performerActor: ActorRef = _
+
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
@@ -51,9 +57,8 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
-  context.system.scheduler.schedule(interval, interval) {
-    self ! PerformWrites
-  }
+  private val opBufferMap: mutable.Map[String, ShardOperation] = mutable.Map.empty
+  private var performingOps: Map[String, ShardOperation]       = Map.empty
 
   private def getMetricShards(metric: String)      = shards.filter(_._1.metric == metric)
   private def getMetricFacetShards(metric: String) = facetIndexShards.filter(_._1.metric == metric)
@@ -115,12 +120,22 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
           val newIndex = new TimeSeriesIndex(directory)
           shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
           val directoryFacets =
-            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}", "facet"))
-          val taxoDirectoryFacets = new MMapDirectory(
-            Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_${to}", "facet", "taxo"))
+            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to", "facet"))
+          val taxoDirectoryFacets =
+            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to", "facet", "taxo"))
           val newFacetIndex = new FacetIndex(directoryFacets, taxoDirectoryFacets)
           facetIndexShards += (ShardKey(metric, from.toLong, to.toLong) -> newFacetIndex)
       }
+
+    performerActor =
+      context.actorOf(ShardPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
+
+    context.system.scheduler.schedule(0.seconds, interval) {
+      if (opBufferMap.nonEmpty && performingOps.isEmpty) {
+        performingOps = opBufferMap.toMap
+        performerActor ! PerformShardWrites(performingOps)
+      }
+    }
   }
 
   def ddlOps: Receive = {
@@ -339,87 +354,33 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
       }
   }
 
-  private val opBufferMap: mutable.Map[ShardKey, Seq[Operation]] = mutable.Map.empty
-
   def accumulate: Receive = {
     case AddRecordToLocation(_, ns, metric, bit, location) =>
       val key = ShardKey(metric, location.from, location.to)
-      opBufferMap
-        .get(key)
-        .fold {
-          opBufferMap += (key -> Seq(WriteOperation(ns, metric, bit)))
-        } { list =>
-          opBufferMap += (key -> (list :+ WriteOperation(ns, metric, bit)))
-        }
+      opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, key, bit))
       sender ! RecordAdded(db, ns, metric, bit)
     case DeleteRecordFromLocation(_, ns, metric, bit, location) =>
       val key = ShardKey(metric, location.from, location.to)
-      opBufferMap
-        .get(key)
-        .fold {
-          opBufferMap += (key -> Seq(DeleteRecordOperation(ns, metric, bit)))
-        } { list =>
-          opBufferMap += (key -> (list :+ DeleteRecordOperation(ns, metric, bit)))
-        }
+      opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
       sender ! RecordDeleted(db, ns, metric, bit)
-    case ExecuteDeleteStatementInternal(statement, schema) =>
+    case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
-          opBufferMap.filter(_._1.metric == metric).foreach {
-            case (key, _) =>
-              opBufferMap
-                .get(key)
-                .fold {
-                  opBufferMap += (key -> Seq(DeleteQueryOperation(ns, metric, q)))
-                } { list =>
-                  opBufferMap += (key -> (list :+ DeleteQueryOperation(ns, metric, q)))
-                }
+          locations.foreach { loc =>
+            val key = ShardKey(metric, loc.from, loc.to)
+            opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, q))
           }
-          sender() ! DeleteStatementExecuted(db = db, namespace = namespace, metric = metric)
+          sender() ! DeleteStatementExecuted(db, namespace, metric)
         case Failure(ex) =>
           sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
       }
-    case PerformWrites =>
-      context.become(perform)
-      self ! PerformWrites
-  }
-
-  def perform: Receive = {
-    case PerformWrites =>
-      opBufferMap.foreach {
-        case (key, ops) =>
-          val index                               = getIndex(key)
-          val facetIndex                          = getFacetIndex(key)
-          implicit val writer: IndexWriter        = index.getWriter
-          val facetWriter: IndexWriter            = facetIndex.getWriter
-          val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
-          ops.foreach {
-            case WriteOperation(_, _, bit) =>
-              index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
-                case Valid(_)      =>
-                case Invalid(errs) => log.error(errs.toList.mkString(","))
-              }
-            //TODO handle errors
-            case DeleteRecordOperation(_, _, bit) =>
-              index.delete(bit)
-              facetIndex.delete(bit)(facetWriter)
-            case DeleteQueryOperation(_, _, q) =>
-              implicit val writer: IndexWriter = index.getWriter
-              index.delete(q)
-          }
-          writer.flush()
-          writer.close()
-          taxoWriter.close()
-          facetWriter.close()
-          facetIndex.refresh()
-          index.refresh()
+    case Refresh(writeIds, keys) =>
+      opBufferMap --= writeIds
+      performingOps = Map.empty
+      keys.foreach { key =>
+        getIndex(key).refresh()
+        getFacetIndex(key).refresh()
       }
-      opBufferMap.clear()
-      self ! Accumulate
-    case Accumulate =>
-      unstashAll()
-      context.become(readOps orElse ddlOps orElse accumulate)
-    case _ => stash()
   }
 
   override def receive: Receive = {
@@ -427,10 +388,10 @@ class ShardActor(basePath: String, db: String, namespace: String) extends Actor 
   }
 }
 
-object ShardActor {
+object ShardAccumulatorActor {
 
-  case object PerformWrites
-  case object Accumulate
+  case class Refresh(writeIds: Seq[String], keys: Seq[ShardKey])
 
-  def props(basePath: String, db: String, namespace: String): Props = Props(new ShardActor(basePath, db, namespace))
+  def props(basePath: String, db: String, namespace: String): Props =
+    Props(new ShardAccumulatorActor(basePath, db, namespace))
 }

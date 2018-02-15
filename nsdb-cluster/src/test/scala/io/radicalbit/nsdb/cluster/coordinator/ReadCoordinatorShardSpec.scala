@@ -11,10 +11,7 @@ import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.index.Location
-import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
@@ -68,6 +65,7 @@ class ReadCoordinatorShardSpec
     recordsShard2.foreach(r =>
       Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, "people", r, location2), 3 seconds))
 
+    expectNoMessage(interval)
     expectNoMessage(interval)
   }
 
@@ -134,7 +132,9 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
-          expected.values shouldBe recordsShard1
+          recordsShard1 foreach { r =>
+            expected.values.contains(r) shouldBe true
+          }
         }
       }
     }

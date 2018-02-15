@@ -22,10 +22,13 @@ import scala.concurrent.duration._
 
 class WriteCoordinatorShardSpec
     extends TestKit(
-      ActorSystem("nsdb-test",
-                  ConfigFactory
-                    .load()
-                    .withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))))
+      ActorSystem(
+        "nsdb-test",
+        ConfigFactory
+          .load()
+          .withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))
+          .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
+      ))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
@@ -143,14 +146,15 @@ class WriteCoordinatorShardSpec
       Bit(10, 1, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()))
     )
 
-    records.foreach(r =>
-      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, "testDelete", "testMetric", r)))
+    records.foreach(r => probe.send(writeCoordinatorActor, MapInput(r.timestamp, db, "testDelete", "testMetric", r)))
 
     within(5 seconds) {
       (0 to 4) foreach { _ =>
         probe.expectMsgType[InputMapped]
       }
     }
+
+    expectNoMessage(interval)
 
     probe.send(
       writeCoordinatorActor,
@@ -176,6 +180,7 @@ class WriteCoordinatorShardSpec
     probe.expectMsgType[InputMapped]
 
     expectNoMessage(interval)
+    expectNoMessage(interval)
 
     probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
     probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
@@ -190,6 +195,7 @@ class WriteCoordinatorShardSpec
       probe.expectMsgType[MetricDropped]
     }
 
+    expectNoMessage(interval)
     expectNoMessage(interval)
 
     probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))

@@ -188,6 +188,7 @@ class IndexAccumulatorActor(basePath: String, db: String, namespace: String) ext
       performingOps = Map.empty
       metrics.foreach { metric =>
         getIndex(metric).refresh()
+        getFacetIndex(metric).refresh()
       }
   }
 
