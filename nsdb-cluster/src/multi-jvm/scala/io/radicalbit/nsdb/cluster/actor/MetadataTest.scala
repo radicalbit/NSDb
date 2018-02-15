@@ -91,7 +91,7 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator.tell(AddLocation("db", "namespace", Location("metric", "node-1", 0, 1), 0), probe.ref)
+        metadataCoordinator.tell(AddLocation("db", "namespace", Location("metric", "node-1", 0, 1)), probe.ref)
         probe.expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
       }
 

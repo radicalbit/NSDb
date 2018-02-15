@@ -71,7 +71,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
         }
         .pipeTo(sender())
 
-    case msg @ AddLocation(db, namespace, location, occurredOn) =>
+    case msg @ AddLocation(db, namespace, location) =>
       (cache ? PutInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
         .map {
           case Cached(_, Some(_)) =>
@@ -89,18 +89,9 @@ object MetadataCoordinator {
 
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
-    case class AddLocation(db: String,
-                           namespace: String,
-                           location: Location,
-                           occurredOn: Long = System.currentTimeMillis)
-    case class AddLocations(db: String,
-                            namespace: String,
-                            locations: Seq[Location],
-                            occurredOn: Long = System.currentTimeMillis)
-    case class DeleteLocation(db: String,
-                              namespace: String,
-                              location: Location,
-                              occurredOn: Long = System.currentTimeMillis)
+    case class AddLocation(db: String, namespace: String, location: Location)
+    case class AddLocations(db: String, namespace: String, locations: Seq[Location])
+    case class DeleteLocation(db: String, namespace: String, location: Location)
     case class DeleteNamespace(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
   }
 
@@ -108,11 +99,7 @@ object MetadataCoordinator {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])
-    case class UpdateLocationFailed(db: String,
-                                    namespace: String,
-                                    oldLocation: Location,
-                                    newOccupation: Long,
-                                    occurredOn: Long)
+    case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)
     case class LocationAdded(db: String, namespace: String, location: Location)
     case class AddLocationFailed(db: String, namespace: String, location: Location)
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
