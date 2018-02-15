@@ -1,12 +1,8 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{invalidNel, valid}
-import cats.data.{NonEmptyList, Validated}
-import cats.implicits._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.index.{IndexWriter, Term}
@@ -20,7 +16,7 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0) && (otherSchema.fields.toSet == this.fields.toSet)
+      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0)
     } else false
   }
 
@@ -102,19 +98,17 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 }
 
 object SchemaIndex {
-  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Validated[NonEmptyList[String], Seq[SchemaField]] = {
+  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Seq[SchemaField]] = {
     val newFields = newSchema.fields.map(e => e.name -> e).toMap
     val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
-    oldSchema.fields
-      .map(oldField => {
+    val combined = oldSchema.fields
+      .map { oldField =>
         val newField = newFields.get(oldField.name)
         if (newField.isDefined && oldField.indexType != newField.get.indexType)
-          invalidNel(
-            s"mismatch type for field ${oldField.name} : new type is ${newField.get.indexType} while old type is ${oldField.indexType}")
-        else valid(Seq(newFields.getOrElse(oldField.name, oldFields(oldField.name))))
-      })
-      .toList
-      .combineAll
-      .map(oldFields => (oldFields.toSet ++ newFields.values.toSet).toSeq)
+          Failure(new RuntimeException(
+            s"mismatch type for field $oldField : new type is ${newField.get.indexType} while old type is ${oldField.indexType}"))
+        else Success(newFields.getOrElse(oldField.name, oldFields(oldField.name)))
+      }
+    Try(combined.map(_.get))
   }
 }

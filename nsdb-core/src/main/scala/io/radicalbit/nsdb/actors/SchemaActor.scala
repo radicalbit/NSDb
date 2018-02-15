@@ -1,11 +1,10 @@
 package io.radicalbit.nsdb.actors
 
 import akka.actor.{Actor, ActorLogging, Props}
-import cats.data.Validated.{Invalid, Valid}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.index.IndexWriter
 
 import scala.util.{Failure, Success}
@@ -62,10 +61,10 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
       sender ! SchemaUpdated(db, namespace, metric, newSchema)
     else
       SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
-        case Valid(fields) =>
+        case Success(fields) =>
           updateSchema(metric, fields)
           sender ! SchemaUpdated(db, namespace, metric, newSchema)
-        case Invalid(list) => sender ! UpdateSchemaFailed(db, namespace, metric, list.toList)
+        case Failure(t) => sender ! UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))
       }
 
   private def updateSchema(metric: String, fields: Seq[SchemaField]): Unit =

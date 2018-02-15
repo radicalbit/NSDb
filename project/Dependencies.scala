@@ -98,12 +98,12 @@ object Dependencies {
     lazy val core      = namespace %% "scalatest" % version
   }
 
-  object cats_scalatest {
-    lazy val version        = "2.2.0"
-    lazy val namespace      = "com.ironcorelabs"
-    lazy val cats_scalatest = "cats-scalatest"
-    lazy val core           = namespace %% cats_scalatest % version
-  }
+//  object cats_scalatest {
+//    lazy val version        = "2.2.0"
+//    lazy val namespace      = "com.ironcorelabs"
+//    lazy val cats_scalatest = "cats-scalatest"
+//    lazy val core           = namespace %% cats_scalatest % version
+//  }
 
   object junit {
     lazy val version   = "4.12"
@@ -168,7 +168,7 @@ object Dependencies {
   object Core {
     val libraries = Seq(
       akka.actor,
-      cats.cats,
+//      cats.cats,
       spire.spire,
       lucene.core,
       lucene.queryParser,
