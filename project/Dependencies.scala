@@ -174,9 +174,9 @@ object Dependencies {
       lucene.queryParser,
       lucene.grouping,
       lucene.facet,
-      scalatest.core      % Test,
-      cats_scalatest.core % Test,
-      akka.testkit        % Test
+      scalatest.core % Test,
+//      cats_scalatest.core % Test,
+      akka.testkit % Test
     )
   }
 

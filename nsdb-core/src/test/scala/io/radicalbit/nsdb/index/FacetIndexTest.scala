@@ -3,14 +3,13 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
-import cats.scalatest.ValidatedMatchers
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
-class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with ValidatedMatchers {
+class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*with ValidatedMatchers*/ {
 
   "FacetIndex" should "write and read properly on disk" in {
     val facetIndex = new FacetIndex(
@@ -25,13 +24,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
       val testData =
         Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_$i"))
       val w = facetIndex.write(testData)
-      w shouldBe valid
+      w.isSuccess shouldBe true
     }
 
     val repeatedValue =
       Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_100"))
     val w = facetIndex.write(repeatedValue)
-    w shouldBe valid
+    w.isSuccess shouldBe true
 
     taxoWriter.close()
     writer.close()
@@ -61,7 +60,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
             value = 23,
             dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
       val w = facetIndex.write(testData)
-      w shouldBe valid
+      w.isSuccess shouldBe true
     }
     taxoWriter.close()
     writer.close()
@@ -90,7 +89,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
       val testData =
         Bit(timestamp = i, value = 23, dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
       val w = facetIndex.write(testData)
-      w shouldBe valid
+      w.isSuccess shouldBe true
     }
     taxoWriter.close()
     writer.close()
@@ -119,7 +118,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
       val testData =
         Bit(timestamp = i, value = 23, dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
       val w = facetIndex.write(testData)
-      w shouldBe valid
+      w.isSuccess shouldBe true
     }
     taxoWriter.close()
     writer.close()
@@ -158,7 +157,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest with
             value = factor,
             dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"))
       val w = facetIndex.write(testData)
-      w shouldBe valid
+      w.isSuccess shouldBe true
     }
     taxoWriter.close()
     writer.close()

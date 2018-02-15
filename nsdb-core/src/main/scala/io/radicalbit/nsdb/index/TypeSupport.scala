@@ -17,23 +17,22 @@ import scala.util.{Failure, Success, Try}
 
 trait TypeSupport {
 
-  implicit val schemaValidationMonoid: Monoid[SchemaValidation] = new Monoid[SchemaValidation] {
-    override val empty: SchemaValidation = valid(Seq.empty)
+//  implicit val schemaValidationMonoid: Monoid[SchemaValidation] = new Monoid[SchemaValidation] {
+//    override val empty: SchemaValidation = valid(Seq.empty)
+//
+//    override def combine(x: SchemaValidation, y: SchemaValidation): SchemaValidation =
+//      (x, y) match {
+//        case (Valid(a), Valid(b))       => valid(a ++ b)
+//        case (Valid(_), k @ Invalid(_)) => k
+//        case (f @ Invalid(_), Valid(_)) => f
+//        case (Invalid(l1), Invalid(l2)) => Invalid(l1.combine(l2))
+//      }
+//  }
 
-    override def combine(x: SchemaValidation, y: SchemaValidation): SchemaValidation =
-      (x, y) match {
-        case (Valid(a), Valid(b))       => valid(a ++ b)
-        case (Valid(_), k @ Invalid(_)) => k
-        case (f @ Invalid(_), Valid(_)) => f
-        case (Invalid(l1), Invalid(l2)) => Invalid(l1.combine(l2))
-      }
-  }
-
-  def validateSchemaTypeSupport(bit: Bit): SchemaValidation = {
-    (bit.dimensions ++ Map("value" -> bit.value, "timestamp" -> bit.timestamp.asInstanceOf[JSerializable]))
-      .map { case (n, v) => IndexType.fromRawField(RawField(n, v)) }
-      .toList
-      .combineAll
+  def validateSchemaTypeSupport(bit: Bit): Try[Seq[TypedField]] = {
+    val x = bit.fields.toSeq
+      .map { case (n, v) => IndexType.tryFromRawField(RawField(n, v)) }
+    Try(x.map(f => f.get))
   }
 }
 
@@ -71,6 +70,12 @@ object IndexType {
     supportedType.find(_.actualType == rawField.value.getClass) match {
       case Some(indexType) => valid(Seq(TypedField(rawField.name, indexType, rawField.value)))
       case None            => invalidNel(s"class ${rawField.value.getClass} is not supported")
+    }
+
+  def tryFromRawField(rawField: RawField): Try[TypedField] =
+    supportedType.find(_.actualType == rawField.value.getClass) match {
+      case Some(indexType) => Success(TypedField(rawField.name, indexType, rawField.value))
+      case None            => Failure(new RuntimeException(s"class ${rawField.value.getClass} is not supported"))
     }
 
   def fromClass(clazz: Class[_]): Try[IndexType[_]] = supportedType.find(_.actualType == clazz) match {

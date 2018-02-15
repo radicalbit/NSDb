@@ -8,6 +8,8 @@ import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
 import io.radicalbit.nsdb.model.SchemaField
 import org.apache.lucene.index.IndexWriter
 
+import scala.util.{Failure, Success}
+
 class SchemaActor(val basePath: String, val db: String, val namespace: String)
     extends Actor
     with SchemaSupport
@@ -24,12 +26,12 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
 
     case UpdateSchemaFromRecord(_, _, metric, record) =>
       (Schema(metric, record), getSchema(metric)) match {
-        case (Valid(newSchema), Some(oldSchema)) =>
+        case (Success(newSchema), Some(oldSchema)) =>
           checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
-        case (Valid(newSchema), None) =>
+        case (Success(newSchema), None) =>
           updateSchema(newSchema)
           sender ! SchemaUpdated(db, namespace, metric, newSchema)
-        case (Invalid(errs), _) => sender ! UpdateSchemaFailed(db, namespace, metric, errs.toList)
+        case (Failure(t), _) => sender ! UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))
       }
 
     case DeleteSchema(_, _, metric) =>

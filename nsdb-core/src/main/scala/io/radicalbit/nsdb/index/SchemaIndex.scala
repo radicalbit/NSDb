@@ -1,14 +1,14 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
+import cats.data.Validated.{invalidNel, valid}
 import cats.data.{NonEmptyList, Validated}
 import cats.implicits._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation, schemaValidationMonoid}
+import io.radicalbit.nsdb.validation.Validation.schemaValidationMonoid
 import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.{Document, StringField}
+import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.BaseDirectory
@@ -29,7 +29,7 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
 }
 
 object Schema extends TypeSupport {
-  def apply(metric: String, bit: Bit): Validated[NonEmptyList[String], Schema] = {
+  def apply(metric: String, bit: Bit): Try[Schema] = {
     validateSchemaTypeSupport(bit).map(fields =>
       Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
   }
@@ -43,26 +43,23 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     super.getSearcher
   }
 
-  override def validateRecord(data: Schema): FieldValidation = {
-    valid(
+  override def validateRecord(data: Schema): Try[Seq[Field]] = {
+    Success(
       Seq(
         new StringField(_keyField, data.metric.toLowerCase, Store.YES)
       ) ++
         data.fields.map(e => new StringField(e.name, e.indexType.getClass.getCanonicalName, Store.YES)))
   }
 
-  override def write(data: Schema)(implicit writer: IndexWriter): WriteValidation = {
+  override def write(data: Schema)(implicit writer: IndexWriter): Try[Long] = {
     val doc = new Document
     validateRecord(data) match {
-      case Valid(fields) =>
+      case Success(fields) =>
         Try {
           fields.foreach(doc.add)
           writer.addDocument(doc)
-        } match {
-          case Success(id) => valid(id)
-          case Failure(ex) => invalidNel(ex.getMessage)
         }
-      case errs @ Invalid(_) => errs
+      case Failure(t) => Failure(t)
     }
   }
 
@@ -87,7 +84,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     }
   }
 
-  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): WriteValidation = {
+  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): Try[Long] = {
     getSchema(metric) match {
       case Some(oldSchema) =>
         delete(oldSchema)
