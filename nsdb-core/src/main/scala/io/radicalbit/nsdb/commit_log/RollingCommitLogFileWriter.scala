@@ -1,18 +1,23 @@
 package io.radicalbit.nsdb.commit_log
 
 import java.io.{File, FileOutputStream}
+import java.nio.file.Paths
 
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.util.Config._
 
+import scala.util.Try
+
 object RollingCommitLogFileWriter {
 
-  def props = Props(new RollingCommitLogFileWriter)
+  def props(db: String, namespace: String) = Props(new RollingCommitLogFileWriter(db, namespace))
 
   private[commit_log] val FileNameSeparator = "_"
 
-  private[commit_log] def nextFileName(fileNamePrefix: String,
+  private[commit_log] def nextFileName(db: String,
+                                       namespace: String,
+                                       fileNamePrefix: String,
                                        fileNameSeparator: String,
                                        fileNames: Seq[String]): String = {
 
@@ -25,7 +30,7 @@ object RollingCommitLogFileWriter {
         .map(_ + 1)
         .getOrElse(0)
 
-    f"$fileNamePrefix$fileNameSeparator$generateNextId"
+    f"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$generateNextId"
   }
 }
 
@@ -34,7 +39,7 @@ object RollingCommitLogFileWriter {
   * Do no call its methods from the outside, use the protocol specified inside CommitLogWriter instead.
   *
   */
-class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging {
+class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLogWriterActor with ActorLogging {
 
   import RollingCommitLogFileWriter._
 
@@ -51,12 +56,28 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
   log.info("Commit log serializer {} initialized successfully.", serializerClass)
 
-  private var file   = newFile(directory)
-  private var fileOS = newOutputStream(file)
+  private var file: File               = _
+  private var fileOS: FileOutputStream = _
 
-  override protected def createEntry(entry: CommitLogEntry): Unit = {
+  override def preStart() = {
+    val existingFiles = Option(Paths.get(directory).toFile.list())
+      .map(_.toSet)
+      .getOrElse(Set.empty)
+      .filter(name => name.contains(s"$db$FileNameSeparator$namespace"))
+
+    val newFileName = existingFiles match {
+      case fileNames if fileNames.nonEmpty => fileNames.maxBy(s => s.split(FileNameSeparator)(3).toInt)
+      case fileNames                       => nextFileName(db, namespace, FileNamePrefix, FileNameSeparator, fileNames.toSeq)
+    }
+
+    file = new File(s"$directory/$newFileName")
+    fileOS = newOutputStream(file)
+  }
+
+  override protected def createEntry(entry: CommitLogEntry): Try[Unit] = {
     log.debug("Received the entry {}.", entry)
-    appendToDisk(entry)
+
+    val operation = Try(appendToDisk(entry))
 //    sender() ! WriteToCommitLogSucceeded(ts = entry.bit.timestamp, metric = entry.metric, bit = entry.bit)
 
     // this check can be done in an async fashion
@@ -65,6 +86,8 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
         file = f
         fileOS = fos
     }
+
+    operation
   }
 
   protected def close(): Unit = fileOS.close()
@@ -86,7 +109,9 @@ class RollingCommitLogFileWriter extends CommitLogWriterActor with ActorLogging 
   protected def newFile(current: File): File = newFile(file.getParent)
 
   protected def newFile(directory: String): File = {
-    val nextFile = nextFileName(fileNamePrefix = FileNamePrefix,
+    val nextFile = nextFileName(db,
+                                namespace,
+                                fileNamePrefix = FileNamePrefix,
                                 fileNameSeparator = FileNameSeparator,
                                 fileNames = new File(directory).listFiles().map(_.getName))
     new File(s"$directory/$nextFile")

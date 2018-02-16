@@ -12,10 +12,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeNamespaceDa
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
-class ClusterListener(writeCoordinator: ActorRef,
-                      readCoordinator: ActorRef,
-                      metadataCoordinator: ActorRef,
-                      commitLogCoordinator: Option[ActorRef])
+class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)
     extends Actor
     with ActorLogging {
 
@@ -69,9 +66,6 @@ class ClusterListener(writeCoordinator: ActorRef,
 }
 
 object ClusterListener {
-  def props(writeCoordinator: ActorRef,
-            readCoordinator: ActorRef,
-            metadataCoordinator: ActorRef,
-            commitLogCoordinator: Option[ActorRef]) =
-    Props(new ClusterListener(writeCoordinator, readCoordinator, metadataCoordinator, commitLogCoordinator))
+  def props(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef) =
+    Props(new ClusterListener(writeCoordinator, readCoordinator, metadataCoordinator))
 }

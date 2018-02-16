@@ -19,7 +19,7 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
       log.error("Got the following TimeoutException, resuming the processing", e)
       Resume
     case t =>
-      log.error("generic error in writecoordinator", t)
+      log.error("generic error in write coordinator", t)
       super.supervisorStrategy.decider.apply(t)
   }
 
@@ -50,7 +50,7 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
     ClusterListener.props(readCoordinator = readCoordinator,
                           writeCoordinator = writeCoordinator,
                           metadataCoordinator = metadataCoordinator,
-                          commitLogCoordinator = commitLogCoordinator),
+                            commitLogCoordinator = commitLogCoordinator),
     name = "clusterListener"
   )
 
