@@ -16,7 +16,7 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0)
+      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0) && (otherSchema.fields == this.fields)
     } else false
   }
 
@@ -101,7 +101,7 @@ object SchemaIndex {
   def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Seq[SchemaField]] = {
     val newFields = newSchema.fields.map(e => e.name -> e).toMap
     val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
-    val combined = oldSchema.fields
+    val checked = oldSchema.fields
       .map { oldField =>
         val newField = newFields.get(oldField.name)
         if (newField.isDefined && oldField.indexType != newField.get.indexType)
@@ -109,6 +109,10 @@ object SchemaIndex {
             s"mismatch type for field $oldField : new type is ${newField.get.indexType} while old type is ${oldField.indexType}"))
         else Success(newFields.getOrElse(oldField.name, oldFields(oldField.name)))
       }
-    Try(combined.map(_.get))
+
+    Try(checked.map(_.get)) match {
+      case Success(_) => Success((oldSchema.fields.toSet ++ newSchema.fields.toSet).toSeq)
+      case Failure(t) => Failure(t)
+    }
   }
 }

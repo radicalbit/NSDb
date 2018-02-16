@@ -23,7 +23,7 @@ class SchemaActorSpec
     with BeforeAndAfter {
 
   val probe       = TestProbe()
-  val schemaActor = TestActorRef[SchemaActor](SchemaActor.props("target/test_index_schema_actor", "db", "namespace"))
+  val schemaActor = TestActorRef[SchemaActor](SchemaActor.props("target/test_index/schema_actor", "db", "namespace"))
 
   before {
     implicit val timeout = Timeout(3 seconds)
@@ -35,9 +35,8 @@ class SchemaActorSpec
       .schema
       .isDefined shouldBe false
 
-    Await.result(
-      schemaActor ? UpdateSchema("db", "namespace", "people", Schema("people", Seq(SchemaField("name", VARCHAR())))),
-      3 seconds)
+    Await.result(schemaActor ? UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 1, Map("name" -> "name"))),
+                 3 seconds)
   }
 
   "SchemaActor" should "get schemas" in {
@@ -52,44 +51,23 @@ class SchemaActorSpec
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
-    existingGot.schema shouldBe Some(Schema("people", Seq(SchemaField("name", VARCHAR()))))
+    existingGot.schema shouldBe Some(
+      Schema("people",
+             Seq(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
   }
 
-  "SchemaActor" should "update schemas in case of success" in {
-    probe.send(schemaActor,
-               UpdateSchema("db", "namespace", "people", Schema("people", Seq(SchemaField("surname", VARCHAR())))))
+  "SchemaActor" should "return a failed message when trying to update a schema with an incompatible one" in {
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"))))
 
-    probe.expectMsgType[SchemaUpdated]
-
-    probe.send(schemaActor, GetSchema("db", "namespace", "people"))
-
-    val existingGot = probe.expectMsgType[SchemaGot]
-    existingGot.metric shouldBe "people"
-    existingGot.schema shouldBe Some(
-      Schema("people", Seq(SchemaField("name", VARCHAR()), SchemaField("surname", VARCHAR())))
-    )
-  }
-
-  "SchemaActor" should "not update schemas in case of failure" in {
-    probe.send(schemaActor,
-               UpdateSchema("db", "namespace", "people", Schema("people", Seq(SchemaField("name", BIGINT())))))
-
-    val failed = probe.expectMsgType[UpdateSchemaFailed]
-    failed.errors.size shouldBe 1
-
-    probe.send(schemaActor, GetSchema("db", "namespace", "people"))
-
-    val existingGot = probe.expectMsgType[SchemaGot]
-    existingGot.metric shouldBe "people"
-    existingGot.schema shouldBe Some(
-      Schema("people", Seq(SchemaField("name", VARCHAR())))
-    )
+    probe.expectMsgType[UpdateSchemaFailed]
   }
 
   "SchemaActor" should "update schemas coming from a record" in {
     probe.send(
       schemaActor,
-      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"))))
+      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
 
     val schema = probe.expectMsgType[SchemaUpdated].schema
     schema.fields.exists(_.name == "timestamp") shouldBe true
@@ -102,9 +80,9 @@ class SchemaActorSpec
     existingGot.schema shouldBe Some(
       Schema("people",
              Seq(SchemaField("name", VARCHAR()),
-                 SchemaField("surname", VARCHAR()),
-                 SchemaField("value", DECIMAL()),
-                 SchemaField("timestamp", BIGINT())))
+                 SchemaField("timestamp", BIGINT()),
+                 SchemaField("value", INT()),
+                 SchemaField("surname", VARCHAR())))
     )
 
     probe.send(schemaActor, UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty)))
@@ -126,9 +104,9 @@ class SchemaActorSpec
     existingGot.schema shouldBe Some(
       Schema("people",
              Seq(SchemaField("name", VARCHAR()),
-                 SchemaField("surname", VARCHAR()),
+                 SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
-                 SchemaField("timestamp", BIGINT())))
+                 SchemaField("surname", VARCHAR())))
     )
 
     probe.send(schemaActor, UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"))))
@@ -158,9 +136,9 @@ class SchemaActorSpec
     existingGot.schema shouldBe Some(
       Schema("people",
              Seq(SchemaField("name", VARCHAR()),
-                 SchemaField("surname", VARCHAR()),
+                 SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
-                 SchemaField("timestamp", BIGINT())))
+                 SchemaField("surname", VARCHAR())))
     )
 
     probe.send(
@@ -177,8 +155,8 @@ class SchemaActorSpec
       Schema("offices",
              Seq(SchemaField("name", VARCHAR()),
                  SchemaField("surname", VARCHAR()),
-                 SchemaField("value", INT()),
-                 SchemaField("timestamp", BIGINT())))
+                 SchemaField("timestamp", BIGINT()),
+                 SchemaField("value", INT())))
     )
 
     probe.send(

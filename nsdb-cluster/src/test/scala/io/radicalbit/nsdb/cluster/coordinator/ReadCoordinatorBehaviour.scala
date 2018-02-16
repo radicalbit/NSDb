@@ -70,16 +70,15 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             val expected = probe.expectMsgType[SchemaGot]
             expected.namespace shouldBe namespace
             expected.metric shouldBe "people"
-            expected.schema shouldBe Some(
-              Schema(
-                "people",
-                Seq(
-                  SchemaField("name", VARCHAR()),
-                  SchemaField("timestamp", BIGINT()),
-                  SchemaField("surname", VARCHAR()),
-                  SchemaField("value", BIGINT())
-                )
-              ))
+            expected.schema shouldBe defined
+
+            expected.schema.get.fields.sortBy(_.name) shouldBe
+              Seq(
+                SchemaField("name", VARCHAR()),
+                SchemaField("surname", VARCHAR()),
+                SchemaField("timestamp", BIGINT()),
+                SchemaField("value", BIGINT())
+              )
           }
         }
       }

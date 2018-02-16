@@ -20,16 +20,16 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
       val schema = getSchema(metric)
       sender ! SchemaGot(db, namespace, metric, schema)
 
-    case UpdateSchema(_, _, metric, newSchema) =>
-      checkAndUpdateSchema(db, namespace, metric, newSchema)
+//    case UpdateSchema(_, _, metric, newSchema) =>
+//      checkAndUpdateSchema(db, namespace, metric, newSchema)
 
     case UpdateSchemaFromRecord(_, _, metric, record) =>
       (Schema(metric, record), getSchema(metric)) match {
         case (Success(newSchema), Some(oldSchema)) =>
           checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
         case (Success(newSchema), None) =>
-          updateSchema(newSchema)
           sender ! SchemaUpdated(db, namespace, metric, newSchema)
+          updateSchema(newSchema)
         case (Failure(t), _) => sender ! UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))
       }
 
@@ -62,8 +62,8 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
     else
       SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
         case Success(fields) =>
-          updateSchema(metric, fields)
           sender ! SchemaUpdated(db, namespace, metric, newSchema)
+          updateSchema(metric, fields)
         case Failure(t) => sender ! UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))
       }
 
