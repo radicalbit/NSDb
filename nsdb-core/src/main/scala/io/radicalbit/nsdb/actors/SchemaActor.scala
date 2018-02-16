@@ -20,9 +20,6 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
       val schema = getSchema(metric)
       sender ! SchemaGot(db, namespace, metric, schema)
 
-//    case UpdateSchema(_, _, metric, newSchema) =>
-//      checkAndUpdateSchema(db, namespace, metric, newSchema)
-
     case UpdateSchemaFromRecord(_, _, metric, record) =>
       (Schema(metric, record), getSchema(metric)) match {
         case (Success(newSchema), Some(oldSchema)) =>
@@ -40,21 +37,13 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
           sender ! SchemaDeleted(db, namespace, metric)
         case None => sender ! SchemaDeleted(db, namespace, metric)
       }
+
     case DeleteAllSchemas(_, _) =>
       deleteAllSchemas()
       sender ! AllSchemasDeleted(db, namespace)
   }
 
   private def getSchema(metric: String) = schemas.get(metric) orElse schemaIndex.getSchema(metric)
-
-  private def checkAndUpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema): Unit =
-    getSchema(metric) match {
-      case Some(oldSchema) =>
-        checkAndUpdateSchema(namespace = namespace, metric = metric, oldSchema = oldSchema, newSchema = newSchema)
-      case None =>
-        updateSchema(newSchema)
-        sender ! SchemaUpdated(db, namespace, metric, newSchema)
-    }
 
   private def checkAndUpdateSchema(namespace: String, metric: String, oldSchema: Schema, newSchema: Schema): Unit =
     if (oldSchema == newSchema)
