@@ -36,7 +36,7 @@ trait Index[T] {
   def validateRecord(data: T): Try[Seq[Field]]
   def toRecord(document: Document, fields: Seq[SimpleField]): T
 
-  def write(fields: Seq[Field])(implicit writer: IndexWriter): Try[Long] = {
+  def write(fields: Set[Field])(implicit writer: IndexWriter): Try[Long] = {
     val doc = new Document
     fields.foreach(doc.add)
     Try(writer.addDocument(doc))

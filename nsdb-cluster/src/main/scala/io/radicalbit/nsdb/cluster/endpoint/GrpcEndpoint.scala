@@ -84,18 +84,23 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       //TODO: add failure handling
       log.debug("Received command DescribeMetric for metric {}", request.metric)
       (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
-        .mapTo[SchemaGot]
         .map {
           case SchemaGot(db, namespace, metric, schema) =>
             val fields = schema
               .map(
                 _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
-              .getOrElse(List.empty[MetricField])
+              .getOrElse(Set.empty[MetricField])
             GrpcMetricSchemaRetrieved(db,
                                       namespace,
                                       metric,
-                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)),
+                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)).toSeq,
                                       completedSuccessfully = true)
+          case _ =>
+            GrpcMetricSchemaRetrieved(request.db,
+                                      request.namespace,
+                                      request.metric,
+                                      completedSuccessfully = false,
+                                      errors = "unknown message received from server")
         }
     }
 

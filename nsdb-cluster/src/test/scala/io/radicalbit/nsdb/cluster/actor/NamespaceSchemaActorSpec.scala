@@ -57,7 +57,7 @@ class NamespaceSchemaActorSpec
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
+             Set(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
 
     probe.send(namespaceSchemaActor, GetSchema(db, namespace1, "people"))
 
@@ -65,7 +65,7 @@ class NamespaceSchemaActorSpec
     existingGot1.metric shouldBe "people"
     existingGot1.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("surname", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
+             Set(SchemaField("surname", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
   }
 
   "SchemaActor" should "update schemas in case of success in different namespaces" in {
@@ -79,7 +79,7 @@ class NamespaceSchemaActorSpec
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()),
+             Set(SchemaField("name", VARCHAR()),
                  SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
                  SchemaField("surname", VARCHAR())))
@@ -95,7 +95,7 @@ class NamespaceSchemaActorSpec
     existingGot1.metric shouldBe "people"
     existingGot1.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()),
+             Set(SchemaField("name", VARCHAR()),
                  SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
                  SchemaField("surname", VARCHAR())))

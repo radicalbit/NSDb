@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{SchemaField, TypedField}
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, Field, StringField}
@@ -12,11 +12,11 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-case class Schema(metric: String, fields: Seq[SchemaField]) {
+case class Schema(metric: String, fields: Set[SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0) && (otherSchema.fields == this.fields)
+      (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields == this.fields)
     } else false
   }
 
@@ -26,8 +26,8 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
 
 object Schema extends TypeSupport {
   def apply(metric: String, bit: Bit): Try[Schema] = {
-    validateSchemaTypeSupport(bit).map(fields =>
-      Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
+    validateSchemaTypeSupport(bit).map((fields: Seq[TypedField]) =>
+      Schema(metric, fields.map(field => SchemaField(field.name, field.indexType)).toSet))
   }
 }
 
@@ -61,9 +61,10 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Schema = {
     val fields = document.getFields.asScala.filterNot(f => f.name() == _keyField || f.name() == _countField)
-    Schema(
-      document.get(_keyField),
-      fields.map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]])))
+    Schema(document.get(_keyField),
+           fields
+             .map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]]))
+             .toSet)
   }
 
   def getAllSchemas(implicit searcher: IndexSearcher): Seq[Schema] = {
@@ -84,8 +85,8 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     getSchema(metric) match {
       case Some(oldSchema) =>
         delete(oldSchema)
-        val newFields = oldSchema.fields.toSet ++ newSchema.fields.toSet
-        write(Schema(newSchema.metric, newFields.toSeq))
+        val newFields = oldSchema.fields ++ newSchema.fields
+        write(Schema(newSchema.metric, newFields))
       case None => write(newSchema)
     }
   }
@@ -98,7 +99,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 }
 
 object SchemaIndex {
-  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Seq[SchemaField]] = {
+  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Set[SchemaField]] = {
     val newFields = newSchema.fields.map(e => e.name -> e).toMap
     val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
     val checked = oldSchema.fields
@@ -111,7 +112,7 @@ object SchemaIndex {
       }
 
     Try(checked.map(_.get)) match {
-      case Success(_) => Success((oldSchema.fields.toSet ++ newSchema.fields.toSet).toSeq)
+      case Success(_) => Success(oldSchema.fields ++ newSchema.fields)
       case Failure(t) => Failure(t)
     }
   }

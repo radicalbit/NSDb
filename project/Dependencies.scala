@@ -167,7 +167,7 @@ object Dependencies {
       lucene.grouping,
       lucene.facet,
       scalatest.core % Test,
-      akka.testkit % Test
+      akka.testkit   % Test
     )
   }
 

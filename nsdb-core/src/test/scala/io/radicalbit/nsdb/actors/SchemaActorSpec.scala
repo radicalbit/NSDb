@@ -53,7 +53,7 @@ class SchemaActorSpec
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
+             Set(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
   }
 
   "SchemaActor" should "return a failed message when trying to update a schema with an incompatible one" in {
@@ -79,7 +79,7 @@ class SchemaActorSpec
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()),
+             Set(SchemaField("name", VARCHAR()),
                  SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
                  SchemaField("surname", VARCHAR())))
@@ -103,7 +103,7 @@ class SchemaActorSpec
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()),
+             Set(SchemaField("name", VARCHAR()),
                  SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
                  SchemaField("surname", VARCHAR())))
@@ -135,7 +135,7 @@ class SchemaActorSpec
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
       Schema("people",
-             Seq(SchemaField("name", VARCHAR()),
+             Set(SchemaField("name", VARCHAR()),
                  SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT()),
                  SchemaField("surname", VARCHAR())))
@@ -153,7 +153,7 @@ class SchemaActorSpec
     schema.metric shouldBe "offices"
     schema.schema shouldBe Some(
       Schema("offices",
-             Seq(SchemaField("name", VARCHAR()),
+             Set(SchemaField("name", VARCHAR()),
                  SchemaField("surname", VARCHAR()),
                  SchemaField("timestamp", BIGINT()),
                  SchemaField("value", INT())))

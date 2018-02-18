@@ -72,7 +72,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             expected.metric shouldBe "people"
             expected.schema shouldBe defined
 
-            expected.schema.get.fields.sortBy(_.name) shouldBe
+            expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
               Seq(
                 SchemaField("name", VARCHAR()),
                 SchemaField("surname", VARCHAR()),

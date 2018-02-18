@@ -56,7 +56,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String)
         case Failure(t) => sender ! UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))
       }
 
-  private def updateSchema(metric: String, fields: Seq[SchemaField]): Unit =
+  private def updateSchema(metric: String, fields: Set[SchemaField]): Unit =
     updateSchema(Schema(metric, fields))
 
   private def updateSchema(schema: Schema): Unit = {

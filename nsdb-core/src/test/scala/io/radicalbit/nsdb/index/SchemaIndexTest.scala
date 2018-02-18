@@ -23,7 +23,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     (0 to 100).foreach { i =>
       val testData = Schema(
         s"metric_$i",
-        Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field$i", VARCHAR())))
+        Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field$i", VARCHAR())))
       schemaIndex.write(testData)
     }
     writer.close()
@@ -37,7 +37,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     firstSchema shouldBe Some(
       Schema(
         s"metric_0",
-        Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field0", VARCHAR()))))
+        Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field0", VARCHAR()))))
   }
 
   "SchemaIndex" should "update records" in {
@@ -48,7 +48,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(s"metric_1", Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    val testData = Schema(s"metric_1", Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
     schemaIndex.write(testData)
     writer.close()
 
@@ -66,10 +66,10 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(s"metric_2", Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    val testData = Schema(s"metric_2", Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
     schemaIndex.write(testData)
 
-    val testDataBis = Schema(s"metric_3", Seq(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    val testDataBis = Schema(s"metric_3", Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
     schemaIndex.write(testDataBis)
     writer.close()
 
