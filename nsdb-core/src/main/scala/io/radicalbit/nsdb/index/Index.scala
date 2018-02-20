@@ -146,7 +146,7 @@ trait Index[T] {
     raws.map(d => toRecord(d, fields))
   }
 
-  def getAll()(implicit searcher: IndexSearcher): Seq[T] = {
+  def all: Seq[T] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[T]) => docs
       case Failure(_)            => Seq.empty

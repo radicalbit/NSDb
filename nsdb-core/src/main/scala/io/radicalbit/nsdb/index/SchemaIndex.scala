@@ -6,7 +6,7 @@ import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.index.{IndexWriter, Term}
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, TermQuery}
+import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.JavaConverters._
@@ -33,11 +33,6 @@ object Schema extends TypeSupport {
 
 class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   override val _keyField: String = "_metric"
-
-  override def getSearcher: IndexSearcher = {
-    refresh()
-    super.getSearcher
-  }
 
   override def validateRecord(data: Schema): Try[Seq[Field]] = {
     Success(
@@ -67,7 +62,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
              .toSet)
   }
 
-  def getAllSchemas(implicit searcher: IndexSearcher): Seq[Schema] = {
+  def allSchemas: Seq[Schema] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[Schema]) => docs
       case Failure(_)                 => Seq.empty
@@ -99,21 +94,16 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 }
 
 object SchemaIndex {
-  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Set[SchemaField]] = {
-    val newFields = newSchema.fields.map(e => e.name -> e).toMap
+  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Schema] = {
     val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
-    val checked = oldSchema.fields
-      .map { oldField =>
-        val newField = newFields.get(oldField.name)
-        if (newField.isDefined && oldField.indexType != newField.get.indexType)
-          Failure(new RuntimeException(
-            s"mismatch type for field $oldField : new type is ${newField.get.indexType} while old type is ${oldField.indexType}"))
-        else Success(newFields.getOrElse(oldField.name, oldFields(oldField.name)))
-      }
 
-    Try(checked.map(_.get)) match {
-      case Success(_) => Success(oldSchema.fields ++ newSchema.fields)
-      case Failure(t) => Failure(t)
+    val notCompatibleFields = newSchema.fields.collect {
+      case field if oldFields.get(field.name).isDefined && oldFields(field.name).indexType != field.indexType =>
+        s"mismatch type for field ${field.name} : new type ${field.indexType} is incompatible with old type"
     }
+
+    if (notCompatibleFields.nonEmpty)
+      Failure(new RuntimeException(s"fields ${notCompatibleFields.mkString(",")} are not compatible"))
+    else Success(Schema(newSchema.metric, oldSchema.fields ++ newSchema.fields))
   }
 }

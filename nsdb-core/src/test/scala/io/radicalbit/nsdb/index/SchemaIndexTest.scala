@@ -83,6 +83,8 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     writerDrop.close()
 
+    schemaIndex.refresh()
+
     schemaIndex.getSchema("metric_2") shouldBe None
     schemaIndex.getSchema("metric_3") shouldBe Some(testDataBis)
 
