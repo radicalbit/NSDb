@@ -45,8 +45,6 @@ sealed trait StringType[T] extends IndexType[T]
 
 object IndexType {
 
-//  type SchemaValidation = Validated[NonEmptyList[String], Seq[TypedField]]
-
   private val supportedType = Seq(INT(), BIGINT(), DECIMAL(), VARCHAR())
 
   def fromRawField(rawField: RawField): Try[TypedField] =

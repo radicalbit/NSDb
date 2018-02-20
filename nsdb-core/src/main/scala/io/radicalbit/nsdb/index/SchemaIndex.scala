@@ -103,7 +103,7 @@ object SchemaIndex {
     }
 
     if (notCompatibleFields.nonEmpty)
-      Failure(new RuntimeException(s"fields ${notCompatibleFields.mkString(",")} are not compatible"))
+      Failure(new RuntimeException(notCompatibleFields.mkString(",")))
     else Success(Schema(newSchema.metric, oldSchema.fields ++ newSchema.fields))
   }
 }

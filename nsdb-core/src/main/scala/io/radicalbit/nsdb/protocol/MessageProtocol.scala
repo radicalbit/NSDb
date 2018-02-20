@@ -22,7 +22,6 @@ object MessageProtocol {
     case class DropMetric(db: String, namespace: String, metric: String)
     case class DeleteNamespace(db: String, namespace: String)
 
-//    case class UpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema)
     case class UpdateSchemaFromRecord(db: String, namespace: String, metric: String, record: Bit)
     case class DeleteSchema(db: String, namespace: String, metric: String)
     case class DeleteAllSchemas(db: String, namespace: String)

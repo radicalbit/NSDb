@@ -55,8 +55,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     case msg: GetSchema =>
       namespaceSchemaActor forward msg
     case ExecuteStatement(statement) =>
+      val startTime = System.currentTimeMillis()
       log.debug("executing {} ", statement)
-      perfLogger.debug("executing {}", statement)
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .mapTo[SchemaGot]
         .flatMap {
@@ -82,7 +82,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
         .pipeToWithEffect(sender()) { () =>
-          perfLogger.debug("executed statement {}", statement)
+          if (perfLogger.isDebugEnabled)
+            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
         }
   }
 
@@ -100,8 +101,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     case msg: GetSchema =>
       namespaceSchemaActor forward msg
     case ExecuteStatement(statement) =>
+      val startTime = System.currentTimeMillis()
       log.debug(s"executing $statement")
-      perfLogger.debug(s"executing $statement")
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
@@ -111,7 +112,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
         .pipeToWithEffect(sender()) { () =>
-          perfLogger.debug("executed statement {}", statement)
+          if (perfLogger.isDebugEnabled)
+            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
         }
   }
 }

@@ -4,9 +4,9 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.pattern.pipe
 import akka.util.Timeout
 import io.radicalbit.commit_log.CommitLogService
+import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
@@ -17,6 +17,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -36,7 +37,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                        commitLogService: Option[ActorRef],
                        publisherActor: ActorRef)
     extends Actor
-    with ActorLogging {
+    with ActorLogging
+    with NsdbPerfLogger {
 
   import akka.pattern.ask
 
@@ -69,6 +71,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     case SubscribeNamespaceDataActor(actor: ActorRef, None) =>
       sender() ! NamespaceDataActorSubscriptionFailed(actor, None, "cannot subscribe ")
     case MapInput(ts, db, namespace, metric, bit) =>
+      val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
         .flatMap {
@@ -109,7 +112,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                       errs.mkString(","))
             Future(RecordRejected(db, namespace, metric, bit, errs))
         }
-        .pipeTo(sender())
+        .pipeToWithEffect(sender()) { () =>
+          if (perfLogger.isDebugEnabled)
+            perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
+        }
     case msg @ DeleteNamespace(db, namespace) =>
       if (namespaces.isEmpty)
         (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
@@ -157,7 +163,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
 
   def subscribed(namespaceDataActor: ActorRef): Receive = {
     case MapInput(ts, db, namespace, metric, bit) =>
-      log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
+      val startTime = System.currentTimeMillis
+      log.debug("Received a write request for (ts: {}, namespace: {},  metric: {}, bit : {})",
+                ts,
+                namespace,
+                metric,
+                bit)
       (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
         .flatMap {
           case SchemaUpdated(_, _, _, schema) =>
@@ -189,7 +200,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         .recoverWith {
           case t => Future(RecordRejected(db, namespace, metric, bit, List(t.getMessage)))
         }
-        .pipeTo(sender())
+        .pipeToWithEffect(sender()) { () =>
+          if (perfLogger.isDebugEnabled)
+            perfLogger.debug("End write request in {} millis", System.currentTimeMillis - startTime)
+        }
     case msg @ DeleteNamespace(_, _) =>
       (namespaceDataActor ? msg)
         .mapTo[NamespaceDeleted]
