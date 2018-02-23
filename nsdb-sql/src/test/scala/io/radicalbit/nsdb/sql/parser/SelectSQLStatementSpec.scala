@@ -132,6 +132,18 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           )))
       }
 
+      "parse it successfully using decimal values" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp IN (2, 3.5)") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 3.5)))
+          )))
+      }
+
       "parse it successfully using relative time" in {
         val statement = parser.parse(db = "db",
                                      namespace = "registry",
@@ -150,6 +162,30 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10L)))
+          )))
+      }
+
+      "parse it successfully using decimals" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = 10.5") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10.5)))
+          )))
+      }
+
+      "parse it successfully using string" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = word_word") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = "word_word")))
           )))
       }
 
@@ -218,6 +254,25 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           )))
       }
 
+      "parse it successfully using decimal values" in {
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT name FROM people WHERE timestamp > 2.4 AND timestamp = 4") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(TupledLogicalExpression(
+              expression1 =
+                ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2.4),
+              operator = AndOperator,
+              expression2 = EqualityExpression(dimension = "timestamp", value = 4L)
+            )))
+          )))
+      }
+
       "parse it successfully using relative time" in {
         val statement = parser.parse(db = "db",
                                      namespace = "registry",
@@ -243,6 +298,26 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               operator = AndOperator,
               expression2 =
                 ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
+            )))
+          )))
+      }
+
+      "parse it successfully using decimal values" in {
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT name FROM people WHERE timestamp > 2.5 AND timestamp <= 4.01") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(TupledLogicalExpression(
+              expression1 =
+                ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2.5),
+              operator = AndOperator,
+              expression2 =
+                ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4.01)
             )))
           )))
       }

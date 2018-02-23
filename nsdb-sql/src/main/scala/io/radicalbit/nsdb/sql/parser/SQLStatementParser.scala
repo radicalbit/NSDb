@@ -92,7 +92,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case "-" ~ v ~ measure => System.currentTimeMillis() - v * measure
   }
 
-  private val timestamp = delta | longValue
+  private val comparisonTerm = delta | floatValue | longValue
 
   private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
     case d ~ f ~ fs =>
@@ -102,7 +102,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
       }
   }
 
-  private val timestampAssignment = (Ts ~ Equal) ~> timestamp
+  private val timestampAssignment = (Ts ~ Equal) ~> longValue
 
   private val valueAssignment = (Val ~ Equal) ~> (floatValue | longValue)
 
@@ -139,7 +139,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val orTupledLogicalExpression: PackratParser[TupledLogicalExpression] = tupledLogicalExpression(Or, OrOperator)
 
   lazy val equalityExpression
-    : PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue | floatValue | timestamp) ^^ {
+    : PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue | comparisonTerm) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }
 
@@ -159,7 +159,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private def comparisonExpression(operator: String,
                                    comparisonOperator: ComparisonOperator): PackratParser[ComparisonExpression[_]] =
-    (dimension <~ operator) ~ timestamp ^^ {
+    (dimension <~ operator) ~ comparisonTerm ^^ {
       case d ~ v =>
         ComparisonExpression(d, comparisonOperator, v)
     }
@@ -173,7 +173,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private lazy val comparisonExpressionLTE = comparisonExpression(LessOrEqualTo, LessOrEqualToOperator)
 
   private lazy val rangeExpression =
-    (dimension <~ In) ~ (OpenRoundBracket ~> timestamp) ~ (Comma ~> timestamp <~ CloseRoundBracket) ^^ {
+    (dimension <~ In) ~ (OpenRoundBracket ~> comparisonTerm) ~ (Comma ~> comparisonTerm <~ CloseRoundBracket) ^^ {
       case (d ~ v1 ~ v2) => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
 
