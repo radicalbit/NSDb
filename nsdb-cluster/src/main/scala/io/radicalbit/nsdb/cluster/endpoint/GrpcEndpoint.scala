@@ -109,7 +109,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           Namespaces(db = namespaces.db, namespaces = namespaces.namespaces.toSeq, completedSuccessfully = true)
         }
         .recoverWith {
-          case t =>
+          case _ =>
             Future.successful(
               Namespaces(db = request.db, completedSuccessfully = false, errors = "Cluster unable to fulfill request"))
         }
@@ -126,8 +126,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record = Bit(timestamp = request.timestamp, dimensions = request.dimensions.map {
-          case (k, v) => (k, dimensionFor(v.value))
+        record = Bit(timestamp = request.timestamp, dimensions = request.dimensions.collect {
+          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
         }, value = valueFor(request.value))
       )).map {
         case _: InputMapped =>
