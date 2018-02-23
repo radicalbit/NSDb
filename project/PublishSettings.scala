@@ -9,7 +9,8 @@ object PublishSettings {
     publishMavenStyle := true,
     publishTo := version { (v: String) =>
       if (v.trim.endsWith("SNAPSHOT"))
-        Some("Artifactory Realm" at "https://tools.radicalbit.io/artifactory/libs-snapshot-local")
+        Some(
+          "Artifactory Realm" at "https://tools.radicalbit.io/artifactory/libs-snapshot-local;build.timestamp=" + new java.util.Date().getTime)
       else
         Some("Artifactory Realm" at "https://tools.radicalbit.io/artifactory/libs-release-local")
     }.value,
