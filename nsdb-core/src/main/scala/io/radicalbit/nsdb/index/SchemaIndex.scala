@@ -113,7 +113,7 @@ object SchemaIndex {
         val newField = newFields.get(oldField.name)
         if (newField.isDefined && oldField.indexType != newField.get.indexType)
           invalidNel(
-            s"mismatch type for field $oldField : new type is ${newField.get.indexType} while old type is ${oldField.indexType}")
+            s"mismatch type for field ${oldField.name} : new type is ${newField.get.indexType} while old type is ${oldField.indexType}")
         else valid(Seq(newFields.getOrElse(oldField.name, oldFields(oldField.name))))
       })
       .toList

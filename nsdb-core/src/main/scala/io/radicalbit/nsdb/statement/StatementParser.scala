@@ -1,6 +1,5 @@
 package io.radicalbit.nsdb.statement
 
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
@@ -19,14 +18,14 @@ class StatementParser {
     val q = exp match {
       case Some(NullableExpression(dimension)) =>
         val query = schema.get(dimension) match {
-          case Some(SchemaField(_, t: INT)) =>
+          case Some(SchemaField(_, _: INT)) =>
             Try(IntPoint.newRangeQuery(dimension, Int.MinValue, Int.MaxValue))
-          case Some(SchemaField(_, t: BIGINT)) =>
+          case Some(SchemaField(_, _: BIGINT)) =>
             Try(LongPoint.newRangeQuery(dimension, Long.MinValue, Long.MaxValue))
-          case Some(SchemaField(_, t: DECIMAL)) =>
+          case Some(SchemaField(_, _: DECIMAL)) =>
             Try(DoublePoint.newRangeQuery(dimension, Double.MinValue, Double.MaxValue))
           case Some(SchemaField(_, _: VARCHAR)) => Try(new WildcardQuery(new Term(dimension, "*")))
-          case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
+          case None                             => Failure(new InvalidStatementException(Errors.notExistingDimension(dimension)))
         }
         // Used to apply negation due to the fact Lucene does not support nullable fields, query the values' range and apply negation
         query.map { qq =>
@@ -37,21 +36,27 @@ class StatementParser {
       case Some(EqualityExpression(dimension, value)) =>
         schema.get(dimension) match {
           case Some(SchemaField(_, t: INT)) =>
-            Try(IntPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+            Try(IntPoint.newExactQuery(dimension, t.cast(value))) recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("equality", "INT")))
+            }
           case Some(SchemaField(_, t: BIGINT)) =>
-            Try(LongPoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+            Try(LongPoint.newExactQuery(dimension, t.cast(value))) recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("equality", "BIGINT")))
+            }
           case Some(SchemaField(_, t: DECIMAL)) =>
-            Try(DoublePoint.newExactQuery(dimension, t.cast(value.asInstanceOf[JSerializable])))
+            Try(DoublePoint.newExactQuery(dimension, t.cast(value))) recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("equality", "DECIMAL")))
+            }
           case Some(SchemaField(_, _: VARCHAR)) => Try(new TermQuery(new Term(dimension, value.toString)))
-          case None                             => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
+          case None                             => Failure(new InvalidStatementException(Errors.notExistingDimension(dimension)))
         }
       case Some(LikeExpression(dimension, value)) =>
         schema.get(dimension) match {
           case Some(SchemaField(_, _: VARCHAR)) =>
             Success(new WildcardQuery(new Term(dimension, value.replaceAll("\\$", "*"))))
           case Some(_) =>
-            Failure(new InvalidStatementException(s"cannot use LIKE operator on dimension different from VARCHAR"))
-          case None => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
+            Failure(new InvalidStatementException(Errors.uncompatibleOperator("Like", "VARCHAR")))
+          case None => Failure(new InvalidStatementException(Errors.notExistingDimension(dimension)))
         }
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value)) =>
         def buildRangeQuery[T](fieldTypeRangeQuery: (String, T, T) => Query,
@@ -59,7 +64,7 @@ class StatementParser {
                                lessThan: T,
                                min: T,
                                max: T,
-                               v: T): Success[Query] =
+                               v: T): Try[Query] =
           Success(operator match {
             case GreaterThanOperator      => fieldTypeRangeQuery(dimension, greaterF, max)
             case GreaterOrEqualToOperator => fieldTypeRangeQuery(dimension, v, max)
@@ -68,34 +73,54 @@ class StatementParser {
           })
 
         (schema.get(dimension), value) match {
-          case (Some(SchemaField(_, _: INT)), v: Int) =>
-            buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)
-          case (Some(SchemaField(_, _: BIGINT)), v: Long) =>
-            buildRangeQuery[Long](LongPoint.newRangeQuery, v + 1, v - 1, Long.MinValue, Long.MaxValue, v)
-          case (Some(SchemaField(_, _: DECIMAL)), v: Double) =>
-            buildRangeQuery[Double](DoublePoint.newRangeQuery,
-                                    Math.nextAfter(v, Double.MaxValue),
-                                    Math.nextAfter(v, Double.MinValue),
-                                    Double.MinValue,
-                                    Double.MaxValue,
-                                    v)
+          case (Some(SchemaField(_, t: INT)), v) =>
+            Try(t.cast(v)).flatMap(v =>
+              buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)) recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "INT")))
+            }
+          case (Some(SchemaField(_, t: BIGINT)), v) =>
+            Try(t.cast(v)).flatMap(v =>
+              buildRangeQuery[Long](LongPoint.newRangeQuery, v + 1, v - 1, Long.MinValue, Long.MaxValue, v)) recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "BIGINT")))
+            }
+          case (Some(SchemaField(_, t: DECIMAL)), v) =>
+            Try(t.cast(v)).flatMap(
+              v =>
+                buildRangeQuery[Double](DoublePoint.newRangeQuery,
+                                        Math.nextAfter(v, Double.MaxValue),
+                                        Math.nextAfter(v, Double.MinValue),
+                                        Double.MinValue,
+                                        Double.MaxValue,
+                                        v)) recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "DECIMAL")))
+            }
           case (Some(_), _) =>
-            Failure(
-              new InvalidStatementException(s"cannot use comparison operator on dimension different from numerical"))
-          case (None, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
+            Failure(new InvalidStatementException(Errors.uncompatibleOperator("comparison", "numerical")))
+          case (None, _) => Failure(new InvalidStatementException(Errors.notExistingDimension(dimension)))
         }
-      case Some(RangeExpression(dimension, v1, v2)) =>
-        (schema.get(dimension), v1, v2) match {
-          case (Some(SchemaField(_, _: BIGINT)), v1: Long, v2: Long) =>
-            Success(LongPoint.newRangeQuery(dimension, v1, v2))
-          case (Some(SchemaField(_, _: INT)), v1: Int, v2: Int) => Success(IntPoint.newRangeQuery(dimension, v1, v2))
-          case (Some(SchemaField(_, _: DECIMAL)), v1: Double, v2: Double) =>
-            Success(DoublePoint.newRangeQuery(dimension, v1, v2))
+      case Some(RangeExpression(dimension, p1, p2)) =>
+        (schema.get(dimension), p1, p2) match {
+          case (Some(SchemaField(_, t: BIGINT)), v1, v2) =>
+            Try((t.cast(v1), t.cast(v2))).map {
+              case (l, h) => LongPoint.newRangeQuery(dimension, l, h)
+            } recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "BIGINT")))
+            }
+          case (Some(SchemaField(_, t: INT)), v1, v2) =>
+            Try((t.cast(v1), t.cast(v2))).map {
+              case (l, h) => IntPoint.newRangeQuery(dimension, l, h)
+            } recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "INT")))
+            }
+          case (Some(SchemaField(_, t: DECIMAL)), v1, v2) =>
+            Try((t.cast(v1), t.cast(v2))).map {
+              case (l, h) => DoublePoint.newRangeQuery(dimension, l, h)
+            } recoverWith {
+              case _ => Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "DECIMAL")))
+            }
           case (Some(SchemaField(_, _: VARCHAR)), _, _) =>
-            Failure(new InvalidStatementException(s"range operator cannot be defined on dimension of type VARCHAR"))
-          case (Some(_), _, _) =>
-            Failure(new InvalidStatementException(s"range boundaries must be have the same type of dimension"))
-          case (None, _, _) => Failure(new InvalidStatementException(s"dimension $dimension not present in metric"))
+            Failure(new InvalidStatementException(Errors.uncompatibleOperator("range", "numerical")))
+          case (None, _, _) => Failure(new InvalidStatementException(Errors.notExistingDimension(dimension)))
         }
 
       case Some(UnaryLogicalExpression(expression, _)) =>
@@ -168,15 +193,17 @@ class StatementParser {
         if (diff.isEmpty)
           Success(list)
         else
-          Failure(new InvalidStatementException(s"cannot project on not existing dimensions:  ${diff.mkString(", ")}"))
+          Failure(new InvalidStatementException(Errors.notExistingDimensions(diff)))
     }
 
     val distinctValue = statement.distinct
 
+    val limitOpt = statement.limit.map(_.value)
+
     expParsed.flatMap(exp =>
-      (distinctValue, fieldList, statement.groupBy, statement.limit) match {
-        case (_, Failure(exception), _, _) => Failure(exception)
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group), limit)
+      (distinctValue, fieldList, statement.groupBy) match {
+        case (_, Failure(exception), _) => Failure(exception)
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) =>
           Success(
             ParsedAggregatedQuery(statement.namespace,
@@ -184,57 +211,72 @@ class StatementParser {
                                   exp.q,
                                   getCollector(group, fieldName, agg),
                                   sortOpt,
-                                  limit.map(_.value)))
-        case (false, Success(Seq(Field(_, Some(_)))), Some(group), _) =>
-          Failure(new InvalidStatementException(s"cannot group by on not existing dimension: $group"))
-        case (_, Success(List(Field(_, None))), Some(_), _) =>
-          Failure(new InvalidStatementException("cannot execute a group by query without an aggregation"))
-        case (_, Success(List(_)), Some(_), _) =>
-          Failure(new InvalidStatementException("cannot execute a group by query with more than a field"))
-        case (_, Success(List()), Some(_), _) =>
-          Failure(new InvalidStatementException("cannot execute a group by query with all fields selected"))
-        case (true, Success(List()), None, _) =>
-          Failure(new InvalidStatementException("cannot execute a select all query with distinct"))
+                                  limitOpt))
+        case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
+          Failure(new InvalidStatementException(Errors.notExistingDimension(group)))
+        case (_, Success(List(Field(_, None))), Some(_)) =>
+          Failure(new InvalidStatementException(Errors.NO_AGGREGATION_GROUP_BY))
+        case (_, Success(List(_)), Some(_)) =>
+          Failure(new InvalidStatementException(Errors.MORE_FIELDS_GROUP_BY))
+        case (true, Success(List()), None) =>
+          Failure(new InvalidStatementException(Errors.MORE_FIELDS_DISTINCT))
         //TODO: Not supported yet
-        case (true, Success(fieldsSeq), None, _) if fieldsSeq.lengthCompare(1) > 0 =>
-          Failure(new InvalidStatementException("cannot execute a select distinct projecting more than one dimension"))
-        case (false, Success(Seq(Field(name, Some(CountAggregation)))), None, limit) =>
+        case (true, Success(fieldsSeq), None) if fieldsSeq.lengthCompare(1) > 0 =>
+          Failure(new InvalidStatementException(Errors.MORE_FIELDS_DISTINCT))
+        case (false, Success(Seq(Field(name, Some(CountAggregation)))), None) =>
           Success(
             ParsedSimpleQuery(
               statement.namespace,
               statement.metric,
               exp.q,
               false,
-              limit.map(_.value).getOrElse(Integer.MAX_VALUE),
+              limitOpt.getOrElse(Integer.MAX_VALUE),
               List(SimpleField(name, true)),
               sortOpt
             )
           )
-        case (distinct, Success(fieldsSeq), None, Some(limit))
+        case (distinct, Success(fieldsSeq), None)
             if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
+          Success(
+            ParsedSimpleQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              distinct,
+              limitOpt getOrElse Int.MaxValue,
+              fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
+              sortOpt
+            ))
+        case (false, Success(List()), None) =>
           Success(
             ParsedSimpleQuery(statement.namespace,
                               statement.metric,
                               exp.q,
-                              distinct,
-                              limit.value,
-                              fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
+                              false,
+                              limitOpt getOrElse Int.MaxValue,
+                              List(),
                               sortOpt))
-        case (false, Success(List()), None, Some(limit)) =>
-          Success(ParsedSimpleQuery(statement.namespace, statement.metric, exp.q, false, limit.value, List(), sortOpt))
 
-        case (_, Success(fieldsSeq), None, Some(_))
+        case (_, Success(fieldsSeq), None)
             if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
-          Failure(
-            new InvalidStatementException(
-              "cannot execute a query with aggregation different than count without a group by"))
-        case (_, _, None, None) =>
-          Failure(new InvalidStatementException("cannot execute query without a limit"))
+          Failure(new InvalidStatementException(Errors.NO_GROUP_BY_AGGREGATION))
     })
   }
 }
 
 object StatementParser {
+
+  object Errors {
+    lazy val NO_AGGREGATION_GROUP_BY = "cannot execute a group by query without an aggregation"
+    lazy val MORE_FIELDS_GROUP_BY    = "cannot execute a group by query with more than a field"
+    lazy val MORE_FIELDS_DISTINCT    = "cannot execute a select distinct projecting more than one dimension"
+    lazy val NO_GROUP_BY_AGGREGATION =
+      "cannot execute a query with aggregation different than count without a group by"
+    def notExistingDimension(dim: String)       = s"dimension $dim does not exist"
+    def notExistingDimensions(dim: Seq[String]) = s"dimensions [$dim] does not exist"
+    def uncompatibleOperator(operator: String, dimTypeAllowed: String) =
+      s"cannot use $operator operator on dimension different from $dimTypeAllowed"
+  }
 
   private case class ParsedExpression(q: Query)
 

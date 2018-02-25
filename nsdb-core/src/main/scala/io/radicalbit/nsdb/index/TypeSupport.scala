@@ -51,7 +51,7 @@ sealed trait IndexType[T] {
 
   def deserialize(value: Array[Byte]): T
 
-  def cast(value: JSerializable): T
+  def cast(value: Any): T
 
 }
 
@@ -96,7 +96,7 @@ case class INT() extends NumericType[Integer, Int] {
 
   override def numeric: Numeric[JSerializable] = implicitly[Numeric[Int]].asInstanceOf[Numeric[JSerializable]]
 
-  override def cast(value: JSerializable): Integer = value.toString.toInt
+  override def cast(value: Any): Integer = value.toString.toInt
 }
 case class BIGINT() extends NumericType[JLong, Long] {
   def actualType                   = classOf[JLong]
@@ -116,7 +116,7 @@ case class BIGINT() extends NumericType[JLong, Long] {
 
   override def numeric: Numeric[JSerializable] = implicitly[Numeric[Long]].asInstanceOf[Numeric[JSerializable]]
 
-  override def cast(value: JSerializable): JLong = value.toString.toLong
+  override def cast(value: Any): JLong = value.toString.toLong
 }
 case class DECIMAL() extends NumericType[JDouble, Double] {
   def actualType                   = classOf[JDouble]
@@ -136,7 +136,7 @@ case class DECIMAL() extends NumericType[JDouble, Double] {
 
   override def numeric: Numeric[JSerializable] = implicitly[Numeric[Double]].asInstanceOf[Numeric[JSerializable]]
 
-  override def cast(value: JSerializable): JDouble = value.toString.toDouble
+  override def cast(value: Any): JDouble = value.toString.toDouble
 }
 case class VARCHAR() extends StringType[String] {
   def actualType                   = classOf[String]
@@ -153,5 +153,5 @@ case class VARCHAR() extends StringType[String] {
     )
   def deserialize(value: Array[Byte]) = new String(value)
 
-  override def cast(value: JSerializable): String = value.toString
+  override def cast(value: Any): String = value.toString
 }

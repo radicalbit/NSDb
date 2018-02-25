@@ -21,7 +21,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val Val              = "VAL" ignoreCase
   private val Select           = "SELECT" ignoreCase
   private val Delete           = "DELETE" ignoreCase
-  private val Drop             = "Drop" ignoreCase
+  private val Drop             = "DROP METRIC" ignoreCase
   private val All              = "*"
   private val From             = "FROM" ignoreCase
   private val Where            = "WHERE" ignoreCase
