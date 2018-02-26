@@ -154,12 +154,16 @@ class StatementParser {
   def parseDeleteStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] =
     parseStatement(statement, schema)
 
-  private def getCollector(group: String, field: String, agg: Aggregation): AllGroupsAggregationCollector = {
+  private def getCollector[T <: NumericType[_, _]](group: String,
+                                                   field: String,
+                                                   agg: Aggregation,
+                                                   v: T): AllGroupsAggregationCollector[_] = {
+//    implicit val x = implicitly[Numeric[T]]
     agg match {
       case CountAggregation => new CountAllGroupsCollector(group, field)
-      case MaxAggregation   => new MaxAllGroupsCollector(group, field)
-      case MinAggregation   => new MinAllGroupsCollector(group, field)
-      case SumAggregation   => new SumAllGroupsCollector(group, field)
+      case MaxAggregation   => new MaxAllGroupsCollector(group, field)(v.scalaNumeric)
+      case MinAggregation   => new MinAllGroupsCollector(group, field)(v.scalaNumeric)
+      case SumAggregation   => new SumAllGroupsCollector(group, field)(v.scalaNumeric)
     }
   }
 
@@ -207,12 +211,14 @@ class StatementParser {
             if schema.fields.map(_.name).contains(group) && fieldName == "value"
               && schema.fields.filter(_.name == group).head.indexType.isInstanceOf[VARCHAR] =>
           Success(
-            ParsedAggregatedQuery(statement.namespace,
-                                  statement.metric,
-                                  exp.q,
-                                  getCollector(group, fieldName, agg),
-                                  sortOpt,
-                                  limitOpt))
+            ParsedAggregatedQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              getCollector(group, fieldName, agg, schema.fieldsMap("value").asInstanceOf[NumericType[_, _]]),
+              sortOpt,
+              limitOpt
+            ))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
           Failure(new InvalidStatementException(Errors.GROUP_BY_ON_NOT_STRING_DIM))
@@ -314,7 +320,7 @@ object StatementParser {
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   collector: AllGroupsAggregationCollector,
+                                   collector: AllGroupsAggregationCollector[_],
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
       extends ParsedQuery

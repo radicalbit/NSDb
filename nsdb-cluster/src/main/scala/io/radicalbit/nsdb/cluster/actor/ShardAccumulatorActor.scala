@@ -330,11 +330,11 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
                 val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
-                  case _: MaxAllGroupsCollector =>
+                  case _: MaxAllGroupsCollector[_] =>
                     Bit(0, values.map(_.value).max, values.head.dimensions)
-                  case _: MinAllGroupsCollector =>
+                  case _: MinAllGroupsCollector[_] =>
                     Bit(0, values.map(_.value).min, values.head.dimensions)
-                  case _: SumAllGroupsCollector =>
+                  case _: SumAllGroupsCollector[_] =>
                     Bit(0, values.map(_.value).sum, values.head.dimensions)
                 }
               })

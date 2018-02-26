@@ -37,7 +37,8 @@ sealed trait IndexType[T] {
 
 }
 
-sealed trait NumericType[T, ST] extends IndexType[T] {
+sealed abstract class NumericType[T, ST: Numeric] extends IndexType[T] {
+  lazy val scalaNumeric = implicitly[Numeric[ST]]
   def numeric: Numeric[JSerializable]
 }
 
