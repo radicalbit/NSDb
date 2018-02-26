@@ -1,6 +1,8 @@
 package io.radicalbit.nsdb.common.exception
 
-sealed trait NsdbException
+import scala.util.control.NoStackTrace
+
+sealed trait NsdbException extends NoStackTrace
 
 abstract class NsdbRuntimeException(val message: String) extends RuntimeException with NsdbException
 class NsdbConnectionException(val message: String)       extends RuntimeException with NsdbException

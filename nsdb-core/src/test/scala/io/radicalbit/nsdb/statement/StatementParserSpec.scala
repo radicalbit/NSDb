@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
@@ -9,6 +10,7 @@ import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.TryValues._
 
 import scala.util.Success
 
@@ -22,6 +24,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       SchemaField("timestamp", BIGINT()),
       SchemaField("name", VARCHAR()),
       SchemaField("surname", VARCHAR()),
+      SchemaField("amount", DECIMAL()),
       SchemaField("creationDate", BIGINT()),
       SchemaField("value", DECIMAL())
     )
@@ -262,6 +265,45 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
+      "parse it successfully on a decimal vs a int" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("amount", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "amount", value = 0))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              DoublePoint.newExactQuery("amount", 0),
+              false,
+              4,
+              List("amount").map(SimpleField(_))
+            ))
+        )
+      }
+      "fail on a int vs a decimal" in {
+        val result = parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "creationDate", value = 0.5))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        )
+        result.failure.exception shouldBe a[InvalidStatementException]
+      }
       "parse it successfully on a number vs a string" in {
         parser.parseStatement(
           SelectSQLStatement(
@@ -313,6 +355,46 @@ class StatementParserSpec extends WordSpec with Matchers {
               List("name").map(SimpleField(_))
             ))
         )
+      }
+      "parse it successfully on a decimal vs a int" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("amount", None))),
+            condition = Some(Condition(
+              ComparisonExpression(dimension = "amount", comparison = GreaterOrEqualToOperator, value = 10L))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedSimpleQuery(
+              "registry",
+              "people",
+              DoublePoint.newRangeQuery("amount", 10.0, Double.MaxValue),
+              false,
+              4,
+              List("amount").map(SimpleField(_))
+            ))
+        )
+      }
+      "fail on a int vs a decimal" in {
+        val result = parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "creationDate", value = 0.5))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        )
+        result.failure.exception shouldBe a[InvalidStatementException]
       }
     }
 
@@ -574,7 +656,11 @@ class StatementParserSpec extends WordSpec with Matchers {
                                                  metric = "people",
                                                  distinct = false,
                                                  fields = AllFields),
-                              schema) shouldBe 'failure
+                              schema) should be(
+          Success(
+            ParsedSimpleQuery("registry", "people", new MatchAllDocsQuery(), false, Int.MaxValue)
+          )
+        )
       }
     }
 

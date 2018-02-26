@@ -126,9 +126,13 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record = Bit(timestamp = request.timestamp, dimensions = request.dimensions.collect {
-          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
-        }, value = valueFor(request.value))
+        record = Bit(
+          timestamp = request.timestamp,
+          dimensions = request.dimensions.collect {
+            case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
+          },
+          value = valueFor(request.value)
+        )
       )).map {
         case _: InputMapped =>
           RPCInsertResult(completedSuccessfully = true)
