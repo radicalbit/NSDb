@@ -47,7 +47,7 @@ abstract class AllGroupsAggregationCollector extends AllGroupsCollector[String] 
 
     if (!ordSet.exists(key)) {
       ordSet.put(key)
-      groups += (term -> 1)
+      groups += (term -> agg)
     } else {
       accumulateFunction(groups(term), agg).foreach(v => groups += (term -> v))
     }

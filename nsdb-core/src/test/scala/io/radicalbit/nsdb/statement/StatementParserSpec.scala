@@ -5,14 +5,14 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
 import io.radicalbit.nsdb.model.SchemaField
-import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
+import io.radicalbit.nsdb.statement.StatementParser.{Errors, ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
 import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.TryValues._
 
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 class StatementParserSpec extends WordSpec with Matchers {
 
@@ -916,5 +916,41 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a group by on a dimension of type different from varchar" should {
+      "fail" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(SumAggregation)))),
+            condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
+            groupBy = Some("amount"),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) shouldBe a[Failure[InvalidStatementException]]
+      }
+    }
+
+    "receive a group by with aggragation function on dimension different from value" should {
+      "fail" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("amount", Some(SumAggregation)))),
+            condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
+            groupBy = Some("name"),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) shouldBe a[Failure[InvalidStatementException]]
+      }
+
+    }
   }
 }

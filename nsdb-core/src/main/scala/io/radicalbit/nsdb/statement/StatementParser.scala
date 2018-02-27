@@ -204,7 +204,8 @@ class StatementParser {
       (distinctValue, fieldList, statement.groupBy) match {
         case (_, Failure(exception), _) => Failure(exception)
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) =>
+            if schema.fields.map(_.name).contains(group) && fieldName == "value"
+              && schema.fields.filter(_.name == group).head.indexType.isInstanceOf[VARCHAR] =>
           Success(
             ParsedAggregatedQuery(statement.namespace,
                                   statement.metric,
@@ -212,6 +213,12 @@ class StatementParser {
                                   getCollector(group, fieldName, agg),
                                   sortOpt,
                                   limitOpt))
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
+            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
+          Failure(new InvalidStatementException(Errors.GROUP_BY_ON_NOT_STRING_DIM))
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
+            if schema.fields.map(_.name).contains(group) && fieldName != "value" =>
+          Failure(new InvalidStatementException(Errors.AGGREGATION_NOT_ON_VALUE))
         case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
           Failure(new InvalidStatementException(Errors.notExistingDimension(group)))
         case (_, Success(List(Field(_, None))), Some(_)) =>
@@ -272,6 +279,10 @@ object StatementParser {
     lazy val MORE_FIELDS_DISTINCT    = "cannot execute a select distinct projecting more than one dimension"
     lazy val NO_GROUP_BY_AGGREGATION =
       "cannot execute a query with aggregation different than count without a group by"
+    lazy val AGGREGATION_NOT_ON_VALUE =
+      "cannot execute a group by query performing an aggregation on dimension different from value"
+    lazy val GROUP_BY_ON_NOT_STRING_DIM =
+      "cannot execute a group by query on a dimension of type different from varchar"
     def notExistingDimension(dim: String)       = s"dimension $dim does not exist"
     def notExistingDimensions(dim: Seq[String]) = s"dimensions [$dim] does not exist"
     def uncompatibleOperator(operator: String, dimTypeAllowed: String) =
