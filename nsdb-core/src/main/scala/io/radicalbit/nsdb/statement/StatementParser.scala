@@ -214,7 +214,7 @@ class StatementParser {
                                   sortOpt,
                                   limitOpt))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-          if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
+            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
           Failure(new InvalidStatementException(Errors.GROUP_BY_ON_NOT_STRING_DIM))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && fieldName != "value" =>
