@@ -36,11 +36,11 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = AllFields,
-            limit = Some(LimitOperator(4))),
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = false,
+                             fields = AllFields,
+                             limit = Some(LimitOperator(4))),
           schema
         ) should be(
           Success(
@@ -59,11 +59,11 @@ class StatementParserSpec extends WordSpec with Matchers {
       "fails" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("address", None))),
-            limit = Some(LimitOperator(4))),
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = false,
+                             fields = ListFields(List(Field("address", None))),
+                             limit = Some(LimitOperator(4))),
           schema
         ) shouldBe 'failure
       }
@@ -73,11 +73,11 @@ class StatementParserSpec extends WordSpec with Matchers {
       "fail" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = true,
-            fields = AllFields,
-            limit = Some(LimitOperator(4))),
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = true,
+                             fields = AllFields,
+                             limit = Some(LimitOperator(4))),
           schema
         ) shouldBe 'failure
       }
@@ -87,11 +87,11 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = true,
-            fields = ListFields(List(Field("name", None))),
-            limit = Some(LimitOperator(4))),
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = true,
+                             fields = ListFields(List(Field("name", None))),
+                             limit = Some(LimitOperator(4))),
           schema
         ) should be(
           Success(
@@ -154,8 +154,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(
               List(Field("*", Some(CountAggregation)),
-                Field("surname", None),
-                Field("creationDate", Some(CountAggregation)))),
+                   Field("surname", None),
+                   Field("creationDate", Some(CountAggregation)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -180,8 +180,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(
               List(Field("*", Some(CountAggregation)),
-                Field("surname", None),
-                Field("creationDate", Some(SumAggregation)))),
+                   Field("surname", None),
+                   Field("creationDate", Some(SumAggregation)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -572,12 +572,12 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = AllFields,
-            order = Some(AscOrderOperator("name")),
-            limit = Some(LimitOperator(4))),
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = false,
+                             fields = AllFields,
+                             order = Some(AscOrderOperator("name")),
+                             limit = Some(LimitOperator(4))),
           schema
         ) should be(
           Success(
@@ -598,12 +598,12 @@ class StatementParserSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parseStatement(
           SelectSQLStatement(db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = AllFields,
-            order = Some(AscOrderOperator("value")),
-            limit = Some(LimitOperator(4))),
+                             namespace = "registry",
+                             metric = "people",
+                             distinct = false,
+                             fields = AllFields,
+                             order = Some(AscOrderOperator("value")),
+                             limit = Some(LimitOperator(4))),
           schema
         ) should be(
           Success(
@@ -652,11 +652,11 @@ class StatementParserSpec extends WordSpec with Matchers {
     "receive a statement without limit" should {
       "fail" in {
         parser.parseStatement(SelectSQLStatement(db = "db",
-          namespace = "registry",
-          metric = "people",
-          distinct = false,
-          fields = AllFields),
-          schema) should be(
+                                                 namespace = "registry",
+                                                 metric = "people",
+                                                 distinct = false,
+                                                 fields = AllFields),
+                              schema) should be(
           Success(
             ParsedSimpleQuery("registry", "people", new MatchAllDocsQuery(), false, Int.MaxValue)
           )
@@ -806,7 +806,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                   new BooleanQuery.Builder()
                     .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
                     .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
-                      BooleanClause.Occur.MUST_NOT)
+                         BooleanClause.Occur.MUST_NOT)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )
@@ -839,7 +839,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
                 .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
-                  BooleanClause.Occur.MUST_NOT)
+                     BooleanClause.Occur.MUST_NOT)
                 .build(),
               false,
               5,
@@ -873,7 +873,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                   new BooleanQuery.Builder()
                     .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
                     .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
-                      BooleanClause.Occur.MUST_NOT)
+                         BooleanClause.Occur.MUST_NOT)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )
@@ -906,7 +906,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
-                  BooleanClause.Occur.MUST_NOT)
+                     BooleanClause.Occur.MUST_NOT)
                 .build(),
               false,
               5,
