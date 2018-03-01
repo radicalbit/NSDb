@@ -49,19 +49,5 @@ class ReadCoordinatorSpec
     expectNoMessage(interval)
   }
 
-  import scala.concurrent.duration._
-
-  "ReadCoordinator" should {
-    "receive a GetMetrics given a namespace" should {
-      "return it properly" in {
-        probe.send(readCoordinatorActor, GetMetrics(db, namespace))
-
-        within(5 seconds) {
-          val expected = probe.expectMsgType[MetricsGot]
-          expected.namespace shouldBe namespace
-          expected.metrics shouldBe Set("people")
-        }
-      }
-    }
-  }
+  "ReadCoordinator in shard mode" should behave.like(defaultBehaviour)
 }

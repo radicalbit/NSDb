@@ -4,7 +4,7 @@ import akka.actor.ActorRef
 import akka.testkit.{TestKit, TestProbe}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
+import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, GetMetrics, GetNamespaces, GetSchema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -23,14 +23,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
   def readCoordinatorActor: ActorRef
 
   val recordsShard1: Seq[Bit] = Seq(
-    Bit(2L, 1L, Map("name" -> "John", "surname" -> "Doe")),
-    Bit(4L, 1L, Map("name" -> "John", "surname" -> "Doe"))
+    Bit(2L, 1.5, Map("name" -> "John", "surname" -> "Doe")),
+    Bit(4L, 1.5, Map("name" -> "John", "surname" -> "Doe"))
   )
 
   val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 1L, Map("name"  -> "Bill", "surname"    -> "Doe")),
-    Bit(8L, 1L, Map("name"  -> "Frank", "surname"   -> "Doe")),
-    Bit(10L, 1L, Map("name" -> "Frankie", "surname" -> "Doe"))
+    Bit(6L, 1.5, Map("name"  -> "Bill", "surname"    -> "Doe")),
+    Bit(8L, 1.5, Map("name"  -> "Frank", "surname"   -> "Doe")),
+    Bit(10L, 1.5, Map("name" -> "Frankie", "surname" -> "Doe"))
   )
 
   val testRecords = recordsShard1 ++ recordsShard2
@@ -77,7 +77,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 SchemaField("name", VARCHAR()),
                 SchemaField("surname", VARCHAR()),
                 SchemaField("timestamp", BIGINT()),
-                SchemaField("value", BIGINT())
+                SchemaField("value", DECIMAL())
               )
           }
         }
@@ -260,11 +260,11 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.sortBy(_.timestamp) shouldBe Seq(
-              Bit(2L, 1L, Map("name"  -> "John", "count(*)"    -> 5)),
-              Bit(4L, 1L, Map("name"  -> "John", "count(*)"    -> 5)),
-              Bit(6L, 1L, Map("name"  -> "Bill", "count(*)"    -> 5)),
-              Bit(8L, 1L, Map("name"  -> "Frank", "count(*)"   -> 5)),
-              Bit(10L, 1L, Map("name" -> "Frankie", "count(*)" -> 5))
+              Bit(2L, 1.5, Map("name"  -> "John", "count(*)"    -> 5)),
+              Bit(4L, 1.5, Map("name"  -> "John", "count(*)"    -> 5)),
+              Bit(6L, 1.5, Map("name"  -> "Bill", "count(*)"    -> 5)),
+              Bit(8L, 1.5, Map("name"  -> "Frank", "count(*)"   -> 5)),
+              Bit(10L, 1.5, Map("name" -> "Frankie", "count(*)" -> 5))
             )
           }
         }
@@ -380,7 +380,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.size shouldBe 1
-            expected.values.head shouldBe Bit(10, 1, Map("name" -> "Frankie"))
+            expected.values.head shouldBe Bit(10, 1.5, Map("name" -> "Frankie"))
           }
         }
       }
@@ -640,10 +640,10 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
-              Bit(0L, 2L, Map("name" -> "John")),
-              Bit(0L, 1L, Map("name" -> "Frankie")),
-              Bit(0L, 1L, Map("name" -> "Frank")),
-              Bit(0L, 1L, Map("name" -> "Bill"))
+              Bit(0L, 3.0, Map("name" -> "John")),
+              Bit(0L, 1.5, Map("name" -> "Frankie")),
+              Bit(0L, 1.5, Map("name" -> "Frank")),
+              Bit(0L, 1.5, Map("name" -> "Bill"))
             )
           }
         }
@@ -665,7 +665,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.map(_.value) shouldBe Seq(2l, 1L, 1L, 1l)
+            expected.values.map(_.value) shouldBe Seq(3.0, 1.5, 1.5, 1.5)
           }
         }
         "execute it successfully with asc ordering over numerical dimension" in {
@@ -687,7 +687,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.map(_.value) shouldBe Seq(1l, 1L)
+            expected.values.map(_.value) shouldBe Seq(1.5, 1.5)
           }
         }
 

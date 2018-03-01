@@ -683,7 +683,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new SumAllGroupsCollector("name", "value")
+              new SumAllGroupsCollector[Long]("name", "value")
             ))
         )
       }
@@ -710,7 +710,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new MaxAllGroupsCollector("name", "value"),
+              new MaxAllGroupsCollector[Long]("name", "value"),
               Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
               Some(5)
             ))

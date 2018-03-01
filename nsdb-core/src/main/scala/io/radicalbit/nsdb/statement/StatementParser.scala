@@ -158,7 +158,6 @@ class StatementParser {
                                                    field: String,
                                                    agg: Aggregation,
                                                    v: T): AllGroupsAggregationCollector[_] = {
-//    implicit val x = implicitly[Numeric[T]]
     agg match {
       case CountAggregation => new CountAllGroupsCollector(group, field)
       case MaxAggregation   => new MaxAllGroupsCollector(group, field)(v.scalaNumeric)
@@ -193,7 +192,7 @@ class StatementParser {
       case ListFields(list) =>
         val metricDimensions     = schema.fields.map(_.name)
         val projectionDimensions = list.map(_.name).filterNot(_ == "*")
-        val diff                 = projectionDimensions.filterNot(metricDimensions.contains(_))
+        val diff                 = projectionDimensions.filterNot(metricDimensions.contains)
         if (diff.isEmpty)
           Success(list)
         else
@@ -215,7 +214,7 @@ class StatementParser {
               statement.namespace,
               statement.metric,
               exp.q,
-              getCollector(group, fieldName, agg, schema.fieldsMap("value").asInstanceOf[NumericType[_, _]]),
+              getCollector(group, fieldName, agg, schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]),
               sortOpt,
               limitOpt
             ))

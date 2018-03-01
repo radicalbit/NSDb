@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.index.lucene
 
 import java.util
 
-import org.apache.lucene.document.Field
+import org.apache.lucene.document._
 import org.apache.lucene.index.{DocValues, LeafReaderContext, NumericDocValues, SortedDocValues}
 import org.apache.lucene.search.SortField
 import org.apache.lucene.search.grouping.AllGroupsCollector
@@ -19,9 +19,10 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
 
   val groupField: String
   val aggField: String
-  def accumulateFunction(prev: T, actual: T): Option[T]
 
-  val ord = implicitly[Ordering[T]]
+  private val numeric = implicitly[Numeric[T]]
+
+  def accumulateFunction(prev: T, actual: T): Option[T]
 
   val initialSize: Int = AllGroupsAggregationCollector.DEFAULT_INITIAL_SIZE
 
@@ -36,16 +37,21 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
 
   def getGroupMap: Map[String, T] = groups.toMap
 
-  private def Ord(reverse: Boolean): Ordering[T] =
-    if (reverse) implicitly[Ordering[T]].reverse else implicitly[Ordering[T]]
+  private def Ord[F: Ordering](reverse: Boolean): Ordering[F] =
+    if (reverse) implicitly[Ordering[F]].reverse else implicitly[Ordering[F]]
 
   def getOrderedMap(sortField: SortField): Map[String, T] = sortField match {
     case s if s.getType == SortField.Type.STRING =>
-      getGroupMap.toSeq.sortBy(_._1).toMap
+      getGroupMap.toSeq.sortBy(_._1)(Ord(s.getReverse)).toMap
     case s => getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
   }
 
-  def indexField(value: T): Field
+  def indexField(value: T): Field = value match {
+    case v: Double => new DoublePoint(aggField, v)
+    case v: Long   => new LongPoint(aggField, v)
+    case v: Int    => new IntPoint(aggField, v)
+    case v         => new StringField(aggField, v.toString, Field.Store.NO)
+  }
 
   def clear: AllGroupsAggregationCollector[T] = {
     ordSet.clear()
@@ -59,7 +65,11 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
     val term: String =
       if (key == -1) null
       else BytesRef.deepCopyOf(index.lookupOrd(key)).utf8ToString()
-    val agg = aggIndex.get(doc).asInstanceOf[T]
+
+    val agg = numeric.one match {
+      case _: Double => java.lang.Double.longBitsToDouble(aggIndex.get(doc)).asInstanceOf[T]
+      case _         => aggIndex.get(doc).asInstanceOf[T]
+    }
 
     if (!ordSet.exists(key)) {
       ordSet.put(key)
