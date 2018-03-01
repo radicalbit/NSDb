@@ -4,7 +4,7 @@ import akka.actor.ActorRef
 import akka.testkit.{TestKit, TestProbe}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, Schema, VARCHAR}
+import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, GetMetrics, GetNamespaces, GetSchema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -22,18 +22,41 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
   def readCoordinatorActor: ActorRef
 
-  val recordsShard1: Seq[Bit] = Seq(
-    Bit(2L, 1L, Map("name" -> "John", "surname" -> "Doe")),
-    Bit(4L, 1L, Map("name" -> "John", "surname" -> "Doe"))
-  )
+  object LongMetric {
 
-  val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 1L, Map("name"  -> "Bill", "surname"    -> "Doe")),
-    Bit(8L, 1L, Map("name"  -> "Frank", "surname"   -> "Doe")),
-    Bit(10L, 1L, Map("name" -> "Frankie", "surname" -> "Doe"))
-  )
+    val name = "longMetric"
 
-  val testRecords = recordsShard1 ++ recordsShard2
+    val recordsShard1: Seq[Bit] = Seq(
+      Bit(2L, 1L, Map("name" -> "John", "surname" -> "Doe")),
+      Bit(4L, 1L, Map("name" -> "John", "surname" -> "Doe"))
+    )
+
+    val recordsShard2: Seq[Bit] = Seq(
+      Bit(6L, 1L, Map("name"  -> "Bill", "surname"    -> "Doe")),
+      Bit(8L, 1L, Map("name"  -> "Frank", "surname"   -> "Doe")),
+      Bit(10L, 1L, Map("name" -> "Frankie", "surname" -> "Doe"))
+    )
+
+    val testRecords = recordsShard1 ++ recordsShard2
+  }
+
+  object DoubleMetric {
+
+    val name = "doubleMetric"
+
+    val recordsShard1: Seq[Bit] = Seq(
+      Bit(2L, 1.5, Map("name" -> "John", "surname" -> "Doe")),
+      Bit(4L, 1.5, Map("name" -> "John", "surname" -> "Doe"))
+    )
+
+    val recordsShard2: Seq[Bit] = Seq(
+      Bit(6L, 1.5, Map("name"  -> "Bill", "surname"    -> "Doe")),
+      Bit(8L, 1.5, Map("name"  -> "Frank", "surname"   -> "Doe")),
+      Bit(10L, 1.5, Map("name" -> "Frankie", "surname" -> "Doe"))
+    )
+
+    val testRecords = recordsShard1 ++ recordsShard2
+  }
 
   def defaultBehaviour {
     "ReadCoordinator" when {
@@ -57,19 +80,19 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[MetricsGot]
             expected.namespace shouldBe namespace
-            expected.metrics shouldBe Set("people")
+            expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name)
           }
         }
       }
 
       "receive a GetSchema given a namespace and a metric" should {
         "return it properly" in {
-          probe.send(readCoordinatorActor, GetSchema(db, namespace, "people"))
+          probe.send(readCoordinatorActor, GetSchema(db, namespace, LongMetric.name))
 
           within(5 seconds) {
             val expected = probe.expectMsgType[SchemaGot]
             expected.namespace shouldBe namespace
-            expected.metric shouldBe "people"
+            expected.metric shouldBe LongMetric.name
             expected.schema shouldBe defined
 
             expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
@@ -78,6 +101,23 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 SchemaField("surname", VARCHAR()),
                 SchemaField("timestamp", BIGINT()),
                 SchemaField("value", BIGINT())
+              )
+          }
+
+          probe.send(readCoordinatorActor, GetSchema(db, namespace, DoubleMetric.name))
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SchemaGot]
+            expected.namespace shouldBe namespace
+            expected.metric shouldBe DoubleMetric.name
+            expected.schema shouldBe defined
+
+            expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
+              Seq(
+                SchemaField("name", VARCHAR()),
+                SchemaField("surname", VARCHAR()),
+                SchemaField("timestamp", BIGINT()),
+                SchemaField("value", DECIMAL())
               )
           }
         }
@@ -91,7 +131,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
                 limit = Some(LimitOperator(5))
@@ -115,7 +155,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
                 limit = Some(LimitOperator(2))
@@ -136,7 +176,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
                 order = Some(AscOrderOperator("name")),
@@ -163,7 +203,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
                 order = Some(DescOrderOperator("name")),
@@ -191,7 +231,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             ExecuteStatement(
               SelectSQLStatement(db = db,
                                  namespace = namespace,
-                                 metric = "people",
+                                 metric = LongMetric.name,
                                  distinct = false,
                                  fields = AllFields,
                                  limit = Some(LimitOperator(5)))
@@ -199,7 +239,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           )
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.sortBy(_.timestamp) shouldBe testRecords
+            expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
           }
         }
         "fail if distinct" in {
@@ -208,7 +248,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             ExecuteStatement(
               SelectSQLStatement(db = db,
                                  namespace = namespace,
-                                 metric = "people",
+                                 metric = LongMetric.name,
                                  distinct = true,
                                  fields = AllFields,
                                  limit = Some(LimitOperator(5)))
@@ -228,7 +268,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None), Field("surname", None))),
                 limit = Some(LimitOperator(5))
@@ -239,7 +279,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
-            expected.values.sortBy(_.timestamp) shouldBe testRecords
+            expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
           }
 
         }
@@ -250,7 +290,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)), Field("name", None))),
                 limit = Some(LimitOperator(5))
@@ -260,11 +300,11 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.sortBy(_.timestamp) shouldBe Seq(
-              Bit(2L, 1L, Map("name"  -> "John", "count(*)"    -> 5)),
-              Bit(4L, 1L, Map("name"  -> "John", "count(*)"    -> 5)),
-              Bit(6L, 1L, Map("name"  -> "Bill", "count(*)"    -> 5)),
-              Bit(8L, 1L, Map("name"  -> "Frank", "count(*)"   -> 5)),
-              Bit(10L, 1L, Map("name" -> "Frankie", "count(*)" -> 5))
+              Bit(2L, 1, Map("name"  -> "John", "count(*)"    -> 5)),
+              Bit(4L, 1, Map("name"  -> "John", "count(*)"    -> 5)),
+              Bit(6L, 1, Map("name"  -> "Bill", "count(*)"    -> 5)),
+              Bit(8L, 1, Map("name"  -> "Frank", "count(*)"   -> 5)),
+              Bit(10L, 1, Map("name" -> "Frankie", "count(*)" -> 5))
             )
           }
         }
@@ -275,7 +315,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(
                   List(Field("*", Some(CountAggregation)))
@@ -298,7 +338,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(
                   List(Field("*", Some(CountAggregation)),
@@ -319,7 +359,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = true,
                 fields = ListFields(List(Field("name", None), Field("surname", None))),
                 limit = Some(LimitOperator(5))
@@ -341,7 +381,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
@@ -366,7 +406,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(
@@ -393,7 +433,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(
@@ -422,7 +462,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(TupledLogicalExpression(
@@ -453,7 +493,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(expression = TupledLogicalExpression(
@@ -482,7 +522,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 2L))),
@@ -507,7 +547,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None))),
                 condition = Some(Condition(expression = TupledLogicalExpression(
@@ -535,7 +575,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
                 condition = Some(Condition(
@@ -560,7 +600,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("creationDate", None))),
                 condition = Some(Condition(
@@ -602,7 +642,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(CountAggregation)))),
                 groupBy = Some("name"),
@@ -628,7 +668,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
                 groupBy = Some("name"),
@@ -640,10 +680,35 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
-              Bit(0L, 2L, Map("name" -> "John")),
-              Bit(0L, 1L, Map("name" -> "Frankie")),
-              Bit(0L, 1L, Map("name" -> "Frank")),
-              Bit(0L, 1L, Map("name" -> "Bill"))
+              Bit(0L, 2, Map("name" -> "John")),
+              Bit(0L, 1, Map("name" -> "Frankie")),
+              Bit(0L, 1, Map("name" -> "Frank")),
+              Bit(0L, 1, Map("name" -> "Bill"))
+            )
+          }
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = DoubleMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("name"),
+                order = Some(DescOrderOperator("name"))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values shouldBe Seq(
+              Bit(0L, 3.0, Map("name" -> "John")),
+              Bit(0L, 1.5, Map("name" -> "Frankie")),
+              Bit(0L, 1.5, Map("name" -> "Frank")),
+              Bit(0L, 1.5, Map("name" -> "Bill"))
             )
           }
         }
@@ -654,7 +719,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
                 groupBy = Some("name"),
@@ -665,7 +730,27 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.map(_.value) shouldBe Seq(2l, 1L, 1L, 1l)
+            expected.values.map(_.value) shouldBe Seq(2, 1, 1, 1)
+          }
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = DoubleMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("name"),
+                order = Some(DescOrderOperator("value"))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values.map(_.value) shouldBe Seq(3.0, 1.5, 1.5, 1.5)
           }
         }
         "execute it successfully with asc ordering over numerical dimension" in {
@@ -675,7 +760,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               SelectSQLStatement(
                 db = db,
                 namespace = namespace,
-                metric = "people",
+                metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
                 groupBy = Some("name"),
@@ -687,7 +772,28 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.map(_.value) shouldBe Seq(1l, 1L)
+            expected.values.map(_.value) shouldBe Seq(1, 1)
+          }
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = DoubleMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("name"),
+                order = Some(AscOrderOperator("value")),
+                limit = Some(LimitOperator(2))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values.map(_.value) shouldBe Seq(1.5, 1.5)
           }
         }
 

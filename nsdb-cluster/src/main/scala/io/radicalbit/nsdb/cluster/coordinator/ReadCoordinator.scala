@@ -81,6 +81,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
             Future(
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
+        .recoverWith {
+          case t => Future(SelectStatementFailed(t.getMessage))
+        }
         .pipeToWithEffect(sender()) { () =>
           if (perfLogger.isDebugEnabled)
             perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)

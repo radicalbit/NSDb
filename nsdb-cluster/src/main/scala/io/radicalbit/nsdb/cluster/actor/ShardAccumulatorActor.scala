@@ -6,11 +6,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
-  AddRecordToLocation,
-  DeleteRecordFromLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor._
 import io.radicalbit.nsdb.cluster.actor.ShardAccumulatorActor.Refresh
 import io.radicalbit.nsdb.cluster.actor.ShardPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.JSerializable
@@ -31,7 +27,7 @@ import spire.math.Interval
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContextExecutor
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
@@ -307,9 +303,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
               .flatMap(_.get)
               .groupBy(_.dimensions(statement.groupBy.get))
               .mapValues(values => {
-                val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-                implicit val numeric: Numeric[JSerializable] = v.numeric
-                Bit(0, values.map(_.value).sum, values.head.dimensions)
+                Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions)
               })
               .values
               .toSeq)
@@ -330,11 +324,11 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
                 val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
-                  case _: MaxAllGroupsCollector =>
+                  case _: MaxAllGroupsCollector[_] =>
                     Bit(0, values.map(_.value).max, values.head.dimensions)
-                  case _: MinAllGroupsCollector =>
+                  case _: MinAllGroupsCollector[_] =>
                     Bit(0, values.map(_.value).min, values.head.dimensions)
-                  case _: SumAllGroupsCollector =>
+                  case _: SumAllGroupsCollector[_] =>
                     Bit(0, values.map(_.value).sum, values.head.dimensions)
                 }
               })

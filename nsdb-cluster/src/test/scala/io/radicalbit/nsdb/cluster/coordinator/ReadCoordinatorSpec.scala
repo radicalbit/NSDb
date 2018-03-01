@@ -7,7 +7,6 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricsGot
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -35,33 +34,27 @@ class ReadCoordinatorSpec
     implicit val timeout = Timeout(5 second)
 
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
-    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", testRecords.head), 3 seconds)
 
-    expectNoMessage(interval)
+    //long metric
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
+                 3 seconds)
 
-    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", testRecords.head), 3 seconds)
+    LongMetric.testRecords.foreach { record =>
+      Await.result(namespaceDataActor ? AddRecord(db, namespace, LongMetric.name, record), 3 seconds)
+    }
 
-    testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecord(db, namespace, "people", record), 3 seconds)
+    //double metric
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
+                 3 seconds)
+
+    DoubleMetric.testRecords.foreach { record =>
+      Await.result(namespaceDataActor ? AddRecord(db, namespace, DoubleMetric.name, record), 3 seconds)
     }
 
     expectNoMessage(interval)
   }
 
-  import scala.concurrent.duration._
-
-  "ReadCoordinator" should {
-    "receive a GetMetrics given a namespace" should {
-      "return it properly" in {
-        probe.send(readCoordinatorActor, GetMetrics(db, namespace))
-
-        within(5 seconds) {
-          val expected = probe.expectMsgType[MetricsGot]
-          expected.namespace shouldBe namespace
-          expected.metrics shouldBe Set("people")
-        }
-      }
-    }
-  }
+  "ReadCoordinator in shard mode" should behave.like(defaultBehaviour)
 }

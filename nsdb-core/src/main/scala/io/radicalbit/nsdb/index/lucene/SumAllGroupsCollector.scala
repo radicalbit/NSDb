@@ -1,8 +1,8 @@
 package io.radicalbit.nsdb.index.lucene
 
-class SumAllGroupsCollector(override val groupField: String, override val aggField: String)
-    extends AllGroupsAggregationCollector {
+class SumAllGroupsCollector[T: Numeric](override val groupField: String, override val aggField: String)
+    extends AllGroupsAggregationCollector[T] {
 
-  override def accumulateFunction(prev: Long, actual: Long): Option[Long] = Some(prev + actual)
+  override def accumulateFunction(prev: T, actual: T): Option[T] = Some(implicitly[Numeric[T]].plus(prev, actual))
 
 }

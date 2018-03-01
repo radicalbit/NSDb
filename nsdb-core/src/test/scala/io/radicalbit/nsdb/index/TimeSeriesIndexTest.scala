@@ -127,7 +127,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     writer.close()
 
-    val collector = new MaxAllGroupsCollector("content", "number")
+    val collector = new MaxAllGroupsCollector[Long]("content", "number")
 
     timeSeriesIndex.getSearcher.search(new MatchAllDocsQuery(), collector)
 
@@ -150,7 +150,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val ascSort = new Sort(new SortField("value", SortField.Type.INT, false))
 
     val results = timeSeriesIndex.query(new MatchAllDocsQuery(),
-                                        new MaxAllGroupsCollector("content", "value"),
+                                        new MaxAllGroupsCollector[Long]("content", "value"),
                                         None,
                                         Some(ascSort))
 
@@ -161,7 +161,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
     val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),
-                                            new MaxAllGroupsCollector("content", "value"),
+                                            new MaxAllGroupsCollector[Long]("content", "value"),
                                             None,
                                             Some(descSort))
 
@@ -184,7 +184,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
     val descResults = timeSeriesIndex.query(new MatchAllDocsQuery(),
-                                            new MaxAllGroupsCollector("content", "value"),
+                                            new MaxAllGroupsCollector[Long]("content", "value"),
                                             Some(2),
                                             Some(descSort))
 

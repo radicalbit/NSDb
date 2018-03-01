@@ -8,6 +8,7 @@ import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.util.BytesRef
 
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 trait TypeSupport {
@@ -37,7 +38,8 @@ sealed trait IndexType[T] {
 
 }
 
-sealed trait NumericType[T, ST] extends IndexType[T] {
+sealed abstract class NumericType[T, ST: Numeric: ClassTag] extends IndexType[T] {
+  lazy val scalaNumeric = implicitly[Numeric[ST]]
   def numeric: Numeric[JSerializable]
 }
 
@@ -111,7 +113,7 @@ case class DECIMAL() extends NumericType[JDouble, Double] {
     Seq(
       new DoublePoint(fieldName, value.toString.toDouble),
       new DoubleDocValuesField(fieldName, value.toString.toDouble),
-      new StoredField(fieldName, value.toString.toFloat)
+      new StoredField(fieldName, value.toString.toDouble)
     )
   override def facetField(fieldName: String, value: JSerializable): Seq[Field] =
     Seq(
