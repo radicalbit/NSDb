@@ -46,24 +46,48 @@ class ReadCoordinatorShardSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, "people"), 3 seconds)
-
     val interval = FiniteDuration(
       system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
       TimeUnit.SECONDS)
 
-    expectNoMessage(interval)
+    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
 
-    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, "people", testRecords.head), 3 seconds)
+    val location1 = Location(_: String, "node1", 0, 5)
+    val location2 = Location(_: String, "node1", 6, 10)
 
-    val location1 = Location("people", "node1", 0, 5)
-    val location2 = Location("people", "node1", 6, 10)
+    //long metric
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
 
-    recordsShard1.foreach(r =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, "people", r, location1), 3 seconds))
-    recordsShard2.foreach(r =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, "people", r, location2), 3 seconds))
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
+                 3 seconds)
+
+    LongMetric.recordsShard1.foreach(
+      r =>
+        Await.result(
+          namespaceDataActor ? AddRecordToLocation(db, namespace, LongMetric.name, r, location1(LongMetric.name)),
+          3 seconds))
+    LongMetric.recordsShard2.foreach(
+      r =>
+        Await.result(
+          namespaceDataActor ? AddRecordToLocation(db, namespace, LongMetric.name, r, location2(LongMetric.name)),
+          3 seconds))
+
+    //double metric
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
+
+    Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
+                 3 seconds)
+
+    DoubleMetric.recordsShard1.foreach(
+      r =>
+        Await.result(
+          namespaceDataActor ? AddRecordToLocation(db, namespace, DoubleMetric.name, r, location1(DoubleMetric.name)),
+          3 seconds))
+    DoubleMetric.recordsShard2.foreach(
+      r =>
+        Await.result(
+          namespaceDataActor ? AddRecordToLocation(db, namespace, DoubleMetric.name, r, location2(DoubleMetric.name)),
+          3 seconds))
 
     expectNoMessage(interval)
     expectNoMessage(interval)
@@ -81,7 +105,7 @@ class ReadCoordinatorShardSpec
           ExecuteStatement(
             SelectSQLStatement(db = db,
                                namespace = namespace,
-                               metric = "people",
+                               metric = LongMetric.name,
                                distinct = false,
                                fields = AllFields,
                                limit = Some(LimitOperator(2)))
@@ -100,19 +124,21 @@ class ReadCoordinatorShardSpec
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = "people",
-                               distinct = false,
-                               fields = AllFields,
-                               limit = Some(LimitOperator(2)),
-                               order = Some(DescOrderOperator("timestamp")))
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = AllFields,
+              limit = Some(LimitOperator(2)),
+              order = Some(DescOrderOperator("timestamp"))
+            )
           )
         )
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
-          expected.values shouldBe recordsShard2.tail.reverse
+          expected.values shouldBe LongMetric.recordsShard2.tail.reverse
         }
       }
 
@@ -122,7 +148,7 @@ class ReadCoordinatorShardSpec
           ExecuteStatement(
             SelectSQLStatement(db = db,
                                namespace = namespace,
-                               metric = "people",
+                               metric = LongMetric.name,
                                distinct = false,
                                fields = AllFields,
                                limit = Some(LimitOperator(2)),
@@ -132,7 +158,7 @@ class ReadCoordinatorShardSpec
         within(5 seconds) {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
-          recordsShard1 foreach { r =>
+          LongMetric.recordsShard1 foreach { r =>
             expected.values.contains(r) shouldBe true
           }
         }
