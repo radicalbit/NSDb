@@ -9,6 +9,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
 import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
@@ -28,7 +29,7 @@ class FakeReadCoordinator extends Actor {
     case ExecuteStatement(statement)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
       new StatementParser()
-        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
+        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
         case scala.util.Success(_) =>
           val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
           sender ! SelectStatementExecuted(statement.db,
@@ -39,7 +40,7 @@ class FakeReadCoordinator extends Actor {
       }
     case ExecuteStatement(statement) =>
       new StatementParser()
-        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Seq.empty))) match {
+        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
         case scala.util.Success(_) =>
           sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
         case Failure(_) => sender ! SelectStatementFailed("statement not valid")

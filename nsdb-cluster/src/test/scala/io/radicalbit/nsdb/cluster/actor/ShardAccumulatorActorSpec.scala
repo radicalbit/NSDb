@@ -119,14 +119,14 @@ class ShardAccumulatorActorSpec()
       shardActor.underlyingActor.shards.keys.toSeq.contains(ShardKey("shardActorMetric", 101, 200))
 
       val i1     = shardActor.underlyingActor.shards(ShardKey("shardActorMetric", 0, 100))
-      val shard1 = i1.getAll()(i1.getSearcher)
+      val shard1 = i1.all
       shard1.size shouldBe 3
       shard1 should contain(bit11)
       shard1 should contain(bit12)
       shard1 should contain(bit13)
 
       val i2     = shardActor.underlyingActor.shards(ShardKey("shardActorMetric", 101, 200))
-      val shard2 = i2.getAll()(i2.getSearcher)
+      val shard2 = i2.all
       shard2.size shouldBe 2
       shard2 should contain(bit21)
       shard2 should contain(bit22)

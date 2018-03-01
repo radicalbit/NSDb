@@ -28,7 +28,7 @@ class FakeNamespaceSchemaActor extends Actor {
         db = "db",
         namespace = "registry",
         metric = "people",
-        schema = Some(Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("surname", VARCHAR())))))
+        schema = Some(Schema("people", Set(SchemaField("timestamp", BIGINT()), SchemaField("surname", VARCHAR())))))
   }
 }
 
@@ -61,7 +61,7 @@ class PublisherActorSpec
   val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"))
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
 
-  val schema = Schema("people", Seq(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
+  val schema = Schema("people", Set(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
 
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))

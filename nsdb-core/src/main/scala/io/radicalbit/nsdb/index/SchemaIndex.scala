@@ -1,26 +1,22 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
-import cats.data.{NonEmptyList, Validated}
-import cats.implicits._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{SchemaField, TypedField}
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation, schemaValidationMonoid}
 import org.apache.lucene.document.Field.Store
-import org.apache.lucene.document.{Document, StringField}
+import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.index.{IndexWriter, Term}
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, TermQuery}
+import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-case class Schema(metric: String, fields: Seq[SchemaField]) {
+case class Schema(metric: String, fields: Set[SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.lengthCompare(this.fields.size) == 0) && (otherSchema.fields.toSet == this.fields.toSet)
+      (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields == this.fields)
     } else false
   }
 
@@ -29,51 +25,44 @@ case class Schema(metric: String, fields: Seq[SchemaField]) {
 }
 
 object Schema extends TypeSupport {
-  def apply(metric: String, bit: Bit): Validated[NonEmptyList[String], Schema] = {
-    validateSchemaTypeSupport(bit).map(fields =>
-      Schema(metric, fields.map(field => SchemaField(field.name, field.indexType))))
+  def apply(metric: String, bit: Bit): Try[Schema] = {
+    validateSchemaTypeSupport(bit).map((fields: Seq[TypedField]) =>
+      Schema(metric, fields.map(field => SchemaField(field.name, field.indexType)).toSet))
   }
 }
 
 class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   override val _keyField: String = "_metric"
 
-  override def getSearcher: IndexSearcher = {
-    refresh()
-    super.getSearcher
-  }
-
-  override def validateRecord(data: Schema): FieldValidation = {
-    valid(
+  override def validateRecord(data: Schema): Try[Seq[Field]] = {
+    Success(
       Seq(
         new StringField(_keyField, data.metric.toLowerCase, Store.YES)
       ) ++
         data.fields.map(e => new StringField(e.name, e.indexType.getClass.getCanonicalName, Store.YES)))
   }
 
-  override def write(data: Schema)(implicit writer: IndexWriter): WriteValidation = {
+  override def write(data: Schema)(implicit writer: IndexWriter): Try[Long] = {
     val doc = new Document
     validateRecord(data) match {
-      case Valid(fields) =>
+      case Success(fields) =>
         Try {
           fields.foreach(doc.add)
           writer.addDocument(doc)
-        } match {
-          case Success(id) => valid(id)
-          case Failure(ex) => invalidNel(ex.getMessage)
         }
-      case errs @ Invalid(_) => errs
+      case Failure(t) => Failure(t)
     }
   }
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Schema = {
     val fields = document.getFields.asScala.filterNot(f => f.name() == _keyField || f.name() == _countField)
-    Schema(
-      document.get(_keyField),
-      fields.map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]])))
+    Schema(document.get(_keyField),
+           fields
+             .map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]]))
+             .toSet)
   }
 
-  def getAllSchemas(implicit searcher: IndexSearcher): Seq[Schema] = {
+  def allSchemas: Seq[Schema] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[Schema]) => docs
       case Failure(_)                 => Seq.empty
@@ -87,12 +76,12 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
     }
   }
 
-  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): WriteValidation = {
+  def update(metric: String, newSchema: Schema)(implicit writer: IndexWriter): Try[Long] = {
     getSchema(metric) match {
       case Some(oldSchema) =>
         delete(oldSchema)
-        val newFields = oldSchema.fields.toSet ++ newSchema.fields.toSet
-        write(Schema(newSchema.metric, newFields.toSeq))
+        val newFields = oldSchema.fields ++ newSchema.fields
+        write(Schema(newSchema.metric, newFields))
       case None => write(newSchema)
     }
   }
@@ -105,19 +94,16 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 }
 
 object SchemaIndex {
-  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Validated[NonEmptyList[String], Seq[SchemaField]] = {
-    val newFields = newSchema.fields.map(e => e.name -> e).toMap
+  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Schema] = {
     val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
-    oldSchema.fields
-      .map(oldField => {
-        val newField = newFields.get(oldField.name)
-        if (newField.isDefined && oldField.indexType != newField.get.indexType)
-          invalidNel(
-            s"mismatch type for field ${oldField.name} : new type is ${newField.get.indexType} while old type is ${oldField.indexType}")
-        else valid(Seq(newFields.getOrElse(oldField.name, oldFields(oldField.name))))
-      })
-      .toList
-      .combineAll
-      .map(oldFields => (oldFields.toSet ++ newFields.values.toSet).toSeq)
+
+    val notCompatibleFields = newSchema.fields.collect {
+      case field if oldFields.get(field.name).isDefined && oldFields(field.name).indexType != field.indexType =>
+        s"mismatch type for field ${field.name} : new type ${field.indexType} is incompatible with old type"
+    }
+
+    if (notCompatibleFields.nonEmpty)
+      Failure(new RuntimeException(notCompatibleFields.mkString(",")))
+    else Success(Schema(newSchema.metric, oldSchema.fields ++ newSchema.fields))
   }
 }

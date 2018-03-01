@@ -84,18 +84,23 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       //TODO: add failure handling
       log.debug("Received command DescribeMetric for metric {}", request.metric)
       (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
-        .mapTo[SchemaGot]
         .map {
           case SchemaGot(db, namespace, metric, schema) =>
             val fields = schema
               .map(
                 _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
-              .getOrElse(List.empty[MetricField])
+              .getOrElse(Set.empty[MetricField])
             GrpcMetricSchemaRetrieved(db,
                                       namespace,
                                       metric,
-                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)),
+                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)).toSeq,
                                       completedSuccessfully = true)
+          case _ =>
+            GrpcMetricSchemaRetrieved(request.db,
+                                      request.namespace,
+                                      request.metric,
+                                      completedSuccessfully = false,
+                                      errors = "unknown message received from server")
         }
     }
 
@@ -121,18 +126,20 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {
       log.debug("Received a write request {}", request)
 
+      val bit = Bit(
+        timestamp = request.timestamp,
+        dimensions = request.dimensions.collect {
+          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
+        },
+        value = valueFor(request.value)
+      )
+
       val res = (writeCoordinator ? MapInput(
         db = request.database,
         namespace = request.namespace,
         metric = request.metric,
         ts = request.timestamp,
-        record = Bit(
-          timestamp = request.timestamp,
-          dimensions = request.dimensions.collect {
-            case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
-          },
-          value = valueFor(request.value)
-        )
+        record = bit
       )).map {
         case _: InputMapped =>
           RPCInsertResult(completedSuccessfully = true)
@@ -140,7 +147,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
         case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
       } recover {
-        case t => RPCInsertResult(completedSuccessfully = false, t.getMessage)
+        case t =>
+          log.error(s"error while inserting $bit", t)
+          RPCInsertResult(completedSuccessfully = false, t.getMessage)
       }
 
       res.onComplete {

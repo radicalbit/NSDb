@@ -1,9 +1,7 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{invalidNel, valid}
 import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
@@ -35,19 +33,16 @@ trait Index[T] {
     searcherManager.release(searcher)
   }
 
-  def validateRecord(data: T): FieldValidation
+  def validateRecord(data: T): Try[Seq[Field]]
   def toRecord(document: Document, fields: Seq[SimpleField]): T
 
-  def write(fields: Seq[Field])(implicit writer: IndexWriter): WriteValidation = {
+  def write(fields: Set[Field])(implicit writer: IndexWriter): Try[Long] = {
     val doc = new Document
     fields.foreach(doc.add)
-    Try(writer.addDocument(doc)) match {
-      case Success(id) => valid(id)
-      case Failure(ex) => invalidNel(ex.getMessage)
-    }
+    Try(writer.addDocument(doc))
   }
 
-  protected def write(data: T)(implicit writer: IndexWriter): WriteValidation
+  protected def write(data: T)(implicit writer: IndexWriter): Try[Long]
 
   def delete(data: T)(implicit writer: IndexWriter): Unit
 
@@ -151,7 +146,7 @@ trait Index[T] {
     raws.map(d => toRecord(d, fields))
   }
 
-  def getAll()(implicit searcher: IndexSearcher): Seq[T] = {
+  def all: Seq[T] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[T]) => docs
       case Failure(_)            => Seq.empty

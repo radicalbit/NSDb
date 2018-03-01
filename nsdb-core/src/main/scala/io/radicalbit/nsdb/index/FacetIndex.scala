@@ -1,9 +1,7 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.OrderedTaxonomyFacetCounts
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
@@ -31,17 +29,17 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
 
   def release(searcher: IndexSearcher): Unit = searcherManager.release(searcher)
 
-  def validateRecord(bit: Bit): FieldValidation =
+  def validateRecord(bit: Bit): Try[Seq[Field]] =
     validateSchemaTypeSupport(bit)
       .map(se => se.flatMap(elem => elem.indexType.facetField(elem.name, elem.value)))
 
-  def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): WriteValidation = {
+  def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): Try[Long] = {
     val doc       = new Document
     val c         = new FacetsConfig
     val allFields = validateRecord(bit)
 
     allFields match {
-      case Valid(fields) =>
+      case Success(fields) =>
         fields.foreach(f => {
           doc.add(f)
           if (f.isInstanceOf[StringField]) {
@@ -49,11 +47,8 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
             doc.add(new FacetField(f.name, f.stringValue()))
           }
         })
-        Try(writer.addDocument(c.build(taxonomyWriter, doc))) match {
-          case Success(id) => valid(id)
-          case Failure(ex) => invalidNel(ex.getMessage)
-        }
-      case errs @ Invalid(_) => errs
+        Try(writer.addDocument(c.build(taxonomyWriter, doc)))
+      case Failure(t) => Failure(t)
     }
   }
 

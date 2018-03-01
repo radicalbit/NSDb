@@ -29,7 +29,7 @@ class FakeNamespaceSchemaActor extends Actor {
       sender() ! SchemaGot(db = "db",
                            namespace = "registry",
                            metric = "people",
-                           schema = Some(Schema("people", Seq(SchemaField("surname", VARCHAR())))))
+                           schema = Some(Schema("people", Set(SchemaField("surname", VARCHAR())))))
   }
 }
 

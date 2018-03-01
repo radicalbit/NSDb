@@ -1,10 +1,8 @@
 package io.radicalbit.nsdb.index
 
-import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
 
@@ -15,23 +13,20 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
 
   override def _keyField: String = "timestamp"
 
-  def write(data: Bit)(implicit writer: IndexWriter): WriteValidation = {
+  def write(data: Bit)(implicit writer: IndexWriter): Try[Long] = {
     val doc       = new Document
     val allFields = validateRecord(data)
     allFields match {
-      case Valid(fields) =>
+      case Success(fields) =>
         fields.foreach(f => {
           doc.add(f)
         })
-        Try(writer.addDocument(doc)) match {
-          case Success(id) => valid(id)
-          case Failure(ex) => invalidNel(ex.getMessage)
-        }
-      case errs @ Invalid(_) => errs
+        Try(writer.addDocument(doc))
+      case Failure(t) => Failure(t)
     }
   }
 
-  override def validateRecord(bit: Bit): FieldValidation =
+  override def validateRecord(bit: Bit): Try[Seq[Field]] =
     validateSchemaTypeSupport(bit)
       .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
 

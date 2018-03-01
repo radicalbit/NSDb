@@ -20,7 +20,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   val schema = Schema(
     "people",
-    Seq(
+    Set(
       SchemaField("timestamp", BIGINT()),
       SchemaField("name", VARCHAR()),
       SchemaField("surname", VARCHAR()),

@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
-import cats.data.Validated.{Invalid, Valid}
 import io.radicalbit.nsdb.cluster.actor.ShardAccumulatorActor.Refresh
 import io.radicalbit.nsdb.cluster.actor.ShardPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
@@ -15,6 +14,7 @@ import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success}
 
 class ShardPerformerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
@@ -70,8 +70,8 @@ class ShardPerformerActor(basePath: String, db: String, namespace: String) exten
           ops.foreach {
             case WriteShardOperation(_, _, bit) =>
               index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
-                case Valid(_)      =>
-                case Invalid(errs) => log.error(errs.toList.mkString(","))
+                case Success(_) =>
+                case Failure(t) => log.error(t, "error during write")
               }
             //TODO handle errors
             case DeleteShardRecordOperation(_, _, bit) =>

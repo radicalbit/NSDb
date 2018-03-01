@@ -1,9 +1,7 @@
 package io.radicalbit.nsdb.cluster.index
 
-import cats.data.Validated.{Invalid, Valid, invalidNel, valid}
 import io.radicalbit.nsdb.index.Index
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.validation.Validation.{FieldValidation, WriteValidation}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.index.{DirectoryReader, IndexWriter, Term}
@@ -18,8 +16,8 @@ case class Location(metric: String, node: String, from: Long, to: Long)
 class MetadataIndex(override val directory: BaseDirectory) extends Index[Location] {
   override val _keyField: String = "_metric"
 
-  override def validateRecord(data: Location): FieldValidation = {
-    valid(
+  override def validateRecord(data: Location): Try[Seq[Field]] = {
+    Success(
       Seq(
         new StringField(_keyField, data.metric.toLowerCase, Store.YES),
         new StringField("node", data.node.toLowerCase, Store.YES),
@@ -33,18 +31,15 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
     )
   }
 
-  override def write(data: Location)(implicit writer: IndexWriter): WriteValidation = {
+  override def write(data: Location)(implicit writer: IndexWriter): Try[Long] = {
     val doc = new Document
     validateRecord(data) match {
-      case Valid(fields) =>
+      case Success(fields) =>
         Try {
           fields.foreach(doc.add)
           writer.addDocument(doc)
-        } match {
-          case Success(id) => valid(id)
-          case Failure(ex) => invalidNel(ex.getMessage)
         }
-      case errs @ Invalid(_) => errs
+      case Failure(t) => Failure(t)
     }
   }
 
