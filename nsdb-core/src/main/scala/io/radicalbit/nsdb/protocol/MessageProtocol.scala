@@ -1,6 +1,7 @@
 package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
+import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.index.Schema
@@ -18,7 +19,7 @@ object MessageProtocol {
     case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
     case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
-    case class ExecuteDeleteStatementInternal(statement: DeleteSQLStatement, schema: Schema)
+    case class ExecuteDeleteStatementInShards(statement: DeleteSQLStatement, schema: Schema, keys: Seq[ShardKey])
     case class DropMetric(db: String, namespace: String, metric: String)
     case class DeleteNamespace(db: String, namespace: String)
 
@@ -27,15 +28,15 @@ object MessageProtocol {
     case class DeleteAllSchemas(db: String, namespace: String)
 
     case class GetCount(db: String, namespace: String, metric: String)
-    case class AddRecord(db: String, namespace: String, metric: String, bit: Bit)
-    case class DeleteRecord(db: String, namespace: String, metric: String, bit: Bit)
+    case class AddRecordToShard(db: String, namespace: String, shardKey: ShardKey, bit: Bit)
+    case class DeleteRecordFromShard(db: String, namespace: String, shardKey: ShardKey, bit: Bit)
     case class DeleteAllMetrics(db: String, namespace: String)
 
     case object GetReadCoordinator
     case object GetWriteCoordinator
     case object GetPublisher
 
-    case class SubscribeNamespaceDataActor(actor: ActorRef, nodeName: Option[String] = None)
+    case class SubscribeNamespaceDataActor(actor: ActorRef, nodeName: String)
   }
 
   object Events {
@@ -67,7 +68,7 @@ object MessageProtocol {
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)
 
-    case class NamespaceDataActorSubscribed(actor: ActorRef, host: Option[String] = None)
+    case class NamespaceDataActorSubscribed(actor: ActorRef, nodeName: String)
     case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
   }
 

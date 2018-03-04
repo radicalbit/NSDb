@@ -6,6 +6,8 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -29,6 +31,10 @@ class NamespaceActorSpec()
   val namespace1     = "namespace1"
   val namespaceActor = system.actorOf(NamespaceDataActor.props(basePath))
 
+  private val metric = "namespaceActorMetric"
+
+  val location = Location(_: String, "testNode", 0, 0)
+
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + (1 second)
 
@@ -44,39 +50,39 @@ class NamespaceActorSpec()
 
     val record = Bit(System.currentTimeMillis, 0.5, Map("content" -> s"content"))
 
-    probe.send(namespaceActor, AddRecord(db, namespace, "namespaceActorMetric", record))
+    probe.send(namespaceActor, AddRecordToLocation(db, namespace, record, location(metric)))
 
     awaitAssert {
       val expectedAdd = probe.expectMsgType[RecordAdded]
-      expectedAdd.metric shouldBe "namespaceActorMetric"
+      expectedAdd.metric shouldBe metric
       expectedAdd.record shouldBe record
     }
 
     expectNoMessage(interval)
 
-    probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
+    probe.send(namespaceActor, GetCount(db, namespace, metric))
 
     awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe "namespaceActorMetric"
+      expectedCount.metric shouldBe metric
       expectedCount.count shouldBe 1
     }
 
-    probe.send(namespaceActor, DeleteRecord(db, namespace, "namespaceActorMetric", record))
+    probe.send(namespaceActor, DeleteRecordFromLocation(db, namespace, metric, record, location(metric)))
 
     awaitAssert {
       val expectedDelete = probe.expectMsgType[RecordDeleted]
-      expectedDelete.metric shouldBe "namespaceActorMetric"
+      expectedDelete.metric shouldBe metric
       expectedDelete.record shouldBe record
     }
 
     expectNoMessage(interval)
 
-    probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
+    probe.send(namespaceActor, GetCount(db, namespace, metric))
 
     awaitAssert {
       val expectedCountDeleted = probe.expectMsgType[CountGot]
-      expectedCountDeleted.metric shouldBe "namespaceActorMetric"
+      expectedCountDeleted.metric shouldBe metric
       expectedCountDeleted.count shouldBe 0
     }
 
@@ -86,24 +92,24 @@ class NamespaceActorSpec()
 
     val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"))
 
-    probe.send(namespaceActor, AddRecord(db, namespace1, "namespaceActorMetric2", record))
+    probe.send(namespaceActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
     probe.expectMsgType[RecordAdded]
 
     expectNoMessage(interval)
 
-    probe.send(namespaceActor, GetCount(db, namespace, "namespaceActorMetric"))
+    probe.send(namespaceActor, GetCount(db, namespace, metric))
 
     awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe "namespaceActorMetric"
+      expectedCount.metric shouldBe metric
       expectedCount.count shouldBe 0
     }
 
-    probe.send(namespaceActor, GetCount(db, namespace1, "namespaceActorMetric2"))
+    probe.send(namespaceActor, GetCount(db, namespace1, metric + "2"))
 
     awaitAssert {
       val expectedCount2 = probe.expectMsgType[CountGot]
-      expectedCount2.metric shouldBe "namespaceActorMetric2"
+      expectedCount2.metric shouldBe metric + "2"
       expectedCount2.count shouldBe 1
     }
 
@@ -113,15 +119,15 @@ class NamespaceActorSpec()
 
     val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 
-    probe.send(namespaceActor, AddRecord(db, namespace1, "namespaceActorMetric2", record))
+    probe.send(namespaceActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
     probe.expectMsgType[RecordAdded]
 
     expectNoMessage(interval)
 
-    probe.send(namespaceActor, GetCount(db, namespace1, "namespaceActorMetric2"))
+    probe.send(namespaceActor, GetCount(db, namespace1, metric + "2"))
     awaitAssert {
       val expectedCount2 = probe.expectMsgType[CountGot]
-      expectedCount2.metric shouldBe "namespaceActorMetric2"
+      expectedCount2.metric shouldBe metric + "2"
       expectedCount2.count shouldBe 1
     }
 

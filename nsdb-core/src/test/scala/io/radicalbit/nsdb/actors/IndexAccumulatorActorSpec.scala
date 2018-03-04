@@ -1,15 +1,17 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class IndexAccumulatorActorSpec()
@@ -28,45 +30,47 @@ class IndexAccumulatorActorSpec()
   val basePath  = "target/test_index"
   val db        = "db"
   val namespace = "namespace"
+  val metric    = "indexerActorMetric"
+  val shardKey  = ShardKey(_: String, 0, 0)
+
   val indexerAccumulatorActor =
-    system.actorOf(IndexAccumulatorActor.props(basePath, db, namespace), "indexerAccumulatorActorTest")
+    system.actorOf(ShardAccumulatorActor.props(basePath, db, namespace), "indexerAccumulatorActorTest")
 
   before {
-    import scala.collection.JavaConverters._
-    if (Paths.get(basePath, db).toFile.exists())
-      Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
+    implicit val timeout = Timeout(5 second)
+    Await.result(indexerAccumulatorActor ? DropMetric(db, namespace, metric), 5 seconds)
   }
 
   "indexerAccumulatorActor" should "write and delete properly" in {
 
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
 
-    probe.send(indexerAccumulatorActor, AddRecord(db, namespace, "indexerActorMetric", bit))
+    probe.send(indexerAccumulatorActor, AddRecordToShard(db, namespace, shardKey(metric), bit))
     within(5 seconds) {
       val expectedAdd = probe.expectMsgType[RecordAdded]
-      expectedAdd.metric shouldBe "indexerActorMetric"
+      expectedAdd.metric shouldBe metric
       expectedAdd.record shouldBe bit
     }
     expectNoMessage(interval)
 
-    probe.send(indexerAccumulatorActor, GetCount(db, namespace, "indexerActorMetric"))
+    probe.send(indexerAccumulatorActor, GetCount(db, namespace, metric))
     within(5 seconds) {
       val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe "indexerActorMetric"
+      expectedCount.metric shouldBe metric
       expectedCount.count shouldBe 1
     }
-    probe.send(indexerAccumulatorActor, DeleteRecord(db, namespace, "indexerActorMetric", bit))
+    probe.send(indexerAccumulatorActor, DeleteRecordFromShard(db, namespace, shardKey(metric), bit))
     within(5 seconds) {
       val expectedDelete = probe.expectMsgType[RecordDeleted]
-      expectedDelete.metric shouldBe "indexerActorMetric"
+      expectedDelete.metric shouldBe metric
       expectedDelete.record shouldBe bit
     }
     expectNoMessage(interval)
 
-    probe.send(indexerAccumulatorActor, GetCount(db, namespace, "indexerActorMetric"))
+    probe.send(indexerAccumulatorActor, GetCount(db, namespace, metric))
     within(5 seconds) {
       val expectedCountDeleted = probe.expectMsgType[CountGot]
-      expectedCountDeleted.metric shouldBe "indexerActorMetric"
+      expectedCountDeleted.metric shouldBe metric
       expectedCountDeleted.count shouldBe 0
     }
 
@@ -76,24 +80,24 @@ class IndexAccumulatorActorSpec()
 
     val bit = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
 
-    probe.send(indexerAccumulatorActor, AddRecord(db, namespace, "indexerActorMetric2", bit))
+    probe.send(indexerAccumulatorActor, AddRecordToShard(db, namespace, shardKey(s"${metric}2"), bit))
     within(5 seconds) {
       probe.expectMsgType[RecordAdded]
     }
 
     expectNoMessage(interval)
 
-    probe.send(indexerAccumulatorActor, GetCount(db, namespace, "indexerActorMetric"))
+    probe.send(indexerAccumulatorActor, GetCount(db, namespace, metric))
     within(5 seconds) {
       val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe "indexerActorMetric"
+      expectedCount.metric shouldBe metric
       expectedCount.count shouldBe 0
     }
 
-    probe.send(indexerAccumulatorActor, GetCount(db, namespace, "indexerActorMetric2"))
+    probe.send(indexerAccumulatorActor, GetCount(db, namespace, metric + "2"))
     within(5 seconds) {
       val expectedCount2 = probe.expectMsgType[CountGot]
-      expectedCount2.metric shouldBe "indexerActorMetric2"
+      expectedCount2.metric shouldBe metric + "2"
       expectedCount2.count shouldBe 1
     }
 
@@ -104,8 +108,8 @@ class IndexAccumulatorActorSpec()
     val bit1 = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
     val bit2 = Bit(System.currentTimeMillis, 30, Map("content" -> "content"))
 
-    probe.send(indexerAccumulatorActor, AddRecord("db", "testNamespace", "testMetric", bit1))
-    probe.send(indexerAccumulatorActor, AddRecord("db", "testNamespace", "testMetric", bit2))
+    probe.send(indexerAccumulatorActor, AddRecordToShard("db", "testNamespace", shardKey("testMetric"), bit1))
+    probe.send(indexerAccumulatorActor, AddRecordToShard("db", "testNamespace", shardKey("testMetric"), bit2))
     probe.expectMsgType[RecordAdded]
     probe.expectMsgType[RecordAdded]
 

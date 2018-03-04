@@ -55,8 +55,8 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
         val namespaceActor = context.actorOf(
           NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
           s"namespace-data-actor_$nameNode")
-        writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
-        readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, Some(nameNode))
+        writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
+        readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
       }
 
     case UnreachableMember(member) =>

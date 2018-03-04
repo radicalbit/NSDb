@@ -6,6 +6,8 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
 
@@ -33,7 +35,9 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
+    val location = Location(_: String, "testNode", 0, 0)
+
+    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "testNode"), 3 seconds)
 
     //long metric
     Await.result(namespaceDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
@@ -41,7 +45,8 @@ class ReadCoordinatorSpec
                  3 seconds)
 
     LongMetric.testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecord(db, namespace, LongMetric.name, record), 3 seconds)
+      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, record, location(LongMetric.name)),
+                   3 seconds)
     }
 
     //double metric
@@ -50,7 +55,8 @@ class ReadCoordinatorSpec
                  3 seconds)
 
     DoubleMetric.testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecord(db, namespace, DoubleMetric.name, record), 3 seconds)
+      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, record, location(DoubleMetric.name)),
+                   3 seconds)
     }
 
     //aggregation metric

@@ -36,7 +36,20 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
   lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
-  override def receive: Receive = {
+  override def receive: Receive = if (sharding) shardBehaviour else noShardBehaviour
+
+  def noShardBehaviour: Receive = {
+    case GetLocations(db, namespace, metric) =>
+      val nodeName =
+        s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+      sender ! LocationsGot(db, namespace, metric, Seq(Location(metric, nodeName, 0, 0)))
+    case GetWriteLocation(db, namespace, metric, timestamp) =>
+      val nodeName =
+        s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+      sender ! LocationGot(db, namespace, metric, Some(Location(metric, nodeName, 0, 0)))
+  }
+
+  def shardBehaviour: Receive = {
     case GetLocations(db, namespace, metric) =>
       val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .mapTo[CachedLocations]

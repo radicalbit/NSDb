@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.IndexAccumulatorActor
+import io.radicalbit.nsdb.actors.{ShardAccumulatorActor, ShardKey}
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
   AddRecordToLocation,
   DeleteRecordFromLocation,
@@ -32,13 +32,8 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   private def getChild(db: String, namespace: String): ActorRef =
     childActors.getOrElse(
       NamespaceKey(db, namespace), {
-        val child =
-          if (sharding)
-            context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace),
-                            s"shard-accumulator-service-$db-$namespace")
-          else
-            context.actorOf(IndexAccumulatorActor.props(basePath, db, namespace),
-                            s"index-accumulator-service-$db-$namespace")
+        val child = context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace),
+                                    s"shard-accumulator-service-$db-$namespace")
         childActors += (NamespaceKey(db, namespace) -> child)
         child
       }
@@ -60,18 +55,13 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
       })
       .foreach {
         case (db, namespace) =>
-          childActors += (NamespaceKey(db, namespace) -> (if (sharding)
-                                                            context.actorOf(
-                                                              ShardAccumulatorActor.props(basePath, db, namespace),
-                                                              s"shard-accumulator-service-$db-$namespace")
-                                                          else
-                                                            context.actorOf(
-                                                              IndexAccumulatorActor.props(basePath, db, namespace),
-                                                              s"index-accumulator-service-$db-$namespace")))
+          childActors += (NamespaceKey(db, namespace) -> context.actorOf(
+            ShardAccumulatorActor.props(basePath, db, namespace),
+            s"shard-accumulator-service-$db-$namespace"))
       }
   }
 
-  override def receive: Receive = commons orElse (if (sharding) receiveShard else receiveNoShard)
+  override def receive: Receive = commons orElse receiveShard
 
   def commons: Receive = {
     case GetNamespaces(db) =>
@@ -96,32 +86,23 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
   }
 
   def receiveShard: Receive = {
-    case msg @ AddRecordToLocation(db, namespace, _, _, _) =>
-      getChild(db, namespace).forward(msg)
-    case msg @ DeleteRecordFromLocation(db, namespace, _, _, _) =>
-      getChild(db, namespace).forward(msg)
-    case msg @ ExecuteDeleteStatementInternalInLocations(statement, _, _) =>
-      getChild(statement.db, statement.namespace).forward(msg)
+    case AddRecordToLocation(db, namespace, bit, location) =>
+      getChild(db, namespace).forward(
+        AddRecordToShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
+    case DeleteRecordFromLocation(db, namespace, metric, bit, location) =>
+      getChild(db, namespace).forward(
+        DeleteRecordFromShard(db, namespace, ShardKey(metric, location.from, location.to), bit))
+    case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
+      getChild(statement.db, statement.namespace).forward(
+        ExecuteDeleteStatementInShards(statement, schema, locations.map(l => ShardKey(l.metric, l.from, l.to))))
   }
 
-  def receiveNoShard: Receive = {
-    case msg @ AddRecord(db, namespace, _, _) =>
-      getChild(db, namespace).forward(msg)
-    case msg @ DeleteRecord(db, namespace, _, _) =>
-      getChild(db, namespace).forward(msg)
-    case msg @ GetCount(db, namespace, _) =>
-      getChild(db, namespace).forward(msg)
-    case msg @ ExecuteSelectStatement(statement, _) =>
-      getChild(statement.db, statement.namespace).forward(msg)
-    case msg @ ExecuteDeleteStatementInternal(statement, _) =>
-      getChild(statement.db, statement.namespace).forward(msg)
-  }
 }
 
 object NamespaceDataActor {
   def props(basePath: String): Props = Props(new NamespaceDataActor(basePath))
 
-  case class AddRecordToLocation(db: String, namespace: String, metric: String, bit: Bit, location: Location)
+  case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, metric: String, bit: Bit, location: Location)
   case class ExecuteDeleteStatementInternalInLocations(statement: DeleteSQLStatement,
                                                        schema: Schema,

@@ -1,21 +1,32 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.actor.{NamespaceDataActor, NamespaceSchemaActor}
 import io.radicalbit.nsdb.cluster.coordinator.Facilities.{TestCommitLogService, TestSubscriber}
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
+
+class DummyMetadataCoordinator extends Actor {
+  override def receive: Receive = {
+    case GetWriteLocation(db, namespace, metric, _) =>
+      sender ! LocationGot(db, namespace, metric, Some(Location(metric, "testNode", 0, 0)))
+    case GetLocations(db, namespace, metric) =>
+      sender ! LocationsGot(db, namespace, metric, Seq(Location(metric, "testNode", 0, 0)))
+  }
+}
 
 class WriteCoordinatorSpec
     extends TestKit(ActorSystem("nsdb-test"))
@@ -23,7 +34,8 @@ class WriteCoordinatorSpec
     with FlatSpecLike
     with Matchers
     with WriteInterval
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with BeforeAndAfter {
 
   val basePath             = "target/test_index/WriteCoordinatorSpec"
   val probe                = TestProbe()
@@ -33,7 +45,10 @@ class WriteCoordinatorSpec
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor = TestActorRef[PublisherActor](
     PublisherActor.props(system.actorOf(Props[Facilities.FakeReadCoordinatorActor]), namespaceSchemaActor))
-  val writeCoordinatorActor = system actorOf WriteCoordinator.props(null,
+
+  val metadataCoordinator = system.actorOf(Props[DummyMetadataCoordinator])
+
+  val writeCoordinatorActor = system actorOf WriteCoordinator.props(metadataCoordinator,
                                                                     namespaceSchemaActor,
                                                                     Some(system.actorOf(Props[TestCommitLogService])),
                                                                     publisherActor)
@@ -44,14 +59,18 @@ class WriteCoordinatorSpec
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
 
+  import akka.pattern.ask
+
+  import scala.concurrent.duration._
+  implicit val timeout = Timeout(3 seconds)
+
   override def beforeAll() = {
-    import akka.pattern.ask
+    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "testNode"), 3 seconds)
+  }
 
-    import scala.concurrent.duration._
-
-    implicit val timeout = Timeout(3 seconds)
-
-    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor), 3 seconds)
+  before {
+    Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 3 seconds)
+    Await.result(writeCoordinatorActor ? DeleteNamespace(db, "testDelete"), 3 seconds)
   }
 
   "WriteCoordinator" should "write records" in {
@@ -119,13 +138,16 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should "delete a namespace" in {
+
+    namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
+
     probe.send(writeCoordinatorActor, DeleteNamespace(db, namespace))
 
     within(5 seconds) {
       probe.expectMsgType[NamespaceDeleted]
 
-      namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
       namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
+      namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
     }
   }
 

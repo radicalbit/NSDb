@@ -1,12 +1,12 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.ShardAccumulatorActor.Refresh
-import io.radicalbit.nsdb.cluster.actor.ShardPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.IndexWriter

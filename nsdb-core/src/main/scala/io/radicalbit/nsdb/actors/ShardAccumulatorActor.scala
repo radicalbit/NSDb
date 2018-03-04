@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 import java.util.UUID
@@ -6,9 +6,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor._
-import io.radicalbit.nsdb.cluster.actor.ShardAccumulatorActor.Refresh
-import io.radicalbit.nsdb.cluster.actor.ShardPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -39,6 +38,8 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
   private val statementParser = new StatementParser()
 
   val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
+
+  lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
 
   val facetIndexShards: mutable.Map[ShardKey, FacetIndex] = mutable.Map.empty
 
@@ -187,21 +188,23 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
           val metricIn: mutable.Map[ShardKey, TimeSeriesIndex] = getMetricShards(statement.metric)
-          val indexes = metricIn
-            .filter {
-              //FIXME see if it can be refactored
-              case (key, _) if intervals.nonEmpty =>
-                intervals
-                  .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
-                  .foldLeft(false)((x, y) => x || y)
-              case _ => true
-            }
+          val indexes =
+            if (sharding)
+              metricIn.filter {
+                //FIXME see if it can be refactored
+                case (key, _) if intervals.nonEmpty =>
+                  intervals
+                    .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
+                    .foldLeft(false)((x, y) => x || y)
+                case _ => true
+              }.toSeq
+            else Seq((ShardKey(metric, 0, 0), getIndex(ShardKey(metric, 0, 0))))
 
           val orderedResults = if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
             val result: ListBuffer[Try[Seq[Bit]]] = ListBuffer.empty
 
             val eventuallyOrdered =
-              statement.getTimeOrdering.map(indexes.toSeq.sortBy(_._1.from)(_)).getOrElse(indexes.toSeq)
+              statement.getTimeOrdering.map(indexes.sortBy(_._1.from)(_)).getOrElse(indexes)
 
             eventuallyOrdered.takeWhile {
               case (_, index) =>
@@ -217,7 +220,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
 
           } else {
 
-            val shardResults = indexes.toSeq.map {
+            val shardResults = indexes.map {
               case (_, index) =>
                 handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
             }
@@ -356,19 +359,16 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
   }
 
   def accumulate: Receive = {
-    case AddRecordToLocation(_, ns, metric, bit, location) =>
-      val key = ShardKey(metric, location.from, location.to)
+    case AddRecordToShard(_, ns, key, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, key, bit))
-      sender ! RecordAdded(db, ns, metric, bit)
-    case DeleteRecordFromLocation(_, ns, metric, bit, location) =>
-      val key = ShardKey(metric, location.from, location.to)
+      sender ! RecordAdded(db, ns, key.metric, bit)
+    case DeleteRecordFromShard(_, ns, key, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
-      sender ! RecordDeleted(db, ns, metric, bit)
-    case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
+      sender ! RecordDeleted(db, ns, key.metric, bit)
+    case ExecuteDeleteStatementInShards(statement, schema, keys) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
-          locations.foreach { loc =>
-            val key = ShardKey(metric, loc.from, loc.to)
+          keys.foreach { key =>
             opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, q))
           }
           sender() ! DeleteStatementExecuted(db, namespace, metric)
