@@ -98,12 +98,6 @@ object Dependencies {
     lazy val core      = namespace %% "scalatest" % version
   }
 
-//  object commonsIo {
-//    lazy val version   = "2.5"
-//    lazy val namespace = "commons-io"
-//    lazy val commonsIo = namespace % "commons-io" % "2.5"
-//  }
-
   object junit {
     lazy val version   = "4.12"
     lazy val namespace = "junit"
@@ -174,7 +168,6 @@ object Dependencies {
       lucene.facet,
       scalatest.core % Test,
       akka.testkit   % Test
-//      commonsIo.commonsIo % Test
     )
   }
 
