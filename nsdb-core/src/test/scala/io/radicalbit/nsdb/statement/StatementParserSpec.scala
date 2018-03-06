@@ -938,7 +938,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
-                  BooleanClause.Occur.MUST_NOT)
+                     BooleanClause.Occur.MUST_NOT)
                 .build(),
               new SumAllGroupsCollector[Long, Double]("amount", "value"),
               None,

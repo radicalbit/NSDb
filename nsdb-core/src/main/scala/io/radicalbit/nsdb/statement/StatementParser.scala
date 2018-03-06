@@ -162,10 +162,10 @@ class StatementParser {
                                                                       v: T,
                                                                       s: S): AllGroupsAggregationCollector[_, _] = {
     agg match {
-      case CountAggregation => new CountAllGroupsCollector(group, field)(s.ord, ClassTag(s.getClass))
-      case MaxAggregation   => new MaxAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.getClass))
-      case MinAggregation   => new MinAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.getClass))
-      case SumAggregation   => new SumAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.getClass))
+      case CountAggregation => new CountAllGroupsCollector(group, field)(s.ord, ClassTag(s.actualType))
+      case MaxAggregation   => new MaxAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.actualType))
+      case MinAggregation   => new MinAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.actualType))
+      case SumAggregation   => new SumAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.actualType))
     }
   }
 
@@ -211,7 +211,6 @@ class StatementParser {
         case (_, Failure(exception), _) => Failure(exception)
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
-//              && schema.fields.filter(_.name == group).head.indexType.isInstanceOf[VARCHAR] =>
           Success(
             ParsedAggregatedQuery(
               statement.namespace,
@@ -225,9 +224,6 @@ class StatementParser {
               sortOpt,
               limitOpt
             ))
-//        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-//            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
-//          Failure(new InvalidStatementException(Errors.GROUP_BY_ON_NOT_STRING_DIM))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && fieldName != "value" =>
           Failure(new InvalidStatementException(Errors.AGGREGATION_NOT_ON_VALUE))

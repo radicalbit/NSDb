@@ -4,10 +4,10 @@ import java.util
 
 import io.radicalbit.nsdb.common.{JDouble, JLong}
 import org.apache.lucene.document._
-import org.apache.lucene.index.{DocValues, LeafReaderContext, NumericDocValues, SortedDocValues}
+import org.apache.lucene.index._
 import org.apache.lucene.search.SortField
 import org.apache.lucene.search.grouping.AllGroupsCollector
-import org.apache.lucene.util.{BytesRef, SentinelIntSet}
+import org.apache.lucene.util.BytesRef
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -28,10 +28,10 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
 
   val initialSize: Int = AllGroupsAggregationCollector.DEFAULT_INITIAL_SIZE
 
-  protected val groups: mutable.Map[S, T]  = mutable.Map.empty
-  protected val ordSet: SentinelIntSet     = new SentinelIntSet(initialSize, -2)
-  protected var index: SortedDocValues     = _
-  protected var aggIndex: NumericDocValues = _
+  protected val groups: mutable.Map[S, T]              = mutable.Map.empty
+  protected var index: SortedDocValues                 = _
+  protected var numericalIndex: SortedNumericDocValues = _
+  protected var aggIndex: NumericDocValues             = _
 
   override def getGroupCount: Int = groups.keys.size
 
@@ -66,30 +66,37 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
       case c if c == clazzLong    => bytesRef.utf8ToString().toLong.asInstanceOf[S]
       case c if c == clazzInteger => bytesRef.utf8ToString().toInt.asInstanceOf[S]
       case c if c == clazzString  => bytesRef.utf8ToString().asInstanceOf[S]
-
     }
   }
 
   def clear: AllGroupsAggregationCollector[T, S] = {
-    ordSet.clear()
     groups.clear()
     this
   }
 
   override def collect(doc: Int): Unit = {
-    val key = index.getOrd(doc)
 
-    val term: S =
-      if (key == -1) null.asInstanceOf[S]
-      else fromBytes(BytesRef.deepCopyOf(index.lookupOrd(key)))
+    var stringGroup = false
+    val className   = implicitly[ClassTag[S]].runtimeClass.getSimpleName
+    val clazzString = classOf[String].getSimpleName
+    val clazzDouble = classOf[JDouble].getSimpleName
+
+    val term: S = className match {
+      case c if c == clazzString =>
+        val key = index.getOrd(doc)
+        stringGroup = true
+        fromBytes(BytesRef.deepCopyOf(index.lookupOrd(key)))
+      case c if c == clazzDouble =>
+        java.lang.Double.longBitsToDouble(numericalIndex.valueAt(doc)).asInstanceOf[S]
+      case _ => numericalIndex.valueAt(doc).asInstanceOf[S]
+    }
 
     val agg = numeric.one match {
       case _: Double => java.lang.Double.longBitsToDouble(aggIndex.get(doc)).asInstanceOf[T]
       case _         => aggIndex.get(doc).asInstanceOf[T]
     }
 
-    if (!ordSet.exists(key)) {
-      ordSet.put(key)
+    if (!groups.contains(term)) {
       groups += (term -> agg)
     } else {
       accumulateFunction(groups(term), agg).foreach(v => groups += (term -> v))
@@ -97,16 +104,17 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
   }
 
   override protected def doSetNextReader(context: LeafReaderContext): Unit = {
-    index = DocValues.getSorted(context.reader, groupField)
-    aggIndex = DocValues.getNumeric(context.reader, aggField)
-    ordSet.clear()
-    for (countedGroup <- groups) {
-      if (countedGroup == null) ordSet.put(-1)
-      else {
-        val ord = index.lookupTerm(new BytesRef(countedGroup._1.toString.getBytes))
-        if (ord >= 0) ordSet.put(ord)
-      }
+    val className   = implicitly[ClassTag[S]].runtimeClass.getSimpleName
+    val clazzString = classOf[String].getSimpleName
+
+    className match {
+      case c if c == clazzString =>
+        index = DocValues.getSorted(context.reader, groupField)
+      case _ =>
+        numericalIndex = DocValues.getSortedNumeric(context.reader, groupField)
     }
+
+    aggIndex = DocValues.getNumeric(context.reader, aggField)
   }
 
   def canEqual(other: Any): Boolean = other.getClass == this.getClass
