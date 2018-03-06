@@ -917,7 +917,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
 
     "receive a group by on a dimension of type different from varchar" should {
-      "fail" in {
+      "success" in {
         parser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -930,7 +930,21 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(5))
           ),
           schema
-        ) shouldBe a[Failure[InvalidStatementException]]
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
+                  BooleanClause.Occur.MUST_NOT)
+                .build(),
+              new SumAllGroupsCollector[Long, Double]("amount", "value"),
+              None,
+              Some(5)
+            ))
+        )
       }
     }
 
