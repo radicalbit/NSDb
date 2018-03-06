@@ -12,7 +12,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-class IndexerPerformerActorSpec
+class ShardPerformerActorSpec
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
     with FlatSpecLike
@@ -34,7 +34,7 @@ class IndexerPerformerActorSpec
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
   }
 
-  "indexerPerformerActor" should "write and delete properly" in within(5.seconds) {
+  "ShardPerformerActor" should "write and delete properly" in within(5.seconds) {
 
     val key = ShardKey("IndexerPerformerActorMetric", 0, 0)
 

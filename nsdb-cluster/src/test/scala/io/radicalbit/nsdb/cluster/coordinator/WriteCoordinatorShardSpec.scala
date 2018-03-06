@@ -1,13 +1,15 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class WriteCoordinatorShardSpec
     extends TestKit(
@@ -22,6 +24,7 @@ class WriteCoordinatorShardSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfter
+    with BeforeAndAfterAll
     with WriteCoordinatorBehaviour {
 
   lazy val basePath = "target/test_index/WriteCoordinatorShardSpec"
@@ -29,16 +32,11 @@ class WriteCoordinatorShardSpec
   val db        = "writeCoordinatorSpecShardDB"
   val namespace = "namespace"
 
-  before {
-    import akka.pattern.ask
+  implicit val timeout = Timeout(3 seconds)
 
-    import scala.concurrent.duration._
-
-    implicit val timeout = Timeout(3 seconds)
-
+  override def beforeAll: Unit = {
     Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "node1"), 3 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 3 seconds)
-    Await.result(writeCoordinatorActor ? DeleteNamespace(db, "testDelete"), 3 seconds)
     Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 3 seconds)
   }
 

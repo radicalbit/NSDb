@@ -1,26 +1,65 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.Props
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.actor.{NamespaceDataActor, NamespaceSchemaActor}
-import io.radicalbit.nsdb.cluster.coordinator.Facilities.{
-  FakeMetadataCoordinator,
-  FakeReadCoordinatorActor,
-  TestCommitLogService,
-  TestSubscriber
-}
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{Matchers, _}
 
+import scala.collection.mutable
 import scala.concurrent.duration._
+
+class TestSubscriber extends Actor {
+  var receivedMessages = 0
+  def receive = {
+    case RecordsPublished(_, _, _) =>
+      receivedMessages += 1
+  }
+}
+
+class FakeReadCoordinatorActor extends Actor {
+  def receive: Receive = {
+    case ExecuteStatement(_) =>
+      sender() ! SelectStatementExecuted(db = "db",
+                                         namespace = "testNamespace",
+                                         metric = "testMetric",
+                                         values = Seq.empty)
+  }
+}
+
+class FakeMetadataCoordinator extends Actor with ActorLogging {
+
+  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
+  val locations: mutable.Map[(String, String), Seq[Location]] = mutable.Map.empty
+
+  override def receive: Receive = {
+    case GetLocations(db, namespace, metric) =>
+      sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
+    case GetWriteLocation(db, namespace, metric, timestamp) =>
+      val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
+      locations
+        .get((namespace, metric))
+        .fold {
+          locations += (namespace, metric) -> Seq(location)
+        } { oldSeq =>
+          locations += (namespace, metric) -> (oldSeq :+ location)
+        }
+      sender() ! LocationGot(db, namespace, metric, Some(location))
+  }
+}
 
 trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =>
 
@@ -33,7 +72,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   def namespace: String
 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-                                TimeUnit.SECONDS)
+                                TimeUnit.SECONDS) + 1.second
 
   lazy val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props(basePath))
   lazy val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
@@ -42,11 +81,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
     TestActorRef[PublisherActor](
       PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
   lazy val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
-  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(
-    fakeMetadataCoordinator,
-    namespaceSchemaActor,
-    Some(system.actorOf(Props[TestCommitLogService])),
-    publisherActor)
+  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
+                                                                         namespaceSchemaActor,
+                                                                         None,
+                                                                         publisherActor)
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
@@ -107,6 +145,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
         subscriber.underlyingActor.receivedMessages shouldBe 1
       }
+      expectNoMessage(interval)
     }
 
     "delete a namespace" in {
@@ -118,7 +157,6 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
         namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
       }
-//      expectNoMessage(interval)
     }
 
     "delete entries" in {
@@ -156,7 +194,6 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         probe.expectMsgType[DeleteStatementExecuted]
       }
 
-      expectNoMessage(interval)
     }
 
     "drop a metric" in {
@@ -182,7 +219,6 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         probe.expectMsgType[MetricDropped]
       }
 
-      expectNoMessage(interval)
       expectNoMessage(interval)
 
       probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
