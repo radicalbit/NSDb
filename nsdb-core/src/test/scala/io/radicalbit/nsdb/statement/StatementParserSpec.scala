@@ -683,7 +683,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new SumAllGroupsCollector[Long]("name", "value")
+              new SumAllGroupsCollector[Long, String]("name", "value")
             ))
         )
       }
@@ -710,7 +710,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new MaxAllGroupsCollector[Long]("name", "value"),
+              new MaxAllGroupsCollector[Long, String]("name", "value"),
               Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
               Some(5)
             ))
@@ -934,7 +934,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a group by with aggragation function on dimension different from value" should {
+    "receive a group by with aggregation function on dimension different from value" should {
       "fail" in {
         parser.parseStatement(
           SelectSQLStatement(

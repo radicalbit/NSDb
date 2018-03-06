@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.index.lucene
 
 import java.util
 
+import io.radicalbit.nsdb.common.{JDouble, JLong}
 import org.apache.lucene.document._
 import org.apache.lucene.index.{DocValues, LeafReaderContext, NumericDocValues, SortedDocValues}
 import org.apache.lucene.search.SortField
@@ -10,12 +11,13 @@ import org.apache.lucene.util.{BytesRef, SentinelIntSet}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object AllGroupsAggregationCollector {
   private val DEFAULT_INITIAL_SIZE = 128
 }
 
-abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollector[String] {
+abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] extends AllGroupsCollector[S] {
 
   val groupField: String
   val aggField: String
@@ -26,34 +28,49 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
 
   val initialSize: Int = AllGroupsAggregationCollector.DEFAULT_INITIAL_SIZE
 
-  protected val groups: mutable.Map[String, T] = mutable.Map.empty
-  protected val ordSet: SentinelIntSet         = new SentinelIntSet(initialSize, -2)
-  protected var index: SortedDocValues         = _
-  protected var aggIndex: NumericDocValues     = _
+  protected val groups: mutable.Map[S, T]  = mutable.Map.empty
+  protected val ordSet: SentinelIntSet     = new SentinelIntSet(initialSize, -2)
+  protected var index: SortedDocValues     = _
+  protected var aggIndex: NumericDocValues = _
 
   override def getGroupCount: Int = groups.keys.size
 
-  override def getGroups: util.Collection[String] = groups.keys.asJavaCollection
+  override def getGroups: util.Collection[S] = groups.keys.asJavaCollection
 
-  def getGroupMap: Map[String, T] = groups.toMap
+  def getGroupMap: Map[S, T] = groups.toMap
 
   private def Ord[F: Ordering](reverse: Boolean): Ordering[F] =
     if (reverse) implicitly[Ordering[F]].reverse else implicitly[Ordering[F]]
 
-  def getOrderedMap(sortField: SortField): Map[String, T] = sortField match {
+  def getOrderedMap(sortField: SortField): Map[S, T] = sortField match {
     case s if s.getType == SortField.Type.STRING =>
       getGroupMap.toSeq.sortBy(_._1)(Ord(s.getReverse)).toMap
     case s => getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
   }
 
-  def indexField(value: T): Field = value match {
+  def indexField[X](value: X): Field = value match {
     case v: Double => new DoublePoint(aggField, v)
     case v: Long   => new LongPoint(aggField, v)
     case v: Int    => new IntPoint(aggField, v)
     case v         => new StringField(aggField, v.toString, Field.Store.NO)
   }
 
-  def clear: AllGroupsAggregationCollector[T] = {
+  def fromBytes(bytesRef: BytesRef): S = {
+    val className    = implicitly[ClassTag[S]].runtimeClass.getSimpleName
+    val clazzString  = classOf[String].getSimpleName
+    val clazzDouble  = classOf[JDouble].getSimpleName
+    val clazzInteger = classOf[Integer].getSimpleName
+    val clazzLong    = classOf[JLong].getSimpleName
+    className match {
+      case c if c == clazzDouble  => bytesRef.utf8ToString().toDouble.asInstanceOf[S]
+      case c if c == clazzLong    => bytesRef.utf8ToString().toLong.asInstanceOf[S]
+      case c if c == clazzInteger => bytesRef.utf8ToString().toInt.asInstanceOf[S]
+      case c if c == clazzString  => bytesRef.utf8ToString().asInstanceOf[S]
+
+    }
+  }
+
+  def clear: AllGroupsAggregationCollector[T, S] = {
     ordSet.clear()
     groups.clear()
     this
@@ -62,9 +79,9 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
   override def collect(doc: Int): Unit = {
     val key = index.getOrd(doc)
 
-    val term: String =
-      if (key == -1) null
-      else BytesRef.deepCopyOf(index.lookupOrd(key)).utf8ToString()
+    val term: S =
+      if (key == -1) null.asInstanceOf[S]
+      else fromBytes(BytesRef.deepCopyOf(index.lookupOrd(key)))
 
     val agg = numeric.one match {
       case _: Double => java.lang.Double.longBitsToDouble(aggIndex.get(doc)).asInstanceOf[T]
@@ -86,7 +103,7 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
     for (countedGroup <- groups) {
       if (countedGroup == null) ordSet.put(-1)
       else {
-        val ord = index.lookupTerm(new BytesRef(countedGroup._1))
+        val ord = index.lookupTerm(new BytesRef(countedGroup._1.toString.getBytes))
         if (ord >= 0) ordSet.put(ord)
       }
     }
@@ -95,7 +112,7 @@ abstract class AllGroupsAggregationCollector[T: Numeric] extends AllGroupsCollec
   def canEqual(other: Any): Boolean = other.getClass == this.getClass
 
   override def equals(other: Any): Boolean = other match {
-    case that: AllGroupsAggregationCollector[_] =>
+    case that: AllGroupsAggregationCollector[_, _] =>
       (that canEqual this) &&
         groupField == that.groupField &&
         aggField == that.aggField

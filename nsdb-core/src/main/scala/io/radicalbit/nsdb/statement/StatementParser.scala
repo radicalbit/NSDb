@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
@@ -10,6 +11,7 @@ import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 class StatementParser {
@@ -154,15 +156,16 @@ class StatementParser {
   def parseDeleteStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] =
     parseStatement(statement, schema)
 
-  private def getCollector[T <: NumericType[_, _]](group: String,
-                                                   field: String,
-                                                   agg: Aggregation,
-                                                   v: T): AllGroupsAggregationCollector[_] = {
+  private def getCollector[T <: NumericType[_, _], S <: IndexType[_]](group: String,
+                                                                      field: String,
+                                                                      agg: Aggregation,
+                                                                      v: T,
+                                                                      s: S): AllGroupsAggregationCollector[_, _] = {
     agg match {
-      case CountAggregation => new CountAllGroupsCollector(group, field)
-      case MaxAggregation   => new MaxAllGroupsCollector(group, field)(v.scalaNumeric)
-      case MinAggregation   => new MinAllGroupsCollector(group, field)(v.scalaNumeric)
-      case SumAggregation   => new SumAllGroupsCollector(group, field)(v.scalaNumeric)
+      case CountAggregation => new CountAllGroupsCollector(group, field)(s.ord, ClassTag(s.getClass))
+      case MaxAggregation   => new MaxAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.getClass))
+      case MinAggregation   => new MinAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.getClass))
+      case SumAggregation   => new SumAllGroupsCollector(group, field)(v.scalaNumeric, s.ord, ClassTag(s.getClass))
     }
   }
 
@@ -207,20 +210,24 @@ class StatementParser {
       (distinctValue, fieldList, statement.groupBy) match {
         case (_, Failure(exception), _) => Failure(exception)
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) && fieldName == "value"
-              && schema.fields.filter(_.name == group).head.indexType.isInstanceOf[VARCHAR] =>
+            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
+//              && schema.fields.filter(_.name == group).head.indexType.isInstanceOf[VARCHAR] =>
           Success(
             ParsedAggregatedQuery(
               statement.namespace,
               statement.metric,
               exp.q,
-              getCollector(group, fieldName, agg, schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]),
+              getCollector(group,
+                           fieldName,
+                           agg,
+                           schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_ <: JSerializable, _]],
+                           schema.fieldsMap(group).indexType),
               sortOpt,
               limitOpt
             ))
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
-          Failure(new InvalidStatementException(Errors.GROUP_BY_ON_NOT_STRING_DIM))
+//        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
+//            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
+//          Failure(new InvalidStatementException(Errors.GROUP_BY_ON_NOT_STRING_DIM))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && fieldName != "value" =>
           Failure(new InvalidStatementException(Errors.AGGREGATION_NOT_ON_VALUE))
@@ -319,7 +326,7 @@ object StatementParser {
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   collector: AllGroupsAggregationCollector[_],
+                                   collector: AllGroupsAggregationCollector[_, _],
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
       extends ParsedQuery

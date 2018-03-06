@@ -95,7 +95,8 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
       val maybeSorted = if (statement.order.isDefined) {
         val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
         implicit val ord: Ordering[JSerializable] =
-          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse.asInstanceOf[Ordering[JSerializable]]
+          else o.asInstanceOf[Ordering[JSerializable]]
         s.sortBy(_.fields(statement.order.get.dimension))
       } else s
 
@@ -224,7 +225,9 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
             Try(shardResults.flatMap(_.get)).map(s => {
               val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
               implicit val ord: Ordering[JSerializable] =
-                if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+                if (statement.order.get.isInstanceOf[DescOrderOperator])
+                  o.reverse.asInstanceOf[Ordering[JSerializable]]
+                else o.asInstanceOf[Ordering[JSerializable]]
               val sorted = s.sortBy(_.dimensions(statement.order.get.dimension))
               sorted.take(statement.limit.get.value)
             })
@@ -279,7 +282,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
 
           applyOrderingWithLimit(shardResults.map(_.toSeq), statement, schema)
 
-        case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
           val intervals = TimeRangeExtractor.extractTimeRange(statement.condition.map(_.expression))
 
           val facetIn = getMetricFacetShards(statement.metric)
@@ -324,11 +327,11 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
                 val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
-                  case _: MaxAllGroupsCollector[_] =>
+                  case _: MaxAllGroupsCollector[_, _] =>
                     Bit(0, values.map(_.value).max, values.head.dimensions)
-                  case _: MinAllGroupsCollector[_] =>
+                  case _: MinAllGroupsCollector[_, _] =>
                     Bit(0, values.map(_.value).min, values.head.dimensions)
-                  case _: SumAllGroupsCollector[_] =>
+                  case _: SumAllGroupsCollector[_, _] =>
                     Bit(0, values.map(_.value).sum, values.head.dimensions)
                 }
               })
