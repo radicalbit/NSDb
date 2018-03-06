@@ -30,7 +30,7 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
 
   protected val groups: mutable.Map[S, T]              = mutable.Map.empty
   protected var index: SortedDocValues                 = _
-  protected var numericalIndex: SortedNumericDocValues = _
+  protected var numericalIndex: NumericDocValues = _
   protected var aggIndex: NumericDocValues             = _
 
   override def getGroupCount: Int = groups.keys.size
@@ -87,8 +87,8 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
         stringGroup = true
         fromBytes(BytesRef.deepCopyOf(index.lookupOrd(key)))
       case c if c == clazzDouble =>
-        java.lang.Double.longBitsToDouble(numericalIndex.valueAt(doc)).asInstanceOf[S]
-      case _ => numericalIndex.valueAt(doc).asInstanceOf[S]
+        java.lang.Double.longBitsToDouble(numericalIndex.get(doc)).asInstanceOf[S]
+      case _ => numericalIndex.get(doc).asInstanceOf[S]
     }
 
     val agg = numeric.one match {
@@ -111,7 +111,7 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
       case c if c == clazzString =>
         index = DocValues.getSorted(context.reader, groupField)
       case _ =>
-        numericalIndex = DocValues.getSortedNumeric(context.reader, groupField)
+        numericalIndex = DocValues.getNumeric(context.reader, groupField)
     }
 
     aggIndex = DocValues.getNumeric(context.reader, aggField)
