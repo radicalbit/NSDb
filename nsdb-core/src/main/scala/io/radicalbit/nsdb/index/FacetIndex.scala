@@ -3,34 +3,23 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.OrderedTaxonomyFacetCounts
-import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
 import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
 import org.apache.lucene.facet.{FacetField, FacetResult, FacetsCollector, FacetsConfig}
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
+import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 
 import scala.util.{Failure, Success, Try}
 
-class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirectory) extends TypeSupport {
-
-  private lazy val searcherManager: SearcherManager = new SearcherManager(facetDirectory, null)
-
-  def getWriter = new IndexWriter(facetDirectory, new IndexWriterConfig(new StandardAnalyzer))
+class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory) extends AbstractTimeSeriesIndex {
 
   def getTaxoWriter = new DirectoryTaxonomyWriter(taxoDirectory)
 
   def getReader = new DirectoryTaxonomyReader(taxoDirectory)
 
-  def getSearcher: IndexSearcher = searcherManager.acquire()
-
-  def refresh(): Unit = searcherManager.maybeRefreshBlocking()
-
-  def release(searcher: IndexSearcher): Unit = searcherManager.release(searcher)
-
-  def validateRecord(bit: Bit): Try[Seq[Field]] =
+  override def validateRecord(bit: Bit): Try[Seq[Field]] =
     validateSchemaTypeSupport(bit)
       .map(se => se.flatMap(elem => elem.indexType.facetField(elem.name, elem.value)))
 
@@ -57,23 +46,6 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
         Try(writer.addDocument(c.build(taxonomyWriter, doc)))
       case Failure(t) => Failure(t)
     }
-  }
-
-  def delete(query: Query)(implicit writer: IndexWriter): Unit = {
-    writer.deleteDocuments(query)
-    writer.forceMergeDeletes(true)
-  }
-
-  def delete(data: Bit)(implicit writer: IndexWriter): Unit = {
-    val query = LongPoint.newExactQuery("timestamp", data.timestamp)
-    writer.deleteDocuments(query)
-    writer.forceMergeDeletes(true)
-  }
-
-  def deleteAll()(implicit writer: IndexWriter): Unit = {
-    writer.deleteAll()
-    writer.forceMergeDeletes(true)
-    writer.flush()
   }
 
   private def getFacetResult(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]) = {
