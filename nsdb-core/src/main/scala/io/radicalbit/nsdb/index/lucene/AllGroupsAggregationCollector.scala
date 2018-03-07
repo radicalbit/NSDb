@@ -17,6 +17,13 @@ object AllGroupsAggregationCollector {
   private val DEFAULT_INITIAL_SIZE = 128
 }
 
+/**
+  * Abstract class extended by specialized collectors, which override accumulateFunction method
+  * in order to apply specific aggregation logic
+  *
+  * @tparam T aggregation value type
+  * @tparam S group by dimension type
+  */
 abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] extends AllGroupsCollector[S] {
 
   val groupField: String
@@ -28,15 +35,24 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
 
   val initialSize: Int = AllGroupsAggregationCollector.DEFAULT_INITIAL_SIZE
 
-  protected val groups: mutable.Map[S, T]              = mutable.Map.empty
-  protected var index: SortedDocValues                 = _
+  protected val groups: mutable.Map[S, T]        = mutable.Map.empty
+  protected var index: SortedDocValues           = _
   protected var numericalIndex: NumericDocValues = _
-  protected var aggIndex: NumericDocValues             = _
+  protected var aggIndex: NumericDocValues       = _
 
+  /**
+    * @return group count
+    */
   override def getGroupCount: Int = groups.keys.size
 
+  /**
+    * @return groups identifiers
+    */
   override def getGroups: util.Collection[S] = groups.keys.asJavaCollection
 
+  /**
+    * @return groups map
+    */
   def getGroupMap: Map[S, T] = groups.toMap
 
   private def Ord[F: Ordering](reverse: Boolean): Ordering[F] =
@@ -48,6 +64,14 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
     case s => getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
   }
 
+  /**
+    * Return a fields of type X for value and dimension's name
+    *
+    * @param value field value
+    * @param field dimension name
+    * @tparam X type of field value
+    * @return the correct type field given value and dimension name
+    */
   def indexField[X](value: X, field: String): Field = value match {
     case v: Double => new DoublePoint(field, v)
     case v: Long   => new LongPoint(field, v)
@@ -55,6 +79,12 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
     case v         => new StringField(field, v.toString, Field.Store.NO)
   }
 
+  /**
+    * Return S from a byte representation
+    *
+    * @param bytesRef
+    * @return group field of type S
+    */
   def fromBytes(bytesRef: BytesRef): S = {
     val className    = implicitly[ClassTag[S]].runtimeClass.getSimpleName
     val clazzString  = classOf[String].getSimpleName
@@ -69,11 +99,19 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
     }
   }
 
+  /**
+    * @return this instance clearing groups map
+    */
   def clear: AllGroupsAggregationCollector[T, S] = {
     groups.clear()
     this
   }
 
+  /**
+    * Modifies groups map collecting group field and aggregation value from indexes
+    *
+    * @param doc
+    */
   override def collect(doc: Int): Unit = {
 
     var stringGroup = false
