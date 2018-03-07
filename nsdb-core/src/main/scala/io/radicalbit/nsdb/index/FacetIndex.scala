@@ -40,11 +40,14 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
 
     allFields match {
       case Success(fields) =>
-        fields.foreach(f => {
+        fields.filterNot(f => f.name() == "value" ||  f.name() == "timestamp" ).foreach(f => {
           doc.add(f)
-          if (f.isInstanceOf[StringField]) {
+          if (f.isInstanceOf[StringField] || f.isInstanceOf[DoublePoint] || f.isInstanceOf[LongPoint] || f.isInstanceOf[IntPoint]) {
             c.setIndexFieldName(f.name, s"facet_${f.name}")
-            doc.add(new FacetField(f.name, f.stringValue()))
+            if (f.numericValue() != null) {
+              doc.add(new FacetField(f.name, f.numericValue().toString))
+            } else
+              doc.add(new FacetField(f.name, f.stringValue()))
           }
         })
         Try(writer.addDocument(c.build(taxonomyWriter, doc)))
