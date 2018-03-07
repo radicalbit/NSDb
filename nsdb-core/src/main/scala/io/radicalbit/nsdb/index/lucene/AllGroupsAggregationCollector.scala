@@ -48,11 +48,11 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
     case s => getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
   }
 
-  def indexField[X](value: X): Field = value match {
-    case v: Double => new DoublePoint(aggField, v)
-    case v: Long   => new LongPoint(aggField, v)
-    case v: Int    => new IntPoint(aggField, v)
-    case v         => new StringField(aggField, v.toString, Field.Store.NO)
+  def indexField[X](value: X, field: String): Field = value match {
+    case v: Double => new DoublePoint(field, v)
+    case v: Long   => new LongPoint(field, v)
+    case v: Int    => new IntPoint(field, v)
+    case v         => new StringField(field, v.toString, Field.Store.NO)
   }
 
   def fromBytes(bytesRef: BytesRef): S = {

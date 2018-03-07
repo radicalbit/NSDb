@@ -105,8 +105,8 @@ trait Index[T] {
     limitedGroupMap.map {
       case (g, v) =>
         val doc = new Document
-        doc.add(collector.indexField(g))
-        doc.add(collector.indexField(v))
+        doc.add(collector.indexField(g, collector.groupField))
+        doc.add(collector.indexField(v, collector.aggField))
         doc.add(new LongPoint(_keyField, 0))
         doc
     }.toSeq
