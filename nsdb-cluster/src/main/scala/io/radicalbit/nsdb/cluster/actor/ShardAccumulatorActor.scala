@@ -298,7 +298,11 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
 
           val result = indexes.toSeq.map {
             case (_, index) =>
-              handleQueryResults(metric, Try(index.getCount(q, collector.groupField, sort, limit)))
+              handleQueryResults(
+                metric,
+                Try(
+                  index
+                    .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
           }
 
           val shardResults = Try(

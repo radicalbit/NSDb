@@ -37,7 +37,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val groups   = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
+    val groups   = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100), VARCHAR())
     val distinct = facetIndex.getDistinctField(new MatchAllDocsQuery(), "content", None, 100)
 
     groups.size shouldBe 100
@@ -67,11 +67,11 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val contentGroups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100))
+    val contentGroups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100), VARCHAR())
 
     contentGroups.size shouldBe 100
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100))
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR())
 
     nameGroups.size shouldBe 100
   }
@@ -96,11 +96,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val contentGroups = facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", None, Some(100))
+    val contentGroups =
+      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", None, Some(100), VARCHAR())
 
     contentGroups.size shouldBe 50
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100))
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR())
 
     nameGroups.size shouldBe 100
   }
@@ -125,7 +126,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100))
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR())
 
     nameGroups.size shouldBe 100
 
@@ -138,7 +139,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     deleteWriter.close()
     facetIndex.refresh()
 
-    facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100)).size shouldBe 99
+    facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 99
   }
 
   "FacetIndex" should "supports ordering and limiting" in {
@@ -167,11 +168,11 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
     val contentGroups =
-      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", Some(descSort), Some(100))
+      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", Some(descSort), Some(100), VARCHAR())
 
     contentGroups.size shouldBe 13
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(50))
+    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR())
 
     nameGroups.size shouldBe 26
 

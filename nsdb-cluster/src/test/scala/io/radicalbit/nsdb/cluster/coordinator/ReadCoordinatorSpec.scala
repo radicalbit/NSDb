@@ -53,6 +53,16 @@ class ReadCoordinatorSpec
       Await.result(namespaceDataActor ? AddRecord(db, namespace, DoubleMetric.name, record), 3 seconds)
     }
 
+    //aggregation metric
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
+    Await.result(
+      schemaActor ? UpdateSchemaFromRecord(db, namespace, AggregationMetric.name, AggregationMetric.testRecords.head),
+      3 seconds)
+
+    AggregationMetric.testRecords.foreach { record =>
+      Await.result(namespaceDataActor ? AddRecord(db, namespace, AggregationMetric.name, record), 3 seconds)
+    }
+
     expectNoMessage(interval)
   }
 

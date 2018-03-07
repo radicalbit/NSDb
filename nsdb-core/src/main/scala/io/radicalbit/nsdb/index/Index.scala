@@ -99,6 +99,7 @@ trait Index[T] {
       .flatMap(_.getSort.headOption)
       .map(s => collector.getOrderedMap(s))
       .getOrElse(collector.getGroupMap)
+      .toSeq
 
     val limitedGroupMap = limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap)
 
@@ -109,7 +110,7 @@ trait Index[T] {
         doc.add(collector.indexField(v, collector.aggField))
         doc.add(new LongPoint(_keyField, 0))
         doc
-    }.toSeq
+    }
   }
 
   def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {

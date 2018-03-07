@@ -21,24 +21,26 @@ object AllGroupsAggregationCollector {
   * Abstract class extended by specialized collectors, which override accumulateFunction method
   * in order to apply specific aggregation logic
   *
-  * @tparam T aggregation value type
-  * @tparam S group by dimension type
+  * @tparam V aggregation value type
+  * @tparam D group by dimension type
   */
-abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] extends AllGroupsCollector[S] {
+abstract class AllGroupsAggregationCollector[V: Numeric, D: Ordering: ClassTag] extends AllGroupsCollector[D] {
 
   val groupField: String
   val aggField: String
 
-  private val numeric = implicitly[Numeric[T]]
+  private val numeric = implicitly[Numeric[V]]
 
-  def accumulateFunction(prev: T, actual: T): Option[T]
+  def accumulateFunction(prev: V, actual: V): Option[V]
 
   val initialSize: Int = AllGroupsAggregationCollector.DEFAULT_INITIAL_SIZE
 
-  protected val groups: mutable.Map[S, T]        = mutable.Map.empty
+  protected val groups: mutable.Map[D, V]        = mutable.Map.empty
   protected var index: SortedDocValues           = _
   protected var numericalIndex: NumericDocValues = _
   protected var aggIndex: NumericDocValues       = _
+
+  def valueRuntimeClass = implicitly[ClassTag[D]].runtimeClass
 
   /**
     * @return group count
@@ -48,20 +50,23 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
   /**
     * @return groups identifiers
     */
-  override def getGroups: util.Collection[S] = groups.keys.asJavaCollection
+  override def getGroups: util.Collection[D] = groups.keys.asJavaCollection
 
   /**
     * @return groups map
     */
-  def getGroupMap: Map[S, T] = groups.toMap
+  def getGroupMap: Map[D, V] = groups.toMap
 
   private def Ord[F: Ordering](reverse: Boolean): Ordering[F] =
     if (reverse) implicitly[Ordering[F]].reverse else implicitly[Ordering[F]]
 
-  def getOrderedMap(sortField: SortField): Map[S, T] = sortField match {
-    case s if s.getType == SortField.Type.STRING =>
-      getGroupMap.toSeq.sortBy(_._1)(Ord(s.getReverse)).toMap
-    case s => getGroupMap.toSeq.sortBy(_._2)(Ord(s.getReverse)).toMap
+  def getOrderedMap(sortField: SortField): Seq[(D, V)] = {
+    val orderBy = sortField.getField
+    sortField match {
+      case s if groupField == orderBy =>
+        getGroupMap.toSeq.sortBy(_._1)(Ord[D](s.getReverse))
+      case s if aggField == orderBy => getGroupMap.toSeq.sortBy(_._2)(Ord[V](s.getReverse))
+    }
   }
 
   /**
@@ -80,29 +85,29 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
   }
 
   /**
-    * Return S from a byte representation
+    * Return D from a byte representation
     *
     * @param bytesRef
-    * @return group field of type S
+    * @return group field of type D
     */
-  def fromBytes(bytesRef: BytesRef): S = {
-    val className    = implicitly[ClassTag[S]].runtimeClass.getSimpleName
+  def fromBytes(bytesRef: BytesRef): D = {
+    val className    = implicitly[ClassTag[D]].runtimeClass.getSimpleName
     val clazzString  = classOf[String].getSimpleName
     val clazzDouble  = classOf[JDouble].getSimpleName
     val clazzInteger = classOf[Integer].getSimpleName
     val clazzLong    = classOf[JLong].getSimpleName
     className match {
-      case c if c == clazzDouble  => bytesRef.utf8ToString().toDouble.asInstanceOf[S]
-      case c if c == clazzLong    => bytesRef.utf8ToString().toLong.asInstanceOf[S]
-      case c if c == clazzInteger => bytesRef.utf8ToString().toInt.asInstanceOf[S]
-      case c if c == clazzString  => bytesRef.utf8ToString().asInstanceOf[S]
+      case c if c == clazzDouble  => bytesRef.utf8ToString().toDouble.asInstanceOf[D]
+      case c if c == clazzLong    => bytesRef.utf8ToString().toLong.asInstanceOf[D]
+      case c if c == clazzInteger => bytesRef.utf8ToString().toInt.asInstanceOf[D]
+      case c if c == clazzString  => bytesRef.utf8ToString().asInstanceOf[D]
     }
   }
 
   /**
     * @return this instance clearing groups map
     */
-  def clear: AllGroupsAggregationCollector[T, S] = {
+  def clear: AllGroupsAggregationCollector[V, D] = {
     groups.clear()
     this
   }
@@ -115,23 +120,23 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
   override def collect(doc: Int): Unit = {
 
     var stringGroup = false
-    val className   = implicitly[ClassTag[S]].runtimeClass.getSimpleName
+    val className   = implicitly[ClassTag[D]].runtimeClass.getSimpleName
     val clazzString = classOf[String].getSimpleName
     val clazzDouble = classOf[JDouble].getSimpleName
 
-    val term: S = className match {
+    val term: D = className match {
       case c if c == clazzString =>
         val key = index.getOrd(doc)
         stringGroup = true
         fromBytes(BytesRef.deepCopyOf(index.lookupOrd(key)))
       case c if c == clazzDouble =>
-        java.lang.Double.longBitsToDouble(numericalIndex.get(doc)).asInstanceOf[S]
-      case _ => numericalIndex.get(doc).asInstanceOf[S]
+        java.lang.Double.longBitsToDouble(numericalIndex.get(doc)).asInstanceOf[D]
+      case _ => numericalIndex.get(doc).asInstanceOf[D]
     }
 
     val agg = numeric.one match {
-      case _: Double => java.lang.Double.longBitsToDouble(aggIndex.get(doc)).asInstanceOf[T]
-      case _         => aggIndex.get(doc).asInstanceOf[T]
+      case _: Double => java.lang.Double.longBitsToDouble(aggIndex.get(doc)).asInstanceOf[V]
+      case _         => aggIndex.get(doc).asInstanceOf[V]
     }
 
     if (!groups.contains(term)) {
@@ -142,7 +147,7 @@ abstract class AllGroupsAggregationCollector[T: Numeric, S: Ordering: ClassTag] 
   }
 
   override protected def doSetNextReader(context: LeafReaderContext): Unit = {
-    val className   = implicitly[ClassTag[S]].runtimeClass.getSimpleName
+    val className   = implicitly[ClassTag[D]].runtimeClass.getSimpleName
     val clazzString = classOf[String].getSimpleName
 
     className match {

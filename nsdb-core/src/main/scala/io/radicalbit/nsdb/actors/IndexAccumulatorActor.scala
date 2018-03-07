@@ -157,7 +157,11 @@ class IndexAccumulatorActor(basePath: String, db: String, namespace: String) ext
           handleQueryResults(metric,
                              Try(getFacetIndex(metric).getDistinctField(q, fields.map(_.name).head, sort, limit)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
-          handleQueryResults(metric, Try(getFacetIndex(metric).getCount(q, collector.groupField, sort, limit)))
+          handleQueryResults(
+            metric,
+            Try(
+              getFacetIndex(metric)
+                .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
         case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
           handleQueryResults(metric, Try(getIndex(metric).query(q, collector, limit, sort)))
         case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
