@@ -700,7 +700,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             groupBy = Some("name"),
-            order = Some(DescOrderOperator(dimension = "creationDate")),
+            order = Some(DescOrderOperator(dimension = "value")),
             limit = Some(LimitOperator(5))
           ),
           schema
@@ -711,7 +711,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
               new MaxAllGroupsCollector[Long, String]("name", "value"),
-              Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
+              Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
         )
