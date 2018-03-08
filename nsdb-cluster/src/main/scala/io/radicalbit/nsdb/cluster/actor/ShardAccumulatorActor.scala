@@ -95,8 +95,8 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
       val maybeSorted = if (statement.order.isDefined) {
         val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
         implicit val ord: Ordering[JSerializable] =
-          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse.asInstanceOf[Ordering[JSerializable]]
-          else o.asInstanceOf[Ordering[JSerializable]]
+          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
+          else o
         s.sortBy(_.fields(statement.order.get.dimension))
       } else s
 
@@ -226,8 +226,8 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String)
               val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
               implicit val ord: Ordering[JSerializable] =
                 if (statement.order.get.isInstanceOf[DescOrderOperator])
-                  o.reverse.asInstanceOf[Ordering[JSerializable]]
-                else o.asInstanceOf[Ordering[JSerializable]]
+                  o.reverse
+                else o
               val sorted = s.sortBy(_.dimensions(statement.order.get.dimension))
               sorted.take(statement.limit.get.value)
             })

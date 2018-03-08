@@ -28,7 +28,7 @@ sealed trait IndexType[T] {
 
   def facetField(fieldName: String, value: JSerializable): Seq[Field]
 
-  def ord: Ordering[T]
+  def ord: Ordering[JSerializable]
 
   def serialize(value: JSerializable): Array[Byte] = value.toString.getBytes()
 
@@ -69,8 +69,8 @@ object IndexType {
 }
 
 case class INT() extends NumericType[Integer, Int] {
-  def actualType             = classOf[Integer]
-  def ord: Ordering[Integer] = Ordering[Long].asInstanceOf[Ordering[Integer]]
+  def actualType = classOf[Integer]
+  def ord        = Ordering[Integer].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
     Seq(new IntPoint(fieldName, value.toString.toInt),
         new NumericDocValuesField(fieldName, value.toString.toLong),
@@ -87,8 +87,8 @@ case class INT() extends NumericType[Integer, Int] {
   override def cast(value: Any): Integer = value.toString.toInt
 }
 case class BIGINT() extends NumericType[JLong, Long] {
-  def actualType           = classOf[JLong]
-  def ord: Ordering[JLong] = Ordering[JLong]
+  def actualType = classOf[JLong]
+  def ord        = Ordering[JLong].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
     Seq(
       new LongPoint(fieldName, value.toString.toLong),
@@ -107,8 +107,8 @@ case class BIGINT() extends NumericType[JLong, Long] {
   override def cast(value: Any): JLong = value.toString.toLong
 }
 case class DECIMAL() extends NumericType[JDouble, Double] {
-  def actualType             = classOf[JDouble]
-  def ord: Ordering[JDouble] = Ordering[JDouble]
+  def actualType = classOf[JDouble]
+  def ord        = Ordering[JDouble].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
     Seq(
       new DoublePoint(fieldName, value.toString.toDouble),
@@ -127,8 +127,8 @@ case class DECIMAL() extends NumericType[JDouble, Double] {
   override def cast(value: Any): JDouble = value.toString.toDouble
 }
 case class VARCHAR() extends StringType[String] {
-  def actualType            = classOf[String]
-  def ord: Ordering[String] = Ordering[String]
+  def actualType = classOf[String]
+  def ord        = Ordering[String].asInstanceOf[Ordering[JSerializable]]
   override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
     Seq(
       new StringField(fieldName, value.toString, Store.YES),
