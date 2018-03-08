@@ -209,6 +209,9 @@ class StatementParser {
     expParsed.flatMap(exp =>
       (distinctValue, fieldList, statement.groupBy) match {
         case (_, Failure(exception), _) => Failure(exception)
+        case (false, Success(Seq(Field(_, Some(_)))), Some(group))
+            if sortOpt.isDefined && !Seq("value", group).contains(sortOpt.get.getSort.head.getField) =>
+          Failure(new InvalidStatementException(Errors.SORT_DIMENSION_NOT_IN_GROUP))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
           Success(
@@ -289,8 +292,8 @@ object StatementParser {
       "cannot execute a query with aggregation different than count without a group by"
     lazy val AGGREGATION_NOT_ON_VALUE =
       "cannot execute a group by query performing an aggregation on dimension different from value"
-    lazy val GROUP_BY_ON_NOT_STRING_DIM =
-      "cannot execute a group by query on a dimension of type different from varchar"
+    lazy val SORT_DIMENSION_NOT_IN_GROUP =
+      "cannot sort group by query result by a dimension not in group"
     def notExistingDimension(dim: String)       = s"dimension $dim does not exist"
     def notExistingDimensions(dim: Seq[String]) = s"dimensions [$dim] does not exist"
     def uncompatibleOperator(operator: String, dimTypeAllowed: String) =

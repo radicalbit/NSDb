@@ -66,6 +66,7 @@ abstract class AllGroupsAggregationCollector[V: Numeric, D: Ordering: ClassTag] 
       case s if groupField == orderBy =>
         getGroupMap.toSeq.sortBy(_._1)(Ord[D](s.getReverse))
       case s if aggField == orderBy => getGroupMap.toSeq.sortBy(_._2)(Ord[V](s.getReverse))
+      case _                        => Seq.empty
     }
   }
 
