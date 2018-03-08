@@ -63,15 +63,15 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
     val name = "aggregationMetric"
 
     val recordsShard1: Seq[Bit] = Seq(
-      Bit(2L, 1L, Map("name" -> "John", "surname" -> "Doe", "age" -> 15L, "height" -> 30.5)),
-      Bit(4L, 1L, Map("name" -> "John", "surname" -> "Doe", "age" -> 20L, "height" -> 30.5))
+      Bit(2L, 2L, Map("name" -> "John", "surname" -> "Doe", "age" -> 15L, "height" -> 30.5)),
+      Bit(4L, 2L, Map("name" -> "John", "surname" -> "Doe", "age" -> 20L, "height" -> 30.5))
     )
 
     val recordsShard2: Seq[Bit] = Seq(
       Bit(2L, 1L, Map("name"  -> "John", "surname"    -> "Doe", "age" -> 15L, "height" -> 30.5)),
       Bit(6L, 1L, Map("name"  -> "Bill", "surname"    -> "Doe", "age" -> 15L, "height" -> 31.0)),
       Bit(8L, 1L, Map("name"  -> "Frank", "surname"   -> "Doe", "age" -> 15L, "height" -> 32.0)),
-      Bit(10L, 1L, Map("name" -> "Frankie", "surname" -> "Doe", "age" -> 15L, "height" -> 33.0))
+      Bit(10L, 1L, Map("name" -> "Frankie", "surname" -> "Doe", "age" -> 15L, "height" -> 32.0))
     )
 
     val testRecords = recordsShard1 ++ recordsShard2
@@ -858,8 +858,62 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           within(5 seconds) {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values shouldBe Seq(Bit(0L, 5L, Map("age" -> 15L)), Bit(0L, 1L, Map("age" -> 20L)))
+            expected.values shouldBe Seq(
+              Bit(0L, 6L, Map("age" -> 15L)),
+              Bit(0L, 2L, Map("age" -> 20L))
+            )
+          }
+        }
+      }
+      "receive a select containing a group by on double dimension" should {
+        "execute it successfully with count aggregation" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = AggregationMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                groupBy = Some("height"),
+                order = Some(DescOrderOperator("value"))
+              )
+            )
+          )
 
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values shouldBe Seq(
+              Bit(0L, 3, Map("height" -> 30.5)),
+              Bit(0L, 2, Map("height" -> 32.0)),
+              Bit(0L, 1, Map("height" -> 31.0))
+            )
+          }
+        }
+        "execute it successfully with sum aggregation" in {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = AggregationMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some("height"),
+                order = Some(AscOrderOperator("height"))
+              )
+            )
+          )
+
+          within(5 seconds) {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values shouldBe Seq(
+              Bit(0L, 5, Map("height" -> 30.5)),
+              Bit(0L, 1, Map("height" -> 31.0)),
+              Bit(0L, 2, Map("height" -> 32.0))
+            )
           }
         }
       }
