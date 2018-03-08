@@ -42,7 +42,7 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     allFields match {
       case Success(fields) =>
         fields
-          .filterNot(f => f.name() == "value" || f.name() == "timestamp")
+          .filterNot(f => f.name() == "value")
           .foreach(f => {
             doc.add(f)
             if (f.isInstanceOf[StringField] || f.isInstanceOf[DoublePoint] || f.isInstanceOf[LongPoint] || f
