@@ -72,5 +72,5 @@ class ReadCoordinatorSpec
     expectNoMessage(interval)
   }
 
-  "ReadCoordinator in shard mode" should behave.like(defaultBehaviour)
+  "ReadCoordinator" should behave.like(defaultBehaviour)
 }

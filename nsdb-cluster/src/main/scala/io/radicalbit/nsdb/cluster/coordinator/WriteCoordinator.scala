@@ -61,14 +61,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
 
-  def commitLogFuture(db: String, namespace: String, metric: String, bit: Bit): Future[WroteToCommitLogAck] = {
+  def writeCommitLog(db: String, namespace: String, metric: String, bit: Bit): Future[WroteToCommitLogAck] = {
     if (commitLogService.isDefined)
       (commitLogService.get ? CommitLogService.Insert(ts = bit.timestamp, metric = metric, record = bit))
         .mapTo[WroteToCommitLogAck]
     else Future.successful(WroteToCommitLogAck(bit.timestamp, metric, bit))
   }
 
-  def schemaFuture(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
+  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
     (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
@@ -80,7 +80,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       }
   }
 
-  def metadataFuture(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
+  def getMetadataLocation(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       f: Location => Future[Any]): Future[Any] =
     (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ts)).flatMap {
       case LocationGot(_, _, _, Some(loc)) =>
@@ -91,7 +91,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
     }
 
-  def dataFuture(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
+  def accumulateRecord(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
     namespaces.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
@@ -113,12 +113,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      schemaFuture(db, namespace, metric, bit) { schema =>
-        commitLogFuture(db, namespace, metric, bit)
+      updateSchema(db, namespace, metric, bit) { schema =>
+        writeCommitLog(db, namespace, metric, bit)
           .flatMap(ack => {
             publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-            metadataFuture(db, namespace, metric, bit, ack.ts) { loc =>
-              dataFuture(db, namespace, metric, bit, loc)
+            getMetadataLocation(db, namespace, metric, bit, ack.ts) { loc =>
+              accumulateRecord(db, namespace, metric, bit, loc)
             }
           })
       }.pipeToWithEffect(sender()) { _ =>

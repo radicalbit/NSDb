@@ -50,14 +50,12 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
       mediator ! Subscribe("metadata", metadataActor)
 
-      if (sharding) {
-        log.info(s"subscribing data actor for node $nameNode")
-        val namespaceActor = context.actorOf(
-          NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
-          s"namespace-data-actor_$nameNode")
-        writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
-        readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
-      }
+      log.info(s"subscribing data actor for node $nameNode")
+      val namespaceActor = context.actorOf(
+        NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
+        s"namespace-data-actor_$nameNode")
+      writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
+      readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
 
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)
