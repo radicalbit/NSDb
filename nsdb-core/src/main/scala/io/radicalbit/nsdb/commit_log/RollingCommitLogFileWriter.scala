@@ -6,6 +6,7 @@ import java.nio.file.Paths
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.util.Config._
+import CommitLogEntries._
 
 import scala.util.Try
 
@@ -117,5 +118,5 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
     new File(s"$directory/$nextFile")
   }
 
-  protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file)
+  protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file, true)
 }

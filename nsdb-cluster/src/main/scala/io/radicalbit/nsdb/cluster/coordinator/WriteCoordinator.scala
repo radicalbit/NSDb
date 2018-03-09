@@ -8,16 +8,11 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
 import io.radicalbit.nsdb.cluster.index.Location
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
-  AddRecordToLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
-import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{
-  JournalServiceResponse,
-  WriteToCommitLogFailed,
-  WriteToCommitLogSucceeded
-}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
+import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{JournalServiceResponse, WriteToCommitLogFailed, WriteToCommitLogSucceeded}
+import io.radicalbit.nsdb.commit_log.CommitLogCoordinator.InsertAction
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.Schema
@@ -30,17 +25,17 @@ import scala.concurrent.Future
 
 object WriteCoordinator {
 
-  def props(metadataCoordinator: ActorRef,
+  def props(commitLogger: Option[ActorRef],
+            metadataCoordinator: ActorRef,
             namespaceSchemaActor: ActorRef,
-            commitLogService: Option[ActorRef],
             publisherActor: ActorRef): Props =
-    Props(new WriteCoordinator(metadataCoordinator, namespaceSchemaActor, commitLogService, publisherActor))
+    Props(new WriteCoordinator(commitLogger, metadataCoordinator, namespaceSchemaActor, publisherActor))
 
 }
 
-class WriteCoordinator(metadataCoordinator: ActorRef,
+class WriteCoordinator(commitLogger: Option[ActorRef],
+                       metadataCoordinator: ActorRef,
                        namespaceSchemaActor: ActorRef,
-                       commitLogCoordinator: Option[ActorRef],
                        publisherActor: ActorRef)
     extends Actor
     with ActorLogging
@@ -53,6 +48,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     TimeUnit.SECONDS)
   import context.dispatcher
 
+  val commitLogEnabled: Boolean = context.system.settings.config.getBoolean("nsdb.commit-log.enabled")
   log.info("WriteCoordinator is ready.")
   if (commitLogCoordinator.isEmpty)
     log.info("Commit Log is disabled")
@@ -67,11 +63,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
 
-  private def commitLogFuture(ts: Long, metric: String, bit: Bit) = {
-    if (commitLogCoordinator.isDefined)
-      (commitLogCoordinator.get ? CommitLogCoordinator.Insert(metric = metric, bit = bit))
+  private def commitLogFuture(db: String,
+                              namespace: String,
+                              ts: Long,
+                              metric: String,
+                              action: CommitLoggerAction
+  ): Future[JournalServiceResponse] = {
+    if (commitLogEnabled)
+      (commitLogger.get ? WriteToCommitLog(db = db, namespace = namespace, metric = metric, ts = ts, action = action))
         .mapTo[JournalServiceResponse]
-    else Future.successful(WriteToCommitLogSucceeded(ts, metric, bit))
+    else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
   }
 
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
@@ -120,7 +121,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       updateSchema(db, namespace, metric, bit) { schema =>
-        commitLogFuture(db, namespace, metric, bit)
+        commitLogFuture(db, namespace, metric, InsertAction(bit))
           .flatMap(ack => {
             publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
             getMetadataLocation(db, namespace, metric, bit, ack.ts) { loc =>

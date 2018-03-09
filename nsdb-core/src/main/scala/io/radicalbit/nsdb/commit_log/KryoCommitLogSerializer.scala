@@ -29,10 +29,9 @@ class CommitLogEntrySerializer extends Serializer[CommitLogEntry] {
     val bit        = Bit(ts, value, dimensions)
 
     className match {
-      case c if classOf[InsertEntry].getSimpleName == c => InsertEntry(metric, bit)
-      case c if classOf[DeleteEntry].getSimpleName == c => InsertEntry(metric, bit)
-      case c if classOf[CommitEntry].getSimpleName == c => CommitEntry(metric, bit)
-      case c if classOf[RejectEntry].getSimpleName == c => RejectEntry(metric, bit)
+      case c if classOf[InsertEntry].getSimpleName == c => InsertEntry(metric, ts, bit)
+      case c if classOf[DeleteEntry].getSimpleName == c => DeleteEntry(metric, ts)
+      case c if classOf[RejectEntry].getSimpleName == c => RejectEntry(metric, ts, bit)
     }
   }
 

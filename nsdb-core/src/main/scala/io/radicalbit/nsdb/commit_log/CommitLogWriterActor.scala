@@ -1,36 +1,23 @@
 package io.radicalbit.nsdb.commit_log
 
 import akka.actor.Actor
+import io.radicalbit.nsdb.commit_log.CommitLogCoordinator.{WriteToCommitLogFailed, WriteToCommitLogSucceeded}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.Condition
 
 import scala.util.{Failure, Success, Try}
 
 object CommitLogWriterActor {
 
-  sealed trait JournalServiceProtocol
+  sealed trait CommitWriterProtocol
 
-  case class Insert(db: String, namespace: String, metric: String, bit: Bit) extends JournalServiceProtocol
-  case class Commit(db: String, namespace: String, metric: String, bit: Bit) extends JournalServiceProtocol
-  case class Reject(db: String, namespace: String, metric: String, bit: Bit) extends JournalServiceProtocol
+  case class InsertBit(db: String, namespace: String, metric: String, bit: Bit) extends CommitWriterProtocol
+  case class DeleteBit(db: String, namespace: String, metric: String, timestamp: Long, condition: Condition) extends CommitWriterProtocol
+  case class RejectBit(db: String, namespace: String, metric: String, bit: Bit) extends CommitWriterProtocol
+  case class DeleteMetric(db: String, namespace: String, metric: String, timestamp: Long) extends CommitWriterProtocol
+  case class DeleteNamespace(db: String, namespace: String, timestamp: Long) extends CommitWriterProtocol
 
-  sealed trait JournalServiceResponse extends JournalServiceProtocol
-
-  case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String, bit: Bit)
-      extends JournalServiceResponse
-  case class WriteToCommitLogFailed(db: String, namespace: String, ts: Long, metric: String, bit: Bit, reason: String)
-      extends JournalServiceResponse
-
-  sealed trait CommitLogWriterProtocol
-
-  case class InsertNewEntry(entry: CommitLogEntry)   extends CommitLogWriterProtocol
-  case class NewEntryInserted(entry: CommitLogEntry) extends CommitLogWriterProtocol
-
-//  case class CommitNewEntry(metric: String, bit: Bit, replyTo: ActorRef) extends CommitLogWriterProtocol
-//  case class NewEntryCommitted(metric: String, bit: Bit) extends CommitLogWriterProtocol
-
-//  case class RejectNewEntry(metric: String, bit: Bit, replyTo: ActorRef) extends CommitLogWriterProtocol
-//  case class NewEntryRejected(metric: String, bit: Bit) extends CommitLogWriterProtocol
 
 }
 
@@ -39,10 +26,17 @@ trait CommitLogWriterActor extends Actor {
   protected def serializer: CommitLogSerializer
 
   final def receive: Receive = {
-    case Insert(db, namespace, metric, bit) =>
-      val commitLogEntry = InsertEntry(metric, bit)
+    case InsertBit(db, namespace, metric, bit) =>
+      val commitLogEntry = InsertEntry(metric, bit.timestamp, bit)
       createEntry(commitLogEntry) match {
-        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, bit.timestamp, metric, bit)
+        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, bit.timestamp, metric)
+        case Failure(ex) =>
+          sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, bit, ex.getMessage)
+      }
+    case DeleteBit(db, namespace, metric, timestamp,  condition) =>
+      val commitLogEntry = DeleteEntry(metric, timestamp, bit)
+      createEntry(commitLogEntry) match {
+        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, bit.timestamp, metric)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, bit, ex.getMessage)
       }

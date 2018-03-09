@@ -35,22 +35,24 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   val metadataCoordinator = context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
-  private val commitLogCoordinator =
-    if (writeToCommitLog) Some(context.actorOf(CommitLogCoordinator.props, "commit-log-coordinator")) else None
   private val readCoordinator =
     context.actorOf(ReadCoordinator.props(metadataCoordinator, namespaceSchemaActor), "read-coordinator")
   private val publisherActor =
     context.actorOf(PublisherActor.props(readCoordinator, namespaceSchemaActor), "publisher-actor")
   private val writeCoordinator =
-    context.actorOf(
-      WriteCoordinator.props(metadataCoordinator, namespaceSchemaActor, commitLogCoordinator, publisherActor),
-      "write-coordinator")
+    if (writeToCommitLog) {
+      val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
+      context.actorOf(
+        WriteCoordinator.props(Some(commitLogger), metadataCoordinator, namespaceSchemaActor, publisherActor),
+        "write-coordinator")
+    } else
+      context.actorOf(WriteCoordinator.props(None, metadataCoordinator, namespaceSchemaActor, publisherActor),
+                      "write-coordinator")
 
   context.actorOf(
     ClusterListener.props(readCoordinator = readCoordinator,
                           writeCoordinator = writeCoordinator,
-                          metadataCoordinator = metadataCoordinator,
-                            commitLogCoordinator = commitLogCoordinator),
+                          metadataCoordinator = metadataCoordinator),
     name = "clusterListener"
   )
 
