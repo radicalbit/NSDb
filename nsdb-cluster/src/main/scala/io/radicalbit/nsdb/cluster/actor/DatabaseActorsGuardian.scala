@@ -5,7 +5,7 @@ import java.util.concurrent.TimeoutException
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props, SupervisorStrategy}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.cluster.coordinator.{CommitLogCoordinator, ReadCoordinator, WriteCoordinator}
+import io.radicalbit.nsdb.cluster.coordinator.{CommitLogCoordinator, MetadataCoordinator, ReadCoordinator, WriteCoordinator}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
 object DatabaseActorsGuardian {

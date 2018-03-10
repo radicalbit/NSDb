@@ -26,6 +26,9 @@ object ReplicatedMetadataCache {
   final case class Evict(key: LocationKey)
 }
 
+/**
+  * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
+  */
 class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   import ReplicatedMetadataCache._
@@ -35,9 +38,19 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   val replicator: ActorRef = DistributedData(context.system).replicator
 
+  /**
+    *
+    * @param entryKey
+    * @return [[LWWMapKey]] resulted from entryKey hashCode
+    */
   def locationDataKey(entryKey: LocationKey): LWWMapKey[LocationKey, Location] =
     LWWMapKey("location-cache-" + math.abs(entryKey.hashCode) % 100)
 
+  /**
+    *
+    * @param entryKey
+    * @return [[LWWMapKey]] resulted from entryKey hashCode
+    */
   def metricDataKey(entryKey: MetricKey): LWWMapKey[MetricKey, Seq[Location]] =
     LWWMapKey("metric-cache-" + math.abs(entryKey.hashCode) % 100)
 

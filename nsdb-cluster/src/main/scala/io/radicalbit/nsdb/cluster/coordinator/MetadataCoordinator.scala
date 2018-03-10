@@ -1,29 +1,33 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.cluster.coordinator
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
-import akka.pattern.{ask, pipe}
+import akka.pattern._
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{AddLocation, _}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{
-  AddLocationFailed,
-  LocationAdded,
-  LocationGot,
-  LocationsGot
-}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
+import io.radicalbit.nsdb.cluster.actor.{LocationKey, MetricKey}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.concurrent.Future
 import scala.util.Random
 
+/**
+  * Actor that handles metadata (i.e. write location for metrics)
+  * @param cache cluster aware metric's location cache
+  */
+//TODO add brief metadata mechanism description
 class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
+  /**
+    * mediator for [[DistributedPubSub]] system
+    */
   val mediator: ActorRef = DistributedPubSub(context.system).mediator
 
   val cluster = Cluster(context.system)
@@ -38,6 +42,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   override def receive: Receive = if (sharding) shardBehaviour else noShardBehaviour
 
+  /**
+    * behaviour in case shard is false
+    */
   def noShardBehaviour: Receive = {
     case GetLocations(db, namespace, metric) =>
       val nodeName =
@@ -49,6 +56,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
       sender ! LocationGot(db, namespace, metric, Some(Location(metric, nodeName, 0, 0)))
   }
 
+  /**
+    * behaviour in case shard is true
+    */
   def shardBehaviour: Receive = {
     case GetLocations(db, namespace, metric) =>
       val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))

@@ -12,6 +12,12 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeNamespaceDa
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
+/**
+  * actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
+  * @param writeCoordinator the global writeCoordinator
+  * @param readCoordinator the global readCoordinator
+  * @param metadataCoordinator the global metadataCoordinator
+  */
 class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)
     extends Actor
     with ActorLogging {

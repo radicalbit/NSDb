@@ -4,8 +4,17 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands._
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
+  AddLocation,
+  AddLocations,
+  DeleteNamespace,
+  GetLocations
+}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
+  LocationAdded,
+  LocationsGot,
+  NamespaceDeleted
+}
 import io.radicalbit.nsdb.cluster.index.Location
 import org.scalatest._
 

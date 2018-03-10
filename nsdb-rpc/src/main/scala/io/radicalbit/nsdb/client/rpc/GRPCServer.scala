@@ -11,6 +11,9 @@ import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
+/**
+  * GRPCServer interface. It contains all the services exposed
+  */
 trait GRPCServer {
 
   protected[this] def executionContextExecutor: ExecutionContext
