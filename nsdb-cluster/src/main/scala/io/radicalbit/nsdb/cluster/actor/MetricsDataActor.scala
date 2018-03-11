@@ -17,6 +17,10 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.collection.mutable
 
+/**
+  * Actor responsible to dispatch read or write commands to the proper actor and index
+  * @param basePath indexes' root path
+  */
 class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
@@ -55,7 +59,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       }
   }
 
-  override def receive: Receive = commons orElse receiveShard
+  override def receive: Receive = commons orElse shardBehaviour
 
   def commons: Receive = {
     case GetNamespaces(db) =>
@@ -79,7 +83,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       getChild(statement.db, statement.namespace).forward(msg)
   }
 
-  def receiveShard: Receive = {
+  def shardBehaviour: Receive = {
     case AddRecordToLocation(db, namespace, bit, location) =>
       getChild(db, namespace).forward(
         AddRecordToShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))

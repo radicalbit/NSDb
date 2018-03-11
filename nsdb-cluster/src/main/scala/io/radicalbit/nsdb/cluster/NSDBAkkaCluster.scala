@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
@@ -6,9 +6,13 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.Config
+import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetReadCoordinator, GetWriteCoordinator}
 
+/**
+  * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
+  */
 trait NSDBAkkaCluster {
 
   def config: Config
@@ -16,6 +20,9 @@ trait NSDBAkkaCluster {
   implicit lazy val system: ActorSystem = ActorSystem("nsdb", config)
 }
 
+/**
+  * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
+  */
 trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val timeout =
@@ -32,4 +39,7 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
   } ()
 }
 
+/**
+  * Simply mix in [[NSDBAkkaCluster]] with [[NSDBAActors]]
+  */
 trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors

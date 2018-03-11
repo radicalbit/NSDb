@@ -11,6 +11,10 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.collection.mutable
 
+/**
+  * Actor respinsible of dispatch read and write schema operaitons to che proper schema index
+  * @param basePath indexes' base path
+  */
 class MetricsSchemaActor(val basePath: String) extends Actor with ActorLogging {
 
   val schemaActors: mutable.Map[NamespaceKey, ActorRef] = mutable.Map.empty
