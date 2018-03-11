@@ -13,6 +13,11 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
+/**
+  * Grpc client
+  * @param host Grpc server host
+  * @param port Grpc server port
+  */
 class GRPCClient(host: String, port: Int) {
 
   private val log = LoggerFactory.getLogger(classOf[GRPCClient])

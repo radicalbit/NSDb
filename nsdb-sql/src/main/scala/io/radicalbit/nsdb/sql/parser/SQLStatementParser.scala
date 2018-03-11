@@ -9,6 +9,24 @@ import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 import scala.language.postfixOps
 import scala.util.parsing.input.CharSequenceReader
 
+/**
+  * Parser combinator for sql statements.
+  * It successfully validate and parse a subset of the Ansi Sql grammar.
+  * It mix in [[PackratParsers]] which turn the parser into a look ahead parser which can handle left recursive grammars
+  * Here is the (simplified) EBNF grammar supported by Nsdb Parser.
+  * {{{
+  *   S := InsertStatement | SelectStatement | DeleteStatement | DropStatement
+  *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "VAL" = digit
+  *   DropStatement := "drop metric" literal
+  *   DeleteStatement := "delete" "from" literal ("where" expression)?
+  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" literal)? ("order by" literal ("desc")?)? (limit digit)?
+  *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
+  *   expression := expression "and" expression | expression "or" expression | "not" expression |
+  *                 literal "=" literal | literal compare literal | literal "like" literal |
+  *                 literal "in" "(" digit "," digit ")" | literal "is" "not"? "null"
+  *   comparison := "=" | ">" | "<" | ">=" | "<="
+  * }}}
+  */
 final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   implicit class InsensitiveString(str: String) {
