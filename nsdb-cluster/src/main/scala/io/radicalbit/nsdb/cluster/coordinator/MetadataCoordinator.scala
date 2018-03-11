@@ -10,7 +10,6 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.actor.{LocationKey, MetricKey}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.Location

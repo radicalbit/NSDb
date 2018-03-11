@@ -11,15 +11,15 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.collection.mutable
 
-class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging {
+class MetricsSchemaActor(val basePath: String) extends Actor with ActorLogging {
 
-  val schemaActors: mutable.Map[(String, String), ActorRef] = mutable.Map.empty
+  val schemaActors: mutable.Map[NamespaceKey, ActorRef] = mutable.Map.empty
 
   private def getSchemaActor(db: String, namespace: String): ActorRef =
     schemaActors.getOrElse(
-      (db, namespace), {
+      NamespaceKey(db, namespace), {
         val schemaActor = context.actorOf(SchemaActor.props(basePath, db, namespace), s"schema-service-$db-$namespace")
-        schemaActors += ((db, namespace) -> schemaActor)
+        schemaActors += (NamespaceKey(db, namespace) -> schemaActor)
         schemaActor
       }
     )
@@ -41,14 +41,14 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
       (schemaActorToDelete ? DeleteAllSchemas(db, namespace))
         .map { _ =>
           schemaActorToDelete ! PoisonPill
-          schemaActors -= ((db, namespace))
+          schemaActors -= NamespaceKey(db, namespace)
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender)
   }
 }
 
-object NamespaceSchemaActor {
+object MetricsSchemaActor {
 
-  def props(basePath: String): Props = Props(new NamespaceSchemaActor(basePath))
+  def props(basePath: String): Props = Props(new MetricsSchemaActor(basePath))
 }

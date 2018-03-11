@@ -2,7 +2,7 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config.Config
@@ -23,7 +23,7 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val executionContext = system.dispatcher
 
-  lazy val guardian = system.actorOf(DatabaseActorsGuardian.props, "guardian")
+  lazy val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
   for {
     readCoordinator  <- (guardian ? GetReadCoordinator).mapTo[ActorRef]

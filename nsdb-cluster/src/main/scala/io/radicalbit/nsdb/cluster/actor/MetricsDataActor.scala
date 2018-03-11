@@ -7,11 +7,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.{ShardAccumulatorActor, ShardKey}
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
-  AddRecordToLocation,
-  DeleteRecordFromLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
@@ -21,9 +17,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.collection.mutable
 
-case class NamespaceKey(db: String, namespace: String)
-
-class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
+class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
 
@@ -99,8 +93,8 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
 
 }
 
-object NamespaceDataActor {
-  def props(basePath: String): Props = Props(new NamespaceDataActor(basePath))
+object MetricsDataActor {
+  def props(basePath: String): Props = Props(new MetricsDataActor(basePath))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)

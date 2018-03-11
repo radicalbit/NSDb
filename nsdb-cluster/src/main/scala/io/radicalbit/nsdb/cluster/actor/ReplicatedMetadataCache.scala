@@ -11,10 +11,11 @@ import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.concurrent.duration._
 
-case class LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
-case class MetricKey(db: String, namespace: String, metric: String)
-
 object ReplicatedMetadataCache {
+
+  case class LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
+  case class MetricKey(db: String, namespace: String, metric: String)
+
   private final case class Request(key: LocationKey, replyTo: ActorRef)
   private final case class MetricRequest(key: MetricKey, replyTo: ActorRef)
 
@@ -40,19 +41,19 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   /**
     *
-    * @param entryKey
-    * @return [[LWWMapKey]] resulted from entryKey hashCode
+    * @param locKey the location key to convert
+    * @return [[LWWMapKey]] resulted from locKey hashCode
     */
-  def locationDataKey(entryKey: LocationKey): LWWMapKey[LocationKey, Location] =
-    LWWMapKey("location-cache-" + math.abs(entryKey.hashCode) % 100)
+  private def locationDataKey(locKey: LocationKey): LWWMapKey[LocationKey, Location] =
+    LWWMapKey("location-cache-" + math.abs(locKey.hashCode) % 100)
 
   /**
     *
-    * @param entryKey
-    * @return [[LWWMapKey]] resulted from entryKey hashCode
+    * @param metricKey the metric key to convert
+    * @return [[LWWMapKey]] resulted from metricKey hashCode
     */
-  def metricDataKey(entryKey: MetricKey): LWWMapKey[MetricKey, Seq[Location]] =
-    LWWMapKey("metric-cache-" + math.abs(entryKey.hashCode) % 100)
+  private def metricDataKey(metricKey: MetricKey): LWWMapKey[MetricKey, Seq[Location]] =
+    LWWMapKey("metric-cache-" + math.abs(metricKey.hashCode) % 100)
 
   private val writeDuration = 5.seconds
 

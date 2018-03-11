@@ -19,7 +19,7 @@ import scala.concurrent.Future
 /**
   * Actor that receives and handle every read request
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator
-  * @param namespaceSchemaActor [[io.radicalbit.nsdb.cluster.actor.NamespaceSchemaActor]] the namespace schema actor
+  * @param namespaceSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the namespace schema actor
   */
 class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
     extends Actor
