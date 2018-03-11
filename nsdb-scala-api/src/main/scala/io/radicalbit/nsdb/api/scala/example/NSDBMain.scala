@@ -1,11 +1,15 @@
-package io.radicalbit.nsdb.api.scala
+package io.radicalbit.nsdb.api.scala.example
 
+import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 
 import scala.concurrent._
 import scala.concurrent.duration._
 
+/**
+  * example App for writing a Bit
+  */
 object NSDBMainWrite extends App {
 
   val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
@@ -28,6 +32,9 @@ object NSDBMainWrite extends App {
   println(Await.result(res, 10.seconds))
 }
 
+/**
+  * example App for executing a query
+  */
 object NSDBMainRead extends App {
 
   val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
