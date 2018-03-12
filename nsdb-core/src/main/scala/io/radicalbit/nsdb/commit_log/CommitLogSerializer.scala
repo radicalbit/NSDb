@@ -1,5 +1,7 @@
 package io.radicalbit.nsdb.commit_log
 
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry
+
 trait CommitLogSerializer {
 
   def deserialize(entry: Array[Byte]): CommitLogEntry

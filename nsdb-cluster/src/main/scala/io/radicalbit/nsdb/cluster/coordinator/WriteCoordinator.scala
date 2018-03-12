@@ -67,8 +67,7 @@ class WriteCoordinator(commitLogger: Option[ActorRef],
                               namespace: String,
                               ts: Long,
                               metric: String,
-                              action: CommitLoggerAction
-  ): Future[JournalServiceResponse] = {
+                              action: CommitLoggerAction): Future[JournalServiceResponse] = {
     if (commitLogEnabled)
       (commitLogger.get ? WriteToCommitLog(db = db, namespace = namespace, metric = metric, ts = ts, action = action))
         .mapTo[JournalServiceResponse]

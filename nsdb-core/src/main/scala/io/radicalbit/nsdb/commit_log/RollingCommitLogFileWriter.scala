@@ -5,8 +5,8 @@ import java.nio.file.Paths
 
 import akka.actor.{ActorLogging, Props}
 import com.typesafe.config.Config
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry
 import io.radicalbit.nsdb.util.Config._
-import CommitLogEntries._
 
 import scala.util.Try
 
@@ -79,8 +79,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
     log.debug("Received the entry {}.", entry)
 
     val operation = Try(appendToDisk(entry))
-//    sender() ! WriteToCommitLogSucceeded(ts = entry.bit.timestamp, metric = entry.metric, bit = entry.bit)
-
     // this check can be done in an async fashion
     checkAndUpdateRollingFile(file).foreach {
       case (f, fos) =>
