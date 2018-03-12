@@ -7,7 +7,6 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.{Dimens
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
-import io.radicalbit.nsdb.statement.StatementParser
 
 /**
   * Utility class to Serialize and Deserialize a CommitLogEntry.
@@ -62,8 +61,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     className match {
       case c if c == classOf[InsertEntry].getCanonicalName =>
         InsertEntry(db = db,
-          namespace = namespace,
-          metric = metric,
+                    namespace = namespace,
+                    metric = metric,
                     timestamp = ts,
                     Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
       case c if c == classOf[RejectEntry].getCanonicalName =>
@@ -76,15 +75,28 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
 
   override def serialize(entry: CommitLogEntry): Array[Byte] =
     entry match {
-      case e: InsertEntry => serializeEntry(e.getClass.getCanonicalName, e.timestamp, e.db, e .namespace, e.metric, extractValue(e.bit.value), extractDimensions(e.bit.dimensions))
-      case e: RejectEntry => serializeEntry(e.getClass.getCanonicalName, e.timestamp, e.db, e .namespace, e.metric, extractValue(e.bit.value), extractDimensions(e.bit.dimensions))
-      case e: DeleteEntry => ???
-      case e: DeleteNamespaceEntry =>
-      case e: DeleteMetricEntry =>
+      case e: InsertEntry =>
+        serializeEntry(e.getClass.getCanonicalName,
+                       e.timestamp,
+                       e.db,
+                       e.namespace,
+                       e.metric,
+                       extractValue(e.bit.value),
+                       extractDimensions(e.bit.dimensions))
+      case e: RejectEntry =>
+        serializeEntry(e.getClass.getCanonicalName,
+                       e.timestamp,
+                       e.db,
+                       e.namespace,
+                       e.metric,
+                       extractValue(e.bit.value),
+                       extractDimensions(e.bit.dimensions))
+      case e: DeleteEntry          => ???
+      case e: DeleteNamespaceEntry => ???
+      case e: DeleteMetricEntry    => ???
     }
 
-
-    private def serializeEntry(
+  private def serializeEntry(
       className: String,
       ts: Long,
       db: String,
@@ -92,30 +104,30 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       metric: String,
       value: Value,
       dimensions: List[Dimension]
-    ): Array[Byte] = {
-      writeBuffer.clear()
-      //classname
-      writeBuffer.write(className)
-      // timestamp
-      writeBuffer.write(ts.toString)
-      //db
-      writeBuffer.write(db)
-      //namespace
-      writeBuffer.write(namespace)
-      // metric
-      writeBuffer.write(metric)
-      // dimensions
-      writeBuffer.putInt(dimensions.length)
-      dimensions.foreach {
-        case (name, typ, value) =>
-          writeBuffer.write(name)
-          writeBuffer.write(typ)
-          writeBuffer.putInt(value.length)
-          writeBuffer.put(value)
-      }
-
-      writeBuffer.array
+  ): Array[Byte] = {
+    writeBuffer.clear()
+    //classname
+    writeBuffer.write(className)
+    // timestamp
+    writeBuffer.write(ts.toString)
+    //db
+    writeBuffer.write(db)
+    //namespace
+    writeBuffer.write(namespace)
+    // metric
+    writeBuffer.write(metric)
+    // dimensions
+    writeBuffer.putInt(dimensions.length)
+    dimensions.foreach {
+      case (name, typ, value) =>
+        writeBuffer.write(name)
+        writeBuffer.write(typ)
+        writeBuffer.putInt(value.length)
+        writeBuffer.put(value)
     }
+
+    writeBuffer.array
+  }
 
 }
 

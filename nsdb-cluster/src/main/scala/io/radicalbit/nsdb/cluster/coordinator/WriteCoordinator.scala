@@ -8,11 +8,9 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
-import io.radicalbit.nsdb.cluster.coordinator.CommitLogCoordinator.{JournalServiceResponse, WriteToCommitLogFailed, WriteToCommitLogSucceeded}
-import io.radicalbit.nsdb.commit_log.CommitLogCoordinator.InsertAction
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLoggerAction, InsertAction}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.Schema
@@ -50,7 +48,7 @@ class WriteCoordinator(commitLogger: Option[ActorRef],
 
   val commitLogEnabled: Boolean = context.system.settings.config.getBoolean("nsdb.commit-log.enabled")
   log.info("WriteCoordinator is ready.")
-  if (commitLogCoordinator.isEmpty)
+  if (!commitLogEnabled)
     log.info("Commit Log is disabled")
 
   lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")

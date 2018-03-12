@@ -1,34 +1,12 @@
-package io.radicalbit.nsdb.commit_log
+package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.commit_log.CommitLogCoordinator._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.Condition
+import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter
 
 import scala.collection.mutable
 
 object CommitLogCoordinator {
-
-  sealed trait CommitLoggerAction
-  case class InsertAction(bit: Bit)             extends CommitLoggerAction
-  case class RejectAction(bit: Bit)             extends CommitLoggerAction
-  case class DeleteAction(condition: Condition) extends CommitLoggerAction
-  case class DeleteNamespaceAction()            extends CommitLoggerAction
-  case class DeleteMetricAction()               extends CommitLoggerAction
-
-  sealed trait JournalServiceProtocol
-
-  sealed trait JournalServiceRequest  extends JournalServiceProtocol
-  sealed trait JournalServiceResponse extends JournalServiceProtocol
-
-  case class WriteToCommitLog(db: String, namespace: String, metric: String, ts: Long, action: CommitLoggerAction)
-      extends JournalServiceRequest
-
-  case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String)
-      extends JournalServiceResponse
-  case class WriteToCommitLogFailed(db: String, namespace: String, ts: Long, metric: String, reason: String)
-      extends JournalServiceResponse
 
   def props(): Props = Props(new CommitLogCoordinator())
 }

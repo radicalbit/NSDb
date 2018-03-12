@@ -1,7 +1,6 @@
 package io.radicalbit.nsdb.commit_log
 
 import akka.actor.Actor
-import io.radicalbit.nsdb.commit_log.CommitLogCoordinator.{WriteToCommitLogFailed, WriteToCommitLogSucceeded}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.Condition
@@ -10,20 +9,40 @@ import scala.util.{Failure, Success, Try}
 
 object CommitLogWriterActor {
 
+  sealed trait CommitLoggerAction
+  case class InsertAction(bit: Bit)             extends CommitLoggerAction
+  case class RejectAction(bit: Bit)             extends CommitLoggerAction
+  case class DeleteAction(condition: Condition) extends CommitLoggerAction
+  case class DeleteNamespaceAction()            extends CommitLoggerAction
+  case class DeleteMetricAction()               extends CommitLoggerAction
+
+  sealed trait JournalServiceProtocol
+
+  sealed trait JournalServiceRequest  extends JournalServiceProtocol
+  sealed trait JournalServiceResponse extends JournalServiceProtocol
+
+  case class WriteToCommitLog(db: String, namespace: String, metric: String, ts: Long, action: CommitLoggerAction)
+      extends JournalServiceRequest
+
+  case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String)
+      extends JournalServiceResponse
+  case class WriteToCommitLogFailed(db: String, namespace: String, ts: Long, metric: String, reason: String)
+      extends JournalServiceResponse
+
   object CommitLogEntry {
     type DimensionName  = String
     type DimensionType  = String
     type DimensionValue = Array[Byte]
-    type ValueName = String
-    type ValueType = String
-    type RawValue = Array[Byte]
+    type ValueName      = String
+    type ValueType      = String
+    type RawValue       = Array[Byte]
     type Dimension      = (DimensionName, DimensionType, DimensionValue)
-    type Value = (ValueName, ValueType, RawValue)
+    type Value          = (ValueName, ValueType, RawValue)
 
   }
 
   sealed trait CommitLogEntry {
-    def db: String,
+    def db: String
     def namespace: String
     def timestamp: Long
 
