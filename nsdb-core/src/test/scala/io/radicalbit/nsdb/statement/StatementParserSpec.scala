@@ -917,7 +917,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
 
     "receive a group by on a dimension of type different from varchar" should {
-      "success" in {
+      "succeed" in {
         parser.parseStatement(
           SelectSQLStatement(
             db = "db",
