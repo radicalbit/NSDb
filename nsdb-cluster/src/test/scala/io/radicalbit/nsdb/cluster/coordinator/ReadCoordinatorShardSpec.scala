@@ -85,17 +85,11 @@ class ReadCoordinatorShardSpec
 
     AggregationMetric.recordsShard1.foreach(
       r =>
-        Await.result(namespaceDataActor ? AddRecordToLocation(db,
-                                                              namespace,
-                                                              r,
-                                                              location1(AggregationMetric.name)),
+        Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
                      3 seconds))
     AggregationMetric.recordsShard2.foreach(
       r =>
-        Await.result(namespaceDataActor ? AddRecordToLocation(db,
-                                                              namespace,
-                                                              r,
-                                                              location2(AggregationMetric.name)),
+        Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
                      3 seconds))
 
     expectNoMessage(interval)

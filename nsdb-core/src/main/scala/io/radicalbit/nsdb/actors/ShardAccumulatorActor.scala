@@ -54,8 +54,8 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
   private val opBufferMap: mutable.Map[String, ShardOperation] = mutable.Map.empty
   private var performingOps: Map[String, ShardOperation]       = Map.empty
 
-  private def shardsForMetric(metric: String)       = shards.filter(_._1.metric == metric)
-  private def facetsShardsFroMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
+  private def shardsForMetric(metric: String)        = shards.filter(_._1.metric == metric)
+  private def facetsShardsFromMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
 
   private def getIndex(key: ShardKey) =
     shards.getOrElse(
@@ -159,7 +159,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
           index.refresh()
           shards -= key
       }
-      facetsShardsFroMetric(metric).foreach {
+      facetsShardsFromMetric(metric).foreach {
         case (key, index) =>
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
@@ -270,7 +270,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
             val distinctField = fields.head.name
 
             val filteredIndexes =
-              filterShardsThroughTime(statement.condition.map(_.expression), facetsShardsFroMetric(statement.metric))
+              filterShardsThroughTime(statement.condition.map(_.expression), facetsShardsFromMetric(statement.metric))
 
             val results = filteredIndexes.map {
               case (_, index) =>
@@ -283,11 +283,14 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
 
             applyOrderingWithLimit(shardResults, statement, schema)
 
-          case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector, sort, limit)) =>
+          case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
             val result = filterShardsThroughTime(statement.condition.map(_.expression),
-                                                 facetsShardsFroMetric(statement.metric)).map {
+                                                 facetsShardsFromMetric(statement.metric)).map {
               case (_, index) =>
-                handleQueryResults(metric, Try(index.getCount(q, collector.groupField, sort, limit)))
+                handleQueryResults(
+                  metric,
+                  Try(index
+                    .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
             }
 
             val shardResults = Try(groupShardResults(result, statement.groupBy.get) { values =>

@@ -66,7 +66,8 @@ class ReadCoordinatorSpec
       3 seconds)
 
     AggregationMetric.testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecord(db, namespace, AggregationMetric.name, record), 3 seconds)
+      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, record, location(AggregationMetric.name)),
+                   3 seconds)
     }
 
     expectNoMessage(interval)
