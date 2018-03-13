@@ -63,7 +63,7 @@ class CommitLogEntrySerializer extends Serializer[CommitLogEntry] {
 //    output.writeString(i.getClass.getCanonicalName)
 //    val valueBytes = bit.value.toString.getBytes
 //    output.writeInt(valueBytes.length)
-//    output.write(valueBytes)ù
+//    output.write(valueBytes)
     ???
   }
 

@@ -3,18 +3,20 @@ package io.radicalbit.nsdb.commit_log
 import akka.actor.Actor
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.Condition
+import io.radicalbit.nsdb.common.statement.{Condition, DeleteSQLStatement}
+import io.radicalbit.nsdb.index.Schema
+import org.apache.lucene.search.Query
 
 import scala.util.{Failure, Success, Try}
 
 object CommitLogWriterActor {
 
   sealed trait CommitLoggerAction
-  case class InsertAction(bit: Bit)             extends CommitLoggerAction
-  case class RejectAction(bit: Bit)             extends CommitLoggerAction
-  case class DeleteAction(condition: Condition) extends CommitLoggerAction
-  case class DeleteNamespaceAction()            extends CommitLoggerAction
-  case class DeleteMetricAction()               extends CommitLoggerAction
+  case class InsertAction(bit: Bit)                                               extends CommitLoggerAction
+  case class RejectAction(bit: Bit)                                               extends CommitLoggerAction
+  case class DeleteAction(deleteSQLStatement: DeleteSQLStatement, schema: Schema) extends CommitLoggerAction
+  case object DeleteNamespaceAction                                               extends CommitLoggerAction
+  case object DeleteMetricAction                                                  extends CommitLoggerAction
 
   sealed trait JournalServiceProtocol
 
@@ -45,16 +47,11 @@ object CommitLogWriterActor {
     def db: String
     def namespace: String
     def timestamp: Long
-
   }
 
   case class InsertEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
       extends CommitLogEntry
-  case class DeleteEntry(db: String,
-                         namespace: String,
-                         metric: String,
-                         override val timestamp: Long,
-                         condition: Condition)
+  case class DeleteEntry(db: String, namespace: String, metric: String, override val timestamp: Long, query: Query)
       extends CommitLogEntry
   case class RejectEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
       extends CommitLogEntry
@@ -75,7 +72,7 @@ trait CommitLogWriterActor extends Actor {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, ex.getMessage)
       }
-    case entry @ DeleteEntry(db, namespace, metric, timestamp, condition) =>
+    case entry @ DeleteEntry(db, namespace, metric, timestamp, query) =>
       createEntry(entry) match {
         case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
         case Failure(ex) =>

@@ -7,6 +7,8 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.{Dimens
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
+import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.queryparser.classic.QueryParser
 
 /**
   * Utility class to Serialize and Deserialize a CommitLogEntry.
@@ -66,10 +68,20 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                     timestamp = ts,
                     Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
       case c if c == classOf[RejectEntry].getCanonicalName =>
-        ???
-//        RejectEntry(metric = metric,
-//                    timestamp = ts,
-//                    Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+        RejectEntry(db = db,
+          namespace = namespace,
+          metric = metric,
+                    timestamp = ts,
+                    Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+      case c if c == classOf[DeleteEntry].getCanonicalName =>
+        val queryString = readByteBuffer.read
+        val queryParser = new QueryParser("", new StandardAnalyzer)
+        DeleteEntry(db = db,
+          namespace = namespace,
+          metric = metric,
+          timestamp = ts,
+          query = queryParser.parse(queryString))
+
     }
   }
 
@@ -91,10 +103,53 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                        e.metric,
                        extractValue(e.bit.value),
                        extractDimensions(e.bit.dimensions))
-      case e: DeleteEntry          => ???
-      case e: DeleteNamespaceEntry => ???
-      case e: DeleteMetricEntry    => ???
+      case e: DeleteEntry =>
+        serializeDeleteByQuery(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric, e.query.toString)
+      case e: DeleteNamespaceEntry => serializeCommons(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace)
+      case e: DeleteMetricEntry    => serializeDeleteMetric(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric)
     }
+
+  private def serializeCommons(className: String, ts: Long, db: String, namespace: String) = {
+    writeBuffer.clear()
+    //classname
+    writeBuffer.write(className)
+    // timestamp
+    writeBuffer.write(ts.toString)
+    //db
+    writeBuffer.write(db)
+    //namespace
+    writeBuffer.write(namespace)
+
+    writeBuffer.array
+  }
+
+  private def serializeDeleteByQuery(
+      className: String,
+      ts: Long,
+      db: String,
+      namespace: String,
+      metric: String,
+      query: String
+  ): Array[Byte] = {
+    serializeCommons(className, ts, db, namespace)
+    // metric
+    writeBuffer.write(metric)
+    writeBuffer.write(query)
+    writeBuffer.array
+
+  }
+
+  private def serializeDeleteMetric(
+    className: String,
+    ts: Long,
+    db: String,
+    namespace: String,
+    metric: String
+  ): Array[Byte] = {
+    serializeCommons(className, ts, db, namespace)
+    writeBuffer.write(metric)
+    writeBuffer.array
+  }
 
   private def serializeEntry(
       className: String,
@@ -105,15 +160,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       value: Value,
       dimensions: List[Dimension]
   ): Array[Byte] = {
-    writeBuffer.clear()
-    //classname
-    writeBuffer.write(className)
-    // timestamp
-    writeBuffer.write(ts.toString)
-    //db
-    writeBuffer.write(db)
-    //namespace
-    writeBuffer.write(namespace)
+    serializeCommons(className, ts, db, namespace)
     // metric
     writeBuffer.write(metric)
     // dimensions
