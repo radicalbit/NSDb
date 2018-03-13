@@ -33,12 +33,9 @@ class CommitLogCoordinator extends Actor with ActorLogging {
       getWriter(db, namespace).forward(InsertEntry(db, namespace, metric, timestamp, bit))
     case WriteToCommitLog(db, namespace, metric, timestamp, RejectAction(bit)) =>
       getWriter(db, namespace).forward(RejectEntry(db, namespace, metric, timestamp, bit))
-    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteAction(deleteStatement, schema)) =>
-      val statementParser = new StatementParser
-      statementParser.parseStatement(deleteStatement, schema) match {
-        case Success(query) => getWriter(db, namespace).forward(DeleteEntry(db, namespace, metric, timestamp, query.q))
-        case Failure(t)     => sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, t.getMessage)
-      }
+    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteAction(deleteStatement)) =>
+      getWriter(db, namespace).forward(
+        DeleteEntry(db, namespace, metric, timestamp, deleteStatement.condition.expression))
     case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction) =>
       getWriter(db, namespace).forward(DeleteNamespaceEntry(db, namespace, timestamp))
     case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction) =>

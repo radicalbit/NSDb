@@ -971,30 +971,30 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "should serialize and deserialize query" should {
       "parse it successfully" in {
-          parser.parseStatement(
-              SelectSQLStatement(
-                  db = "db",
-                  namespace = "registry",
-                  metric = "people",
-                  distinct = false,
-                  fields = ListFields(List(Field("value", Some(MaxAggregation)))),
-                  condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-                  groupBy = Some("name"),
-                  order = Some(DescOrderOperator(dimension = "creationDate")),
-                  limit = Some(LimitOperator(5))
-              ),
-              schema
-          ) should be(
-              Success(
-                  ParsedAggregatedQuery(
-                      "registry",
-                      "people",
-                      LongPoint.newRangeQuery("timestamp", 2L, 4L),
-                      new MaxAllGroupsCollector[Long]("name", "value"),
-                      Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
-                      Some(5)
-                  ))
-          )
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            groupBy = Some("name"),
+            order = Some(DescOrderOperator(dimension = "creationDate")),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2L, 4L),
+              new MaxAllGroupsCollector[Long]("name", "value"),
+              Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
+              Some(5)
+            ))
+        )
 
         val query = LongPoint.newRangeQuery("timestamp", 2L, 4L)
 
@@ -1003,17 +1003,16 @@ class StatementParserSpec extends WordSpec with Matchers {
         val queryParser = new QueryParser("", new StandardAnalyzer())
 
         val lowerTerm = queryParser.parse(queryString).asInstanceOf[TermRangeQuery].getLowerTerm.utf8ToString().toLong
-          val upperTerm = queryParser.parse(queryString).asInstanceOf[TermRangeQuery].getUpperTerm.utf8ToString().toLong
-          val field = queryParser.parse(queryString).asInstanceOf[TermRangeQuery].getField
-          val parsed = LongPoint.newRangeQuery(field, lowerTerm, upperTerm)
+        val upperTerm = queryParser.parse(queryString).asInstanceOf[TermRangeQuery].getUpperTerm.utf8ToString().toLong
+        val field     = queryParser.parse(queryString).asInstanceOf[TermRangeQuery].getField
+        val parsed    = LongPoint.newRangeQuery(field, lowerTerm, upperTerm)
 
-          //        val res = query.equals(parsed)
+        //        val res = query.equals(parsed)
 
 //          res shouldBe(true)
-          query shouldBe(parsed)
+        query shouldBe (parsed)
       }
     }
-
 
   }
 }
