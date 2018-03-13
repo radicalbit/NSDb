@@ -683,7 +683,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new SumAllGroupsCollector[Long]("name", "value")
+              new SumAllGroupsCollector[Long, String]("name", "value")
             ))
         )
       }
@@ -700,7 +700,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
             groupBy = Some("name"),
-            order = Some(DescOrderOperator(dimension = "creationDate")),
+            order = Some(DescOrderOperator(dimension = "value")),
             limit = Some(LimitOperator(5))
           ),
           schema
@@ -710,8 +710,8 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new MaxAllGroupsCollector[Long]("name", "value"),
-              Some(new Sort(new SortField("creationDate", SortField.Type.LONG, true))),
+              new MaxAllGroupsCollector[Long, String]("name", "value"),
+              Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
         )
@@ -917,7 +917,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
 
     "receive a group by on a dimension of type different from varchar" should {
-      "fail" in {
+      "succeed" in {
         parser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -930,11 +930,25 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(5))
           ),
           schema
-        ) shouldBe a[Failure[InvalidStatementException]]
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              new BooleanQuery.Builder()
+                .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
+                .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
+                     BooleanClause.Occur.MUST_NOT)
+                .build(),
+              new SumAllGroupsCollector[Long, Double]("amount", "value"),
+              None,
+              Some(5)
+            ))
+        )
       }
     }
 
-    "receive a group by with aggragation function on dimension different from value" should {
+    "receive a group by with aggregation function on dimension different from value" should {
       "fail" in {
         parser.parseStatement(
           SelectSQLStatement(

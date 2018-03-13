@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.index
 
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.OrderedTaxonomyFacetCounts
 import org.apache.lucene.analysis.standard.StandardAnalyzer
@@ -40,13 +41,19 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
 
     allFields match {
       case Success(fields) =>
-        fields.foreach(f => {
-          doc.add(f)
-          if (f.isInstanceOf[StringField]) {
-            c.setIndexFieldName(f.name, s"facet_${f.name}")
-            doc.add(new FacetField(f.name, f.stringValue()))
-          }
-        })
+        fields
+          .filterNot(f => f.name() == "value")
+          .foreach(f => {
+            doc.add(f)
+            if (f.isInstanceOf[StringField] || f.isInstanceOf[DoublePoint] || f.isInstanceOf[LongPoint] || f
+                  .isInstanceOf[IntPoint]) {
+              c.setIndexFieldName(f.name, s"facet_${f.name}")
+              if (f.numericValue() != null) {
+                doc.add(new FacetField(f.name, f.numericValue().toString))
+              } else
+                doc.add(new FacetField(f.name, f.stringValue()))
+            }
+          })
         Try(writer.addDocument(c.build(taxonomyWriter, doc)))
       case Failure(t) => Failure(t)
     }
@@ -85,10 +92,17 @@ class FacetIndex(val facetDirectory: BaseDirectory, val taxoDirectory: BaseDirec
     Option(facetsFolder.getTopChildren(actualLimit, groupField))
   }
 
-  def getCount(query: Query, groupField: String, sort: Option[Sort], limit: Option[Int]): Seq[Bit] = {
+  def getCount(query: Query,
+               groupField: String,
+               sort: Option[Sort],
+               limit: Option[Int],
+               indexType: IndexType[_]): Seq[Bit] = {
     val facetResult: Option[FacetResult] = getFacetResult(query, groupField, sort, limit)
     facetResult.fold(Seq.empty[Bit])(
-      _.labelValues.map(lv => Bit(0, lv.value.longValue(), Map(groupField -> lv.label))).toSeq)
+      _.labelValues
+        .map(lv =>
+          Bit(0, lv.value.longValue(), Map(groupField -> indexType.cast(lv.label).asInstanceOf[JSerializable])))
+        .toSeq)
   }
 
   def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {

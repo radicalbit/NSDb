@@ -89,6 +89,31 @@ class ReadCoordinatorShardSpec
           namespaceDataActor ? AddRecordToLocation(db, namespace, DoubleMetric.name, r, location2(DoubleMetric.name)),
           3 seconds))
 
+    //aggregation metric
+    Await.result(namespaceDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
+
+    Await.result(
+      schemaActor ? UpdateSchemaFromRecord(db, namespace, AggregationMetric.name, AggregationMetric.testRecords.head),
+      3 seconds)
+
+    AggregationMetric.recordsShard1.foreach(
+      r =>
+        Await.result(namespaceDataActor ? AddRecordToLocation(db,
+                                                              namespace,
+                                                              AggregationMetric.name,
+                                                              r,
+                                                              location1(AggregationMetric.name)),
+                     3 seconds))
+    AggregationMetric.recordsShard2.foreach(
+      r =>
+        Await.result(namespaceDataActor ? AddRecordToLocation(db,
+                                                              namespace,
+                                                              AggregationMetric.name,
+                                                              r,
+                                                              location2(AggregationMetric.name)),
+                     3 seconds))
+
+    expectNoMessage(interval)
     expectNoMessage(interval)
     expectNoMessage(interval)
   }

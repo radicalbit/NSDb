@@ -89,27 +89,28 @@ trait Index[T] {
     executeQuery(searcher, query, limit, sort)
   }
 
-  private[index] def rawQuery[VT](query: Query,
-                                  collector: AllGroupsAggregationCollector[VT],
-                                  limit: Option[Int],
-                                  sort: Option[Sort]): Seq[Document] = {
+  private[index] def rawQuery[VT, S](query: Query,
+                                     collector: AllGroupsAggregationCollector[VT, S],
+                                     limit: Option[Int],
+                                     sort: Option[Sort]): Seq[Document] = {
     this.getSearcher.search(query, collector)
 
     val sortedGroupMap = sort
       .flatMap(_.getSort.headOption)
       .map(s => collector.getOrderedMap(s))
       .getOrElse(collector.getGroupMap)
+      .toSeq
 
     val limitedGroupMap = limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap)
 
     limitedGroupMap.map {
       case (g, v) =>
         val doc = new Document
-        doc.add(new StringField(collector.groupField, g, Store.NO))
-        doc.add(collector.indexField(v))
+        doc.add(collector.indexField(g, collector.groupField))
+        doc.add(collector.indexField(v, collector.aggField))
         doc.add(new LongPoint(_keyField, 0))
         doc
-    }.toSeq
+    }
   }
 
   def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {
@@ -121,7 +122,7 @@ trait Index[T] {
   }
 
   def query(query: Query,
-            collector: AllGroupsAggregationCollector[_],
+            collector: AllGroupsAggregationCollector[_, _],
             limit: Option[Int],
             sort: Option[Sort]): Seq[T] = {
     rawQuery(query, collector, limit, sort).map(d => toRecord(d, Seq.empty))
