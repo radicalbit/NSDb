@@ -18,13 +18,13 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private val readByteBuffer = new ReadBuffer(5000)
   private val writeBuffer    = new WriteBuffer(5000)
 
-  private final val rangeExpressionClazzName        = RangeExpression.getClass.getCanonicalName
-  private final val comparisonExpressionClassName   = ComparisonExpression.getClass.getCanonicalName
-  private final val equalityExpressionClassName     = EqualityExpression.getClass.getCanonicalName
-  private final val likeExpressionClassName         = LikeExpression.getClass.getCanonicalName
-  private final val nullableExpressionClassName     = NullableExpression.getClass.getCanonicalName
-  private final val unaryLogicalExpressionClassName = UnaryLogicalExpression.getClass.getCanonicalName
-  private final val tupleLogicalExpressionClassName = TupledLogicalExpression.getClass.getCanonicalName
+  private final val rangeExpressionClazzName        = classOf[RangeExpression[_]].getCanonicalName
+  private final val comparisonExpressionClassName   = classOf[ComparisonExpression[_]].getCanonicalName
+  private final val equalityExpressionClassName     = classOf[EqualityExpression[_]].getCanonicalName
+  private final val likeExpressionClassName         = classOf[LikeExpression].getCanonicalName
+  private final val nullableExpressionClassName     = classOf[NullableExpression].getCanonicalName
+  private final val unaryLogicalExpressionClassName = classOf[UnaryLogicalExpression].getCanonicalName
+  private final val tupleLogicalExpressionClassName = classOf[TupledLogicalExpression].getCanonicalName
 
   private def extractDimensions(dimensions: Map[String, JSerializable]): List[Dimension] =
     dimensions.map {
@@ -46,15 +46,15 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     }.toMap
 
   private def argument(clazz: String): AnyRef = {
-    val longClazz: String = classOf[Long].getCanonicalName
-    val intClazz          = classOf[Long].getCanonicalName
-    val doubleClazz       = classOf[Long].getCanonicalName
-    val stringClazz       = classOf[Long].getCanonicalName
+    val longClazz: String = classOf[java.lang.Long].getCanonicalName
+    val intClazz          = classOf[java.lang.Integer].getCanonicalName
+    val doubleClazz       = classOf[java.lang.Double].getCanonicalName
+    val stringClazz       = classOf[java.lang.String].getCanonicalName
 
     clazz match {
-      case `longClazz`   => Long.box(readByteBuffer.getLong)
-      case `intClazz`    => Int.box(readByteBuffer.getInt)
-      case `doubleClazz` => Double.box(readByteBuffer.getDouble)
+      case `longClazz`   => Long.box(readByteBuffer.read.toLong)
+      case `intClazz`    => Int.box(readByteBuffer.read.toInt)
+      case `doubleClazz` => Double.box(readByteBuffer.read.toDouble)
       case `stringClazz` => readByteBuffer.read
     }
   }
@@ -147,7 +147,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         writeBuffer.write(value1.toString)
         writeBuffer.write(value2.getClass.getCanonicalName)
         writeBuffer.write(value2.toString)
-      case EqualityExpression(dimension, value)  =>
+      case EqualityExpression(dimension, value) =>
         writeBuffer.write(dimension)
         writeBuffer.write(value.getClass.getCanonicalName)
         writeBuffer.write(value.toString)
@@ -357,10 +357,6 @@ private class ReadBuffer(maxSize: Int) extends BaseBuffer(maxSize) {
   def get(v: Array[Byte]): Unit = buffer.get(v)
 
   def getInt: Int = buffer.getInt
-
-  def getLong: Long = buffer.getLong
-
-  def getDouble: Double = buffer.getDouble
 
   def read: String = {
     val length = buffer.getInt

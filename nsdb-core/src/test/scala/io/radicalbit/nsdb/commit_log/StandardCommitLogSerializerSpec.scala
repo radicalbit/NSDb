@@ -1,8 +1,9 @@
 package io.radicalbit.nsdb.commit_log
 
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.InsertEntry
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{DeleteEntry, InsertEntry}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.RangeExpression
 import org.scalatest.{Matchers, WordSpec}
 
 class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
@@ -39,6 +40,23 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val bit = Bit(timestamp = ts, dimensions = dimensions, value = 0)
         val originalEntry =
           InsertEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
+
+        val entryService = new StandardCommitLogSerializer
+        val serByteArray = entryService.serialize(originalEntry)
+        val desEntry     = entryService.deserialize(serByteArray)
+
+        desEntry should be(originalEntry)
+      }
+    }
+    "for deletion by query" should {
+      "be created correctly with RangeExpression" in {
+        val db         = "test-db"
+        val namespace  = "test-namespace"
+        val ts         = 1500909299161L
+        val metric     = "test-metric"
+        val expression = RangeExpression("dimension", 10L, 11L)
+        val originalEntry =
+          DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
         val entryService = new StandardCommitLogSerializer
         val serByteArray = entryService.serialize(originalEntry)
