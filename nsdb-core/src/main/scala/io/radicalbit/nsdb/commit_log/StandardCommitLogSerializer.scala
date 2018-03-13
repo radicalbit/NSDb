@@ -8,8 +8,6 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.queryparser.classic.QueryParser
 
 /**
   * Utility class to Serialize and Deserialize a CommitLogEntry.
@@ -20,11 +18,13 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private val readByteBuffer = new ReadBuffer(5000)
   private val writeBuffer    = new WriteBuffer(5000)
 
-  private final val rangeExpressionClazzName      = RangeExpression.getClass.getCanonicalName
-  private final val comparisonExpressionClassName = ComparisonExpression.getClass.getCanonicalName
-  private final val equalityExpressionClassName   = EqualityExpression.getClass.getCanonicalName
-  private final val likeExpressionClassName = LikeExpression.getClass.getCanonicalName
-  private final val nullableExpressionClassName = NullableExpression.getClass.getCanonicalName
+  private final val rangeExpressionClazzName        = RangeExpression.getClass.getCanonicalName
+  private final val comparisonExpressionClassName   = ComparisonExpression.getClass.getCanonicalName
+  private final val equalityExpressionClassName     = EqualityExpression.getClass.getCanonicalName
+  private final val likeExpressionClassName         = LikeExpression.getClass.getCanonicalName
+  private final val nullableExpressionClassName     = NullableExpression.getClass.getCanonicalName
+  private final val unaryLogicalExpressionClassName = UnaryLogicalExpression.getClass.getCanonicalName
+  private final val tupleLogicalExpressionClassName = TupledLogicalExpression.getClass.getCanonicalName
 
   private def extractDimensions(dimensions: Map[String, JSerializable]): List[Dimension] =
     dimensions.map {
@@ -52,16 +52,18 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     val stringClazz       = classOf[Long].getCanonicalName
 
     clazz match {
-      case `longClazz` => Long.box(readByteBuffer.getLong)
-      case `intClazz`  => Int.box(readByteBuffer.getInt)
+      case `longClazz`   => Long.box(readByteBuffer.getLong)
+      case `intClazz`    => Int.box(readByteBuffer.getInt)
+      case `doubleClazz` => Double.box(readByteBuffer.getDouble)
+      case `stringClazz` => readByteBuffer.read
     }
   }
 
-  private def createExpression(expressionClass: String) = {
+  private def createExpression(expressionClass: String): Expression = {
     val clazz = Class
       .forName(expressionClass)
 
-    val exp = expressionClass match {
+    val expression = expressionClass match {
       case `rangeExpressionClazzName` =>
         val dim             = readByteBuffer.read
         val lowerBoundType  = readByteBuffer.read
@@ -79,16 +81,92 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[AnyRef], classOf[AnyRef])
+          .getConstructor(classOf[String], classOf[ComparisonOperator], classOf[AnyRef])
           .newInstance(dim, operator, value)
+
+      case `equalityExpressionClassName` =>
+        val dim       = readByteBuffer.read
+        val valueType = readByteBuffer.read
+        val value     = argument(valueType)
+        clazz
+          .getConstructor(classOf[String], classOf[AnyRef])
+          .newInstance(dim, value)
+
+      case `likeExpressionClassName` =>
+        val dim       = readByteBuffer.read
+        val valueType = readByteBuffer.read
+        val value     = argument(valueType)
+        clazz
+          .getConstructor(classOf[String], classOf[AnyRef])
+          .newInstance(dim, value)
+
+      case `nullableExpressionClassName` =>
+        val dim = readByteBuffer.read
+        clazz
+          .getConstructor(classOf[String])
+          .newInstance(dim)
+
+      case `unaryLogicalExpressionClassName` =>
+        val expClass = readByteBuffer.read
+        val exp      = createExpression(expClass)
+        val operator =
+          Class.forName(readByteBuffer.read).getConstructor().newInstance().asInstanceOf[SingleLogicalOperator]
+        clazz
+          .getConstructor(classOf[Expression], classOf[SingleLogicalOperator])
+          .newInstance(exp, operator)
+
+      case `tupleLogicalExpressionClassName` =>
+        val expClass1 = readByteBuffer.read
+        val exp1      = createExpression(expClass1)
+        val operator =
+          Class.forName(readByteBuffer.read).getConstructor().newInstance().asInstanceOf[TupledLogicalOperator]
+        val expClass2 = readByteBuffer.read
+        val exp2      = createExpression(expClass2)
+        clazz
+          .getConstructor(classOf[Expression], classOf[TupledLogicalOperator], classOf[Expression])
+          .newInstance(exp1, operator, exp2)
 
     }
 
-    exp.asInstanceOf[Expression]
+    expression.asInstanceOf[Expression]
   }
 
   private def extractExpression(expression: Expression): Array[Byte] = {
-    ???
+    val clazzName = expression.getClass.getCanonicalName
+    writeBuffer.write(clazzName)
+
+    expression match {
+      case ComparisonExpression(dimension, comparisonOperator, value) =>
+        writeBuffer.write(dimension)
+        writeBuffer.write(comparisonOperator.getClass.getCanonicalName)
+        writeBuffer.write(value.getClass.getCanonicalName)
+        writeBuffer.write(value.toString)
+      case RangeExpression(dimension, value1, value2) =>
+        writeBuffer.write(dimension)
+        writeBuffer.write(value1.getClass.getCanonicalName)
+        writeBuffer.write(value1.toString)
+        writeBuffer.write(value2.getClass.getCanonicalName)
+        writeBuffer.write(value2.toString)
+      case EqualityExpression(dimension, value)  =>
+        writeBuffer.write(dimension)
+        writeBuffer.write(value.getClass.getCanonicalName)
+        writeBuffer.write(value.toString)
+      case LikeExpression(dimension, value) =>
+        writeBuffer.write(dimension)
+        writeBuffer.write(value.getClass.getCanonicalName)
+        writeBuffer.write(value.toString)
+      case NullableExpression(dimension) =>
+        writeBuffer.write(dimension)
+      case UnaryLogicalExpression(expression1, unaryLogicalOperator) =>
+        extractExpression(expression1)
+        writeBuffer.write(unaryLogicalOperator.getClass.getCanonicalName)
+      case TupledLogicalExpression(expression1, tupledLogicalOperator, expression2) =>
+        extractExpression(expression1)
+        writeBuffer.write(tupledLogicalOperator.getClass.getCanonicalName)
+        extractExpression(expression2)
+    }
+
+    writeBuffer.array
   }
 
   override def deserialize(entry: Array[Byte]): CommitLogEntry = {
@@ -101,34 +179,48 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     val db = readByteBuffer.read
     //  namespace
     val namespace = readByteBuffer.read
-    // metric
-    val metric = readByteBuffer.read
-    // dimensions
-    val numOfDim = readByteBuffer.getInt
-    val dimensions = (for {
-      _ <- 1 to numOfDim
-      name  = readByteBuffer.read
-      typ   = readByteBuffer.read
-      value = new Array[Byte](readByteBuffer.getInt)
-      _     = readByteBuffer.get(value)
-    } yield (name, typ, value)).toList
 
     className match {
       case c if c == classOf[InsertEntry].getCanonicalName =>
+        // metric
+        val metric = readByteBuffer.read
+        // dimensions
+        val numOfDim = readByteBuffer.getInt
+        val dimensions = (for {
+          _ <- 1 to numOfDim
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+
         InsertEntry(db = db,
                     namespace = namespace,
                     metric = metric,
                     timestamp = ts,
                     Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
       case c if c == classOf[RejectEntry].getCanonicalName =>
+        // metric
+        val metric = readByteBuffer.read
+        // dimensions
+        val numOfDim = readByteBuffer.getInt
+        val dimensions = (for {
+          _ <- 1 to numOfDim
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+
         RejectEntry(db = db,
                     namespace = namespace,
                     metric = metric,
                     timestamp = ts,
                     Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
       case c if c == classOf[DeleteEntry].getCanonicalName =>
+        // metric
+        val metric          = readByteBuffer.read
         val expressionClass = readByteBuffer.read
-        val queryParser     = new QueryParser("", new StandardAnalyzer)
         DeleteEntry(db = db,
                     namespace = namespace,
                     metric = metric,
@@ -163,13 +255,13 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         serializeDeleteMetric(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric)
     }
 
-  private def serializeCommons(className: String, ts: Long, db: String, namespace: String) = {
+  private def serializeCommons(className: String, ts: Long, db: String, namespace: String): Array[Byte] = {
     writeBuffer.clear()
     //classname
     writeBuffer.write(className)
     // timestamp
     writeBuffer.write(ts.toString)
-    //db
+    //dbx
     writeBuffer.write(db)
     //namespace
     writeBuffer.write(namespace)
@@ -188,7 +280,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     serializeCommons(className, ts, db, namespace)
     // metric
     writeBuffer.write(metric)
-//    writeBuffer.write(query)
+    extractExpression(expression)
     writeBuffer.array
 
   }
