@@ -34,6 +34,7 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
  |
  |  index.base-path = "target/test_index/ReplicatedCacheSpec"
  |  write-coordinator.timeout = 5 seconds
+ |  metadata-coordinator.timeout = 5 seconds
  |  commit-log {
  |    enabled = false
  |  }

@@ -68,7 +68,7 @@ class NamespaceActorSpec()
       expectedCount.count shouldBe 1
     }
 
-    probe.send(namespaceActor, DeleteRecordFromLocation(db, namespace, metric, record, location(metric)))
+    probe.send(namespaceActor, DeleteRecordFromLocation(db, namespace, record, location(metric)))
 
     awaitAssert {
       val expectedDelete = probe.expectMsgType[RecordDeleted]

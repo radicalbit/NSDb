@@ -181,13 +181,15 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     }.toSeq
   }
 
-  private def groupShardResults[W](shardResults: Seq[Try[Seq[Bit]]], dimension: String)(mapFunction: Seq[Bit] => W) = {
-    shardResults
-      .flatMap(_.get)
-      .groupBy(_.dimensions(dimension))
-      .mapValues(mapFunction)
-      .values
-      .toSeq
+  private def groupShardResults[W](shardResults: Seq[Try[Seq[Bit]]], dimension: String)(
+      mapFunction: Seq[Bit] => W): Try[Seq[W]] = {
+    Try(
+      shardResults
+        .flatMap(_.get)
+        .groupBy(_.dimensions(dimension))
+        .mapValues(mapFunction)
+        .values
+        .toSeq)
   }
 
   private def orderPlainResults(statement: SelectSQLStatement,
@@ -277,9 +279,9 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
                 handleQueryResults(metric, Try(index.getDistinctField(q, fields.map(_.name).head, sort, limit)))
             }
 
-            val shardResults = Try(groupShardResults(results, distinctField) { values =>
+            val shardResults = groupShardResults(results, distinctField) { values =>
               Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))))
-            })
+            }
 
             applyOrderingWithLimit(shardResults, statement, schema)
 
@@ -293,9 +295,9 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
                     .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
             }
 
-            val shardResults = Try(groupShardResults(result, statement.groupBy.get) { values =>
+            val shardResults = groupShardResults(result, statement.groupBy.get) { values =>
               Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions)
-            })
+            }
 
             applyOrderingWithLimit(shardResults, statement, schema)
 
@@ -304,7 +306,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
               case (_, index) =>
                 handleQueryResults(metric, Try(index.query(q, collector.clear, limit, sort)))
             }
-            val rawResult = Try(
+            val rawResult =
               groupShardResults(shardResults, statement.groupBy.get) { values =>
                 val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                 implicit val numeric: Numeric[JSerializable] = v.numeric
@@ -317,7 +319,6 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
                     Bit(0, values.map(_.value).sum, values.head.dimensions)
                 }
               }
-            )
 
             applyOrderingWithLimit(rawResult, statement, schema)
 

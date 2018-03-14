@@ -89,9 +89,9 @@ class NamespaceDataActor(val basePath: String) extends Actor with ActorLogging {
     case AddRecordToLocation(db, namespace, bit, location) =>
       getChild(db, namespace).forward(
         AddRecordToShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
-    case DeleteRecordFromLocation(db, namespace, metric, bit, location) =>
+    case DeleteRecordFromLocation(db, namespace, bit, location) =>
       getChild(db, namespace).forward(
-        DeleteRecordFromShard(db, namespace, ShardKey(metric, location.from, location.to), bit))
+        DeleteRecordFromShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
     case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
       getChild(statement.db, statement.namespace).forward(
         ExecuteDeleteStatementInShards(statement, schema, locations.map(l => ShardKey(l.metric, l.from, l.to))))
@@ -103,7 +103,7 @@ object NamespaceDataActor {
   def props(basePath: String): Props = Props(new NamespaceDataActor(basePath))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
-  case class DeleteRecordFromLocation(db: String, namespace: String, metric: String, bit: Bit, location: Location)
+  case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class ExecuteDeleteStatementInternalInLocations(statement: DeleteSQLStatement,
                                                        schema: Schema,
                                                        locations: Seq[Location])

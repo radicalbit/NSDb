@@ -29,7 +29,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
 
   implicit val timeout: Timeout = Timeout(
-    context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
+    context.system.settings.config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
 

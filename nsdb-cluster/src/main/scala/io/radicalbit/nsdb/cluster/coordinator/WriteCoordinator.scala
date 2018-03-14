@@ -87,7 +87,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         log.debug(s"received location for metric $metric, $loc")
         f(loc)
       case _ =>
-        log.debug(s"no location found for bit $bit")
+        log.error(s"no location found for bit $bit")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
     }
 
@@ -101,7 +101,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
         }
       case None =>
-        log.debug(s"no data actor for node ${location.node}")
+        log.error(s"no data actor for node ${location.node}")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
 

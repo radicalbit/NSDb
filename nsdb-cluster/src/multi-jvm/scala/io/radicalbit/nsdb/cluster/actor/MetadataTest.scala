@@ -38,6 +38,7 @@ object MetadataTest extends MultiNodeConfig {
     |  }
     |  index.base-path = "target/test_index/MetadataTest"
     |  write-coordinator.timeout = 5 seconds
+    |  metadata-coordinator.timeout = 5 seconds
     |  commit-log {
     |    enabled = false
     |  }
