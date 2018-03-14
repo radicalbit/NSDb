@@ -90,6 +90,12 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     }
   }
 
+  /**
+    * Deserialize [[DeleteEntry.expression]] given the class canonicalName
+    *
+    * @param expressionClass class canonicalName
+    * @return [[Expression]] representing delete query where condition
+    */
   private def createExpression(expressionClass: String): Expression = {
     import scala.reflect.runtime.universe
     val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
@@ -167,6 +173,12 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     expression.asInstanceOf[Expression]
   }
 
+  /**
+    * Serializes an [[Expression]] into an Array[Byte] writing into [[WriteBuffer]]
+    *
+    * @param expression [[DeleteEntry.expression]] to be serialized
+    * @return Array[Byte] representation also writing into writeBuffer
+    */
   private def extractExpression(expression: Expression): Array[Byte] = {
     val clazzName = expression.getClass.getCanonicalName
     writeBuffer.write(clazzName)
@@ -205,6 +217,12 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     writeBuffer.array
   }
 
+  /**
+    * Deserialization methods for [[CommitLogEntry]]
+    *
+    * @param entry a Array[Byte] to be deserialized into a [[CommitLogEntry]]
+    * @return the deserialize [[CommitLogEntry]]
+    */
   override def deserialize(entry: Array[Byte]): CommitLogEntry = {
     readByteBuffer.clear(entry)
     //classname
@@ -266,6 +284,12 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     }
   }
 
+  /**
+    * Serialization method for [[CommitLogEntry]]
+    *
+    * @param entry a [[CommitLogEntry]]
+    * @return Array[Byte] representation
+    */
   override def serialize(entry: CommitLogEntry): Array[Byte] =
     entry match {
       case e: InsertEntry =>
@@ -291,6 +315,15 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         serializeDeleteMetric(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric)
     }
 
+  /**
+    * Utils methods for common fields between [[CommitLogEntry]] concrete instances serialization
+    *
+    * @param className [[CommitLogEntry]] instance class canonicalName
+    * @param ts timestamp
+    * @param db database
+    * @param namespace namespace
+    * @return Bytes representation
+    */
   private def serializeCommons(className: String, ts: Long, db: String, namespace: String): Array[Byte] = {
     writeBuffer.clear()
     //classname

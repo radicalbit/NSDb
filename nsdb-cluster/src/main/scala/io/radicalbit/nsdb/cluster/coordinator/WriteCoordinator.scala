@@ -131,9 +131,22 @@ class WriteCoordinator(commitLogger: Option[ActorRef],
       }
     case msg @ DeleteNamespace(db, namespace) =>
       if (namespaces.isEmpty)
-        (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
+          commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap{
+              case WriteToCommitLogSucceeded(_,_,_,_) =>
+                  (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
+                Future(NamespaceDeleted(db, namespace))
+              case WriteToCommitLogFailed(_,_,_,_,reason) =>
+                  log.error(s"Failed to write to commit-log for: $msg")
+                  context.system.terminate()
+          }
       else
-        (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(sender)
+          commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap{
+              case WriteToCommitLogSucceeded(_,_,_,_) =>
+                  (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(sender)
+              case WriteToCommitLogFailed(_,_,_,_,reason) =>
+                  log.error(s"Failed to write to commit-log for: $msg")
+                  context.system.terminate()
+          }
     case ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       if (namespaces.isEmpty)
         sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
