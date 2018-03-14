@@ -123,7 +123,7 @@ class ReadCoordinatorShardSpec
   "ReadCoordinator in shard mode" when {
 
     "receive a select projecting a wildcard with a limit" should {
-      "execute it successfully" in {
+      "execute it successfully" in within(5.seconds) {
 
         probe.send(
           readCoordinatorActor,
@@ -136,7 +136,7 @@ class ReadCoordinatorShardSpec
                                limit = Some(LimitOperator(2)))
           )
         )
-        within(5 seconds) {
+        awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
         }
@@ -144,7 +144,7 @@ class ReadCoordinatorShardSpec
     }
 
     "receive a select projecting a wildcard with a limit and a ordering" should {
-      "execute it successfully when ordered by timestamp" in {
+      "execute it successfully when ordered by timestamp" in within(5.seconds) {
 
         probe.send(
           readCoordinatorActor,
@@ -160,14 +160,14 @@ class ReadCoordinatorShardSpec
             )
           )
         )
-        within(5 seconds) {
+        awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
           expected.values shouldBe LongMetric.recordsShard2.tail.reverse
         }
       }
 
-      "execute it successfully when ordered by another dimension" in {
+      "execute it successfully when ordered by another dimension" in within(5.seconds) {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -180,7 +180,7 @@ class ReadCoordinatorShardSpec
                                order = Some(DescOrderOperator("name")))
           )
         )
-        within(5 seconds) {
+        awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
           LongMetric.recordsShard1 foreach { r =>

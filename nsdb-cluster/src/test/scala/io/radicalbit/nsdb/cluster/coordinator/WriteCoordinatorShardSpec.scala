@@ -187,12 +187,13 @@ class WriteCoordinatorShardSpec
     probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
     probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
-    within(5 seconds) {
+    awaitAssert {
       probe.expectMsgType[CountGot].count shouldBe 2
     }
 
     probe.send(writeCoordinatorActor, DropMetric(db, namespace, "testMetric"))
-    within(5 seconds) {
+
+    awaitAssert {
       probe.expectMsgType[MetricDropped]
     }
 

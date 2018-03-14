@@ -81,10 +81,10 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
     "ReadCoordinator" when {
 
       "receive a GetNamespace" should {
-        "return it properly" in {
+        "return it properly" in within(5.seconds) {
           probe.send(readCoordinatorActor, GetNamespaces(db))
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[NamespacesGot]
             expected.namespaces shouldBe Set(namespace)
           }
@@ -93,10 +93,10 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a GetMetrics given a namespace" should {
-        "return it properly" in {
+        "return it properly" in within(5.seconds) {
           probe.send(readCoordinatorActor, GetMetrics(db, namespace))
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[MetricsGot]
             expected.namespace shouldBe namespace
             expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name, AggregationMetric.name)
@@ -105,10 +105,10 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a GetSchema given a namespace and a metric" should {
-        "return it properly" in {
+        "return it properly" in within(5.seconds) {
           probe.send(readCoordinatorActor, GetSchema(db, namespace, LongMetric.name))
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SchemaGot]
             expected.namespace shouldBe namespace
             expected.metric shouldBe LongMetric.name
@@ -125,7 +125,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           probe.send(readCoordinatorActor, GetSchema(db, namespace, DoubleMetric.name))
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SchemaGot]
             expected.namespace shouldBe namespace
             expected.metric shouldBe DoubleMetric.name
@@ -143,7 +143,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select distinct over a single field" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -157,7 +157,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             val names    = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
             names.contains("Bill") shouldBe true
@@ -167,7 +167,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             names.size shouldBe 4
           }
         }
-        "execute successfully with limit over distinct values" in {
+        "execute successfully with limit over distinct values" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -181,14 +181,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             val names    = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
             names.size shouldBe 2
           }
         }
 
-        "execute successfully with ascending order" in {
+        "execute successfully with ascending order" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -203,7 +203,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
 
             probe.expectMsgType[SelectStatementExecuted].values shouldBe Seq(
               Bit(0L, 0L, Map("name" -> "Bill")),
@@ -215,7 +215,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
         }
 
-        "execute successfully with descending order" in {
+        "execute successfully with descending order" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -230,7 +230,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
 
             probe.expectMsgType[SelectStatementExecuted].values shouldBe Seq(
               Bit(0L, 0L, Map("name" -> "John")),
@@ -243,7 +243,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select projecting a wildcard" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
 
           probe.send(
             readCoordinatorActor,
@@ -256,12 +256,12 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                                  limit = Some(LimitOperator(5)))
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
           }
         }
-        "fail if distinct" in {
+        "fail if distinct" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -273,14 +273,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                                  limit = Some(LimitOperator(5)))
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             probe.expectMsgType[SelectStatementFailed]
           }
         }
       }
 
       "receive a select projecting a list of fields" should {
-        "execute it successfully with only simple fields" in {
+        "execute it successfully with only simple fields" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -295,14 +295,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
           }
 
         }
-        "execute it successfully with mixed aggregated and simple" in {
+        "execute it successfully with mixed aggregated and simple" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -316,7 +316,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.sortBy(_.timestamp) shouldBe Seq(
               Bit(2L, 1, Map("name"  -> "John", "count(*)"    -> 5)),
@@ -327,7 +327,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           }
         }
-        "execute it successfully with only a count" in {
+        "execute it successfully with only a count" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -343,14 +343,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0, 4L, Map("count(*)" -> 4))
             )
           }
         }
-        "fail when other aggregation than count is provided" in {
+        "fail when other aggregation than count is provided" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -367,11 +367,11 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             probe.expectMsgType[SelectStatementFailed]
           }
         }
-        "fail when is select distinct" in {
+        "fail when is select distinct" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -386,14 +386,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             probe.expectMsgType[SelectStatementFailed]
           }
         }
       }
 
       "receive a select containing a range selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -409,7 +409,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.size should be(2)
@@ -418,7 +418,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GTE selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -435,7 +435,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.size shouldBe 1
@@ -445,7 +445,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GTE and a NOT selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -465,7 +465,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.size should be(4)
@@ -474,7 +474,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GT AND a LTE selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -496,7 +496,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.size should be(1)
@@ -505,7 +505,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GTE OR a LT selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -526,7 +526,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.size should be(5)
           }
@@ -534,7 +534,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a = selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -550,7 +550,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.size should be(1)
@@ -559,7 +559,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GTE AND a = selection" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -579,7 +579,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.size should be(2)
           }
@@ -587,7 +587,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GTE selection and a group by" should {
-        "execute it successfully" in {
+        "execute it successfully" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -604,7 +604,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.size should be(4)
           }
@@ -612,7 +612,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a GTE selection and a group by without any aggregation" should {
-        "fail" in {
+        "fail" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -628,14 +628,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             probe.expectMsgType[SelectStatementFailed]
           }
         }
       }
 
       "receive a select containing a non existing entity" should {
-        "return an error message properly" in {
+        "return an error message properly" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -647,14 +647,14 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                                  limit = Some(LimitOperator(5)))
             )
           )
-          within(5 seconds) {
+          awaitAssert {
             probe.expectMsgType[SelectStatementFailed]
           }
         }
       }
 
       "receive a select containing a group by on string dimension " should {
-        "execute it successfully with asc ordering over string dimension" in {
+        "execute it successfully with asc ordering over string dimension" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -670,7 +670,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 1L, Map("name" -> "Bill")),
@@ -680,7 +680,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           }
         }
-        "execute it successfully with desc ordering over string dimension" in {
+        "execute it successfully with desc ordering over string dimension" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -696,7 +696,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 2, Map("name" -> "John")),
@@ -721,7 +721,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 3.0, Map("name" -> "John")),
@@ -731,7 +731,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           }
         }
-        "execute it successfully with desc ordering over numerical dimension" in {
+        "execute it successfully with desc ordering over numerical dimension" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -747,7 +747,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.map(_.value) shouldBe Seq(2, 1, 1, 1)
           }
@@ -767,12 +767,12 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.map(_.value) shouldBe Seq(3.0, 1.5, 1.5, 1.5)
           }
         }
-        "execute it successfully with asc ordering over numerical dimension" in {
+        "execute it successfully with asc ordering over numerical dimension" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -789,7 +789,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.map(_.value) shouldBe Seq(1, 1)
           }
@@ -810,7 +810,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values.map(_.value) shouldBe Seq(1.5, 1.5)
           }
@@ -819,7 +819,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a group by on long dimension" should {
-        "execute it successfully with count aggregation" in {
+        "execute it successfully with count aggregation" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -835,12 +835,12 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(Bit(0L, 1, Map("age" -> 20)), Bit(0L, 5, Map("age" -> 15)))
           }
         }
-        "execute it successfully with sum aggregation" in {
+        "execute it successfully with sum aggregation" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -856,7 +856,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 6L, Map("age" -> 15L)),
@@ -866,7 +866,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
         }
       }
       "receive a select containing a group by on double dimension" should {
-        "execute it successfully with count aggregation" in {
+        "execute it successfully with count aggregation" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -882,7 +882,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 3, Map("height" -> 30.5)),
@@ -891,7 +891,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           }
         }
-        "execute it successfully with sum aggregation" in {
+        "execute it successfully with sum aggregation" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
@@ -907,7 +907,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             )
           )
 
-          within(5 seconds) {
+          awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 5, Map("height" -> 30.5)),
