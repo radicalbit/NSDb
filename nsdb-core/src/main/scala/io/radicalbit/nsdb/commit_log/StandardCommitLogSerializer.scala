@@ -338,6 +338,17 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     writeBuffer.array
   }
 
+  /**
+    * Serializes a [[DeleteEntry]]
+    *
+    * @param className class canonicalName
+    * @param ts timestamp
+    * @param db database
+    * @param namespace namespace
+    * @param metric metric
+    * @param expression delete query where condition
+    * @return Bytes representation
+    */
   private def serializeDeleteByQuery(
       className: String,
       ts: Long,
@@ -354,6 +365,16 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
 
   }
 
+  /**
+    * Serializes a [[DeleteMetricEntry]]
+    *
+    * @param className class canonicalName
+    * @param ts timestamp
+    * @param db database
+    * @param namespace namespace
+    * @param metric metric
+    * @return Bytes representation
+    */
   private def serializeDeleteMetric(
       className: String,
       ts: Long,
@@ -366,6 +387,18 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     writeBuffer.array
   }
 
+  /**
+    * Serializes [[InsertEntry]] and [[RejectEntry]]
+    *
+    * @param className class canonicalName
+    * @param ts timestamp
+    * @param db database
+    * @param namespace namespace
+    * @param metric metric
+    * @param value [[Bit]] value
+    * @param dimensions [[Bit]] dimensions
+    * @return Bytes representation
+    */
   private def serializeEntry(
       className: String,
       ts: Long,
