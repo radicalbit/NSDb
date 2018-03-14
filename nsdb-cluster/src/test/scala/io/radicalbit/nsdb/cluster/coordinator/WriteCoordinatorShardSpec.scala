@@ -69,7 +69,7 @@ class WriteCoordinatorShardSpec
     Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
   }
 
-  "WriteCoordinator in shard mode" should "write records" in {
+  "WriteCoordinator in shard mode" should "write records" in within(5.seconds) {
     val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
     val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
     val incompatibleRecord =
@@ -94,7 +94,7 @@ class WriteCoordinatorShardSpec
 
   }
 
-  "WriteCoordinator in shard mode" should "write records and publish event to its subscriber" in {
+  "WriteCoordinator in shard mode" should "write records and publish event to its subscriber" in within(5.seconds) {
     val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
     val testSqlStatement = SelectSQLStatement(
@@ -116,7 +116,7 @@ class WriteCoordinatorShardSpec
     probe.send(writeCoordinatorActor,
                MapInput(System.currentTimeMillis, db, namespace, "testMetric", testRecordSatisfy))
 
-    within(5 seconds) {
+    awaitAssert {
       val expectedAdd = probe.expectMsgType[InputMapped]
       expectedAdd.metric shouldBe "testMetric"
       expectedAdd.record shouldBe testRecordSatisfy
@@ -125,10 +125,10 @@ class WriteCoordinatorShardSpec
     }
   }
 
-  "WriteCoordinator in shard mode" should "delete a namespace" in {
+  "WriteCoordinator in shard mode" should "delete a namespace" in within(5.seconds) {
     probe.send(writeCoordinatorActor, DeleteNamespace(db, namespace))
 
-    within(5 seconds) {
+    awaitAssert {
       probe.expectMsgType[NamespaceDeleted]
 
       namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
@@ -136,7 +136,7 @@ class WriteCoordinatorShardSpec
     }
   }
 
-  "WriteCoordinator in shard mode" should "delete entries" in {
+  "WriteCoordinator in shard mode" should "delete entries" in within(5.seconds) {
 
     val records: Seq[Bit] = Seq(
       Bit(2, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
@@ -148,7 +148,7 @@ class WriteCoordinatorShardSpec
 
     records.foreach(r => probe.send(writeCoordinatorActor, MapInput(r.timestamp, db, "testDelete", "testMetric", r)))
 
-    within(5 seconds) {
+    awaitAssert {
       (0 to 4) foreach { _ =>
         probe.expectMsgType[InputMapped]
       }
@@ -167,12 +167,13 @@ class WriteCoordinatorShardSpec
         )
       )
     )
-    within(5 seconds) {
+
+    awaitAssert {
       probe.expectMsgType[DeleteStatementExecuted]
     }
   }
 
-  "WriteCoordinator" should "drop a metric" in {
+  "WriteCoordinator" should "drop a metric" in within(5.seconds) {
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 
@@ -196,10 +197,10 @@ class WriteCoordinatorShardSpec
     }
 
     expectNoMessage(interval)
-    expectNoMessage(interval)
 
     probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
-    within(5 seconds) {
+
+    awaitAssert {
       probe.expectMsgType[CountGot].count shouldBe 0
     }
 
