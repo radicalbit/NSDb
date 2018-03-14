@@ -114,10 +114,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           .newInstance(dim, lowerBoundValue, upperBoundValue)
 
       case `comparisonExpressionClassName` =>
-        val dim = readByteBuffer.read
-        val opClazz = readByteBuffer.read
-        val module = runtimeMirror.staticModule(opClazz)
-        val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[ComparisonOperator]
+        val dim       = readByteBuffer.read
+        val opClazz   = readByteBuffer.read
+        val module    = runtimeMirror.staticModule(opClazz)
+        val operator  = runtimeMirror.reflectModule(module).instance.asInstanceOf[ComparisonOperator]
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
@@ -149,8 +149,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       case `unaryLogicalExpressionClassName` =>
         val expClass = readByteBuffer.read
         val exp      = createExpression(expClass)
-        val opClazz = readByteBuffer.read
-        val module = runtimeMirror.staticModule(opClazz)
+        val opClazz  = readByteBuffer.read
+        val module   = runtimeMirror.staticModule(opClazz)
         val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[SingleLogicalOperator]
         clazz
           .getConstructor(classOf[Expression], classOf[SingleLogicalOperator])
@@ -159,9 +159,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       case `tupleLogicalExpressionClassName` =>
         val expClass1 = readByteBuffer.read
         val exp1      = createExpression(expClass1)
-        val opClazz = readByteBuffer.read
-        val module = runtimeMirror.staticModule(opClazz)
-        val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[TupledLogicalOperator]
+        val opClazz   = readByteBuffer.read
+        val module    = runtimeMirror.staticModule(opClazz)
+        val operator  = runtimeMirror.reflectModule(module).instance.asInstanceOf[TupledLogicalOperator]
         val expClass2 = readByteBuffer.read
         val exp2      = createExpression(expClass2)
         clazz
