@@ -26,6 +26,15 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private final val unaryLogicalExpressionClassName = classOf[UnaryLogicalExpression].getCanonicalName
   private final val tupleLogicalExpressionClassName = classOf[TupledLogicalExpression].getCanonicalName
 
+  /**
+    * Dimensions serialization utility used to convert a Dimension's key-value representation
+    * into a String one using [[Dimension]] type.
+    *
+    * @param dimensions [[Map]] containing bit's dimensions in key-value format
+    * @return a list of [[Dimension]] each one representing [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.DimensionName]],
+    *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.DimensionType]],
+    *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.DimensionValue]]
+    */
   private def extractDimensions(dimensions: Map[String, JSerializable]): List[Dimension] =
     dimensions.map {
       case (k, v) =>
@@ -33,11 +42,27 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         (k, i.getClass.getCanonicalName, i.serialize(v))
     }.toList
 
+  /**
+    * Bit value serialization utility used to convert it to a serializable representation
+    *
+    * @param value bit value
+    * @return serializable value representation composed of:
+    *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.ValueName]]
+    *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.ValueType]]
+    *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.RawValue]]
+    */
   private def extractValue(value: JSerializable): Value = {
     val vType = IndexType.fromClass(value.getClass).get
     ("value", vType.getClass.getCanonicalName, vType.serialize(value))
   }
 
+  /**
+    * Dimensions deserialization utility used to convert a String representation using [[Dimension]] type
+    * into a Dimension's key-value representation
+    *
+    * @param dimensions [[List]] containing bit's dimensions in [[Dimension]] type
+    * @return [[Map]] containing bit's dimensions in key-value representation
+    */
   private def createDimensions(dimensions: List[Dimension]): Map[String, JSerializable] =
     dimensions.map {
       case (n, t, v) =>
@@ -45,6 +70,12 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         n -> i.deserialize(v).asInstanceOf[JSerializable]
     }.toMap
 
+  /**
+    * Deserialize [[Expression]] simple values given the Class canonicalName
+    *
+    * @param clazz value class canonicalName
+    * @return deserialized value instance casted into the correct class
+    */
   private def argument(clazz: String): AnyRef = {
     val longClazz: String = classOf[java.lang.Long].getCanonicalName
     val intClazz          = classOf[java.lang.Integer].getCanonicalName
@@ -60,6 +91,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   }
 
   private def createExpression(expressionClass: String): Expression = {
+    import scala.reflect.runtime.universe
+    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
     val clazz = Class
       .forName(expressionClass)
 
@@ -76,8 +109,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
 
       case `comparisonExpressionClassName` =>
         val dim = readByteBuffer.read
-        val operator =
-          Class.forName(readByteBuffer.read).getConstructor().newInstance().asInstanceOf[ComparisonOperator]
+        val opClazz = readByteBuffer.read
+        val module = runtimeMirror.staticModule(opClazz)
+        val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[ComparisonOperator]
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
@@ -97,7 +131,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[AnyRef])
+          .getConstructor(classOf[String], classOf[String])
           .newInstance(dim, value)
 
       case `nullableExpressionClassName` =>
@@ -109,8 +143,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       case `unaryLogicalExpressionClassName` =>
         val expClass = readByteBuffer.read
         val exp      = createExpression(expClass)
-        val operator =
-          Class.forName(readByteBuffer.read).getConstructor().newInstance().asInstanceOf[SingleLogicalOperator]
+        val opClazz = readByteBuffer.read
+        val module = runtimeMirror.staticModule(opClazz)
+        val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[SingleLogicalOperator]
         clazz
           .getConstructor(classOf[Expression], classOf[SingleLogicalOperator])
           .newInstance(exp, operator)
@@ -118,8 +153,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       case `tupleLogicalExpressionClassName` =>
         val expClass1 = readByteBuffer.read
         val exp1      = createExpression(expClass1)
-        val operator =
-          Class.forName(readByteBuffer.read).getConstructor().newInstance().asInstanceOf[TupledLogicalOperator]
+        val opClazz = readByteBuffer.read
+        val module = runtimeMirror.staticModule(opClazz)
+        val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[TupledLogicalOperator]
         val expClass2 = readByteBuffer.read
         val exp2      = createExpression(expClass2)
         clazz
