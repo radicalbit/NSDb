@@ -37,7 +37,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   override def validateRecord(data: Schema): Try[Seq[Field]] = {
     Success(
       Seq(
-        new StringField(_keyField, data.metric.toLowerCase, Store.YES)
+        new StringField(_keyField, data.metric, Store.YES)
       ) ++
         data.fields.map(e => new StringField(e.name, e.indexType.getClass.getCanonicalName, Store.YES)))
   }
@@ -87,7 +87,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   }
 
   override def delete(data: Schema)(implicit writer: IndexWriter): Unit = {
-    val query = new TermQuery(new Term(_keyField, data.metric.toLowerCase))
+    val query = new TermQuery(new Term(_keyField, data.metric))
     writer.deleteDocuments(query)
     writer.forceMergeDeletes(true)
   }

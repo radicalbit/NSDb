@@ -19,8 +19,8 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
   override def validateRecord(data: Location): Try[Seq[Field]] = {
     Success(
       Seq(
-        new StringField(_keyField, data.metric.toLowerCase, Store.YES),
-        new StringField("node", data.node.toLowerCase, Store.YES),
+        new StringField(_keyField, data.metric, Store.YES),
+        new StringField("node", data.node, Store.YES),
         new LongPoint("from", data.from),
         new LongPoint("to", data.to),
         new NumericDocValuesField("from", data.from),
@@ -76,8 +76,8 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
 
   override def delete(data: Location)(implicit writer: IndexWriter): Unit = {
     val builder = new BooleanQuery.Builder()
-    builder.add(new TermQuery(new Term(_keyField, data.metric.toLowerCase)), BooleanClause.Occur.MUST)
-    builder.add(new TermQuery(new Term("node", data.node.toLowerCase)), BooleanClause.Occur.MUST)
+    builder.add(new TermQuery(new Term(_keyField, data.metric)), BooleanClause.Occur.MUST)
+    builder.add(new TermQuery(new Term("node", data.node)), BooleanClause.Occur.MUST)
     builder.add(LongPoint.newExactQuery("from", data.from), BooleanClause.Occur.MUST)
     builder.add(LongPoint.newExactQuery("to", data.to), BooleanClause.Occur.MUST)
 
