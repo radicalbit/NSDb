@@ -148,17 +148,18 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      val replyTo = sender()
-      commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap {
-        case WriteToCommitLogSucceeded(_, _, _, _) =>
-          if (namespaces.isEmpty) {
-            (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(replyTo)
-          } else
-            (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(replyTo)
-        case WriteToCommitLogFailed(_, _, _, _, reason) =>
-          log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-          context.system.terminate()
-      }
+      commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
+        .flatMap {
+          case WriteToCommitLogSucceeded(_, _, _, _) =>
+            if (namespaces.isEmpty) {
+              (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace))
+            } else
+              (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
+          case WriteToCommitLogFailed(_, _, _, _, reason) =>
+            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+            context.system.terminate()
+        }
+        .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       val replyTo = sender()
       commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement)).map {
