@@ -80,6 +80,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
   }
 
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
+    val timestamp = System.currentTimeMillis()
     (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
@@ -87,7 +88,13 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           f(schema)
         case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          Future(RecordRejected(db, namespace, metric, bit, errs))
+          commitLogFuture(db, namespace, timestamp, metric, RejectAction(bit)).map {
+            case WriteToCommitLogSucceeded(_, _, _, _) =>
+              RecordRejected(db, namespace, metric, bit, errs)
+            case WriteToCommitLogFailed(_, _, _, _, reason) =>
+              log.error(s"Failed to write to commit-log for RejectBit with reason: $reason")
+              context.system.terminate()
+          }
       }
   }
 
@@ -141,21 +148,23 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
+      val replyTo = sender()
       commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap {
         case WriteToCommitLogSucceeded(_, _, _, _) =>
           if (namespaces.isEmpty) {
-            (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
+            (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(replyTo)
           } else
-            (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(sender)
+            (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(replyTo)
         case WriteToCommitLogFailed(_, _, _, _, reason) =>
           log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
           context.system.terminate()
       }
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
+      val replyTo = sender()
       commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement)).map {
         case WriteToCommitLogSucceeded(_, _, _, _) =>
           if (namespaces.isEmpty)
-            sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
+            replyTo ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
           else
             (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
               .flatMap {
@@ -176,19 +185,29 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                   Future(
                     DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
               }
-              .pipeTo(sender())
+              .pipeTo(replyTo)
         case WriteToCommitLogFailed(_, _, _, _, reason) =>
           log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
           context.system.terminate()
       }
     case msg @ DropMetric(db, namespace, metric) =>
-      if (namespaces.isEmpty)
-        sender() ! MetricDropped(db, namespace, metric)
-      else {
-        (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
-          .mapTo[SchemaDeleted]
-          .flatMap(_ => broadcastMessage(msg))
-          .pipeTo(sender())
+      val replyTo = sender()
+      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction).map {
+        case WriteToCommitLogSucceeded(_, _, _, _) =>
+          if (namespaces.isEmpty)
+            replyTo ! MetricDropped(db, namespace, metric)
+          else {
+            (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
+              .mapTo[SchemaDeleted]
+              .flatMap(_ => broadcastMessage(msg))
+              .pipeTo(replyTo)
+          }
+        case WriteToCommitLogFailed(_, _, _, _, reason) =>
+          log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+          context.system.terminate()
       }
+
+    case msg => log.info(s"Receive Unhandled message $msg")
+
   }
 }
