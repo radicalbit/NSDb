@@ -9,8 +9,11 @@ import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLoggerAction, InsertAction}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
+  AddRecordToLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.Schema
@@ -23,15 +26,15 @@ import scala.concurrent.Future
 
 object WriteCoordinator {
 
-  def props(commitLogger: Option[ActorRef],
+  def props(commitLogCoordinator: Option[ActorRef],
             metadataCoordinator: ActorRef,
             namespaceSchemaActor: ActorRef,
             publisherActor: ActorRef): Props =
-    Props(new WriteCoordinator(commitLogger, metadataCoordinator, namespaceSchemaActor, publisherActor))
+    Props(new WriteCoordinator(commitLogCoordinator, metadataCoordinator, namespaceSchemaActor, publisherActor))
 
 }
 
-class WriteCoordinator(commitLogger: Option[ActorRef],
+class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        metadataCoordinator: ActorRef,
                        namespaceSchemaActor: ActorRef,
                        publisherActor: ActorRef)
@@ -67,7 +70,11 @@ class WriteCoordinator(commitLogger: Option[ActorRef],
                               metric: String,
                               action: CommitLoggerAction): Future[JournalServiceResponse] = {
     if (commitLogEnabled)
-      (commitLogger.get ? WriteToCommitLog(db = db, namespace = namespace, metric = metric, ts = ts, action = action))
+      (commitLogCoordinator.get ? WriteToCommitLog(db = db,
+                                                   namespace = namespace,
+                                                   metric = metric,
+                                                   ts = ts,
+                                                   action = action))
         .mapTo[JournalServiceResponse]
     else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
   }
@@ -114,61 +121,66 @@ class WriteCoordinator(commitLogger: Option[ActorRef],
       namespaces += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
       sender() ! NamespaceDataActorSubscribed(actor, nodeName)
-    case MapInput(ts, db, namespace, metric, bit) =>
+    case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       updateSchema(db, namespace, metric, bit) { schema =>
-        commitLogFuture(db, namespace, metric, InsertAction(bit))
-          .flatMap(ack => {
-            publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-            getMetadataLocation(db, namespace, metric, bit, ack.ts) { loc =>
-              accumulateRecord(db, namespace, metric, bit, loc)
-            }
-          })
-      }.pipeToWithEffect(sender()) { _ =>
+        commitLogFuture(db, namespace, bit.timestamp, metric, InsertAction(bit))
+          .flatMap {
+            case WriteToCommitLogSucceeded(_, _, _, _) =>
+              publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+              getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
+                accumulateRecord(db, namespace, metric, bit, loc)
+              }
+            case WriteToCommitLogFailed(_, _, _, _, reason) =>
+              log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+              context.system.terminate()
+          }
+      }.pipeToWithEffect(sender()) { () =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      if (namespaces.isEmpty)
-        commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _) =>
+      commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap {
+        case WriteToCommitLogSucceeded(_, _, _, _) =>
+          if (namespaces.isEmpty) {
             (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace)).pipeTo(sender)
-            Future(NamespaceDeleted(db, namespace))
-          case WriteToCommitLogFailed(_, _, _, _, reason) =>
-            log.error(s"Failed to write to commit-log for: $msg")
-            context.system.terminate()
-        } else
-        commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction).flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _) =>
+          } else
             (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg)).pipeTo(sender)
-          case WriteToCommitLogFailed(_, _, _, _, reason) =>
-            log.error(s"Failed to write to commit-log for: $msg")
-            context.system.terminate()
-        }
-    case ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      if (namespaces.isEmpty)
-        sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
-      else
-        (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
-          .flatMap {
-            case SchemaGot(_, _, _, Some(schema)) =>
-              (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
-                case LocationsGot(_, _, _, locations) if locations.isEmpty =>
-                  Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
-                case LocationsGot(_, _, _, locations) =>
-                  broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
+        case WriteToCommitLogFailed(_, _, _, _, reason) =>
+          log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+          context.system.terminate()
+      }
+    case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
+      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement)).map {
+        case WriteToCommitLogSucceeded(_, _, _, _) =>
+          if (namespaces.isEmpty)
+            sender() ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
+          else
+            (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+              .flatMap {
+                case SchemaGot(_, _, _, Some(schema)) =>
+                  (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
+                    case LocationsGot(_, _, _, locations) if locations.isEmpty =>
+                      Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+                    case LocationsGot(_, _, _, locations) =>
+                      broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
+                    case _ =>
+                      Future(
+                        DeleteStatementFailed(db,
+                                              namespace,
+                                              metric,
+                                              s"Unable to fetch locations for metric ${statement.metric}"))
+                  }
                 case _ =>
                   Future(
-                    DeleteStatementFailed(db,
-                                          namespace,
-                                          metric,
-                                          s"Unable to fetch locations for metric ${statement.metric}"))
+                    DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
               }
-            case _ =>
-              Future(DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
-          }
-          .pipeTo(sender())
+              .pipeTo(sender())
+        case WriteToCommitLogFailed(_, _, _, _, reason) =>
+          log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+          context.system.terminate()
+      }
     case msg @ DropMetric(db, namespace, metric) =>
       if (namespaces.isEmpty)
         sender() ! MetricDropped(db, namespace, metric)
