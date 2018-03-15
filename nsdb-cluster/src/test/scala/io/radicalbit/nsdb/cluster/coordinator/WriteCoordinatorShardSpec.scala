@@ -1,7 +1,5 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
@@ -32,13 +30,14 @@ class WriteCoordinatorShardSpec
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter {
+    with BeforeAndAfter
+    with WriteInterval {
 
   val basePath             = "target/test_index/WriteCoordinatorShardSpec"
   val probe                = TestProbe()
   val probeActor           = probe.ref
-  val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props(basePath))
-  val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
+  val namespaceSchemaActor = system actorOf NamespaceSchemaActor.props(basePath)
+  val namespaceDataActor   = system actorOf NamespaceDataActor.props(basePath)
   val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   val publisherActor =
     TestActorRef[PublisherActor](
@@ -54,9 +53,6 @@ class WriteCoordinatorShardSpec
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
-
-  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-                                TimeUnit.SECONDS)
 
   before {
     import akka.pattern.ask
@@ -130,9 +126,13 @@ class WriteCoordinatorShardSpec
 
     awaitAssert {
       probe.expectMsgType[NamespaceDeleted]
+    }
 
-      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
-      namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
+    probe.send(namespaceDataActor, GetNamespaces(db))
+
+    awaitAssert {
+      val expected = probe.expectMsgType[NamespacesGot]
+//      expected.namespaces.size shouldBe 0
     }
   }
 
@@ -180,7 +180,6 @@ class WriteCoordinatorShardSpec
     probe.expectMsgType[InputMapped]
     probe.expectMsgType[InputMapped]
 
-    expectNoMessage(interval)
     expectNoMessage(interval)
 
     probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))

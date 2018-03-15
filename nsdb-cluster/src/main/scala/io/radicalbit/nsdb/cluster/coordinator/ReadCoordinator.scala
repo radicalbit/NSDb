@@ -84,7 +84,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
         .recoverWith {
           case t => Future(SelectStatementFailed(t.getMessage))
         }
-        .pipeToWithEffect(sender()) { () =>
+        .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)
             perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
         }
@@ -114,7 +114,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
             Future(
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
-        .pipeToWithEffect(sender()) { () =>
+        .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)
             perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
         }

@@ -1,7 +1,5 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -32,7 +30,8 @@ class ReadCoordinatorShardSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with ReadCoordinatorBehaviour {
+    with ReadCoordinatorBehaviour
+    with WriteInterval {
 
   override val probe                = TestProbe()
   override val basePath             = "target/test_index/ReadCoordinatorShardSpec"
@@ -45,10 +44,6 @@ class ReadCoordinatorShardSpec
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
-
-    val interval = FiniteDuration(
-      system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
 
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
 
@@ -113,8 +108,6 @@ class ReadCoordinatorShardSpec
                                                               location2(AggregationMetric.name)),
                      3 seconds))
 
-    expectNoMessage(interval)
-    expectNoMessage(interval)
     expectNoMessage(interval)
   }
 
