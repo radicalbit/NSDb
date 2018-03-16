@@ -132,7 +132,7 @@ class WriteCoordinatorShardSpec
 
     awaitAssert {
       val expected = probe.expectMsgType[NamespacesGot]
-//      expected.namespaces.size shouldBe 0
+      expected.namespaces.size shouldBe 0
     }
   }
 
@@ -173,7 +173,7 @@ class WriteCoordinatorShardSpec
     }
   }
 
-  "WriteCoordinator" should "drop a metric" in within(5.seconds) {
+  "WriteCoordinator" should "drop a metric" ignore within(5.seconds) {
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
     probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 
