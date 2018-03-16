@@ -37,7 +37,7 @@ class ShardAccumulatorActorSpec()
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
   }
 
-  "ShardAccumulatorActor" should "not handle non location aware messages" in {
+  "ShardAccumulatorActor" should "not handle non location aware messages" in within(5.seconds) {
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
     probe.send(shardActor, AddRecord(db, namespace, "shardActorMetric", bit))
     expectNoMessage(5 seconds)
@@ -46,13 +46,13 @@ class ShardAccumulatorActorSpec()
     expectNoMessage(5 seconds)
   }
 
-  "ShardAccumulatorActor" should "write and delete properly" in {
+  "ShardAccumulatorActor" should "write and delete properly" in within(5.seconds) {
 
     val bit      = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
     val location = Location("shardActorMetric", "node1", 0, 100)
 
     probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit, location))
-    within(5 seconds) {
+    awaitAssert {
       val expectedAdd = probe.expectMsgType[RecordAdded]
       expectedAdd.metric shouldBe "shardActorMetric"
       expectedAdd.record shouldBe bit
@@ -60,13 +60,13 @@ class ShardAccumulatorActorSpec()
     expectNoMessage(interval)
 
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
-    within(5 seconds) {
+    awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
       expectedCount.metric shouldBe "shardActorMetric"
       expectedCount.count shouldBe 1
     }
     probe.send(shardActor, DeleteRecordFromLocation(db, namespace, "shardActorMetric", bit, location))
-    within(5 seconds) {
+    awaitAssert {
       val expectedDelete = probe.expectMsgType[RecordDeleted]
       expectedDelete.metric shouldBe "shardActorMetric"
       expectedDelete.record shouldBe bit
@@ -74,7 +74,7 @@ class ShardAccumulatorActorSpec()
     expectNoMessage(interval)
 
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
-    within(5 seconds) {
+    awaitAssert {
       val expectedCountDeleted = probe.expectMsgType[CountGot]
       expectedCountDeleted.metric shouldBe "shardActorMetric"
       expectedCountDeleted.count shouldBe 0
@@ -82,7 +82,7 @@ class ShardAccumulatorActorSpec()
 
   }
 
-  "ShardAccumulatorActor" should "write and delete properly the same metric in multiple locations" in {
+  "ShardAccumulatorActor" should "write and delete properly the same metric in multiple locations" in within(5.seconds) {
 
     val location  = Location("shardActorMetric", "node1", 0, 100)
     val location2 = Location("shardActorMetric", "node1", 101, 200)
@@ -98,7 +98,7 @@ class ShardAccumulatorActorSpec()
     probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit13, location))
     probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit21, location2))
     probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit22, location2))
-    within(3 seconds) {
+    awaitAssert {
       probe.expectMsgType[RecordAdded]
       probe.expectMsgType[RecordAdded]
       probe.expectMsgType[RecordAdded]
@@ -109,7 +109,7 @@ class ShardAccumulatorActorSpec()
     expectNoMessage(interval)
 
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
-    within(5 seconds) {
+    awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
       expectedCount.metric shouldBe "shardActorMetric"
       expectedCount.count shouldBe 5

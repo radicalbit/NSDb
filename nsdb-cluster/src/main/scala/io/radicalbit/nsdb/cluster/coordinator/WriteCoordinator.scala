@@ -112,7 +112,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                       errs.mkString(","))
             Future(RecordRejected(db, namespace, metric, bit, errs))
         }
-        .pipeToWithEffect(sender()) { () =>
+        .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)
             perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
         }
@@ -200,7 +200,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         .recoverWith {
           case t => Future(RecordRejected(db, namespace, metric, bit, List(t.getMessage)))
         }
-        .pipeToWithEffect(sender()) { () =>
+        .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)
             perfLogger.debug("End write request in {} millis", System.currentTimeMillis - startTime)
         }

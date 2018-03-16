@@ -1,7 +1,5 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -32,7 +30,8 @@ class ReadCoordinatorShardSpec
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with ReadCoordinatorBehaviour {
+    with ReadCoordinatorBehaviour
+    with WriteInterval {
 
   override val probe                = TestProbe()
   override val basePath             = "target/test_index/ReadCoordinatorShardSpec"
@@ -45,10 +44,6 @@ class ReadCoordinatorShardSpec
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
-
-    val interval = FiniteDuration(
-      system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
 
     Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, Some("node1")), 3 seconds)
 
@@ -114,8 +109,6 @@ class ReadCoordinatorShardSpec
                      3 seconds))
 
     expectNoMessage(interval)
-    expectNoMessage(interval)
-    expectNoMessage(interval)
   }
 
   "ReadCoordinator in shard mode" should behave.like(defaultBehaviour)
@@ -123,7 +116,7 @@ class ReadCoordinatorShardSpec
   "ReadCoordinator in shard mode" when {
 
     "receive a select projecting a wildcard with a limit" should {
-      "execute it successfully" in {
+      "execute it successfully" in within(5.seconds) {
 
         probe.send(
           readCoordinatorActor,
@@ -136,7 +129,7 @@ class ReadCoordinatorShardSpec
                                limit = Some(LimitOperator(2)))
           )
         )
-        within(5 seconds) {
+        awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
         }
@@ -144,7 +137,7 @@ class ReadCoordinatorShardSpec
     }
 
     "receive a select projecting a wildcard with a limit and a ordering" should {
-      "execute it successfully when ordered by timestamp" in {
+      "execute it successfully when ordered by timestamp" in within(5.seconds) {
 
         probe.send(
           readCoordinatorActor,
@@ -160,14 +153,14 @@ class ReadCoordinatorShardSpec
             )
           )
         )
-        within(5 seconds) {
+        awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
           expected.values shouldBe LongMetric.recordsShard2.tail.reverse
         }
       }
 
-      "execute it successfully when ordered by another dimension" in {
+      "execute it successfully when ordered by another dimension" in within(5.seconds) {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -180,7 +173,7 @@ class ReadCoordinatorShardSpec
                                order = Some(DescOrderOperator("name")))
           )
         )
-        within(5 seconds) {
+        awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
           expected.values.size shouldBe 2
           LongMetric.recordsShard1 foreach { r =>
