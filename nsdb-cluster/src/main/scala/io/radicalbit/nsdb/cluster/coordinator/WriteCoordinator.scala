@@ -9,7 +9,10 @@ import io.radicalbit.commit_log.CommitLogService
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
+import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
+  AddRecordToLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WroteToCommitLogAck
 import io.radicalbit.nsdb.common.protocol.Bit

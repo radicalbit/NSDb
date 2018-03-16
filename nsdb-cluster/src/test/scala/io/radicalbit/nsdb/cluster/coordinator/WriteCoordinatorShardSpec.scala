@@ -40,6 +40,5 @@ class WriteCoordinatorShardSpec
     Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 3 seconds)
   }
 
-
   "WriteCoordinator in shard mode" should behave.like(defaultBehaviour)
 }

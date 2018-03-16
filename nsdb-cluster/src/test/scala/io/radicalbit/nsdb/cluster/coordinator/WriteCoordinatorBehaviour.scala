@@ -90,7 +90,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
 
   def defaultBehaviour {
-    "write records" in {
+    "write records" in within(5.seconds) {
       val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))
       val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"))
       val incompatibleRecord =
@@ -115,7 +115,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
     }
 
-    "write records and publish event to its subscriber" in {
+    "write records and publish event to its subscriber" in within(5.seconds) {
       val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"))
 
       val testSqlStatement = SelectSQLStatement(
@@ -138,7 +138,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       probe.send(writeCoordinatorActor,
                  MapInput(System.currentTimeMillis, db, namespace, "testMetric", testRecordSatisfy))
 
-      within(5 seconds) {
+      awaitAssert {
         val expectedAdd = probe.expectMsgType[InputMapped]
         expectedAdd.metric shouldBe "testMetric"
         expectedAdd.record shouldBe testRecordSatisfy
@@ -148,10 +148,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       expectNoMessage(interval)
     }
 
-    "delete a namespace" in {
+    "delete a namespace" in within(5.seconds) {
       probe.send(writeCoordinatorActor, DeleteNamespace(db, namespace))
 
-      within(5 seconds) {
+      awaitAssert {
         probe.expectMsgType[NamespaceDeleted]
 
         namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
@@ -159,7 +159,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       }
     }
 
-    "delete entries" in {
+    "delete entries" in within(5.seconds) {
 
       val records: Seq[Bit] = Seq(
         Bit(2, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis())),
@@ -171,7 +171,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       records.foreach(r => probe.send(writeCoordinatorActor, MapInput(r.timestamp, db, "testDelete", "testMetric", r)))
 
-      within(5 seconds) {
+      awaitAssert {
         (0 to 4) foreach { _ =>
           probe.expectMsgType[InputMapped]
         }
@@ -190,13 +190,13 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
           )
         )
       )
-      within(5 seconds) {
+      awaitAssert {
         probe.expectMsgType[DeleteStatementExecuted]
       }
 
     }
 
-    "drop a metric" in {
+    "drop a metric" in within(5.seconds) {
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 
@@ -210,19 +210,19 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
       probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
-      within(5 seconds) {
+      awaitAssert {
         probe.expectMsgType[CountGot].count shouldBe 2
       }
 
       probe.send(writeCoordinatorActor, DropMetric(db, namespace, "testMetric"))
-      within(5 seconds) {
+      awaitAssert {
         probe.expectMsgType[MetricDropped]
       }
 
       expectNoMessage(interval)
 
       probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
-      within(5 seconds) {
+      awaitAssert {
         probe.expectMsgType[CountGot].count shouldBe 0
       }
 
