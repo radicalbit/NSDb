@@ -36,6 +36,7 @@ object RollingCommitLogFileWriter {
 }
 
 /**
+  * Concrete actor extending [[CommitLogWriterActor]] whose purpose is to log [[CommitLogEntry]] on file.
   * This class is intended to be thread safe because CommitLogWriter extends the Actor trait.
   * Do no call its methods from the outside, use the protocol specified inside CommitLogWriter instead.
   *

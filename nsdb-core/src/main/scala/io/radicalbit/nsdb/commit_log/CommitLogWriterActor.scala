@@ -18,18 +18,18 @@ object CommitLogWriterActor {
   case object DeleteNamespaceAction                               extends CommitLoggerAction
   case object DeleteMetricAction                                  extends CommitLoggerAction
 
-  sealed trait JournalServiceProtocol
+  sealed trait CommitLogProtocol
 
-  sealed trait JournalServiceRequest  extends JournalServiceProtocol
-  sealed trait JournalServiceResponse extends JournalServiceProtocol
+  sealed trait CommitLogRequest  extends CommitLogProtocol
+  sealed trait CommitLogResponse extends CommitLogProtocol
 
   case class WriteToCommitLog(db: String, namespace: String, metric: String, ts: Long, action: CommitLoggerAction)
-      extends JournalServiceRequest
+      extends CommitLogRequest
 
   case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String)
-      extends JournalServiceResponse
+      extends CommitLogResponse
   case class WriteToCommitLogFailed(db: String, namespace: String, ts: Long, metric: String, reason: String)
-      extends JournalServiceResponse
+      extends CommitLogResponse
 
   object CommitLogEntry {
     type DimensionName  = String
@@ -43,6 +43,9 @@ object CommitLogWriterActor {
 
   }
 
+  /**
+    * Describes entities serialized in commit-log files
+    */
   sealed trait CommitLogEntry {
     def db: String
     def namespace: String
@@ -65,6 +68,11 @@ object CommitLogWriterActor {
 
 }
 
+/**
+  * Trait describing CommitLogWriter behaviour
+  * implemented by [[RollingCommitLogFileWriter]]
+  *
+  */
 trait CommitLogWriterActor extends Actor {
 
   protected def serializer: CommitLogSerializer

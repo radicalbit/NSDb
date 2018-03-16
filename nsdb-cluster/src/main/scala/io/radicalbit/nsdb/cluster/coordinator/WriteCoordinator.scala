@@ -68,14 +68,14 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                               namespace: String,
                               ts: Long,
                               metric: String,
-                              action: CommitLoggerAction): Future[JournalServiceResponse] = {
+                              action: CommitLoggerAction): Future[CommitLogResponse] = {
     if (commitLogEnabled)
       (commitLogCoordinator.get ? WriteToCommitLog(db = db,
                                                    namespace = namespace,
                                                    metric = metric,
                                                    ts = ts,
                                                    action = action))
-        .mapTo[JournalServiceResponse]
+        .mapTo[CommitLogResponse]
     else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
   }
 
@@ -161,52 +161,53 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      val replyTo = sender()
-      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement)).map {
-        case WriteToCommitLogSucceeded(_, _, _, _) =>
-          if (namespaces.isEmpty)
-            replyTo ! DeleteStatementExecuted(statement.db, statement.metric, statement.metric)
-          else
-            (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
-              .flatMap {
-                case SchemaGot(_, _, _, Some(schema)) =>
-                  (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
-                    case LocationsGot(_, _, _, locations) if locations.isEmpty =>
-                      Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
-                    case LocationsGot(_, _, _, locations) =>
-                      broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
-                    case _ =>
-                      Future(
-                        DeleteStatementFailed(db,
-                                              namespace,
-                                              metric,
-                                              s"Unable to fetch locations for metric ${statement.metric}"))
-                  }
-                case _ =>
-                  Future(
-                    DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
-              }
-              .pipeTo(replyTo)
-        case WriteToCommitLogFailed(_, _, _, _, reason) =>
-          log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-          context.system.terminate()
-      }
+      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement))
+        .flatMap {
+          case WriteToCommitLogSucceeded(_, _, _, _) =>
+            if (namespaces.isEmpty)
+              Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+            else
+              (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+                .flatMap {
+                  case SchemaGot(_, _, _, Some(schema)) =>
+                    (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
+                      case LocationsGot(_, _, _, locations) if locations.isEmpty =>
+                        Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
+                      case LocationsGot(_, _, _, locations) =>
+                        broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
+                      case _ =>
+                        Future(
+                          DeleteStatementFailed(db,
+                                                namespace,
+                                                metric,
+                                                s"Unable to fetch locations for metric ${statement.metric}"))
+                    }
+                  case _ =>
+                    Future(
+                      DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
+                }
+          case WriteToCommitLogFailed(_, _, _, _, reason) =>
+            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+            context.system.terminate()
+        }
+        .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       val replyTo = sender()
-      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction).map {
-        case WriteToCommitLogSucceeded(_, _, _, _) =>
-          if (namespaces.isEmpty)
-            replyTo ! MetricDropped(db, namespace, metric)
-          else {
-            (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
-              .mapTo[SchemaDeleted]
-              .flatMap(_ => broadcastMessage(msg))
-              .pipeTo(replyTo)
-          }
-        case WriteToCommitLogFailed(_, _, _, _, reason) =>
-          log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-          context.system.terminate()
-      }
+      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
+        .flatMap {
+          case WriteToCommitLogSucceeded(_, _, _, _) =>
+            if (namespaces.isEmpty)
+              Future(MetricDropped(db, namespace, metric))
+            else {
+              (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
+                .mapTo[SchemaDeleted]
+                .flatMap(_ => broadcastMessage(msg))
+            }
+          case WriteToCommitLogFailed(_, _, _, _, reason) =>
+            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+            context.system.terminate()
+        }
+        .pipeTo(sender())
 
     case msg => log.info(s"Receive Unhandled message $msg")
 
