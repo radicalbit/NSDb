@@ -84,11 +84,6 @@ object Dependencies {
     lazy val jackson   = namespace %% "json4s-jackson" % version
   }
 
-  object kryo {
-    lazy val version   = "4.0.1"
-    lazy val namespace = "com.esotericsoftware"
-    lazy val kryo      = namespace % "kryo" % version
-  }
   object lucene {
     lazy val version     = "6.6.0"
     lazy val namespace   = "org.apache.lucene"
@@ -168,7 +163,6 @@ object Dependencies {
     val libraries = Seq(
       akka.actor,
       spire.spire,
-      kryo.kryo,
       lucene.core,
       lucene.queryParser,
       lucene.grouping,
