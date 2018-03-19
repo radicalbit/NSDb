@@ -1,6 +1,9 @@
 import io.radicalbit.nsdb.api.java.InsertResult;
 import io.radicalbit.nsdb.api.java.NSDB;
 
+/**
+ * This class is meant to be an example of a call to the insert Apis.
+ */
 public class NSDBWrite {
 
     public static void main(String[] args) throws Exception {

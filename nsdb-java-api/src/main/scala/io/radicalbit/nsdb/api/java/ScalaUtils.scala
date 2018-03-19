@@ -6,6 +6,10 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 
 import scala.collection.JavaConverters._
 
+/**
+  * Utility class written in scala io order to provide convenience methods for a better scala - java interoperability.
+  * e.g. avoiding explicit calls to scala auxiliary objects <pre>RPCInsert.Value$.Empty$.MODULE$</pre>
+  */
 protected object ScalaUtils {
 
   def emptyValue = RPCInsert.Value.Empty

@@ -1,6 +1,9 @@
 import io.radicalbit.nsdb.api.java.NSDB;
 import io.radicalbit.nsdb.api.java.QueryResult;
 
+/**
+ * This class is meant to be an example of a call to the execute Statement Apis.
+ */
 public class NSDBRead {
     public static void main(String[] args) throws Exception {
         NSDB nsdb = NSDB.connect("127.0.0.1", 7817).get();
