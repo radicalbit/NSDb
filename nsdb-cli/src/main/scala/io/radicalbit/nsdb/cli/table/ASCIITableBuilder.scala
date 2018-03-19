@@ -4,17 +4,38 @@ import cats.implicits._
 import com.typesafe.scalalogging.LazyLogging
 import de.vandermeer.asciitable.{AsciiTable, CWC_LongestWord}
 import de.vandermeer.asciithemes.a7.A7_Grids
-import de.vandermeer.skb.interfaces.transformers.textformat.TextAlignment
 import io.radicalbit.nsdb.common.protocol._
 
 import scala.util.Try
 
+/**
+  * Object used to render server responses on scala REPL.
+  * It provides a table representation of query and command results making use of [[AsciiTable]].
+  *
+  */
 object ASCIITableBuilder extends LazyLogging {
 
-  private val tableMaxWidth  = 100
+  type DimensionName = String
+  type Row           = List[String]
+
+  /**
+    * Defines table maxWidth, if the number of char of a single line is higher than this value,
+    * just a fixed number of dimension is rendered.
+    */
+  private val tableMaxWidth = 100
+
+  /**
+    * Defines the number of dimension rendered in case of table exceeding tableMaxWidth
+    * It doesn't take count fo timestamp and value fixed columns
+    */
   private val dimensionLimit = 3
 
-  private def extractColumnNames(stm: SQLStatementExecuted): Map[String, Option[String]] =
+  /**
+    * Extract ColumnNames from a successful [[SQLStatementExecuted]]
+    * @param stm sql statement response
+    * @return [[Map]] representation of [[Bit]] dimensions
+    */
+  private def extractColumnNames(stm: SQLStatementExecuted): Map[DimensionName, Option[String]] =
     stm.res
       .flatMap(_.dimensions.map {
         case (name, _) if (name.trim.length > 0) => (name.trim, None)
@@ -25,10 +46,10 @@ object ASCIITableBuilder extends LazyLogging {
     stm match {
       case statement: SQLStatementExecuted if statement.res.nonEmpty =>
         Try {
-          val at                                         = new AsciiTable()
-          val allDimensions: Map[String, Option[String]] = extractColumnNames(statement)
+          val at                                                = new AsciiTable()
+          val allDimensions: Map[DimensionName, Option[String]] = extractColumnNames(statement)
 
-          val rows: List[List[String]] = statement.res.toList.map { x =>
+          val rows: List[Row] = statement.res.toList.map { x =>
             val dimensionsMap    = x.dimensions.map { case (k, v) => (k, Some(v.toString)) }
             val mergedDimensions = allDimensions.combine(dimensionsMap).toList
             // prepending timestamp and value
@@ -38,14 +59,15 @@ object ASCIITableBuilder extends LazyLogging {
           }
 
           val maxDimensionNumber = allDimensions.keys.size
-          logger.info(s"maxDimensionNumber: $maxDimensionNumber")
 
+          // Find max num of char for a file, if so omit some dimensions from rendering
           if (Math.max(allDimensions.keys.foldLeft(0)((acc, k) => acc + k.length),
                        allDimensions.values.flatten.foldLeft(0)((acc, k) => acc + k.length)) < tableMaxWidth)
             render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
           else {
+            // Add a new column containing as header the number of omitted dimensions
             val nMoreDimensions = maxDimensionNumber - dimensionLimit
-            val summaryHeader = List(s"$nMoreDimensions more dimensions")
+            val summaryHeader   = List(s"$nMoreDimensions more dimensions")
             val headers = List("timestamp", "value") ++ allDimensions.toList
               .map(_._1)
               .sorted
@@ -78,7 +100,15 @@ object ASCIITableBuilder extends LazyLogging {
     }
   }
 
-  private def render(headerColumns: List[String], rows: List[List[String]]): String = {
+  /**
+    * Renders results, building its [[String]] representation.
+    * It makes use of [[AsciiTable]] to provide a table representation of input results
+    *
+    * @param headerColumns [[List]] containing headers name
+    * @param rows Matrix representing data entries string values
+    * @return [[String]] of table representation
+    */
+  private def render(headerColumns: List[DimensionName], rows: List[Row]): String = {
     val at = new AsciiTable()
     // header
     at.addRule
