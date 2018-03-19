@@ -1,3 +1,4 @@
+import Dependencies.scalaLang.namespace
 import sbt._
 
 object Dependencies {
@@ -12,6 +13,8 @@ object Dependencies {
     lazy val version           = "1.0.6"
     lazy val namespace         = "org.scala-lang.modules"
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
+
+    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "0.8.0"
   }
 
   object scopt {
@@ -220,6 +223,12 @@ object Dependencies {
 
   object ScalaAPI {
     lazy val libraries = Seq.empty
+  }
+
+  object JavaAPI {
+    val libraries = Seq(
+      scalaModules.java8Compatibility
+    )
   }
 
   object SQL {

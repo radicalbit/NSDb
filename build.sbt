@@ -17,6 +17,7 @@ lazy val root = project
     `nsdb-cluster`,
     `nsdb-security`,
     `nsdb-rpc`,
+    `nsdb-java-api`,
     `nsdb-scala-api`,
     `nsdb-sql`,
     `nsdb-cli`,
@@ -112,9 +113,15 @@ lazy val `nsdb-sql` = project
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
   .dependsOn(`nsdb-common`)
 
-lazy val `nsdb-scala-api` = project
+lazy val `nsdb-java-api` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
+  .settings(libraryDependencies ++= Dependencies.JavaAPI.libraries)
+  .dependsOn(`nsdb-rpc`)
+
+lazy val `nsdb-scala-api` = project
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.ScalaAPI.libraries)
   .dependsOn(`nsdb-rpc`)
 
