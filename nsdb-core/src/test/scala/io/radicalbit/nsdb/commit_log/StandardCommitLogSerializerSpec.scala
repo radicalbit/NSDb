@@ -72,7 +72,6 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
-
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 

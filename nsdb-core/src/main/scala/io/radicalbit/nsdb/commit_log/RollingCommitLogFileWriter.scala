@@ -14,7 +14,7 @@ object RollingCommitLogFileWriter {
 
   def props(db: String, namespace: String) = Props(new RollingCommitLogFileWriter(db, namespace))
 
-  private[commit_log] val FileNameSeparator = "_"
+  private[commit_log] val FileNameSeparator = "|"
 
   private[commit_log] def nextFileName(db: String,
                                        namespace: String,
