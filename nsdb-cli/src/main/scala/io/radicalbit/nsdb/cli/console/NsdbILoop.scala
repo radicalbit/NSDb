@@ -232,6 +232,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       echo("\n")
       result(Some(lineToRecord))
     case Failure(t) =>
+      logger.error("Error in render", t)
       echo("Cannot show the result in a visual way.")
       result(Some(lineToRecord))
   }
