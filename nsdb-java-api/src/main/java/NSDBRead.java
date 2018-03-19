@@ -1,5 +1,5 @@
 import io.radicalbit.nsdb.api.java.NSDB;
-import io.radicalbit.nsdb.api.java.QueryResponse;
+import io.radicalbit.nsdb.api.java.QueryResult;
 
 public class NSDBRead {
     public static void main(String[] args) throws Exception {
@@ -7,9 +7,15 @@ public class NSDBRead {
 
         NSDB.SQLStatement statement = nsdb.db("root").namespace("registry").query("select * from people limit 1");
 
-        QueryResponse result = nsdb.executeStatement(statement).get();
+        QueryResult result = nsdb.executeStatement(statement).get();
 
-        System.out.println(result);
-
+        if (result.isCompletedSuccessfully()) {
+            System.out.println("db " + result.getDb());
+            System.out.println("namespace " + result.getNamespace());
+            System.out.println("metric " + result.getMetric());
+            System.out.println("bits " + result.getRecords());
+        } else {
+            System.out.println("reason " + result.getReason());
+        }
     }
 }

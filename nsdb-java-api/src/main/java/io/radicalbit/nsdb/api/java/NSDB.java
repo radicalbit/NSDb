@@ -5,7 +5,6 @@ import io.radicalbit.nsdb.rpc.common.Dimension;
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
-import io.radicalbit.nsdb.rpc.response.RPCInsertResult;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -164,15 +163,15 @@ public class NSDB {
         return new Db(name);
     }
 
-    public CompletableFuture<QueryResponse> executeStatement(SQLStatement sqlStatement) {
+    public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
         SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.sQLStatement);
-        return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResponse::new);
+        return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
     }
 
-    public CompletableFuture<RPCInsertResult> write(Bit bit) {
+    public CompletableFuture<InsertResult> write(Bit bit) {
         return toJava(client.write(
                 new RPCInsert(bit.db, bit.namespace, bit.metric,
-                        bit.timestamp, ScalaUtils.convertMap(bit.dimensions), bit.value))).toCompletableFuture();
+                        bit.timestamp, ScalaUtils.convertMap(bit.dimensions), bit.value))).toCompletableFuture().thenApply(InsertResult::new);
     }
 
 
