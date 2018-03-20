@@ -11,7 +11,7 @@ import scala.tools.nsc.Settings
   * @param port rpc server host port
   * @param db database name
   */
-case class Params(host: Option[String] = None, port: Option[Int] = None, db: String, tableMaxWidth: Option[Int])
+case class Params(host: Option[String] = None, port: Option[Int] = None, db: String, width: Option[Int])
 
 /**
   * Runner for Nsdb CLI.
@@ -31,7 +31,7 @@ object NsdbConsole extends App {
     opt[String]('d', "database").required() action { (x, c) =>
       c.copy(db = x)
     } text "the database to select"
-    opt[Int]('w', "maxWidth") action { (x, c) =>
+    opt[Int]('w', "width") action { (x, c) =>
       c.copy(port = Some(x))
     } text "table max width"
   }
@@ -41,6 +41,6 @@ object NsdbConsole extends App {
     settings.usejavacp.value = true
     settings.deprecation.value = true
 
-    new NsdbILoop(params.host, params.port, params.db, params.tableMaxWidth).process(settings)
+    new NsdbILoop(params.host, params.port, params.db, params.width).process(settings)
   }
 }
