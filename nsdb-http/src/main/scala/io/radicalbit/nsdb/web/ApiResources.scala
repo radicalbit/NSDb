@@ -11,10 +11,10 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.Metric
+import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
@@ -131,6 +131,15 @@ trait ApiResources {
 
   case class QueryResponse(records: Seq[Bit])
 
+  case class CommandRequestDatabase(db: String) extends Db
+  case class CommandRequestNamespace(db: String, namespace: String) extends Namespace
+  case class CommandRequestMetric(db: String, namespace: String, metric: String) extends Metric
+
+  sealed trait CommandResponse
+  case class ShowNamespacesResponse(namespaces: Set[String]) extends CommandResponse
+  case class ShowMetricsResponse(metrics: Set[String]) extends CommandResponse
+  case class DescribeMetricResponse() extends CommandResponse
+
   import Formats._
 
   def apiResources(publisherActor: ActorRef,
@@ -208,6 +217,62 @@ trait ApiResources {
         get {
           complete("RUNNING")
         }
+      } ~
+      pathPrefix("commands") {
+        optionalHeaderValueByName(authProvider.headerName) { header =>
+          path(Segment) { db =>
+            path("namespaces") {
+              pathEnd {
+                get {
+                  authProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
+                    onComplete(readCoordinator ? GetNamespaces(db)){
+                      case Success(NamespacesGot(_, namespaces)) => complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    }
+                  }
+                }
+              }
+            }
+            path(Segment) { namespace =>
+              path("metrics") {
+                pathEnd {
+                  get {
+                    authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
+                      onComplete(readCoordinator ? GetMetrics(db, namespace)){
+                        case Success(MetricsGot(_, _, metrics)) => complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                        case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                      }
+                    }
+                  }
+                }
+              }
+              pathEnd {
+                delete {
+                  authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
+                    onComplete(writeCoordinator ? DeleteNamespace(db, namespace)){
+                      case Success(NamespaceDeleted(_, _)) => complete("OK")
+                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    }
+                  }
+                }
+              }
+              path(Segment) { metric =>
+                get {
+                  authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
+                    onComplete(readCoordinator ? DeleteNamespace(db, namespace)){
+                      case Success(NamespaceDeleted(_, _)) => complete("OK")
+                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    }
+                  }
+                } ~
+                  delete {
+                    authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
+                      complete("ok")
+                    }
+                  }
+              }
+            }
+          }
+        }
       }
-
 }
