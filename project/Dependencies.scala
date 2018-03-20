@@ -191,14 +191,6 @@ object Dependencies {
     )
   }
 
-  object AkkaClient {
-    lazy val libraries = Seq(
-      akka.actor,
-      akka.cluster,
-      akka.clusterTools
-    )
-  }
-
   object Cluster {
     lazy val libraries = Seq(
       akka.cluster,
