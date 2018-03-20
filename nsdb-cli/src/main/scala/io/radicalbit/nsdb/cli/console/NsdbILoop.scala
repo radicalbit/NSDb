@@ -45,14 +45,19 @@ import scala.util.{Failure, Success, Try}
   * @param in0 [[BufferedReader]] used to acquire user input
   * @param out REPL printer for commands response
   */
-class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option[BufferedReader], out: JPrintWriter)
+class NsdbILoop(host: Option[String],
+                port: Option[Int],
+                db: String,
+                tableMaxWidth: Option[Int],
+                in0: Option[BufferedReader],
+                out: JPrintWriter)
     extends ILoop(in0, out)
     with LazyLogging {
 
-  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, "root", Some(in), out)
+  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, "root", None, Some(in), out)
 
-  def this(host: Option[String], port: Option[Int], db: String) = {
-    this(host, port, db, None, new JPrintWriter(Console.out, true))
+  def this(host: Option[String], port: Option[Int], db: String, tableMaxWidth: Option[Int]) = {
+    this(host, port, db, tableMaxWidth, None, new JPrintWriter(Console.out, true))
     val instance = s"${host.getOrElse("127.0.0.1")} : ${port.getOrElse(7817)}"
     Await
       .ready(clientGrpc.checkConnection(), 10.seconds)
@@ -72,6 +77,8 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
   val clientGrpc = new GRPCClient(host = host.getOrElse("127.0.0.1"), port = port.getOrElse(7817))
 
   var currentNamespace: Option[String] = None
+
+  val tableBuilder = new ASCIITableBuilder(tableMaxWidth = tableMaxWidth.getOrElse(100))
 
   override def prompt = "nsdb $ "
 
@@ -111,7 +118,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
       .orElse(
         Try(
           processSQLStatementResponse(prepareSQLStatement(statement).map(toInternalSQLStatementResponse),
-                                      ASCIITableBuilder.tableFor,
+                                      tableBuilder.tableFor,
                                       statement)
         ))
 
@@ -218,7 +225,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         clientGrpc
           .showNamespaces(GrpcShowNamespaces(db))
           .map(toInternalCommandResponse[Namespaces]),
-        ASCIITableBuilder.tableFor,
+        tableBuilder.tableFor,
         lineToRecord
       )
       result()
@@ -231,7 +238,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         clientGrpc
           .showMetrics(GrpcShowMetrics(db, namespace))
           .map(toInternalCommandResponse[GrpcMetricsGot]),
-        ASCIITableBuilder.tableFor,
+        tableBuilder.tableFor,
         lineToRecord
       )
     case DescribeMetric(_, namespace, metric) =>
@@ -239,7 +246,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         clientGrpc
           .describeMetrics(GrpcDescribeMetric(db, namespace, metric))
           .map(toInternalCommandResponse[GrpcMetricSchemaRetrieved]),
-        ASCIITableBuilder.tableFor,
+        tableBuilder.tableFor,
         lineToRecord
       )
   }

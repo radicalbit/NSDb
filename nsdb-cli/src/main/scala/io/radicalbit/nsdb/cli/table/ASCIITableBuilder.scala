@@ -10,19 +10,15 @@ import scala.util.Try
 
 /**
   * Object used to render server responses on scala REPL.
-  * It provides a table representation of query and command results making use of [[AsciiTable]].
+  * It provides a table representation of query and command results making use of [[de.vandermeer.asciitable.AsciiTable]].
   *
+  * @param tableMaxWidth Defines table maxWidth, if the number of char of a single line is higher than this value,
+  *                      just a fixed number of dimension is rendered.
   */
-object ASCIITableBuilder extends LazyLogging {
+class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
 
   type DimensionName = String
   type Row           = List[String]
-
-  /**
-    * Defines table maxWidth, if the number of char of a single line is higher than this value,
-    * just a fixed number of dimension is rendered.
-    */
-  private val tableMaxWidth = 100
 
   /**
     * Defines the number of dimension rendered in case of table exceeding tableMaxWidth
@@ -42,6 +38,12 @@ object ASCIITableBuilder extends LazyLogging {
       })
       .toMap
 
+  /**
+    * Renders [[SQLStatementResult]] results in a table format
+    *
+    * @param stm [[SQLStatementResult]] containing headers and rows to be rendered in table
+    * @return [[String]] table
+    */
   def tableFor(stm: SQLStatementResult): Try[String] =
     stm match {
       case statement: SQLStatementExecuted if statement.res.nonEmpty =>
@@ -50,8 +52,8 @@ object ASCIITableBuilder extends LazyLogging {
           val allDimensions: Map[DimensionName, Option[String]] = extractColumnNames(statement)
 
           val rows: List[Row] = statement.res.toList.map { x =>
-            val dimensionsMap    = x.dimensions.map { case (k, v) => (k, Some(v.toString)) }
-            val mergedDimensions = allDimensions.combine(dimensionsMap).toList
+            val dimensionsMap    = x.dimensions.map { case (k, v)                                     => (k, Some(v.toString)) }
+            val mergedDimensions = allDimensions.combine(dimensionsMap).toList.sortBy { case (col, _) => col }
             // prepending timestamp and value
             x.timestamp.toString +: x.value.toString +: mergedDimensions.map {
               case (_, value) => value getOrElse ("")
@@ -87,6 +89,12 @@ object ASCIITableBuilder extends LazyLogging {
 
     }
 
+  /**
+    * Renders [[CommandStatementExecuted]] results in a table format
+    *
+    * @param commandResult [[CommandStatementExecuted]] containing server results for a command
+    * @return [[String]] table
+    */
   def tableFor(commandResult: CommandStatementExecuted): Try[String] = {
     commandResult match {
       case res: NamespaceMetricsListRetrieved =>
