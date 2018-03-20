@@ -11,6 +11,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.index.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -131,14 +132,15 @@ trait ApiResources {
 
   case class QueryResponse(records: Seq[Bit])
 
-  case class CommandRequestDatabase(db: String) extends Db
-  case class CommandRequestNamespace(db: String, namespace: String) extends Namespace
+  case class CommandRequestDatabase(db: String)                                  extends Db
+  case class CommandRequestNamespace(db: String, namespace: String)              extends Namespace
   case class CommandRequestMetric(db: String, namespace: String, metric: String) extends Metric
 
   sealed trait CommandResponse
   case class ShowNamespacesResponse(namespaces: Set[String]) extends CommandResponse
-  case class ShowMetricsResponse(metrics: Set[String]) extends CommandResponse
-  case class DescribeMetricResponse() extends CommandResponse
+  case class ShowMetricsResponse(metrics: Set[String])       extends CommandResponse
+  case class Field(name: String, `type`: String)
+  case class DescribeMetricResponse(fields: Set[Field]) extends CommandResponse
 
   import Formats._
 
@@ -214,60 +216,81 @@ trait ApiResources {
         }
       } ~
       pathPrefix("status") {
-        get {
+        (pathEnd & get) {
           complete("RUNNING")
         }
       } ~
       pathPrefix("commands") {
         optionalHeaderValueByName(authProvider.headerName) { header =>
-          path(Segment) { db =>
+          pathPrefix(Segment) { db =>
+            println(db)
             path("namespaces") {
-              pathEnd {
-                get {
-                  authProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
-                    onComplete(readCoordinator ? GetNamespaces(db)){
-                      case Success(NamespacesGot(_, namespaces)) => complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
-                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                    }
+              println("cristo")
+              (pathEnd & get) {
+                authProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
+                  onComplete(readCoordinator ? GetNamespaces(db)) {
+                    case Success(NamespacesGot(_, namespaces)) =>
+                      complete(
+                        HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
-            }
-            path(Segment) { namespace =>
+            } ~
+            pathPrefix(Segment) { namespace =>
               path("metrics") {
                 pathEnd {
                   get {
                     authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
-                      onComplete(readCoordinator ? GetMetrics(db, namespace)){
-                        case Success(MetricsGot(_, _, metrics)) => complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                      onComplete(readCoordinator ? GetMetrics(db, namespace)) {
+                        case Success(MetricsGot(_, _, metrics)) =>
+                          complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
                         case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                       }
                     }
                   }
                 }
-              }
+              } ~
               pathEnd {
                 delete {
                   authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
-                    onComplete(writeCoordinator ? DeleteNamespace(db, namespace)){
+                    onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
                       case Success(NamespaceDeleted(_, _)) => complete("OK")
-                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                      case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                     }
                   }
                 }
-              }
-              path(Segment) { metric =>
-                get {
+              } ~
+              pathPrefix(Segment) { metric =>
+                (pathEnd & get)  {
                   authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
-                    onComplete(readCoordinator ? DeleteNamespace(db, namespace)){
-                      case Success(NamespaceDeleted(_, _)) => complete("OK")
+                    onComplete(readCoordinator ? GetSchema(db, namespace, metric)) {
+                      case Success(SchemaGot(_, _, _, Some(schema))) =>
+                        complete(
+                          HttpEntity(
+                            ContentTypes.`application/json`,
+                            write(
+                              DescribeMetricResponse(
+                                schema.fields
+                                  .map(field =>
+                                    Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
+                              )
+                            )
+                          )
+                        )
+                      case Success(SchemaGot(_, _, _, None)) =>
+                        complete(HttpResponse(NotFound))
                       case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                      case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                     }
                   }
                 } ~
                   delete {
                     authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
-                      complete("ok")
+                      onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
+                        case Success(MetricDropped(_, _, _)) => complete("OK")
+                        case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                      }
                     }
                   }
               }
