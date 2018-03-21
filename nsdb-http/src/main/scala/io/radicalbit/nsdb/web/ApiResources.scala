@@ -223,78 +223,79 @@ trait ApiResources {
       pathPrefix("commands") {
         optionalHeaderValueByName(authProvider.headerName) { header =>
           pathPrefix(Segment) { db =>
-            println(db)
             path("namespaces") {
-              println("cristo")
               (pathEnd & get) {
                 authProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
                   onComplete(readCoordinator ? GetNamespaces(db)) {
                     case Success(NamespacesGot(_, namespaces)) =>
-                      complete(
-                        HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                      complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                     case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
             } ~
-            pathPrefix(Segment) { namespace =>
-              path("metrics") {
-                pathEnd {
-                  get {
-                    authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
-                      onComplete(readCoordinator ? GetMetrics(db, namespace)) {
-                        case Success(MetricsGot(_, _, metrics)) =>
-                          complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
-                        case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+              pathPrefix(Segment) { namespace =>
+                path("metrics") {
+                  pathEnd {
+                    get {
+                      authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
+                        onComplete(readCoordinator ? GetMetrics(db, namespace)) {
+                          case Success(MetricsGot(_, _, metrics)) =>
+                            complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                          case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                          case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                        }
                       }
-                    }
-                  }
-                }
-              } ~
-              pathEnd {
-                delete {
-                  authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
-                    onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
-                      case Success(NamespaceDeleted(_, _)) => complete("OK")
-                      case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                    }
-                  }
-                }
-              } ~
-              pathPrefix(Segment) { metric =>
-                (pathEnd & get)  {
-                  authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
-                    onComplete(readCoordinator ? GetSchema(db, namespace, metric)) {
-                      case Success(SchemaGot(_, _, _, Some(schema))) =>
-                        complete(
-                          HttpEntity(
-                            ContentTypes.`application/json`,
-                            write(
-                              DescribeMetricResponse(
-                                schema.fields
-                                  .map(field =>
-                                    Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
-                              )
-                            )
-                          )
-                        )
-                      case Success(SchemaGot(_, _, _, None)) =>
-                        complete(HttpResponse(NotFound))
-                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                      case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                     }
                   }
                 } ~
-                  delete {
-                    authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
-                      onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
-                        case Success(MetricDropped(_, _, _)) => complete("OK")
-                        case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                  pathEnd {
+                    delete {
+                      authProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
+                        onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
+                          case Success(NamespaceDeleted(_, _)) => complete("Ok")
+                          case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                          case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                        }
                       }
                     }
+                  } ~
+                  pathPrefix(Segment) { metric =>
+                    (pathEnd & get) {
+                      authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
+                        onComplete(readCoordinator ? GetSchema(db, namespace, metric)) {
+                          case Success(SchemaGot(_, _, _, Some(schema))) =>
+                            complete(
+                              HttpEntity(
+                                ContentTypes.`application/json`,
+                                write(
+                                  DescribeMetricResponse(
+                                    schema.fields
+                                      .map(field =>
+                                        Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
+                                  )
+                                )
+                              )
+                            )
+                          case Success(SchemaGot(_, _, _, None)) =>
+                            complete(HttpResponse(NotFound))
+                          case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                          case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                        }
+                      }
+                    } ~
+                      delete {
+                        authProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
+                          onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
+                            case Success(MetricDropped(_, _, _)) => complete("Ok")
+                            case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                            case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                          }
+                        }
+                      }
                   }
               }
-            }
           }
         }
       }
