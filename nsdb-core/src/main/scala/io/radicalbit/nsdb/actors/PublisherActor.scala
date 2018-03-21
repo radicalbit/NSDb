@@ -23,9 +23,11 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-case class NsdbQuery(uuid: String, aggregated: Boolean, query: SelectSQLStatement)
+case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
+  def aggregated = query.groupBy.isDefined
+}
 
-class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) extends Actor with ActorLogging {
+class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging {
 
   lazy val subscribedActors: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
@@ -63,30 +65,19 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
       subscribedActors
         .find { case (_, v) => v == actor }
         .fold {
-          val f = (namespaceSchemaActor ? GetSchema(query.db, query.namespace, query.metric))
-            .flatMap {
-              case SchemaGot(_, _, _, Some(schema)) =>
-                new StatementParser().parseStatement(query, schema) match {
-                  case Success(parsedQuery) =>
-                    val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
-                      UUID.randomUUID().toString
+          val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
+            UUID.randomUUID().toString
 
-                    (readCoordinator ? ExecuteStatement(query))
-                      .map {
-                        case e: SelectStatementExecuted =>
-                          val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
-                          subscribedActors += (id -> (previousRegisteredActors + actor))
-                          queries += (id          -> NsdbQuery(id, parsedQuery.isInstanceOf[ParsedAggregatedQuery], query))
-                          SubscribedByQueryString(queryString, id, e.values)
-                        case SelectStatementFailed(reason, _) => SubscriptionFailed(reason)
-                      }
-
-                  case Failure(ex) => Future(SubscriptionFailed(ex.getMessage))
-                }
-
-              case _ => Future(SubscriptionFailed(s"Metric ${query.metric} does not exist "))
+          (readCoordinator ? ExecuteStatement(query))
+            .map {
+              case e: SelectStatementExecuted =>
+                val previousRegisteredActors = subscribedActors.getOrElse(id, Set.empty)
+                subscribedActors += (id -> (previousRegisteredActors + actor))
+                queries += (id          -> NsdbQuery(id, query))
+                SubscribedByQueryString(queryString, id, e.values)
+              case SelectStatementFailed(reason, _) => SubscriptionFailed(reason)
             }
-          f.pipeTo(sender())
+            .pipeTo(sender())
         } {
           case (id, _) =>
             (readCoordinator ? ExecuteStatement(query))
@@ -147,8 +138,8 @@ class PublisherActor(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef) 
 
 object PublisherActor {
 
-  def props(readCoordinator: ActorRef, namespaceSchemaActor: ActorRef): Props =
-    Props(new PublisherActor(readCoordinator, namespaceSchemaActor))
+  def props(readCoordinator: ActorRef): Props =
+    Props(new PublisherActor(readCoordinator))
 
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)

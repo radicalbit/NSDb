@@ -21,17 +21,6 @@ class FakeReadCoordinatorActor extends Actor {
   }
 }
 
-class FakeNamespaceSchemaActor extends Actor {
-  def receive: Receive = {
-    case GetSchema(_, _, _) =>
-      sender() ! SchemaGot(
-        db = "db",
-        namespace = "registry",
-        metric = "people",
-        schema = Some(Schema("people", Set(SchemaField("timestamp", BIGINT()), SchemaField("surname", VARCHAR())))))
-  }
-}
-
 class PublisherActorSpec
     extends TestKit(ActorSystem("PublisherActorSpec"))
     with ImplicitSender
@@ -43,9 +32,7 @@ class PublisherActorSpec
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =
-    TestActorRef[PublisherActor](
-      PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]),
-                           system.actorOf(Props[FakeNamespaceSchemaActor])))
+    TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
 
   val testSqlStatement = SelectSQLStatement(
     db = "db",

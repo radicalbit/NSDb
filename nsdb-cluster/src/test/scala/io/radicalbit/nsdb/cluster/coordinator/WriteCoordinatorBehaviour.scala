@@ -78,8 +78,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   lazy val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
   lazy val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
-    TestActorRef[PublisherActor](
-      PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
+    TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
   lazy val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(None,
                                                                          fakeMetadataCoordinator,
