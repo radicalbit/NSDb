@@ -57,13 +57,13 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
 
-    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+    publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
 
     probe.send(publisherActor, Unsubscribe(probeActor))
     probe.expectMsgType[Unsubscribed]
 
-    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 0
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 0
   }
 
   "PublisherActor" should "subscribe more than once" in {
@@ -73,29 +73,29 @@ class PublisherActorSpec
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
 
-    publisherActor.underlyingActor.subscribedActors.values.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
+    publisherActor.underlyingActor.subscribedActorsByQueryId.values.size shouldBe 1
+    publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
 
     probe.send(publisherActor,
                SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement.copy(metric = "anotherOne")))
     val secondId = probe.expectMsgType[SubscribedByQueryString].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 2
-    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 2
-    publisherActor.underlyingActor.subscribedActors.keys.toSeq.contains(firstId) shouldBe true
-    publisherActor.underlyingActor.subscribedActors.keys.toSeq.contains(secondId) shouldBe true
-    publisherActor.underlyingActor.subscribedActors.values.head shouldBe Set(probeActor)
-    publisherActor.underlyingActor.subscribedActors.values.last shouldBe Set(probeActor)
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 2
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(firstId) shouldBe true
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(secondId) shouldBe true
+    publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
+    publisherActor.underlyingActor.subscribedActorsByQueryId.values.last shouldBe Set(probeActor)
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
     publisherActor.underlyingActor.queries.clear()
-    publisherActor.underlyingActor.subscribedActors.clear()
+    publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActors.keys.size shouldBe 1
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
 
     probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
     probe.expectNoMessage(3 seconds)

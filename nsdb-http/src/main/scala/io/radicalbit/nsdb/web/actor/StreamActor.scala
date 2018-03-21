@@ -77,7 +77,7 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
       wsActor ! OutgoingMessage(msg)
     case Terminate =>
       log.debug("terminating stream actor")
-      (publisher ? Unsubscribe).foreach { _ =>
+      (publisher ? Unsubscribe(self)).foreach { _ =>
         self ! PoisonPill
         wsActor ! PoisonPill
       }
