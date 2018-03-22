@@ -19,7 +19,6 @@ import io.swagger.annotations._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-
 object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit object JSerializableJsonFormat extends RootJsonFormat[JSerializable] {
@@ -74,22 +73,18 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
 }
 
-@Api(value = "/", produces = "application/json")
-@Path("/")
 class ApiResources(val publisherActor: ActorRef,
                    val readCoordinator: ActorRef,
                    val writeCoordinator: ActorRef,
                    val authenticationProvider: NSDBAuthProvider)
     extends CommandApi
     with QueryApi
-with DataApi {
+    with DataApi {
 
   implicit val formats: DefaultFormats = DefaultFormats
 
   implicit val timeout: Timeout = Timeout(5 seconds)
 
-  @Api(value = "/status", produces = "application/json")
-  @Path("/status")
   def healthCheckApi: Route = {
     pathPrefix("status") {
       (pathEnd & get) {

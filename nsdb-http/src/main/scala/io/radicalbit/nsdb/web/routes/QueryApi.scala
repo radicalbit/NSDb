@@ -40,9 +40,7 @@ object NullableOperators extends Enumeration {
   val IsNotNull = Value("ISNOTNULL")
 }
 
-@ApiModel(description = "Filter sealed trait ",
-subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue])
-)
+@ApiModel(description = "Filter sealed trait ", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
 sealed trait Filter
 
 case object Filter {
@@ -55,38 +53,36 @@ case object Filter {
 
 @ApiModel(description = "Filter using operator", parent = classOf[Filter])
 case class FilterByValue(
-  @(ApiModelProperty @field)(value = "dimension on which apply condition ")
-    dimension: String,
-  @(ApiModelProperty @field)(value = "value of comparation")
-    value: JSerializable,
-  @(ApiModelProperty @field)(value = "filter comparison operator", dataType = "io.radicalbit.nsdb.web.routes.FilterOperators" )
-    operator: FilterOperators.Value
+    @(ApiModelProperty @field)(value = "dimension on which apply condition ") dimension: String,
+    @(ApiModelProperty @field)(value = "value of comparation") value: JSerializable,
+    @(ApiModelProperty @field)(
+      value = "filter comparison operator",
+      dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value
 ) extends Filter
 
 @ApiModel(description = "Filter for nullable ", parent = classOf[Filter])
 case class FilterNullableValue(
-  @(ApiModelProperty @field)(value = "dimension on which apply condition ")
-    dimension: String,
-  @(ApiModelProperty @field)(value = "filter nullability operator", dataType = "io.radicalbit.nsdb.web.routes.NullableOperators")
-    operator: NullableOperators.Value
+    @(ApiModelProperty @field)(value = "dimension on which apply condition ") dimension: String,
+    @(ApiModelProperty @field)(
+      value = "filter nullability operator",
+      dataType = "io.radicalbit.nsdb.web.routes.NullableOperators") operator: NullableOperators.Value
 ) extends Filter
 
 @ApiModel(description = "Query body")
-case class QueryBody(
-  @(ApiModelProperty @field)(value = "database name ")
-  db: String,
-  @(ApiModelProperty @field)(value = "namespace name ")
-  namespace: String,
-  @(ApiModelProperty @field)(value = "metric name ")
-  metric: String,
-  @(ApiModelProperty @field)(value = "sql query string")
-  queryString: String,
-  @(ApiModelProperty @field)(value = "timestamp lower bound condition", required = false, dataType = "long")
-  from: Option[Long],
-  @(ApiModelProperty @field)(value = "timestamp upper bound condition", required = false, dataType = "long")
-  to: Option[Long],
-  @(ApiModelProperty @field)(value = "filters definition, adding where condition", required = false, dataType = "list[io.radicalbit.nsdb.web.routes.Filter]")
-  filters: Option[Seq[Filter]])
+case class QueryBody(@(ApiModelProperty @field)(value = "database name ") db: String,
+                     @(ApiModelProperty @field)(value = "namespace name ") namespace: String,
+                     @(ApiModelProperty @field)(value = "metric name ") metric: String,
+                     @(ApiModelProperty @field)(value = "sql query string") queryString: String,
+                     @(ApiModelProperty @field)(value = "timestamp lower bound condition",
+                                                required = false,
+                                                dataType = "long") from: Option[Long],
+                     @(ApiModelProperty @field)(value = "timestamp upper bound condition",
+                                                required = false,
+                                                dataType = "long") to: Option[Long],
+                     @(ApiModelProperty @field)(
+                       value = "filters definition, adding where condition",
+                       required = false,
+                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]])
     extends Metric
 
 @Api(value = "/query", produces = "application/json")

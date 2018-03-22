@@ -4,6 +4,9 @@ import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 
+/**
+  * Allows Cross-Origin call to exposed Http Apis.
+  */
 trait CorsSupport {
 
   val optionsSupport = {

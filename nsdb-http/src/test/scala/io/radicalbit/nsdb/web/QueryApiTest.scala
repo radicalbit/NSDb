@@ -57,34 +57,33 @@ object FakeReadCoordinator {
 
 class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
 
-    val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
-    val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
+  val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
+  val readCoordinatorActor: ActorRef  = system.actorOf(Props[FakeReadCoordinator])
 
-    val secureAuthenticationProvider: NSDBAuthProvider = new TestAuthProvider
-    val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
+  val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
+  val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
-    val secureQueryApi = new QueryApi {
-        override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
+  val secureQueryApi = new QueryApi {
+    override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
-        override def writeCoordinator: ActorRef = writeCoordinatorActor
-        override def readCoordinator: ActorRef = readCoordinatorActor
-        override def publisherActor: ActorRef = null
-        override implicit val formats: DefaultFormats = DefaultFormats
-        override implicit val timeout: Timeout = 5 seconds
+    override def writeCoordinator: ActorRef       = writeCoordinatorActor
+    override def readCoordinator: ActorRef        = readCoordinatorActor
+    override def publisherActor: ActorRef         = null
+    override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout        = 5 seconds
 
+  }
 
-    }
+  val emptyQueryApi = new QueryApi {
+    override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
-    val emptyQueryApi = new QueryApi {
-        override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
+    override def writeCoordinator: ActorRef = writeCoordinatorActor
+    override def readCoordinator: ActorRef  = readCoordinatorActor
+    override def publisherActor: ActorRef   = null
 
-        override def writeCoordinator: ActorRef = writeCoordinatorActor
-        override def readCoordinator: ActorRef = readCoordinatorActor
-        override def publisherActor: ActorRef = null
-
-        override implicit val formats: DefaultFormats = DefaultFormats
-        override implicit val timeout: Timeout = 5 seconds
-    }
+    override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout        = 5 seconds
+  }
 
   val testRoutes = Route.seal(
     emptyQueryApi.queryApi

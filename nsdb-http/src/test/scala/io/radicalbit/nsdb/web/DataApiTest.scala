@@ -26,28 +26,27 @@ class FakeWriteCoordinator extends Actor {
 
 class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
 
-    val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
+  val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
 
-    val secureAuthenticationProvider: NSDBAuthProvider = new TestAuthProvider
-    val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
+  val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
+  val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
+  val secureDataApi = new DataApi {
+    override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
-    val secureDataApi = new DataApi {
-        override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
+    override def writeCoordinator: ActorRef       = writeCoordinatorActor
+    override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout        = 5 seconds
+  }
 
-        override def writeCoordinator: ActorRef = writeCoordinatorActor
-        override implicit val formats: DefaultFormats = DefaultFormats
-        override implicit val timeout: Timeout = 5 seconds
-    }
+  val emptyDataApi = new DataApi {
+    override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
-    val emptyDataApi = new DataApi {
-        override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
+    override def writeCoordinator: ActorRef = writeCoordinatorActor
 
-        override def writeCoordinator: ActorRef = writeCoordinatorActor
-
-        override implicit val formats: DefaultFormats = DefaultFormats
-        override implicit val timeout: Timeout = 5 seconds
-    }
+    override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout        = 5 seconds
+  }
 
   val testRoutes = Route.seal(
     emptyDataApi.dataApi

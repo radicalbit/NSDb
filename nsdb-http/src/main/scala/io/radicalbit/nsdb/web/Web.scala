@@ -15,6 +15,10 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
+/**
+  * Instantiate Nsdb Http Server exposing apis defined in [[ApiResources]]
+  * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
+  */
 trait Web extends StaticResources with WsResources with CorsSupport with SSLSupport { this: NsdbSecurity =>
 
   implicit val formats = DefaultFormats
