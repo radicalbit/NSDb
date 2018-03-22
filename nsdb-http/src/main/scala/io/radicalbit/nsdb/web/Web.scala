@@ -15,8 +15,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
-trait Web extends StaticResources with WsResources with ApiResources with CorsSupport with SSLSupport {
-  this: NsdbSecurity =>
+trait Web extends StaticResources with WsResources with CorsSupport with SSLSupport { this: NsdbSecurity =>
 
   implicit val formats = DefaultFormats
 
@@ -35,10 +34,11 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
               (guardian ? GetWriteCoordinator).mapTo[ActorRef]))
         .onComplete {
           case Success(Seq(publisher, readCoordinator, writeCoordinator)) =>
-            val api: Route = staticResources ~ wsResources(publisher, provider) ~ apiResources(publisher,
-                                                                                               readCoordinator,
-                                                                                               writeCoordinator,
-                                                                                               provider)
+            val api: Route = staticResources ~ wsResources(publisher, provider) ~ new ApiResources(
+              publisher,
+              readCoordinator,
+              writeCoordinator,
+              provider).apiResources
 
             val http =
               if (isSSLEnabled) {

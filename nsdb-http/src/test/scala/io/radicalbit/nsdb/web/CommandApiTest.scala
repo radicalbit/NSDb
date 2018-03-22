@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.web
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
@@ -10,7 +10,9 @@ import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import akka.http.scaladsl.model.StatusCodes._
+import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
+import io.radicalbit.nsdb.web.routes.CommandApi
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
 import org.scalatest.{FlatSpec, Matchers}
@@ -48,15 +50,21 @@ class FakeWriterCoordinator extends Actor {
     }
 }
 
-class CommandsApiTest extends FlatSpec with Matchers with ScalatestRouteTest with ApiResources {
+class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
 
     import Data._
+
+    override def readCoordinator: ActorRef = system.actorOf(Props[FakeReaderCoordinator])
+
+    override def writeCoordinator: ActorRef = system.actorOf(Props[FakeWriterCoordinator])
+
+    override def authenticationProvider: NSDBAuthProvider = new TestAuthProvider
 
     override implicit val formats: DefaultFormats = DefaultFormats
     override implicit val timeout: Timeout = 5 seconds
 
     val testSecuredRoutes = Route.seal(
-        apiResources(null, system.actorOf(Props[FakeReaderCoordinator]), system.actorOf(Props[FakeWriterCoordinator]), new TestAuthProvider)
+        commandsApi
     )
 
     "CommandsApi show namespaces" should "return namespaces" in {

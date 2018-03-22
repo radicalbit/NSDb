@@ -68,11 +68,18 @@ object Dependencies {
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-testkit"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
-    lazy val default        = namespace %% "akka-http" % version
-    lazy val testkit        = namespace %% "akka-http-testkit" % version % Test
-    lazy val akkaHttpJson4s = "de.heikoseeberger" %% "akka-http-json4s" % "1.18.1"
-    lazy val sprayJson      = "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.10"
-    lazy val core           = Seq(core_http, default, testkit)
+    lazy val default         = namespace %% "akka-http" % version
+    lazy val testkit         = namespace %% "akka-http-testkit" % version % Test
+    lazy val akkaHttpJson4s  = "de.heikoseeberger" %% "akka-http-json4s" % "1.18.1"
+    lazy val sprayJson       = "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.10"
+    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http" % "0.14.0"
+    lazy val core            = Seq(core_http, default, testkit)
+  }
+
+  object swagger {
+    lazy val version     = "1.5.18"
+    lazy val namespace   = "io.swagger"
+    lazy val coreSwagger = namespace % "swagger-jaxrs" % version
   }
 
   object javaWebsocket {
@@ -257,7 +264,9 @@ object Dependencies {
       akka_http.sprayJson,
       javaWebsocket.javaWebsocket,
       scalatest.core % Test,
-      akka_http.testkit
+      akka_http.testkit,
+      akka_http.swaggerAkkaHttp,
+      swagger.coreSwagger
     )
   }
 
