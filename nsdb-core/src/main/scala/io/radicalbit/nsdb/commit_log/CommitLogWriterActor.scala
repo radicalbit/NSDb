@@ -45,6 +45,9 @@ object CommitLogWriterActor {
 
   /**
     * Describes entities serialized in commit-log files
+    * The following entities are serialized in commit-logs:
+    *   InsertedEntry described in [[InsertEntry]], RejectedEntry as [[RejectEntry]],
+    *   EntryDeletion as [[DeleteEntry]], MetricsDrop as [[DeleteMetricEntry]], NamespacesDrop as [[DeleteNamespaceEntry]].
     */
   sealed trait CommitLogEntry {
     def db: String
@@ -75,36 +78,40 @@ object CommitLogWriterActor {
   */
 trait CommitLogWriterActor extends Actor {
 
+  /**
+    * Return an istance of a serializer extending [[CommitLogSerializer]] trait.
+    * @return serializer component
+    */
   protected def serializer: CommitLogSerializer
 
   final def receive: Receive = {
     case entry @ InsertEntry(db, namespace, metric, timestamp, bit) =>
       createEntry(entry) match {
-        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, bit.timestamp, metric)
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, bit.timestamp, metric)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, ex.getMessage)
       }
-    case entry @ DeleteEntry(db, namespace, metric, timestamp, query) =>
+    case entry @ DeleteEntry(db, namespace, metric, timestamp, _) =>
       createEntry(entry) match {
-        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case entry @ RejectEntry(db, namespace, metric, timestamp, bit) =>
+    case entry @ RejectEntry(db, namespace, metric, timestamp, _) =>
       createEntry(entry) match {
-        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
     case entry @ DeleteMetricEntry(db, namespace, metric, timestamp) =>
       createEntry(entry) match {
-        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
     case entry @ DeleteNamespaceEntry(db, namespace, timestamp) =>
       createEntry(entry) match {
-        case Success(r) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, "")
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, "")
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, "", ex.getMessage)
       }

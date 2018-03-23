@@ -2,18 +2,20 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter
-import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
 
 import scala.collection.mutable
-import scala.util.{Failure, Success}
 
 object CommitLogCoordinator {
 
   def props(): Props = Props(new CommitLogCoordinator())
 }
 
+/**
+  * Actor whose purpose is to handle writes on commit-log files delegating the action to writers implementing
+  * [[CommitLogWriterActor]] trait .
+  * In this implementation a writer is instantiated for each tuple (database, namespace).
+  */
 class CommitLogCoordinator extends Actor with ActorLogging {
 
   private val commitLoggerWriters: mutable.Map[String, ActorRef] = mutable.Map.empty
@@ -21,9 +23,9 @@ class CommitLogCoordinator extends Actor with ActorLogging {
   private def getWriter(db: String, namespace: String): ActorRef = {
     commitLoggerWriters.getOrElse(
       s"$db-$namespace", {
-        val cl = context.actorOf(RollingCommitLogFileWriter.props(db, namespace), s"commit-log-writer-$db-$namespace")
-        commitLoggerWriters += (s"$db-$namespace" -> cl)
-        cl
+        val commitLogWriter = context.actorOf(RollingCommitLogFileWriter.props(db, namespace), s"commit-log-writer-$db-$namespace")
+        commitLoggerWriters += (s"$db-$namespace" -> commitLogWriter)
+        commitLogWriter
       }
     )
   }

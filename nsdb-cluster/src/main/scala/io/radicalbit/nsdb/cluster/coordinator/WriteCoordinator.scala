@@ -69,13 +69,16 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                               ts: Long,
                               metric: String,
                               action: CommitLoggerAction): Future[CommitLogResponse] = {
-    if (commitLogEnabled)
+    if (commitLogEnabled && commitLogCoordinator.isDefined)
       (commitLogCoordinator.get ? WriteToCommitLog(db = db,
                                                    namespace = namespace,
                                                    metric = metric,
                                                    ts = ts,
                                                    action = action))
         .mapTo[CommitLogResponse]
+    else if (commitLogEnabled) {
+      Future.successful(WriteToCommitLogFailed(db, namespace, ts, metric, "CommitLog enabled but not defined, shutting down"))
+    }
     else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
   }
 
@@ -192,7 +195,6 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      val replyTo = sender()
       commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
