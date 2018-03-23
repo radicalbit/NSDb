@@ -5,7 +5,7 @@ import io.radicalbit.nsdb.rpc.common.Bit;
 import java.util.List;
 
 /**
- * Wraps the Grpc execute query procedure sesult into a more friendly class
+ * Wraps the Grpc execute query procedure result into a more friendly class
  */
 public class QueryResult {
     private String db;
@@ -16,7 +16,7 @@ public class QueryResult {
     private List<Bit> records;
 
     /**
-     * friendly Constructor that builds the objcet from the Grpc raw result
+     * friendly Constructor that builds the object from the Grpc raw result
      * @param rpcStatement the Grpc result
      */
     QueryResult(io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse rpcStatement) {

@@ -197,7 +197,7 @@ public class NSDB {
         /**
          * adds a Long value to the bit
          *
-         * @param v the Double value
+         * @param v the Long value
          * @return a new instance with `v` as the value
          */
         public Bit value(Long v) {
@@ -299,7 +299,7 @@ public class NSDB {
     }
 
     /**
-     * write a bit into Nsdb using the current openend connection
+     * write a bit into Nsdb using the current openened connection
      *
      * @param bit the bit to be inserted
      * @return a Future containing the result of the operation. See {@link InsertResult}

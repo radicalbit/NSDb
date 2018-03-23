@@ -10,7 +10,7 @@ public class InsertResult {
     String errors;
 
     /**
-     * friendly Constructor that builds the objcet from the Grpc raw result
+     * friendly Constructor that builds the object from the Grpc raw result
      * @param rpcInsertResult the Grpc result
      */
     InsertResult(RPCInsertResult rpcInsertResult) {
