@@ -87,7 +87,7 @@ trait CommitLogWriterActor extends Actor {
   final def receive: Receive = {
     case entry @ InsertEntry(db, namespace, metric, timestamp, bit) =>
       createEntry(entry) match {
-        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, bit.timestamp, metric)
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, ex.getMessage)
       }
@@ -118,6 +118,12 @@ trait CommitLogWriterActor extends Actor {
 
   }
 
+  /**
+    * Must be overridden defining specific commit-log persistence writes logic.
+    *
+    * @param commitLogEntry [[CommitLogEntry]] to be written
+    * @return [[Try]] wrapping write result
+    */
   protected def createEntry(commitLogEntry: CommitLogEntry): Try[Unit]
 
 }
