@@ -14,7 +14,7 @@ object RollingCommitLogFileWriter {
 
   def props(db: String, namespace: String) = Props(new RollingCommitLogFileWriter(db, namespace))
 
-  private[commit_log] val FileNameSeparator = "|"
+  private[commit_log] val FileNameSeparator = "~"
 
   private[commit_log] def nextFileName(db: String,
                                        namespace: String,
@@ -22,14 +22,15 @@ object RollingCommitLogFileWriter {
                                        fileNameSeparator: String,
                                        fileNames: Seq[String]): String = {
 
-    def generateNextId: Int =
+    def generateNextId: Int = {
       fileNames
-        .collect { case name if name.startsWith(fileNamePrefix) => name.split(fileNameSeparator).last.toInt }
+        .collect { case name if name.startsWith(fileNamePrefix) => name.split(fileNameSeparator).toList.last.toInt }
         .sorted
         .reverse
         .headOption
         .map(_ + 1)
         .getOrElse(0)
+    }
 
     f"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$generateNextId"
   }
