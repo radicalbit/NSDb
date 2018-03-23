@@ -29,19 +29,40 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
+/**
+  * - Accumulates write and delete operations which will be performed by [[ShardPerformerActor]].
+  *
+  * - Retrieves data from shards, aggregates and returns it to the sender
+  *
+  * @param basePath shards indexes path.
+  * @param db the db.
+  * @param namespace the namespace.
+  */
 class ShardAccumulatorActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
 
+  /**
+    * all index shards for the given db and namespace grouped by [[ShardKey]]
+    */
   val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
 
+  /**
+    * materialized configuration key. true if sharding is enabled
+    */
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
 
+  /**
+    * all facet index shards for the given db and namespace grouped by [[ShardKey]]
+    */
   val facetIndexShards: mutable.Map[ShardKey, FacetIndex] = mutable.Map.empty
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
+  /**
+    * actor responsible for the actual writes into indexes.
+    */
   var performerActor: ActorRef = _
 
   implicit val timeout: Timeout =
@@ -51,12 +72,24 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
+  /**
+    * Map containing all the accumulated operations that will be passed to the [[PerformShardWrites]].
+    */
   private val opBufferMap: mutable.Map[String, ShardOperation] = mutable.Map.empty
+
+  /**
+    * operations currently being written by the [[io.radicalbit.nsdb.actors.ShardPerformerActor]].
+    */
   private var performingOps: Map[String, ShardOperation]       = Map.empty
 
   private def shardsForMetric(metric: String)        = shards.filter(_._1.metric == metric)
   private def facetsShardsFromMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
 
+  /**
+    * retrieve or create an index for the given [[ShardKey]]
+    * @param key the key containing the metric and the time interval to identify the index to retrieve or create
+    * @return the index for the key
+    */
   private def getIndex(key: ShardKey) =
     shards.getOrElse(
       key, {
@@ -68,6 +101,11 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
       }
     )
 
+  /**
+    * retrieve or create a facet index for the given [[ShardKey]]
+    * @param key the key containing the metric and the time interval to identify the index to retrieve or create
+    * @return the facet index for the key
+    */
   private def getFacetIndex(key: ShardKey) =
     facetIndexShards.getOrElse(
       key, {
@@ -102,6 +140,9 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     })
   }
 
+  /**
+    * any existing shard is retrieved, the [[ShardPerformerActor]] is initialized and actual writes are scheduled
+    */
   override def preStart: Unit = {
     Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
       .map(_.toSet)

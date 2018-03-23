@@ -16,6 +16,12 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
+/**
+  *
+  * @param basePath
+  * @param db
+  * @param namespace
+  */
 class ShardPerformerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 

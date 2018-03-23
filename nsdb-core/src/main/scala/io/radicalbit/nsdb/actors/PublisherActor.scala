@@ -23,14 +23,37 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
+/**
+  * Models queries used for subscription process
+  * @param uuid a generated, unique identifier for a query
+  * @param query the parsed select statement
+  */
 case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
   def aggregated = query.groupBy.isDefined
 }
 
+/**
+  * Actor responsible to accept subscriptions and publish events to its subscribers.
+  * A subscription can be achieved by sending:
+  *
+  * - [[SubscribeBySqlStatement]] the subscription is asked providing a query string, which is parsed into [[SelectSQLStatement]]. If the query does not exist, a new one will be created and registered.
+  *
+  * - [[SubscribeByQueryId]] the subscription is asked providing a query id, which have already been registered.
+  *
+  * A generic publisher must send a [[PublishRecord]] message in order to trigger the publishing mechanism.
+  * Every published event will be checked against every registered query. If the event fulfills the query, it will be published to every query relatedsubscriber.
+  * @param readCoordinator global read coordinator responsible to execute queries when needed
+  */
 class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging {
 
+  /**
+    * mutable subscriber map aggregated by query id
+    */
   lazy val subscribedActorsByQueryId: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
+  /**
+    * mutable map of queries aggregated by query id
+    */
   lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
 
   implicit val disp: ExecutionContextExecutor = context.system.dispatcher
@@ -42,8 +65,10 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
     context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
+  /**
+    * scheduler that updates aggregated queries subscribers
+    */
   context.system.scheduler.schedule(interval, interval) {
-
     queries
       .filter {
         case (id, q) =>

@@ -15,12 +15,38 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
+/**
+  * Actor responsible to manage schemas for a given db and namespce.
+  * For the sake of a highest throughput, schemas are stored in a in-memory structure and periodically stored into a lucene index.
+  * It is possible to execute CRUD operations on schemas:
+  *
+  * - [[GetSchema]] retrieve a schema.
+  *
+  * - [[UpdateSchemaFromRecord]] update an existing schema given a new record. It the new record is invalid, the operation will be rejected.
+  *
+  * - [[DeleteSchema]] delete an existing schema.
+  *
+  * - [[DeleteAllSchemas]] delete all the schemas for the given db and namespace.
+  *
+  * @param basePath index base path.
+  * @param db the db.
+  * @param namespace the namespace.
+  */
 class SchemaActor(val basePath: String, val db: String, val namespace: String) extends Actor with ActorLogging {
 
+  /**
+    * the lucene index to store schemas in
+    */
   lazy val schemaIndex = new SchemaIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "schemas")))
 
+  /**
+    * mutable map containing schemas used to retrieve and store them
+    */
   lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 
+  /**
+    * buffer of write to index operations
+    */
   lazy val schemasToWrite: mutable.ListBuffer[Schema] = mutable.ListBuffer.empty
 
   lazy val interval = FiniteDuration(
@@ -30,11 +56,18 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   override def preStart(): Unit = {
+
+    /**
+      * before to start the actor, its state is initialized by retrieving schemas from the index.
+      */
     schemaIndex.allSchemas.foreach(s => schemas += (s.metric -> s))
 
+    /**
+      * schedules write to index operations.
+      */
     context.system.scheduler.schedule(interval, interval) {
       if (schemasToWrite.nonEmpty) {
-        updateSchemas(schemasToWrite)
+        updateSchemaIndex(schemasToWrite)
         schemasToWrite.clear
       }
     }
@@ -70,8 +103,20 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
       sender ! AllSchemasDeleted(db, namespace)
   }
 
+  /**
+    * get a schema from memory.
+    * @param metric schema's metric
+    * @return the schema if exist, None otherwise.
+    */
   private def getCachedSchema(metric: String) = schemas.get(metric)
 
+  /**
+    * check if a newSchema is compatible with an oldSchema. If schemas are compatible, the schema for metric will be updated.
+    * @param namespace schema's namespace.
+    * @param metric schema's metric.
+    * @param oldSchema current schema for metric
+    * @param newSchema schema to be checked and updated.
+    */
   private def checkAndUpdateSchema(namespace: String, metric: String, oldSchema: Schema, newSchema: Schema): Unit =
     if (oldSchema == newSchema)
       sender ! SchemaUpdated(db, namespace, metric, newSchema)
@@ -84,7 +129,11 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
         case Failure(t) => sender ! UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))
       }
 
-  private def updateSchemas(schemas: Seq[Schema]): Unit = {
+  /**
+    * update schema index.
+    * @param schemas schemas to be updated.
+    */
+  private def updateSchemaIndex(schemas: Seq[Schema]): Unit = {
     implicit val writer: IndexWriter = schemaIndex.getWriter
     schemas.foreach(schema => {
       schemaIndex.update(schema.metric, schema)
@@ -93,6 +142,10 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
     schemaIndex.refresh()
   }
 
+  /**
+    * delete a schema from memory and from index.
+    * @param schema the schema to be deleted.
+    */
   private def deleteSchema(schema: Schema): Unit = {
     schemas -= schema.metric
     implicit val writer: IndexWriter = schemaIndex.getWriter
@@ -101,6 +154,9 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
     schemaIndex.refresh()
   }
 
+  /**
+    * delete all schemas for the db and the namespace provided in actor initialization.
+    */
   private def deleteAllSchemas(): Unit = {
     schemas --= schemas.keys
     implicit val writer: IndexWriter = schemaIndex.getWriter
