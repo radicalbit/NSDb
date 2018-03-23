@@ -30,14 +30,34 @@ import scala.concurrent.{Await, Future}
 import scala.tools.nsc.interpreter.{ILoop, JPrintWriter}
 import scala.util.{Failure, Success, Try}
 
-class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option[BufferedReader], out: JPrintWriter)
+/**
+  * Nsdb Command Line Interface main class extending scala standard REPL [[scala.tools.nsc.interpreter.ILoop]].
+  * Internally, this class manages a gRPC Client of [[io.radicalbit.nsdb.client.rpc.GRPCClient]] class used to send queries and command statements to Nsdb cluster.
+  * User input is parsed using two methodologies: command statements are parsed client side using [[CommandStatementParser]],
+  * whereas sql statements are interpreted on cluster side.
+  * The database information, to establish connection with, must be specified in class constructor,
+  * otherwise default parameters values are used.
+  * Once created, user must define database namespace on which run statements.
+  *
+  * @param host Nsdb cluster grpc server ip address
+  * @param port Nsdb cluster grpc server port
+  * @param db Nsdb database name to establish connection with
+  * @param in0 [[BufferedReader]] used to acquire user input
+  * @param out REPL printer for commands response
+  */
+class NsdbILoop(host: Option[String],
+                port: Option[Int],
+                db: String,
+                tableMaxWidth: Option[Int],
+                in0: Option[BufferedReader],
+                out: JPrintWriter)
     extends ILoop(in0, out)
     with LazyLogging {
 
-  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, "root", Some(in), out)
+  def this(in: BufferedReader, out: JPrintWriter) = this(None, None, "root", None, Some(in), out)
 
-  def this(host: Option[String], port: Option[Int], db: String) = {
-    this(host, port, db, None, new JPrintWriter(Console.out, true))
+  def this(host: Option[String], port: Option[Int], db: String, tableMaxWidth: Option[Int]) = {
+    this(host, port, db, tableMaxWidth, None, new JPrintWriter(Console.out, true))
     val instance = s"${host.getOrElse("127.0.0.1")} : ${port.getOrElse(7817)}"
     Await
       .ready(clientGrpc.checkConnection(), 10.seconds)
@@ -57,6 +77,8 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
   val clientGrpc = new GRPCClient(host = host.getOrElse("127.0.0.1"), port = port.getOrElse(7817))
 
   var currentNamespace: Option[String] = None
+
+  val tableBuilder = new ASCIITableBuilder(tableMaxWidth = tableMaxWidth.getOrElse(100))
 
   override def prompt = "nsdb $ "
 
@@ -85,18 +107,37 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
 
   def result(lineToRecord: Option[String] = None) = Result(keepRunning = true, lineToRecord = lineToRecord)
 
+  /**
+    * Tries to parse user input as a [[CommandStatement]] otherwise treats it as an [[SQLRequestStatement]] sent to the server.
+    *
+    * @param statement string representing user input
+    * @return [[Result]] to be printed on REPL
+    */
   def parseStatement(statement: String): Try[Result] =
     sendParsedCommandStatement(statement)
       .orElse(
         Try(
           processSQLStatementResponse(prepareSQLStatement(statement).map(toInternalSQLStatementResponse),
-                                      ASCIITableBuilder.tableFor,
+                                      tableBuilder.tableFor,
                                       statement)
         ))
 
+  /**
+    * Parses User command statement String into a [[CommandStatement]] and sends it to server
+    *
+    * @param statement user input
+    * @return [[Result]] to be printed on REPL
+    */
   def sendParsedCommandStatement(statement: String): Try[Result] =
     commandStatementParser.parse(currentNamespace, statement).map(x => sendCommand(x, statement))
 
+  /**
+    * If working namespace is defined, sends an async request containing the unparsed query statement to Nsdb server otherwise
+    * return a failure described in [[SQLStatementResponse]]
+    *
+    * @param statement [[String]] statement
+    * @return
+    */
   def prepareSQLStatement(statement: String): Future[SQLStatementResponse] =
     currentNamespace match {
       case Some(namespace) => clientGrpc.executeSQLStatement(SQLRequestStatement(db, namespace, statement))
@@ -110,7 +151,15 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
           ))
     }
 
-  def toInternalCommandResponse[T](gRpcResponse: T): CommandStatementExecuted =
+  /**
+    * Manages server responses from [[CommandStatement]] client requests
+    * Transform gRPC protocol depending messages into client managed ones.
+    *
+    * @param gRpcResponse server response oneOf [[GrpcMetricsGot]], [[GrpcMetricSchemaRetrieved]],
+    * @tparam T type parameter of gRpcResponse
+    * @return internal representation on gRPC response
+    */
+  private def toInternalCommandResponse[T](gRpcResponse: T): CommandStatementExecuted =
     gRpcResponse match {
       case r: GrpcMetricsGot if r.completedSuccessfully =>
         NamespaceMetricsListRetrieved(r.db, r.namespace, r.metrics.toList)
@@ -129,7 +178,14 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         CommandStatementExecutedWithFailure(r.errors)
     }
 
-  def toInternalSQLStatementResponse(gRpcResponse: SQLStatementResponse): SQLStatementResult = {
+  /**
+    * Manages server responses from [[SQLRequestStatement]] client requests
+    * Transform gRPC protocol depending messages into client managed ones.
+    *
+    * @param gRpcResponse server response as [[SQLStatementResponse]]
+    * @return a [[SQLStatementResult]] that can be a [[SQLStatementExecuted]] or a [[SQLStatementFailed]]
+    */
+  private def toInternalSQLStatementResponse(gRpcResponse: SQLStatementResponse): SQLStatementResult = {
     if (gRpcResponse.completedSuccessfully) {
       SQLStatementExecuted(
         db = gRpcResponse.db,
@@ -156,13 +212,20 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
     }
   }
 
-  def sendCommand(stm: CommandStatement, lineToRecord: String): Result = stm match {
+  /**
+    * Sends a [[CommandStatement]] to the server and handles its response.
+    *
+    * @param stm [[CommandStatement]] to be sent
+    * @param lineToRecord
+    * @return
+    */
+  private def sendCommand(stm: CommandStatement, lineToRecord: String): Result = stm match {
     case ShowNamespaces =>
       processCommandResponse[CommandStatementExecuted](
         clientGrpc
           .showNamespaces(GrpcShowNamespaces(db))
           .map(toInternalCommandResponse[Namespaces]),
-        ASCIITableBuilder.tableFor,
+        tableBuilder.tableFor,
         lineToRecord
       )
       result()
@@ -175,7 +238,7 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         clientGrpc
           .showMetrics(GrpcShowMetrics(db, namespace))
           .map(toInternalCommandResponse[GrpcMetricsGot]),
-        ASCIITableBuilder.tableFor,
+        tableBuilder.tableFor,
         lineToRecord
       )
     case DescribeMetric(_, namespace, metric) =>
@@ -183,14 +246,14 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         clientGrpc
           .describeMetrics(GrpcDescribeMetric(db, namespace, metric))
           .map(toInternalCommandResponse[GrpcMetricSchemaRetrieved]),
-        ASCIITableBuilder.tableFor,
+        tableBuilder.tableFor,
         lineToRecord
       )
   }
 
-  def processCommandResponse[T <: CommandStatementExecuted](attemptValue: Future[T],
-                                                            print: T => Try[String],
-                                                            lineToRecord: String): Result =
+  private def processCommandResponse[T <: CommandStatementExecuted](attemptValue: Future[T],
+                                                                    print: T => Try[String],
+                                                                    lineToRecord: String): Result =
     Try(Await.result(attemptValue, 10 seconds)) match {
       case Success(resp: CommandStatementExecutedWithFailure) =>
         echo(s"Statement failed because : ${resp.reason}")
@@ -204,9 +267,9 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
         result(Some(lineToRecord))
     }
 
-  def processSQLStatementResponse(statementAttempt: Future[SQLStatementResult],
-                                  print: SQLStatementResult => Try[String],
-                                  lineToRecord: String): Result = {
+  private def processSQLStatementResponse(statementAttempt: Future[SQLStatementResult],
+                                          print: SQLStatementResult => Try[String],
+                                          lineToRecord: String): Result = {
     Try(Await.result(statementAttempt, 10 seconds)) match {
       case Success(resp: SQLStatementFailed) =>
         echo(s"Statement failed because : ${resp.reason}")
@@ -225,13 +288,14 @@ class NsdbILoop(host: Option[String], port: Option[Int], db: String, in0: Option
     }
   }
 
-  def echo(out: Try[String], lineToRecord: String): Result = out match {
+  private def echo(out: Try[String], lineToRecord: String): Result = out match {
     case Success(x) =>
       echo("\n")
       echo(x)
       echo("\n")
       result(Some(lineToRecord))
     case Failure(t) =>
+      logger.error("Error in render", t)
       echo("Cannot show the result in a visual way.")
       result(Some(lineToRecord))
   }
