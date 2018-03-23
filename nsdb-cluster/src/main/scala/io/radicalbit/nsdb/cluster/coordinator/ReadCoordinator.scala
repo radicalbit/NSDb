@@ -32,12 +32,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
 
   private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  override def receive: Receive = if (sharding) shardBehaviour else init
-
-  def shardBehaviour: Receive = {
-    case SubscribeNamespaceDataActor(actor: ActorRef, Some(nodeName)) =>
+  override def receive: Receive = {
+    case SubscribeNamespaceDataActor(actor: ActorRef, nodeName) =>
       namespaces += (nodeName -> actor)
-      sender() ! NamespaceDataActorSubscribed(actor, Some(nodeName))
+      sender() ! NamespaceDataActorSubscribed(actor, nodeName)
     case GetConnectedNodes =>
       sender ! ConnectedNodesGot(namespaces.keys.toSeq)
     case msg @ GetNamespaces(db) =>
@@ -83,36 +81,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
         }
         .recoverWith {
           case t => Future(SelectStatementFailed(t.getMessage))
-        }
-        .pipeToWithEffect(sender()) { _ =>
-          if (perfLogger.isDebugEnabled)
-            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
-        }
-  }
-
-  def init: Receive = {
-    case SubscribeNamespaceDataActor(actor: ActorRef, _) =>
-      context.become(subscribed(actor))
-      sender() ! NamespaceDataActorSubscribed(actor)
-  }
-
-  def subscribed(namespaceDataActor: ActorRef): Receive = {
-    case msg: GetNamespaces =>
-      namespaceDataActor forward msg
-    case msg: GetMetrics =>
-      namespaceDataActor forward msg
-    case msg: GetSchema =>
-      namespaceSchemaActor forward msg
-    case ExecuteStatement(statement) =>
-      val startTime = System.currentTimeMillis()
-      log.debug(s"executing $statement")
-      (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
-        .flatMap {
-          case SchemaGot(_, _, _, Some(schema)) =>
-            namespaceDataActor ? ExecuteSelectStatement(statement, schema)
-          case _ =>
-            Future(
-              SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
         }
         .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)

@@ -41,6 +41,7 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |  }
     |  index.base-path = "target/test_index/WriteCoordinatorTest"
     |  write-coordinator.timeout = 5 seconds
+    |  metadata-coordinator.timeout = 5 seconds
     |  commit-log {
     |    enabled = false
     |  }

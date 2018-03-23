@@ -1,4 +1,4 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.actors
 
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.search.Query

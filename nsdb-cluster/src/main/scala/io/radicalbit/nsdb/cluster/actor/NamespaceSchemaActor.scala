@@ -39,7 +39,6 @@ class NamespaceSchemaActor(val basePath: String) extends Actor with ActorLogging
     case DeleteNamespace(db, namespace) =>
       val schemaActorToDelete = getSchemaActor(db, namespace)
       (schemaActorToDelete ? DeleteAllSchemas(db, namespace))
-        .mapTo[AllSchemasDeleted]
         .map { _ =>
           schemaActorToDelete ! PoisonPill
           schemaActors -= ((db, namespace))

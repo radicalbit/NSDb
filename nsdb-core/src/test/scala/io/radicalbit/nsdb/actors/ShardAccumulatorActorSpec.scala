@@ -1,17 +1,17 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.actors
 
-import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
-import io.radicalbit.nsdb.cluster.coordinator.WriteInterval
-import io.radicalbit.nsdb.cluster.index.Location
+import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ShardAccumulatorActorSpec()
@@ -19,42 +19,34 @@ class ShardAccumulatorActorSpec()
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with WriteInterval
     with BeforeAndAfter {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
 
+  val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+                                TimeUnit.SECONDS) + 1.second
   val basePath  = "target/test_index"
   val db        = "db_shard"
   val namespace = "namespace"
+  val metric    = "shardActorMetric"
   val shardActor =
     TestActorRef[ShardAccumulatorActor](ShardAccumulatorActor.props(basePath, db, namespace), probeActor)
 
   before {
-    import scala.collection.JavaConverters._
-    if (Paths.get(basePath, db).toFile.exists())
-      Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
+    implicit val timeout = Timeout(5 second)
+    Await.result(shardActor ? DropMetric(db, namespace, metric), 5 seconds)
   }
 
-  "ShardAccumulatorActor" should "not handle non location aware messages" in within(5.seconds) {
+  "ShardAccumulatorActor" should "write and delete properly" in {
+
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
-    probe.send(shardActor, AddRecord(db, namespace, "shardActorMetric", bit))
-    expectNoMessage(5 seconds)
+    val key = ShardKey("shardActorMetric", 0, 100)
 
-    probe.send(shardActor, DeleteRecord(db, namespace, "shardActorMetric", bit))
-    expectNoMessage(5 seconds)
-  }
-
-  "ShardAccumulatorActor" should "write and delete properly" in within(5.seconds) {
-
-    val bit      = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
-    val location = Location("shardActorMetric", "node1", 0, 100)
-
-    probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit, location))
+    probe.send(shardActor, AddRecordToShard(db, namespace, key, bit))
     awaitAssert {
       val expectedAdd = probe.expectMsgType[RecordAdded]
-      expectedAdd.metric shouldBe "shardActorMetric"
+      expectedAdd.metric shouldBe metric
       expectedAdd.record shouldBe bit
     }
     expectNoMessage(interval)
@@ -62,13 +54,13 @@ class ShardAccumulatorActorSpec()
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
     awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe "shardActorMetric"
+      expectedCount.metric shouldBe metric
       expectedCount.count shouldBe 1
     }
-    probe.send(shardActor, DeleteRecordFromLocation(db, namespace, "shardActorMetric", bit, location))
-    awaitAssert {
+    probe.send(shardActor, DeleteRecordFromShard(db, namespace, key, bit))
+    within(5 seconds) {
       val expectedDelete = probe.expectMsgType[RecordDeleted]
-      expectedDelete.metric shouldBe "shardActorMetric"
+      expectedDelete.metric shouldBe metric
       expectedDelete.record shouldBe bit
     }
     expectNoMessage(interval)
@@ -76,16 +68,16 @@ class ShardAccumulatorActorSpec()
     probe.send(shardActor, GetCount(db, namespace, "shardActorMetric"))
     awaitAssert {
       val expectedCountDeleted = probe.expectMsgType[CountGot]
-      expectedCountDeleted.metric shouldBe "shardActorMetric"
+      expectedCountDeleted.metric shouldBe metric
       expectedCountDeleted.count shouldBe 0
     }
 
   }
 
-  "ShardAccumulatorActor" should "write and delete properly the same metric in multiple locations" in within(5.seconds) {
+  "ShardAccumulatorActor" should "write and delete properly the same metric in multiple keys" in {
 
-    val location  = Location("shardActorMetric", "node1", 0, 100)
-    val location2 = Location("shardActorMetric", "node1", 101, 200)
+    val key  = ShardKey("shardActorMetric", 0, 100)
+    val key2 = ShardKey("shardActorMetric", 101, 200)
 
     val bit11 = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
     val bit12 = Bit(System.currentTimeMillis, 30.5, Map("content" -> "content"))
@@ -93,11 +85,11 @@ class ShardAccumulatorActorSpec()
     val bit21 = Bit(System.currentTimeMillis, 150, Map("content"  -> "content"))
     val bit22 = Bit(System.currentTimeMillis, 160, Map("content"  -> "content"))
 
-    probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit11, location))
-    probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit12, location))
-    probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit13, location))
-    probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit21, location2))
-    probe.send(shardActor, AddRecordToLocation(db, namespace, "shardActorMetric", bit22, location2))
+    probe.send(shardActor, AddRecordToShard(db, namespace, key, bit11))
+    probe.send(shardActor, AddRecordToShard(db, namespace, key, bit12))
+    probe.send(shardActor, AddRecordToShard(db, namespace, key, bit13))
+    probe.send(shardActor, AddRecordToShard(db, namespace, key2, bit21))
+    probe.send(shardActor, AddRecordToShard(db, namespace, key2, bit22))
     awaitAssert {
       probe.expectMsgType[RecordAdded]
       probe.expectMsgType[RecordAdded]
@@ -130,6 +122,36 @@ class ShardAccumulatorActorSpec()
       shard2.size shouldBe 2
       shard2 should contain(bit21)
       shard2 should contain(bit22)
+    }
+  }
+
+  "indexerAccumulatorActor" should "drop a metric" in {
+
+    val bit1 = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
+    val bit2 = Bit(System.currentTimeMillis, 30, Map("content" -> "content"))
+
+    probe.send(shardActor, AddRecordToShard(db, namespace, ShardKey("testMetric", 0, 0), bit1))
+    probe.send(shardActor, AddRecordToShard(db, namespace, ShardKey("testMetric", 0, 0), bit2))
+    probe.expectMsgType[RecordAdded]
+    probe.expectMsgType[RecordAdded]
+
+    expectNoMessage(interval)
+
+    probe.send(shardActor, GetCount(db, namespace, "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 2
+    }
+
+    probe.send(shardActor, DropMetric(db, namespace, "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[MetricDropped]
+    }
+
+    expectNoMessage(interval)
+
+    probe.send(shardActor, GetCount(db, namespace, "testMetric"))
+    within(5 seconds) {
+      probe.expectMsgType[CountGot].count shouldBe 0
     }
   }
 

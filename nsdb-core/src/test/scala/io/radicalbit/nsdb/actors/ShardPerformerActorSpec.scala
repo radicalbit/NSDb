@@ -5,14 +5,14 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import io.radicalbit.nsdb.actors.IndexAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.IndexPerformerActor.PerformWrites
+import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-class IndexerPerformerActorSpec
+class ShardPerformerActorSpec
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
     with FlatSpecLike
@@ -26,7 +26,7 @@ class IndexerPerformerActorSpec
   val db        = "db"
   val namespace = "namespace"
   val indexerPerformerActor =
-    TestActorRef[IndexPerformerActor](IndexPerformerActor.props(basePath, db, namespace), probeActor)
+    TestActorRef[ShardPerformerActor](ShardPerformerActor.props(basePath, db, namespace), probeActor)
 
   before {
     import scala.collection.JavaConverters._
@@ -34,14 +34,16 @@ class IndexerPerformerActorSpec
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
   }
 
-  "indexerPerformerActor" should "write and delete properly" in within(5.seconds) {
+  "ShardPerformerActor" should "write and delete properly" in within(5.seconds) {
+
+    val key = ShardKey("IndexerPerformerActorMetric", 0, 0)
 
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
 
     val operations =
-      Map(UUID.randomUUID().toString -> WriteOperation(namespace, "IndexerPerformerActorMetric", bit))
+      Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, key, bit))
 
-    probe.send(indexerPerformerActor, PerformWrites(operations))
+    probe.send(indexerPerformerActor, PerformShardWrites(operations))
     awaitAssert {
       probe.expectMsgType[Refresh]
     }
