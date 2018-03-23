@@ -79,7 +79,7 @@ object CommitLogWriterActor {
 trait CommitLogWriterActor extends Actor {
 
   /**
-    * Return an istance of a serializer extending [[CommitLogSerializer]] trait.
+    * Return an instance of a serializer extending [[CommitLogSerializer]] trait.
     * @return serializer component
     */
   protected def serializer: CommitLogSerializer
