@@ -81,7 +81,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
     log.debug("Received the entry {}.", entry)
 
     val operation = Try(appendToDisk(entry))
-    // this check can be done in an async fashion
     checkAndUpdateRollingFile(file).foreach {
       case (f, fos) =>
         file = f

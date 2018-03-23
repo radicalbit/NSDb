@@ -77,9 +77,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                                                    action = action))
         .mapTo[CommitLogResponse]
     else if (commitLogEnabled) {
-      Future.successful(WriteToCommitLogFailed(db, namespace, ts, metric, "CommitLog enabled but not defined, shutting down"))
-    }
-    else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
+      Future.successful(
+        WriteToCommitLogFailed(db, namespace, ts, metric, "CommitLog enabled but not defined, shutting down"))
+    } else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
   }
 
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {

@@ -23,7 +23,8 @@ class CommitLogCoordinator extends Actor with ActorLogging {
   private def getWriter(db: String, namespace: String): ActorRef = {
     commitLoggerWriters.getOrElse(
       s"$db-$namespace", {
-        val commitLogWriter = context.actorOf(RollingCommitLogFileWriter.props(db, namespace), s"commit-log-writer-$db-$namespace")
+        val commitLogWriter =
+          context.actorOf(RollingCommitLogFileWriter.props(db, namespace), s"commit-log-writer-$db-$namespace")
         commitLoggerWriters += (s"$db-$namespace" -> commitLogWriter)
         commitLogWriter
       }
