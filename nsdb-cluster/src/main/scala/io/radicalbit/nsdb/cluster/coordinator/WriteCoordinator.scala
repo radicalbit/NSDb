@@ -143,7 +143,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
               log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
               context.system.terminate()
           }
-      }.pipeToWithEffect(sender()) { () =>
+      }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
