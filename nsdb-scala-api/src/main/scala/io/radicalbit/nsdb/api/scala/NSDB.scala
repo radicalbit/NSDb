@@ -69,9 +69,7 @@ case class Namespace(db: String, name: String) {
 
 }
 
-case class SQLStatement(db: String, namespace: String, sQLStatement: String) {
-  def statement(query: String): SQLStatement = copy(sQLStatement = query)
-}
+case class SQLStatement(db: String, namespace: String, sQLStatement: String)
 
 case class Bit protected (db: String,
                           namespace: String,
