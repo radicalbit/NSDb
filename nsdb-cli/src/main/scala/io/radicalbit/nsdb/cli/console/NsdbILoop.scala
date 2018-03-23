@@ -32,12 +32,12 @@ import scala.util.{Failure, Success, Try}
 
 /**
   * Nsdb Command Line Interface main class extending scala standard REPL [[scala.tools.nsc.interpreter.ILoop]].
-  * Internally, this class manages a gRPC Client of [[io.radicalbit.nsdb.client.rpc.GRPCClient]] class used to send query and command statements to Nsdb cluster.
-  * User input are parsed using two methodologies: command statements are parsed client side using [[CommandStatementParser]],
-  * whereas sql statements are interpreted cluster side.
+  * Internally, this class manages a gRPC Client of [[io.radicalbit.nsdb.client.rpc.GRPCClient]] class used to send queries and command statements to Nsdb cluster.
+  * User input is parsed using two methodologies: command statements are parsed client side using [[CommandStatementParser]],
+  * whereas sql statements are interpreted on cluster side.
   * The database information, to establish connection with, must be specified in class constructor,
   * otherwise default parameters values are used.
-  * Once created user must define database namespace on which run statements.
+  * Once created, user must define database namespace on which run statements.
   *
   * @param host Nsdb cluster grpc server ip address
   * @param port Nsdb cluster grpc server port
@@ -108,7 +108,7 @@ class NsdbILoop(host: Option[String],
   def result(lineToRecord: Option[String] = None) = Result(keepRunning = true, lineToRecord = lineToRecord)
 
   /**
-    * Try to parse user input as a [[CommandStatement]] otherwise treats it as an [[SQLRequestStatement]] sent to the server.
+    * Tries to parse user input as a [[CommandStatement]] otherwise treats it as an [[SQLRequestStatement]] sent to the server.
     *
     * @param statement string representing user input
     * @return [[Result]] to be printed on REPL
@@ -123,7 +123,7 @@ class NsdbILoop(host: Option[String],
         ))
 
   /**
-    * Parse User command statement String into a [[CommandStatement]] and sends it to server
+    * Parses User command statement String into a [[CommandStatement]] and sends it to server
     *
     * @param statement user input
     * @return [[Result]] to be printed on REPL
@@ -132,7 +132,7 @@ class NsdbILoop(host: Option[String],
     commandStatementParser.parse(currentNamespace, statement).map(x => sendCommand(x, statement))
 
   /**
-    * If working namespace is defined sends an async request containing the unparsed query statement to Nsdb server otherwise
+    * If working namespace is defined, sends an async request containing the unparsed query statement to Nsdb server otherwise
     * return a failure described in [[SQLStatementResponse]]
     *
     * @param statement [[String]] statement
@@ -213,7 +213,7 @@ class NsdbILoop(host: Option[String],
   }
 
   /**
-    * Sends a [[CommandStatement]] to the server and handles its response
+    * Sends a [[CommandStatement]] to the server and handles its response.
     *
     * @param stm [[CommandStatement]] to be sent
     * @param lineToRecord

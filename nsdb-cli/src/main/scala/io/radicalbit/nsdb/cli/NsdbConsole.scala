@@ -7,8 +7,8 @@ import scala.tools.nsc.Settings
 /**
   * Wrapper for CLI parameters
   *
-  * @param host rpc server host address
-  * @param port rpc server host port
+  * @param host rpc server address
+  * @param port rpc server port
   * @param db database name
   */
 case class Params(host: Option[String] = None, port: Option[Int] = None, db: String, width: Option[Int])
