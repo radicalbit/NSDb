@@ -81,9 +81,9 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
     TestActorRef[PublisherActor](
       PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor]), namespaceSchemaActor))
   lazy val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
-  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
+  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(None,
+                                                                         fakeMetadataCoordinator,
                                                                          namespaceSchemaActor,
-                                                                         None,
                                                                          publisherActor)
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"))

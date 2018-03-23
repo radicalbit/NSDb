@@ -9,8 +9,10 @@ object Config {
   val CommitLogEnabledConf    = "nsdb.commit-log.enabled"
   val CommitLogDirectoryConf  = "nsdb.commit-log.directory"
   val CommitLogMaxSizeConf    = "nsdb.commit-log.max-size"
+  val CommitLogBufferSizeConf = "nsdb.commit-log.buffer-size"
 
   def getString(property: String)(implicit config: TypeSafeConfig): String = config.getString(property)
 
   def getInt(property: String)(implicit config: TypeSafeConfig): Int = config.getInt(property)
+
 }

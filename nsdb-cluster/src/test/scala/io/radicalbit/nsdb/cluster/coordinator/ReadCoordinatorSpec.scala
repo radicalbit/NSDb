@@ -14,7 +14,7 @@ import org.scalatest._
 import scala.concurrent.Await
 
 class ReadCoordinatorSpec
-    extends TestKit(ActorSystem("nsdb-test"))
+    extends TestKit(ActorSystem("ReadCoordinatorSpec"))
     with ImplicitSender
     with WordSpecLike
     with Matchers

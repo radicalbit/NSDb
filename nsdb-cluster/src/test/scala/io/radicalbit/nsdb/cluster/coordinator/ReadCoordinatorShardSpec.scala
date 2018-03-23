@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 class ReadCoordinatorShardSpec
     extends TestKit(
       ActorSystem(
-        "nsdb-test",
+        "ReadCoordinatorShardSpec",
         ConfigFactory
           .load()
           .withValue("nsdb.sharding.enabled", ConfigValueFactory.fromAnyRef(true))

@@ -18,9 +18,9 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
   val cluster = Cluster(context.system)
 
-  val mediator = DistributedPubSub(context.system).mediator
+  private val mediator = DistributedPubSub(context.system).mediator
 
-  val config = context.system.settings.config
+  private val config = context.system.settings.config
 
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
 
@@ -35,7 +35,7 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
       val nameNode = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
 
-      implicit val timeout: Timeout = Timeout(5 seconds)
+      implicit val timeout: Timeout = Timeout(5.seconds)
 
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 

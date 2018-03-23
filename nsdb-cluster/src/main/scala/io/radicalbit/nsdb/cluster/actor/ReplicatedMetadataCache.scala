@@ -41,7 +41,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   def metricDataKey(entryKey: MetricKey): LWWMapKey[MetricKey, Seq[Location]] =
     LWWMapKey("metric-cache-" + math.abs(entryKey.hashCode) % 100)
 
-  val writeDuration = 5 seconds
+  private val writeDuration = 5.seconds
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
@@ -53,9 +53,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val f = for {
         loc <- (replicator ? Update(locationDataKey(key), LWWMap(), WriteMajority(writeDuration))(_ + (key -> value)))
           .map {
-            case UpdateSuccess(_, _) => {
+            case UpdateSuccess(_, _) =>
               Cached(key, Some(value))
-            }
             case _ => Cached(key, None)
           }
         metricKey = MetricKey(key.db, key.namespace, key.metric)
@@ -68,19 +67,17 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                 .get(metricKey)
                 .getOrElse(Seq.empty)
             )
-          case g => {
+          case _ =>
             CachedLocations(metricKey, Seq.empty)
-          }
         }
-        metr <- {
+        _ <- {
           val locMap  = getMetric.value.map(e => (e.from, e.to) -> e).toMap
           val newLocs = (locMap + ((value.from, value.to) -> value)).values.map(identity).toSeq
           (replicator ? Update(metricDataKey(metricKey), LWWMap(), WriteMajority(writeDuration))(
             _ + (metricKey -> newLocs)))
             .map {
-              case UpdateSuccess(_, _) => {
+              case UpdateSuccess(_, _) =>
                 CachedLocations(metricKey, newLocs)
-              }
               case _ => Cached(key, None)
             }
         }
@@ -100,19 +97,17 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                 .get(metricKey)
                 .getOrElse(Seq.empty)
             )
-          case g => {
+          case _ =>
             CachedLocations(metricKey, Seq.empty)
-          }
         }
-        metr <- {
+        _ <- {
           val locMap  = getMetric.value.map(e => (e.from, e.to) -> e).toMap
           val newLocs = (locMap - ((key.from, key.to))).values.map(identity).toSeq
           (replicator ? Update(metricDataKey(metricKey), LWWMap(), WriteMajority(writeDuration))(
             _ + (metricKey -> newLocs)))
             .map {
-              case UpdateSuccess(_, _) => {
+              case UpdateSuccess(_, _) =>
                 CachedLocations(metricKey, newLocs)
-              }
               case _ => Cached(key, None)
             }
         }

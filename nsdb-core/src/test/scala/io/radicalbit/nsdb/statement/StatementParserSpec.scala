@@ -6,8 +6,10 @@ import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
 import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.statement.StatementParser.{Errors, ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
+import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
+import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.TryValues._

@@ -37,6 +37,7 @@ object MessageProtocol {
     case object GetPublisher
 
     case class SubscribeNamespaceDataActor(actor: ActorRef, nodeName: String)
+    case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
   }
 
   object Events {
@@ -67,6 +68,9 @@ object MessageProtocol {
     case class RecordRejected(db: String, namespace: String, metric: String, record: Bit, reasons: List[String])
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)
+
+    case class CommitLogActorSubscribed(actor: ActorRef, host: Option[String] = None)
+    case class CommitLogActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
 
     case class NamespaceDataActorSubscribed(actor: ActorRef, nodeName: String)
     case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
