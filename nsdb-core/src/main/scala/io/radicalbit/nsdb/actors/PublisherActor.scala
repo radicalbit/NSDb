@@ -24,12 +24,12 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /**
-  * Models queries used for subscription process
-  * @param uuid a generated, unique identifier for a query
-  * @param query the parsed select statement
+  * Models queries used for the  subscription process.
+  * @param uuid a generated, unique identifier for a query.
+  * @param query the parsed select statement.
   */
 case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
-  def aggregated = query.groupBy.isDefined
+  def aggregated: Boolean = query.groupBy.isDefined
 }
 
 /**

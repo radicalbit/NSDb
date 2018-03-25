@@ -1,67 +1,33 @@
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
-import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
 /**
+  * Actor responsible for performing write accumulated by [[ShardAccumulatorActor]] into shards indexes.
   *
-  * @param basePath
-  * @param db
-  * @param namespace
+  * @param basePath shards indexes base path.
+  * @param db shards db.
+  * @param namespace shards namespace.
   */
-class ShardPerformerActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
-  import scala.collection.mutable
-
-  val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
-
-  val facetIndexShards: mutable.Map[ShardKey, FacetIndex] = mutable.Map.empty
+class ShardPerformerActor(val basePath: String, val db: String, val namespace: String)
+    extends Actor
+    with ShardsActor
+    with ActorLogging {
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
-
-  lazy val interval = FiniteDuration(
-    context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-    TimeUnit.SECONDS)
-
-  private def getIndex(key: ShardKey) =
-    shards.getOrElse(
-      key, {
-        val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}"))
-        val newIndex = new TimeSeriesIndex(directory)
-        shards += (key -> newIndex)
-        newIndex
-      }
-    )
-
-  private def getFacetIndex(key: ShardKey) =
-    facetIndexShards.getOrElse(
-      key, {
-        val directory =
-          new MMapDirectory(
-            Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
-        val taxoDirectory = new MMapDirectory(
-          Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet", "taxo"))
-        val newIndex = new FacetIndex(directory, taxoDirectory)
-        facetIndexShards += (key -> newIndex)
-        newIndex
-      }
-    )
 
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>

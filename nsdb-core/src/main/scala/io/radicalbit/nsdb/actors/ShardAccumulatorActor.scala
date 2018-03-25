@@ -30,33 +30,28 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 /**
-  * - Accumulates write and delete operations which will be performed by [[ShardPerformerActor]].
+  * Actor responsible for:
   *
-  * - Retrieves data from shards, aggregates and returns it to the sender
+  * - Accumulating write and delete operations which will be performed by [[ShardPerformerActor]].
+  *
+  * - Retrieving data from shards, aggregates and returns it to the sender.
   *
   * @param basePath shards indexes path.
-  * @param db the db.
-  * @param namespace the namespace.
+  * @param db shards db.
+  * @param namespace shards namespace.
   */
-class ShardAccumulatorActor(basePath: String, db: String, namespace: String) extends Actor with ActorLogging {
+class ShardAccumulatorActor(val basePath: String, val db: String, val namespace: String)
+    extends Actor
+    with ShardsActor
+    with ActorLogging {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
 
   /**
-    * all index shards for the given db and namespace grouped by [[ShardKey]]
-    */
-  val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
-
-  /**
     * materialized configuration key. true if sharding is enabled
     */
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
-
-  /**
-    * all facet index shards for the given db and namespace grouped by [[ShardKey]]
-    */
-  val facetIndexShards: mutable.Map[ShardKey, FacetIndex] = mutable.Map.empty
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
@@ -68,6 +63,9 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
+  /**
+    * writes scheduler interval
+    */
   lazy val interval = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
@@ -80,45 +78,7 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
   /**
     * operations currently being written by the [[io.radicalbit.nsdb.actors.ShardPerformerActor]].
     */
-  private var performingOps: Map[String, ShardOperation]       = Map.empty
-
-  private def shardsForMetric(metric: String)        = shards.filter(_._1.metric == metric)
-  private def facetsShardsFromMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
-
-  /**
-    * retrieve or create an index for the given [[ShardKey]]
-    * @param key the key containing the metric and the time interval to identify the index to retrieve or create
-    * @return the index for the key
-    */
-  private def getIndex(key: ShardKey) =
-    shards.getOrElse(
-      key, {
-        val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}"))
-        val newIndex = new TimeSeriesIndex(directory)
-        shards += (key -> newIndex)
-        newIndex
-      }
-    )
-
-  /**
-    * retrieve or create a facet index for the given [[ShardKey]]
-    * @param key the key containing the metric and the time interval to identify the index to retrieve or create
-    * @return the facet index for the key
-    */
-  private def getFacetIndex(key: ShardKey) =
-    facetIndexShards.getOrElse(
-      key, {
-        val directory =
-          new MMapDirectory(
-            Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
-        val taxoDirectory = new MMapDirectory(
-          Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet", "taxo"))
-        val newIndex = new FacetIndex(directory, taxoDirectory)
-        facetIndexShards += (key -> newIndex)
-        newIndex
-      }
-    )
+  private var performingOps: Map[String, ShardOperation] = Map.empty
 
   private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out.recoverWith {
@@ -126,6 +86,13 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     }
   }
 
+  /**
+    * apply, if needed, ordering and limiting to results from multiple shards.
+    * @param shardResult sequence of shard results.
+    * @param statement the initial sql statement.
+    * @param schema metric's schema.
+    * @return a single result obtained from the manipulation of multiple results from different shards.
+    */
   private def applyOrderingWithLimit(shardResult: Try[Seq[Bit]], statement: SelectSQLStatement, schema: Schema) = {
     Try(shardResult.get).map(s => {
       val maybeSorted = if (statement.order.isDefined) {
@@ -174,6 +141,14 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     }
   }
 
+  /**
+    * behaviour for ddl operations
+    *
+    * - [[DeleteAllMetrics]] delete all metrics.
+    *
+    * - [[DropMetric]] drop a given metric.
+    *
+    */
   def ddlOps: Receive = {
     case DeleteAllMetrics(_, ns) =>
       shards.foreach {
@@ -222,21 +197,37 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     }.toSeq
   }
 
+  /**
+    * group results coming from different shards according to the group by clause provided in the query.
+    * @param shardResults results coming from different shards.
+    * @param dimension the group by clause dimension
+    * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
+    * @return the grouped results.
+    */
   private def groupShardResults[W](shardResults: Seq[Try[Seq[Bit]]], dimension: String)(
-      mapFunction: Seq[Bit] => W): Try[Seq[W]] = {
+      aggregationFunction: Seq[Bit] => W): Try[Seq[W]] = {
     Try(
       shardResults
         .flatMap(_.get)
         .groupBy(_.dimensions(dimension))
-        .mapValues(mapFunction)
+        .mapValues(aggregationFunction)
         .values
         .toSeq)
   }
 
-  private def orderPlainResults(statement: SelectSQLStatement,
-                                parsedStatement: ParsedSimpleQuery,
-                                indexes: Seq[(ShardKey, TimeSeriesIndex)],
-                                schema: Schema) = {
+  /**
+    * retrieves and order results from different shards in case the statement does not contains aggregations
+    * and a where condition involving timestamp has been provided
+    * @param statement raw statement.
+    * @param parsedStatement parsed statement.
+    * @param indexes shard indexes to retrieve data from.
+    * @param schema metric's schema.
+    * @return a single sequence of results obtained from different shards.
+    */
+  private def retrieveAndorderPlainResults(statement: SelectSQLStatement,
+                                           parsedStatement: ParsedSimpleQuery,
+                                           indexes: Seq[(ShardKey, TimeSeriesIndex)],
+                                           schema: Schema): Try[Seq[Bit]] = {
     val (_, metric, q, _, limit, fields, sort) = ParsedSimpleQuery.unapply(parsedStatement).get
     if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
       val result: ListBuffer[Try[Seq[Bit]]] = ListBuffer.empty
@@ -274,6 +265,13 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     }
   }
 
+  /**
+    * behaviour for read operations.
+    *
+    * - [[GetMetrics]] retrieve and return all the metrics.
+    *
+    * - [[ExecuteSelectStatement]] execute a given sql statement.
+    */
   def readOps: Receive = {
     case GetMetrics(_, _) =>
       sender() ! MetricsGot(db, namespace, shards.keys.map(_.metric).toSet)
@@ -286,13 +284,13 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
     case ExecuteSelectStatement(statement, schema) =>
       val postProcessedResult: Try[Seq[Bit]] =
         statementParser.parseStatement(statement, schema) match {
-          case Success(parsedStatement @ ParsedSimpleQuery(_, metric, q, false, limit, fields, sort)) =>
+          case Success(parsedStatement @ ParsedSimpleQuery(_, metric, _, false, limit, fields, _)) =>
             val indexes =
               if (sharding)
                 filterShardsThroughTime(statement.condition.map(_.expression), shardsForMetric(statement.metric))
               else Seq((ShardKey(metric, 0, 0), getIndex(ShardKey(metric, 0, 0))))
 
-            val orderedResults = orderPlainResults(statement, parsedStatement, indexes, schema)
+            val orderedResults = retrieveAndorderPlainResults(statement, parsedStatement, indexes, schema)
 
             if (fields.lengthCompare(1) == 0 && fields.head.count) {
               orderedResults.map(seq => {
@@ -373,6 +371,18 @@ class ShardAccumulatorActor(basePath: String, db: String, namespace: String) ext
       }
   }
 
+  /**
+    * behaviour for accumulate operations.
+    *
+    * - [[AddRecordToShard]] add a given record to a given shard.
+    *
+    * - [[DeleteRecordFromShard]] delete a given record from a given shard.
+    *
+    * - [[ExecuteDeleteStatementInShards]] execute a delete statement among the given shards.
+    *
+    * - [[Refresh]] refresh shard indexes after a [[PerformShardWrites]] operation executed by [[ShardPerformerActor]]
+    *
+    */
   def accumulate: Receive = {
     case AddRecordToShard(_, ns, key, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, key, bit))

@@ -22,10 +22,12 @@ case class ShardKey(metric: String, from: Long, to: Long)
   * - [[WriteShardOperation writes]] add a record to a shard.
   */
 sealed trait ShardOperation {
+
   /**
     * operation namespace.
     */
   val namespace: String
+
   /**
     * operation key. {@see ShardKey}
     */
