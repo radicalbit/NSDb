@@ -74,17 +74,20 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
     }
   }
 
-  override def delete(data: Location)(implicit writer: IndexWriter): Unit = {
-    val builder = new BooleanQuery.Builder()
-    builder.add(new TermQuery(new Term(_keyField, data.metric)), BooleanClause.Occur.MUST)
-    builder.add(new TermQuery(new Term("node", data.node)), BooleanClause.Occur.MUST)
-    builder.add(LongPoint.newExactQuery("from", data.from), BooleanClause.Occur.MUST)
-    builder.add(LongPoint.newExactQuery("to", data.to), BooleanClause.Occur.MUST)
+  override def delete(data: Location)(implicit writer: IndexWriter): Try[Long] = {
+    Try {
+      val builder = new BooleanQuery.Builder()
+      builder.add(new TermQuery(new Term(_keyField, data.metric)), BooleanClause.Occur.MUST)
+      builder.add(new TermQuery(new Term("node", data.node)), BooleanClause.Occur.MUST)
+      builder.add(LongPoint.newExactQuery("from", data.from), BooleanClause.Occur.MUST)
+      builder.add(LongPoint.newExactQuery("to", data.to), BooleanClause.Occur.MUST)
 
-    val query = builder.build()
+      val query = builder.build()
 
-    writer.deleteDocuments(query)
-    writer.forceMergeDeletes(true)
+      val result = writer.deleteDocuments(query)
+      writer.forceMergeDeletes(true)
+      result
+    }
 
   }
 
