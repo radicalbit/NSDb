@@ -2,6 +2,10 @@ package io.radicalbit.nsdb.cluster.extension
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 
+/**
+  * Akka extension that let users to retrieve the actor system FQDN.
+  * @param system the [[ExtendedActorSystem]].
+  */
 class RemoteAddress(system: ExtendedActorSystem) extends Extension {
 
   def address = system.provider.getDefaultAddress

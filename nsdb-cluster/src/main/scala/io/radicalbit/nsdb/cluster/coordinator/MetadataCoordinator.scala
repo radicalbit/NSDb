@@ -21,7 +21,6 @@ import scala.util.Random
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-//TODO add brief metadata mechanism description
 class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   /**

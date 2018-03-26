@@ -13,7 +13,22 @@ import scala.concurrent.duration._
 
 object ReplicatedMetadataCache {
 
+  /**
+    * Cache key for a shard location
+    * @param db location db.
+    * @param namespace location namespace.
+    * @param metric location metric.
+    * @param from location lower bound.
+    * @param to location upperbound.
+    */
   case class LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
+
+  /**
+    * Cache key for a metric.
+    * @param db metric db.
+    * @param namespace metric name.
+    * @param metric metric name.
+    */
   case class MetricKey(db: String, namespace: String, metric: String)
 
   private final case class Request(key: LocationKey, replyTo: ActorRef)
@@ -40,7 +55,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   val replicator: ActorRef = DistributedData(context.system).replicator
 
   /**
-    *
+    * convert a [[LocationKey]] into an internal cache key
     * @param locKey the location key to convert
     * @return [[LWWMapKey]] resulted from locKey hashCode
     */
@@ -48,7 +63,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     LWWMapKey("location-cache-" + math.abs(locKey.hashCode) % 100)
 
   /**
-    *
+    * convert a [[MetricKey]] into an internal cache key
     * @param metricKey the metric key to convert
     * @return [[LWWMapKey]] resulted from metricKey hashCode
     */

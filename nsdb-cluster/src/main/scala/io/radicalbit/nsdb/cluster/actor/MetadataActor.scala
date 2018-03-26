@@ -15,8 +15,8 @@ import scala.collection.mutable
 
 /**
   * Actor responsible of storing metric's locations into a persistent index.
-  * A [[MetadataActor]] must be created for each node of the cluster
-  * @param basePath index base path
+  * A [[MetadataActor]] must be created for each node of the cluster.
+  * @param basePath index base path.
   */
 class MetadataActor(val basePath: String) extends Actor with ActorLogging {
 

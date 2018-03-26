@@ -11,8 +11,19 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Metric shard location
+  * @param metric the metric.
+  * @param node a string rapresentation of a node, that is [hostname]_[port]
+  * @param from shard interval lower bound
+  * @param to shard interval upper bound
+  */
 case class Location(metric: String, node: String, from: Long, to: Long)
 
+/**
+  * Index for storing metadata.
+  * @param directory index bae directory.
+  */
 class MetadataIndex(override val directory: BaseDirectory) extends Index[Location] {
   override val _keyField: String = "_metric"
 

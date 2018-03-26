@@ -18,8 +18,8 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import scala.collection.mutable
 
 /**
-  * Actor responsible to dispatch read or write commands to the proper actor and index
-  * @param basePath indexes' root path
+  * Actor responsible for dispatch read or write commands to the proper actor and index.
+  * @param basePath indexes' root path.
   */
 class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 

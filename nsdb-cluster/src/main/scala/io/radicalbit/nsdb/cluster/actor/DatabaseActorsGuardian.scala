@@ -9,7 +9,7 @@ import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
 /**
-  * Actor that creates all the global singleton actors (e.g. commit log and coordinators)
+  * Actor that creates all the global singleton actors (e.g. coordinators)
   */
 class DatabaseActorsGuardian extends Actor with ActorLogging {
 
