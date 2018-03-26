@@ -54,10 +54,13 @@ trait Index[T] {
     }
   }
 
-  def deleteAll()(implicit writer: IndexWriter): Unit = {
-    writer.deleteAll()
-    writer.forceMergeDeletes(true)
-    writer.flush()
+  def deleteAll()(implicit writer: IndexWriter): Try[Long] = {
+    Try {
+      val result = writer.deleteAll()
+      writer.forceMergeDeletes(true)
+      writer.flush()
+      result
+    }
   }
 
   private def executeQuery(searcher: IndexSearcher, query: Query, limit: Int, sort: Option[Sort]) = {
