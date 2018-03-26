@@ -11,8 +11,16 @@ import org.apache.lucene.util.BytesRef
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Contains a utility method to validate a bit.
+  */
 trait TypeSupport {
 
+  /**
+    * check if every field provided is valid.
+    * @param bit the bit to check.
+    * @return a sequence of [[TypedField]]. [[Failure]] if at least one field is invalid.
+    */
   def validateSchemaTypeSupport(bit: Bit): Try[Seq[TypedField]] = {
     val x = bit.fields.toSeq
       .map { case (n, v) => IndexType.tryFromRawField(RawField(n, v)) }
@@ -20,29 +28,93 @@ trait TypeSupport {
   }
 }
 
+/**
+  * Internal type system trait.
+  * Direct children are
+  *
+  * - [[NumericType]] for numeric types
+  *
+  * - [[StringType]] for strings
+  *
+  * @tparam T corresponding java type.
+  */
 sealed trait IndexType[T] {
 
+  /**
+    * @return the scala type.
+    */
   def actualType: Class[T]
 
+  /**
+    * @param fieldName field name
+    * @param value field value.
+    * @return the sequence of lucene [[Field]] to be added into indexes during write operations.
+    */
   def indexField(fieldName: String, value: JSerializable): Seq[Field]
 
+  /**
+    * @param fieldName field name
+    * @param value field value.
+    * @return the sequence of lucene [[Field]] to be added into facet indexes during write operations.
+    */
   def facetField(fieldName: String, value: JSerializable): Seq[Field]
 
+  /**
+    * @return scala [[Ordering]] for the type.
+    */
   def ord: Ordering[JSerializable]
 
+  /**
+    * serialize a value of this type.
+    * @param value the value.
+    * @return the byte array.
+    */
   def serialize(value: JSerializable): Array[Byte] = value.toString.getBytes()
 
+  /**
+    * deserialize a byte array into this type.
+    * @param value the byte array to deserialize
+    * @return an instance of this type.
+    */
   def deserialize(value: Array[Byte]): T
 
+  /**
+    * case a [[Any]] into this type.
+    * @param value generic value.
+    * @return an instance of this type
+    */
   def cast(value: Any): T
 
 }
 
+/**
+  * Model for numeric types.
+  * Subclasses are:
+  *
+  * - [[BIGINT]] for 64bit int numbers.
+  *
+  * - [[INT]] for 32bit int numbers.
+  *
+  * - [[DECIMAL]] for 64 bit floating point numbers.
+  *
+  * @tparam T corresponding java type.
+  * @tparam ST corresponding scala type with [[Numeric]] context bound.
+  */
 sealed abstract class NumericType[T <: JSerializable, ST: Numeric: ClassTag] extends IndexType[T] {
   lazy val scalaNumeric = implicitly[Numeric[ST]]
+
+  /**
+    * return a [[Numeric]] to be used for arithmetic operations
+    * @return
+    */
   def numeric: Numeric[JSerializable]
 }
 
+/**
+  * Model for string type.
+  * The only subclass is [[VARCHAR]]
+  * @tparam T corresponding java type.
+  */
 sealed trait StringType[T <: JSerializable] extends IndexType[T]
 
 object IndexType {

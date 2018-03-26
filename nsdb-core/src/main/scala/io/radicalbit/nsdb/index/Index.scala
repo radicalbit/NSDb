@@ -3,9 +3,8 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
-import org.apache.lucene.index.{DirectoryReader, IndexWriter, IndexWriterConfig}
+import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
@@ -13,27 +12,59 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Trait for a generic lucene index.
+  * @tparam T the entity read and written in the index.
+  */
 trait Index[T] {
+
+  /**
+    * @return index base directory.
+    */
   def directory: BaseDirectory
 
+  /**
+    * @return index entry identifier.
+    */
   def _keyField: String
+
+  /**
+    * number of occurrences
+    */
   val _countField: String = "_count"
-  val _valueField         = "value"
+
+  val _valueField = "value"
 
   private lazy val searcherManager: SearcherManager = new SearcherManager(directory, null)
 
+  /**
+    * @return a lucene [[IndexWriter]] to be used in write operations.
+    */
   def getWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
+  /**
+    * @return a lucene [[IndexSearcher]] to be used in search operations.
+    */
   def getSearcher: IndexSearcher = searcherManager.acquire()
 
+  /**
+    * refresh index content after a write operation.
+    */
   def refresh(): Unit = searcherManager.maybeRefreshBlocking()
 
-  def release(searcher: IndexSearcher): Unit = {
-    searcherManager.maybeRefreshBlocking()
-    searcherManager.release(searcher)
-  }
-
+  /**
+    * Validate a record before write it.
+    * @param data the record to be validated.
+    * @return a sequence of lucene [[Field]] that can be safely written in the index.
+    */
   def validateRecord(data: T): Try[Seq[Field]]
+
+  /**
+    * Convert a lucene [[Document]] into an instance of T
+    * @param document the lucene document to be converted.
+    * @param fields fields that must be retrieved from the document.
+    * @return the entry retrieved.
+    */
   def toRecord(document: Document, fields: Seq[SimpleField]): T
 
   def write(fields: Set[Field])(implicit writer: IndexWriter): Try[Long] = {
@@ -42,6 +73,13 @@ trait Index[T] {
     Try(writer.addDocument(doc))
   }
 
+  /**
+    * write an entry into the index.
+    * This method MUST NOT commit the writer.
+    * @param data the entry to be written
+    * @param writer a lucene [[IndexWriter]] to handle the write operation.
+    * @return the lucene low level write operation return value.
+    */
   protected def write(data: T)(implicit writer: IndexWriter): Try[Long]
 
   def delete(data: T)(implicit writer: IndexWriter): Try[Long]
@@ -69,7 +107,6 @@ trait Index[T] {
       sort.fold(searcher.search(query, limit).scoreDocs)(sort => searcher.search(query, limit, sort).scoreDocs)
     (0 until hits.length).foreach { i =>
       val doc = searcher.doc(hits(i).doc)
-      doc.add(new IntPoint(_countField, hits.length))
       docs += doc
     }
     docs.toList
@@ -80,7 +117,6 @@ trait Index[T] {
     val d    = new Document()
     d.add(new LongPoint(_keyField, 0))
     d.add(new IntPoint(_valueField, hits))
-    d.add(new IntPoint(_countField, hits))
     Seq(d)
   }
 
