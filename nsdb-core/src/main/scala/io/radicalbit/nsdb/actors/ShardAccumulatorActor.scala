@@ -13,7 +13,8 @@ import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.lucene._
-import io.radicalbit.nsdb.index.{FacetIndex, NumericType, Schema, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.{FacetIndex, NumericType, TimeSeriesIndex}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._

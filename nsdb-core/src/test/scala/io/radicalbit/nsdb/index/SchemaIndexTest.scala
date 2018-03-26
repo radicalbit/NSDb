@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.RAMDirectory

@@ -3,9 +3,7 @@ package io.radicalbit.nsdb.commit_log
 import akka.actor.Actor
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{Condition, DeleteSQLStatement, Expression}
-import io.radicalbit.nsdb.index.Schema
-import org.apache.lucene.search.Query
+import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, Expression}
 
 import scala.util.{Failure, Success, Try}
 

@@ -4,10 +4,16 @@ import akka.actor.ActorRef
 import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
-import io.radicalbit.nsdb.index.Schema
+import io.radicalbit.nsdb.model.Schema
 
+/**
+  * common messages exchanged among all the nsdb actors.
+  */
 object MessageProtocol {
 
+  /**
+    * commands executed among nsdb actors.
+    */
   object Commands {
     case class GetNamespaces(db: String)
     case class GetMetrics(db: String, namespace: String)
@@ -40,6 +46,9 @@ object MessageProtocol {
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
   }
 
+  /**
+    * events received from nsdb actors.
+    */
   object Events {
 
     sealed trait ErrorCode

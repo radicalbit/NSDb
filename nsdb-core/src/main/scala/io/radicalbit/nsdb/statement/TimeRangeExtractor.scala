@@ -5,6 +5,9 @@ import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
 
+/**
+  * Provides a utility method to retrieve a list of [[Interval]] from a given [[Expression]]. That interval list will be used to identify shards to execute query against.
+  */
 object TimeRangeExtractor {
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {

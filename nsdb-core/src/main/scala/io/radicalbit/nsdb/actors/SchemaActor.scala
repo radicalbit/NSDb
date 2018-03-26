@@ -4,7 +4,8 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
-import io.radicalbit.nsdb.index.{Schema, SchemaIndex}
+import io.radicalbit.nsdb.index.SchemaIndex
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.index.IndexWriter

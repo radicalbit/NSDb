@@ -8,8 +8,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
-import io.radicalbit.nsdb.index.Schema
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
