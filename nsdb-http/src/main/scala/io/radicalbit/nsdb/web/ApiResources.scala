@@ -1,7 +1,5 @@
 package io.radicalbit.nsdb.web
 
-import javax.ws.rs.Path
-
 import akka.actor.ActorRef
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.server._
@@ -14,7 +12,6 @@ import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
 import org.json4s.DefaultFormats
 import spray.json._
-import io.swagger.annotations._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._

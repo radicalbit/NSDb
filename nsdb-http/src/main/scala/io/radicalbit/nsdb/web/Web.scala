@@ -27,6 +27,11 @@ trait Web extends StaticResources with WsResources with CorsSupport with SSLSupp
   implicit val dispatcher   = system.dispatcher
   implicit val timeout: Timeout
 
+  /**
+    * Nsdb cluster guardian actor, which is the parent of top level actors.
+    *
+    * @return guardian actor [[ActorRef]]
+    */
   def guardian: ActorRef
 
   authProvider match {
