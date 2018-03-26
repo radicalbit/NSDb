@@ -69,16 +69,30 @@ class ShardPerformerActor(basePath: String, db: String, namespace: String) exten
           val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
           ops.foreach {
             case WriteShardOperation(_, _, bit) =>
-              index.write(bit).map(_ => facetIndex.write(bit)(facetWriter, taxoWriter)) match {
+              index.write(bit) match {
                 case Success(_) =>
-                case Failure(t) => log.error(t, "error during write")
+                  facetIndex.write(bit)(facetWriter, taxoWriter) match {
+                    case Success(_) =>
+                    case Failure(t) =>
+                      log.error(t, "error during write on facetIndex")
+                      index.delete(bit)
+                  }
+                case Failure(t) => log.error(t, "error during write on index")
               }
-            //TODO handle errors
             case DeleteShardRecordOperation(_, _, bit) =>
-              index.delete(bit)
-              facetIndex.delete(bit)(facetWriter)
+              index.delete(bit) match {
+                case Success(_) =>
+                  facetIndex.delete(bit)(facetWriter)
+                case Failure(t) =>
+                  log.error(t, s"error during delete of Bit: $bit")
+              }
             case DeleteShardQueryOperation(_, _, q) =>
-              index.delete(q)
+              index.delete(q) match {
+                case Success(_) =>
+                  facetIndex.delete(q)(facetWriter)
+                case Failure(t) =>
+                  log.error(t, s"error during delete by query $q")
+              }
           }
           writer.flush()
           writer.close()

@@ -44,11 +44,14 @@ trait Index[T] {
 
   protected def write(data: T)(implicit writer: IndexWriter): Try[Long]
 
-  def delete(data: T)(implicit writer: IndexWriter): Unit
+  def delete(data: T)(implicit writer: IndexWriter): Try[Long]
 
-  def delete(query: Query)(implicit writer: IndexWriter): Unit = {
-    writer.deleteDocuments(query)
-    writer.forceMergeDeletes(true)
+  def delete(query: Query)(implicit writer: IndexWriter): Try[Long] = {
+    Try {
+      val result = writer.deleteDocuments(query)
+      writer.forceMergeDeletes(true)
+      result
+    }
   }
 
   def deleteAll()(implicit writer: IndexWriter): Unit = {
