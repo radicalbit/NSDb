@@ -15,8 +15,11 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
-trait Web extends StaticResources with WsResources with ApiResources with CorsSupport with SSLSupport {
-  this: NsdbSecurity =>
+/**
+  * Instantiate Nsdb Http Server exposing apis defined in [[ApiResources]]
+  * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
+  */
+trait Web extends StaticResources with WsResources with CorsSupport with SSLSupport { this: NsdbSecurity =>
 
   implicit val formats = DefaultFormats
 
@@ -24,6 +27,11 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
   implicit val dispatcher   = system.dispatcher
   implicit val timeout: Timeout
 
+  /**
+    * Nsdb cluster guardian actor, which is the parent of top level actors.
+    *
+    * @return guardian actor [[ActorRef]]
+    */
   def guardian: ActorRef
 
   authProvider match {
@@ -35,10 +43,11 @@ trait Web extends StaticResources with WsResources with ApiResources with CorsSu
               (guardian ? GetWriteCoordinator).mapTo[ActorRef]))
         .onComplete {
           case Success(Seq(publisher, readCoordinator, writeCoordinator)) =>
-            val api: Route = staticResources ~ wsResources(publisher, provider) ~ apiResources(publisher,
-                                                                                               readCoordinator,
-                                                                                               writeCoordinator,
-                                                                                               provider)
+            val api: Route = staticResources ~ wsResources(publisher, provider) ~ new ApiResources(
+              publisher,
+              readCoordinator,
+              writeCoordinator,
+              provider).apiResources
 
             val http =
               if (isSSLEnabled) {

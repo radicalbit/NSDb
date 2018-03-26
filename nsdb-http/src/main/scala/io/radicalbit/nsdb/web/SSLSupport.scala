@@ -8,6 +8,9 @@ import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext}
 import com.typesafe.config.ConfigFactory
 
+/**
+  * Trait handling SSL/TLS configuration.
+  */
 trait SSLSupport {
 
   val sslConfig = ConfigFactory
@@ -15,8 +18,18 @@ trait SSLSupport {
     .resolve()
     .withFallback(ConfigFactory.load("https.conf"))
 
+  /**
+    * Read SSL/TLS boolean configuration that enable/disable this protocol.
+    * @return boolean flag
+    */
   def isSSLEnabled = sslConfig.getBoolean("ssl.enabled")
 
+  /**
+    * Builds [[HttpsConnectionContext]] in case SSL/TLS protocol is enable.
+    * Standard configuration uses self-signed certificates.
+    * More comprehensive documentation and a certificate creation guide can be found in official documentation.
+    * @return [[HttpsConnectionContext]] with defined configuration
+    */
   def serverContext: HttpsConnectionContext = {
     val password = sslConfig.getString("ssl.http.keyManager.store.password").toCharArray
 

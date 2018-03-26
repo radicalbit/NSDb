@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.web
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
@@ -9,9 +9,10 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
-import io.radicalbit.nsdb.security.http.EmptyAuthorization
+import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.web.Formats._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
+import io.radicalbit.nsdb.web.routes.{DataApi, InsertBody}
 import org.json4s._
 import org.scalatest._
 
@@ -23,17 +24,36 @@ class FakeWriteCoordinator extends Actor {
   }
 }
 
-class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with ApiResources {
+class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
 
-  implicit val formats          = DefaultFormats
-  implicit val timeout: Timeout = 5 seconds
+  val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
+
+  val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
+  val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
+
+  val secureDataApi = new DataApi {
+    override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
+
+    override def writeCoordinator: ActorRef       = writeCoordinatorActor
+    override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout        = 5 seconds
+  }
+
+  val emptyDataApi = new DataApi {
+    override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
+
+    override def writeCoordinator: ActorRef = writeCoordinatorActor
+
+    override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout        = 5 seconds
+  }
 
   val testRoutes = Route.seal(
-    apiResources(null, null, system.actorOf(Props[FakeWriteCoordinator]), new EmptyAuthorization)
+    emptyDataApi.dataApi
   )
 
   val testSecuredRoutes = Route.seal(
-    apiResources(null, null, system.actorOf(Props[FakeWriteCoordinator]), new TestAuthProvider)
+    secureDataApi.dataApi
   )
 
   "DataApi" should "not allow get" in {
