@@ -35,11 +35,11 @@ object WriteCoordinator {
 }
 
 /**
-  * Actor that receives every write (or delete) request and coordinates them among internal data storage
-  * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator
-  * @param metricsSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the namespace schema actor
-  * @param commitLogCoordinator     [[CommitLogCoordinator]] the commit log coordinator
-  * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor
+  * Actor that receives every write (or delete) request and coordinates them among internal data storage.
+  * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
+  * @param metricsSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the namespace schema actor.
+  * @param commitLogCoordinator     [[CommitLogCoordinator]] the commit log coordinator.
+  * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
 class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        metadataCoordinator: ActorRef,
@@ -67,9 +67,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
   private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   /**
-    * perform a ask to every namespace actor subscribed
-    * @param msg the message to be sent
-    * @return the result of the broadcast
+    * Performs an ask to every namespace actor subscribed.
+    * @param msg the message to be sent.
+    * @return the result of the broadcast.
     */
   private def broadcastMessage(msg: Any) =
     Future
@@ -77,12 +77,12 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       .map(_.head)
 
   /**
-    * write the bit into commit log
-    * @param db the db to be written
-    * @param namespace the namespace to be written
-    * @param metric the metric to be written
-    * @param action the action to be written
-    * @return the result of the operation
+    * Writes the bit into commit log.
+    * @param db the db to be written.
+    * @param namespace the namespace to be written.
+    * @param metric the metric to be written.
+    * @param action the action to be written.
+    * @return the result of the operation.
     */
   private def writeCommitLog(db: String,
                              namespace: String,
@@ -103,13 +103,12 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
   }
 
   /**
-    * check if a bit has got a valid schema and, in case of success, update the metric's schema
-    * @param db the db
-    * @param namespace the namespace
-    * @param metric the namespace
-    * @param bit the bit containing the new schema
-    * @param op code executed in case of success
-    * @return
+    * Check if a bit has got a valid schema and, in case of success, updates the metric's schema.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the namespace.
+    * @param bit the bit containing the new schema.
+    * @param op code executed in case of success.
     */
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] = {
     val timestamp = System.currentTimeMillis()
@@ -131,14 +130,13 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
   }
 
   /**
-    * get the metadata location to write the bit in
-    * @param db the db
-    * @param namespace the namespace
-    * @param metric the metric
-    * @param bit the bit
-    * @param ts the timestamp of the write operation
-    * @param op code executed in case of success
-    * @return
+    * Gets the metadata location to write the bit in.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @param bit the bit.
+    * @param ts the timestamp of the write operation.
+    * @param op code executed in case of success.
     */
   def getMetadataLocation(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Location => Future[Any]): Future[Any] =
@@ -152,13 +150,12 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     }
 
   /**
-    * enqueue the bit into an internal structure. The real write is performed afterwards
-    * @param db the db
-    * @param namespace the namespace
-    * @param metric the metric
-    * @param bit the bit
-    * @param location the location to write the bit in
-    * @return
+    * Enqueues the bit into an internal structure. The real write is performed afterwards.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @param bit the bit.
+    * @param location the location to write the bit in.
     */
   def accumulateRecord(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
     namespaces.get(location.node) match {

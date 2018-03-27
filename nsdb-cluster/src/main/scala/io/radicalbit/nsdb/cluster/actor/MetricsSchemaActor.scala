@@ -12,7 +12,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import scala.collection.mutable
 
 /**
-  * Actor responsible for dispatch read and write schema operations to che proper schema actor.
+  * Actor responsible for dispatching read and write schema operations to che proper schema actor.
   * @param basePath indexes' base path.
   */
 class MetricsSchemaActor(val basePath: String) extends Actor with ActorLogging {

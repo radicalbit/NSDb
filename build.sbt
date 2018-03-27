@@ -44,7 +44,7 @@ lazy val `nsdb-http` = project
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.dontPublish: _*)
+  .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.RPC.libraries)
   .settings(
     PB.targets in Compile := Seq(
@@ -115,7 +115,7 @@ lazy val `nsdb-sql` = project
 
 lazy val `nsdb-java-api` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.dontPublish: _*)
+  .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.JavaAPI.libraries)
   .dependsOn(`nsdb-rpc`)
 
