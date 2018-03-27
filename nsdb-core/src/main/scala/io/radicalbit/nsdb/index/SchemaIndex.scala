@@ -11,6 +11,10 @@ import org.apache.lucene.store.BaseDirectory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Index for entry of class [[Schema]].
+  * @param directory index base directory.
+  */
 class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   override val _keyField: String = "_metric"
 
@@ -42,13 +46,6 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
              .toSet)
   }
 
-  def allSchemas: Seq[Schema] = {
-    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
-      case Success(docs: Seq[Schema]) => docs
-      case Failure(_)                 => Seq.empty
-    }
-  }
-
   def getSchema(metric: String): Option[Schema] = {
     Try(query(_keyField, metric, Seq.empty, 1).headOption) match {
       case Success(schemaOpt) => schemaOpt
@@ -77,16 +74,25 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 }
 
 object SchemaIndex {
-  def getCompatibleSchema(oldSchema: Schema, newSchema: Schema): Try[Schema] = {
-    val oldFields = oldSchema.fields.map(e => e.name -> e).toMap
 
-    val notCompatibleFields = newSchema.fields.collect {
+  /**
+    * Get, if exists, the union schema from 2 given schemas.
+    * Given 2 schemas, they are compatible if fields present in both of them are of the same types.
+    * The union schema is a schema with the union of the dimension sets.
+    * @param firstSchema the first schema.
+    * @param secondSchema the second schema.
+    * @return the union schema.
+    */
+  def union(firstSchema: Schema, secondSchema: Schema): Try[Schema] = {
+    val oldFields = firstSchema.fields.map(e => e.name -> e).toMap
+
+    val notCompatibleFields = secondSchema.fields.collect {
       case field if oldFields.get(field.name).isDefined && oldFields(field.name).indexType != field.indexType =>
         s"mismatch type for field ${field.name} : new type ${field.indexType} is incompatible with old type"
     }
 
     if (notCompatibleFields.nonEmpty)
       Failure(new RuntimeException(notCompatibleFields.mkString(",")))
-    else Success(Schema(newSchema.metric, oldSchema.fields ++ newSchema.fields))
+    else Success(Schema(secondSchema.metric, firstSchema.fields ++ secondSchema.fields))
   }
 }

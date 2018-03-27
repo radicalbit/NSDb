@@ -61,7 +61,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
     /**
       * before to start the actor, its state is initialized by retrieving schemas from the index.
       */
-    schemaIndex.allSchemas.foreach(s => schemas += (s.metric -> s))
+    schemaIndex.all.foreach(s => schemas += (s.metric -> s))
 
     /**
       * schedules write to index operations.
@@ -122,7 +122,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
     if (oldSchema == newSchema)
       sender ! SchemaUpdated(db, namespace, metric, newSchema)
     else
-      SchemaIndex.getCompatibleSchema(oldSchema, newSchema) match {
+      SchemaIndex.union(oldSchema, newSchema) match {
         case Success(schema) =>
           sender ! SchemaUpdated(db, namespace, metric, newSchema)
           schemas += (schema.metric -> schema)

@@ -9,6 +9,9 @@ import org.apache.lucene.index.IndexWriter
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Generic Time series index based on entries of class [[Bit]].
+  */
 abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
 
   override def _keyField: String = "timestamp"

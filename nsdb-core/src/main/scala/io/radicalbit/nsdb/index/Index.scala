@@ -82,8 +82,20 @@ trait Index[T] {
     */
   protected def write(data: T)(implicit writer: IndexWriter): Try[Long]
 
+  /**
+    * delete an entry from the index.
+    * @param data the entry to be deleted.
+    * @param writer a lucene [[IndexWriter]] to handle the write operation.
+    * @return the lucene low level delete operation return value.
+    */
   def delete(data: T)(implicit writer: IndexWriter): Try[Long]
 
+  /**
+    * delete entries that fulfill the given query.
+    * @param query the query to select the entries to be deleted.
+    * @param writer a lucene [[IndexWriter]] to handle the write operation.
+    * @return the lucene low level delete operation return value.
+    */
   def delete(query: Query)(implicit writer: IndexWriter): Try[Long] = {
     Try {
       val result = writer.deleteDocuments(query)
@@ -92,6 +104,11 @@ trait Index[T] {
     }
   }
 
+  /**
+    * delete all entries from the index.
+    * @param writer a lucene [[IndexWriter]] to handle the write operation.
+    * @return the lucene low level delete operation return value.
+    */
   def deleteAll()(implicit writer: IndexWriter): Try[Long] = {
     Try {
       val result = writer.deleteAll()
@@ -107,6 +124,7 @@ trait Index[T] {
       sort.fold(searcher.search(query, limit).scoreDocs)(sort => searcher.search(query, limit, sort).scoreDocs)
     (0 until hits.length).foreach { i =>
       val doc = searcher.doc(hits(i).doc)
+      doc.add(new IntPoint(_countField, hits.length))
       docs += doc
     }
     docs.toList
@@ -117,6 +135,7 @@ trait Index[T] {
     val d    = new Document()
     d.add(new LongPoint(_keyField, 0))
     d.add(new IntPoint(_valueField, hits))
+    d.add(new IntPoint(_countField, hits))
     Seq(d)
   }
 
@@ -149,6 +168,14 @@ trait Index[T] {
     }
   }
 
+  /**
+    * execute a simple [[Query]].
+    * @param query the [[Query]] to be executed.
+    * @param fields sequence of fields that must be included in the result.
+    * @param limit results limit.
+    * @param sort optional lucene [[Sort]].
+    * @return the query results as a list of entries.
+    */
   def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {
     val raws = if (fields.nonEmpty && fields.forall(_.count)) {
       executeCountQuery(this.getSearcher, query, limit)
@@ -157,6 +184,14 @@ trait Index[T] {
     raws.map(d => toRecord(d, fields))
   }
 
+  /**
+    * execute an aggregated query.
+    * @param query the [[Query]] to be executed.
+    * @param collector the subclass of [[AllGroupsAggregationCollector]]
+    * @param limit results limit.
+    * @param sort optional lucene [[Sort]].
+    * @return the query results as a list of entries.
+    */
   def query(query: Query,
             collector: AllGroupsAggregationCollector[_, _],
             limit: Option[Int],
@@ -164,13 +199,18 @@ trait Index[T] {
     rawQuery(query, collector, limit, sort).map(d => toRecord(d, Seq.empty))
   }
 
-  def query(field: String,
-            queryString: String,
-            fields: Seq[SimpleField],
-            limit: Int,
-            sort: Option[Sort] = None): Seq[T] = {
+  /**
+    * Returns all the entries whiere `field` = `value`
+    * @param field the field name to use to filter data.
+    * @param value the value to check the field with.
+    * @param fields sequence of fields that must be included in the result.
+    * @param limit results limit.
+    * @param sort optional lucene [[Sort]].
+    * @return
+    */
+  def query(field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None): Seq[T] = {
     val parser = new QueryParser(field, new StandardAnalyzer())
-    val query  = parser.parse(queryString)
+    val query  = parser.parse(value)
 
     val raws = if (fields.nonEmpty && fields.forall(_.count)) {
       executeCountQuery(this.getSearcher, query, limit)
@@ -179,6 +219,10 @@ trait Index[T] {
     raws.map(d => toRecord(d, fields))
   }
 
+  /**
+    * get all the entries.
+    * @return all the entries.
+    */
   def all: Seq[T] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[T]) => docs

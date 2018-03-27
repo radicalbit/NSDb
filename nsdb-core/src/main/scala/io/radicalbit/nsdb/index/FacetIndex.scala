@@ -13,10 +13,21 @@ import org.apache.lucene.store.BaseDirectory
 
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Index to store shard facets used for count operations.
+  * @param directory facet index base directory
+  * @param taxoDirectory taxonomy base directory
+  */
 class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory) extends AbstractTimeSeriesIndex {
 
+  /**
+    * @return the [[org.apache.lucene.facet.taxonomy.TaxonomyWriter]]
+    */
   def getTaxoWriter = new DirectoryTaxonomyWriter(taxoDirectory)
 
+  /**
+    * @return the [[org.apache.lucene.facet.taxonomy.TaxonomyReader]]
+    */
   def getReader = new DirectoryTaxonomyReader(taxoDirectory)
 
   override def validateRecord(bit: Bit): Try[Seq[Field]] =
@@ -64,6 +75,15 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     Option(facetsFolder.getTopChildren(actualLimit, groupField))
   }
 
+  /**
+    * Get results from a count query.
+    * @param query query to be executed against the facet index.
+    * @param groupField field in the group by clause.
+    * @param sort optional lucene [[Sort]]
+    * @param limit results limit.
+    * @param indexType the group field [[IndexType]].
+    * @return query results.
+    */
   def getCount(query: Query,
                groupField: String,
                sort: Option[Sort],
@@ -77,6 +97,14 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
         .toSeq)
   }
 
+  /**
+    * Get results from a distinct query.
+    * @param query query to be executed against the facet index.
+    * @param field distinct field.
+    * @param sort optional lucene [[Sort]]
+    * @param limit results limit.
+    * @return query results.
+    */
   def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
     val facetResult = getFacetResult(query, field, sort, Some(limit))
     facetResult.fold(Seq.empty[Bit])(_.labelValues.map(lv => Bit(0, 0, Map(field -> lv.label))).toSeq)
