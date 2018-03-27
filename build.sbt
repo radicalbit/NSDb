@@ -27,7 +27,7 @@ lazy val root = project
 
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.dontPublish: _*)
+  .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Common.libraries)
 
 lazy val `nsdb-core` = project
@@ -109,7 +109,7 @@ lazy val `nsdb-security` = project
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
-  .settings(PublishSettings.dontPublish: _*)
+  .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
   .dependsOn(`nsdb-common`)
 

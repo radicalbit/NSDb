@@ -1,5 +1,8 @@
 package io.radicalbit.nsdb.common.statement
 
+/**
+  * Trait for commands.
+  */
 sealed trait CommandStatement extends NSDBStatement
 
 /**
