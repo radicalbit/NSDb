@@ -4,6 +4,10 @@ import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+/**
+  * Creates Nsdb configuration looking up the `ConfDir` folder or into the classpath.
+  * The retrieved configuration is properly adjusted in case ssl is enabled or not
+  */
 trait NsdbConfig {
   private lazy val initialConfig: Config = ConfigFactory
     .parseFile(Paths.get(System.getProperty("confDir"), "cluster.conf").toFile)

@@ -3,8 +3,8 @@ package io.radicalbit.nsdb.cluster.coordinator
 import akka.actor.{Actor, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
@@ -40,7 +40,7 @@ class WriteCoordinatorSpec
   implicit val timeout = Timeout(3 seconds)
 
   override def beforeAll {
-    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "node1"), 3 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(metricsDataActor, "node1"), 3 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 3 seconds)
     Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 3 seconds)
   }

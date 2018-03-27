@@ -8,9 +8,9 @@ import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.actor.{NamespaceDataActor, NamespaceSchemaActor}
+import io.radicalbit.nsdb.cluster.actor.{MetricsDataActor, MetricsSchemaActor}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
@@ -74,8 +74,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
-  lazy val namespaceSchemaActor = TestActorRef[NamespaceSchemaActor](NamespaceSchemaActor.props(basePath))
-  lazy val namespaceDataActor   = TestActorRef[NamespaceDataActor](NamespaceDataActor.props(basePath))
+  lazy val namespaceSchemaActor = TestActorRef[MetricsSchemaActor](MetricsSchemaActor.props(basePath))
+  lazy val metricsDataActor     = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath))
   lazy val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
@@ -154,7 +154,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         probe.expectMsgType[NamespaceDeleted]
 
         namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
-        namespaceDataActor.underlyingActor.childActors.keys.size shouldBe 0
+        metricsDataActor.underlyingActor.childActors.keys.size shouldBe 0
       }
     }
 
@@ -208,7 +208,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
-      probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
+      probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
       awaitAssert {
         probe.expectMsgType[CountGot].count shouldBe 2
       }
@@ -220,7 +220,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       expectNoMessage(interval)
 
-      probe.send(namespaceDataActor, GetCount(db, namespace, "testMetric"))
+      probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
       awaitAssert {
         probe.expectMsgType[CountGot].count shouldBe 0
       }

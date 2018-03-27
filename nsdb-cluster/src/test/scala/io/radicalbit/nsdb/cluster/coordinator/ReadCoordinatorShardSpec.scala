@@ -6,8 +6,8 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.SchemaActor
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -38,46 +38,42 @@ class ReadCoordinatorShardSpec
   override val db                   = "db"
   override val namespace            = "registry"
   val schemaActor                   = system.actorOf(SchemaActor.props(basePath, db, namespace))
-  val namespaceDataActor            = system.actorOf(NamespaceDataActor.props(basePath))
+  val metricsDataActor              = system.actorOf(MetricsDataActor.props(basePath))
   override val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaActor)
 
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "node1"), 3 seconds)
+    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(metricsDataActor, "node1"), 3 seconds)
 
     val location1 = Location(_: String, "node1", 0, 5)
     val location2 = Location(_: String, "node1", 6, 10)
 
     //long metric
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
 
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
                  3 seconds)
 
     LongMetric.recordsShard1.foreach(r =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location1(LongMetric.name)), 3 seconds))
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(LongMetric.name)), 3 seconds))
     LongMetric.recordsShard2.foreach(r =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location2(LongMetric.name)), 3 seconds))
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(LongMetric.name)), 3 seconds))
 
     //double metric
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
 
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
                  3 seconds)
 
-    DoubleMetric.recordsShard1.foreach(
-      r =>
-        Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location1(DoubleMetric.name)),
-                     3 seconds))
-    DoubleMetric.recordsShard2.foreach(
-      r =>
-        Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)),
-                     3 seconds))
+    DoubleMetric.recordsShard1.foreach(r =>
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(DoubleMetric.name)), 3 seconds))
+    DoubleMetric.recordsShard2.foreach(r =>
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)), 3 seconds))
 
     //aggregation metric
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
 
     Await.result(
       schemaActor ? UpdateSchemaFromRecord(db, namespace, AggregationMetric.name, AggregationMetric.testRecords.head),
@@ -85,11 +81,11 @@ class ReadCoordinatorShardSpec
 
     AggregationMetric.recordsShard1.foreach(
       r =>
-        Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
+        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
                      3 seconds))
     AggregationMetric.recordsShard2.foreach(
       r =>
-        Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
+        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
                      3 seconds))
 
     expectNoMessage(interval)

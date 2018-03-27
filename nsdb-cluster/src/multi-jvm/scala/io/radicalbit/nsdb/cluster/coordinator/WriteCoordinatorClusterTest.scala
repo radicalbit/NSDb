@@ -9,8 +9,8 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.GetLocations
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped

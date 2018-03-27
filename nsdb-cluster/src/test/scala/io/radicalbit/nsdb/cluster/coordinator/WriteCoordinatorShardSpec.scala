@@ -35,7 +35,7 @@ class WriteCoordinatorShardSpec
   implicit val timeout = Timeout(3 seconds)
 
   override def beforeAll: Unit = {
-    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "node1"), 3 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeNamespaceDataActor(metricsDataActor, "node1"), 3 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 3 seconds)
     Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 3 seconds)
   }

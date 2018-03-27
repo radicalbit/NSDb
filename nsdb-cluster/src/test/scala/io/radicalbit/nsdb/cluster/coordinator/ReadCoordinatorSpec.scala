@@ -5,8 +5,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
@@ -28,7 +28,7 @@ class ReadCoordinatorSpec
   override val db          = "db"
   override val namespace   = "registry"
   val schemaActor          = system.actorOf(SchemaActor.props(basePath, db, namespace))
-  val namespaceDataActor   = system.actorOf(NamespaceDataActor.props(basePath))
+  val metricsDataActor     = system.actorOf(MetricsDataActor.props(basePath))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaActor)
 
   override def beforeAll(): Unit = {
@@ -37,36 +37,35 @@ class ReadCoordinatorSpec
 
     val location = Location(_: String, "testNode", 0, 0)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(namespaceDataActor, "testNode"), 3 seconds)
+    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(metricsDataActor, "testNode"), 3 seconds)
 
     //long metric
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
                  3 seconds)
 
     LongMetric.testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, record, location(LongMetric.name)),
-                   3 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(LongMetric.name)), 3 seconds)
     }
 
     //double metric
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
                  3 seconds)
 
     DoubleMetric.testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, record, location(DoubleMetric.name)),
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(DoubleMetric.name)),
                    3 seconds)
     }
 
     //aggregation metric
-    Await.result(namespaceDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
     Await.result(
       schemaActor ? UpdateSchemaFromRecord(db, namespace, AggregationMetric.name, AggregationMetric.testRecords.head),
       3 seconds)
 
     AggregationMetric.testRecords.foreach { record =>
-      Await.result(namespaceDataActor ? AddRecordToLocation(db, namespace, record, location(AggregationMetric.name)),
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(AggregationMetric.name)),
                    3 seconds)
     }
 

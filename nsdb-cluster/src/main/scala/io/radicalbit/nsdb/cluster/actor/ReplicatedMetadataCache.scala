@@ -11,10 +11,26 @@ import io.radicalbit.nsdb.cluster.index.Location
 
 import scala.concurrent.duration._
 
-case class LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
-case class MetricKey(db: String, namespace: String, metric: String)
-
 object ReplicatedMetadataCache {
+
+  /**
+    * Cache key for a shard location
+    * @param db location db.
+    * @param namespace location namespace.
+    * @param metric location metric.
+    * @param from location lower bound.
+    * @param to location upperbound.
+    */
+  case class LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
+
+  /**
+    * Cache key for a metric.
+    * @param db metric db.
+    * @param namespace metric name.
+    * @param metric metric name.
+    */
+  case class MetricKey(db: String, namespace: String, metric: String)
+
   private final case class Request(key: LocationKey, replyTo: ActorRef)
   private final case class MetricRequest(key: MetricKey, replyTo: ActorRef)
 
@@ -26,6 +42,9 @@ object ReplicatedMetadataCache {
   final case class Evict(key: LocationKey)
 }
 
+/**
+  * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
+  */
 class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   import ReplicatedMetadataCache._
@@ -35,11 +54,21 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   val replicator: ActorRef = DistributedData(context.system).replicator
 
-  def locationDataKey(entryKey: LocationKey): LWWMapKey[LocationKey, Location] =
-    LWWMapKey("location-cache-" + math.abs(entryKey.hashCode) % 100)
+  /**
+    * convert a [[LocationKey]] into an internal cache key
+    * @param locKey the location key to convert
+    * @return [[LWWMapKey]] resulted from locKey hashCode
+    */
+  private def locationDataKey(locKey: LocationKey): LWWMapKey[LocationKey, Location] =
+    LWWMapKey("location-cache-" + math.abs(locKey.hashCode) % 100)
 
-  def metricDataKey(entryKey: MetricKey): LWWMapKey[MetricKey, Seq[Location]] =
-    LWWMapKey("metric-cache-" + math.abs(entryKey.hashCode) % 100)
+  /**
+    * convert a [[MetricKey]] into an internal cache key
+    * @param metricKey the metric key to convert
+    * @return [[LWWMapKey]] resulted from metricKey hashCode
+    */
+  private def metricDataKey(metricKey: MetricKey): LWWMapKey[MetricKey, Seq[Location]] =
+    LWWMapKey("metric-cache-" + math.abs(metricKey.hashCode) % 100)
 
   private val writeDuration = 5.seconds
 

@@ -6,13 +6,13 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.index.Location
-import io.radicalbit.nsdb.cluster.actor.NamespaceDataActor.{
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
@@ -34,9 +34,16 @@ object WriteCoordinator {
 
 }
 
+/**
+  * Actor that receives every write (or delete) request and coordinates them among internal data storage.
+  * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
+  * @param metricsSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the namespace schema actor.
+  * @param commitLogCoordinator     [[CommitLogCoordinator]] the commit log coordinator.
+  * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
+  */
 class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        metadataCoordinator: ActorRef,
-                       namespaceSchemaActor: ActorRef,
+                       metricsSchemaActor: ActorRef,
                        publisherActor: ActorRef)
     extends Actor
     with ActorLogging
@@ -59,16 +66,29 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
 
+  /**
+    * Performs an ask to every namespace actor subscribed.
+    * @param msg the message to be sent.
+    * @return the result of the broadcast.
+    */
   private def broadcastMessage(msg: Any) =
     Future
       .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
 
-  private def commitLogFuture(db: String,
-                              namespace: String,
-                              ts: Long,
-                              metric: String,
-                              action: CommitLoggerAction): Future[CommitLogResponse] = {
+  /**
+    * Writes the bit into commit log.
+    * @param db the db to be written.
+    * @param namespace the namespace to be written.
+    * @param metric the metric to be written.
+    * @param action the action to be written.
+    * @return the result of the operation.
+    */
+  private def writeCommitLog(db: String,
+                             namespace: String,
+                             ts: Long,
+                             metric: String,
+                             action: CommitLoggerAction): Future[CommitLogResponse] = {
     if (commitLogEnabled && commitLogCoordinator.isDefined)
       (commitLogCoordinator.get ? WriteToCommitLog(db = db,
                                                    namespace = namespace,
@@ -82,16 +102,24 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     } else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
   }
 
-  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(f: Schema => Future[Any]): Future[Any] = {
+  /**
+    * Check if a bit has got a valid schema and, in case of success, updates the metric's schema.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the namespace.
+    * @param bit the bit containing the new schema.
+    * @param op code executed in case of success.
+    */
+  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] = {
     val timestamp = System.currentTimeMillis()
-    (namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
+    (metricsSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
           log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
-          f(schema)
+          op(schema)
         case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          commitLogFuture(db, namespace, timestamp, metric, RejectAction(bit)).map {
+          writeCommitLog(db, namespace, timestamp, metric, RejectAction(bit)).map {
             case WriteToCommitLogSucceeded(_, _, _, _) =>
               RecordRejected(db, namespace, metric, bit, errs)
             case WriteToCommitLogFailed(_, _, _, _, reason) =>
@@ -101,17 +129,34 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       }
   }
 
+  /**
+    * Gets the metadata location to write the bit in.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @param bit the bit.
+    * @param ts the timestamp of the write operation.
+    * @param op code executed in case of success.
+    */
   def getMetadataLocation(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
-      f: Location => Future[Any]): Future[Any] =
+      op: Location => Future[Any]): Future[Any] =
     (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ts)).flatMap {
       case LocationGot(_, _, _, Some(loc)) =>
         log.debug(s"received location for metric $metric, $loc")
-        f(loc)
+        op(loc)
       case _ =>
         log.error(s"no location found for bit $bit")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
     }
 
+  /**
+    * Enqueues the bit into an internal structure. The real write is performed afterwards.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @param bit the bit.
+    * @param location the location to write the bit in.
+    */
   def accumulateRecord(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
     namespaces.get(location.node) match {
       case Some(actor) =>
@@ -135,7 +180,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       updateSchema(db, namespace, metric, bit) { schema =>
-        commitLogFuture(db, namespace, bit.timestamp, metric, InsertAction(bit))
+        writeCommitLog(db, namespace, bit.timestamp, metric, InsertAction(bit))
           .flatMap {
             case WriteToCommitLogSucceeded(_, _, _, _) =>
               publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
@@ -151,26 +196,26 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      commitLogFuture(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
+      writeCommitLog(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (namespaces.isEmpty) {
-              (namespaceSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace))
+              (metricsSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace))
             } else
-              (namespaceSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
+              (metricsSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
           case WriteToCommitLogFailed(_, _, _, _, reason) =>
             log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
             context.system.terminate()
         }
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement))
+      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement))
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (namespaces.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
             else
-              (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+              (metricsSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
                 .flatMap {
                   case SchemaGot(_, _, _, Some(schema)) =>
                     (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
@@ -195,13 +240,13 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      commitLogFuture(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
+      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (namespaces.isEmpty)
               Future(MetricDropped(db, namespace, metric))
             else {
-              (namespaceSchemaActor ? DeleteSchema(db, namespace, metric))
+              (metricsSchemaActor ? DeleteSchema(db, namespace, metric))
                 .mapTo[SchemaDeleted]
                 .flatMap(_ => broadcastMessage(msg))
             }

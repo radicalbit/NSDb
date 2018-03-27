@@ -34,6 +34,12 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+/**
+  * Concrete implementation of Nsdb's Grpc endpoint
+  * @param readCoordinator the read coordinator actor
+  * @param writeCoordinator the write coordinator actor
+  * @param system the global actor system
+  */
 class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implicit system: ActorSystem)
     extends GRPCServer {
 
@@ -61,11 +67,17 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   log.info("GrpcEndpoint started on port {}", port)
 
+  /**
+    * Concrete implementation of the health check Grpc service
+    */
   protected[this] object GrpcEndpointServiceHealth extends Health {
     override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
       Future.successful(HealthCheckResponse(ServingStatus.SERVING))
   }
 
+  /**
+    * Concrete implementation of the command Grpc service
+    */
   protected[this] object GrpcEndpointServiceCommand extends NSDBServiceCommand {
     override def showMetrics(
         request: ShowMetrics
@@ -121,6 +133,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     }
   }
 
+  /**
+    * Concrete implementation of the Sql Grpc service
+    */
   protected[this] object GrpcEndpointServiceSQL extends NSDBServiceSQL {
 
     override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {

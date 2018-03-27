@@ -5,13 +5,12 @@ import java.util.concurrent.TimeoutException
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, ActorLogging, OneForOneStrategy, Props, SupervisorStrategy}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.cluster.coordinator.{CommitLogCoordinator, ReadCoordinator, WriteCoordinator}
+import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
-object DatabaseActorsGuardian {
-  def props = Props(new DatabaseActorsGuardian)
-}
-
+/**
+  * Actor that creates all the global singleton actors (e.g. coordinators)
+  */
 class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
@@ -29,7 +28,7 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   private val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
 
-  private val namespaceSchemaActor = context.actorOf(NamespaceSchemaActor.props(indexBasePath), "schema-actor")
+  private val metricsSchemaActor = context.actorOf(MetricsSchemaActor.props(indexBasePath), "schema-actor")
 
   private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
 
@@ -37,17 +36,17 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
     context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
   private val readCoordinator =
-    context.actorOf(ReadCoordinator.props(metadataCoordinator, namespaceSchemaActor), "read-coordinator")
+    context.actorOf(ReadCoordinator.props(metadataCoordinator, metricsSchemaActor), "read-coordinator")
   private val publisherActor =
     context.actorOf(PublisherActor.props(readCoordinator), "publisher-actor")
   private val writeCoordinator =
     if (writeToCommitLog) {
       val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
       context.actorOf(
-        WriteCoordinator.props(Some(commitLogger), metadataCoordinator, namespaceSchemaActor, publisherActor),
+        WriteCoordinator.props(Some(commitLogger), metadataCoordinator, metricsSchemaActor, publisherActor),
         "write-coordinator")
     } else
-      context.actorOf(WriteCoordinator.props(None, metadataCoordinator, namespaceSchemaActor, publisherActor),
+      context.actorOf(WriteCoordinator.props(None, metadataCoordinator, metricsSchemaActor, publisherActor),
                       "write-coordinator")
 
   context.actorOf(

@@ -16,6 +16,11 @@ import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import scala.collection.mutable
 import scala.concurrent.Future
 
+/**
+  * Actor that receives and handles every read request.
+  * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
+  * @param namespaceSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the metrics schema actor.
+  */
 class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
     extends Actor
     with ActorLogging

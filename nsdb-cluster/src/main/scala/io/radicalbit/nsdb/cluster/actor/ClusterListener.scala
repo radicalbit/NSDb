@@ -12,6 +12,12 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeNamespaceDa
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
+/**
+  * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
+  * @param writeCoordinator the global writeCoordinator
+  * @param readCoordinator the global readCoordinator
+  * @param metadataCoordinator the global metadataCoordinator
+  */
 class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)
     extends Actor
     with ActorLogging {
@@ -51,11 +57,11 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
       mediator ! Subscribe("metadata", metadataActor)
 
       log.info(s"subscribing data actor for node $nameNode")
-      val namespaceActor = context.actorOf(
-        NamespaceDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
+      val metricsDataActor = context.actorOf(
+        MetricsDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
         s"namespace-data-actor_$nameNode")
-      writeCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
-      readCoordinator ! SubscribeNamespaceDataActor(namespaceActor, nameNode)
+      writeCoordinator ! SubscribeNamespaceDataActor(metricsDataActor, nameNode)
+      readCoordinator ! SubscribeNamespaceDataActor(metricsDataActor, nameNode)
 
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)

@@ -4,8 +4,8 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.commands._
-import io.radicalbit.nsdb.cluster.actor.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.index.MetadataIndex
 import org.apache.lucene.index.IndexWriter
@@ -13,7 +13,12 @@ import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 
-class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Actor with ActorLogging {
+/**
+  * Actor responsible of storing metric's locations into a persistent index.
+  * A [[MetadataActor]] must be created for each node of the cluster.
+  * @param basePath index base path.
+  */
+class MetadataActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val metadataIndexes: mutable.Map[(String, String), MetadataIndex] = mutable.Map.empty
 
@@ -73,5 +78,5 @@ class MetadataActor(val basePath: String, val coordinator: ActorRef) extends Act
 
 object MetadataActor {
   def props(basePath: String, coordinator: ActorRef): Props =
-    Props(new MetadataActor(basePath, coordinator))
+    Props(new MetadataActor(basePath))
 }
