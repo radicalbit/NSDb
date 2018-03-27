@@ -19,11 +19,11 @@ object NSDB {
   type DimensionAPI = (String, Dimension)
 
   /**
-    * connect to a Nsdb instance
-    * @param host instance host
-    * @param port instance port
-    * @param executionContextExecutor implicit execution context
-    * @return a Future of a nsdb connection
+    * Connect to a Nsdb instance.
+    * @param host instance host.
+    * @param port instance port.
+    * @param executionContextExecutor implicit execution context.
+    * @return a Future of a nsdb connection.
     */
   def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
     val connection = new NSDB(host = host, port = port)
@@ -57,10 +57,11 @@ object NSDB {
   * @param port Nsdb port
   * @param executionContextExecutor implicit execution context to handle asynchronous methods
   */
-//TODO see if it make sense to rename this into something like NsdbConnection
 case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
 
-  // the inner Grpc client
+  /**
+    * the inner Grpc client
+     */
   private val client = new GRPCClient(host = host, port = port)
 
   /**
@@ -71,14 +72,14 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   def db(name: String): Db = Db(name)
 
   /**
-    * check if a connection is healthy
+    * Check if a connection is healthy.
     */
   def check: Future[HealthCheckResponse] = client.checkConnection()
 
   /**
-    * write a bit into Nsdb using the current openend connection
-    * @param bit the bit to be inserted
-    * @return a Future containing the result of the operation. See [[RPCInsertResult]]
+    * Write a bit into Nsdb using the current openend connection.
+    * @param bit the bit to be inserted.
+    * @return a Future containing the result of the operation. See [[RPCInsertResult]].
     */
   def write(bit: Bit): Future[RPCInsertResult] =
     client.write(
@@ -92,18 +93,18 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
       ))
 
   /**
-    * write a list of bits into NSdb using the current openend connection
-    * @param bs the list of bits to be inserted
-    * @return a Future containing the result of the operation. See [[RPCInsertResult]]
+    * Write a list of bits into NSdb using the current openend connection.
+    * @param bs the list of bits to be inserted.
+    * @return a Future containing the result of the operation. See [[RPCInsertResult]].
     */
   // FIXME: should we implement a bulk feature ?
   def write(bs: List[Bit]): Future[List[RPCInsertResult]] =
     Future.sequence(bs.map(x => write(x)))
 
   /**
-    * execute a [[SQLStatement]] using the current openend connection
-    * @param sqlStatement the [[SQLStatement]] to be executed
-    * @return a Future of the result of the operation. See [[SQLStatementResponse]]
+    * Execute a [[SQLStatement]] using the current openend connection.
+    * @param sqlStatement the [[SQLStatement]] to be executed.
+    * @return a Future of the result of the operation. See [[SQLStatementResponse]].
     */
   def execute(sqlStatement: SQLStatement): Future[SQLStatementResponse] = {
     val sqlStatementRequest =
@@ -114,43 +115,43 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   }
 
   /**
-    * close the connection. Here any allocated resources must be released
+    * Close the connection. Here any allocated resources must be released.
     */
   def close(): Unit = {}
 }
 
 /**
-  * Auxiliary case class used to define the Db for the builder
-  * @param name the db name
+  * Auxiliary case class used to define the Db for the builder.
+  * @param name db name.
   */
 case class Db(name: String) {
 
   /**
-    * define the namespace for the builder
-    * @param namespace namespace name
-    * @return auxiliary namespace instance
+    * Define the namespace for the builder.
+    * @param namespace namespace name.
+    * @return auxiliary namespace instance.
     */
   def namespace(namespace: String): Namespace = Namespace(name, namespace)
 
 }
 
 /**
-  * Auxiliary case class used to define the Namespace for the Bit builder
-  * @param name the namespace name
+  * Auxiliary case class used to define the Namespace for the Bit builder.
+  * @param name the namespace name.
   */
 case class Namespace(db: String, name: String) {
 
   /**
-    * builds the bit to be inserted
-    * @param bit metric name
-    * @return a bit with empty dimensions and value
+    * Builds the bit to be inserted.
+    * @param bit metric name.
+    * @return a bit with empty dimensions and value.
     */
   def bit(bit: String): Bit = Bit(db = db, namespace = name, metric = bit)
 
   /**
-    * builds the query to be executed
-    * @param queryString raw query
-    * @return auxiliary [[SQLStatement]] case class
+    * Builds the query to be executed.
+    * @param queryString raw query.
+    * @return auxiliary [[SQLStatement]] case class.
     */
   def query(queryString: String) = SQLStatement(db = db, namespace = name, sQLStatement = queryString)
 
@@ -159,13 +160,13 @@ case class Namespace(db: String, name: String) {
 case class SQLStatement(db: String, namespace: String, sQLStatement: String)
 
 /**
-  * auxiliary case class useful to define a bit to be inserted
-  * @param db the db
-  * @param namespace the namespace
-  * @param metric the metric
-  * @param ts bit timestamp
-  * @param value bit value
-  * @param dimensions bit dimsneions list
+  * Auxiliary case class useful to define a bit to be inserted.
+  * @param db the db.
+  * @param namespace the namespace.
+  * @param metric the metric.
+  * @param ts bit timestamp.
+  * @param value bit value.
+  * @param dimensions bit dimensions list.
   */
 case class Bit protected (db: String,
                           namespace: String,
@@ -175,34 +176,34 @@ case class Bit protected (db: String,
                           dimensions: List[DimensionAPI] = List.empty[DimensionAPI]) {
 
   /**
-    * adds a Long value to the bit
-    * @param v the Long value
-    * @return a new instance with `v` as the value
+    * Adds a Long value to the bit.
+    * @param v the Long value.
+    * @return a new instance with `v` as the value.
     */
   def value(v: Long): Bit = copy(value = RPCInsert.Value.LongValue(v))
 
   /**
-    * adds a Int value to the bit
-    * @param v the Int value
-    * @return a new instance with `v` as the value
+    * Adds a Int value to the bit.
+    * @param v the Int value.
+    * @return a new instance with `v` as the value.
     */
   def value(v: Int): Bit = copy(value = RPCInsert.Value.LongValue(v))
 
   /**
-    * adds a Double value to the bit
-    * @param v the Double value
-    * @return a new instance with `v` as the value
+    * Adds a Double value to the bit.
+    * @param v the Double value.
+    * @return a new instance with `v` as the value.
     */
   def value(v: Double): Bit = copy(value = RPCInsert.Value.DecimalValue(v))
 
   /**
-    * adds a [[java.math.BigDecimal]] value to the bit
-    * @param v the BigDecimal value
-    * @return a new instance with `v` as the value
+    * Adds a [[java.math.BigDecimal]] value to the bit.
+    * @param v the BigDecimal value.
+    * @return a new instance with `v` as the value.
     */
   def value(v: java.math.BigDecimal): Bit = if (v.scale() > 0) value(v.doubleValue()) else value(v.longValue())
 
-  @deprecated("It does make sense. Value must be always defined in a Bit", "0.1.4")
+  @deprecated("It does not make sense. Value must be always defined in a Bit", "0.1.4")
   def value[T](v: Option[T]): Bit = v match {
     case Some(v: Long)                 => value(v)
     case Some(v: Int)                  => value(v)
@@ -212,46 +213,46 @@ case class Bit protected (db: String,
   }
 
   /**
-    * adds a Long dimension to the bit
-    * @param k the dimension name
-    * @param d the Long dimension value
-    * @return a new instance with `(k -> d)` as a dimension
+    * Adds a Long dimension to the bit.
+    * @param k the dimension name.
+    * @param d the Long dimension value.
+    * @return a new instance with `(k -> d)` as a dimension.
     */
   def dimension(k: String, d: Long): Bit =
     copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.LongValue(d))))
 
   /**
-    * adds a Int dimension to the bit
-    * @param k the dimension name
-    * @param d the Int dimension value
-    * @return a new instance with `(k -> d)` as a dimension
+    * Adds a Int dimension to the bit.
+    * @param k the dimension name.
+    * @param d the Int dimension value.
+    * @return a new instance with `(k -> d)` as a dimension.
     */
   def dimension(k: String, d: Int): Bit =
     copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.LongValue(d.longValue()))))
 
   /**
-    * adds a Double dimension to the bit
-    * @param k the dimension name
-    * @param d the Double dimension value
-    * @return a new instance with `(k -> d)` as a dimension
+    * Adds a Double dimension to the bit.
+    * @param k the dimension name.
+    * @param d the Double dimension value.
+    * @return a new instance with `(k -> d)` as a dimension.
     */
   def dimension(k: String, d: Double): Bit =
     copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.DecimalValue(d))))
 
   /**
-    * adds a String dimension to the bit
-    * @param k the dimension name
-    * @param d the String dimension value
-    * @return a new instance with `(k -> d)` as a dimension
+    * Adds a String dimension to the bit.
+    * @param k the dimension name.
+    * @param d the String dimension value.
+    * @return a new instance with `(k -> d)` as a dimension.
     */
   def dimension(k: String, d: String): Bit =
     copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.StringValue(d))))
 
   /**
-    * adds a [[java.math.BigDecimal]] dimension to the bit
-    * @param k the dimension name
-    * @param d the [[java.math.BigDecimal]] dimension value
-    * @return a new instance with `(k -> d)` as a dimension
+    * Adds a [[java.math.BigDecimal]] dimension to the bit.
+    * @param k the dimension name.
+    * @param d the [[java.math.BigDecimal]] dimension value.
+    * @return a new instance with `(k -> d)` as a dimension.
     */
   def dimension(k: String, d: java.math.BigDecimal): Bit =
     if (d.scale() > 0) dimension(k, d.doubleValue()) else dimension(k, d.longValue())
@@ -271,9 +272,9 @@ case class Bit protected (db: String,
     }
 
   /**
-    * adds a Long timestamp to the bit
-    * @param v the timestamp
-    * @return a new instance with `v` as a timestamp
+    * Adds a Long timestamp to the bit.
+    * @param v the timestamp.
+    * @return a new instance with `v` as a timestamp.
     */
   def timestamp(v: Long): Bit = copy(ts = Some(v))
 }

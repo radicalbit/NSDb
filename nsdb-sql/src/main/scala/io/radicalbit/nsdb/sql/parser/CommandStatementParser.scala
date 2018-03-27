@@ -7,7 +7,7 @@ import scala.util.parsing.combinator.RegexParsers
 import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 
 /**
-  * parser combinator for cli commands
+  * Parser combinator for cli commands.
   * Here is the EBNF grammar
   * {{{
   *   "DESCRIBE" literal

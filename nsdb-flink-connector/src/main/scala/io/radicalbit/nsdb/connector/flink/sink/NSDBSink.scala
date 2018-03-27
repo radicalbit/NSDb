@@ -10,11 +10,11 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
 /**
-  * Flink sink into Nsdb. See [[RichSinkFunction]] for more details
-  * @param host Nsdb Grpc host
-  * @param port Nsdb Grpc port
-  * @param converter function that converts a flink Datastream[IN] into a Bit
-  * @tparam IN Datastream type
+  * Flink sink into Nsdb. See [[RichSinkFunction]] for more details.
+  * @param host Nsdb Grpc host.
+  * @param port Nsdb Grpc port.
+  * @param converter function that converts a flink Datastream[IN] into a [[Bit]].
+  * @tparam IN Datastream type.
   */
 class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) extends RichSinkFunction[IN] {
 
