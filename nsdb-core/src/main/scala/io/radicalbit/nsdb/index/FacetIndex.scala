@@ -76,7 +76,7 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
   }
 
   /**
-    * Get results from a count query.
+    * Gets results from a count query.
     * @param query query to be executed against the facet index.
     * @param groupField field in the group by clause.
     * @param sort optional lucene [[Sort]]
@@ -98,7 +98,7 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
   }
 
   /**
-    * Get results from a distinct query.
+    * Gets results from a distinct query.
     * @param query query to be executed against the facet index.
     * @param field distinct field.
     * @param sort optional lucene [[Sort]]

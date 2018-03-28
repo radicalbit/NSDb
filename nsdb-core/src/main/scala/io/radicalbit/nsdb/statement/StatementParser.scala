@@ -20,9 +20,9 @@ import scala.util.{Failure, Success, Try}
 class StatementParser {
 
   /**
-    * Parse an optional [[Expression]] into a [[ParsedExpression]]
-    * @param exp the expression to be parsed
-    * @param schema metric'groupFieldType schema fields map
+    * Parses an optional [[Expression]] into a [[ParsedExpression]].
+    * @param exp the expression to be parsed.
+    * @param schema metric'groupFieldType schema fields map.
     * @return a Try of [[ParsedExpression]] to potential errors.
     */
   private def parseExpression(exp: Option[Expression], schema: Map[String, SchemaField]): Try[ParsedExpression] = {
@@ -163,7 +163,7 @@ class StatementParser {
   }
 
   /**
-    * parse a [[DeleteSQLStatement]] into a [[ParsedQuery]]
+    * Parses a [[DeleteSQLStatement]] into a [[ParsedQuery]].
     * @param statement the statement to be parsed.
     * @param schema metric'groupFieldType schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
@@ -174,7 +174,7 @@ class StatementParser {
   }
 
   /**
-    * retrieve internal [[AllGroupsAggregationCollector]] based on [[AllGroupsAggregationCollector]] provided into the query
+    * Retrieves internal [[AllGroupsAggregationCollector]] based on [[AllGroupsAggregationCollector]] provided into the query.
     * @param groupField group by field.
     * @param aggregateField filed to apply the aggregation to.
     * @param agg aggregation clause in query (min, max, sum, count).
@@ -208,7 +208,7 @@ class StatementParser {
   }
 
   /**
-    * parse a [[SelectSQLStatement]] into a [[ParsedQuery]].
+    * Parses a [[SelectSQLStatement]] into a [[ParsedQuery]].
     * @param statement the select statement to be parsed.
     * @param schema metric's schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
@@ -351,7 +351,7 @@ object StatementParser {
   }
 
   /**
-    *
+    * Simple query field.
     * @param name field to be returned into query results.
     * @param count if the number of occurrences of that field must be returned or not. i.e. if the initial query specifies count(field) as a projection.
     */

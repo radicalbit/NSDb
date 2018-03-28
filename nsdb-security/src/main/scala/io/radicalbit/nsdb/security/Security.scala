@@ -19,7 +19,8 @@ trait NsdbSecurity {
   /**
     * configuration key to set if security is enabled or not.
     */
-  lazy val security              = config.getBoolean("nsdb.security.enabled")
+  lazy val security = config.getBoolean("nsdb.security.enabled")
+
   /**
     * configuration key to set the authorization provider FQCN.
     */

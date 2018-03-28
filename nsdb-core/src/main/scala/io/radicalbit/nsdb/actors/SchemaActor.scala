@@ -46,7 +46,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
   lazy val schemas: mutable.Map[String, Schema] = mutable.Map.empty
 
   /**
-    * buffer of write to index operations
+    * Buffer collecting write operations on the index.
     */
   lazy val schemasToWrite: mutable.ListBuffer[Schema] = mutable.ListBuffer.empty
 
@@ -105,14 +105,14 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
   }
 
   /**
-    * get a schema from memory.
+    * Gets a schema from memory.
     * @param metric schema's metric
     * @return the schema if exist, None otherwise.
     */
   private def getCachedSchema(metric: String) = schemas.get(metric)
 
   /**
-    * check if a newSchema is compatible with an oldSchema. If schemas are compatible, the schema for metric will be updated.
+    * Checks if a newSchema is compatible with an oldSchema. If schemas are compatible, the metric schema will be updated.
     * @param namespace schema's namespace.
     * @param metric schema's metric.
     * @param oldSchema current schema for metric
@@ -131,7 +131,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
       }
 
   /**
-    * update schema index.
+    * Updates schema index.
     * @param schemas schemas to be updated.
     */
   private def updateSchemaIndex(schemas: Seq[Schema]): Unit = {
@@ -144,7 +144,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
   }
 
   /**
-    * delete a schema from memory and from index.
+    * Deletes a schema from memory and from index.
     * @param schema the schema to be deleted.
     */
   private def deleteSchema(schema: Schema): Unit = {
@@ -156,7 +156,7 @@ class SchemaActor(val basePath: String, val db: String, val namespace: String) e
   }
 
   /**
-    * delete all schemas for the db and the namespace provided in actor initialization.
+    * Deletes all schemas for the db and the namespace provided in actor initialization.
     */
   private def deleteAllSchemas(): Unit = {
     schemas --= schemas.keys

@@ -60,24 +60,24 @@ object NSDB {
 case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
 
   /**
-    * the inner Grpc client
+    * Inner Grpc client.
     */
   private val client = new GRPCClient(host = host, port = port)
 
   /**
-    * defines the db used to build the bit or the query
+    * Defines the db used to build the bit or the query.
     * @param name the db name
     * @return
     */
   def db(name: String): Db = Db(name)
 
   /**
-    * Check if a connection is healthy.
+    * Checks if a connection is healthy.
     */
   def check: Future[HealthCheckResponse] = client.checkConnection()
 
   /**
-    * Write a bit into Nsdb using the current openend connection.
+    * Writes a bit into Nsdb using the current openend connection.
     * @param bit the bit to be inserted.
     * @return a Future containing the result of the operation. See [[RPCInsertResult]].
     */

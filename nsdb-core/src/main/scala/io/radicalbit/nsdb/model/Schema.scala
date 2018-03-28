@@ -48,7 +48,7 @@ case class Schema(metric: String, fields: Set[SchemaField]) {
 object Schema extends TypeSupport {
 
   /**
-    * create a schema by analyzing a [[Bit]] structure.
+    * Creates a schema by analyzing a [[Bit]] structure.
     * @param metric the metric.
     * @param bit the bit to be used to create the schema.
     * @return the resulting [[Schema]]. If bit contains invalid fields the result will be a [[scala.util.Failure]]

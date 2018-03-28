@@ -44,7 +44,7 @@ trait ShardsActor { this: Actor =>
   protected def facetsShardsFromMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
 
   /**
-    * retrieve or create an index for the given [[ShardKey]]
+    * Retrieves or creates an index for the given [[ShardKey]]
     * @param key the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the index for the key
     */
@@ -60,7 +60,7 @@ trait ShardsActor { this: Actor =>
     )
 
   /**
-    * retrieve or create a facet index for the given [[ShardKey]]
+    * Retrieves or creates a facet index for the given [[ShardKey]]
     * @param key the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the facet index for the key
     */

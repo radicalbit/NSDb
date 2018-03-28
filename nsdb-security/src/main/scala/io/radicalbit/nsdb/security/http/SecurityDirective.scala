@@ -24,7 +24,7 @@ abstract class NSDBAuthProvider {
   def headerName: String
 
   /**
-    * Check if a request against a Db is authorized.
+    * Checks if a request against a Db is authorized.
     * @param ent the entity to check.
     * @param header the header to check; empty string if not present.
     * @param writePermission true if write permission is required.
@@ -33,7 +33,7 @@ abstract class NSDBAuthProvider {
   def checkDbAuth(ent: Db, header: String, writePermission: Boolean): AuthResponse
 
   /**
-    * Check if a request against a Namespace is authorized.
+    * Checks if a request against a Namespace is authorized.
     * @param ent the entity to check.
     * @param header the header to check; empty string if not present.
     * @param writePermission true if write permission is required.
@@ -42,7 +42,7 @@ abstract class NSDBAuthProvider {
   def checkNamespaceAuth(ent: Namespace, header: String, writePermission: Boolean): AuthResponse
 
   /**
-    * Check if a request against a Metric is authorized.
+    * Checks if a request against a Metric is authorized.
     * @param ent the entity to check.
     * @param header the header to check; empty string if not present.
     * @param writePermission true if write permission is required.
@@ -51,7 +51,7 @@ abstract class NSDBAuthProvider {
   def checkMetricAuth(ent: Metric, header: String, writePermission: Boolean): AuthResponse
 
   /**
-    * Forward, if authorized, a request against a Db.
+    * Forwards, if authorized, a request against a Db.
     * @param ent the entity to check.
     * @param header the header to check; empty string if not present.
     * @param writePermission true if write permission is required.
@@ -65,7 +65,7 @@ abstract class NSDBAuthProvider {
   }
 
   /**
-    * Forward, if authorized, a request against a Namespace.
+    * Forwards, if authorized, a request against a Namespace.
     * @param ent the entity to check.
     * @param header the header to check; empty string if not present.
     * @param writePermission true if write permission is required.
@@ -79,7 +79,7 @@ abstract class NSDBAuthProvider {
   }
 
   /**
-    * Forward, if authorized, a request against a Metric.
+    * Forwards, if authorized, a request against a Metric.
     * @param ent the entity to check.
     * @param header the header to check; empty string if not present.
     * @param writePermission true if write permission is required.
@@ -95,7 +95,7 @@ abstract class NSDBAuthProvider {
 }
 
 /**
-  * Always allaw authorization provider. No checks are performed at all.
+  * Always allow authorization provider. No checks are performed at all.
   */
 class EmptyAuthorization extends NSDBAuthProvider {
 

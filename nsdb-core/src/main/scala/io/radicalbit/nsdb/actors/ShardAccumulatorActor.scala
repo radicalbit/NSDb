@@ -50,14 +50,14 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   private val statementParser = new StatementParser()
 
   /**
-    * materialized configuration key. true if sharding is enabled
+    * Materialized configuration key. true if sharding is enabled.
     */
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   /**
-    * actor responsible for the actual writes into indexes.
+    * Actor responsible for the actual writes into indexes.
     */
   var performerActor: ActorRef = _
 
@@ -65,7 +65,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   /**
-    * writes scheduler interval
+    * Writes scheduler interval.
     */
   lazy val interval = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
@@ -88,7 +88,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   /**
-    * apply, if needed, ordering and limiting to results from multiple shards.
+    * Applies, if needed, ordering and limiting to results from multiple shards.
     * @param shardResult sequence of shard results.
     * @param statement the initial sql statement.
     * @param schema metric's schema.
@@ -109,7 +109,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   /**
-    * any existing shard is retrieved, the [[ShardPerformerActor]] is initialized and actual writes are scheduled
+    * Any existing shard is retrieved, the [[ShardPerformerActor]] is initialized and actual writes are scheduled.
     */
   override def preStart: Unit = {
     Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
@@ -199,7 +199,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   /**
-    * group results coming from different shards according to the group by clause provided in the query.
+    * Groups results coming from different shards according to the group by clause provided in the query.
     * @param shardResults results coming from different shards.
     * @param dimension the group by clause dimension
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
@@ -217,8 +217,8 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   /**
-    * retrieves and order results from different shards in case the statement does not contains aggregations
-    * and a where condition involving timestamp has been provided
+    * Retrieves and order results from different shards in case the statement does not contains aggregations
+    * and a where condition involving timestamp has been provided.
     * @param statement raw statement.
     * @param parsedStatement parsed statement.
     * @param indexes shard indexes to retrieve data from.

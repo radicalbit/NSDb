@@ -76,7 +76,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
 object SchemaIndex {
 
   /**
-    * Get, if exists, the union schema from 2 given schemas.
+    * Assemblies, if possible, the union schema from 2 given schemas.
     * Given 2 schemas, they are compatible if fields present in both of them are of the same types.
     * The union schema is a schema with the union of the dimension sets.
     * @param firstSchema the first schema.

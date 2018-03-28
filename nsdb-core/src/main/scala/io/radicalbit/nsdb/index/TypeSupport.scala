@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 trait TypeSupport {
 
   /**
-    * check if every field provided is valid.
+    * Checks if every field provided is valid.
     * @param bit the bit to check.
     * @return a sequence of [[TypedField]]. [[Failure]] if at least one field is invalid.
     */
@@ -65,21 +65,21 @@ sealed trait IndexType[T] {
   def ord: Ordering[JSerializable]
 
   /**
-    * serialize a value of this type.
+    * Serializes a value of this type.
     * @param value the value.
     * @return the byte array.
     */
   def serialize(value: JSerializable): Array[Byte] = value.toString.getBytes()
 
   /**
-    * deserialize a byte array into this type.
+    * Deserializes a byte array into this type.
     * @param value the byte array to deserialize
     * @return an instance of this type.
     */
   def deserialize(value: Array[Byte]): T
 
   /**
-    * case a [[Any]] into this type.
+    * Casts a [[Any]] into this type.
     * @param value generic value.
     * @return an instance of this type
     */
@@ -104,15 +104,14 @@ sealed abstract class NumericType[T <: JSerializable, ST: Numeric: ClassTag] ext
   lazy val scalaNumeric = implicitly[Numeric[ST]]
 
   /**
-    * return a [[Numeric]] to be used for arithmetic operations
-    * @return
+    * Returns a [[Numeric]] to be used for arithmetic operations
     */
   def numeric: Numeric[JSerializable]
 }
 
 /**
   * Model for string type.
-  * The only subclass is [[VARCHAR]]
+  * The only subclass is [[VARCHAR]].
   * @tparam T corresponding java type.
   */
 sealed trait StringType[T <: JSerializable] extends IndexType[T]

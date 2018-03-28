@@ -48,19 +48,19 @@ trait Index[T] {
   def getSearcher: IndexSearcher = searcherManager.acquire()
 
   /**
-    * refresh index content after a write operation.
+    * Refresh index content after a write operation.
     */
   def refresh(): Unit = searcherManager.maybeRefreshBlocking()
 
   /**
-    * Validate a record before write it.
+    * Validates a record before write it.
     * @param data the record to be validated.
     * @return a sequence of lucene [[Field]] that can be safely written in the index.
     */
   def validateRecord(data: T): Try[Seq[Field]]
 
   /**
-    * Convert a lucene [[Document]] into an instance of T
+    * Converts a lucene [[Document]] into an instance of T
     * @param document the lucene document to be converted.
     * @param fields fields that must be retrieved from the document.
     * @return the entry retrieved.
@@ -74,7 +74,7 @@ trait Index[T] {
   }
 
   /**
-    * write an entry into the index.
+    * Writes an entry into the index.
     * This method MUST NOT commit the writer.
     * @param data the entry to be written
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
@@ -83,7 +83,7 @@ trait Index[T] {
   protected def write(data: T)(implicit writer: IndexWriter): Try[Long]
 
   /**
-    * delete an entry from the index.
+    * Deletes an entry from the index.
     * @param data the entry to be deleted.
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level delete operation return value.
@@ -91,7 +91,7 @@ trait Index[T] {
   def delete(data: T)(implicit writer: IndexWriter): Try[Long]
 
   /**
-    * delete entries that fulfill the given query.
+    * Deletes entries that fulfill the given query.
     * @param query the query to select the entries to be deleted.
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level delete operation return value.
@@ -105,7 +105,7 @@ trait Index[T] {
   }
 
   /**
-    * delete all entries from the index.
+    * Deletes all entries from the index.
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level delete operation return value.
     */
@@ -169,7 +169,7 @@ trait Index[T] {
   }
 
   /**
-    * execute a simple [[Query]].
+    * Executes a simple [[Query]].
     * @param query the [[Query]] to be executed.
     * @param fields sequence of fields that must be included in the result.
     * @param limit results limit.
@@ -185,7 +185,7 @@ trait Index[T] {
   }
 
   /**
-    * execute an aggregated query.
+    * Executes an aggregated query.
     * @param query the [[Query]] to be executed.
     * @param collector the subclass of [[AllGroupsAggregationCollector]]
     * @param limit results limit.
@@ -220,7 +220,7 @@ trait Index[T] {
   }
 
   /**
-    * get all the entries.
+    * Returns all the entries.
     * @return all the entries.
     */
   def all: Seq[T] = {
