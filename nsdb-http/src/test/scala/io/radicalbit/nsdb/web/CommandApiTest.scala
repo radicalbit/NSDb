@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import akka.http.scaladsl.model.StatusCodes._

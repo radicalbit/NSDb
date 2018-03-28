@@ -4,15 +4,13 @@ import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
-import io.radicalbit.nsdb.model.SchemaField
-import io.radicalbit.nsdb.statement.StatementParser.{Errors, ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
-import org.apache.lucene.analysis.standard.StandardAnalyzer
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery, SimpleField}
 import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
-import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
-import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.TryValues._
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.{Failure, Success}
 

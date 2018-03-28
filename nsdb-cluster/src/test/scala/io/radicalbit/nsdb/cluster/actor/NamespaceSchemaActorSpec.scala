@@ -5,8 +5,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.index.{BIGINT, INT, Schema, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.index._
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
