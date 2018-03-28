@@ -129,7 +129,10 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
       }
     case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {
-        case (id, nsdbQuery) if !nsdbQuery.aggregated =>
+        case (id, nsdbQuery)
+            if !nsdbQuery.aggregated && nsdbQuery.query.metric == metric && subscribedActorsByQueryId
+              .get(id)
+              .isDefined =>
           val luceneQuery = new StatementParser().parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
             case Success(parsedQuery: ParsedSimpleQuery) =>
@@ -146,7 +149,7 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
                   .foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
             case Success(_) => log.error("unreachable branch reached...")
             case Failure(ex) =>
-              log.error(ex, s"query ${nsdbQuery.query} not valid because of")
+              log.error(ex, s"query ${nsdbQuery.query} against schema $schema not valid because of")
           }
         case _ =>
       }
