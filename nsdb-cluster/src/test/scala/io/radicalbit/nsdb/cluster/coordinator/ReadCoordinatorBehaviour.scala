@@ -654,6 +654,32 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
 
       "receive a select containing a group by on string dimension " should {
+        "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = LongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                groupBy = Some("name"),
+                order = Some(AscOrderOperator("name"))
+              )
+            )
+          )
+
+          awaitAssert {
+            val expected = probe.expectMsgType[SelectStatementExecuted]
+            expected.values shouldBe Seq(
+              Bit(0L, 1L, Map("name" -> "Bill")),
+              Bit(0L, 1L, Map("name" -> "Frank")),
+              Bit(0L, 1L, Map("name" -> "Frankie")),
+              Bit(0L, 2L, Map("name" -> "John"))
+            )
+          }
+        }
         "execute it successfully with asc ordering over string dimension" in within(5.seconds) {
           probe.send(
             readCoordinatorActor,

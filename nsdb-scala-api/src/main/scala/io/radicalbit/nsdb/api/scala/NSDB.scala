@@ -61,7 +61,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
 
   /**
     * the inner Grpc client
-     */
+    */
   private val client = new GRPCClient(host = host, port = port)
 
   /**

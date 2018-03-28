@@ -23,6 +23,28 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                                groupBy = Some("name"))
           ))
       }
+      "parse it successfully if sum(*) is provided" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT sum(*) FROM people group by name") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("*", Some(SumAggregation)))),
+                               groupBy = Some("name"))
+          ))
+      }
+      "parse it successfully if count(*) is provided" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(*) FROM people group by name") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                               groupBy = Some("name"))
+          ))
+      }
     }
 
     "receive a select containing a range selection and a group by" should {

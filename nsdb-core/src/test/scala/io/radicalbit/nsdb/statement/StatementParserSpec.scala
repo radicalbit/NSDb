@@ -689,6 +689,28 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
+      "parse it successfully with count(*)" in {
+        parser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(SumAggregation)))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            groupBy = Some("name")
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              new SumAllGroupsCollector[Long, String]("name", "value")
+            ))
+        )
+      }
     }
 
     "receive a complex select containing a range selection a desc ordering statement, a limit statement and a group by" should {

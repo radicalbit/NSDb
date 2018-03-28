@@ -213,22 +213,22 @@ class StatementParser {
             if sortOpt.isDefined && !Seq("value", group).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(Errors.SORT_DIMENSION_NOT_IN_GROUP))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) && fieldName == "value" =>
+            if schema.fields.map(_.name).contains(group) && (fieldName == "value" || fieldName == "*") =>
           Success(
             ParsedAggregatedQuery(
               statement.namespace,
               statement.metric,
               exp.q,
               getCollector(group,
-                           fieldName,
+                           "value",
                            agg,
                            schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_ <: JSerializable, _]],
                            schema.fieldsMap(group).indexType),
               sortOpt,
               limitOpt
             ))
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) && fieldName != "value" =>
+        case (false, Success(Seq(Field(fieldName, Some(_)))), Some(group))
+            if schema.fields.map(_.name).contains(group) =>
           Failure(new InvalidStatementException(Errors.AGGREGATION_NOT_ON_VALUE))
         case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
           Failure(new InvalidStatementException(Errors.notExistingDimension(group)))

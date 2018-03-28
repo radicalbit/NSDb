@@ -61,7 +61,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
       val startTime = System.currentTimeMillis()
       log.debug("executing {} ", statement)
       (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
-        .mapTo[SchemaGot]
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             Future
