@@ -3,10 +3,22 @@ package io.radicalbit.nsdb.sql.parser
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 
-import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
+import scala.util.parsing.combinator.RegexParsers
 import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 
-class CommandStatementParser(db: String) extends RegexParsers with PackratParsers {
+/**
+  * Parser combinator for cli commands.
+  * Here is the EBNF grammar
+  * {{{
+  *   "DESCRIBE" literal
+  *   "METRICS" literal
+  *   "NAMESPACES" literal
+  *   "SHOW" literal
+  *   "USE" literal
+  * }}}
+  * @param db the db to execute the command in
+  */
+class CommandStatementParser(db: String) extends RegexParsers {
 
   implicit class InsensitiveString(str: String) {
     def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
@@ -30,13 +42,13 @@ class CommandStatementParser(db: String) extends RegexParsers with PackratParser
   }
 
   private def showMetrics(namespace: Option[String]) = Show ~ Metrics ^^ {
-    case _ if (namespace.isDefined) => ShowMetrics(db, namespace.get)
-    case _                          => sys.error("Please select a valid namespace to list the associated metrics.")
+    case _ if namespace.isDefined => ShowMetrics(db, namespace.get)
+    case _                        => sys.error("Please select a valid namespace to list the associated metrics.")
   }
 
   private def describeMetric(namespace: Option[String]) = Describe ~> metric ^^ {
-    case m if (namespace.isDefined) => DescribeMetric(db, namespace = namespace.get, metric = m)
-    case _                          => sys.error("Please select a valid namespace to describe the given metric.")
+    case m if namespace.isDefined => DescribeMetric(db, namespace = namespace.get, metric = m)
+    case _                        => sys.error("Please select a valid namespace to describe the given metric.")
   }
 
   private def commands(namespace: Option[String]) =
