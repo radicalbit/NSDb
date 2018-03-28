@@ -93,16 +93,15 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
       ))
 
   /**
-    * Write a list of bits into NSdb using the current openend connection.
+    * Writes a list of bits into NSdb using the current openend connection.
     * @param bs the list of bits to be inserted.
     * @return a Future containing the result of the operation. See [[RPCInsertResult]].
     */
-  // FIXME: should we implement a bulk feature ?
   def write(bs: List[Bit]): Future[List[RPCInsertResult]] =
     Future.sequence(bs.map(x => write(x)))
 
   /**
-    * Execute a [[SQLStatement]] using the current openend connection.
+    * Executes a [[SQLStatement]] using the current openend connection.
     * @param sqlStatement the [[SQLStatement]] to be executed.
     * @return a Future of the result of the operation. See [[SQLStatementResponse]].
     */
@@ -115,7 +114,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   }
 
   /**
-    * Close the connection. Here any allocated resources must be released.
+    * Closes the connection. Here any allocated resources must be released.
     */
   def close(): Unit = {}
 }
@@ -127,7 +126,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
 case class Db(name: String) {
 
   /**
-    * Define the namespace for the builder.
+    * Defines the namespace for the builder.
     * @param namespace namespace name.
     * @return auxiliary namespace instance.
     */

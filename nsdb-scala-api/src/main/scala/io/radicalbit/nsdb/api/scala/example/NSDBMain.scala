@@ -8,7 +8,7 @@ import scala.concurrent._
 import scala.concurrent.duration._
 
 /**
-  * Axample App for writing a Bit.
+  * Example App for writing a Bit.
   */
 object NSDBMainWrite extends App {
 
@@ -33,7 +33,7 @@ object NSDBMainWrite extends App {
 }
 
 /**
-  * Axample App for executing a query.
+  * Example App for executing a query.
   */
 object NSDBMainRead extends App {
 
