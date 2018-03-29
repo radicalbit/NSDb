@@ -46,10 +46,10 @@ lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.RPC.libraries)
-  .settings(
-    PB.targets in Compile := Seq(
-      scalapb.gen() -> (sourceManaged in Compile).value
-    ))
+  .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
+  .settings(PB.targets in Compile := Seq(
+    scalapb.gen() -> (sourceManaged in Compile).value
+  ))
   .dependsOn(`nsdb-common`, `nsdb-sql`)
 
 lazy val `nsdb-cluster` = project
@@ -129,6 +129,7 @@ lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
+  .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
   .settings(assemblyJarName in assembly := "nsdb-cli.jar")
   .dependsOn(`nsdb-rpc`, `nsdb-sql`)
 
