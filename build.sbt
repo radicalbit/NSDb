@@ -129,6 +129,7 @@ lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
+  .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
   .settings(assemblyJarName in assembly := "nsdb-cli.jar")
   .dependsOn(`nsdb-rpc`, `nsdb-sql`)
 
