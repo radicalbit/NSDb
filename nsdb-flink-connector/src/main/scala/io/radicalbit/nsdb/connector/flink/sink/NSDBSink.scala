@@ -38,15 +38,17 @@ class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) exten
   override def invoke(value: IN): Unit = {
     nsdb.foreach { conn =>
       val convValue = converter(value)
-      conn.write(convValue)
-      nsdb.foreach(x => log.info("NSDBSink {} write the bit {}", x, convValue: Any))
+      Await.result(conn.write(convValue), 10.seconds)
+      log.info("NSDBSink {} write the bit {}", conn, convValue: Any)
     }
   }
 
   @throws[Exception]
   override def close(): Unit = {
-    nsdb.foreach(_.close())
-    nsdb.foreach(x => log.info("NSDBSink {} closed", x))
+    nsdb.foreach(conn => {
+      conn.close()
+      log.info("NSDBSink {} closed", conn)
+    })
     nsdb = None
   }
 }
