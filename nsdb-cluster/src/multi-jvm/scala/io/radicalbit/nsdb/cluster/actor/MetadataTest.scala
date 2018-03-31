@@ -21,7 +21,13 @@ object MetadataTest extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     |akka.loglevel = ERROR
-    |akka.actor.provider = "cluster"
+    |akka.actor{
+    | provider = "cluster"
+    | publisher-dispatcher {
+    |   type = "Dispatcher"
+    |     mailbox-type = "io.radicalbit.nsdb.akka.PublisherPriorityMailbox"
+    |   }
+    |}
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
