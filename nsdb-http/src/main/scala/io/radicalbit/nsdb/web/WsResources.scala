@@ -18,6 +18,8 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization.write
 
+import akka.http.scaladsl.model.StatusCodes._
+
 import scala.concurrent.duration.FiniteDuration
 
 trait WsResources {
@@ -26,7 +28,7 @@ trait WsResources {
 
   implicit def system: ActorSystem
 
-  private val publishInterval = system.settings.config.getInt("nsdb.publish-interval")
+  private val refreshPeriod = system.settings.config.getInt("nsdb.refresh-period")
 
   private def newStream(publishInterval: Int,
                         publisherActor: ActorRef,
@@ -67,10 +69,13 @@ trait WsResources {
 
   def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =
     path("ws-stream") {
-      parameter('interval ? publishInterval) { interval =>
-        optionalHeaderValueByName(authProvider.headerName) { header =>
-          handleWebSocketMessages(newStream(interval, publisherActor, header, authProvider))
-        }
+      parameter('refresh_period ? refreshPeriod) {
+        case period if period >= refreshPeriod =>
+          optionalHeaderValueByName(authProvider.headerName) { header =>
+            handleWebSocketMessages(newStream(period, publisherActor, header, authProvider))
+          }
+        case value =>
+          complete((BadRequest, s"publish period of $value milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
       }
     }
 }

@@ -1,6 +1,7 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, Props}
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
@@ -13,6 +14,8 @@ import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
+
+import scala.concurrent.duration._
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
@@ -184,4 +187,41 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
       }
   }
+
+  "WebSocketStream with publish-period" should "open using default parameter" in {
+    val wsClient = WSProbe()
+    WS("/ws-stream", wsClient.flow) ~> wsStandardResources ~>
+      check {
+        isWebSocketUpgrade shouldEqual true
+        response.status shouldBe StatusCodes.SwitchingProtocols
+      }
+    }
+  "WebSocketStream with publish-period" should "open using specified parameter" in {
+    val wsClient = WSProbe()
+    WS("/ws-stream?refresh_period=500", wsClient.flow) ~> wsStandardResources ~>
+      check {
+        isWebSocketUpgrade shouldEqual true
+        response.status shouldBe StatusCodes.SwitchingProtocols
+      }
+    }
+  "WebSocketStream with publish-period" should "fails with wrong parameter" in {
+    val wsClient = WSProbe()
+    WS("/ws-stream?refresh_period=10", wsClient.flow) ~> wsStandardResources ~>
+      check {
+        isWebSocketUpgrade shouldEqual false
+        response.status shouldBe StatusCodes.BadRequest
+      }
+  }
+  "WebSocketStream with publish-period" should "fails with wrong parameter type" in {
+    val wsClient = WSProbe()
+    WS("/ws-stream?refresh_period=dfg", wsClient.flow) ~> wsStandardResources ~>
+      check {
+        isWebSocketUpgrade shouldEqual false
+        response.status shouldBe StatusCodes.InternalServerError
+      }
+  }
+
+
+
+
 }
