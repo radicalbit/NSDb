@@ -11,6 +11,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.contrib.TimeWindow
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.util.Config
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
 import org.json4s._
@@ -25,7 +26,10 @@ trait WsResources {
 
   implicit def system: ActorSystem
 
-  private def newStream(publisherActor: ActorRef,
+  private val publishInterval = system.settings.config.getInt("nsdb.publish-interval")
+
+  private def newStream(publishInterval: Int,
+                        publisherActor: ActorRef,
                         header: Option[String],
                         authProvider: NSDBAuthProvider): Flow[Message, Message, NotUsed] = {
 
@@ -55,15 +59,18 @@ trait WsResources {
 
     Flow
       .fromSinkAndSource(incomingMessages, outgoingMessages)
-      .via(TimeWindow(FiniteDuration(500, TimeUnit.MILLISECONDS), eager = true)(identity[Message])((_, newMessage) =>
-        newMessage))
+      .via(
+        TimeWindow(FiniteDuration(publishInterval, TimeUnit.MILLISECONDS), eager = true)(identity[Message])(
+          (_, newMessage) => newMessage))
 
   }
 
   def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =
     path("ws-stream") {
-      optionalHeaderValueByName(authProvider.headerName) { header =>
-        handleWebSocketMessages(newStream(publisherActor, header, authProvider))
+      parameter('interval ? publishInterval) { interval =>
+        optionalHeaderValueByName(authProvider.headerName) { header =>
+          handleWebSocketMessages(newStream(interval, publisherActor, header, authProvider))
+        }
       }
     }
 }
