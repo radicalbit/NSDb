@@ -212,13 +212,5 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         response.status shouldBe StatusCodes.BadRequest
       }
   }
-  "WebSocketStream with publish-period" should "fails with wrong parameter type" in {
-    val wsClient = WSProbe()
-    WS("/ws-stream?refresh_period=dfg", wsClient.flow) ~> wsStandardResources ~>
-      check {
-        isWebSocketUpgrade shouldEqual false
-        response.status shouldBe StatusCodes.InternalServerError
-      }
-  }
 
 }
