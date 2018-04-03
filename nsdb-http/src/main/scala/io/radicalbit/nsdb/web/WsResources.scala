@@ -53,9 +53,10 @@ trait WsResources {
             TextMessage(write(message))
         }
 
-    Flow.fromSinkAndSource(incomingMessages, outgoingMessages)
-      .via(TimeWindow(FiniteDuration(500, TimeUnit.MILLISECONDS), eager = true)(identity[Message])(
-      (_, newMessage) => newMessage))
+    Flow
+      .fromSinkAndSource(incomingMessages, outgoingMessages)
+      .via(TimeWindow(FiniteDuration(500, TimeUnit.MILLISECONDS), eager = true)(identity[Message])((_, newMessage) =>
+        newMessage))
 
   }
 
