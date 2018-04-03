@@ -81,7 +81,8 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
         self ! PoisonPill
         wsActor ! PoisonPill
       }
-    case _ =>
+    case msg @ _ =>
+      log.error(s" my message : $msg")
       wsActor ! OutgoingMessage("invalid message sent")
   }
 }

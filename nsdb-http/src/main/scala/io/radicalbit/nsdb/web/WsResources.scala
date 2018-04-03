@@ -1,11 +1,14 @@
 package io.radicalbit.nsdb.web
 
+import java.util.concurrent.TimeUnit
+
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
+import akka.stream.contrib.TimeWindow
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.actor.StreamActor
@@ -13,6 +16,8 @@ import io.radicalbit.nsdb.web.actor.StreamActor._
 import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization.write
+
+import scala.concurrent.duration.FiniteDuration
 
 trait WsResources {
 
@@ -49,6 +54,9 @@ trait WsResources {
         }
 
     Flow.fromSinkAndSource(incomingMessages, outgoingMessages)
+      .via(TimeWindow(FiniteDuration(500, TimeUnit.MILLISECONDS), eager = true)(identity[Message])(
+      (_, newMessage) => newMessage))
+
   }
 
   def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =

@@ -76,6 +76,12 @@ object Dependencies {
     lazy val core            = Seq(core_http, default, testkit)
   }
 
+  object akka_contrib {
+    lazy val version   = "0.9"
+    lazy val namespace = "com.typesafe.akka"
+    lazy val contrib   = namespace %% "akka-stream-contrib" % version
+  }
+
   object swagger {
     lazy val version     = "1.5.18"
     lazy val namespace   = "io.swagger"
@@ -260,6 +266,7 @@ object Dependencies {
     lazy val libraries = Seq(
       akka.stream,
       akka_http.default,
+      akka_contrib.contrib,
       json4s.jackson,
       akka_http.sprayJson,
       javaWebsocket.javaWebsocket,
