@@ -195,7 +195,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         isWebSocketUpgrade shouldEqual true
         response.status shouldBe StatusCodes.SwitchingProtocols
       }
-    }
+  }
   "WebSocketStream with publish-period" should "open using specified parameter" in {
     val wsClient = WSProbe()
     WS("/ws-stream?refresh_period=500", wsClient.flow) ~> wsStandardResources ~>
@@ -203,7 +203,7 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         isWebSocketUpgrade shouldEqual true
         response.status shouldBe StatusCodes.SwitchingProtocols
       }
-    }
+  }
   "WebSocketStream with publish-period" should "fails with wrong parameter" in {
     val wsClient = WSProbe()
     WS("/ws-stream?refresh_period=10", wsClient.flow) ~> wsStandardResources ~>
@@ -220,8 +220,5 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         response.status shouldBe StatusCodes.InternalServerError
       }
   }
-
-
-
 
 }
