@@ -3,7 +3,7 @@ package io.radicalbit.nsdb.web.actor
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
-import akka.pattern.{ask, pipe}
+import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
@@ -13,7 +13,6 @@ import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
-import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvider: NSDBAuthProvider)
@@ -38,14 +37,7 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
       if (checkAuthorization.success)
         new SQLStatementParser().parse(db, namespace, queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
-            (publisher ? SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement]))
-              .map {
-                case msg @ SubscribedByQueryString(_, _, _) =>
-                  OutgoingMessage(msg)
-                case SubscriptionFailed(reason) =>
-                  OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, reason))
-              }
-              .pipeTo(wsActor)
+            publisher ! SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement])
           case Success(_) =>
             wsActor ! OutgoingMessage(
               QuerystringRegistrationFailed(db, namespace, metric, queryString, "not a select query"))
@@ -62,17 +54,14 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
       log.debug(s"registering quid $quid")
       val checkAuthorization =
         authProvider.checkMetricAuth(ent = msg, header = securityHeader getOrElse "", writePermission = false)
-      val result =
-        if (checkAuthorization.success)
-          (publisher ? SubscribeByQueryId(self, quid))
-            .map {
-              case msg @ SubscribedByQuid(_, _) =>
-                OutgoingMessage(msg)
-              case SubscriptionFailed(reason) =>
-                OutgoingMessage(QuidRegistrationFailed(db, namespace, metric, quid, reason))
-            } else
-          Future(QuidRegistrationFailed(db, namespace, metric, quid, s"unauthorized ${checkAuthorization.failReason}"))
-      result.pipeTo(wsActor)
+      if (checkAuthorization.success)
+        publisher ! SubscribeByQueryId(self, quid)
+      else
+        wsActor ! OutgoingMessage(
+          QuidRegistrationFailed(db, namespace, metric, quid, s"unauthorized ${checkAuthorization.failReason}"))
+    case msg @ (SubscribedByQueryString(_, _, _) | SubscribedByQuid(_, _) | SubscriptionByQueryStringFailed(_, _) |
+        SubscriptionByQuidFailed(_, _)) =>
+      wsActor ! OutgoingMessage(msg.asInstanceOf[AnyRef])
     case msg @ RecordsPublished(_, _, _) =>
       wsActor ! OutgoingMessage(msg)
     case Terminate =>

@@ -34,7 +34,7 @@ class PublisherActorSpec
   val publisherActor =
     TestActorRef[PublisherActor](
       PublisherActor.props(
-        system.actorOf(Props[FakeReadCoordinatorActor].withDispatcher("akka.actor.publisher-dispatcher"))))
+        system.actorOf(Props[FakeReadCoordinatorActor].withDispatcher("akka.actor.control-aware-dispatcher"))))
 
   val testSqlStatement = SelectSQLStatement(
     db = "db",

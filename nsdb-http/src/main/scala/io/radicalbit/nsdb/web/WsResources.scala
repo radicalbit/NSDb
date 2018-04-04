@@ -34,7 +34,8 @@ trait WsResources {
                         header: Option[String],
                         authProvider: NSDBAuthProvider): Flow[Message, Message, NotUsed] = {
 
-    val connectedWsActor = system.actorOf(StreamActor.props(publisherActor, header, authProvider))
+    val connectedWsActor = system.actorOf(
+      StreamActor.props(publisherActor, header, authProvider).withDispatcher("akka.actor.control-aware-dispatcher"))
 
     val incomingMessages: Sink[Message, NotUsed] =
       Flow[Message]
