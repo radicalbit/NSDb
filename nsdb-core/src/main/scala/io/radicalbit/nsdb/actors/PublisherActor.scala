@@ -180,9 +180,9 @@ object PublisherActor {
   }
 
   object Events {
-    case class SubscribedByQuid(quid: String, records: Seq[Bit])                             extends ControlMessage
-    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit]) extends ControlMessage
-    case class SubscriptionFailed(reason: String)                                            extends ControlMessage
+    case class SubscribedByQuid(quid: String, records: Seq[Bit])
+    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit])
+    case class SubscriptionFailed(reason: String)
 
     case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
     case class Unsubscribed(actor: ActorRef)
