@@ -38,7 +38,7 @@ class NSDBSink[IN](host: String, port: Int)(implicit converter: IN => Bit) exten
   override def invoke(value: IN): Unit = {
     nsdb.foreach { conn =>
       val convValue = converter(value)
-      Await.result(conn.write(convValue), 10.seconds)
+      conn.write(convValue)
       log.info("NSDBSink {} write the bit {}", conn, convValue: Any)
     }
   }
