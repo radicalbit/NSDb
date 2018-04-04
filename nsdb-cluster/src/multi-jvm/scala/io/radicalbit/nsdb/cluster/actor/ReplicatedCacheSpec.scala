@@ -24,8 +24,7 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     |akka.actor{
     | provider = "cluster"
     | publisher-dispatcher {
-    |   type = "Dispatcher"
-    |     mailbox-type = "io.radicalbit.nsdb.akka.PublisherPriorityMailbox"
+    |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
     |   }
     |}
     |akka.log-dead-letters-during-shutdown = off
