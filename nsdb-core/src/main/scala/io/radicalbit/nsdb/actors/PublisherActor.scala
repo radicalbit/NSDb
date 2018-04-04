@@ -4,6 +4,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
@@ -172,15 +173,15 @@ object PublisherActor {
     Props(new PublisherActor(readCoordinator))
 
   object Command {
-    case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)
-    case class SubscribeByQueryId(actor: ActorRef, qid: String)
-    case class Unsubscribe(actor: ActorRef)
+    case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement) extends ControlMessage
+    case class SubscribeByQueryId(actor: ActorRef, qid: String) extends ControlMessage
+    case class Unsubscribe(actor: ActorRef) extends ControlMessage
   }
 
   object Events {
-    case class SubscribedByQuid(quid: String, records: Seq[Bit])
-    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit])
-    case class SubscriptionFailed(reason: String)
+    case class SubscribedByQuid(quid: String, records: Seq[Bit]) extends ControlMessage
+    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit]) extends ControlMessage
+    case class SubscriptionFailed(reason: String) extends ControlMessage
 
     case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
     case class Unsubscribed(actor: ActorRef)
