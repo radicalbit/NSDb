@@ -10,7 +10,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.common.statement.{AllFields, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -30,7 +30,13 @@ import scala.util.{Failure, Success}
   * @param query the parsed select statement.
   */
 case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
-  def aggregated: Boolean = query.groupBy.isDefined
+  def aggregated: Boolean = {
+    query.fields match {
+      case AllFields => false
+      case ListFields(fList) => fList.exists(f => f.aggregation.isDefined)
+    }
+  }
+
 }
 
 /**
@@ -102,7 +108,7 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
                 subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
                 queries += (id                   -> NsdbQuery(id, query))
                 SubscribedByQueryString(queryString, id, e.values)
-              case SelectStatementFailed(reason, _) => SubscriptionFailed(reason)
+              case SelectStatementFailed(reason, _) => SubscriptionByQueryStringFailed(queryString, reason)
             }
             .pipeTo(sender())
         } {
@@ -123,10 +129,10 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
                 subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
                 SubscribedByQuid(quid, e.values)
-              case SelectStatementFailed(reason, _) => SubscriptionFailed(reason)
+              case SelectStatementFailed(reason, _) => SubscriptionByQuidFailed(quid, reason)
             }
             .pipeTo(sender())
-        case None => sender ! SubscriptionFailed(s"quid $quid not found")
+        case None => sender ! SubscriptionByQuidFailed(quid, s"quid $quid not found")
       }
     case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {
@@ -180,11 +186,12 @@ object PublisherActor {
   }
 
   object Events {
-    case class SubscribedByQuid(quid: String, records: Seq[Bit])
-    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit])
-    case class SubscriptionFailed(reason: String)
+    case class SubscribedByQuid(quid: String, records: Seq[Bit])                             extends ControlMessage
+    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit]) extends ControlMessage
+    case class SubscriptionByQueryStringFailed(queryString: String, reason: String)          extends ControlMessage
+    case class SubscriptionByQuidFailed(quid: String, reason: String)                        extends ControlMessage
+    case class Unsubscribed(actor: ActorRef)                                                 extends ControlMessage
 
     case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
-    case class Unsubscribed(actor: ActorRef)
   }
 }

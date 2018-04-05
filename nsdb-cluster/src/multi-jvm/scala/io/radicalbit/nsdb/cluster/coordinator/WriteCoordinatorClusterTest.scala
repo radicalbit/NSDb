@@ -26,7 +26,7 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |akka.loglevel = ERROR
     |akka.actor{
     | provider = "cluster"
-    | publisher-dispatcher {
+    | control-aware-dispatcher {
     |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
     |   }
     |}
