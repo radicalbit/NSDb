@@ -10,7 +10,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.common.statement.{AllFields, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -30,7 +30,13 @@ import scala.util.{Failure, Success}
   * @param query the parsed select statement.
   */
 case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
-  def aggregated: Boolean = query.groupBy.isDefined
+  def aggregated: Boolean = {
+    query.fields match {
+      case AllFields => false
+      case ListFields(fList) => fList.exists(f => f.aggregation.isDefined)
+    }
+  }
+
 }
 
 /**
