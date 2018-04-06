@@ -32,7 +32,7 @@ import scala.util.{Failure, Success}
 case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
   def aggregated: Boolean = {
     query.fields match {
-      case AllFields => false
+      case AllFields         => false
       case ListFields(fList) => fList.exists(f => f.aggregation.isDefined)
     }
   }

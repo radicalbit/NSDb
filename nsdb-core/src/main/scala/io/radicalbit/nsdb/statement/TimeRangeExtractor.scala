@@ -24,14 +24,22 @@ object TimeRangeExtractor {
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         operator match {
           case AndOperator =>
-            List(
-              (extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2)))
-                .reduce(_ intersect _))
+            val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
+            if (intervals.isEmpty)
+              List.empty
+            else
+              List(
+                (extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2)))
+                  .reduce(_ intersect _))
           case OrOperator =>
-            List(
-              (extractTimeRange(Some(expression1)) ++
-                extractTimeRange(Some(expression2))).reduce(_ union _)
-            )
+            val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
+            if (intervals.isEmpty)
+              List.empty
+            else
+              List(
+                (extractTimeRange(Some(expression1)) ++
+                  extractTimeRange(Some(expression2))).reduce(_ union _)
+              )
         }
       case _ => List.empty
     }
