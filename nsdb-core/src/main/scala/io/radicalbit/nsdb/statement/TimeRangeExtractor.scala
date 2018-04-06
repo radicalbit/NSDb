@@ -22,25 +22,16 @@ object TimeRangeExtractor {
       case Some(RangeExpression("timestamp", v1: Long, v2: Long)) => List(Interval.closed(v1, v2))
       case Some(UnaryLogicalExpression(expression, _))            => extractTimeRange(Some(expression)).flatMap(i => ~i)
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
-        operator match {
-          case AndOperator =>
-            val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
-            if (intervals.isEmpty)
-              List.empty
-            else
-              List(
-                (extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2)))
-                  .reduce(_ intersect _))
-          case OrOperator =>
-            val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
-            if (intervals.isEmpty)
-              List.empty
-            else
-              List(
-                (extractTimeRange(Some(expression1)) ++
-                  extractTimeRange(Some(expression2))).reduce(_ union _)
-              )
-        }
+        val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
+        if (intervals.isEmpty)
+          List.empty
+        else
+          operator match {
+            case AndOperator =>
+              List((extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))).reduce(_ intersect _))
+            case OrOperator =>
+              List((extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))).reduce(_ union _))
+          }
       case _ => List.empty
     }
   }
