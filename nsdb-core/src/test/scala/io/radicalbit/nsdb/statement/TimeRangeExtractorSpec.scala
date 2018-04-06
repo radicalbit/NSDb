@@ -10,11 +10,35 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
 
   "A TimeRangeExtractor" when {
 
-    "receive an expression that does not invole the timestamp" should {
+    "receive a simple expression that does not invole the timestamp" should {
       "parse it successfully" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             RangeExpression(dimension = "other", value1 = 2L, value2 = 4L)
+          )) shouldBe List.empty
+      }
+    }
+
+    "receive a tupled expression that does not invole the timestamp" should {
+      "parse it successfully with and operator" in {
+        TimeRangeExtractor.extractTimeRange(
+          Some(
+            TupledLogicalExpression(
+              expression1 = RangeExpression(dimension = "other", value1 = 2L, value2 = 4L),
+              operator = AndOperator,
+              expression2 = RangeExpression(dimension = "other2", value1 = 2L, value2 = 4L)
+            )
+          )) shouldBe List.empty
+      }
+
+      "parse it successfully with or operator" in {
+        TimeRangeExtractor.extractTimeRange(
+          Some(
+            TupledLogicalExpression(
+              expression1 = RangeExpression(dimension = "other", value1 = 2L, value2 = 4L),
+              operator = OrOperator,
+              expression2 = RangeExpression(dimension = "other2", value1 = 2L, value2 = 4L)
+            )
           )) shouldBe List.empty
       }
     }
