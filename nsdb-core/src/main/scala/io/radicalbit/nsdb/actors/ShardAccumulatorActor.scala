@@ -367,8 +367,9 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
         }
 
       postProcessedResult match {
-        case Success(bits) => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
-        case Failure(ex)   => sender() ! SelectStatementFailed(ex.getMessage)
+        case Success(bits)                          => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
+        case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
+        case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
       }
   }
 
