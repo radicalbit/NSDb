@@ -74,7 +74,7 @@ trait WsResources {
 
         val bcast: UniformFanOutShape[OutgoingMessage, OutgoingMessage] = builder.add(Broadcast[OutgoingMessage](2))
 
-        val merge: UniformFanInShape[OutgoingMessage, OutgoingMessage] = builder.add(Merge[OutgoingMessage](2))
+        val merge: UniformFanInShape[OutgoingMessage, OutgoingMessage] = builder.add(Merge[OutgoingMessage](2, true))
 
         val filterPublishMessage: FlowShape[OutgoingMessage, OutgoingMessage] =
           builder.add(Flow[OutgoingMessage].filter { outgoing =>
