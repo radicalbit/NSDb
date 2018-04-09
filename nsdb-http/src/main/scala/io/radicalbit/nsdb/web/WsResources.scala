@@ -85,17 +85,15 @@ trait WsResources {
     */
   def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =
     path("ws-stream") {
-      parameter('refresh_period ? refreshPeriod) {
-        case period if period >= refreshPeriod =>
-          parameter('retention_size ? retentionSize) { retention =>
-            optionalHeaderValueByName(authProvider.headerName) { header =>
-              handleWebSocketMessages(newStream(period, retention, publisherActor, header, authProvider))
-            }
+      parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
+        case (period, retention) if period >= refreshPeriod =>
+          optionalHeaderValueByName(authProvider.headerName) { header =>
+            handleWebSocketMessages(newStream(period, retention, publisherActor, header, authProvider))
           }
-        case value =>
+        case (period, _) =>
           complete(
             (BadRequest,
-             s"publish period of $value milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
+             s"publish period of $period milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
       }
     }
 }
