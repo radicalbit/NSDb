@@ -27,9 +27,15 @@ trait WsResources {
   implicit def system: ActorSystem
 
   /** Publish refresh period default value , also considered as the min value */
-  private val refreshPeriod = system.settings.config.getInt("nsdb.refresh-period")
+  private val refreshPeriod = system.settings.config.getInt("nsdb.websocket.refresh-period")
+
+  /** Number of messages that can be retained before being published,
+    * if the buffered messages exceed this threshold, they will be discarded
+    **/
+  private val retentionSize = system.settings.config.getInt("nsdb.websocket.retention-size")
 
   private def newStream(publishInterval: Int,
+                        retentionSize: Int,
                         publisherActor: ActorRef,
                         header: Option[String],
                         authProvider: NSDBAuthProvider): Flow[Message, Message, NotUsed] = {
@@ -49,7 +55,7 @@ trait WsResources {
 
     val outgoingMessages: Source[Message, NotUsed] =
       Source
-        .actorRef[StreamActor.OutgoingMessage](10, OverflowStrategy.dropTail)
+        .actorRef[StreamActor.OutgoingMessage](retentionSize, OverflowStrategy.dropNew)
         .mapMaterializedValue { outgoingActor =>
           connectedWsActor ! StreamActor.Connect(outgoingActor)
           NotUsed
@@ -79,15 +85,15 @@ trait WsResources {
     */
   def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =
     path("ws-stream") {
-      parameter('refresh_period ? refreshPeriod) {
-        case period if period >= refreshPeriod =>
+      parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
+        case (period, retention) if period >= refreshPeriod =>
           optionalHeaderValueByName(authProvider.headerName) { header =>
-            handleWebSocketMessages(newStream(period, publisherActor, header, authProvider))
+            handleWebSocketMessages(newStream(period, retention, publisherActor, header, authProvider))
           }
-        case value =>
+        case (period, _) =>
           complete(
             (BadRequest,
-             s"publish period of $value milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
+             s"publish period of $period milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
       }
     }
 }
