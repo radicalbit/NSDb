@@ -62,7 +62,7 @@ trait WsResources {
           builder
             .add(
               Source
-                .actorRef[StreamActor.OutgoingMessage](10, OverflowStrategy.dropTail)
+                .actorRef[StreamActor.OutgoingMessage](retentionSize, OverflowStrategy.dropNew)
                 .mapMaterializedValue { outgoingActor =>
                   connectedWsActor ! StreamActor.Connect(outgoingActor)
                   NotUsed
