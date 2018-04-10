@@ -29,17 +29,32 @@ trait WsResources {
     **/
   private val retentionSize = system.settings.config.getInt("nsdb.websocket.retention-size")
 
+  /**
+    * Akka stream Flow used to define the webSocket behaviour.
+    * @param publishInterval interval of data publishing operation.
+    * @param retentionSize size of the buffer used to retain events in case of no subscribers.
+    * @param publisherActor the global [[io.radicalbit.nsdb.actors.PublisherActor]].
+    * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
+    * @param authProvider the configured [[NSDBAuthProvider]].
+    * @return the [[Flow]] that models the WebSocket.
+    */
   private def newStream(publishInterval: Int,
                         retentionSize: Int,
                         publisherActor: ActorRef,
-                        header: Option[String],
+                        securityHeaderPayload: Option[String],
                         authProvider: NSDBAuthProvider): Flow[Message, Message, NotUsed] = {
 
+    /**
+      * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
+      */
     val connectedWsActor = system.actorOf(
       StreamActor
-        .props(publisherActor, refreshPeriod, header, authProvider)
+        .props(publisherActor, refreshPeriod, securityHeaderPayload, authProvider)
         .withDispatcher("akka.actor.control-aware-dispatcher"))
 
+    /**
+      * Messages from the Ws to the backend.
+      */
     val incomingMessages: Sink[Message, NotUsed] =
       Flow[Message]
         .map {
@@ -50,6 +65,9 @@ trait WsResources {
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))
 
+    /**
+      * Messages from the backend to the Ws.
+      */
     val outgoingMessages: Source[Message, NotUsed] =
       Source
         .actorRef[StreamActor.OutgoingMessage](retentionSize, OverflowStrategy.dropNew)
@@ -68,8 +86,8 @@ trait WsResources {
 
   /**
     * WebSocket route handling WebSocket requests.
-    * User can optionally define data refresh period, using query parameter `refresh_period`.
-    * If no `refresh_period` is defined the default one is used.
+    * User can optionally define data refresh period, using query parameter `refresh_period` and data retention size using query parameter `retention_size`.
+    * If nor `refresh_period` or `retention_size` is defined the default one is used.
     * User defined `refresh_period` cannot be less than the default value specified in `nsdb.refresh-period`.
     *
     * @param publisherActor actor publisher of class [[io.radicalbit.nsdb.actors.PublisherActor]]

@@ -16,9 +16,16 @@ import io.radicalbit.nsdb.web.actor.StreamActor._
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
+/**
+  * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
+  * @param publisher global Publisher Actor.
+  * @param publishInterval publish to web socket interval.
+  * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
+  * @param authProvider the configured [[NSDBAuthProvider]]
+  */
 class StreamActor(publisher: ActorRef,
-                  refreshPeriod: Int,
-                  securityHeader: Option[String],
+                  publishInterval: Int,
+                  securityHeaderPayload: Option[String],
                   authProvider: NSDBAuthProvider)
     extends Actor
     with ActorLogging {
@@ -31,12 +38,15 @@ class StreamActor(publisher: ActorRef,
 
   private val buffer: mutable.Map[String, RecordsPublished] = mutable.Map.empty
 
+  /**
+    * Waits for the WebSocket actor reference behaviour.
+    */
   def waiting: Receive = {
     case Connect(wsActor) =>
 
       import scala.concurrent.duration._
 
-      context.system.scheduler.schedule(0.seconds, refreshPeriod.millis) {
+      context.system.scheduler.schedule(0.seconds, publishInterval.millis) {
         val keys = buffer.keys
         keys.foreach { k =>
           wsActor ! OutgoingMessage(buffer(k))
@@ -47,10 +57,14 @@ class StreamActor(publisher: ActorRef,
       context become connected(wsActor)
   }
 
+  /**
+    * Handles registration commands and publishing events.
+    * @param wsActor WebSocket actor reference.
+    */
   def connected(wsActor: ActorRef): Receive = {
     case msg @ RegisterQuery(db, namespace, metric, queryString) =>
       val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeader getOrElse "", writePermission = false)
+        authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
       if (checkAuthorization.success)
         new SQLStatementParser().parse(db, namespace, queryString) match {
           case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
@@ -70,7 +84,7 @@ class StreamActor(publisher: ActorRef,
     case msg @ RegisterQuid(db, namespace, metric, quid) =>
       log.debug(s"registering quid $quid")
       val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeader getOrElse "", writePermission = false)
+        authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
       if (checkAuthorization.success)
         publisher ! SubscribeByQueryId(self, quid)
       else
