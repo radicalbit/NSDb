@@ -13,9 +13,13 @@ import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
+import scala.collection.mutable
 import scala.util.{Failure, Success}
 
-class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvider: NSDBAuthProvider)
+class StreamActor(publisher: ActorRef,
+                  refreshPeriod: Int,
+                  securityHeader: Option[String],
+                  authProvider: NSDBAuthProvider)
     extends Actor
     with ActorLogging {
 
@@ -25,8 +29,21 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
 
   override def receive: Receive = waiting
 
+  private val buffer: mutable.Map[String, RecordsPublished] = mutable.Map.empty
+
   def waiting: Receive = {
     case Connect(wsActor) =>
+
+      import scala.concurrent.duration._
+
+      context.system.scheduler.schedule(0.seconds, refreshPeriod.millis) {
+        val keys = buffer.keys
+        keys.foreach { k =>
+          wsActor ! OutgoingMessage(buffer(k))
+          buffer -= k
+        }
+      }
+
       context become connected(wsActor)
   }
 
@@ -62,8 +79,8 @@ class StreamActor(publisher: ActorRef, securityHeader: Option[String], authProvi
     case msg @ (SubscribedByQueryString(_, _, _) | SubscribedByQuid(_, _) | SubscriptionByQueryStringFailed(_, _) |
         SubscriptionByQuidFailed(_, _)) =>
       wsActor ! OutgoingMessage(msg.asInstanceOf[AnyRef])
-    case msg @ RecordsPublished(_, _, _) =>
-      wsActor ! OutgoingMessage(msg)
+    case msg @ RecordsPublished(quid, _, _) =>
+      buffer += (quid -> msg)
     case Terminate =>
       log.debug("terminating stream actor")
       (publisher ? Unsubscribe(self)).foreach { _ =>
@@ -90,6 +107,9 @@ object StreamActor {
                                            reason: String)
   case class QuidRegistrationFailed(db: String, namespace: String, metric: String, quid: String, reason: String)
 
-  def props(publisherActor: ActorRef, securityHeader: Option[String], authProvider: NSDBAuthProvider) =
-    Props(new StreamActor(publisherActor, securityHeader, authProvider))
+  def props(publisherActor: ActorRef,
+            refreshPeriod: Int,
+            securityHeader: Option[String],
+            authProvider: NSDBAuthProvider) =
+    Props(new StreamActor(publisherActor, refreshPeriod, securityHeader, authProvider))
 }
