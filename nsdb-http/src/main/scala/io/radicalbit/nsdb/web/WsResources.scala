@@ -1,25 +1,19 @@
 package io.radicalbit.nsdb.web
 
-import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
-import akka.stream._
-import akka.stream.contrib.TimeWindow
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, Sink, Source}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordsPublished
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
-import org.json4s.DefaultFormats
+import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization.write
-
-import scala.concurrent.duration.FiniteDuration
 
 trait WsResources {
 
@@ -35,15 +29,32 @@ trait WsResources {
     **/
   private val retentionSize = system.settings.config.getInt("nsdb.websocket.retention-size")
 
+  /**
+    * Akka stream Flow used to define the webSocket behaviour.
+    * @param publishInterval interval of data publishing operation.
+    * @param retentionSize size of the buffer used to retain events in case of no subscribers.
+    * @param publisherActor the global [[io.radicalbit.nsdb.actors.PublisherActor]].
+    * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
+    * @param authProvider the configured [[NSDBAuthProvider]].
+    * @return the [[Flow]] that models the WebSocket.
+    */
   private def newStream(publishInterval: Int,
                         retentionSize: Int,
                         publisherActor: ActorRef,
-                        header: Option[String],
+                        securityHeaderPayload: Option[String],
                         authProvider: NSDBAuthProvider): Flow[Message, Message, NotUsed] = {
 
+    /**
+      * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
+      */
     val connectedWsActor = system.actorOf(
-      StreamActor.props(publisherActor, header, authProvider).withDispatcher("akka.actor.control-aware-dispatcher"))
+      StreamActor
+        .props(publisherActor, refreshPeriod, securityHeaderPayload, authProvider)
+        .withDispatcher("akka.actor.control-aware-dispatcher"))
 
+    /**
+      * Messages from the Ws to the backend.
+      */
     val incomingMessages: Sink[Message, NotUsed] =
       Flow[Message]
         .map {
@@ -54,69 +65,29 @@ trait WsResources {
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))
 
-    val customSource: Graph[SourceShape[TextMessage.Strict], NotUsed] = GraphDSL.create() {
-      implicit builder: GraphDSL.Builder[NotUsed] =>
-        import GraphDSL.Implicits._
-
-        val outgoingMessages =
-          builder
-            .add(
-              Source
-                .actorRef[StreamActor.OutgoingMessage](retentionSize, OverflowStrategy.dropNew)
-                .mapMaterializedValue { outgoingActor =>
-                  connectedWsActor ! StreamActor.Connect(outgoingActor)
-                  NotUsed
-                }
-                .map {
-                  case msg @ OutgoingMessage(_) =>
-                    msg
-                })
-
-        val bcast: UniformFanOutShape[OutgoingMessage, OutgoingMessage] = builder.add(Broadcast[OutgoingMessage](2))
-
-        val merge: UniformFanInShape[OutgoingMessage, OutgoingMessage] = builder.add(Merge[OutgoingMessage](2, true))
-
-        val filterPublishMessage: FlowShape[OutgoingMessage, OutgoingMessage] =
-          builder.add(Flow[OutgoingMessage].filter { outgoing =>
-            outgoing.message.isInstanceOf[RecordsPublished]
-          })
-
-        val windowFlow: FlowShape[OutgoingMessage, OutgoingMessage] =
-          builder.add(TimeWindow(FiniteDuration(publishInterval, TimeUnit.MILLISECONDS), eager = true)(
-            identity[OutgoingMessage]) { (_, newMessage) =>
-            newMessage
-          })
-
-        val filterOthersMessage: FlowShape[OutgoingMessage, OutgoingMessage] =
-          builder
-            .add(
-              Flow[OutgoingMessage]
-                .filter { outgoing =>
-                  !outgoing.message.isInstanceOf[RecordsPublished]
-                })
-
-        val writeMessage: FlowShape[OutgoingMessage, TextMessage.Strict] =
-          builder.add(
-            Flow[OutgoingMessage]
-              .map { outgoing =>
-                TextMessage(write(outgoing.message))
-              })
-
-        outgoingMessages ~> bcast ~> filterPublishMessage ~> windowFlow ~> merge ~> writeMessage
-        bcast ~> filterOthersMessage ~> merge
-
-        SourceShape(writeMessage.out)
-    }
+    /**
+      * Messages from the backend to the Ws.
+      */
+    val outgoingMessages: Source[Message, NotUsed] =
+      Source
+        .actorRef[StreamActor.OutgoingMessage](retentionSize, OverflowStrategy.dropNew)
+        .mapMaterializedValue { outgoingActor =>
+          connectedWsActor ! StreamActor.Connect(outgoingActor)
+          NotUsed
+        }
+        .map {
+          case OutgoingMessage(message) =>
+            TextMessage(write(message))
+        }
 
     Flow
-      .fromSinkAndSource(incomingMessages, Source.fromGraph(customSource))
-
+      .fromSinkAndSource(incomingMessages, outgoingMessages)
   }
 
   /**
     * WebSocket route handling WebSocket requests.
-    * User can optionally define data refresh period, using query parameter `refresh_period`.
-    * If no `refresh_period` is defined the default one is used.
+    * User can optionally define data refresh period, using query parameter `refresh_period` and data retention size using query parameter `retention_size`.
+    * If nor `refresh_period` or `retention_size` is defined the default one is used.
     * User defined `refresh_period` cannot be less than the default value specified in `nsdb.refresh-period`.
     *
     * @param publisherActor actor publisher of class [[io.radicalbit.nsdb.actors.PublisherActor]]
