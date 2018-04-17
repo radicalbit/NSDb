@@ -31,7 +31,8 @@ lazy val `nsdb-web-ui` = project
   .settings(
     nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
     FrontendKeys.nodeWorkingDirectory := baseDirectory.value,
-    FrontendKeys.yarnVersion := "v1.0.2",
+    FrontendKeys.yarnVersion := "v1.6.0",
+    FrontendKeys.nodeVersion := "v8.11.1",
     (compile in Compile) := {
       val s: TaskStreams = streams.value
       s.log.info("Building front-end UI")
