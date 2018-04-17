@@ -22,7 +22,28 @@ lazy val root = project
     `nsdb-sql`,
     `nsdb-cli`,
     `nsdb-flink-connector`,
-    `nsdb-perf`
+    `nsdb-perf`,
+    `nsdb-web-ui`
+  )
+
+lazy val `nsdb-web-ui` = project
+  .enablePlugins(FrontendPlugin)
+  .settings(
+    nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
+    FrontendKeys.nodeWorkingDirectory := baseDirectory.value,
+    FrontendKeys.yarnVersion := "v1.0.2",
+    (compile in Compile) := {
+      val s: TaskStreams = streams.value
+      s.log.info("Building front-end UI")
+      val compilationUI = Process("yarn setup", baseDirectory.value).!
+      if (compilationUI != 0) {
+        val errorMsg = s"compilation returned non-zero return code: $compilationUI"
+        sys.error(errorMsg)
+      } else {
+        s.log.success("Successfully built front-end.")
+      }
+      (compile in Compile).value
+    }
   )
 
 lazy val `nsdb-common` = project

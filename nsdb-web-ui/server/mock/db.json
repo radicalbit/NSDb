@@ -1,0 +1,153 @@
+{
+  "namespaces": ["namespace-1", "namespace-2"],
+  "metrics": [
+    {
+      "id": "namespace-1",
+      "metrics": ["metric-1-1", "metric-1-2"]
+    },
+    {
+      "id": "namespace-2",
+      "metrics": ["metric-2-1", "metric-2-2"]
+    }
+  ],
+  "descriptions": [
+    {
+      "id": "metric-1-1",
+      "fields": [
+        {
+          "name": "field-1-1-1",
+          "type": "String"
+        },
+        {
+          "name": "field-1-1-2",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "id": "metric-1-2",
+      "fields": [
+        {
+          "name": "field-1-2-1",
+          "type": "String"
+        },
+        {
+          "name": "field-1-2-2",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "id": "metric-2-1",
+      "fields": [
+        {
+          "name": "field-2-1-1",
+          "type": "String"
+        },
+        {
+          "name": "field-2-1-2",
+          "type": "Boolean"
+        }
+      ]
+    },
+    {
+      "id": "metric-2-2",
+      "fields": [
+        {
+          "name": "field-2-2-1",
+          "type": "String"
+        },
+        {
+          "name": "field-2-2-2",
+          "type": "Boolean"
+        }
+      ]
+    }
+  ],
+  "queryResults": [
+    {
+      "id": "namespace-1/metric-1-1",
+      "records": [
+        {
+          "timestamp": 1516492800,
+          "value": 1,
+          "dimensions": {
+            "field-1-1-1": "value-1-1-1",
+            "field-1-1-2": "value-1-1-2"
+          }
+        },
+        {
+          "timestamp": 1516492801,
+          "value": 2,
+          "dimensions": {
+            "field-1-1-1": "value-1-1-1",
+            "field-1-1-2": "value-1-1-2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "namespace-1/metric-1-2",
+      "records": [
+        {
+          "timestamp": 1516492800,
+          "value": 1,
+          "dimensions": {
+            "field-1-2-1": "value-1-2-1",
+            "field-1-2-2": "value-1-2-2"
+          }
+        },
+        {
+          "timestamp": 1516492801,
+          "value": 2,
+          "dimensions": {
+            "field-1-2-1": "value-1-2-1",
+            "field-1-2-2": "value-1-2-2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "namespace-2/metric-2-1",
+      "records": [
+        {
+          "timestamp": 1516492800,
+          "value": 1,
+          "dimensions": {
+            "field-2-1-1": "value-2-1-1",
+            "field-2-1-2": "value-2-1-2"
+          }
+        },
+        {
+          "timestamp": 1516492801,
+          "value": 2,
+          "dimensions": {
+            "field-2-1-1": "value-2-1-1",
+            "field-2-1-2": "value-2-1-2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "namespace-2/metric-2-2",
+      "records": [
+        {
+          "timestamp": 1516492800,
+          "value": 1,
+          "dimensions": {
+            "field-2-2-1": "value-2-2-1",
+            "field-2-2-2": "value-2-2-2"
+          }
+        },
+        {
+          "timestamp": 1516492801,
+          "value": 2,
+          "dimensions": {
+            "field-2-2-1": "value-2-2-1",
+            "field-2-2-2": "value-2-2-2"
+          }
+        }
+      ]
+    }
+  ]
+}

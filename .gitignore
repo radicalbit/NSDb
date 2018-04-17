@@ -21,6 +21,9 @@ hs_err_pid*
 dist/*
 **/target
 
+# ui specific
+**/.frontend
+
 lib_managed/
 src_managed/
 project/boot/

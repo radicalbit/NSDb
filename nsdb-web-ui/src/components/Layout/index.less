@@ -1,0 +1,35 @@
+@import '../../assets/styles/palette.less';
+
+.Layout {
+  height: 100vh;
+  & > .ant-layout {
+    height: 100%;
+    > .ant-layout-header {
+      height: 80px;
+      background-color: @rdb-dark-gray;
+    }
+    > .ant-layout-footer {
+      height: 80px;
+      background-color: @rdb-dark-gray;
+      text-align: center;
+    }
+  }
+
+  .Layout-header {
+    h1 {
+      color: @rdb-platinum;
+      margin-bottom: 0;
+    }
+  }
+
+  .Layout-content {
+    background-color: @rdb-platinum;
+  }
+
+  .Layout-footer {
+    h3 {
+      color: @rdb-platinum;
+      margin-bottom: 0;
+    }
+  }
+}
