@@ -9,7 +9,7 @@ trait StaticResources {
     (get & pathPrefix("ui")) {
       (pathEndOrSingleSlash & redirectToTrailingSlashIfMissing(StatusCodes.TemporaryRedirect)) {
         getFromResource("ui/index.html")
-      } ~ getFromResourceDirectory(".")
+      } ~ getFromResourceDirectory("ui")
     }
 
 }
