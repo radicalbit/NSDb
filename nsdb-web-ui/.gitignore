@@ -8,6 +8,7 @@
 
 # production
 /build
+src/main/resources/ui
 
 # misc
 .DS_Store

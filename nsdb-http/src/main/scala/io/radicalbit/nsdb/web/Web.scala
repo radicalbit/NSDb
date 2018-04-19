@@ -9,6 +9,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetPublisher, GetReadCoordinator, GetWriteCoordinator}
 import io.radicalbit.nsdb.security.NsdbSecurity
+import io.radicalbit.nsdb.ui.StaticResources
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
@@ -43,11 +44,11 @@ trait Web extends StaticResources with WsResources with CorsSupport with SSLSupp
               (guardian ? GetWriteCoordinator).mapTo[ActorRef]))
         .onComplete {
           case Success(Seq(publisher, readCoordinator, writeCoordinator)) =>
-            val api: Route = staticResources ~ wsResources(publisher, provider) ~ new ApiResources(
+            val api: Route = wsResources(publisher, provider) ~ new ApiResources(
               publisher,
               readCoordinator,
               writeCoordinator,
-              provider).apiResources
+              provider).apiResources ~ staticResources
 
             val http =
               if (isSSLEnabled) {

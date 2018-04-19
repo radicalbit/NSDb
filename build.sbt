@@ -27,7 +27,10 @@ lazy val root = project
   )
 
 lazy val `nsdb-web-ui` = project
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(FrontendPlugin)
+  .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .settings(
     nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
     FrontendKeys.nodeWorkingDirectory := baseDirectory.value,
@@ -43,9 +46,15 @@ lazy val `nsdb-web-ui` = project
       } else {
         s.log.success("Successfully built front-end.")
       }
+
+      val to   = (resourceDirectory in Compile).value / "ui"
+      val from = baseDirectory.value / "build"
+      IO.copyDirectory(from, to)
+
       (compile in Compile).value
     }
   )
+//  .settings(unmanagedResourceDirectories in Compile += { baseDirectory.value / "build" })
 
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
@@ -62,7 +71,7 @@ lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
+  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`, `nsdb-web-ui`)
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
