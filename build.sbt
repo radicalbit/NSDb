@@ -33,10 +33,10 @@ lazy val `nsdb-web-ui` = project
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .settings(
 //    nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
-    FrontendKeys.nodeInstallDirectory := (baseDirectory.value / "app" / ".frontend"),
-    FrontendKeys.nodeWorkingDirectory := (baseDirectory.value / "app"),
-    FrontendKeys.yarnVersion := "v1.6.0",
-    FrontendKeys.nodeVersion := "v8.11.1",
+//    FrontendKeys.nodeInstallDirectory := (baseDirectory.value / "app" / ".frontend"),
+//    FrontendKeys.nodeWorkingDirectory := (baseDirectory.value / "app"),
+//    FrontendKeys.yarnVersion := "v1.6.0",
+//    FrontendKeys.nodeVersion := "v8.11.1",
     (compile in Compile) := {
       val s: TaskStreams = streams.value
       s.log.info("Building front-end UI")
