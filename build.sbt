@@ -26,6 +26,8 @@ lazy val root = project
     `nsdb-web-ui`
   )
 
+val myTask = taskKey[Unit]("My task")
+
 lazy val `nsdb-web-ui` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -37,12 +39,17 @@ lazy val `nsdb-web-ui` = project
     FrontendKeys.nodeWorkingDirectory := (baseDirectory.value / "app"),
 //    FrontendKeys.yarnVersion := "v1.6.0",
     FrontendKeys.nodeVersion := "v8.11.1",
-    (compile in Compile) := {
+    myTask := {
+      yarn.toTask(" build").value
 
-      val myTask         = taskKey[Unit]("My task")
-      val s: TaskStreams = streams.value
-      s.log.info("Building front-end UI")
-      myTask := yarn.toTask(" setup").value
+      val to   = (resourceDirectory in Compile).value / "ui"
+      val from = baseDirectory.value / "app/build"
+      IO.copyDirectory(from, to)
+    },
+    (compile in Compile) <<= (compile in Compile) dependsOn myTask
+//    (compile in Compile) := {
+//      val s: TaskStreams = streams.value
+//      s.log.info("Building front-end UI")
 //      val compilationUI = Process(".frontend/node/yarn/yarn-v1.6.0/bin/yarn setup", baseDirectory.value / "app").!
 //      if (compilationUI != 0) {
 //        val errorMsg = s"compilation returned non-zero return code: $compilationUI"
@@ -50,13 +57,13 @@ lazy val `nsdb-web-ui` = project
 //      } else {
 //        s.log.success("Successfully built front-end.")
 //      }
+//
+//      val to   = (resourceDirectory in Compile).value / "ui"
+//      val from = baseDirectory.value / "app/build"
+//      IO.copyDirectory(from, to)
 
-      val to   = (resourceDirectory in Compile).value / "ui"
-      val from = baseDirectory.value / "app/build"
-      IO.copyDirectory(from, to)
-
-      (compile in Compile).value
-    }
+//      (compile in Compile).value
+//    }
   )
 
 lazy val `nsdb-common` = project
