@@ -33,13 +33,13 @@ lazy val `nsdb-web-ui` = project
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .settings(
     nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
-    FrontendKeys.nodeWorkingDirectory := baseDirectory.value,
+    FrontendKeys.nodeWorkingDirectory := baseDirectory.value / "app",
     FrontendKeys.yarnVersion := "v1.6.0",
     FrontendKeys.nodeVersion := "v8.11.1",
     (compile in Compile) := {
       val s: TaskStreams = streams.value
       s.log.info("Building front-end UI")
-      val compilationUI = Process("yarn setup", baseDirectory.value).!
+      val compilationUI = Process("yarn setup", baseDirectory.value / "app").!
       if (compilationUI != 0) {
         val errorMsg = s"compilation returned non-zero return code: $compilationUI"
         sys.error(errorMsg)
@@ -48,13 +48,12 @@ lazy val `nsdb-web-ui` = project
       }
 
       val to   = (resourceDirectory in Compile).value / "ui"
-      val from = baseDirectory.value / "build"
+      val from = baseDirectory.value / "app/build"
       IO.copyDirectory(from, to)
 
       (compile in Compile).value
     }
   )
-//  .settings(unmanagedResourceDirectories in Compile += { baseDirectory.value / "build" })
 
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
