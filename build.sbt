@@ -32,8 +32,9 @@ lazy val `nsdb-web-ui` = project
   .enablePlugins(FrontendPlugin)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .settings(
-    nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
-    FrontendKeys.nodeWorkingDirectory := baseDirectory.value / "app",
+//    nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
+    FrontendKeys.nodeInstallDirectory := (baseDirectory.value / "app" / ".frontend"),
+    FrontendKeys.nodeWorkingDirectory := (baseDirectory.value / "app"),
     FrontendKeys.yarnVersion := "v1.6.0",
     FrontendKeys.nodeVersion := "v8.11.1",
     (compile in Compile) := {
