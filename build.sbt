@@ -46,7 +46,7 @@ lazy val `nsdb-web-ui` = project
     },
     copyTask := {
       uiCompileTask.value
-      val to   = (target in Compile).value / s"scala-${scalaVersion.value.split(".").take(2)}" / "classes" / "ui"
+      val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
       val from = baseDirectory.value / "app/build"
       IO.copyDirectory(from, to)
 
