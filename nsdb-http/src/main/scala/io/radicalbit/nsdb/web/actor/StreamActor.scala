@@ -43,7 +43,6 @@ class StreamActor(publisher: ActorRef,
     */
   def waiting: Receive = {
     case Connect(wsActor) =>
-
       import scala.concurrent.duration._
 
       context.system.scheduler.schedule(0.seconds, publishInterval.millis) {

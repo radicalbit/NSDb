@@ -22,7 +22,36 @@ lazy val root = project
     `nsdb-sql`,
     `nsdb-cli`,
     `nsdb-flink-connector`,
-    `nsdb-perf`
+    `nsdb-perf`,
+    `nsdb-web-ui`
+  )
+
+val uiCompileTask = taskKey[Unit]("build UI")
+val copyTask      = taskKey[Unit]("copy UI")
+
+lazy val `nsdb-web-ui` = project
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
+  .enablePlugins(FrontendPlugin)
+  .settings(libraryDependencies ++= Dependencies.Http.libraries)
+  .settings(
+    nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
+    FrontendKeys.nodeInstallDirectory := (baseDirectory.value / "app/.frontend"),
+    FrontendKeys.nodeWorkingDirectory := (baseDirectory.value / "app"),
+    FrontendKeys.nodeVersion := "v8.11.1",
+    uiCompileTask := {
+      val log = streams.value.log
+      log.info("Starting build ui task")
+      yarn.toTask(" setup").value
+    },
+    copyTask := {
+      uiCompileTask.value
+      val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
+      val from = baseDirectory.value / "app/build"
+      IO.copyDirectory(from, to)
+
+    },
+    (compile in Compile) <<= (compile in Compile) dependsOn copyTask
   )
 
 lazy val `nsdb-common` = project
@@ -40,7 +69,7 @@ lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
+  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`, `nsdb-web-ui`)
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
