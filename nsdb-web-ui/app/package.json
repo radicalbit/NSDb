@@ -18,7 +18,6 @@
     ]
   },
   "scripts": {
-    "precommit": "lint-staged",
     "http": "node server/mock/http.js",
     "ws": "node server/mock/ws.js",
     "mock": "npm-run-all --parallel http ws",

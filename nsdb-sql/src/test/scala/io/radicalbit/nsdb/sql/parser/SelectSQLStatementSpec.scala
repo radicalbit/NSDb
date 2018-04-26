@@ -210,6 +210,18 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             condition = Some(Condition(LikeExpression(dimension = "name", value = "$ame$")))
           )))
       }
+
+      "parse it successfully with predicate containing special characters" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE name like $a_m-e$") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_m-e$")))
+          )))
+      }
     }
 
     "receive a select containing a GTE selection" should {

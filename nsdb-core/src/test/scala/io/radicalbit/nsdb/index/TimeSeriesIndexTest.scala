@@ -7,7 +7,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.MaxAllGroupsCollector
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
-import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField, TermQuery}
+import org.apache.lucene.search._
 import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
@@ -50,6 +50,11 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val result            = timeSeriesIndex.rawQuery(query, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
 
     result.size shouldBe 1
+
+    val wildcardQuery = new WildcardQuery(new Term("content", "content-10*"))
+    val wildcardResult            = timeSeriesIndex.rawQuery(wildcardQuery, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
+
+    wildcardResult.size shouldBe 2
   }
 
   "TimeSeriesIndex" should "support range queries and sorting" in {

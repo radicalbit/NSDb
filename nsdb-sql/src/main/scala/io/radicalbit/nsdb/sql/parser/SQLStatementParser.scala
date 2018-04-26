@@ -78,7 +78,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val CloseRoundBracket = ")"
 
   private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
-  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\\-]*[a-zA-Z0-9])""".r
+  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9])""".r
   private val numbers          = """([0-9]+)""".r
   private val intValue         = numbers ^^ { _.toInt }
   private val longValue        = numbers ^^ { _.toLong }
@@ -97,7 +97,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case string: String        => string
     case strings: List[String] => strings.mkString(" ")
   }
-  private val stringValueWithWildcards = """(^[a-zA-Z_\\$][a-zA-Z0-9_\\-\\$]*[a-zA-Z0-9\\$])""".r
+  private val stringValueWithWildcards = """(^[a-zA-Z_\$][a-zA-Z0-9_\-\$]*[a-zA-Z0-9\$])""".r
 
   private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
     case "H" => 3600 * 1000
