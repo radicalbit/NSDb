@@ -35,23 +35,29 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
 
   import context.dispatcher
 
-  private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
+  private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   override def receive: Receive = {
-    case SubscribeNamespaceDataActor(actor: ActorRef, nodeName) =>
-      namespaces += (nodeName -> actor)
-      sender() ! NamespaceDataActorSubscribed(actor, nodeName)
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      metricsDataActors += (nodeName -> actor)
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(namespaces.keys.toSeq)
+      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case msg @ GetDbs =>
+      Future
+        .sequence(metricsDataActors.values.toSeq.map(actor => (actor ? msg).mapTo[DbsGot].map(_.dbs)))
+        .map(_.flatten.toSet)
+        .map(dbs => DbsGot(dbs))
+        .pipeTo(sender)
     case msg @ GetNamespaces(db) =>
       Future
-        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
+        .sequence(metricsDataActors.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
         .map(_.flatten.toSet)
         .map(namespaces => NamespacesGot(db, namespaces))
         .pipeTo(sender)
     case msg @ GetMetrics(db, namespace) =>
       Future
-        .sequence(namespaces.values.toSeq.map(actor => (actor ? msg).mapTo[MetricsGot].map(_.metrics)))
+        .sequence(metricsDataActors.values.toSeq.map(actor => (actor ? msg).mapTo[MetricsGot].map(_.metrics)))
         .map(_.flatten.toSet)
         .map(metrics => MetricsGot(db, namespace, metrics))
         .pipeTo(sender)
@@ -64,7 +70,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             Future
-              .sequence(namespaces.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
+              .sequence(metricsDataActors.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
               .map { seq =>
                 val errs = seq.collect {
                   case e: SelectStatementFailed => e.reason

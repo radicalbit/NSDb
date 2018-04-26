@@ -10,6 +10,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
+import io.radicalbit.nsdb.web.DataApiTest.FakeWriteCoordinator
 import io.radicalbit.nsdb.web.Formats._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.{DataApi, InsertBody}
@@ -18,9 +19,11 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 
-class FakeWriteCoordinator extends Actor {
-  override def receive: Receive = {
-    case msg: MapInput => sender() ! InputMapped(msg.db, msg.namespace, msg.metric, msg.record)
+object DataApiTest {
+  class FakeWriteCoordinator extends Actor {
+    override def receive: Receive = {
+      case msg: MapInput => sender() ! InputMapped(msg.db, msg.namespace, msg.metric, msg.record)
+    }
   }
 }
 

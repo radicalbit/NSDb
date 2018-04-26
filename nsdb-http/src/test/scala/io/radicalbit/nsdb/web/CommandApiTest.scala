@@ -19,44 +19,52 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
-object Data {
-    val namespaces = Set("namespace1", "namespace2")
-    val metrics = Set("metric1", "metric2")
+object CommandApiTest {
 
-    val schemas = Map(
-        "metric1" -> Schema("metric1", Set(SchemaField("dim1", VARCHAR()), SchemaField("dim2", INT()), SchemaField("dim3", BIGINT()))),
-        "metric2" -> Schema("metric2", Set(SchemaField("dim1", VARCHAR()), SchemaField("dim2", INT()), SchemaField("dim3", BIGINT()))),
-    )
-}
+    object Data {
+        val dbs = Set("db1", "db2")
+        val namespaces = Set("namespace1", "namespace2")
+        val metrics = Set("metric1", "metric2")
 
+        val schemas = Map(
+            "metric1" -> Schema("metric1", Set(SchemaField("dim1", VARCHAR()), SchemaField("dim2", INT()), SchemaField("dim3", BIGINT()))),
+            "metric2" -> Schema("metric2", Set(SchemaField("dim1", VARCHAR()), SchemaField("dim2", INT()), SchemaField("dim3", BIGINT()))),
+        )
+    }
 
-class FakeReaderCoordinator extends Actor {
-    import Data._
+    class FakeReadCoordinator extends Actor {
 
-    override def receive: Receive = {
-        case GetNamespaces(db) =>
-            sender() ! NamespacesGot(db, namespaces)
-        case GetMetrics(db, namespace) =>
-            sender ! MetricsGot(db, namespace, metrics)
-        case GetSchema(db, namespace, metric) =>
-            sender() ! SchemaGot(db, namespace, metric, schemas.get(metric))
+        import Data._
+
+        override def receive: Receive = {
+            case GetDbs =>
+                sender() ! DbsGot(dbs)
+            case GetNamespaces(db) =>
+                sender() ! NamespacesGot(db, namespaces)
+            case GetMetrics(db, namespace) =>
+                sender ! MetricsGot(db, namespace, metrics)
+            case GetSchema(db, namespace, metric) =>
+                sender() ! SchemaGot(db, namespace, metric, schemas.get(metric))
+        }
+    }
+
+    class FakeWriteCoordinator extends Actor {
+        override def receive: Receive = {
+            case DeleteNamespace(db, namespace) => sender() ! NamespaceDeleted(db, namespace)
+            case DropMetric(db, namespace, metric) => sender() ! MetricDropped(db, namespace, metric)
+        }
     }
 }
 
-class FakeWriterCoordinator extends Actor {
-    override def receive: Receive = {
-        case DeleteNamespace(db, namespace) => sender() ! NamespaceDeleted(db, namespace)
-        case DropMetric(db, namespace, metric) => sender() ! MetricDropped(db, namespace, metric)
-    }
-}
 
 class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
 
-    import Data._
+    import io.radicalbit.nsdb.web.CommandApiTest._
+    import io.radicalbit.nsdb.web.CommandApiTest.Data._
 
-    override def readCoordinator: ActorRef = system.actorOf(Props[FakeReaderCoordinator])
+    override def readCoordinator: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 
-    override def writeCoordinator: ActorRef = system.actorOf(Props[FakeWriterCoordinator])
+    override def writeCoordinator: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
 
     override def authenticationProvider: NSDBAuthProvider = new TestAuthProvider
 
@@ -66,6 +74,14 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     val testSecuredRoutes = Route.seal(
         commandsApi
     )
+
+    "CommandsApi show dbs" should "return dbs" in {
+        Get("/commands/dbs").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+            status shouldBe OK
+            val entity = entityAs[String]
+            entity shouldBe write(ShowDbsResponse(dbs = dbs))
+        }
+    }
 
     "CommandsApi show namespaces" should "return namespaces" in {
         Get("/commands/db1/namespaces").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {

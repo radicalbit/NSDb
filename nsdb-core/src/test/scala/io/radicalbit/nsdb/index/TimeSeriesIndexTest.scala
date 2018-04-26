@@ -52,7 +52,8 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     result.size shouldBe 1
 
     val wildcardQuery = new WildcardQuery(new Term("content", "content-10*"))
-    val wildcardResult            = timeSeriesIndex.rawQuery(wildcardQuery, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
+    val wildcardResult =
+      timeSeriesIndex.rawQuery(wildcardQuery, 100, Some(new Sort(new SortField("timestamp", SortField.Type.DOC))))
 
     wildcardResult.size shouldBe 2
   }

@@ -37,7 +37,7 @@ class ReadCoordinatorSpec
 
     val location = Location(_: String, "testNode", 0, 0)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(metricsDataActor, "testNode"), 3 seconds)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "testNode"), 3 seconds)
 
     //long metric
     Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)

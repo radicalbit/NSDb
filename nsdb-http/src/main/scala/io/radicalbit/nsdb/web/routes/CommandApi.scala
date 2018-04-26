@@ -35,10 +35,37 @@ trait CommandApi {
   case class CommandRequestMetric(db: String, namespace: String, metric: String) extends Metric
 
   sealed trait CommandResponse
+  case class ShowDbsResponse(dbs: Set[String])               extends CommandResponse
   case class ShowNamespacesResponse(namespaces: Set[String]) extends CommandResponse
   case class ShowMetricsResponse(metrics: Set[String])       extends CommandResponse
   case class Field(name: String, `type`: String)
   case class DescribeMetricResponse(fields: Set[Field]) extends CommandResponse
+
+  @Api(value = "/dbs", produces = "application/json")
+  @Path("/dbs")
+  @ApiOperation(value = "Perform show dbs command",
+                nickname = "show dbs",
+                httpMethod = "GET",
+                response = classOf[ShowNamespacesResponse])
+  @ApiResponses(
+    Array(
+      new ApiResponse(code = 500, message = "Internal server error")
+    ))
+  def showDbs: Route =
+    pathPrefix("commands") {
+      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+        path("dbs") {
+          (pathEnd & get) {
+            onComplete(readCoordinator ? GetDbs) {
+              case Success(DbsGot(dbs)) =>
+                complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
+              case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+              case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+            }
+          }
+        }
+      }
+    }
 
   @Api(value = "/{db}/namespaces", produces = "application/json")
   @Path("/{db}/namespaces")
@@ -256,7 +283,7 @@ trait CommandApi {
     }
 
   def commandsApi: Route = {
-    showNamespaces ~ showMetrics ~ dropNamespace ~ describeMetric ~ dropMetric
+    showDbs ~ showNamespaces ~ showMetrics ~ dropNamespace ~ describeMetric ~ dropMetric
   }
 
 }

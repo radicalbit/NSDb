@@ -45,7 +45,7 @@ class ReadCoordinatorShardSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
-    Await.result(readCoordinatorActor ? SubscribeNamespaceDataActor(metricsDataActor, "node1"), 3 seconds)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 3 seconds)
 
     val location1 = Location(_: String, "node1", 0, 5)
     val location2 = Location(_: String, "node1", 6, 10)

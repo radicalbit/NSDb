@@ -6,7 +6,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, GetMetrics, GetNamespaces, GetSchema}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{Matchers, WordSpecLike}
 
@@ -79,6 +79,18 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
   def defaultBehaviour {
     "ReadCoordinator" when {
+
+      "receive a GetDbs" should {
+        "return it properly" in within(5.seconds) {
+          probe.send(readCoordinatorActor, GetDbs)
+
+          awaitAssert {
+            val expected = probe.expectMsgType[DbsGot]
+            expected.dbs shouldBe Set(db)
+          }
+
+        }
+      }
 
       "receive a GetNamespace" should {
         "return it properly" in within(5.seconds) {

@@ -7,7 +7,7 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.remote.RemoteScope
 import akka.util.Timeout
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeNamespaceDataActor
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeMetricsDataActor
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
@@ -60,8 +60,8 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
       val metricsDataActor = context.actorOf(
         MetricsDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
         s"namespace-data-actor_$nameNode")
-      writeCoordinator ! SubscribeNamespaceDataActor(metricsDataActor, nameNode)
-      readCoordinator ! SubscribeNamespaceDataActor(metricsDataActor, nameNode)
+      writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nameNode)
+      readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nameNode)
 
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)

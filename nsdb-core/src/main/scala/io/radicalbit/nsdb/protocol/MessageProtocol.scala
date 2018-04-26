@@ -15,6 +15,7 @@ object MessageProtocol {
     * commands executed among nsdb actors.
     */
   object Commands {
+    case object GetDbs
     case class GetNamespaces(db: String)
     case class GetMetrics(db: String, namespace: String)
     case class GetSchema(db: String, namespace: String, metric: String)
@@ -42,7 +43,7 @@ object MessageProtocol {
     case object GetWriteCoordinator
     case object GetPublisher
 
-    case class SubscribeNamespaceDataActor(actor: ActorRef, nodeName: String)
+    case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
   }
 
@@ -55,6 +56,7 @@ object MessageProtocol {
     case class MetricNotFound(metric: String) extends ErrorCode
     case object Generic                       extends ErrorCode
 
+    case class DbsGot(dbs: Set[String])
     case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
@@ -81,7 +83,7 @@ object MessageProtocol {
     case class CommitLogActorSubscribed(actor: ActorRef, host: Option[String] = None)
     case class CommitLogActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
 
-    case class NamespaceDataActorSubscribed(actor: ActorRef, nodeName: String)
+    case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
     case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
   }
 
