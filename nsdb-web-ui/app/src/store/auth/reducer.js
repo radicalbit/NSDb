@@ -1,6 +1,6 @@
 const initialState = {
   isLoggedIn: false,
-  database: 'certilogo',
+  database: 'db',
 };
 
 function authReducer(state = initialState, action) {

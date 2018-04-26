@@ -46,9 +46,13 @@ lazy val `nsdb-web-ui` = project
       yarn.toTask(" setup").value
     },
     copyTask := {
+      val log = streams.value.log
       uiCompileTask.value
       val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
       val from = baseDirectory.value / "app/build"
+      log.info("Deleting previous resources")
+      IO.delete(to)
+      log.info("Coping ui static resources")
       IO.copyDirectory(from, to)
 
     },
