@@ -22,6 +22,7 @@ lazy val root = project
     `nsdb-sql`,
     `nsdb-cli`,
     `nsdb-flink-connector`,
+    `nsdb-kafka-connect`,
     `nsdb-perf`,
     `nsdb-web-ui`
   )
@@ -188,6 +189,12 @@ lazy val `nsdb-flink-connector` = project
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
+  .dependsOn(`nsdb-scala-api`)
+
+lazy val `nsdb-kafka-connect` = (project in file("nsdb-kafka-connect"))
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.KafkaConnect.libraries)
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))

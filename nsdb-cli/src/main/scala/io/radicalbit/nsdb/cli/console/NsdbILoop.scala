@@ -270,7 +270,7 @@ class NsdbILoop(host: Option[String],
   private def processSQLStatementResponse(statementAttempt: Future[SQLStatementResult],
                                           print: SQLStatementResult => Try[String],
                                           lineToRecord: String): Result = {
-    Try(Await.result(statementAttempt, 10 seconds)) match {
+    Try(Await.result(statementAttempt, 30 seconds)) match {
       case Success(resp: SQLStatementFailed) =>
         echo(s"Statement failed because : ${resp.reason}")
         result(Some(lineToRecord))

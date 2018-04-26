@@ -1,0 +1,112 @@
+package io.radicalbit.nsdb.connector.kafka.sink
+
+import io.radicalbit.nsdb.api.scala.{Bit, Db}
+import org.apache.kafka.connect.data.{Schema, SchemaBuilder, Struct}
+import org.apache.kafka.connect.sink.SinkRecord
+import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+
+class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest {
+
+  val simpleSchema = SchemaBuilder.struct
+    .name("record")
+    .version(1)
+    .field("string_id", Schema.STRING_SCHEMA)
+    .field("int_field", Schema.INT32_SCHEMA)
+    .field("long_field", Schema.INT64_SCHEMA)
+    .field("string_field", Schema.STRING_SCHEMA)
+    .build
+
+  val simpleSchemaWithDimensions = SchemaBuilder.struct
+    .name("record")
+    .version(1)
+    .field("string_id", Schema.STRING_SCHEMA)
+    .field("int_field", Schema.INT32_SCHEMA)
+    .field("long_field", Schema.INT64_SCHEMA)
+    .field("string_field", Schema.STRING_SCHEMA)
+    .field("d1", Schema.STRING_SCHEMA)
+    .field("d2", Schema.INT32_SCHEMA)
+    .build
+
+  val simpleStruct = new Struct(simpleSchema)
+    .put("string_id", "my_id_val")
+    .put("int_field", 12)
+    .put("long_field", 12L)
+    .put("string_field", "foo")
+
+  val simpleStructWithDimensions = new Struct(simpleSchemaWithDimensions)
+    .put("string_id", "my_id_val")
+    .put("int_field", 12)
+    .put("long_field", 12L)
+    .put("string_field", "foo")
+    .put("d1", "d1")
+    .put("d2", 12)
+
+  val schema = SchemaBuilder.struct
+    .name("record")
+    .version(1)
+    .field("string_id", Schema.STRING_SCHEMA)
+    .field("int_field", Schema.INT32_SCHEMA)
+    .field("long_field", Schema.INT64_SCHEMA)
+    .field("string_field", Schema.STRING_SCHEMA)
+    .field("my_struct", simpleSchema)
+    .build
+
+  val struct = new Struct(schema)
+    .put("string_id", "my_id_val")
+    .put("int_field", 12)
+    .put("long_field", 12L)
+    .put("string_field", "foo")
+    .put("my_struct", simpleStruct)
+
+  val simpleRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", simpleSchema, simpleStruct, 1)
+  val simpleRecordWithDimentions =
+    new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", simpleSchemaWithDimensions, simpleStructWithDimensions, 1)
+  val record = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, struct, 1)
+
+  val stringRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, "", 1)
+
+  "SinkRecordConversion" should "convert a struct SinkRecord to a Map" in {
+    val mo = NsdbSinkWriter.parse(simpleRecord)
+
+    mo.keys.size shouldBe 4
+    mo.get("string_id") shouldBe Some("my_id_val")
+    mo.get("int_field") shouldBe Some(12)
+    mo.get("long_field") shouldBe Some(12)
+  }
+
+  "SinkRecordConversion" should "convert a SinkRecord with nested type to a Map" in {
+
+    val mo = NsdbSinkWriter.parse(record)
+    mo.keys.size shouldBe 8
+    mo.get("string_id") shouldBe Some("my_id_val")
+    mo.get("int_field") shouldBe Some(12)
+    mo.get("long_field") shouldBe Some(12)
+    mo.get("string_field") shouldBe Some("foo")
+
+    mo.get("my_struct.string_id") shouldBe Some("my_id_val")
+    mo.get("my_struct.int_field") shouldBe Some(12)
+    mo.get("my_struct.long_field") shouldBe Some(12)
+    mo.get("my_struct.string_field") shouldBe Some("foo")
+
+  }
+
+  "SinkRecordConversion" should "ignore non struct records" in {
+    val stringRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, "a generic string", 1)
+    an[RuntimeException] should be thrownBy NsdbSinkWriter.parse(stringRecord)
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, int_field AS value FROM topic WITHTIMESTAMP long_field"
+
+    val parsedKcql = ParsedKcql(withDimensionAlias, None, None)
+
+    val bit: Bit = NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions))
+
+    val expectedBit =
+      Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(12).dimension("d2", 12).dimension("d1", "d1")
+
+    bit shouldBe expectedBit
+  }
+
+}

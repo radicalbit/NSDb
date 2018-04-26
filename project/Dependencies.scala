@@ -134,6 +134,19 @@ object Dependencies {
     lazy val streamingScala = namespace % "flink-streaming-scala_2.11" % version
   }
 
+  object kafka {
+    private lazy val version   = "1.0.0"
+    private lazy val namespace = "org.apache.kafka"
+    lazy val connect           = namespace % "connect-api" % version
+    lazy val `connect-json`    = namespace % "connect-json" % version
+  }
+
+  object kcql {
+    private lazy val version   = "2.5.1"
+    private lazy val namespace = "com.datamountaineer"
+    lazy val kcql              = namespace % "kcql" % version
+  }
+
   lazy val asm = "asm" % "asm" % "3.3.1" % Test //import to use ClosureCleaner in test
 
   object gRPC {
@@ -259,6 +272,14 @@ object Dependencies {
   object FlinkConnector {
     lazy val libraries = Seq(
       flink.streamingScala % Provided
+    )
+  }
+
+  object KafkaConnect {
+    lazy val libraries = Seq(
+      kafka.connect % Provided,
+      kcql.kcql,
+      scalatest.core % Test
     )
   }
 

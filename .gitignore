@@ -40,3 +40,4 @@ mainRunner
 *.sc
 nsdb_*
 data
+nsdb-kafka-connect/full-stack
