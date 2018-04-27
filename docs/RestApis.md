@@ -1,13 +1,14 @@
 # Web APIs
 Nsdb exposes HTTP and Websocket APIs to perform sql statements and Nsdb commands. HTTP APIs expose the same functionalities  provided by CLI interface.
-Furthermore WS APIs allow to register real-time queries on Nsdb cluster. Every time a Bit is written fulfilling a query, it's published on the corresponding Websocket.
+Furthermore WS APIs allow to register real-time queries on Nsdb cluster. Every time a Bit fulfilling a query is written , it's published on the corresponding WebSocket.
 
 HTTP APIs implement three main route categories:
-- Query API, used to run historical select queries
-- Data APi, used to perform insert statements
+- Query API, used to run historical select queries.
+- Data APi, used to perform insert statements.
 - Command API , allowing commands execution e.g. display of namespaces and metrics, drop statements.
 
-All the above-mentioned Web APIs allows to implement custom security authorization mechanism. To define authorization logic user have to implement `io.radicalbit.nsdb.security.http.NSDBAuthProvider` trait defining auth behaviour for database, namespace and metric models. Once the custom authorization provider is set up, its canonical class name must be added to Nsdb conf file under the key `nsdb.security.auth-provider-class`.
+All the above-mentioned Web APIs allow custom security authorization mechanism implementation. To define authorization logic, user must implement `io.radicalbit.nsdb.security.http.NSDBAuthProvider` trait defining authorization behaviour for database, namespace and metric models.  
+Once the custom authorization provider is set up, its canonical class name must be added to Nsdb conf file under the key `nsdb.security.auth-provider-class`.
 By default an `io.radicalbit.nsdb.security.http.EmptyAuthorization ` provider class is plugged in implementing no auth logic.
 
 A secure connection can be set up making use of SSL/TLS protocol enabled in Nsdb cluster configuration. To access a more detailed description see SSL/TLS Documentation.
@@ -16,7 +17,7 @@ A secure connection can be set up making use of SSL/TLS protocol enabled in Nsdb
 
 # Query APIs
 
-Retrieve data from nsdb according to a provided query string.
+Allow data retrieval from Nsdb according to a provided query.
 
 **URL** : `/query`
 
@@ -54,7 +55,7 @@ Filter object is defines as below:
 }
 ```
 
-**Data example**
+**Data examples**
 
 `From` and `To` fields are optionals.
 
@@ -154,10 +155,9 @@ Filter object is defines as below:
 
 **Content** : `Error message`
 
-
 # Data APIs
 
-Insert data into a metric, given a specified `Bit`.
+This API allows bit insertion into Nsdb's metric. Bit description and metric information must be defined in request body.
 
 **URL** : `/data`
 
@@ -228,11 +228,12 @@ Provide `db`, `namespace`, `metric` and the `bit` to be inserted.
 
 **Content** : `Error message`
 
-# Websocket APIs
+# WebSocket APIs
+
+Opening a websocket using this API allows to subscribe to a query and listen to data updates.
 
 Subscribe to a query and listen to data updates.
 Every inserted event will be checked against every registered query. If the event fulfills the query, it will be published to each subscribed WebSocket.
-
 
 **URL** : `/ws-stream?refresh_period=200&retention_size=10`
 
@@ -345,6 +346,7 @@ In order to subscribe a query, after connection is being opened, user has to sen
     "reason":"reason"
 }
 ```
+
 # Commands APis
 Commands APis map some functionalities already implemented in Nsdb Command Line Interface. They consist in a set of statements aimed to retrieve information about namespace and metric structure and on the other hand to perform drop action on the latter.
 ## Show namespaces
