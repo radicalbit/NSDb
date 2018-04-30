@@ -9,11 +9,12 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, SelectStatementFailed}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.web.Formats._
+import io.radicalbit.nsdb.web.QueryApiTest.{FakeReadCoordinator, FakeWriteCoordinator}
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import org.json4s._
@@ -23,35 +24,43 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.concurrent.duration._
 import scala.util.Failure
 
-class FakeReadCoordinator extends Actor {
-  import FakeReadCoordinator._
-  override def receive: Receive = {
-    case ExecuteStatement(statement)
-        if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
-      new StatementParser()
-        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
-        case scala.util.Success(_) =>
-          val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
-          sender ! SelectStatementExecuted(statement.db,
-                                           statement.namespace,
-                                           statement.metric,
-                                           bitsParametrized(e.value1, e.value2))
-        case Failure(_) => sender ! SelectStatementFailed("statement not valid")
-      }
-    case ExecuteStatement(statement) =>
-      new StatementParser()
-        .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
-        case scala.util.Success(_) =>
-          sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-        case Failure(_) => sender ! SelectStatementFailed("statement not valid")
-      }
+object QueryApiTest {
+  class FakeReadCoordinator extends Actor {
+    import FakeReadCoordinator._
+    override def receive: Receive = {
+      case ExecuteStatement(statement)
+          if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
+        new StatementParser()
+          .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
+          case scala.util.Success(_) =>
+            val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
+            sender ! SelectStatementExecuted(statement.db,
+                                             statement.namespace,
+                                             statement.metric,
+                                             bitsParametrized(e.value1, e.value2))
+          case Failure(_) => sender ! SelectStatementFailed("statement not valid")
+        }
+      case ExecuteStatement(statement) =>
+        new StatementParser()
+          .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
+          case scala.util.Success(_) =>
+            sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+          case Failure(_) => sender ! SelectStatementFailed("statement not valid")
+        }
+    }
   }
-}
 
-object FakeReadCoordinator {
-  def bitsParametrized(from: Long, to: Long) =
-    Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2)), Bit(to, 3, Map("name" -> "name", "number" -> 2)))
-  val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2)), Bit(2, 3, Map("name" -> "name", "number" -> 2)))
+  object FakeReadCoordinator {
+    def bitsParametrized(from: Long, to: Long) =
+      Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2)), Bit(to, 3, Map("name" -> "name", "number" -> 2)))
+    val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2)), Bit(2, 3, Map("name" -> "name", "number" -> 2)))
+  }
+
+  class FakeWriteCoordinator extends Actor {
+    override def receive: Receive = {
+      case msg: MapInput => sender() ! InputMapped(msg.db, msg.namespace, msg.metric, msg.record)
+    }
+  }
 }
 
 class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {

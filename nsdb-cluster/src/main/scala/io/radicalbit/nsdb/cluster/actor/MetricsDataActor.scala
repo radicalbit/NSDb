@@ -62,6 +62,8 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
   override def receive: Receive = commons orElse shardBehaviour
 
   def commons: Receive = {
+    case GetDbs =>
+      sender() ! DbsGot(childActors.keys.map(_.db).toSet)
     case GetNamespaces(db) =>
       sender() ! NamespacesGot(db, childActors.keys.filter(_.db == db).map(_.namespace).toSet)
     case msg @ GetMetrics(db, namespace) =>

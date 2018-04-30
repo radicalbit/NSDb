@@ -172,10 +172,10 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     }
 
   override def receive: Receive = {
-    case SubscribeNamespaceDataActor(actor: ActorRef, nodeName) =>
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       namespaces += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
-      sender() ! NamespaceDataActorSubscribed(actor, nodeName)
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
