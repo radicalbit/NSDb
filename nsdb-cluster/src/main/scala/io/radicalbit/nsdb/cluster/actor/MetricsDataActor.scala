@@ -71,7 +71,6 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       })
       .foreach {
         case (db, namespace) =>
-          log.error(s"entry: $db, $namespace")
           childActors += (NamespaceKey(db, namespace) -> context.actorOf(
             ShardAccumulatorActor.props(basePath, db, namespace),
             s"shard-accumulator-service-$db-$namespace"))
