@@ -188,6 +188,12 @@ object Dependencies {
     lazy val highcharts = s"$namespace.highcharts" % "gatling-charts-highcharts" % version
   }
 
+  object commonsIo {
+    lazy val version   = "2.6"
+    lazy val namespace = "commons-io"
+    lazy val commonsIo = namespace % "commons-io" % version
+  }
+
   object Core {
     val libraries = Seq(
       akka.actor,
@@ -197,7 +203,8 @@ object Dependencies {
       lucene.grouping,
       lucene.facet,
       scalatest.core % Test,
-      akka.testkit   % Test
+      akka.testkit   % Test,
+      commonsIo.commonsIo
     )
   }
 

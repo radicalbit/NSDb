@@ -27,7 +27,14 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 
   val childActors: mutable.Map[NamespaceKey, ActorRef] = mutable.Map.empty
 
-  private def getChild(db: String, namespace: String): ActorRef =
+  /**
+    * Gets or creates child actor of class [[ShardAccumulatorActor]] to handle write requests
+    *
+    * @param db database name
+    * @param namespace namespace name
+    * @return [[ShardAccumulatorActor]] for selected database and namespace
+    */
+  private def getOrCreateChild(db: String, namespace: String): ActorRef =
     childActors.getOrElse(
       NamespaceKey(db, namespace), {
         val child = context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace),
@@ -36,6 +43,17 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
         child
       }
     )
+
+  /**
+    * If exists, gets child for selected namespace and database.
+    * Use in case of read-only operations such as get metrics operations and ddl operations such as drop metrics.
+    *
+    * @param db database name
+    * @param namespace namespace name
+    * @return Option containing child actor of class [[ShardAccumulatorActor]]
+    */
+  private def getChild(db: String, namespace: String): Option[ActorRef] =
+    childActors.get(NamespaceKey(db, namespace))
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-data.timeout", TimeUnit.SECONDS),
@@ -53,6 +71,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       })
       .foreach {
         case (db, namespace) =>
+          log.error(s"entry: $db, $namespace")
           childActors += (NamespaceKey(db, namespace) -> context.actorOf(
             ShardAccumulatorActor.props(basePath, db, namespace),
             s"shard-accumulator-service-$db-$namespace"))
@@ -67,9 +86,12 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     case GetNamespaces(db) =>
       sender() ! NamespacesGot(db, childActors.keys.filter(_.db == db).map(_.namespace).toSet)
     case msg @ GetMetrics(db, namespace) =>
-      getChild(db, namespace) forward msg
+      getChild(db, namespace) match {
+        case Some(child) => child forward msg
+        case None =>  sender() ! MetricsGot(db, namespace, Set.empty)
+      }
     case DeleteNamespace(db, namespace) =>
-      val indexToRemove = getChild(db, namespace)
+      val indexToRemove = getOrCreateChild(db, namespace)
       (indexToRemove ? DeleteAllMetrics(db, namespace))
         .map(_ => {
           indexToRemove ! PoisonPill
@@ -77,23 +99,26 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
           NamespaceDeleted(db, namespace)
         })
         .pipeTo(sender())
-    case msg @ DropMetric(db, namespace, _) =>
-      getChild(db, namespace).forward(msg)
+    case msg @ DropMetric(db, namespace, metric) =>
+      getChild(db, namespace)match {
+        case Some(child) => child forward msg
+        case None => sender() ! MetricDropped(db, namespace, metric)
+      }
     case msg @ GetCount(db, namespace, _) =>
-      getChild(db, namespace).forward(msg)
+      getOrCreateChild(db, namespace).forward(msg)
     case msg @ ExecuteSelectStatement(statement, _) =>
-      getChild(statement.db, statement.namespace).forward(msg)
+      getOrCreateChild(statement.db, statement.namespace).forward(msg)
   }
 
   def shardBehaviour: Receive = {
     case AddRecordToLocation(db, namespace, bit, location) =>
-      getChild(db, namespace).forward(
+      getOrCreateChild(db, namespace).forward(
         AddRecordToShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
     case DeleteRecordFromLocation(db, namespace, bit, location) =>
-      getChild(db, namespace).forward(
+      getOrCreateChild(db, namespace).forward(
         DeleteRecordFromShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
     case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
-      getChild(statement.db, statement.namespace).forward(
+      getOrCreateChild(statement.db, statement.namespace).forward(
         ExecuteDeleteStatementInShards(statement, schema, locations.map(l => ShardKey(l.metric, l.from, l.to))))
   }
 
