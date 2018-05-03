@@ -90,8 +90,10 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   private def deleteMetricData(metric: String) = {
-    val folders = Paths.get(basePath, db, namespace, "shards")
-      .toFile.list().toSeq
+    val folders = Option(Paths.get(basePath, db, namespace, "shards")
+      .toFile.list())
+      .map(_.toSeq)
+      .getOrElse(Seq.empty)
       .filter(folderName => folderName.split("_").head == metric)
 
     folders.foreach(
