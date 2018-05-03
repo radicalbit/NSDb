@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb.actors
 
+import java.io.File
 import java.nio.file.Paths
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -19,6 +20,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
+import org.apache.commons.io.FileUtils
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
@@ -85,6 +87,18 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
     }
+  }
+
+  private def deleteMetricData(metric: String) = {
+    val folders = Option(Paths.get(basePath, db, namespace, "shards")
+      .toFile.list())
+      .map(_.toSeq)
+      .getOrElse(Seq.empty)
+      .filter(folderName => folderName.split("_").head == metric)
+
+    folders.foreach(
+      folderName => FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards", folderName).toFile)
+    )
   }
 
   /**
@@ -166,6 +180,9 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
           writer.close()
           facetIndexShards -= k
       }
+
+      FileUtils.deleteDirectory(Paths.get(basePath, db, namespace).toFile)
+
       sender ! AllMetricsDeleted(db, ns)
     case DropMetric(_, _, metric) =>
       shardsForMetric(metric).foreach {
@@ -184,6 +201,9 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
           index.refresh()
           facetIndexShards -= key
       }
+
+      deleteMetricData(metric)
+
       sender() ! MetricDropped(db, namespace, metric)
   }
 
