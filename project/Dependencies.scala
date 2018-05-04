@@ -1,4 +1,3 @@
-import Dependencies.scalaLang.namespace
 import sbt._
 
 object Dependencies {

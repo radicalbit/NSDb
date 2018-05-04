@@ -28,7 +28,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
     writer.close()
 
-    val result = schemaIndex.query(schemaIndex._keyField, "metric_*", Seq.empty, 100)
+    val result = schemaIndex.query(schemaIndex._keyField, "metric_*", Seq.empty, 100)(identity)
 
     result.size shouldBe 100
 

@@ -5,20 +5,20 @@ import io.radicalbit.nsdb.cli.console.NsdbILoop
 import scala.tools.nsc.Settings
 
 /**
-  * Wrapper for CLI parameters
-  *
-  * @param host rpc server address
-  * @param port rpc server port
-  * @param db database name
-  */
-case class Params(host: Option[String] = None, port: Option[Int] = None, db: String, width: Option[Int])
-
-/**
   * Runner for Nsdb CLI.
-  * Internally makes use of [[scopt.OptionParser]] to parse CLI connection parameters as [[Params]]
+  * Internally makes use of [[scopt.OptionParser]] to parse CLI connection parameters as [[io.radicalbit.nsdb.cli.NsdbConsole.Params]].
   * It instantiates CLI main class [[NsdbILoop]] with parsed parameters.
   */
 object NsdbConsole extends App {
+
+  /**
+    * Wrapper for CLI parameters.
+    *
+    * @param host rpc server address.
+    * @param port rpc server port.
+    * @param db database name.
+    */
+  case class Params(host: Option[String] = None, port: Option[Int] = None, db: String, width: Option[Int])
 
   val parser = new scopt.OptionParser[Params]("scopt") {
     head("scopt", "3.x")

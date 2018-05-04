@@ -65,7 +65,7 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
   }
 
   def getMetadata(metric: String): Seq[Location] = {
-    Try(query(_keyField, metric, Seq.empty, Integer.MAX_VALUE)) match {
+    Try(query(_keyField, metric, Seq.empty, Integer.MAX_VALUE)(identity)) match {
       case Success(metadataSeq) => metadataSeq
       case Failure(_)           => Seq.empty
     }
@@ -79,7 +79,7 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
     val reader                           = DirectoryReader.open(directory)
     implicit val searcher: IndexSearcher = new IndexSearcher(reader)
 
-    Try(query(builder.build(), Seq.empty, Integer.MAX_VALUE, None).headOption) match {
+    Try(query(builder.build(), Seq.empty, Integer.MAX_VALUE, None)(identity).headOption) match {
       case Success(metadataSeq) => metadataSeq
       case Failure(_)           => None
     }

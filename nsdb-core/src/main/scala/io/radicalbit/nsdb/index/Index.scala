@@ -9,7 +9,6 @@ import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 
-import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -118,30 +117,29 @@ trait Index[T] {
     }
   }
 
-  private def executeQuery(searcher: IndexSearcher, query: Query, limit: Int, sort: Option[Sort]) = {
-    val docs: ListBuffer[Document] = ListBuffer.empty
+  private def executeQuery[B](searcher: IndexSearcher, query: Query, limit: Int, sort: Option[Sort])(
+      f: (Document) => B): Seq[B] = {
     val hits =
       sort.fold(searcher.search(query, limit).scoreDocs)(sort => searcher.search(query, limit, sort).scoreDocs)
-    (0 until hits.length).foreach { i =>
+    (0 until hits.length).map { i =>
       val doc = searcher.doc(hits(i).doc)
       doc.add(new IntPoint(_countField, hits.length))
-      docs += doc
+      f(doc)
     }
-    docs.toList
   }
 
-  private def executeCountQuery(searcher: IndexSearcher, query: Query, limit: Int) = {
+  private def executeCountQuery[B](searcher: IndexSearcher, query: Query, limit: Int)(f: (Document) => B): Seq[B] = {
     val hits = searcher.search(query, limit).scoreDocs.length
     val d    = new Document()
     d.add(new LongPoint(_keyField, 0))
     d.add(new IntPoint(_valueField, hits))
     d.add(new IntPoint(_countField, hits))
-    Seq(d)
+    Seq(f(d))
   }
 
   private[index] def rawQuery(query: Query, limit: Int, sort: Option[Sort])(
       implicit searcher: IndexSearcher): Seq[Document] = {
-    executeQuery(searcher, query, limit, sort)
+    executeQuery(searcher, query, limit, sort)(identity)
   }
 
   private[index] def rawQuery[VT, S](query: Query,
@@ -174,14 +172,19 @@ trait Index[T] {
     * @param fields sequence of fields that must be included in the result.
     * @param limit results limit.
     * @param sort optional lucene [[Sort]].
+    * @param f function to obtain an element B from an element T.
+    * @tparam B return type.
     * @return the query results as a list of entries.
     */
-  def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {
-    val raws = if (fields.nonEmpty && fields.forall(_.count)) {
-      executeCountQuery(this.getSearcher, query, limit)
+  def query[B](query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(f: (T) => B): Seq[B] = {
+    if (fields.nonEmpty && fields.forall(_.count)) {
+      executeCountQuery(this.getSearcher, query, limit) { doc =>
+        f(toRecord(doc, fields))
+      }
     } else
-      executeQuery(this.getSearcher, query, limit, sort)
-    raws.map(d => toRecord(d, fields))
+      executeQuery(this.getSearcher, query, limit, sort) { doc =>
+        f(toRecord(doc, fields))
+      }
   }
 
   /**
@@ -206,17 +209,16 @@ trait Index[T] {
     * @param fields sequence of fields that must be included in the result.
     * @param limit results limit.
     * @param sort optional lucene [[Sort]].
-    * @return
+    * @param f function to obtain an element B from an element T.
+    * @tparam B return type.
+    * @return the manipulated Seq.
     */
-  def query(field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None): Seq[T] = {
+  def query[B](field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None)(
+      f: (T) => B): Seq[B] = {
     val parser = new QueryParser(field, new StandardAnalyzer())
-    val query  = parser.parse(value)
+    val q      = parser.parse(value)
 
-    val raws = if (fields.nonEmpty && fields.forall(_.count)) {
-      executeCountQuery(this.getSearcher, query, limit)
-    } else
-      executeQuery(this.getSearcher, query, limit, sort)
-    raws.map(d => toRecord(d, fields))
+    query(q, fields, limit, sort)(f)
   }
 
   /**
@@ -224,9 +226,11 @@ trait Index[T] {
     * @return all the entries.
     */
   def all: Seq[T] = {
-    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
+    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity) } match {
       case Success(docs: Seq[T]) => docs
       case Failure(_)            => Seq.empty
     }
   }
+
+  def count(): Int = this.getSearcher.getIndexReader.numDocs()
 }

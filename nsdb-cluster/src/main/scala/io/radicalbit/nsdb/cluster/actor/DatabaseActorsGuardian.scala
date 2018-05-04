@@ -44,8 +44,11 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
     if (writeToCommitLog) {
       val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
       context.actorOf(
-        WriteCoordinator.props(Some(commitLogger), metadataCoordinator, metricsSchemaActor, publisherActor),
-        "write-coordinator")
+        WriteCoordinator
+          .props(Some(commitLogger), metadataCoordinator, metricsSchemaActor, publisherActor)
+          .withDispatcher("akka.actor.control-aware-dispatcher"),
+        "write-coordinator"
+      )
     } else
       context.actorOf(WriteCoordinator.props(None, metadataCoordinator, metricsSchemaActor, publisherActor),
                       "write-coordinator")

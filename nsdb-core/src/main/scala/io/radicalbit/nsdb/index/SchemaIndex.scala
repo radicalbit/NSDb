@@ -5,7 +5,7 @@ import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.index.{IndexWriter, Term}
-import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
+import org.apache.lucene.search.TermQuery
 import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.JavaConverters._
@@ -47,7 +47,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
   }
 
   def getSchema(metric: String): Option[Schema] = {
-    Try(query(_keyField, metric, Seq.empty, 1).headOption) match {
+    Try(query(_keyField, metric, Seq.empty, 1)(identity).headOption) match {
       case Success(schemaOpt) => schemaOpt
       case Failure(_)         => None
     }

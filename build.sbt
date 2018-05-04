@@ -27,6 +27,8 @@ lazy val root = project
     `nsdb-web-ui`
   )
 
+addCommandAlias("dist", "universal:packageBin")
+
 val uiCompileTask = taskKey[Unit]("build UI")
 val copyTask      = taskKey[Unit]("copy UI")
 
@@ -133,7 +135,10 @@ lazy val `nsdb-cluster` = project
       Cmd("CMD", s"bin/${name.value} -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
   )
-  .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`)
+  .settings(
+    discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value
+  )
+  .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
 
 lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)

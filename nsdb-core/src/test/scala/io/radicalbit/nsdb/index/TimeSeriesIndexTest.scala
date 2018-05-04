@@ -25,7 +25,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     }
     writer.close()
 
-    val result = timeSeriesIndex.query("content", "content_*", Seq.empty, 100)
+    val result = timeSeriesIndex.query("content", "content_*", Seq.empty, 100)(identity)
 
     result.size shouldBe 100
 
@@ -101,7 +101,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val queryExist = LongPoint.newExactQuery("timestamp", timestamp)
     val resultExist =
-      timeSeriesIndex.query(queryExist, Seq.empty, 100, None)
+      timeSeriesIndex.query(queryExist, Seq.empty, 100, None)(identity)
     resultExist.size shouldBe 1
 
     val deleteWriter = timeSeriesIndex.getWriter
@@ -113,7 +113,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val query = LongPoint.newExactQuery("timestamp", timestamp)
     val result =
-      timeSeriesIndex.query(query, Seq.empty, 100, None)
+      timeSeriesIndex.query(query, Seq.empty, 100, None)(identity)
 
     result.size shouldBe 0
 

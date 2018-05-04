@@ -90,8 +90,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   private def deleteMetricData(metric: String) = {
-    val folders = Option(Paths.get(basePath, db, namespace, "shards")
-      .toFile.list())
+    val folders = Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
       .map(_.toSeq)
       .getOrElse(Seq.empty)
       .filter(folderName => folderName.split("_").head == metric)
@@ -258,7 +257,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
 
       eventuallyOrdered.takeWhile {
         case (_, index) =>
-          val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
+          val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(identity)))
           result += partials
 
           val combined = Try(result.flatMap(_.get))
@@ -272,7 +271,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
 
       val shardResults = indexes.map {
         case (_, index) =>
-          handleQueryResults(metric, Try(index.query(q, fields, limit, sort)))
+          handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(identity)))
       }
 
       Try(shardResults.flatMap(_.get)).map(s => {
@@ -299,7 +298,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
     case GetCount(_, ns, metric) =>
       val hits = shardsForMetric(metric).map {
         case (_, index) =>
-          index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None).size
+          index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity).size
       }.sum
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>

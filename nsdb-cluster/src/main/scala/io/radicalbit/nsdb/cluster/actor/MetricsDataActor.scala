@@ -87,7 +87,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     case msg @ GetMetrics(db, namespace) =>
       getChild(db, namespace) match {
         case Some(child) => child forward msg
-        case None =>  sender() ! MetricsGot(db, namespace, Set.empty)
+        case None        => sender() ! MetricsGot(db, namespace, Set.empty)
       }
     case DeleteNamespace(db, namespace) =>
       val indexToRemove = getOrCreateChild(db, namespace)
@@ -99,9 +99,9 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
         })
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      getChild(db, namespace)match {
+      getChild(db, namespace) match {
         case Some(child) => child forward msg
-        case None => sender() ! MetricDropped(db, namespace, metric)
+        case None        => sender() ! MetricDropped(db, namespace, metric)
       }
     case msg @ GetCount(db, namespace, _) =>
       getOrCreateChild(db, namespace).forward(msg)

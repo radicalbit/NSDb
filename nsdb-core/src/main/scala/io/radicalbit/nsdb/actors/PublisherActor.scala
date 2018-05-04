@@ -149,7 +149,7 @@ class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging 
               writer.close()
               implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
               if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
-                    .query(parsedQuery.q, parsedQuery.fields, 1, None)
+                    .query(parsedQuery.q, parsedQuery.fields, 1, None)(identity)
                     .lengthCompare(1) == 0)
                 subscribedActorsByQueryId
                   .get(id)

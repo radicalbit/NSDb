@@ -6,6 +6,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
+import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{Restore, Restored}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{Bit, MetricField}
@@ -13,6 +14,8 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
+import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
@@ -53,11 +56,13 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   override protected[this] val executionContextExecutor = implicitly[ExecutionContext]
 
-  override protected[this] def serviceSQL = GrpcEndpointServiceSQL
+  override protected[this] def serviceSQL: NSDBServiceSQL = GrpcEndpointServiceSQL
 
-  override protected[this] def serviceCommand = GrpcEndpointServiceCommand
+  override protected[this] def serviceCommand: NSDBServiceCommand = GrpcEndpointServiceCommand
 
   override protected[this] def health: Health = GrpcEndpointServiceHealth
+
+  override protected[this] def dump: Dump = GrpcEndpointServiceDump
 
   override protected[this] val port: Int = 7817
 
@@ -73,6 +78,23 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
   protected[this] object GrpcEndpointServiceHealth extends Health {
     override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
       Future.successful(HealthCheckResponse(ServingStatus.SERVING))
+  }
+
+  protected[this] object GrpcEndpointServiceDump extends Dump {
+    override def createDump(request: DumpRequest): Future[DumpResponse] = {
+      Future.failed(new RuntimeException("not yet implemented"))
+    }
+
+    override def getDumpInfo(request: GetDumpInfoRequest): Future[DumpResponse] = {
+      Future.failed(new RuntimeException("not yet implemented"))
+    }
+
+    override def restore(request: RestoreRequest): Future[RestoreResponse] = {
+      (writeCoordinator ? Restore(request.sourcePath)).map {
+        case Restored(path) => RestoreResponse(completedSuccessfully = true, path)
+        case _              => RestoreResponse(completedSuccessfully = false, request.sourcePath)
+      }
+    }
   }
 
   /**

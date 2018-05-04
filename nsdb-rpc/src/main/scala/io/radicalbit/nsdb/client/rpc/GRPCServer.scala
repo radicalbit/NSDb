@@ -1,6 +1,8 @@
 package io.radicalbit.nsdb.client.rpc
 
 import io.grpc.{Server, ServerBuilder}
+import io.radicalbit.nsdb.rpc.dump.DumpGrpc
+import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
 import io.radicalbit.nsdb.rpc.health.HealthGrpc
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
@@ -26,6 +28,8 @@ trait GRPCServer {
 
   protected[this] def health: Health
 
+  protected[this] def dump: Dump
+
   protected[this] def parserSQL: SQLStatementParser
 
   sys.addShutdownHook {
@@ -39,6 +43,7 @@ trait GRPCServer {
     .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
     .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
+    .addService(DumpGrpc.bindService(dump, executionContextExecutor))
     .build
 
   def start(): Try[Server] = Try(server.start())

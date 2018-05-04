@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+message DumpRequest {
+  string db = 1;
+  string namespace = 2;
+  repeated string metrics = 3;
+  string destPath = 4;
+}
+
+message GetDumpInfoRequest {
+  string dumpId = 1;
+}
+
+message DumpResponse {
+  enum DumpStatus {
+    ERROR = 0;
+    IN_PROGRESS = 1;
+    COMPLETED = 2;
+  }
+  DumpStatus status = 1;
+  string errorMsg = 2;
+  string dumpId = 3;
+}
+
+message RestoreRequest {
+  string sourcePath = 4;
+}
+
+message RestoreResponse {
+  bool completedSuccessfully = 1;
+  string path = 2;
+  string errorMsg = 3;
+}
+
+service Dump {
+  rpc CreateDump(DumpRequest) returns (DumpResponse);
+  rpc GetDumpInfo(GetDumpInfoRequest) returns (DumpResponse);
+
+  rpc Restore(RestoreRequest) returns (RestoreResponse);
+}
+

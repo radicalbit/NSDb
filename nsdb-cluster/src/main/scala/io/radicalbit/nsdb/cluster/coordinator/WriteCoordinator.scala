@@ -1,25 +1,38 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.time.Duration
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.Cluster
+import akka.dispatch.ControlMessage
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
+  AddLocation,
+  GetLocations,
+  GetWriteLocation
+}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{Restore, Restored}
 import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
+import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
+import org.apache.lucene.document.LongPoint
+import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
+import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -32,6 +45,9 @@ object WriteCoordinator {
             publisherActor: ActorRef): Props =
     Props(new WriteCoordinator(commitLogCoordinator, metadataCoordinator, namespaceSchemaActor, publisherActor))
 
+  case class Restore(path: String)                       extends ControlMessage
+  case class Restored(path: String)                      extends ControlMessage
+  case class RestoreFailed(path: String, reason: String) extends ControlMessage
 }
 
 /**
@@ -111,7 +127,6 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     * @param op code executed in case of success.
     */
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] = {
-    val timestamp = System.currentTimeMillis()
     (metricsSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
@@ -119,13 +134,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           op(schema)
         case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          writeCommitLog(db, namespace, timestamp, metric, RejectAction(bit)).map {
-            case WriteToCommitLogSucceeded(_, _, _, _) =>
-              RecordRejected(db, namespace, metric, bit, errs)
-            case WriteToCommitLogFailed(_, _, _, _, reason) =>
-              log.error(s"Failed to write to commit-log for RejectBit with reason: $reason")
-              context.system.terminate()
-          }
+          Future(RecordRejected(db, namespace, metric, bit, errs))
       }
   }
 
@@ -255,8 +264,63 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
             context.system.terminate()
         }
         .pipeTo(sender())
+    case Restore(path: String) =>
+      log.info("restoring dump at path {}", path)
+      val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"
+      FileUtils.unzip(path, tmpPath)
+      val dbs = FileUtils.getSubDirs(tmpPath)
+      dbs.foreach { db =>
+        val namespaces = FileUtils.getSubDirs(db)
+        namespaces.foreach { namespace =>
+          val metrics = FileUtils.getSubDirs(namespace)
+          metrics.foreach { metric =>
+            log.debug("restoring metric {}", metric.getName)
+            val index = new TimeSeriesIndex(new MMapDirectory(metric.toPath))
+            val minTimestamp = index
+              .query(new MatchAllDocsQuery(),
+                     Seq.empty,
+                     1,
+                     Some(new Sort(new SortField("timestamp", SortField.Type.LONG, false))))(identity)
+              .head
+              .timestamp
+            val maxTimestamp = index
+              .query(new MatchAllDocsQuery(),
+                     Seq.empty,
+                     1,
+                     Some(new Sort(new SortField("timestamp", SortField.Type.LONG, true))))(identity)
+              .head
+              .timestamp
+            var currentTimestamp = minTimestamp
+            var upBound          = currentTimestamp + shardingInterval.toMillis
+
+            while (currentTimestamp <= maxTimestamp) {
+
+              val cluster = Cluster(context.system)
+              val nodeName =
+                s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+              val loc = Location(metric.getName, nodeName, currentTimestamp, upBound)
+
+              log.debug(s"restoring dump from metric ${metric.getName} and location $loc")
+
+              metadataCoordinator ! (AddLocation(db.getName, namespace.getName, loc), ActorRef.noSender)
+              index
+                .query(LongPoint.newRangeQuery("timestamp", currentTimestamp, upBound), Seq.empty, Int.MaxValue, None) {
+                  bit =>
+                    updateSchema(db.getName, namespace.getName, metric.getName, bit) { _ =>
+                      accumulateRecord(db.getName, namespace.getName, metric.getName, bit, loc)
+                    }
+                }
+              currentTimestamp = upBound
+              upBound = currentTimestamp + shardingInterval.toMillis
+              System.gc()
+              System.runFinalization()
+              log.debug("path {} restored", path)
+              sender() ! Restored(path)
+            }
+          }
+        }
+      }
 
     case msg => log.info(s"Receive Unhandled message $msg")
-
   }
 }
