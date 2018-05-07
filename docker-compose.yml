@@ -5,7 +5,7 @@ services:
     nsdb:
       image: tools.radicalbit.io/nsdb-cluster:0.1.3-SNAPSHOT
       volumes:
-        - ./conf:/opt/nsdb-cluster/conf
+        - ./nsdb-cluster/src/main/resources:/opt/nsdb-cluster/conf
         - ./data:/opt/nsdb-cluster/data
         - ./lib:/opt/nsdb-cluster/ext-lib
         - ./certs:/opt/certs

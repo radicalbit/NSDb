@@ -113,7 +113,7 @@ lazy val `nsdb-cluster` = project
   .settings(assemblyJarName in assembly := "nsdb-cluster.jar")
   .settings(
     mappings in Docker ++= {
-      val confDir = baseDirectory.value / ".." / "conf"
+      val confDir = baseDirectory.value / "src/main/resources"
 
       for {
         (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
@@ -132,11 +132,22 @@ lazy val `nsdb-cluster` = project
       ExecCmd("RUN", "chown", "-R", "root:root", "."),
       Cmd("USER", "root"),
       Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "curl", "-f", "http://localhost:9000/status || exit 1"),
-      Cmd("CMD", s"bin/${name.value} -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
+      Cmd("CMD", s"bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
   )
   .settings(
-    discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value
+    mappings in Universal ++= {
+      val confDir = baseDirectory.value / "src/main/resources"
+
+      for {
+        (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
+      } yield file -> s"conf/$relativePath"
+    },
+    discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value,
+    bashScriptDefines ++= Seq(
+      """addJava "-DconfDir=${app_home}/../conf"""",
+      """addJava "-Dlogback.configurationFile=${app_home}/../conf/logback.xml""""
+    )
   )
   .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
 

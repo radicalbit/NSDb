@@ -6,10 +6,10 @@ import scala.tools.nsc.Settings
 
 /**
   * Runner for Nsdb CLI.
-  * Internally makes use of [[scopt.OptionParser]] to parse CLI connection parameters as [[io.radicalbit.nsdb.cli.NsdbConsole.Params]].
+  * Internally makes use of [[scopt.OptionParser]] to parse CLI connection parameters as [[io.radicalbit.nsdb.cli.Cli.Params]].
   * It instantiates CLI main class [[NsdbILoop]] with parsed parameters.
   */
-object NsdbConsole extends App {
+object Cli extends App {
 
   /**
     * Wrapper for CLI parameters.
@@ -22,16 +22,16 @@ object NsdbConsole extends App {
 
   val parser = new scopt.OptionParser[Params]("scopt") {
     head("scopt", "3.x")
-    opt[String]('h', "host") action { (x, c) =>
+    opt[String]("host") action { (x, c) =>
       c.copy(host = Some(x))
     } text "the remote host"
-    opt[Int]('p', "port") action { (x, c) =>
+    opt[Int]("port") action { (x, c) =>
       c.copy(port = Some(x))
     } text "the remote port"
-    opt[String]('d', "database").required() action { (x, c) =>
+    opt[String]("database").required() action { (x, c) =>
       c.copy(db = x)
     } text "the database to select"
-    opt[Int]('w', "width") action { (x, c) =>
+    opt[Int]("width") action { (x, c) =>
       c.copy(port = Some(x))
     } text "table max width"
   }

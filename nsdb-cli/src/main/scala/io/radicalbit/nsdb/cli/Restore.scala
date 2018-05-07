@@ -6,7 +6,7 @@ import io.radicalbit.nsdb.rpc.dump.RestoreRequest
 import scala.concurrent.Await
 import scala.util.{Failure, Success}
 
-object NsdbRestore extends App {
+object Restore extends App {
 
   /**
     * Wrapper for Restore parameters.
@@ -19,13 +19,13 @@ object NsdbRestore extends App {
 
   val parser = new scopt.OptionParser[Params]("scopt") {
     head("scopt", "3.x")
-    opt[String]('h', "host") action { (x, c) =>
+    opt[String]("host") action { (x, c) =>
       c.copy(host = Some(x))
     } text "the remote host"
-    opt[Int]('p', "port") action { (x, c) =>
+    opt[Int]("port") action { (x, c) =>
       c.copy(port = Some(x))
     } text "the remote port"
-    opt[String]('s', "path").required() action { (x, c) =>
+    opt[String]("path").required() action { (x, c) =>
       c.copy(sourcePath = x)
     } text "path of the file to restore"
   }
