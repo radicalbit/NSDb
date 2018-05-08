@@ -1,47 +1,33 @@
 # Natural Series DB - NSDB #
 
-### Working with Docker
+NSDb is a time series database streaming oriented
+optimized for the serving layer.
 
-To build docker image locally execute:
+## License
+Nsdb is distributed under the [Apache 2](http://www.apache.org/licenses/LICENSE-2.0) license.
 
-```bash
-sbt 'project nsdb-cluster' clean docker:publishLocal
-```
+## Main Features
 
-It's possible running a container overriding the env variable:
+* Optimized time series management
+* Focus on read performance [(doc)](docs/Architecture.md)
+* High availability and clustering (coming soon!)
+* Ad-hoc publish-subscribe streaming feature (using WebSockets) [(doc)](docs/Websocket.md)
+* SQL like query language [(doc)](docs/SQL_doc.md)
+* Fluent Java / Scala Api [(doc)](docs/JVM_API.md)
 
-```yaml
-version: '3'
+## Getting Started
 
-services:
+You can get started with Nsdb with our [quickstart guide](docs/QuickStart.md).
 
-    nsdb:
-      image: tools.radicalbit.io/nsdb:0.0.3-SNAPSHOT
-      environment:
-        HTTP_INTERFACE: 0.0.0.0
-        HTTP_PORT: 9002
-        AKKA_HOSTNAME: nsdb-node-1
-      ports:
-        - 9010:9002
-        - 9000:7817
-```
+## Reporting Issues
 
-It's also possible to run an NSDB container mounting the configuration, data, certificates and external library directories:
+If you find any bugs, please open a [GitHub issue](https://github.com/radicalbit/nsdb/issues).
 
-```yaml
-version: '3'
+## Documentation
 
-services:
+* Read more about the [design and architecture](docs/Architecture.md) of the project.
 
-    nsdb:
-      image: tools.radicalbit.io/nsdb:0.0.3-SNAPSHOT
-      volumes:
-        - .conf:/opt/nsdb-cluster/conf
-        - /host/data/path:/opt/nsdb-cluster/data
-        - /host/ext-lib/path:/opt/nsdb-cluster/ext-lib
-        - /host/certs/path:/opt/certs
-      ports:
-        - 9000:9000
-        - 7817:7817
-        - 9443:9443
-```
+## Contributing
+
+If you're feeling courageous enough and want to contribute to NSDb You are very welcome!
+Please take a look to our [Contributing Doc](docs/Contributing.md) for info on how to open tasks or bugs, build from source, run tests and open pull requests.

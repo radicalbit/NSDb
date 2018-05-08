@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018 Radicalbit S.r.l.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
@@ -64,17 +80,23 @@ lazy val `nsdb-web-ui` = project
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Common.libraries)
 
 lazy val `nsdb-core` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`, `nsdb-web-ui`)
 
@@ -86,6 +108,8 @@ lazy val `nsdb-rpc` = project
   .settings(PB.targets in Compile := Seq(
     scalapb.gen() -> (sourceManaged in Compile).value
   ))
+  .settings(LicenseHeader.settings: _*)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`nsdb-common`, `nsdb-sql`)
 
 lazy val `nsdb-cluster` = project
@@ -107,6 +131,8 @@ lazy val `nsdb-cluster` = project
                      testResults.summaries ++ multiNodeResults.summaries)
     }
   )
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .settings(scriptClasspath in bashScriptDefines += "../ext-lib/*")
   .settings(SbtMultiJvm.multiJvmSettings)
   .configs(MultiJvm)
@@ -155,24 +181,32 @@ lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Security.libraries)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-java-api` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.JavaAPI.libraries)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
 
 lazy val `nsdb-scala-api` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.ScalaAPI.libraries)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
 
 lazy val `nsdb-cli` = project
@@ -181,6 +215,8 @@ lazy val `nsdb-cli` = project
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
   .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
   .settings(assemblyJarName in assembly := "nsdb-cli.jar")
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`, `nsdb-sql`)
 
 lazy val `nsdb-flink-connector` = project
@@ -209,12 +245,16 @@ lazy val `nsdb-flink-connector` = project
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-kafka-connect` = (project in file("nsdb-kafka-connect"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.KafkaConnect.libraries)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))
@@ -222,6 +262,8 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .settings(PublishSettings.dontPublish: _*)
   .settings(scalaVersion := "2.11.11")
   .settings(libraryDependencies ++= Dependencies.Performance.libraries)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .enablePlugins(GatlingPlugin)
 
 onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value
