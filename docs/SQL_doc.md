@@ -1,18 +1,18 @@
 # Supported SQL Dialect Reference
-To interact with Nsdb, a custom SQL like query language must be used. It has been designed to suit Nsdb metrics structure and in the meantime to feel familiar with standard SQL.
-Since the nature of Nsdb is different than a classic SQL database, its dialect is conceived to handle time-series data accordingly.
+To interact with NSDb, a custom SQL like query language must be used. It has been designed to suit NSDb metrics structure and in the meantime to feel familiar with standard SQL.
+Since the nature of NSDb is different than a classic SQL database, its dialect is conceived to handle time-series data accordingly.
 
 ## SQL Statements
-Similarly to SQL-like databases, Nsdb allows 3 main DML statements:
+Similarly to SQL-like databases, NSDb allows 3 main DML statements:
 - `SELECT` Statements - used to fetch data
 - `INSERT` Statements - used to insert data
 - `DELETE` Statements - used to delete data
 
-Unlike standard SQL, Nsdb does not support `UPDATE` statement. The main reason of this is the database time series nature itself; it's extremely unlikely that a time series record has to be updated at a later time.
+Unlike standard SQL, NSDb does not support `UPDATE` statement. The main reason of this is the database time series nature itself; it's extremely unlikely that a time series record has to be updated at a later time.
 
 As in SQL, some clauses composing the above-mentioned constructs are shared between these categories e.g `WHERE` clause.
 
->NOTE: Nsdb SQL parser is case-insensitive, so SQL keywords can be both lower-case and upper-case. In this documentation all code example are uppercase for clarity purpose.
+>NOTE: NSDb SQL parser is case-insensitive, so SQL keywords can be both lower-case and upper-case. In this documentation all code example are uppercase for clarity purpose.
 
 ## The Select Statement
 The `SELECT` statement queries measurements from a specific metric.
@@ -107,7 +107,7 @@ Accordingly to common databases standard the character `$` is used as placeholde
 SELECT dimension FROM metric WHERE string_dimension LIKE $endWith AND another_string_dimension LIKE startWith$
 ```
 #### Time operators
-Since Nsdb is a time-series database, specific operators handling `timestamp` field are defined. However since `timestamp` is a numerical field the above-mentioned numerical operators are still valid.
+Since NSDb is a time-series database, specific operators handling `timestamp` field are defined. However since `timestamp` is a numerical field the above-mentioned numerical operators are still valid.
 In addition to the latter, time operators are implemented allowing users to express time dependent expression in a friendly manner.
 Ad ad hoc operator `NOW` is available to express the actual timestamp in milliseconds.
 Simple arithmetic operations can by applied on this value:
@@ -116,7 +116,7 @@ Simple arithmetic operations can by applied on this value:
 - `NOW +|- <X>s ` returns the actual timestamp plus|minus  `X` seconds
 
 #### Nullability operators
-According to the dynamic nature of Nsdb schemas, dimensions can be omitted during data insertions, therefore Null values may be filtered inclusively or exclusively using dedicated operators:
+According to the dynamic nature of NSDb schemas, dimensions can be omitted during data insertions, therefore Null values may be filtered inclusively or exclusively using dedicated operators:
 - `WHERE <dimension_name> IS NULL` creates an expression filtering data without values for the specified dimension.
 - `WHERE <dimension_name> IS NOT NULL ` creates an expression filtering data with values for the specified dimension.
 
@@ -209,7 +209,7 @@ the 10 oldest ones.
 
 ## The Insert Statement
 
-Nsdb allows bit insertion making use of  Insert statement, whose syntax is similar to standard SQL insert.
+NSDb allows bit insertion making use of  Insert statement, whose syntax is similar to standard SQL insert.
 By the way there are some small differences meant in time-series concept that introduces value and timestamp fields.
 
 ### Simple Syntax
@@ -243,7 +243,7 @@ Delete statement allows Bits deletion defining `WHERE` clause to express the con
 DELETE FROM <metric_name> WHERE <where_clause>
 ```
 
-> NOTE: :`WHERE` clause must be qualified to express deletion condition. To delete all bits belonging to a specific metric user must use `DELETE METRIC` Nsdb command or the tricky query `DELETE FROM <metric_name> WHERE timestamp > 0` which works assuming that the metric describes a non-relativistic physics phenomenon.
+> NOTE: :`WHERE` clause must be qualified to express deletion condition. To delete all bits belonging to a specific metric user must use `DELETE METRIC` NSDb command or the tricky query `DELETE FROM <metric_name> WHERE timestamp > 0` which works assuming that the metric describes a non-relativistic physics phenomenon.
 
 ### Examples
 ```sql

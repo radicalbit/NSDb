@@ -1,5 +1,5 @@
 # Integration API
-Nsdb provides a set of APIs written both in Scala and Java to allow third party systems integration. An example of usage of these APIs is the implementation of the Flink Sink operator.
+NSDb provides a set of APIs written both in Scala and Java to allow third party systems integration. An example of usage of these APIs is the implementation of the Flink Sink operator.
 
 
 Despite actual APIs implementation is limited to Java and Scala languages, the same functionalities can be easily implemented in others languages based on the agnostic protocol integration APIs are designed on top of. In fact they are based on [gRPC](https://grpc.io/) standard that works across multiple languages and platforms.
@@ -8,8 +8,8 @@ The main difference between Java and Scala APIs is the way asyncronous calls are
 
 # Java API
 
-Nsdb implements utility classes to perform writes and to execute queries using **Java language**.
-In both cases, communication to Nsdb cluster is handled using a gRPC Client instanciated in ` io.radicalbit.nsdb.api.java.NSDB` connection class.
+NSDb implements utility classes to perform writes and to execute queries using **Java language**.
+In both cases, communication to NSDb cluster is handled using a gRPC Client instantiated in ` io.radicalbit.nsdb.api.java.NSDB` connection class.
 
 ## Write API
 `NSDB` class  exposes a `write` method performing ` io.radicalbit.nsdb.api.java.NSDB.Bit` insetion into the specified metric.
@@ -118,8 +118,8 @@ dimensions {
 ```
 
 # Scala API
-The same capabilities exposed by Nsdb's Java API are implemented in Scala API too.
-The `io.radicalbit.nsdb.api.scala.NSDB`class provides a method to create a connection to an instance of Nsdb. Connection to gRPC Nsdb's endpoint is instanciated ayncronously using `connect` methods that requires `host` and `port` parameters.
+The same capabilities exposed by NSDb's Java API are implemented in Scala API too.
+The `io.radicalbit.nsdb.api.scala.NSDB`class provides a method to create a connection to an instance of NSDb. Connection to gRPC NSDb's endpoint is instanciated ayncronously using `connect` methods that requires `host` and `port` parameters.
 
 ## Write API
 Scala Write API provides `NSDB.write` method used to define an `io.radicalbit.nsdb.api.scala.Bit` to be inserted leveraging a builder pattern.
@@ -151,7 +151,7 @@ errors: ""
 ```
 
 ## Read API
-Read API allows to run query statements on Nsdb, returning an `io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse` containing selected rows.
+Read API allows to run query statements on NSDb, returning an `io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse` containing selected rows.
 
 > NOTE: SQLStatementResponse is a case class generated using protobuf schema definition.
 

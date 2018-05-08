@@ -2,7 +2,6 @@
 
 Opening a websocket using this API allows to subscribe to a query and listen to data updates.
 
-Subscribe to a query and listen to data updates.
 Every inserted event will be checked against every registered query. If the event fulfills the query, it will be published to each subscribed WebSocket.
 
 **URL** : `/ws-stream?refresh_period=200&retention_size=10`
@@ -16,7 +15,7 @@ Every inserted event will be checked against every registered query. If the even
 **Query String params** :
 Optionally, user can specify two parameters: `refresh_period` and `retention_size`.
 
-The `refresh_period` sets the minimum period between two records belonging to the same subscribed query are sent to the browser. Due to the possibility to flood the web UI with a not manageable amount of data, `refresh_period` has a default value fixed to 100 milliseconds by Nsdb's configuration. User can define a value greater than the default one but not lower.
+The `refresh_period` sets the minimum period between two records belonging to the same subscribed query are sent to the browser. Due to the possibility to flood the web UI with a not manageable amount of data, `refresh_period` has a default value fixed to 100 milliseconds by NSDb's configuration. User can define a value greater than the default one but not lower.
 Default value is defined at key `nsdb.websocket.refresh-period` in cluster configuration.
 
 The  `retention_size` number of retained messages for each query. It's not mandatory, the default value is defined in configuration at key `nsdb.websocket.retention-size`.

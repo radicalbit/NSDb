@@ -1,6 +1,6 @@
 # CLI Documentation
-Nsdb exposes a Command Line Interface to perform simple SQL operations.
-Nsdb CLI allows to execute SQL statements such as:
+NSDb exposes a Command Line Interface to perform simple SQL operations.
+NSDb CLI allows to execute SQL statements such as:
 - data retrieval (SELECT statements)
 - data deletion (DELETE statements)
 - data insertion (INSERT statements)
@@ -9,7 +9,7 @@ Furthermore users can execute schema related operations, commonly defined as **c
 - retrieve namespaces, metrics lists
 - retrieve metric description
 
-Nsdb CLI makes use of gRPC client to communicate with Nsdb cluster.
+NSDb CLI makes use of gRPC client to communicate with NSDb cluster.
 
 ## Commands Usage
 CLI launch command:
@@ -18,8 +18,8 @@ CLI launch command:
 ```
 accepts 3 parameters:
 ```
---host : Nsdb host address, default value is localhost
---port : Nsdb host port, default value is 7817
+--host : NSDb host address, default value is localhost
+--port : NSDb host port, default value is 7817
 --database: database name on which establish connection
 ```
 
@@ -92,9 +92,9 @@ nsdb $ describe famous_people
 
 ## Statements Usage
 
-SQL Statements such as `SELECT`, `INSERT`, `DELETE` from metrics can be executed using Nsdb CLI. Statements' execution results are display in console using tabular representation.
+SQL Statements such as `SELECT`, `INSERT`, `DELETE` from metrics can be executed using NSDb CLI. Statements' execution results are display in console using tabular representation.
 
-Statements' syntax is the same described in Nsdb SQL Dialect Documentation.
+Statements' syntax is the same described in NSDb SQL Dialect Documentation.
 
 ### SELECT statement
 
