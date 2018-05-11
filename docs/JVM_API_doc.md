@@ -1,10 +1,10 @@
 # Integration API
-NSDb provides a set of APIs written both in Scala and Java to allow third party systems integration. An example of usage of these APIs is the implementation of the Flink Sink operator.
+NSDb provides a set of APIs written both in Scala and Java to allow third-party systems integration. An example of usage of these APIs is the implementation of the Flink Sink operator.
 
 
-Despite actual APIs implementation is limited to Java and Scala languages, the same functionalities can be easily implemented in others languages based on the agnostic protocol integration APIs are designed on top of. In fact they are based on [gRPC](https://grpc.io/) standard that works across multiple languages and platforms.
+Despite actual APIs implementation is limited to Java and Scala languages, the same functionalities can be easily implemented in others languages based on the agnostic protocol integration APIs are designed on top of. In fact, they are based on [gRPC](https://grpc.io/) standard that works across multiple languages and platforms.
 
-The main difference between Java and Scala APIs is the way asyncronous calls are handled. In Java `CompletableFuture` is used, while async reaults in Scala are wrapped into Scala native `Future`.
+The main difference between Java and Scala APIs is the way asynchronous calls are handled. In Java, `CompletableFuture` is used, while async results in Scala are wrapped into Scala native `Future`.
 
 # Java API
 
@@ -12,7 +12,7 @@ NSDb implements utility classes to perform writes and to execute queries using *
 In both cases, communication to NSDb cluster is handled using a gRPC Client instantiated in ` io.radicalbit.nsdb.api.java.NSDB` connection class.
 
 ## Write API
-`NSDB` class  exposes a `write` method performing ` io.radicalbit.nsdb.api.java.NSDB.Bit` insetion into the specified metric.
+The `NSDB` class  exposes a `write` method performing ` io.radicalbit.nsdb.api.java.NSDB.Bit` insetion into the specified metric.
 The record to be inserted must of class `Bit`. Bit's parameters are defined using build pattern.
 Insert operation returns `io.radicalbit.nsdb.api.java.InsertResult` wrapped into a java `CompletableFuture`. `InsertResult` contains a `Boolean` describing request's success or failure and in case of failure the list of errors.
 
@@ -119,12 +119,12 @@ dimensions {
 
 # Scala API
 The same capabilities exposed by NSDb's Java API are implemented in Scala API too.
-The `io.radicalbit.nsdb.api.scala.NSDB`class provides a method to create a connection to an instance of NSDb. Connection to gRPC NSDb's endpoint is instanciated ayncronously using `connect` methods that requires `host` and `port` parameters.
+The `io.radicalbit.nsdb.api.scala.NSDB`class provides a method to create a connection to an instance of NSDb. Connection to gRPC NSDb's endpoint is instanciated ayncronously using `connect` methods that require `host` and `port` parameters.
 
 ## Write API
 Scala Write API provides `NSDB.write` method used to define an `io.radicalbit.nsdb.api.scala.Bit` to be inserted leveraging a builder pattern.
-Asyncronous  response in wrapped into a Scala `Future`.
-Response of class `io.radicalbit.nsdb.rpc.response.RPCInsertResult` contains a feedback on request result in `isCompletedSuccessfully` field and in case of failure a string representing occured errors.
+Asynchronous  response is wrapped into a Scala `Future`.
+Response of class `io.radicalbit.nsdb.rpc.response.RPCInsertResult` contains a feedback on request result in `isCompletedSuccessfully` field and in case of failure a string representing occurred errors.
 
 ```scala
 object NSDBMainWrite extends App {

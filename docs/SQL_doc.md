@@ -3,19 +3,18 @@ To interact with NSDb, a custom SQL like query language must be used. It has bee
 Since the nature of NSDb is different than a classic SQL database, its dialect is conceived to handle time-series data accordingly.
 
 ## SQL Statements
-Similarly to SQL-like databases, NSDb allows 3 main DML statements:
+Similarly to SQL databases, NSDb allows 3 main DML statements:
+
 - `SELECT` Statements - used to fetch data
 - `INSERT` Statements - used to insert data
 - `DELETE` Statements - used to delete data
 
 Unlike standard SQL, NSDb does not support `UPDATE` statement. The main reason of this is the database time series nature itself; it's extremely unlikely that a time series record has to be updated at a later time.
 
-As in SQL, some clauses composing the above-mentioned constructs are shared between these categories e.g `WHERE` clause.
-
 >NOTE: NSDb SQL parser is case-insensitive, so SQL keywords can be both lower-case and upper-case. In this documentation all code example are uppercase for clarity purpose.
 
 ## The Select Statement
-The `SELECT` statement queries measurements from a specific metric.
+The `SELECT` statement queries bits from a specific metric.
 `SELECT` statements are used to perform data exploration and to subscribe historical or real-time queries.
 
 ### Simple Syntax
@@ -107,10 +106,10 @@ Accordingly to common databases standard the character `$` is used as placeholde
 SELECT dimension FROM metric WHERE string_dimension LIKE $endWith AND another_string_dimension LIKE startWith$
 ```
 #### Time operators
-Since NSDb is a time-series database, specific operators handling `timestamp` field are defined. However since `timestamp` is a numerical field the above-mentioned numerical operators are still valid.
-In addition to the latter, time operators are implemented allowing users to express time dependent expression in a friendly manner.
-Ad ad hoc operator `NOW` is available to express the actual timestamp in milliseconds.
-Simple arithmetic operations can by applied on this value:
+Since NSDb is a time-series database, specific operators handling `timestamp` field are defined. However, since `timestamp` is a numerical field the above-mentioned numerical operators are still valid.
+In addition, time operators are implemented allowing users to express time-dependent expression in a friendly manner.
+Ad hoc operator `NOW` is available to express the actual timestamp in milliseconds.
+Simple arithmetic operations can be applied on this value:
 - `NOW +|- <X>h ` returns the actual timestamp plus|minus  `X` hours
 - `NOW +|- <X>m ` returns the actual timestamp plus|minus  `X` minutes
 - `NOW +|- <X>s ` returns the actual timestamp plus|minus  `X` seconds
@@ -140,7 +139,7 @@ If the query includes a `WHERE`  clause the `GROUP BY` clause must appear after 
 
 When defining a `GROUP BY` clause **value functions** can be defined in `SELECT` clause.
 
-#### Value Functions
+#### Value Aggregation Functions
 Value functions are arithmetic operations applied on **value field** of bits retrieved by a `SELECT` statement with a `GROUP BY` clause.
 Basic arithmetic functions are available:
 - `MIN` retrieve min value for each group.

@@ -15,8 +15,8 @@ Every inserted event will be checked against every registered query. If the even
 **Query String params** :
 Optionally, user can specify two parameters: `refresh_period` and `retention_size`.
 
-The `refresh_period` sets the minimum period between two records belonging to the same subscribed query are sent to the browser. Due to the possibility to flood the web UI with a not manageable amount of data, `refresh_period` has a default value fixed to 100 milliseconds by NSDb's configuration. User can define a value greater than the default one but not lower.
-Default value is defined at key `nsdb.websocket.refresh-period` in cluster configuration.
+The `refresh_period` sets the minimum period between two records belonging to the same subscribed query are sent to the browser. Due to the possibility to flood the web UI with a not manageable amount of data, `refresh_period` has a default value fixed to 100 milliseconds by NSDb's configuration. A User can define a value greater than the default one but not lower.
+The Default value is defined at key `nsdb.websocket.refresh-period` in the cluster configuration.
 
 The  `retention_size` number of retained messages for each query. It's not mandatory, the default value is defined in configuration at key `nsdb.websocket.retention-size`.
 
