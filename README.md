@@ -1,10 +1,10 @@
 # Natural Series DB - NSDB #
 
-NSDb is a time series database streaming oriented
+NSDb is a **time-series** database **streaming oriented**
 optimized for the serving layer.
 
 ## License
-Nsdb is distributed under the [Apache 2](http://www.apache.org/licenses/LICENSE-2.0) license.
+NSDb is distributed under the [Apache 2](http://www.apache.org/licenses/LICENSE-2.0) license.
 
 ## Main Features
 
@@ -30,4 +30,4 @@ If you find any bugs, please open a [GitHub issue](https://github.com/radicalbit
 ## Contributing
 
 If you're feeling courageous enough and want to contribute to NSDb You are very welcome!
-Please take a look to our [Contributing Doc](docs/Contributing.md) for info on how to open tasks or bugs, build from source, run tests and open pull requests.
+Please take a look at our [Contributing Doc](docs/Contributing.md) for info on how to open tasks or bugs, build from source, run tests and open pull requests.
