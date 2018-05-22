@@ -227,11 +227,9 @@ lazy val `nsdb-flink-connector` = project
     // exclude Scala library from assembly
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
     assemblyShadeRules in assembly := Seq(
-      // ShadeRule.rename("com.google.**" -> "shade.com.google.@1").inAll,
       ShadeRule.rename("com.google.**"         -> "io.radicalbit.nsdb.shaded.com.google.@1").inAll,
       ShadeRule.rename("org.apache.commons.**" -> "io.radicalbit.nsdb.shaded.org.apache.commons.@1").inAll,
-      // ShadeRule.rename("io.grpc.**" -> "io.radicalbit.nsdb.shaded.io.grpc.@1").inAll,
-      ShadeRule.rename("io.netty.**" -> "io.radicalbit.nsdb.shaded.io.netty.@1").inAll
+      ShadeRule.rename("io.netty.**"           -> "io.radicalbit.nsdb.shaded.io.netty.@1").inAll
     ),
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.filterDistinctLines
@@ -241,7 +239,7 @@ lazy val `nsdb-flink-connector` = project
     },
     artifact in (Compile, assembly) := {
       val art = (artifact in (Compile, assembly)).value
-      art.copy(`classifier` = None)
+      art.copy(`classifier` = Some(""))
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
@@ -249,10 +247,19 @@ lazy val `nsdb-flink-connector` = project
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-scala-api`)
 
-lazy val `nsdb-kafka-connect` = (project in file("nsdb-kafka-connect"))
+lazy val `nsdb-kafka-connect` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.KafkaConnect.libraries)
+  .settings(
+    // include Scala library in assembly
+    assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = true),
+    artifact in (Compile, assembly) := {
+      val art = (artifact in (Compile, assembly)).value
+      art.copy(`classifier` = Some(""))
+    },
+    addArtifact(artifact in (Compile, assembly), assembly)
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-scala-api`)

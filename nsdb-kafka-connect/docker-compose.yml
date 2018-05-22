@@ -47,17 +47,6 @@ services:
       - zoo1
       - kafka1
 
-#  schema-registry-ui:
-#    image: landoop/schema-registry-ui:0.9.3
-#    hostname: kafka-schema-registry-ui
-#    ports:
-#      - "8001:8000"
-#    environment:
-#      SCHEMAREGISTRY_URL: http://kafka-schema-registry:8081/
-#      PROXY: "true"
-#    depends_on:
-#      - kafka-schema-registry
-
   kafka-rest-proxy:
     image: confluentinc/cp-kafka-rest:4.0.0
     hostname: kafka-rest-proxy
@@ -132,32 +121,11 @@ services:
     depends_on:
       - kafka-connect
 
-  zoonavigator-web:
-    image: elkozmon/zoonavigator-web:0.2.3
-    ports:
-     - "8004:8000"
-    environment:
-      API_HOST: "zoonavigator-api"
-      API_PORT: 9000
-    links:
-     - zoonavigator-api
-    depends_on:
-     - zoonavigator-api
-    restart: unless-stopped
-
-  zoonavigator-api:
-    image: elkozmon/zoonavigator-api:0.2.3
-    environment:
-      SERVER_HTTP_PORT: 9000
-    restart: unless-stopped
-    depends_on:
-      - zoo1
-
   nsdb:
       hostname: nsdb
       image: tools.radicalbit.io/nsdb-cluster:0.1.3-SNAPSHOT
       volumes:
-        - ./conf:/opt/nsdb-cluster/conf
+        - ../nsdb-cluster/src/main/resources:/opt/nsdb-cluster/conf
         - ./data:/opt/nsdb-cluster/data
         - ./lib:/opt/nsdb-cluster/ext-lib
         - ./certs:/opt/certs
