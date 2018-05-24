@@ -134,7 +134,7 @@ trait Index[T] {
   }
 
   private def executeQuery[B](searcher: IndexSearcher, query: Query, limit: Int, sort: Option[Sort])(
-      f: (Document) => B): Seq[B] = {
+      f: Document => B): Seq[B] = {
     val hits =
       sort.fold(searcher.search(query, limit).scoreDocs)(sort => searcher.search(query, limit, sort).scoreDocs)
     (0 until hits.length).map { i =>
@@ -144,7 +144,7 @@ trait Index[T] {
     }
   }
 
-  private def executeCountQuery[B](searcher: IndexSearcher, query: Query, limit: Int)(f: (Document) => B): Seq[B] = {
+  private def executeCountQuery[B](searcher: IndexSearcher, query: Query, limit: Int)(f: Document => B): Seq[B] = {
     val hits = searcher.search(query, limit).scoreDocs.length
     val d    = new Document()
     d.add(new LongPoint(_keyField, 0))
@@ -192,7 +192,7 @@ trait Index[T] {
     * @tparam B return type.
     * @return the query results as a list of entries.
     */
-  def query[B](query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(f: (T) => B): Seq[B] = {
+  def query[B](query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(f: T => B): Seq[B] = {
     if (fields.nonEmpty && fields.forall(_.count)) {
       executeCountQuery(this.getSearcher, query, limit) { doc =>
         f(toRecord(doc, fields))
@@ -230,7 +230,7 @@ trait Index[T] {
     * @return the manipulated Seq.
     */
   def query[B](field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None)(
-      f: (T) => B): Seq[B] = {
+      f: T => B): Seq[B] = {
     val parser = new QueryParser(field, new StandardAnalyzer())
     val q      = parser.parse(value)
 
@@ -244,6 +244,20 @@ trait Index[T] {
   def all: Seq[T] = {
     Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity) } match {
       case Success(docs: Seq[T]) => docs
+      case Failure(_)            => Seq.empty
+    }
+  }
+
+  /**
+    * Returns all entries applying the defined callback function
+    *
+    * @param f the callback function
+    * @tparam B return type of f
+    * @return all entries
+    */
+  def all[B](f: T => B): Seq[B] = {
+    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(f) } match {
+      case Success(docs: Seq[B]) => docs
       case Failure(_)            => Seq.empty
     }
   }

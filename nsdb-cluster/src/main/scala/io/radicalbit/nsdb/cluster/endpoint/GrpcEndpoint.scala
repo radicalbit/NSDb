@@ -22,7 +22,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{Restore, Restored}
+import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{Bit, MetricField}
@@ -98,17 +98,23 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
 
   protected[this] object GrpcEndpointServiceDump extends Dump {
     override def createDump(request: DumpRequest): Future[DumpResponse] = {
-      Future.failed(new RuntimeException("not yet implemented"))
-    }
-
-    override def getDumpInfo(request: GetDumpInfoRequest): Future[DumpResponse] = {
-      Future.failed(new RuntimeException("not yet implemented"))
+      log.debug(s"Sending to WriteCoordinator dump request for: ${request.targets.mkString(",")}")
+      (writeCoordinator ? CreateDump(request.destPath, request.targets)).map {
+        case DumpCreated(inputPath) => DumpResponse(startedSuccessfully = true, dumpPath = inputPath)
+        case msg =>
+          log.error("got {} from dump request", msg)
+          DumpResponse(startedSuccessfully = false, errorMsg = "unknown response from write coordinator")
+      }
     }
 
     override def restore(request: RestoreRequest): Future[RestoreResponse] = {
       (writeCoordinator ? Restore(request.sourcePath)).map {
-        case Restored(path) => RestoreResponse(completedSuccessfully = true, path)
-        case _              => RestoreResponse(completedSuccessfully = false, request.sourcePath)
+        case Restored(path) => RestoreResponse(startedSuccessfully = true, path)
+        case msg =>
+          log.error("got {} from restore request", msg)
+          RestoreResponse(startedSuccessfully = false,
+                          errorMsg = "unknown response from write coordinator",
+                          path = request.sourcePath)
       }
     }
   }

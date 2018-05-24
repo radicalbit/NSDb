@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.io.File
+import java.nio.file.Paths
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -35,7 +37,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   GetWriteLocation
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{Restore, Restored}
+import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -45,10 +47,14 @@ import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.rpc.dump.DumpTarget
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
+import org.apache.commons.io.{FileUtils => ApacheFileUtils}
 import org.apache.lucene.document.LongPoint
+import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.MMapDirectory
+import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -61,9 +67,13 @@ object WriteCoordinator {
             publisherActor: ActorRef): Props =
     Props(new WriteCoordinator(commitLogCoordinator, metadataCoordinator, namespaceSchemaActor, publisherActor))
 
-  case class Restore(path: String)                       extends ControlMessage
-  case class Restored(path: String)                      extends ControlMessage
-  case class RestoreFailed(path: String, reason: String) extends ControlMessage
+  case class Restore(path: String)  extends ControlMessage
+  case class Restored(path: String) extends ControlMessage
+//  case class RestoreFailed(path: String, reason: String) extends ControlMessage
+
+  case class CreateDump(inputPath: String, targets: Seq[DumpTarget]) extends ControlMessage
+  case class DumpCreated(inputPath: String)                          extends ControlMessage
+
 }
 
 /**
@@ -283,6 +293,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     case Restore(path: String) =>
       log.info("restoring dump at path {}", path)
       val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"
+
+      sender ! Restored(path)
+
       FileUtils.unzip(path, tmpPath)
       val dbs = FileUtils.getSubDirs(tmpPath)
       dbs.foreach { db =>
@@ -330,12 +343,51 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
               upBound = currentTimestamp + shardingInterval.toMillis
               System.gc()
               System.runFinalization()
-              log.debug("path {} restored", path)
+              log.info("path {} restored", path)
               sender() ! Restored(path)
             }
           }
         }
       }
+    case CreateDump(destPath, targets) =>
+      log.info(s"Starting dump with destination : $destPath and targets : ${targets.mkString(",")}")
+
+      val basePath       = context.system.settings.config.getString("nsdb.index.base-path")
+      val dumpIdentifier = UUID.randomUUID().toString
+      val tmpPath        = s"/tmp/nsdbDump/$dumpIdentifier"
+
+      sender ! DumpCreated(destPath)
+
+      targets
+        .groupBy(_.db)
+        .foreach {
+          case (db, dbTargets) =>
+            val namespaces = dbTargets.map(_.namespace)
+            namespaces.foreach { namespace =>
+              FileUtils
+                .getSubDirs(Paths.get(basePath, db, namespace, "shards").toFile)
+                .groupBy(_.getName.split("_").toList.head)
+                .foreach {
+                  case (metricName, dirNames) =>
+                    val dumpMetricIndex =
+                      new TimeSeriesIndex(new MMapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
+                    dirNames.foreach { dirMetric =>
+                      implicit val writer: IndexWriter = dumpMetricIndex.getWriter
+                      val directory =
+                        new MMapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
+                      val shardIndex = new TimeSeriesIndex(directory)
+                      shardIndex.all(bit => dumpMetricIndex.write(bit))
+                      writer.close()
+                      System.gc()
+                      System.runFinalization()
+                    }
+                }
+            }
+        }
+
+      ZipUtil.pack(Paths.get(tmpPath).toFile, new File(s"$destPath/$dumpIdentifier.zip"))
+      ApacheFileUtils.deleteDirectory(Paths.get(tmpPath).toFile)
+      log.info(s"Dump with identifier $dumpIdentifier completed")
 
     case msg => log.info(s"Receive Unhandled message $msg")
   }

@@ -208,6 +208,12 @@ object Dependencies {
     lazy val commonsIo = namespace % "commons-io" % version
   }
 
+  object zipUtils {
+    lazy val version   = "1.13"
+    lazy val namespace = "org.zeroturnaround"
+    lazy val zip       = namespace % "zt-zip" % version
+  }
+
   object Core {
     val libraries = Seq(
       akka.actor,
@@ -218,7 +224,8 @@ object Dependencies {
       lucene.facet,
       scalatest.core % Test,
       akka.testkit   % Test,
-      commonsIo.commonsIo
+      commonsIo.commonsIo,
+      zipUtils.zip
     )
   }
 

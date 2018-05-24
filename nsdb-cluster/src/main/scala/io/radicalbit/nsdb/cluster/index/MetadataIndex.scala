@@ -117,5 +117,4 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
     }
 
   }
-
 }
