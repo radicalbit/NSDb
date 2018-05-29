@@ -178,7 +178,7 @@ object NsdbSinkWriter {
     valuesMap.get(timestampField) match {
       case Some(t: Long) => bit = bit.timestamp(t)
       case Some(v)       => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
-      case None          => sys.error(s"Timestamp is not defined in record")
+      case None          => bit = bit.timestamp(System.currentTimeMillis())
     }
 
     valuesMap.get(valueField) match {
