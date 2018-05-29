@@ -24,6 +24,7 @@ import org.apache.kafka.connect.data._
 import org.apache.kafka.connect.sink.SinkRecord
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /**
   * Handles writes to Nsdb.
@@ -68,7 +69,7 @@ class NsdbSinkWriter(connection: NSDB,
 
     import NsdbSinkWriter._
 
-    val writes = records.map(parse)
+    val writes = records.map(parse(_, globalDb, globalNamespace))
 
     kcqls.foreach(kcql => {
 
@@ -130,7 +131,7 @@ object NsdbSinkWriter {
     }
   }
 
-  def parse(record: SinkRecord): Map[String, Any] = {
+  def parse(record: SinkRecord, globalDb: Option[String], globalNamespace: Option[String]): Map[String, Any] = {
     val schema = record.valueSchema()
     if (schema == null) {
       sys.error("Schemaless records are not supported")
@@ -138,8 +139,13 @@ object NsdbSinkWriter {
       schema.`type`() match {
         case Schema.Type.STRUCT =>
           val s      = record.value().asInstanceOf[Struct]
-          val fields = schema.fields().asScala
-          fields.flatMap(f => buildField(f, s)).toMap
+          val fields = schema.fields().asScala.flatMap(f => buildField(f, s))
+
+          val globals: mutable.ListBuffer[(String, Any)] = mutable.ListBuffer.empty[(String, Any)]
+          globalDb.foreach(db => globals += ((db, db)))
+          globalNamespace.foreach(ns => globals += ((ns, ns)))
+
+          (fields union globals).toMap
         case other => sys.error(s"$other schema is not supported")
       }
     }
@@ -184,15 +190,15 @@ object NsdbSinkWriter {
       case None            => sys.error(s"Value is not defined in record")
     }
 
-    (valuesMap - timestampField - valueField - dbField - namespaceField).foreach {
-      case (name, value) =>
-        value match {
-          case v: Int    => bit = bit.dimension(name, v)
-          case v: Long   => bit = bit.dimension(name, v)
-          case v: Double => bit = bit.dimension(name, v)
-          case v: Float  => bit = bit.dimension(name, v)
-          case v: String => bit = bit.dimension(name, v)
-          case v         => sys.error(s"Type ${v.getClass} is not supported for dimensions")
+    (aliasMap - "timestamp" - "value" - dbField - namespaceField).foreach {
+      case (alias, name) =>
+        valuesMap.get(name) match {
+          case Some(v: Int)    => bit = bit.dimension(alias, v)
+          case Some(v: Long)   => bit = bit.dimension(alias, v)
+          case Some(v: Double) => bit = bit.dimension(alias, v)
+          case Some(v: Float)  => bit = bit.dimension(alias, v)
+          case Some(v: String) => bit = bit.dimension(alias, v)
+          case v               => sys.error(s"Type ${v.getClass} is not supported for dimensions")
         }
     }
     bit

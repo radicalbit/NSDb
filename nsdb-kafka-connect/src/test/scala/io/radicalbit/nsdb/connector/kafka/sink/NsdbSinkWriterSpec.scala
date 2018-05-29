@@ -82,7 +82,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
   val stringRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, "", 1)
 
   "SinkRecordConversion" should "convert a struct SinkRecord to a Map" in {
-    val mo = NsdbSinkWriter.parse(simpleRecord)
+    val mo = NsdbSinkWriter.parse(simpleRecord, None, None)
 
     mo.keys.size shouldBe 4
     mo.get("string_id") shouldBe Some("my_id_val")
@@ -92,7 +92,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
 
   "SinkRecordConversion" should "convert a SinkRecord with nested type to a Map" in {
 
-    val mo = NsdbSinkWriter.parse(record)
+    val mo = NsdbSinkWriter.parse(record, None, None)
     mo.keys.size shouldBe 8
     mo.get("string_id") shouldBe Some("my_id_val")
     mo.get("int_field") shouldBe Some(12)
@@ -108,19 +108,72 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
 
   "SinkRecordConversion" should "ignore non struct records" in {
     val stringRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, "a generic string", 1)
-    an[RuntimeException] should be thrownBy NsdbSinkWriter.parse(stringRecord)
+    an[RuntimeException] should be thrownBy NsdbSinkWriter.parse(stringRecord, None, None)
   }
 
-  "SinkRecordConversion" should "successfully convert records given a kcql" in {
+  "SinkRecordConversion" should "successfully convert records given a kcql and no global params" in {
     val withDimensionAlias =
-      "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, int_field AS value FROM topic WITHTIMESTAMP long_field"
+      "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, int_field AS value, d2, d1 FROM topic WITHTIMESTAMP long_field"
 
     val parsedKcql = ParsedKcql(withDimensionAlias, None, None)
 
-    val bit: Bit = NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions))
+    val bit: Bit =
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None))
 
     val expectedBit =
       Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(12).dimension("d2", 12).dimension("d1", "d1")
+
+    bit shouldBe expectedBit
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql and global db" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT string_field AS namespace, int_field AS value FROM topic WITHTIMESTAMP long_field"
+
+    val parsedKcql = ParsedKcql(withDimensionAlias, Some("globalDb"), None)
+
+    val bit: Bit =
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), None))
+
+    val expectedBit =
+      Db("globalDb").namespace("foo").bit("metric").timestamp(12).value(12)
+
+    bit shouldBe expectedBit
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql and global namespace" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT string_id AS db, int_field AS value FROM topic WITHTIMESTAMP long_field"
+
+    val parsedKcql = ParsedKcql(withDimensionAlias, None, Some("globalNs"))
+
+    val bit: Bit =
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, Some("globalNs")))
+
+    val expectedBit =
+      Db("my_id_val").namespace("globalNs").bit("metric").timestamp(12).value(12)
+
+    bit shouldBe expectedBit
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql and global parameters" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT int_field AS value, d1 as dim1, d2 as dim2 FROM topic WITHTIMESTAMP long_field"
+
+    val parsedKcql = ParsedKcql(withDimensionAlias, Some("globalDb"), Some("globalNs"))
+
+    val bit: Bit =
+      NsdbSinkWriter.convertToBit(parsedKcql,
+                                  NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), Some("globalNs")))
+
+    val expectedBit =
+      Db("globalDb")
+        .namespace("globalNs")
+        .bit("metric")
+        .timestamp(12)
+        .value(12)
+        .dimension("dim1", "d1")
+        .dimension("dim2", 12)
 
     bit shouldBe expectedBit
   }
