@@ -20,6 +20,14 @@ const removeTab = id => ({
   },
 });
 
+const selectDatabase = (id, database) => ({
+  type: TYPES.DATABASE_SELECT,
+  payload: {
+    id,
+    database,
+  },
+});
+
 const selectNamespace = (id, namespace) => ({
   type: TYPES.NAMESPACE_SELECT,
   payload: {
@@ -40,6 +48,22 @@ const selectMetric = (id, metric) => ({
  * async actions
  */
 
+const fetchDatabasesRequest = () => ({
+  type: TYPES.DATABASES_FETCH_REQUEST,
+});
+
+const fetchDatabasesSuccess = response => ({
+  type: TYPES.DATABASES_FETCH_SUCCESS,
+  payload: {
+    response,
+  },
+});
+
+const fetchDatabasesError = error => ({
+  type: TYPES.DATABASES_FETCH_ERROR,
+  error,
+});
+
 const fetchNamespacesRequest = database => ({
   type: TYPES.NAMESPACES_FETCH_REQUEST,
   payload: {
@@ -47,10 +71,11 @@ const fetchNamespacesRequest = database => ({
   },
 });
 
-const fetchNamespacesSuccess = response => ({
+const fetchNamespacesSuccess = (database, response) => ({
   type: TYPES.NAMESPACES_FETCH_SUCCESS,
   payload: {
     response,
+    database,
   },
 });
 
@@ -106,8 +131,12 @@ const fetchMetricDescriptionError = error => ({
 export const actions = {
   addTab,
   removeTab,
+  selectDatabase,
   selectNamespace,
   selectMetric,
+  fetchDatabasesRequest,
+  fetchDatabasesSuccess,
+  fetchDatabasesError,
   fetchNamespacesRequest,
   fetchNamespacesSuccess,
   fetchNamespacesError,

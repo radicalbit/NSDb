@@ -4,6 +4,12 @@ import request from '../utils/request';
 const httpEndpoint = process.env.REACT_APP_NSDB_HTTP;
 const wsEndpoint = process.env.REACT_APP_NSDB_WS;
 
+export function fetchDatabases() {
+  return request(`${httpEndpoint}/commands/dbs`, {
+    method: 'GET',
+  });
+}
+
 export function fetchNamespaces(database) {
   return request(`${httpEndpoint}/commands/${database}/namespaces`, {
     method: 'GET',

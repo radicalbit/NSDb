@@ -42,7 +42,6 @@ class MetricTable extends React.Component {
 }
 
 const mapStateToProps = createStructuredSelector({
-  database: authSelectors.getDatabase,
   metricDescription: nsdbSelectors.getMetricDescription,
 });
 

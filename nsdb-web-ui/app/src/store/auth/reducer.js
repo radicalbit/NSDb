@@ -1,6 +1,5 @@
 const initialState = {
   isLoggedIn: false,
-  database: 'db',
 };
 
 function authReducer(state = initialState, action) {

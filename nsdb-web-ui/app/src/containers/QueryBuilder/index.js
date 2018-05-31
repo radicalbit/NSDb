@@ -33,14 +33,23 @@ class QueryBuilder extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (this.props.selectedNamespace !== nextProps.selectedNamespace) {
-      const { database, selectedNamespace, fetchMetricsRequest } = nextProps;
+      const { selectedDatabase, selectedNamespace, fetchMetricsRequest } = nextProps;
       this.formApi.setValue('metric', null);
       this.formApi.setTouched('metric', false);
-      fetchMetricsRequest(database, selectedNamespace);
+      fetchMetricsRequest(selectedDatabase, selectedNamespace);
+    }
+
+    if (this.props.selectedDatabase !== nextProps.selectedDatabase) {
+      const { selectedDatabase, fetchNamespaceRequest } = nextProps;
+      this.formApi.setValue('namespace', null);
+      this.formApi.setTouched('namespace', false);
+      fetchNamespaceRequest(selectedDatabase);
     }
   }
 
   getFormApi = formApi => (this.formApi = formApi);
+
+  onDatabaseChange = id => value => this.props.selectDatabase(id, value);
 
   onNamespaceChange = id => value => this.props.selectNamespace(id, value);
 
@@ -52,12 +61,12 @@ class QueryBuilder extends React.Component {
   };
 
   handleSubmitSuccess = (values, e, formApi) => {
-    const { id, database, fetchHistoricalQueryRequest, startRealtimeQuerySocket } = this.props;
+    const { id, fetchHistoricalQueryRequest, startRealtimeQuerySocket } = this.props;
     switch (this.queryType) {
       case 'historical': {
         console.log('Running historical query');
         const query = {
-          db: database,
+          db: values.database,
           namespace: values.namespace,
           metric: values.metric,
           queryString: values.query,
@@ -68,7 +77,7 @@ class QueryBuilder extends React.Component {
       case 'realtime': {
         console.log('Running realtime query');
         const query = {
-          db: database,
+          db: values.database,
           namespace: values.namespace,
           metric: values.metric,
           queryString: values.query,
@@ -91,7 +100,13 @@ class QueryBuilder extends React.Component {
   handleSubmitFailure = () => console.log('submit failure');
 
   render() {
-    const { id, namespacesAllNames, metricsByNamespace, stopRealtimeQuerySocket } = this.props;
+    const {
+      id,
+      databasesAllNames,
+      namespacesByDatabase,
+      metricsByNamespace,
+      stopRealtimeQuerySocket,
+    } = this.props;
 
     return (
       <div className="QueryBuilder">
@@ -104,16 +119,25 @@ class QueryBuilder extends React.Component {
           {formApi => (
             <form onSubmit={formApi.submitForm}>
               <Row>
-                <Col span={11}>
+                <Col span={7}>
                   <FormSelect
-                    options={namespacesAllNames}
+                    options={databasesAllNames}
+                    label="Database"
+                    field="database"
+                    validate={notEmpty}
+                    onChange={this.onDatabaseChange(id)}
+                  />
+                </Col>
+                <Col span={7} offset={1}>
+                  <FormSelect
+                    options={namespacesByDatabase}
                     label="Namespace"
                     field="namespace"
                     validate={notEmpty}
                     onChange={this.onNamespaceChange(id)}
                   />
                 </Col>
-                <Col span={11} offset={1}>
+                <Col span={7} offset={2}>
                   <FormSelect
                     options={metricsByNamespace}
                     label="Metric"
@@ -142,6 +166,7 @@ class QueryBuilder extends React.Component {
                 <Col span={11} offset={1}>
                   <MetricTable
                     id={id}
+                    database={get(formApi.values, 'database', null)}
                     namespace={get(formApi.values, 'namespace', null)}
                     metric={get(formApi.values, 'metric', null)}
                   />
@@ -156,19 +181,23 @@ class QueryBuilder extends React.Component {
 }
 
 const mapStateToProps = createStructuredSelector({
-  database: authSelectors.getDatabase,
+  database: nsdbSelectors.getIsFetchingDatabases,
   isFetchingNamespaces: nsdbSelectors.getIsFetchingNamespaces,
   isFetchingMetrics: nsdbSelectors.getIsFetchingMetrics,
+  selectedDatabase: nsdbSelectors.getSelectedDatabase,
   selectedNamespace: nsdbSelectors.getSelectedNamespace,
   selectedMetric: nsdbSelectors.getSelectedMetric,
-  namespacesAllNames: nsdbSelectors.getNamespacesAllNames,
+  databasesAllNames: nsdbSelectors.getDatabasesAllNames,
+  namespacesByDatabase: nsdbSelectors.getNamespacesByDatabase,
   metricsByNamespace: nsdbSelectors.getMetricsByNamespace,
 });
 
 const mapDispatchToProps = {
+  selectDatabase: nsdbActions.selectDatabase,
   selectNamespace: nsdbActions.selectNamespace,
   selectMetric: nsdbActions.selectMetric,
   fetchMetricsRequest: nsdbActions.fetchMetricsRequest,
+  fetchNamespaceRequest: nsdbActions.fetchNamespacesRequest,
   fetchHistoricalQueryRequest: nsdbActions.fetchHistoricalQueryRequest,
   startRealtimeQuerySocket: nsdbActions.startRealtimeQuerySocket,
   stopRealtimeQuerySocket: nsdbActions.stopRealtimeQuerySocket,

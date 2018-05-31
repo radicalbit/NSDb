@@ -1,6 +1,8 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import AntdLayout from 'antd/lib/layout';
+import Logo from '../../components/Logo';
+import nsdbLogo from '../../assets/images/NSDB_logo_clear_white.png';
 
 import './index.less';
 
@@ -17,7 +19,7 @@ class Layout extends React.Component {
         </Helmet>
         <AntdLayout>
           <AntdHeader className="Layout-header">
-            <h1>NSDB</h1>
+            <Logo image={nsdbLogo} alt="NSDB" />
           </AntdHeader>
           <AntdContent className="Layout-content">{this.props.children}</AntdContent>
           <AntdFooter className="Layout-footer">

@@ -4,7 +4,6 @@ import { connect } from 'react-redux';
 import { createStructuredSelector } from 'reselect';
 import Tabs from 'antd/lib/tabs';
 
-import { selectors as authSelectors } from '../../store/auth';
 import { actions as nsdbActions, selectors as nsdbSelectors } from '../../store/nsdb';
 
 import QueryBuilder from '../../containers/QueryBuilder';
@@ -16,9 +15,9 @@ import './index.less';
 const TabPane = Tabs.TabPane;
 
 class Nsdb extends React.Component {
-  componentDidMount() {
-    const { database, fetchNamespacesRequest } = this.props;
-    fetchNamespacesRequest(database);
+  componentWillMount() {
+    const { fetchDatabasesRequest } = this.props;
+    fetchDatabasesRequest();
   }
 
   render() {
@@ -45,14 +44,13 @@ class Nsdb extends React.Component {
 }
 
 const mapStateToProps = createStructuredSelector({
-  database: authSelectors.getDatabase,
   tabs: nsdbSelectors.getTabs,
 });
 
 const mapDispatchToProps = {
   addTab: nsdbActions.addTab,
   removeTab: nsdbActions.removeTab,
-  fetchNamespacesRequest: nsdbActions.fetchNamespacesRequest,
+  fetchDatabasesRequest: nsdbActions.fetchDatabasesRequest,
 };
 
 export default hot(module)(connect(mapStateToProps, mapDispatchToProps)(Nsdb));

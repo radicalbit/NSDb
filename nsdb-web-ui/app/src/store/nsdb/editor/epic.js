@@ -2,12 +2,26 @@ import { combineEpics } from 'redux-observable';
 import { Observable } from 'rxjs';
 import { types as TYPES } from './types';
 import { actions } from './actions';
-import { fetchNamespaces, fetchMetrics, fetchMetricDescription } from '../../../api/nsdbService';
+import {
+  fetchDatabases,
+  fetchNamespaces,
+  fetchMetrics,
+  fetchMetricDescription,
+} from '../../../api/nsdbService';
+
+const fetchDatabasesEpic = action$ =>
+  action$.ofType(TYPES.DATABASES_FETCH_REQUEST).switchMap(({ payload }) =>
+    Observable.fromPromise(fetchDatabases())
+      .map(response => actions.fetchDatabasesSuccess(response))
+      .catch(error =>
+        Observable.of(actions.fetchDatabasesError(error.xhr ? error.xhr.response : error))
+      )
+  );
 
 const fetchNamespacesEpic = action$ =>
   action$.ofType(TYPES.NAMESPACES_FETCH_REQUEST).switchMap(({ payload }) =>
     Observable.fromPromise(fetchNamespaces(payload.database))
-      .map(response => actions.fetchNamespacesSuccess(response))
+      .map(response => actions.fetchNamespacesSuccess(payload.database, response))
       .catch(error =>
         Observable.of(actions.fetchNamespacesError(error.xhr ? error.xhr.response : error))
       )
@@ -35,6 +49,11 @@ const fetchMetriDescriptionEpic = action$ =>
       )
   );
 
-const editorEpic = combineEpics(fetchNamespacesEpic, fetchMetricsEpic, fetchMetriDescriptionEpic);
+const editorEpic = combineEpics(
+  fetchDatabasesEpic,
+  fetchNamespacesEpic,
+  fetchMetricsEpic,
+  fetchMetriDescriptionEpic
+);
 
 export default editorEpic;

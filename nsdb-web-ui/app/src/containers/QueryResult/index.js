@@ -73,7 +73,7 @@ class QueryResult extends React.Component {
 }
 
 const mapStateToProps = createStructuredSelector({
-  database: authSelectors.getDatabase,
+  database: nsdbSelectors.getSelectedDatabase,
   metricDescription: nsdbSelectors.getMetricDescription,
   records: nsdbSelectors.getRecords,
 });

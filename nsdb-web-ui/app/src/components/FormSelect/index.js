@@ -33,8 +33,8 @@ const FormSelect = props => (
           label,
           field,
           validate,
-          labelCol = { span: 24 },
-          wrapperCol = { span: 24 },
+          labelCol = { span: 12 },
+          wrapperCol = { span: 12 },
           onChange,
           onBlur,
           ...rest
