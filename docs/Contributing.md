@@ -9,6 +9,7 @@ If you want to propose a new feature or if you are not sure that what you need i
 - Write an email about your idea to nsdb@radicalbit.io or ask for feedback on the project gitter channel. We will help you to analyze your issue and discuss together how to proceed.
 
 Before submitting a pull request (PR), please follow these guidelines:
+
 * A PR must be always associated with a task or a bug, thus make sure that title starts with the issue code and that the issues are linked in the description.
 * Make sure to follow this naming convention when opening a new branch for a PR:
   - `bugfix/[PR Code]` for a bug.

@@ -1,4 +1,5 @@
-# Natural Series DB - NSDB #
+![](docs/img/NSDb_logo_clear.png "")
+# Natural Series Db #
 
 NSDb is a **time-series** database **streaming oriented**
 optimized for the serving layer.
