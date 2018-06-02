@@ -86,9 +86,3 @@ object ParsedKcql {
                aliasesMap - "db" - "namespace" + ("timestamp" -> kcql.getTimestamp))
   }
 }
-
-
-object d extends App {
-  val x = Kcql.parse("insert into metric select * from topic withtimestamp now")
-  println(x.getTimestamp)
-}
