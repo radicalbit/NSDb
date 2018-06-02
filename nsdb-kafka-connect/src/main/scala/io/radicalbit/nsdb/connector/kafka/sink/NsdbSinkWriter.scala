@@ -93,6 +93,8 @@ class NsdbSinkWriter(connection: NSDB,
 
 object NsdbSinkWriter {
 
+  val defaultTimestampKeywords = Set("now", "now()", "sys_time", "sys_time()", "current_time", "current_time()")
+
   private def getFieldName(parent: Option[String], field: String) = parent.map(p => s"$p.$field").getOrElse(field)
 
   /**
@@ -182,10 +184,10 @@ object NsdbSinkWriter {
     val valueFieldOpt  = aliasMap.get("value")
 
     valuesMap.get(timestampField) match {
-      case Some(t: Long)                          => bit = bit.timestamp(t)
-      case Some(v)                                => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
-      case None if timestampField == "sys_time()" => bit = bit.timestamp(System.currentTimeMillis())
-      case None                                   => sys.error(s"Timestamp is not defined in record and a valid default is not provided")
+      case Some(t: Long)                                             => bit = bit.timestamp(t)
+      case Some(v)                                                   => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
+      case None if defaultTimestampKeywords.contains(timestampField) => bit = bit.timestamp(System.currentTimeMillis())
+      case None                                                      => sys.error(s"Timestamp is not defined in record and a valid default is not provided")
     }
 
     valueFieldOpt match {
