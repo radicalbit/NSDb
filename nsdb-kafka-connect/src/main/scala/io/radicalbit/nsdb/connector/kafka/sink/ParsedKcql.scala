@@ -55,7 +55,7 @@ object ParsedKcql {
     * @param kcql the kcql to be parsed.
     * @param globalDb the db defined as a config param if present.
     * @param globalNamespace the namespace defined as a config param if present.
-    * @param defaultValue the defaul value defined as a config param if present.
+    * @param defaultValue the default value defined as a config param if present.
     * @return the instance of [[ParsedKcql]].
     * @throws IllegalArgumentException if input kcql is not valid.
     */
@@ -76,7 +76,7 @@ object ParsedKcql {
     require(
       aliasesMap.get("value").isDefined ||
         (defaultValue.isDefined && defaultValue.get.matches("-?\\d+(\\.\\d+)?")),
-      "Value alias in kcql must be defined or a numeric defailtValue must be provided"
+      "Value alias in kcql must be defined or a numeric defaultValue must be provided"
     )
 
     ParsedKcql(db.get,
@@ -85,4 +85,10 @@ object ParsedKcql {
                defaultValue.map(new java.math.BigDecimal(_)),
                aliasesMap - "db" - "namespace" + ("timestamp" -> kcql.getTimestamp))
   }
+}
+
+
+object d extends App {
+  val x = Kcql.parse("insert into metric select * from topic withtimestamp now")
+  println(x.getTimestamp)
 }
