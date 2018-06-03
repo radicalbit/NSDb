@@ -62,7 +62,7 @@ class MetricsDataActorSpec()
     Await.result(metricsDataActor ? DeleteNamespace(db, namespace1), 3 seconds)
   }
 
-  "namespaceActor" should "write and delete properly" in within(5.seconds) {
+  "metricsDataActor" should "write and delete properly" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 0.5, Map("content" -> s"content"))
 
@@ -104,7 +104,7 @@ class MetricsDataActorSpec()
 
   }
 
-  "namespaceActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
+  "metricsDataActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"))
 
@@ -131,7 +131,7 @@ class MetricsDataActorSpec()
 
   }
 
-  "namespaceActor" should "delete a namespace" in within(5.seconds) {
+  "metricsDataActor" should "delete a namespace" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 
