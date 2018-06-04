@@ -41,6 +41,9 @@ object NsdbConfigs {
   val NSDB_NAMESPACE     = "nsdb.namespace"
   val NSDB_NAMESPACE_DOC = "Nsdb namespace (optional)"
 
+  val NSDB_DEFAULT_VALUE     = "nsdb.defaultValue"
+  val NSDB_DEFAULT_VALUE_DOC = "Nsdb default value (optional)"
+
   /**
     * @return sink expected configuration:
     *
@@ -53,6 +56,8 @@ object NsdbConfigs {
     *         - nsdb.db the nsdb db to store records in case a mapping in the kcql is not defined
     *
     *         -nsdb.namespace the nsdb db to store records in case a mapping in the kcql is not defined
+    *
+    *         -nsdb.defaultValue the value to be used in case a mapping in the kcql is not defined
     */
   def configDef: ConfigDef =
     new ConfigDef()
@@ -84,5 +89,6 @@ object NsdbConfigs {
               NSDB_KCQL)
       .define(NSDB_DB, Type.STRING, null, Importance.MEDIUM, NSDB_DB_DOC)
       .define(NSDB_NAMESPACE, Type.STRING, null, Importance.MEDIUM, NSDB_NAMESPACE_DOC)
+      .define(NSDB_DEFAULT_VALUE, Type.STRING, null, Importance.MEDIUM, NSDB_DEFAULT_VALUE_DOC)
 
 }

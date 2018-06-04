@@ -27,17 +27,18 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 /**
-  * Handles writes to Nsdb.
+  * Handles writes to NSDb.
   */
 class NsdbSinkWriter(connection: NSDB,
                      kcqls: Map[String, Array[Kcql]],
                      globalDb: Option[String],
-                     globalNamespace: Option[String])
+                     globalNamespace: Option[String],
+                     defaultValue: Option[String])
     extends StrictLogging {
   logger.info("Initialising Nsdb writer")
 
   /**
-    * Write a list of SinkRecords to Nsdb.
+    * Write a list of SinkRecords to NSDb.
     *
     * @param records The list of SinkRecords to write.
     **/
@@ -49,13 +50,13 @@ class NsdbSinkWriter(connection: NSDB,
       val grouped = records.groupBy(_.topic())
       grouped.foreach({
         case (topic, entries) =>
-          writeRecords(topic, entries, kcqls.getOrElse(topic, Array.empty), globalDb, globalNamespace)
+          writeRecords(topic, entries, kcqls.getOrElse(topic, Array.empty), globalDb, globalNamespace, defaultValue)
       })
     }
   }
 
   /**
-    * Write a list of sink records to Nsdb.
+    * Write a list of sink records to NSDb.
     *
     * @param topic   The source topic.
     * @param records The list of sink records to write.
@@ -64,24 +65,25 @@ class NsdbSinkWriter(connection: NSDB,
                            records: List[SinkRecord],
                            kcqls: Array[Kcql],
                            globalDb: Option[String],
-                           globalNamespace: Option[String]): Unit = {
+                           globalNamespace: Option[String],
+                           defaultValue: Option[String]): Unit = {
     logger.debug(s"Handling records for $topic")
 
     import NsdbSinkWriter._
 
-    val writes = records.map(parse(_, globalDb, globalNamespace))
+    val recordMaps = records.map(parse(_, globalDb, globalNamespace, defaultValue))
 
     kcqls.foreach(kcql => {
 
-      val parsedKcql = ParsedKcql(kcql, globalDb, globalNamespace)
+      val parsedKcql = ParsedKcql(kcql, globalDb, globalNamespace, defaultValue)
 
-      val bitSeq = writes.map(map => {
+      val bitSeq = recordMaps.map(map => {
         convertToBit(parsedKcql, map)
       })
 
       connection.write(bitSeq)
 
-      logger.debug(s"Wrote ${writes.length} to nsdb.")
+      logger.debug(s"Wrote ${recordMaps.length} to nsdb.")
     })
 
   }
@@ -90,6 +92,8 @@ class NsdbSinkWriter(connection: NSDB,
 }
 
 object NsdbSinkWriter {
+
+  val defaultTimestampKeywords = Set("now", "now()", "sys_time", "sys_time()", "current_time", "current_time()")
 
   private def getFieldName(parent: Option[String], field: String) = parent.map(p => s"$p.$field").getOrElse(field)
 
@@ -131,7 +135,10 @@ object NsdbSinkWriter {
     }
   }
 
-  def parse(record: SinkRecord, globalDb: Option[String], globalNamespace: Option[String]): Map[String, Any] = {
+  def parse(record: SinkRecord,
+            globalDb: Option[String],
+            globalNamespace: Option[String],
+            defalutValue: Option[String]): Map[String, Any] = {
     val schema = record.valueSchema()
     if (schema == null) {
       sys.error("Schemaless records are not supported")
@@ -144,6 +151,7 @@ object NsdbSinkWriter {
           val globals: mutable.ListBuffer[(String, Any)] = mutable.ListBuffer.empty[(String, Any)]
           globalDb.foreach(db => globals += ((db, db)))
           globalNamespace.foreach(ns => globals += ((ns, ns)))
+          defalutValue.foreach(v => globals += (("defaultValue", v)))
 
           (fields union globals).toMap
         case other => sys.error(s"$other schema is not supported")
@@ -173,21 +181,30 @@ object NsdbSinkWriter {
     var bit: Bit = Db(valuesMap(dbField).toString).namespace(valuesMap(namespaceField).toString).bit(parsedKcql.metric)
 
     val timestampField = aliasMap("timestamp")
-    val valueField     = aliasMap("value")
+    val valueFieldOpt  = aliasMap.get("value")
 
     valuesMap.get(timestampField) match {
-      case Some(t: Long) => bit = bit.timestamp(t)
-      case Some(v)       => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
-      case None          => bit = bit.timestamp(System.currentTimeMillis())
+      case Some(t: Long)                                             => bit = bit.timestamp(t)
+      case Some(v)                                                   => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
+      case None if defaultTimestampKeywords.contains(timestampField) => bit = bit.timestamp(System.currentTimeMillis())
+      case None                                                      => sys.error(s"Timestamp is not defined in record and a valid default is not provided")
     }
 
-    valuesMap.get(valueField) match {
-      case Some(v: Int)    => bit = bit.value(v)
-      case Some(v: Long)   => bit = bit.value(v)
-      case Some(v: Double) => bit = bit.value(v)
-      case Some(v: Float)  => bit = bit.value(v)
-      case Some(v)         => sys.error(s"Type ${v.getClass} is not supported for value field")
-      case None            => sys.error(s"Value is not defined in record")
+    valueFieldOpt match {
+      case Some(valueField) =>
+        valuesMap.get(valueField) match {
+          case Some(v: Int)                  => bit = bit.value(v)
+          case Some(v: Long)                 => bit = bit.value(v)
+          case Some(v: Double)               => bit = bit.value(v)
+          case Some(v: Float)                => bit = bit.value(v)
+          case Some(v: java.math.BigDecimal) => bit = bit.value(v)
+          case Some(v)                       => sys.error(s"Type ${v.getClass} is not supported for value field")
+        }
+      case None =>
+        parsedKcql.defaultValue match {
+          case Some(dv) => bit = bit.value(dv)
+          case None     => sys.error(s"Value is not defined in record and a default is not provided")
+        }
     }
 
     (aliasMap - "timestamp" - "value" - dbField - namespaceField).foreach {

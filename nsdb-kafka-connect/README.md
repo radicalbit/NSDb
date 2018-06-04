@@ -24,8 +24,9 @@ Name  | Description  | Type  | Value
 nsdb.host  | Hostname of the NSDb instance to connect to | String | default value is `localhost`
 nsdb.port  | Port of the NSDb instance to connect to | Int | default value is `7817`
 nsdb.kcql  | Kcql expressions used to map topic data to NSDb bits | String  | semicolon separated Kcql expressions
-nsdb.db  | Nsdb db to use in case no mappig is provided in the Kcql | String  |  If a mapping is provided in the Kcql this config will be overridden
-nsdb.namespace  | Nsdb db to use in case no mappig is provided in the Kcql | String  | If a mapping is provided in the Kcql this config will be overridden
+nsdb.db  | NSDb db to use in case no mappig is provided in the Kcql | String  |  If a mapping is provided in the Kcql this config will be overridden
+nsdb.namespace  | NSDb db to use in case no mappig is provided in the Kcql | String  | If a mapping is provided in the Kcql this config will be overridden
+nsdb.defaultValue | default value | Numeric | if a value alias is provided in the Kcql expression this config will be ignored 
 
 ## KCQL Support
 

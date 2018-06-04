@@ -26,7 +26,11 @@ import scala.collection.JavaConverters._
   * @param metric nsdb metric.
   * @param aliasesMap nsdb aliases map (e.g. `alias -> field` means that `field` must be fetched from topic and saved as `alias` to nsdb
   */
-case class ParsedKcql(dbField: String, namespaceField: String, metric: String, aliasesMap: Map[String, String])
+case class ParsedKcql(dbField: String,
+                      namespaceField: String,
+                      metric: String,
+                      defaultValue: Option[java.math.BigDecimal],
+                      aliasesMap: Map[String, String])
 
 object ParsedKcql {
 
@@ -35,11 +39,15 @@ object ParsedKcql {
     * @param queryString the string to be parsed.
     * @param globalDb the db defined as a config param if present.
     * @param globalNamespace the namespace defined as a config param if present.
+    * @param defaultValue the defaul value defined as a config param if present.
     * @return the instance of [[ParsedKcql]].
     * @throws IllegalArgumentException if queryString is not valid.
     */
-  def apply(queryString: String, globalDb: Option[String], globalNamespace: Option[String]): ParsedKcql = {
-    this(Kcql.parse(queryString), globalDb, globalNamespace)
+  def apply(queryString: String,
+            globalDb: Option[String],
+            globalNamespace: Option[String],
+            defaultValue: Option[String]): ParsedKcql = {
+    this(Kcql.parse(queryString), globalDb, globalNamespace, defaultValue)
   }
 
   /**
@@ -47,10 +55,14 @@ object ParsedKcql {
     * @param kcql the kcql to be parsed.
     * @param globalDb the db defined as a config param if present.
     * @param globalNamespace the namespace defined as a config param if present.
+    * @param defaultValue the default value defined as a config param if present.
     * @return the instance of [[ParsedKcql]].
     * @throws IllegalArgumentException if input kcql is not valid.
     */
-  def apply(kcql: Kcql, globalDb: Option[String], globalNamespace: Option[String]): ParsedKcql = {
+  def apply(kcql: Kcql,
+            globalDb: Option[String],
+            globalNamespace: Option[String],
+            defaultValue: Option[String]): ParsedKcql = {
 
     val aliasesMap = kcql.getFields.asScala.map(f => f.getAlias -> f.getName).toMap
 
@@ -61,8 +73,16 @@ object ParsedKcql {
     require(db.isDefined, "A global db configuration or a Db alias in Kcql must be defined")
     require(namespace.isDefined, "A global namespace configuration or a Namespace alias in Kcql must be defined")
     require(kcql.getTimestamp != null && kcql.getTimestamp.nonEmpty)
-    require(aliasesMap.get("value").isDefined, "Value alias in kcql must be defined")
+    require(
+      aliasesMap.get("value").isDefined ||
+        (defaultValue.isDefined && defaultValue.get.matches("-?\\d+(\\.\\d+)?")),
+      "Value alias in kcql must be defined or a numeric defaultValue must be provided"
+    )
 
-    ParsedKcql(db.get, namespace.get, metric, aliasesMap - "db" - "namespace" + ("timestamp" -> kcql.getTimestamp))
+    ParsedKcql(db.get,
+               namespace.get,
+               metric,
+               defaultValue.map(new java.math.BigDecimal(_)),
+               aliasesMap - "db" - "namespace" + ("timestamp" -> kcql.getTimestamp))
   }
 }
