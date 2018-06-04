@@ -21,6 +21,8 @@ import org.apache.kafka.connect.data.{Schema, SchemaBuilder, Struct}
 import org.apache.kafka.connect.sink.SinkRecord
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
+import scala.util.Try
+
 class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest {
 
   val simpleSchema = SchemaBuilder.struct
@@ -82,7 +84,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
   val stringRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, "", 1)
 
   "SinkRecordConversion" should "convert a struct SinkRecord to a Map" in {
-    val mo = NsdbSinkWriter.parse(simpleRecord, None, None)
+    val mo = NsdbSinkWriter.parse(simpleRecord, None, None, None)
 
     mo.keys.size shouldBe 4
     mo.get("string_id") shouldBe Some("my_id_val")
@@ -92,7 +94,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
 
   "SinkRecordConversion" should "convert a SinkRecord with nested type to a Map" in {
 
-    val mo = NsdbSinkWriter.parse(record, None, None)
+    val mo = NsdbSinkWriter.parse(record, None, None, None)
     mo.keys.size shouldBe 8
     mo.get("string_id") shouldBe Some("my_id_val")
     mo.get("int_field") shouldBe Some(12)
@@ -108,17 +110,17 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
 
   "SinkRecordConversion" should "ignore non struct records" in {
     val stringRecord = new SinkRecord("topic", 1, Schema.STRING_SCHEMA, "key", schema, "a generic string", 1)
-    an[RuntimeException] should be thrownBy NsdbSinkWriter.parse(stringRecord, None, None)
+    an[RuntimeException] should be thrownBy NsdbSinkWriter.parse(stringRecord, None, None, None)
   }
 
   "SinkRecordConversion" should "successfully convert records given a kcql and no global params" in {
     val withDimensionAlias =
       "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, int_field AS value, d2, d1 FROM topic WITHTIMESTAMP long_field"
 
-    val parsedKcql = ParsedKcql(withDimensionAlias, None, None)
+    val parsedKcql = ParsedKcql(withDimensionAlias, None, None, None)
 
     val bit: Bit =
-      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None))
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
     val expectedBit =
       Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(12).dimension("d2", 12).dimension("d1", "d1")
@@ -130,10 +132,11 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val withDimensionAlias =
       "INSERT INTO metric SELECT string_field AS namespace, int_field AS value FROM topic WITHTIMESTAMP long_field"
 
-    val parsedKcql = ParsedKcql(withDimensionAlias, Some("globalDb"), None)
+    val parsedKcql = ParsedKcql(withDimensionAlias, Some("globalDb"), None, None)
 
     val bit: Bit =
-      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), None))
+      NsdbSinkWriter.convertToBit(parsedKcql,
+                                  NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), None, None))
 
     val expectedBit =
       Db("globalDb").namespace("foo").bit("metric").timestamp(12).value(12)
@@ -145,10 +148,11 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val withDimensionAlias =
       "INSERT INTO metric SELECT string_id AS db, int_field AS value FROM topic WITHTIMESTAMP long_field"
 
-    val parsedKcql = ParsedKcql(withDimensionAlias, None, Some("globalNs"))
+    val parsedKcql = ParsedKcql(withDimensionAlias, None, Some("globalNs"), None)
 
     val bit: Bit =
-      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, Some("globalNs")))
+      NsdbSinkWriter.convertToBit(parsedKcql,
+                                  NsdbSinkWriter.parse(simpleRecordWithDimentions, None, Some("globalNs"), None))
 
     val expectedBit =
       Db("my_id_val").namespace("globalNs").bit("metric").timestamp(12).value(12)
@@ -160,11 +164,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val withDimensionAlias =
       "INSERT INTO metric SELECT int_field AS value, d1 as dim1, d2 as dim2 FROM topic WITHTIMESTAMP long_field"
 
-    val parsedKcql = ParsedKcql(withDimensionAlias, Some("globalDb"), Some("globalNs"))
+    val parsedKcql = ParsedKcql(withDimensionAlias, Some("globalDb"), Some("globalNs"), None)
 
     val bit: Bit =
-      NsdbSinkWriter.convertToBit(parsedKcql,
-                                  NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), Some("globalNs")))
+      NsdbSinkWriter.convertToBit(
+        parsedKcql,
+        NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), Some("globalNs"), None))
 
     val expectedBit =
       Db("globalDb")
@@ -174,6 +179,50 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
         .value(12)
         .dimension("dim1", "d1")
         .dimension("dim2", 12)
+
+    bit shouldBe expectedBit
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql with and a default value (to be ignored)" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, int_field AS value, d2, d1 FROM topic WITHTIMESTAMP long_field"
+
+    val parsedKcql = ParsedKcql(withDimensionAlias, None, None, Some("1"))
+
+    val bit: Bit =
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
+
+    val expectedBit =
+      Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(12).dimension("d2", 12).dimension("d1", "d1")
+
+    bit shouldBe expectedBit
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql without a value alias and an invalid default value" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, d2, d1 FROM topic WITHTIMESTAMP long_field"
+
+    val result = Try {
+
+      val parsedKcql = ParsedKcql(withDimensionAlias, None, None, Some("1v"))
+
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
+    }
+
+    result.isFailure shouldBe true
+  }
+
+  "SinkRecordConversion" should "successfully convert records given a kcql without a value alias and a default value" in {
+    val withDimensionAlias =
+      "INSERT INTO metric SELECT string_id AS db, string_field AS namespace, d2, d1 FROM topic WITHTIMESTAMP long_field"
+
+    val parsedKcql = ParsedKcql(withDimensionAlias, None, None, Some("1"))
+
+    val bit: Bit =
+      NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
+
+    val expectedBit =
+      Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(1).dimension("d2", 12).dimension("d1", "d1")
 
     bit shouldBe expectedBit
   }
