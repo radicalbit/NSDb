@@ -37,8 +37,9 @@ export function fetchHistoricalQuery(query) {
 }
 
 export function runRealtimeQuery(id) {
+  const url = window.location.href.replace('http', 'ws').replace('/ui/', '');
   return Observable.webSocket({
-    url: `${wsEndpoint}/ws-stream`,
+    url: `${url}/ws-stream`,
     openObserver: { next: () => console.log(`Opening socket for tab ${id}`) },
     closeObserver: { next: () => console.log(`Closing socket for tab ${id}`) },
     closingObserver: { next: () => console.log(`Closing socket for tab ${id}`) },
