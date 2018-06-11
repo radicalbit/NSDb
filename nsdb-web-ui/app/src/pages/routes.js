@@ -20,13 +20,6 @@ const restrictedRoutes = [
     }),
   },
   {
-    path: '/dummy',
-    component: Loadable({
-      loader: () => import(/* webpackChunkName: "dummy" */ './Dummy'),
-      loading: () => React.createElement('div', [], ['loading...']),
-    }),
-  },
-  {
     path: '/404',
     component: NotFound,
   },
