@@ -33,7 +33,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
-import org.apache.lucene.index.IndexNotFoundException
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
 import spire.implicits._
@@ -350,6 +350,15 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Success(bits)                          => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
         case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
         case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
+      }
+    case msg @ DropMetric(_, _, metric) =>
+      shardsForMetric(metric).foreach {
+        case (key, index) =>
+          implicit val writer: IndexWriter = index.getWriter
+          index.deleteAll()
+          writer.close()
+          index.refresh()
+          shards -= key
       }
     case Refresh(_, keys) =>
       keys.foreach { key =>

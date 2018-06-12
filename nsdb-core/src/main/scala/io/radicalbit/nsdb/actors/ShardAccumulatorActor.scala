@@ -184,7 +184,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
       FileUtils.deleteDirectory(Paths.get(basePath, db, namespace).toFile)
 
       sender ! AllMetricsDeleted(db, ns)
-    case DropMetric(_, _, metric) =>
+    case msg @ DropMetric(_, _, metric) =>
       shardsForMetric(metric).foreach {
         case (key, index) =>
           implicit val writer: IndexWriter = index.getWriter
@@ -204,6 +204,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
 
       deleteMetricData(metric)
 
+      readerActor ! msg
       sender() ! MetricDropped(db, namespace, metric)
   }
 

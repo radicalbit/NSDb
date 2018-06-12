@@ -113,20 +113,26 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
 
-      val expectedAdd = probe.expectMsgType[InputMapped]
+      val expectedAdd = awaitAssert {
+        probe.expectMsgType[InputMapped]
+      }
       expectedAdd.metric shouldBe "testMetric"
       expectedAdd.record shouldBe record1
 
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 
-      val expectedAdd2 = probe.expectMsgType[InputMapped]
+      val expectedAdd2 = awaitAssert {
+        probe.expectMsgType[InputMapped]
+      }
       expectedAdd2.metric shouldBe "testMetric"
       expectedAdd2.record shouldBe record2
 
       probe.send(writeCoordinatorActor,
                  MapInput(System.currentTimeMillis, db, namespace, "testMetric", incompatibleRecord))
 
-      probe.expectMsgType[RecordRejected]
+      awaitAssert {
+        probe.expectMsgType[RecordRejected]
+      }
 
     }
 
@@ -153,13 +159,14 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       probe.send(writeCoordinatorActor,
                  MapInput(System.currentTimeMillis, db, namespace, "testMetric", testRecordSatisfy))
 
-      awaitAssert {
-        val expectedAdd = probe.expectMsgType[InputMapped]
-        expectedAdd.metric shouldBe "testMetric"
-        expectedAdd.record shouldBe testRecordSatisfy
-
-        subscriber.underlyingActor.receivedMessages shouldBe 1
+      val expectedAdd = awaitAssert {
+        probe.expectMsgType[InputMapped]
       }
+      expectedAdd.metric shouldBe "testMetric"
+      expectedAdd.record shouldBe testRecordSatisfy
+
+      subscriber.underlyingActor.receivedMessages shouldBe 1
+
       expectNoMessage(interval)
     }
 
@@ -168,10 +175,20 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       awaitAssert {
         probe.expectMsgType[NamespaceDeleted]
-
-        namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
-        metricsDataActor.underlyingActor.context.children.size shouldBe 0
       }
+
+      Thread.sleep(2000)
+
+      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
+      metricsDataActor.underlyingActor.context.children.size shouldBe 0
+
+      probe.send(metricsDataActor, GetNamespaces(db))
+
+      val result = awaitAssert {
+        probe.expectMsgType[NamespacesGot]
+      }
+
+      result.namespaces.size shouldBe 0
     }
 
     "delete entries" in within(5.seconds) {
@@ -225,9 +242,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
       probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
-      awaitAssert {
-        probe.expectMsgType[CountGot].count shouldBe 2
-      }
+
+      probe.expectMsgType[CountGot].count shouldBe 2
 
       probe.send(writeCoordinatorActor, DropMetric(db, namespace, "testMetric"))
       awaitAssert {
@@ -237,9 +253,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       expectNoMessage(interval)
 
       probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
-      awaitAssert {
-        probe.expectMsgType[CountGot].count shouldBe 0
+      val result = awaitAssert {
+        probe.expectMsgType[CountGot]
       }
+      result.count shouldBe 0
 
       probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe false

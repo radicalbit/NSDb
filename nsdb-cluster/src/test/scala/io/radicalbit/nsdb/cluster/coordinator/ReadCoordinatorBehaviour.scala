@@ -100,10 +100,8 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
         "return it properly" in within(5.seconds) {
           probe.send(readCoordinatorActor, GetDbs)
 
-          awaitAssert {
-            val expected = probe.expectMsgType[DbsGot]
-            expected.dbs shouldBe Set(db)
-          }
+          val expected = probe.expectMsgType[DbsGot]
+          expected.dbs shouldBe Set(db)
 
         }
       }
@@ -112,10 +110,8 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
         "return it properly" in within(5.seconds) {
           probe.send(readCoordinatorActor, GetNamespaces(db))
 
-          awaitAssert {
-            val expected = probe.expectMsgType[NamespacesGot]
-            expected.namespaces shouldBe Set(namespace)
-          }
+          val expected = probe.expectMsgType[NamespacesGot]
+          expected.namespaces shouldBe Set(namespace)
 
         }
       }
@@ -124,11 +120,11 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
         "return it properly" in within(5.seconds) {
           probe.send(readCoordinatorActor, GetMetrics(db, namespace))
 
-          awaitAssert {
-            val expected = probe.expectMsgType[MetricsGot]
-            expected.namespace shouldBe namespace
-            expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name, AggregationMetric.name)
-          }
+          val expected = probe.expectMsgType[MetricsGot]
+
+          expected.namespace shouldBe namespace
+          expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name, AggregationMetric.name)
+
         }
       }
 
@@ -185,15 +181,15 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          awaitAssert {
-            val expected = probe.expectMsgType[SelectStatementExecuted]
-            val names    = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
-            names.contains("Bill") shouldBe true
-            names.contains("Frank") shouldBe true
-            names.contains("Frankie") shouldBe true
-            names.contains("John") shouldBe true
-            names.size shouldBe 4
+          val expected = awaitAssert {
+            probe.expectMsgType[SelectStatementExecuted]
           }
+          val names = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
+          names.contains("Bill") shouldBe true
+          names.contains("Frank") shouldBe true
+          names.contains("Frankie") shouldBe true
+          names.contains("John") shouldBe true
+          names.size shouldBe 4
         }
         "execute successfully with limit over distinct values" in within(5.seconds) {
           probe.send(
@@ -209,11 +205,11 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               )
             )
           )
-          awaitAssert {
-            val expected = probe.expectMsgType[SelectStatementExecuted]
-            val names    = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
-            names.size shouldBe 2
+          val expected = awaitAssert {
+            probe.expectMsgType[SelectStatementExecuted]
           }
+          val names = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
+          names.size shouldBe 2
         }
 
         "execute successfully with ascending order" in within(5.seconds) {

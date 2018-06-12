@@ -31,6 +31,8 @@ import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
+import scala.concurrent.Future
+
 /**
   * Actor responsible for dispatching read or write commands to the proper actor and index.
   * @param basePath indexes' root path.
@@ -38,8 +40,6 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
-
-//  var childActors: Map[NamespaceKey, (ActorRef, ActorRef)] = Map.empty
 
   /**
     * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.ShardReaderActor]] to handle read requests
@@ -49,49 +49,19 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     * @return [[(ShardReaderActor, ShardAccumulatorActor)]] for selected database and namespace
     */
   private def getOrCreateChildren(db: String, namespace: String): (ActorRef, ActorRef) = {
-    //    if (childActors.get(NamespaceKey(db, namespace)).isDefined) {
-    //      childActors(NamespaceKey(db, namespace))
-    //    } else {
-    //      val reader =
-    //        context.actorOf(ShardReaderActor.props(basePath, db, namespace), s"shard-reader-$db-$namespace")
-    //
-    //      val accumulator = context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
-    //                                        s"shard-accumulator-$db-$namespace")
-    //      childActors = childActors + (NamespaceKey(db, namespace) -> (reader, accumulator))
-    //      (reader, accumulator)
-    //    }
-
-    val readerOpt      = context.child(s"shard-reader-$db-$namespace")
-    val accumulatorOpt = context.child(s"shard-accumulator-$db-$namespace")
+    val readerOpt      = context.child(s"shard_reader_${db}_$namespace")
+    val accumulatorOpt = context.child(s"shard_accumulator_${db}_$namespace")
 
     val reader = readerOpt.getOrElse(
-      context.actorOf(ShardReaderActor.props(basePath, db, namespace), s"shard-reader-$db-$namespace"))
+      context.actorOf(ShardReaderActor.props(basePath, db, namespace), s"shard_reader_${db}_$namespace"))
     val accumulator = accumulatorOpt.getOrElse(
       context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
-                      s"shard-accumulator-$db-$namespace"))
-//    if (readerOpt.isDefined && accumulatorOpt.isDefined) {
-//      (readerOpt.get, accumulatorOpt.get)
-//    } else {
-//      val reader =
-//        context.actorOf(ShardReaderActor.props(basePath, db, namespace), s"shard-reader-$db-$namespace")
-//
-//      val accumulator = context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
-//                                        s"shard-accumulator-$db-$namespace")
-//              childActors += (NamespaceKey(db, namespace) -> (reader, accumulator))
+                      s"shard_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
-//  }
-//    childActors.getOrElse(
-//      NamespaceKey(db, namespace), {
-//        val reader =
-//          context.actorOf(ShardReaderActor.props(basePath, db, namespace), s"shard-reader-$db-$namespace")
-//
-//        val accumulator = context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
-//                                          s"shard-accumulator-$db-$namespace")
-//        childActors += (NamespaceKey(db, namespace) -> (reader, accumulator))
-//        (reader, accumulator)
-//      }
-//    )
+
+  private def getChildren(db: String, namespace: String): (Option[ActorRef], Option[ActorRef]) =
+    (context.child(s"shard_reader_${db}_$namespace"), context.child(s"shard_accumulator_${db}_$namespace"))
 
   /**
     * If exists, gets the reader for selected namespace and database.
@@ -102,7 +72,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     * @return Option containing child actor of class [[ShardAccumulatorActor]]
     */
   private def getReader(db: String, namespace: String): Option[ActorRef] =
-    context.child(s"shard-reader-$db-$namespace")
+    context.child(s"shard_reader_${db}_$namespace")
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-data.timeout", TimeUnit.SECONDS),
@@ -132,7 +102,8 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       sender() ! DbsGot(dbs.toSet)
     case GetNamespaces(db) =>
       val namespaces = context.children.collect {
-        case a if a.path.name.split("_").length == 4 && a.path.name.split("_")(2) == "" => a.path.name.split("_")(3)
+        case a if a.path.name.startsWith("shard_reader") && a.path.name.split("_")(2) == db =>
+          a.path.name.split("_")(3)
       }.toSet
       sender() ! NamespacesGot(db, namespaces)
     case msg @ GetMetrics(db, namespace) =>
@@ -141,12 +112,13 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
         case None        => sender() ! MetricsGot(db, namespace, Set.empty)
       }
     case DeleteNamespace(db, namespace) =>
-      val indexToRemove = getOrCreateChildren(db, namespace)._2
-//      val c = childActors
-      (indexToRemove ? DeleteAllMetrics(db, namespace))
-        .map(_ => {
-          indexToRemove ! PoisonPill
-//          childActors -= NamespaceKey(db, namespace)
+      val children = getChildren(db, namespace)
+      val f = children._2
+        .map(indexToRemove => indexToRemove ? DeleteAllMetrics(db, namespace))
+        .getOrElse(Future(AllMetricsDeleted(db, namespace)))
+      f.map(_ => {
+          children._1.foreach(_ ! PoisonPill)
+          children._2.foreach(_ ! PoisonPill)
           NamespaceDeleted(db, namespace)
         })
         .pipeTo(sender())
