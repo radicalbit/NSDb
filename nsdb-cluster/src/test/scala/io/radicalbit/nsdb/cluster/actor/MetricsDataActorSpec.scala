@@ -58,8 +58,8 @@ class MetricsDataActorSpec()
     import scala.concurrent.duration._
     implicit val timeout: Timeout = 10 second
 
-    Await.result(metricsDataActor ? DeleteNamespace(db, namespace), 3 seconds)
-    Await.result(metricsDataActor ? DeleteNamespace(db, namespace1), 3 seconds)
+    Await.result(metricsDataActor ? DeleteNamespace(db, namespace), 10 seconds)
+    Await.result(metricsDataActor ? DeleteNamespace(db, namespace1), 10 seconds)
   }
 
   "metricsDataActor" should "write and delete properly" in within(5.seconds) {

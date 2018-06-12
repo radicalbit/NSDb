@@ -48,12 +48,12 @@ class WriteCoordinatorShardSpec
   val db        = "writeCoordinatorSpecShardDB"
   val namespace = "namespace"
 
-  implicit val timeout = Timeout(3 seconds)
+  implicit val timeout = Timeout(10 seconds)
 
   override def beforeAll: Unit = {
-    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 3 seconds)
-    Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 3 seconds)
-    Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 3 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
+    Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 10 seconds)
+    Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)
   }
 
   "WriteCoordinator in shard mode" should behave.like(defaultBehaviour)
