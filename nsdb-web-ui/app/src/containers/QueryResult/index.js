@@ -4,7 +4,6 @@ import { createStructuredSelector } from 'reselect';
 import ReactTable from 'react-table';
 import { Row, Col } from 'antd/lib/grid';
 
-import { selectors as authSelectors } from '../../store/auth';
 import { actions as nsdbActions, selectors as nsdbSelectors } from '../../store/nsdb';
 
 import './index.less';
