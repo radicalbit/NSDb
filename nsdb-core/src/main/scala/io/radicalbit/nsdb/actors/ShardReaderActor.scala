@@ -85,32 +85,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     context.system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
-//  /**
-//    * Map containing all the accumulated operations that will be passed to the [[PerformShardWrites]].
-//    */
-//  private val opBufferMap: mutable.Map[String, ShardOperation] = mutable.Map.empty
-//
-//  /**
-//    * operations currently being written by the [[io.radicalbit.nsdb.actors.ShardPerformerActor]].
-//    */
-//  private var performingOps: Map[String, ShardOperation] = Map.empty
-
   private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
     }
   }
-
-//  private def deleteMetricData(metric: String): Unit = {
-//    val folders = Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
-//      .map(_.toSeq)
-//      .getOrElse(Seq.empty)
-//      .filter(folderName => folderName.split("_").head == metric)
-//
-//    folders.foreach(
-//      folderName => FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards", folderName).toFile)
-//    )
-//  }
 
   /**
     * Applies, if needed, ordering and limiting to results from multiple shards.
@@ -155,16 +134,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           val newFacetIndex = new FacetIndex(directoryFacets, taxoDirectoryFacets)
           facetIndexShards += (ShardKey(metric, from.toLong, to.toLong) -> newFacetIndex)
       }
-
-//    performerActor =
-//      context.actorOf(ShardPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
-//
-//    context.system.scheduler.schedule(0.seconds, interval) {
-//      if (opBufferMap.nonEmpty && performingOps.isEmpty) {
-//        performingOps = opBufferMap.toMap
-//        performerActor ! PerformShardWrites(performingOps)
-//      }
-//    }
   }
 
   private def filterShardsThroughTime[T](expression: Option[Expression], indexes: mutable.Map[ShardKey, T]) = {
