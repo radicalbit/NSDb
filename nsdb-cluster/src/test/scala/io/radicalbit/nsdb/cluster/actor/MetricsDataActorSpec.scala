@@ -33,7 +33,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class MetricsDataActorSpec()
-    extends TestKit(ActorSystem("namespaceActorSpec"))
+    extends TestKit(ActorSystem("metricsDataActorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
@@ -41,13 +41,13 @@ class MetricsDataActorSpec()
 
   val probe            = TestProbe()
   val probeActor       = probe.ref
-  val basePath         = "target/test_index/NamespaceActorSpec"
+  val basePath         = "target/test_index/metricsDataActorSpec"
   val db               = "db"
   val namespace        = "namespace"
   val namespace1       = "namespace1"
   val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath))
 
-  private val metric = "namespaceActorMetric"
+  private val metric = "metricsDataActorMetric"
 
   val location = Location(_: String, "testNode", 0, 0)
 
@@ -58,94 +58,96 @@ class MetricsDataActorSpec()
     import scala.concurrent.duration._
     implicit val timeout: Timeout = 10 second
 
-    Await.result(metricsDataActor ? DeleteNamespace(db, namespace), 3 seconds)
-    Await.result(metricsDataActor ? DeleteNamespace(db, namespace1), 3 seconds)
+    Await.result(metricsDataActor ? DeleteNamespace(db, namespace), 10 seconds)
+    Await.result(metricsDataActor ? DeleteNamespace(db, namespace1), 10 seconds)
   }
 
-  "namespaceActor" should "write and delete properly" in within(5.seconds) {
+  "metricsDataActor" should "write and delete properly" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 0.5, Map("content" -> s"content"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace, record, location(metric)))
 
-    awaitAssert {
-      val expectedAdd = probe.expectMsgType[RecordAdded]
-      expectedAdd.metric shouldBe metric
-      expectedAdd.record shouldBe record
+    val expectedAdd = awaitAssert {
+      probe.expectMsgType[RecordAdded]
     }
+    expectedAdd.metric shouldBe metric
+    expectedAdd.record shouldBe record
 
     expectNoMessage(interval)
 
     probe.send(metricsDataActor, GetCount(db, namespace, metric))
 
-    awaitAssert {
-      val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe metric
-      expectedCount.count shouldBe 1
+    val expectedCount = awaitAssert {
+      probe.expectMsgType[CountGot]
     }
+    expectedCount.metric shouldBe metric
+    expectedCount.count shouldBe 1
 
     probe.send(metricsDataActor, DeleteRecordFromLocation(db, namespace, record, location(metric)))
 
-    awaitAssert {
-      val expectedDelete = probe.expectMsgType[RecordDeleted]
-      expectedDelete.metric shouldBe metric
-      expectedDelete.record shouldBe record
-    }
+    val expectedDelete = awaitAssert { probe.expectMsgType[RecordDeleted] }
+    expectedDelete.metric shouldBe metric
+    expectedDelete.record shouldBe record
 
     expectNoMessage(interval)
 
     probe.send(metricsDataActor, GetCount(db, namespace, metric))
 
-    awaitAssert {
-      val expectedCountDeleted = probe.expectMsgType[CountGot]
-      expectedCountDeleted.metric shouldBe metric
-      expectedCountDeleted.count shouldBe 0
-    }
-
+    val expectedCountDeleted = awaitAssert { probe.expectMsgType[CountGot] }
+    expectedCountDeleted.metric shouldBe metric
+    expectedCountDeleted.count shouldBe 0
   }
 
-  "namespaceActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
+  "metricsDataActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
-    probe.expectMsgType[RecordAdded]
+
+    awaitAssert {
+      probe.expectMsgType[RecordAdded]
+    }
 
     expectNoMessage(interval)
 
     probe.send(metricsDataActor, GetCount(db, namespace, metric))
 
-    awaitAssert {
-      val expectedCount = probe.expectMsgType[CountGot]
-      expectedCount.metric shouldBe metric
-      expectedCount.count shouldBe 0
+    val expectedCount = awaitAssert {
+      probe.expectMsgType[CountGot]
     }
+    expectedCount.metric shouldBe metric
+    expectedCount.count shouldBe 0
 
     probe.send(metricsDataActor, GetCount(db, namespace1, metric + "2"))
 
-    awaitAssert {
-      val expectedCount2 = probe.expectMsgType[CountGot]
-      expectedCount2.metric shouldBe metric + "2"
-      expectedCount2.count shouldBe 1
+    val expectedCount2 = awaitAssert {
+      probe.expectMsgType[CountGot]
     }
+    expectedCount2.metric shouldBe metric + "2"
+    expectedCount2.count shouldBe 1
 
   }
 
-  "namespaceActor" should "delete a namespace" in within(5.seconds) {
+  "metricsDataActor" should "delete a namespace" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
-    probe.expectMsgType[RecordAdded]
+
+    awaitAssert {
+      probe.expectMsgType[RecordAdded]
+    }
 
     expectNoMessage(interval)
 
     probe.send(metricsDataActor, GetCount(db, namespace1, metric + "2"))
-    awaitAssert {
-      val expectedCount2 = probe.expectMsgType[CountGot]
-      expectedCount2.metric shouldBe metric + "2"
-      expectedCount2.count shouldBe 1
+
+    val expectedCount2 = awaitAssert {
+      probe.expectMsgType[CountGot]
     }
+    expectedCount2.metric shouldBe metric + "2"
+    expectedCount2.count shouldBe 1
 
     probe.send(metricsDataActor, DeleteNamespace(db, namespace1))
     awaitAssert {
