@@ -53,36 +53,37 @@ class ReadCoordinatorSpec
 
     val location = Location(_: String, "testNode", 0, 0)
 
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "testNode"), 3 seconds)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "testNode"), 10 seconds)
 
     //long metric
-    Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 10 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
-                 3 seconds)
+                 10 seconds)
 
     LongMetric.testRecords.foreach { record =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(LongMetric.name)), 3 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(LongMetric.name)),
+                   10 seconds)
     }
 
     //double metric
-    Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 10 seconds)
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
-                 3 seconds)
+                 10 seconds)
 
     DoubleMetric.testRecords.foreach { record =>
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(DoubleMetric.name)),
-                   3 seconds)
+                   10 seconds)
     }
 
     //aggregation metric
-    Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 3 seconds)
+    Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 10 seconds)
     Await.result(
       schemaActor ? UpdateSchemaFromRecord(db, namespace, AggregationMetric.name, AggregationMetric.testRecords.head),
-      3 seconds)
+      10 seconds)
 
     AggregationMetric.testRecords.foreach { record =>
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(AggregationMetric.name)),
-                   3 seconds)
+                   10 seconds)
     }
 
     expectNoMessage(interval)
