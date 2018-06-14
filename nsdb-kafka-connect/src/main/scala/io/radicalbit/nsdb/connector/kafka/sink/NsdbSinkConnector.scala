@@ -43,7 +43,7 @@ class NsdbSinkConnector extends SinkConnector {
     * @param props Input parameter.
     **/
   override def start(props: JMap[String, String]): Unit = {
-    log.info(s"Starting a ${classOf[NsdbSinkConnector].getName} source connector.")
+    log.info("Starting a {} source connector.", classOf[NsdbSinkConnector].getName)
     configProps = props
     configs = config().validate(props).asScala.map(c => (c.name(), c)).toMap
   }

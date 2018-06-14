@@ -23,6 +23,7 @@ import io.radicalbit.nsdb.connector.kafka.sink.conf.Constants._
 import org.apache.kafka.connect.data.Schema.Type
 import org.apache.kafka.connect.data._
 import org.apache.kafka.connect.sink.SinkRecord
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -37,8 +38,6 @@ class NsdbSinkWriter(connection: NSDB,
                      defaultValue: Option[String])
     extends StrictLogging {
 
-  implicit val loggerImpl: Logger = logger
-
   logger.info("Initialising Nsdb writer")
 
   /**
@@ -50,7 +49,7 @@ class NsdbSinkWriter(connection: NSDB,
     if (records.isEmpty) {
       logger.debug("No records received.")
     } else {
-      logger.debug(s"Received ${records.size} records.")
+      logger.debug("Received {} records.", records.size)
       val grouped = records.groupBy(_.topic())
       grouped.foreach({
         case (topic, entries) =>
@@ -71,16 +70,20 @@ class NsdbSinkWriter(connection: NSDB,
                            globalDb: Option[String],
                            globalNamespace: Option[String],
                            defaultValue: Option[String]): Unit = {
-    logger.debug(s"Handling ${records.size} records for topic $topic. Found also $kcqls kcql queries.")
+    logger.debug("Handling {} records for topic {}. Found also {} kcql queries.", records.size, topic, kcqls)
 
-    import NsdbSinkWriter._
+    import NsdbSinkWriter.{logger => _, _}
 
     val recordMaps = records.map(parse(_, globalDb, globalNamespace, defaultValue))
 
     kcqls.foreach(kcql => {
       logger.debug(
-        s"Handling query: \t$kcql\n Found also user params db: ${globalDb.isDefined}, " +
-          s"namespace: ${globalNamespace.isDefined}, defaultValue: ${defaultValue.isDefined}")
+        "Handling query: \t{}\n Found also user params db: {}, namespace: {}, defaultValue: {}",
+        kcql,
+        globalDb.isDefined,
+        globalNamespace.isDefined,
+        defaultValue.isDefined
+      )
       val parsedKcql = ParsedKcql(kcql, globalDb, globalNamespace, defaultValue)
 
       val bitSeq = recordMaps.map(map => {
@@ -89,7 +92,7 @@ class NsdbSinkWriter(connection: NSDB,
 
       connection.write(bitSeq)
 
-      logger.debug(s"Wrote ${recordMaps.length} to NSDb.")
+      logger.debug("Wrote {} to NSDb.", recordMaps.length)
     })
 
   }
@@ -98,6 +101,8 @@ class NsdbSinkWriter(connection: NSDB,
 }
 
 object NsdbSinkWriter {
+
+  private val logger = Logger(LoggerFactory.getLogger(classOf[NsdbSinkWriter]))
 
   val defaultTimestampKeywords = Set("now", "now()", "sys_time", "sys_time()", "current_time", "current_time()")
 
@@ -112,65 +117,69 @@ object NsdbSinkWriter {
   private def buildField(field: Field,
                          struct: Struct,
                          parentField: Option[String] = None,
-                         acc: Map[String, Any] = Map.empty)(implicit logger: Logger): Map[String, Any] = {
-    logger.debug(s"Parsing field ${field.name}. Parent field availability is ${parentField.isDefined}.")
+                         acc: Map[String, Any] = Map.empty): Map[String, Any] = {
+    logger.debug("Parsing field {}. Parent field availability is {}.", field.name, parentField.isDefined)
     val value = struct.get(field)
 
     val outcome = (field.schema.`type`, field.schema.name, value) match {
       case (_, _, nullValue) if Option(nullValue).isEmpty => Nil
       case (Type.STRUCT, _, _) =>
-        logger.debug(s"Field ${field.name} is a Struct. Calling self recursively.")
+        logger.debug("Field {} is a Struct. Calling self recursively.", field.name)
         val nested = struct.getStruct(field.name)
         val schema = nested.schema
         val fields = schema.fields.asScala
         fields.flatMap(f => buildField(f, nested, Some(field.name)))
 
       case (Type.BYTES, Decimal.LOGICAL_NAME, decimalValue: java.math.BigDecimal) =>
-        logger.debug(s"Field ${field.name} is Bytes and is a Decimal.")
+        logger.debug("Field {} is Bytes and is a Decimal.", field.name)
         getFieldName(parentField, field.name) -> decimalValue :: Nil
 
       case (Type.BYTES, Decimal.LOGICAL_NAME, _) =>
-        logger.error(
-          s"Field ${field.name} is ${Decimal.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        logger.error("Field {} is {} but its value type is unknown. Raising unsupported exception.",
+                     field.name,
+                     Decimal.LOGICAL_NAME)
         sys.error(s"Found logical Decimal type but value $value has unknown type ${Option(value).map(_.getClass)}.")
 
       case (Type.BYTES, _, _) =>
-        logger.debug(s"Field ${field.name} is ${Type.BYTES} and is a ${Decimal.LOGICAL_NAME}.")
+        logger.debug("Field {} is {} and is a {}.", field.name, Type.BYTES, Decimal.LOGICAL_NAME)
         val str = new String(struct.getBytes(field.name), "utf-8")
         getFieldName(parentField, field.name) -> str :: Nil
 
       case (typ, Time.LOGICAL_NAME, dateValue: java.util.Date) =>
-        logger.debug(s"Field ${field.name} is $typ and is a ${Time.LOGICAL_NAME}.")
+        logger.debug("Field {} is {} and is a {}.", field.name, typ, Time.LOGICAL_NAME)
         getFieldName(parentField, field.name) -> dateValue.getTime :: Nil
 
       case (_, Time.LOGICAL_NAME, _) =>
-        logger.error(
-          s"Field ${field.name} is ${Time.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        logger.error("Field {} is {} but its value type is unknown. Raising unsupported exception.",
+                     field.name,
+                     Time.LOGICAL_NAME)
         sys.error(
           s"Found logical ${Time.LOGICAL_NAME} type but value has unknown type ${Option(value).map(_.getClass)}.")
 
       case (typ, Timestamp.LOGICAL_NAME, dateValue: java.util.Date) =>
-        logger.debug(s"Field ${field.name} is $typ and is a ${Timestamp.LOGICAL_NAME}.")
+        logger.debug("Field {} is {} and is a {}.", field.name, typ, Timestamp.LOGICAL_NAME)
         getFieldName(parentField, field.name) -> dateValue.getTime :: Nil
 
       case (_, Timestamp.LOGICAL_NAME, _) =>
-        logger.error(
-          s"Field ${field.name} is ${Timestamp.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        logger.error("Field {} is {} but its value type is unknown. Raising unsupported exception.",
+                     field.name,
+                     Timestamp.LOGICAL_NAME)
         sys.error(
           s"Found logical ${Timestamp.LOGICAL_NAME} type but value has unknown type ${Option(value).map(_.getClass)}.")
 
       case (typ, Date.LOGICAL_NAME, dateValue: java.util.Date) =>
-        logger.debug(s"Field ${field.name} is $typ and is a ${Date.LOGICAL_NAME}.")
+        logger.debug("Field {} is {} and is a {}.", field.name, typ, Date.LOGICAL_NAME)
         getFieldName(parentField, field.name) -> dateValue.getTime :: Nil
 
       case (_, Date.LOGICAL_NAME, _) =>
-        logger.error(
-          s"Field ${field.name} is ${Date.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        logger.error("Field {} is {} but its value type is unknown. Raising unsupported exception.",
+                     field.name,
+                     Date.LOGICAL_NAME)
         sys.error(
           s"Found logical ${Date.LOGICAL_NAME} type but value has unknown type ${Option(value).map(_.getClass)}.")
 
       case (typ, logical, plainValue) =>
-        logger.debug(s"Field ${field.name} is $typ and is a $logical.")
+        logger.debug("Field {} is {} and is a {}.", field.name, typ, logical)
         getFieldName(parentField, field.name) -> plainValue :: Nil
     }
 
@@ -180,12 +189,12 @@ object NsdbSinkWriter {
   def parse(record: SinkRecord,
             globalDb: Option[String],
             globalNamespace: Option[String],
-            defaultValue: Option[String])(implicit logger: Logger): Map[String, Any] = {
-    logger.debug(s"Parsing SinkRecord $record.")
+            defaultValue: Option[String]): Map[String, Any] = {
+    logger.debug("Parsing SinkRecord {}.", record)
 
     val schema = record.valueSchema
     if (schema == null) {
-      logger.error(s"Given record $record has not Schema. Raising unsupported exception.")
+      logger.error("Given record {} has not Schema. Raising unsupported exception.", record)
       sys.error(s"Schemaless records are not supported. Record ${record.toString} doesn't own any schema.")
     } else {
       schema.`type` match {
@@ -200,7 +209,7 @@ object NsdbSinkWriter {
 
           (fields union globals).toMap
         case other =>
-          logger.error(s"Given record $record was not a Struct. Raising unsupported exception.")
+          logger.error("Given record {} was not a Struct. Raising unsupported exception.", record)
           sys.error(s"$other schema is not supported.")
       }
     }
