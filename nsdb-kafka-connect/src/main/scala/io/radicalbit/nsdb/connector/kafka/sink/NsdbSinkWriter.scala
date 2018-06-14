@@ -17,8 +17,9 @@
 package io.radicalbit.nsdb.connector.kafka.sink
 
 import com.datamountaineer.kcql.Kcql
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import io.radicalbit.nsdb.api.scala.{Bit, Db, NSDB}
+import io.radicalbit.nsdb.connector.kafka.sink.conf.Constants._
 import org.apache.kafka.connect.data.Schema.Type
 import org.apache.kafka.connect.data._
 import org.apache.kafka.connect.sink.SinkRecord
@@ -35,6 +36,9 @@ class NsdbSinkWriter(connection: NSDB,
                      globalNamespace: Option[String],
                      defaultValue: Option[String])
     extends StrictLogging {
+
+  implicit val loggerImpl: Logger = logger
+
   logger.info("Initialising Nsdb writer")
 
   /**
@@ -67,14 +71,16 @@ class NsdbSinkWriter(connection: NSDB,
                            globalDb: Option[String],
                            globalNamespace: Option[String],
                            defaultValue: Option[String]): Unit = {
-    logger.debug(s"Handling records for $topic")
+    logger.debug(s"Handling ${records.size} records for topic $topic. Found also $kcqls kcql queries.")
 
     import NsdbSinkWriter._
 
     val recordMaps = records.map(parse(_, globalDb, globalNamespace, defaultValue))
 
     kcqls.foreach(kcql => {
-
+      logger.debug(
+        s"Handling query: \t$kcql\n Found also user params db: ${globalDb.isDefined}, " +
+          s"namespace: ${globalNamespace.isDefined}, defaultValue: ${defaultValue.isDefined}")
       val parsedKcql = ParsedKcql(kcql, globalDb, globalNamespace, defaultValue)
 
       val bitSeq = recordMaps.map(map => {
@@ -83,7 +89,7 @@ class NsdbSinkWriter(connection: NSDB,
 
       connection.write(bitSeq)
 
-      logger.debug(s"Wrote ${recordMaps.length} to nsdb.")
+      logger.debug(s"Wrote ${recordMaps.length} to NSDb.")
     })
 
   }
@@ -106,55 +112,96 @@ object NsdbSinkWriter {
   private def buildField(field: Field,
                          struct: Struct,
                          parentField: Option[String] = None,
-                         acc: Map[String, Any] = Map.empty): Map[String, Any] = {
-    field.schema().`type`() match {
-      case Type.STRUCT =>
-        val nested = struct.getStruct(field.name())
-        val schema = nested.schema()
-        val fields = schema.fields().asScala
-        fields.flatMap(f => buildField(f, nested, Some(field.name()))).toMap
+                         acc: Map[String, Any] = Map.empty)(implicit logger: Logger): Map[String, Any] = {
+    logger.debug(s"Parsing field ${field.name}. Parent field availability is ${parentField.isDefined}.")
+    val value = struct.get(field)
 
-      case Type.BYTES =>
-        if (field.schema().name() == Decimal.LOGICAL_NAME) {
-          val decimal = Decimal.toLogical(field.schema(), struct.getBytes(field.name()))
-          acc ++ Map(getFieldName(parentField, field.name()) -> decimal)
-        } else {
-          val str = new String(struct.getBytes(field.name()), "utf-8")
-          acc ++ Map(getFieldName(parentField, field.name()) -> str)
-        }
+    val outcome = (field.schema.`type`, field.schema.name, value) match {
+      case (_, _, nullValue) if Option(nullValue).isEmpty => Nil
+      case (Type.STRUCT, _, _) =>
+        logger.debug(s"Field ${field.name} is a Struct. Calling self recursively.")
+        val nested = struct.getStruct(field.name)
+        val schema = nested.schema
+        val fields = schema.fields.asScala
+        fields.flatMap(f => buildField(f, nested, Some(field.name)))
 
-      case _ =>
-        val value = field.schema().name() match {
-          case Time.LOGICAL_NAME      => Time.toLogical(field.schema(), struct.getInt32(field.name()))
-          case Timestamp.LOGICAL_NAME => Timestamp.toLogical(field.schema(), struct.getInt64(field.name()))
-          case Date.LOGICAL_NAME      => Date.toLogical(field.schema(), struct.getInt32(field.name()))
-          case Decimal.LOGICAL_NAME   => Decimal.toLogical(field.schema(), struct.getBytes(field.name()))
-          case _                      => struct.get(field.name())
-        }
-        acc ++ Map(getFieldName(parentField, field.name()) -> value)
+      case (Type.BYTES, Decimal.LOGICAL_NAME, decimalValue: java.math.BigDecimal) =>
+        logger.debug(s"Field ${field.name} is Bytes and is a Decimal.")
+        getFieldName(parentField, field.name) -> decimalValue :: Nil
+
+      case (Type.BYTES, Decimal.LOGICAL_NAME, _) =>
+        logger.error(
+          s"Field ${field.name} is ${Decimal.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        sys.error(s"Found logical Decimal type but value $value has unknown type ${Option(value).map(_.getClass)}.")
+
+      case (Type.BYTES, _, _) =>
+        logger.debug(s"Field ${field.name} is ${Type.BYTES} and is a ${Decimal.LOGICAL_NAME}.")
+        val str = new String(struct.getBytes(field.name), "utf-8")
+        getFieldName(parentField, field.name) -> str :: Nil
+
+      case (typ, Time.LOGICAL_NAME, dateValue: java.util.Date) =>
+        logger.debug(s"Field ${field.name} is $typ and is a ${Time.LOGICAL_NAME}.")
+        getFieldName(parentField, field.name) -> dateValue.getTime :: Nil
+
+      case (_, Time.LOGICAL_NAME, _) =>
+        logger.error(
+          s"Field ${field.name} is ${Time.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        sys.error(
+          s"Found logical ${Time.LOGICAL_NAME} type but value has unknown type ${Option(value).map(_.getClass)}.")
+
+      case (typ, Timestamp.LOGICAL_NAME, dateValue: java.util.Date) =>
+        logger.debug(s"Field ${field.name} is $typ and is a ${Timestamp.LOGICAL_NAME}.")
+        getFieldName(parentField, field.name) -> dateValue.getTime :: Nil
+
+      case (_, Timestamp.LOGICAL_NAME, _) =>
+        logger.error(
+          s"Field ${field.name} is ${Timestamp.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        sys.error(
+          s"Found logical ${Timestamp.LOGICAL_NAME} type but value has unknown type ${Option(value).map(_.getClass)}.")
+
+      case (typ, Date.LOGICAL_NAME, dateValue: java.util.Date) =>
+        logger.debug(s"Field ${field.name} is $typ and is a ${Date.LOGICAL_NAME}.")
+        getFieldName(parentField, field.name) -> dateValue.getTime :: Nil
+
+      case (_, Date.LOGICAL_NAME, _) =>
+        logger.error(
+          s"Field ${field.name} is ${Date.LOGICAL_NAME} but its value type is unknown. Raising unsupported exception.")
+        sys.error(
+          s"Found logical ${Date.LOGICAL_NAME} type but value has unknown type ${Option(value).map(_.getClass)}.")
+
+      case (typ, logical, plainValue) =>
+        logger.debug(s"Field ${field.name} is $typ and is a $logical.")
+        getFieldName(parentField, field.name) -> plainValue :: Nil
     }
+
+    acc ++ outcome.toMap
   }
 
   def parse(record: SinkRecord,
             globalDb: Option[String],
             globalNamespace: Option[String],
-            defalutValue: Option[String]): Map[String, Any] = {
-    val schema = record.valueSchema()
+            defaultValue: Option[String])(implicit logger: Logger): Map[String, Any] = {
+    logger.debug(s"Parsing SinkRecord $record.")
+
+    val schema = record.valueSchema
     if (schema == null) {
-      sys.error("Schemaless records are not supported")
+      logger.error(s"Given record $record has not Schema. Raising unsupported exception.")
+      sys.error(s"Schemaless records are not supported. Record ${record.toString} doesn't own any schema.")
     } else {
-      schema.`type`() match {
+      schema.`type` match {
         case Schema.Type.STRUCT =>
-          val s      = record.value().asInstanceOf[Struct]
-          val fields = schema.fields().asScala.flatMap(f => buildField(f, s))
+          val s      = record.value.asInstanceOf[Struct]
+          val fields = schema.fields.asScala.flatMap(f => buildField(f, s))
 
           val globals: mutable.ListBuffer[(String, Any)] = mutable.ListBuffer.empty[(String, Any)]
           globalDb.foreach(db => globals += ((db, db)))
           globalNamespace.foreach(ns => globals += ((ns, ns)))
-          defalutValue.foreach(v => globals += (("defaultValue", v)))
+          defaultValue.foreach(v => globals += (("defaultValue", v)))
 
           (fields union globals).toMap
-        case other => sys.error(s"$other schema is not supported")
+        case other =>
+          logger.error(s"Given record $record was not a Struct. Raising unsupported exception.")
+          sys.error(s"$other schema is not supported.")
       }
     }
   }
@@ -162,7 +209,7 @@ object NsdbSinkWriter {
   /**
     * Converts values gathered from topic record into a NSdb [[Bit]]
     * @param parsedKcql Parsed kcql configurations.
-    * @param valuesMap Keuy value maps retrieved from a topic record.
+    * @param valuesMap Key value maps retrieved from a topic record.
     * @return Nsdb Bit built on input configurations and topic data.
     */
   private[sink] def convertToBit(parsedKcql: ParsedKcql, valuesMap: Map[String, Any]): Bit = {
@@ -171,17 +218,10 @@ object NsdbSinkWriter {
     val namespaceField = parsedKcql.namespaceField
     val aliasMap       = parsedKcql.aliasesMap
 
-    require(
-      valuesMap.get(parsedKcql.dbField).isDefined && valuesMap(parsedKcql.dbField).isInstanceOf[String],
-      s"required field $dbField is missing from record or is invalid"
-    )
-    require(valuesMap.get(namespaceField).isDefined,
-            s"required field $namespaceField is missing from record or is invalid")
-
     var bit: Bit = Db(valuesMap(dbField).toString).namespace(valuesMap(namespaceField).toString).bit(parsedKcql.metric)
 
-    val timestampField = aliasMap("timestamp")
-    val valueFieldOpt  = aliasMap.get("value")
+    val timestampField = aliasMap(Writer.TimestampFieldName)
+    val valueFieldOpt  = aliasMap.get(Writer.ValueFieldName)
 
     valuesMap.get(timestampField) match {
       case Some(t: Long)                                             => bit = bit.timestamp(t)
@@ -198,7 +238,12 @@ object NsdbSinkWriter {
           case Some(v: Double)               => bit = bit.value(v)
           case Some(v: Float)                => bit = bit.value(v)
           case Some(v: java.math.BigDecimal) => bit = bit.value(v)
-          case Some(v)                       => sys.error(s"Type ${v.getClass} is not supported for value field")
+          case Some(unsupportedValue) =>
+            sys.error(s"Type ${Option(unsupportedValue).map(_.getClass)} is not supported for value field")
+          case None =>
+            sys.error(
+              s"Value not found. Value field cannot be a nullable field and a default value is required if it has not been chosen from input.")
+
         }
       case None =>
         parsedKcql.defaultValue match {
@@ -207,15 +252,18 @@ object NsdbSinkWriter {
         }
     }
 
-    (aliasMap - "timestamp" - "value" - dbField - namespaceField).foreach {
+    (aliasMap - Writer.TimestampFieldName - Writer.ValueFieldName).foreach {
       case (alias, name) =>
         valuesMap.get(name) match {
-          case Some(v: Int)    => bit = bit.dimension(alias, v)
-          case Some(v: Long)   => bit = bit.dimension(alias, v)
-          case Some(v: Double) => bit = bit.dimension(alias, v)
-          case Some(v: Float)  => bit = bit.dimension(alias, v)
-          case Some(v: String) => bit = bit.dimension(alias, v)
-          case v               => sys.error(s"Type ${v.getClass} is not supported for dimensions")
+          case Some(v: Int)                  => bit = bit.dimension(alias, v)
+          case Some(v: Long)                 => bit = bit.dimension(alias, v)
+          case Some(v: Double)               => bit = bit.dimension(alias, v)
+          case Some(v: Float)                => bit = bit.dimension(alias, v)
+          case Some(v: String)               => bit = bit.dimension(alias, v)
+          case Some(v: java.math.BigDecimal) => bit = bit.dimension(alias, v)
+          case Some(unsupportedValue) =>
+            sys.error(s"Type ${Option(unsupportedValue).map(_.getClass)} is not supported for dimensions")
+          case None => ()
         }
     }
     bit
