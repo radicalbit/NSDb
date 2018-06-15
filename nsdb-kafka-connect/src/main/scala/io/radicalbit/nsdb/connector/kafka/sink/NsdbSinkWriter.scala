@@ -227,6 +227,11 @@ object NsdbSinkWriter {
     val namespaceField = parsedKcql.namespaceField
     val aliasMap       = parsedKcql.aliasesMap
 
+    require(valuesMap.get(dbField).isDefined && valuesMap(dbField).isInstanceOf[String],
+            s"required field $dbField is missing from record or is invalid")
+    require(valuesMap.get(namespaceField).isDefined,
+            s"required field $namespaceField is missing from record or is invalid")
+
     var bit: Bit = Db(valuesMap(dbField).toString).namespace(valuesMap(namespaceField).toString).bit(parsedKcql.metric)
 
     val timestampField = aliasMap(Writer.TimestampFieldName)
