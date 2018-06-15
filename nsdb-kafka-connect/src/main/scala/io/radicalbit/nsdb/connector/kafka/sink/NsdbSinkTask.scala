@@ -40,7 +40,7 @@ class NsdbSinkTask extends SinkTask {
     * Opens a new connection against Nsdb target and setup the writer.
     **/
   override def start(props: JMap[String, String]): Unit = {
-    log.info(s"Starting a ${classOf[NsdbSinkTask].getSimpleName} task.")
+    log.info("Starting a {} task.", classOf[NsdbSinkTask].getSimpleName)
     log.info("Properties are {}.", props)
 
     import scala.concurrent.duration._
