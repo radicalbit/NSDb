@@ -17,6 +17,8 @@
 package io.radicalbit.nsdb.connector.kafka.sink
 
 import com.datamountaineer.kcql.Kcql
+import io.radicalbit.nsdb.connector.kafka.sink.conf.Constants._
+
 import scala.collection.JavaConverters._
 
 /**
@@ -24,7 +26,7 @@ import scala.collection.JavaConverters._
   * @param dbField nsdb db field to be fetched from topic data.
   * @param namespaceField nsdb namespace field to be fetched from topic data.
   * @param metric nsdb metric.
-  * @param aliasesMap nsdb aliases map (e.g. `alias -> field` means that `field` must be fetched from topic and saved as `alias` to nsdb
+  * @param aliasesMap nsdb aliases map (e.g. `alias -> field` means that `field` must be fetched from topic and saved as `alias` to nsdb.
   */
 case class ParsedKcql(dbField: String,
                       namespaceField: String,
@@ -39,7 +41,7 @@ object ParsedKcql {
     * @param queryString the string to be parsed.
     * @param globalDb the db defined as a config param if present.
     * @param globalNamespace the namespace defined as a config param if present.
-    * @param defaultValue the defaul value defined as a config param if present.
+    * @param defaultValue the default value defined as a config param if present.
     * @return the instance of [[ParsedKcql]].
     * @throws IllegalArgumentException if queryString is not valid.
     */
@@ -53,8 +55,9 @@ object ParsedKcql {
   /**
     * Returns an instance of [[ParsedKcql]] from a [[Kcql]].
     * @param kcql the kcql to be parsed.
-    * @param globalDb the db defined as a config param if present.
+    * @param globalDb the db defined as a config param if present. In values map, will be used both for key and value.
     * @param globalNamespace the namespace defined as a config param if present.
+    *                        In values map, will be used both for key and value.
     * @param defaultValue the default value defined as a config param if present.
     * @return the instance of [[ParsedKcql]].
     * @throws IllegalArgumentException if input kcql is not valid.
@@ -66,8 +69,8 @@ object ParsedKcql {
 
     val aliasesMap = kcql.getFields.asScala.map(f => f.getAlias -> f.getName).toMap
 
-    val db        = aliasesMap.get("db") orElse globalDb
-    val namespace = aliasesMap.get("namespace") orElse globalNamespace
+    val db        = aliasesMap.get(Parsed.DbFieldName) orElse globalDb
+    val namespace = aliasesMap.get(Parsed.NamespaceFieldName) orElse globalNamespace
     val metric    = kcql.getTarget
 
     require(db.isDefined, "A global db configuration or a Db alias in Kcql must be defined")
@@ -79,10 +82,12 @@ object ParsedKcql {
       "Value alias in kcql must be defined or a numeric defaultValue must be provided"
     )
 
-    ParsedKcql(db.get,
-               namespace.get,
-               metric,
-               defaultValue.map(new java.math.BigDecimal(_)),
-               aliasesMap - "db" - "namespace" + ("timestamp" -> kcql.getTimestamp))
+    ParsedKcql(
+      db.get,
+      namespace.get,
+      metric,
+      defaultValue.map(new java.math.BigDecimal(_)),
+      aliasesMap - Parsed.DbFieldName - Parsed.NamespaceFieldName + (Writer.TimestampFieldName -> kcql.getTimestamp)
+    )
   }
 }
