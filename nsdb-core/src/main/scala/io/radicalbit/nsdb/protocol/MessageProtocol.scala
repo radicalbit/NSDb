@@ -36,7 +36,7 @@ object MessageProtocol {
     case class GetNamespaces(db: String)                 extends ControlMessage
     case class GetMetrics(db: String, namespace: String) extends ControlMessage
     case class GetSchema(db: String, namespace: String, metric: String)
-    case class ExecuteStatement(selectStatement: SelectSQLStatement, replyTo: ActorRef = ActorRef.noSender)
+    case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
@@ -77,7 +77,7 @@ object MessageProtocol {
     case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
-    case class SelectStatementExecuted(db: String, namespace: String, metric: String, queryString: String, quid: Option[String] = None, values: Seq[Bit])
+    case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
 
     case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
