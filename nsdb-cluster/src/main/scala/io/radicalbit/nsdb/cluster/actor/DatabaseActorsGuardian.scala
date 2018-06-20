@@ -52,7 +52,10 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
     context.actorOf(MetadataCoordinator.props(metadataCache), name = "metadata-coordinator")
 
   private val readCoordinator =
-    context.actorOf(ReadCoordinator.props(metadataCoordinator, metricsSchemaActor), "read-coordinator")
+    context.actorOf(ReadCoordinator
+                      .props(metadataCoordinator, metricsSchemaActor)
+                      .withDispatcher("akka.actor.control-aware-dispatcher"),
+                    "read-coordinator")
   private val publisherActor =
     context.actorOf(PublisherActor.props(readCoordinator).withDispatcher("akka.actor.control-aware-dispatcher"),
                     "publisher-actor")

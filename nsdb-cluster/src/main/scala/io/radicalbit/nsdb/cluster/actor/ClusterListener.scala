@@ -74,8 +74,12 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
       log.info(s"subscribing data actor for node $nameNode")
       val metricsDataActor = context.actorOf(
-        MetricsDataActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(member.address))),
-        s"namespace-data-actor_$nameNode")
+        MetricsDataActor
+          .props(indexBasePath)
+          .withDeploy(Deploy(scope = RemoteScope(member.address)))
+          .withDispatcher("akka.actor.control-aware-dispatcher"),
+        s"namespace-data-actor_$nameNode"
+      )
       writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nameNode)
       readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nameNode)
 
