@@ -96,7 +96,7 @@ class ApiResources(val publisherActor: ActorRef,
 
   implicit val formats: DefaultFormats = DefaultFormats
 
-  implicit val timeout: Timeout = Timeout(5 seconds)
+  implicit val timeout: Timeout = Timeout(50 seconds)
 
   def healthCheckApi: Route = {
     pathPrefix("status") {

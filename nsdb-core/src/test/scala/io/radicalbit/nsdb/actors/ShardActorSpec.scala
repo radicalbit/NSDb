@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.pattern.ask
+import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -47,8 +48,7 @@ class ShardActorSpec()
   val namespace = "namespace"
   val metric    = "shardActorMetric"
 
-  val shardReaderActor =
-    TestActorRef[ShardAccumulatorActor](ShardReaderActor.props(basePath, db, namespace), probeActor)
+  val shardReaderActor = system.actorOf(RoundRobinPool(1, None).props(ShardReaderActor.props(basePath, db, namespace)))
 
   val shardAccumulatorActor =
     TestActorRef[ShardAccumulatorActor](ShardAccumulatorActor.props(basePath, db, namespace, shardReaderActor),

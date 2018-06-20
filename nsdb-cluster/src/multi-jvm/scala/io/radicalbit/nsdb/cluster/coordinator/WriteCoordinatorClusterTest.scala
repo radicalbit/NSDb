@@ -44,6 +44,15 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |    enabled = true
     |    interval = 1m
     |  }
+    |
+    |  read {
+    |    parallelism {
+    |      initial-size = 1
+    |      lower-bound= 1
+    |      upper-bound = 1
+    |    }
+    |  }
+    |
     |  index.base-path = "target/test_index/WriteCoordinatorTest"
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds
