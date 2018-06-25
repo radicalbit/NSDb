@@ -18,9 +18,10 @@ package io.radicalbit.nsdb.web
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.server._
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server._
 import akka.util.Timeout
+import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -30,7 +31,6 @@ import org.json4s.DefaultFormats
 import spray.json._
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 
 object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
@@ -89,14 +89,12 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 class ApiResources(val publisherActor: ActorRef,
                    val readCoordinator: ActorRef,
                    val writeCoordinator: ActorRef,
-                   val authenticationProvider: NSDBAuthProvider)
+                   val authenticationProvider: NSDBAuthProvider)(implicit val timeout: Timeout)
     extends CommandApi
     with QueryApi
     with DataApi {
 
   implicit val formats: DefaultFormats = DefaultFormats
-
-  implicit val timeout: Timeout = Timeout(5 seconds)
 
   def healthCheckApi: Route = {
     pathPrefix("status") {
@@ -110,7 +108,7 @@ class ApiResources(val publisherActor: ActorRef,
     path("swagger") { getFromResource("swagger-ui/index.html") } ~
       getFromResourceDirectory("swagger-ui")
 
-  def apiResources(implicit ec: ExecutionContext): Route =
+  def apiResources(config: Config)(implicit ec: ExecutionContext): Route =
     queryApi ~
       dataApi ~
       healthCheckApi ~

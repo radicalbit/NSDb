@@ -20,10 +20,11 @@ import io.radicalbit.nsdb.index.lucene.AllGroupsAggregationCollector
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
+import org.apache.lucene.index.{IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.util.InfoStream
 
 import scala.util.{Failure, Success, Try}
 
@@ -55,7 +56,13 @@ trait Index[T] {
   /**
     * @return a lucene [[IndexWriter]] to be used in write operations.
     */
-  def getWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
+  def getWriter =
+    new IndexWriter(
+      directory,
+      new IndexWriterConfig(new StandardAnalyzer)
+        .setUseCompoundFile(true)
+        .setMergedSegmentWarmer(new SimpleMergedSegmentWarmer(InfoStream.NO_OUTPUT))
+    )
 
   /**
     * @return a lucene [[IndexSearcher]] to be used in search operations.
@@ -65,7 +72,7 @@ trait Index[T] {
   /**
     * Refresh index content after a write operation.
     */
-  def refresh(): Unit = searcherManager.maybeRefreshBlocking()
+  def refresh(): Unit = searcherManager.maybeRefresh()
 
   /**
     * Validates a record before write it.

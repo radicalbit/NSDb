@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
+import akka.dispatch.ControlMessage
 import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
@@ -31,9 +32,9 @@ object MessageProtocol {
     * commands executed among nsdb actors.
     */
   object Commands {
-    case object GetDbs
-    case class GetNamespaces(db: String)
-    case class GetMetrics(db: String, namespace: String)
+    case object GetDbs                                   extends ControlMessage
+    case class GetNamespaces(db: String)                 extends ControlMessage
+    case class GetMetrics(db: String, namespace: String) extends ControlMessage
     case class GetSchema(db: String, namespace: String, metric: String)
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)

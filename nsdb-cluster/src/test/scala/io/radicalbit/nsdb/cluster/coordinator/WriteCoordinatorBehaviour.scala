@@ -177,10 +177,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         probe.expectMsgType[NamespaceDeleted]
       }
 
-      Thread.sleep(2000)
+      expectNoMessage(interval)
 
       namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
-      metricsDataActor.underlyingActor.context.children.size shouldBe 0
+      metricsDataActor.underlyingActor.context.children.map(_.path.name).exists(_.contains(namespace)) shouldBe false
 
       probe.send(metricsDataActor, GetNamespaces(db))
 
@@ -188,7 +188,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         probe.expectMsgType[NamespacesGot]
       }
 
-      result.namespaces.size shouldBe 0
+      result.namespaces.exists(_.contains(namespace)) shouldBe false
     }
 
     "delete entries" in within(5.seconds) {

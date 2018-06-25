@@ -19,9 +19,11 @@ package io.radicalbit.nsdb.cluster.actor
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
-import akka.pattern.{ask, pipe}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.pattern.{ask, gracefulStop, pipe}
+import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
+import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.{ShardAccumulatorActor, ShardKey, ShardReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.cluster.index.Location
@@ -40,6 +42,7 @@ import scala.concurrent.Future
 class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 
   lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
+  lazy val readParallelism   = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
     * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.ShardReaderActor]] to handle read requests
@@ -53,7 +56,11 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     val accumulatorOpt = context.child(s"shard_accumulator_${db}_$namespace")
 
     val reader = readerOpt.getOrElse(
-      context.actorOf(ShardReaderActor.props(basePath, db, namespace), s"shard_reader_${db}_$namespace"))
+      context.actorOf(
+        readParallelism.pool.props(
+          ShardReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
+        s"shard_reader_${db}_$namespace"
+      ))
     val accumulator = accumulatorOpt.getOrElse(
       context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
                       s"shard_accumulator_${db}_$namespace"))
@@ -116,11 +123,12 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       val f = children._2
         .map(indexToRemove => indexToRemove ? DeleteAllMetrics(db, namespace))
         .getOrElse(Future(AllMetricsDeleted(db, namespace)))
-      f.map(_ => {
-          children._1.foreach(_ ! PoisonPill)
-          children._2.foreach(_ ! PoisonPill)
-          NamespaceDeleted(db, namespace)
+      f.flatMap(_ => {
+          Future
+            .sequence(Seq(children._1.map(gracefulStop(_, timeout.duration)).getOrElse(Future(true)),
+                          children._2.map(gracefulStop(_, timeout.duration)).getOrElse(Future(true))))
         })
+        .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, _) =>
       getOrCreateChildren(db, namespace)._2 forward msg
@@ -151,6 +159,28 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 }
 
 object MetricsDataActor {
+
+  /**
+    * Case class to model reader router size.
+    * @param initialSize routees initial size.
+    * @param lowerBound min number of routees.
+    * @param upperBound max number of routees.
+    */
+  case class ReadParallelism(initialSize: Int, lowerBound: Int, upperBound: Int) {
+
+    /**
+      * @return a [[Pool]] from size members.
+      */
+    def pool: Pool = RoundRobinPool(initialSize, Some(DefaultResizer(lowerBound, upperBound)))
+  }
+
+  object ReadParallelism {
+    def apply(enclosingConfig: Config): ReadParallelism =
+      ReadParallelism(enclosingConfig.getInt("initial-size"),
+                      enclosingConfig.getInt("lower-bound"),
+                      enclosingConfig.getInt("upper-bound"))
+  }
+
   def props(basePath: String): Props = Props(new MetricsDataActor(basePath))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)

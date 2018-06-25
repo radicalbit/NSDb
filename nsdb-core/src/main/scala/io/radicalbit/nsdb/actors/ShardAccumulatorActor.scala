@@ -21,6 +21,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
@@ -153,7 +154,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
 
       deleteMetricData(metric)
 
-      readerActor ! msg
+      readerActor ! Broadcast(msg)
       sender() ! MetricDropped(db, namespace, metric)
   }
 
@@ -193,7 +194,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
         getIndex(key).refresh()
         getFacetIndex(key).refresh()
       }
-      readerActor ! msg
+      readerActor ! Broadcast(msg)
   }
 
   override def receive: Receive = {

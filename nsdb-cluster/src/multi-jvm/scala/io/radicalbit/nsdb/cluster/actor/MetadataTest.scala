@@ -41,6 +41,15 @@ object MetadataTest extends MultiNodeConfig {
     |    enabled = true
     |    interval = 1d
     |  }
+    |
+    |  read {
+    |    parallelism {
+    |      initial-size = 1
+    |      lower-bound= 1
+    |      upper-bound = 1
+    |    }
+    |  }
+    |
     |  index.base-path = "target/test_index/MetadataTest"
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds

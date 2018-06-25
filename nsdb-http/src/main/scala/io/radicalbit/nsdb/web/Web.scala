@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.web
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorRef
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
@@ -42,7 +44,8 @@ trait Web extends StaticResources with WsResources with CorsSupport with SSLSupp
 
   implicit val materializer = ActorMaterializer()
   implicit val dispatcher   = system.dispatcher
-  implicit val timeout: Timeout
+  implicit val httpTimeout: Timeout =
+    Timeout(config.getDuration("http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   /**
     * Nsdb cluster guardian actor, which is the parent of top level actors.
@@ -64,7 +67,7 @@ trait Web extends StaticResources with WsResources with CorsSupport with SSLSupp
               publisher,
               readCoordinator,
               writeCoordinator,
-              provider).apiResources ~ staticResources
+              provider).apiResources(config) ~ staticResources
 
             val http =
               if (isSSLEnabled) {
