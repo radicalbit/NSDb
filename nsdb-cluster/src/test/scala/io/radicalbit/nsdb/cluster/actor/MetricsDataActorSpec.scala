@@ -129,7 +129,7 @@ class MetricsDataActorSpec()
 
   }
 
-  "metricsDataActor" should "delete a namespace" in {
+  "metricsDataActor" should "delete a namespace" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"))
 

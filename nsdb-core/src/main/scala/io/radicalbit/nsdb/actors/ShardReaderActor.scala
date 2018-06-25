@@ -35,7 +35,7 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
 import org.apache.lucene.search.MatchAllDocsQuery
-import org.apache.lucene.store.{MMapDirectory, NIOFSDirectory}
+import org.apache.lucene.store.MMapDirectory
 import spire.implicits._
 import spire.math.Interval
 
@@ -89,7 +89,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     shards.getOrElse(
       key, {
         val directory =
-          new NIOFSDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}"))
+          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}"))
         val newIndex = new TimeSeriesIndex(directory)
         shards += (key -> newIndex)
         newIndex
