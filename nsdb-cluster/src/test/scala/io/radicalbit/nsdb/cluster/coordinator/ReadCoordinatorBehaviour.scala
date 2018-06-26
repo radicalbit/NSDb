@@ -969,5 +969,4 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
       }
     }
   }
-
 }

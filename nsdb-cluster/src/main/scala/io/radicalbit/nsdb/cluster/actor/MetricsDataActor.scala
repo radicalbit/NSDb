@@ -41,8 +41,7 @@ import scala.concurrent.Future
   */
 class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
 
-  lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
-  lazy val readParallelism   = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
+  lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
     * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.ShardReaderActor]] to handle read requests
