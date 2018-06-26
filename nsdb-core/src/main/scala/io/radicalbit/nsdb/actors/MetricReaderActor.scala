@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -47,17 +47,15 @@ import scala.util.{Failure, Success, Try}
 /**
   * Actor responsible for:
   *
-  * - Accumulating write and delete operations which will be performed by [[ShardPerformerActor]].
-  *
   * - Retrieving data from shards, aggregates and returns it to the sender.
   *
   * @param basePath shards indexes path.
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class ShardReaderActor(val basePath: String, val db: String, val namespace: String)
+class MetricReaderActor(val basePath: String, val db: String, val namespace: String)
     extends Actor
-    with ShardsActor
+    with MetricsActor
     with ActorLogging {
   import scala.collection.mutable
 
@@ -402,8 +400,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       .getOrElse(Map.empty[String, JSerializable])
 }
 
-object ShardReaderActor {
+object MetricReaderActor {
 
   def props(basePath: String, db: String, namespace: String): Props =
-    Props(new ShardReaderActor(basePath, db, namespace))
+    Props(new MetricReaderActor(basePath, db, namespace))
 }

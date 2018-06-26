@@ -31,7 +31,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class ShardActorSpec()
+class MetricActorSpec()
     extends TestKit(ActorSystem("shardActorSpec"))
     with ImplicitSender
     with FlatSpecLike
@@ -48,11 +48,12 @@ class ShardActorSpec()
   val namespace = "namespace"
   val metric    = "shardActorMetric"
 
-  val shardReaderActor = system.actorOf(RoundRobinPool(1, None).props(ShardReaderActor.props(basePath, db, namespace)))
+  val shardReaderActor =
+    system.actorOf(RoundRobinPool(1, None).props(MetricReaderActor.props(basePath, db, namespace)))
 
   val shardAccumulatorActor =
-    TestActorRef[ShardAccumulatorActor](ShardAccumulatorActor.props(basePath, db, namespace, shardReaderActor),
-                                        probeActor)
+    TestActorRef[MetricAccumulatorActor](MetricAccumulatorActor.props(basePath, db, namespace, shardReaderActor),
+                                         probeActor)
 
   before {
     implicit val timeout = Timeout(5 second)

@@ -24,7 +24,7 @@ import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.actors.{ShardAccumulatorActor, ShardKey, ShardReaderActor}
+import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, ShardKey, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -44,7 +44,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
-    * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.ShardReaderActor]] to handle read requests
+    * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.MetricReaderActor]] to handle read requests
     *
     * @param db database name
     * @param namespace namespace name
@@ -57,11 +57,11 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     val reader = readerOpt.getOrElse(
       context.actorOf(
         readParallelism.pool.props(
-          ShardReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
+          MetricReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
         s"shard_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
-      context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
+      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader),
                       s"shard_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
@@ -75,7 +75,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     *
     * @param db database name
     * @param namespace namespace name
-    * @return Option containing child actor of class [[ShardAccumulatorActor]]
+    * @return Option containing child actor of class [[MetricAccumulatorActor]]
     */
   private def getReader(db: String, namespace: String): Option[ActorRef] =
     context.child(s"shard_reader_${db}_$namespace")

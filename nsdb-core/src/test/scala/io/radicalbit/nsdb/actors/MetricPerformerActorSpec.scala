@@ -21,14 +21,14 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
 
-class ShardPerformerActorSpec
+class MetricPerformerActorSpec
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
     with FlatSpecLike
@@ -42,7 +42,7 @@ class ShardPerformerActorSpec
   val db        = "db"
   val namespace = "namespace"
   val indexerPerformerActor =
-    TestActorRef[ShardPerformerActor](ShardPerformerActor.props(basePath, db, namespace), probeActor)
+    TestActorRef[MetricPerformerActor](MetricPerformerActor.props(basePath, db, namespace), probeActor)
 
   before {
     import scala.collection.JavaConverters._
