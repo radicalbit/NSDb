@@ -16,49 +16,43 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{Actor, ActorSystem}
+import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.index.Location
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
 
 import scala.concurrent.Await
-
-class DummyMetadataCoordinator extends Actor {
-  override def receive: Receive = {
-    case GetWriteLocation(db, namespace, metric, _) =>
-      sender ! LocationGot(db, namespace, metric, Some(Location(metric, "testNode", 0, 0)))
-    case GetLocations(db, namespace, metric) =>
-      sender ! LocationsGot(db, namespace, metric, Seq(Location(metric, "testNode", 0, 0)))
-  }
-}
+import scala.concurrent.duration._
 
 class WriteCoordinatorSpec
-    extends TestKit(ActorSystem("nsdb-test"))
+    extends TestKit(
+      ActorSystem(
+        "nsdb-test",
+        ConfigFactory
+          .load()
+          .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
+      ))
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfterAll
     with BeforeAndAfter
+    with BeforeAndAfterAll
     with WriteCoordinatorBehaviour {
 
-  val basePath = "target/test_index/WriteCoordinatorSpec"
+  lazy val basePath = "target/test_index/WriteCoordinatorSpec"
 
   val db        = "writeCoordinatorSpecDB"
-  val namespace = "testNamespace"
+  val namespace = "namespace"
 
-  import akka.pattern.ask
-
-  import scala.concurrent.duration._
   implicit val timeout = Timeout(10 seconds)
 
-  override def beforeAll {
+  override def beforeAll: Unit = {
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 10 seconds)
-//    Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)
+    Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)
   }
 
   "WriteCoordinator" should behave.like(defaultBehaviour)
