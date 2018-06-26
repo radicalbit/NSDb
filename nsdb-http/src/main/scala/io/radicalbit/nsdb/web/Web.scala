@@ -45,7 +45,7 @@ trait Web extends StaticResources with WsResources with CorsSupport with SSLSupp
   implicit val materializer = ActorMaterializer()
   implicit val dispatcher   = system.dispatcher
   implicit val httpTimeout: Timeout =
-    Timeout(config.getDuration("http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+    Timeout(config.getDuration("nsdb.http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   /**
     * Nsdb cluster guardian actor, which is the parent of top level actors.
