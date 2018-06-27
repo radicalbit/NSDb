@@ -51,8 +51,9 @@ class SchemaActorSpec
       .schema
       .isDefined shouldBe false
 
-    Await.result(schemaActor ? UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 1, Map("name" -> "name"))),
-                 3 seconds)
+    Await.result(
+      schemaActor ? UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 1, Map("name" -> "name"), Map.empty)),
+      3 seconds)
   }
 
   "SchemaActor" should "get schemas" in {
@@ -73,17 +74,21 @@ class SchemaActorSpec
   }
 
   "SchemaActor" should "return a failed message when trying to update a schema with an incompatible one" in {
-    probe.send(
-      schemaActor,
-      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"))))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db",
+                                      "namespace",
+                                      "people",
+                                      Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[UpdateSchemaFailed]
   }
 
   "SchemaActor" should "update schemas coming from a record" in {
-    probe.send(
-      schemaActor,
-      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db",
+                                      "namespace",
+                                      "people",
+                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     val schema = probe.expectMsgType[SchemaUpdated].schema
     schema.fields.exists(_.name == "timestamp") shouldBe true
@@ -101,15 +106,18 @@ class SchemaActorSpec
                  SchemaField("surname", VARCHAR())))
     )
 
-    probe.send(schemaActor, UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty)))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty, Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
   }
 
   "SchemaActor" should "return the same schema for a new schema included in the old one" in {
-    probe.send(
-      schemaActor,
-      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db",
+                                      "namespace",
+                                      "people",
+                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -125,7 +133,8 @@ class SchemaActorSpec
                  SchemaField("surname", VARCHAR())))
     )
 
-    probe.send(schemaActor, UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"))))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map.empty)))
     probe.expectMsgType[SchemaUpdated]
 
     probe.send(schemaActor, GetSchema("db", "namespace", "people"))
@@ -139,9 +148,11 @@ class SchemaActorSpec
 
     implicit val timeout = Timeout(3 seconds)
 
-    probe.send(
-      schemaActor,
-      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db",
+                                      "namespace",
+                                      "people",
+                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -157,9 +168,11 @@ class SchemaActorSpec
                  SchemaField("surname", VARCHAR())))
     )
 
-    probe.send(
-      schemaActor,
-      UpdateSchemaFromRecord("db", "namespace", "offices", Bit(0, 23, Map("name" -> "john", "surname" -> "doe"))))
+    probe.send(schemaActor,
+               UpdateSchemaFromRecord("db",
+                                      "namespace",
+                                      "offices",
+                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
 
     probe.expectMsgType[SchemaUpdated]
 

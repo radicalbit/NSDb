@@ -80,7 +80,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit val QbFormat = jsonFormat7(QueryBody.apply)
 
-  implicit val BitFormat = jsonFormat3(Bit.apply)
+  implicit val BitFormat = jsonFormat4(Bit.apply)
 
   implicit val InsertBodyFormat = jsonFormat4(InsertBody.apply)
 

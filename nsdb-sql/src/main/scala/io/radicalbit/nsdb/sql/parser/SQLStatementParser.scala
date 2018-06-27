@@ -51,6 +51,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val Insert           = "INSERT INTO" ignoreCase
   private val Dim              = "DIM" ignoreCase
+  private val Tags             = "TAGS" ignoreCase
   private val Ts               = "TS" ignoreCase
   private val Val              = "VAL" ignoreCase
   private val Select           = "SELECT" ignoreCase
@@ -254,14 +255,18 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private def insertQuery(db: String, namespace: String) =
     (Insert ~> metric) ~
       (timestampAssignment ?) ~
-      (Dim ~> assignments ?) ~ valueAssignment ^^ {
-      case met ~ ts ~ dimensions ~ value =>
-        InsertSQLStatement(db = db,
-                           namespace = namespace,
-                           metric = met,
-                           timestamp = ts,
-                           dimensions.map(ListAssignment),
-                           value.asInstanceOf[JSerializable])
+      (Dim ~> assignments ?) ~
+      (Tags ~> assignments ?) ~ valueAssignment ^^ {
+      case met ~ ts ~ dimensions ~ tags ~ value =>
+        InsertSQLStatement(
+          db = db,
+          namespace = namespace,
+          metric = met,
+          timestamp = ts,
+          dimensions = dimensions.map(ListAssignment),
+          tags = tags.map(ListAssignment),
+          value = value.asInstanceOf[JSerializable]
+        )
     }
 
   private def query(db: String, namespace: String): PackratParser[SQLStatement] =

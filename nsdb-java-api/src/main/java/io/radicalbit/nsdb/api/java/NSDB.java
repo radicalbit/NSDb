@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.api.java;
 
 import io.radicalbit.nsdb.client.rpc.GRPCClient;
 import io.radicalbit.nsdb.rpc.common.Dimension;
+import io.radicalbit.nsdb.rpc.common.Tag;
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
@@ -129,6 +130,7 @@ public class NSDB {
         private Long timestamp;
         private RPCInsert.Value value;
         private Map<String, Dimension> dimensions;
+        private Map<String, Tag> tags;
 
         private Bit(String db, String namespace, String metric) {
             this.db = db;
@@ -137,6 +139,7 @@ public class NSDB {
             this.timestamp = System.currentTimeMillis();
             this.value = ScalaUtils.emptyValue();
             this.dimensions = new HashMap<>();
+            this.tags = new HashMap<>();
         }
 
         /**
@@ -208,6 +211,66 @@ public class NSDB {
         public Bit dimension(String k, java.math.BigDecimal d) {
             if (d.scale() > 0) return dimension(k, d.doubleValue());
             else return dimension(k, d.longValue());
+        }
+
+        /**
+         * adds a Long tag to the bit
+         *
+         * @param k the tag name
+         * @param d the Long tag value
+         * @return a new instance with `(k,d)` as a tag
+         */
+        public Bit tag(String k, Long d) {
+            tags.put(k, ScalaUtils.longTag(d));
+            return this;
+        }
+
+        /**
+         * adds a Integer tag to the bit
+         *
+         * @param k the tag name
+         * @param i the Integer tag value
+         * @return a new instance with `(k,v)` as a tag
+         */
+        public Bit tag(String k, Integer i) {
+            tags.put(k, ScalaUtils.longTag(i.longValue()));
+            return this;
+        }
+
+        /**
+         * adds a Double tag to the bit
+         *
+         * @param k the tag name
+         * @param d the Double tag value
+         * @return a new instance with `(k,v)` as a tag
+         */
+        public Bit tag(String k, Double d) {
+            tags.put(k, ScalaUtils.decimalTag(d));
+            return this;
+        }
+
+        /**
+         * adds a String tag to the bit
+         *
+         * @param k the tag name
+         * @param d the String tag value
+         * @return a new instance with `(k,v)` as a tag
+         */
+        public Bit tag(String k, String d) {
+            tags.put(k, ScalaUtils.stringTag(d));
+            return this;
+        }
+
+        /**
+         * adds a {@link java.math.BigDecimal} tag to the bit
+         *
+         * @param k the tag name
+         * @param d the {@link java.math.BigDecimal} tag value
+         * @return a new instance with `(k,v)` as a tag
+         */
+        public Bit tag(String k, java.math.BigDecimal d) {
+            if (d.scale() > 0) return tag(k, d.doubleValue());
+            else return tag(k, d.longValue());
         }
 
         /**
@@ -324,7 +387,7 @@ public class NSDB {
     public CompletableFuture<InsertResult> write(Bit bit) {
         return toJava(client.write(
                 new RPCInsert(bit.db, bit.namespace, bit.metric,
-                        bit.timestamp, ScalaUtils.convertMap(bit.dimensions), bit.value))).toCompletableFuture().thenApply(InsertResult::new);
+                        bit.timestamp, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), bit.value))).toCompletableFuture().thenApply(InsertResult::new);
     }
 
 

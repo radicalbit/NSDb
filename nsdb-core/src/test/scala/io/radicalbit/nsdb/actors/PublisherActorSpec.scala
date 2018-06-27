@@ -63,8 +63,8 @@ class PublisherActorSpec
     limit = Some(LimitOperator(4))
   )
 
-  val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"))
-  val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"))
+  val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"), Map.empty)
+  val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"), Map.empty)
 
   val schema = Schema("people", Set(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
 

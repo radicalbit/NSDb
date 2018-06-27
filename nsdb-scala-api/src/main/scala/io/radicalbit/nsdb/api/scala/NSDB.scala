@@ -16,9 +16,9 @@
 
 package io.radicalbit.nsdb.api.scala
 
-import io.radicalbit.nsdb.api.scala.NSDB.DimensionAPI
+import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.GRPCClient
-import io.radicalbit.nsdb.rpc.common.Dimension
+import io.radicalbit.nsdb.rpc.common._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.request._
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -33,6 +33,8 @@ import scala.concurrent.{ExecutionContext, Future}
 object NSDB {
 
   type DimensionAPI = (String, Dimension)
+
+  type TagAPI = (String, Tag)
 
   /**
     * Connect to a Nsdb instance.
@@ -105,7 +107,8 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         metric = bit.metric,
         timestamp = bit.ts getOrElse System.currentTimeMillis,
         value = bit.value,
-        dimensions = bit.dimensions.toMap
+        dimensions = bit.dimensions.toMap,
+        tags = bit.tags.toMap
       ))
 
   /**
@@ -188,7 +191,8 @@ case class Bit protected (db: String,
                           metric: String,
                           ts: Option[Long] = None,
                           value: RPCInsert.Value = RPCInsert.Value.Empty,
-                          dimensions: List[DimensionAPI] = List.empty[DimensionAPI]) {
+                          dimensions: List[DimensionAPI] = List.empty[DimensionAPI],
+                          tags: List[TagAPI] = List.empty[TagAPI]) {
 
   /**
     * Adds a Long value to the bit.
@@ -271,6 +275,51 @@ case class Bit protected (db: String,
     */
   def dimension(k: String, d: java.math.BigDecimal): Bit =
     if (d.scale() > 0) dimension(k, d.doubleValue()) else dimension(k, d.longValue())
+
+  /**
+    * Adds a Long tag to the bit.
+    * @param k the tag name.
+    * @param d the Long tag value.
+    * @return a new instance with `(k -> d)` as a tag.
+    */
+  def tag(k: String, d: Long): Bit =
+    copy(tags = tags :+ (k, Tag(Tag.Value.LongValue(d))))
+
+  /**
+    * Adds a Int tag to the bit.
+    * @param k the tag name.
+    * @param d the Int tag value.
+    * @return a new instance with `(k -> d)` as a tag.
+    */
+  def tag(k: String, d: Int): Bit =
+    copy(tags = tags :+ (k, Tag(Tag.Value.LongValue(d.longValue()))))
+
+  /**
+    * Adds a Double tag to the bit.
+    * @param k the tag name.
+    * @param d the Double tag value.
+    * @return a new instance with `(k -> d)` as a tag.
+    */
+  def tag(k: String, d: Double): Bit =
+    copy(tags = tags :+ (k, Tag(Tag.Value.DecimalValue(d))))
+
+  /**
+    * Adds a String tag to the bit.
+    * @param k the tag name.
+    * @param d the String tag value.
+    * @return a new instance with `(k -> d)` as a tag.
+    */
+  def tag(k: String, d: String): Bit =
+    copy(tags = tags :+ (k, Tag(Tag.Value.StringValue(d))))
+
+  /**
+    * Adds a [[java.math.BigDecimal]] tag to the bit.
+    * @param k the tag name.
+    * @param d the [[java.math.BigDecimal]] tag value.
+    * @return a new instance with `(k -> d)` as a tag.
+    */
+  def tag(k: String, d: java.math.BigDecimal): Bit =
+    if (d.scale() > 0) tag(k, d.doubleValue()) else tag(k, d.longValue())
 
   @deprecated(
     "It's not fully type safe and it's not possible to make it due to our best friend Jvm type erasure. It's better to be removed in order to prevent a non correct usage of the apis",

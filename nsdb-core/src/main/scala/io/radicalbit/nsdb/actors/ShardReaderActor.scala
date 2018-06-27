@@ -257,7 +257,12 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               orderedResults.map(seq => {
                 val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
                 val count       = if (recordCount <= limit) recordCount else limit
-                Seq(Bit(0, count, Map(seq.head.dimensions.head._1 -> count)))
+                // TODO: TO BE VERIFIED THE TAGS USAGE
+                Seq(
+                  Bit(timestamp = 0,
+                      value = count,
+                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
+                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
               })
             } else
               orderedResults.map(
@@ -280,7 +285,13 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             }
 
             val shardResults = groupShardResults(results, distinctField) { values =>
-              Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))))
+              // TODO: TO BE VERIFIED THE TAGS USAGE
+              Bit(
+                timestamp = 0,
+                value = 0,
+                dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions), //  Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField)))
+                tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
+              )
             }
 
             applyOrderingWithLimit(shardResults, statement, schema)
@@ -296,7 +307,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             }
 
             val shardResults = groupShardResults(result, statement.groupBy.get) { values =>
-              Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions)
+              // TODO: TO BE VERIFIED THE TAGS USAGE
+              Bit(timestamp = 0,
+                  value = values.map(_.value.asInstanceOf[Long]).sum,
+                  dimensions = values.head.dimensions,
+                  tags = values.head.tags)
             }
 
             applyOrderingWithLimit(shardResults, statement, schema)
@@ -312,11 +327,23 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                 implicit val numeric: Numeric[JSerializable] = v.numeric
                 collector match {
                   case _: MaxAllGroupsCollector[_, _] =>
-                    Bit(0, values.map(_.value).max, values.head.dimensions)
+                    // TODO: TO BE VERIFIED THE TAGS USAGE
+                    Bit(timestamp = 0,
+                        value = values.map(_.value).max,
+                        dimensions = values.head.dimensions,
+                        tags = values.head.tags)
                   case _: MinAllGroupsCollector[_, _] =>
-                    Bit(0, values.map(_.value).min, values.head.dimensions)
+                    // TODO: TO BE VERIFIED THE TAGS USAGE
+                    Bit(timestamp = 0,
+                        value = values.map(_.value).min,
+                        dimensions = values.head.dimensions,
+                        tags = values.head.tags)
                   case _: SumAllGroupsCollector[_, _] =>
-                    Bit(0, values.map(_.value).sum, values.head.dimensions)
+                    // TODO: TO BE VERIFIED THE TAGS USAGE
+                    Bit(timestamp = 0,
+                        value = values.map(_.value).sum,
+                        dimensions = values.head.dimensions,
+                        tags = values.head.tags)
                 }
               }
 
@@ -327,7 +354,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         }
 
       postProcessedResult match {
-        case Success(bits)                          => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
+        case Success(bits) =>
+          sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
         case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
         case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
       }
@@ -349,6 +377,19 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   override def receive: Receive = readOps
 
+  private def retrieveField(values: Seq[Bit],
+                            field: String,
+                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+    values.headOption
+      .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
+      .getOrElse(Map.empty[String, JSerializable])
+
+  private def retrieveCount(values: Seq[Bit],
+                            count: Int,
+                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+    values.headOption
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
+      .getOrElse(Map.empty[String, JSerializable])
 }
 
 object ShardReaderActor {
