@@ -20,10 +20,13 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
+import com.sun.tools.javac.file.Locations
+import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
-import io.radicalbit.nsdb.cluster.index.MetadataIndex
+import io.radicalbit.nsdb.cluster.index.{Location, MetadataIndex}
+import io.radicalbit.nsdb.cluster.util.FileUtils
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 
@@ -34,7 +37,7 @@ import scala.collection.mutable
   * A [[MetadataActor]] must be created for each node of the cluster.
   * @param basePath index base path.
   */
-class MetadataActor(val basePath: String) extends Actor with ActorLogging {
+class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends Actor with ActorLogging {
 
   lazy val metadataIndexes: mutable.Map[(String, String), MetadataIndex] = mutable.Map.empty
 
@@ -50,6 +53,21 @@ class MetadataActor(val basePath: String) extends Actor with ActorLogging {
     )
 
   override def preStart(): Unit = {
+    val allLocations = FileUtils.getSubDirs(basePath).toList.flatMap{ db =>
+      FileUtils.getSubDirs(db).toList.flatMap{ namespace =>
+        val metrics = FileUtils.getSubDirs(namespace.getPath + "/shards").toList.flatMap{ metricShard =>
+          metricShard.getName.split("_").headOption
+        }.toSet
+        metrics.map{ metric =>
+          println(s"db : ${db.getName}, namespace : ${namespace.getName}, metric: ${metric} }")
+          val locations = getIndex(db.getName, namespace.getName).getMetadata(metric)
+          MetricLocations(db.getName, namespace.getName, metric, locations)
+        }
+      }
+    }
+
+    metadataCoordinator ! WarmUpLocations(allLocations)
+
     log.debug("metadata actor started at {}/{}", remoteAddress.address, self.path.name)
   }
 
@@ -93,6 +111,9 @@ class MetadataActor(val basePath: String) extends Actor with ActorLogging {
 }
 
 object MetadataActor {
+
+  case class MetricLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
+
   def props(basePath: String, coordinator: ActorRef): Props =
-    Props(new MetadataActor(basePath))
+    Props(new MetadataActor(basePath, coordinator))
 }
