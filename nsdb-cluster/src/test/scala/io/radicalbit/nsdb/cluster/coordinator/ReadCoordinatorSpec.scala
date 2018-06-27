@@ -109,9 +109,9 @@ class ReadCoordinatorSpec
     expectNoMessage(interval)
   }
 
-  "ReadCoordinator in shard mode" should behave.like(defaultBehaviour)
+  "ReadCoordinator" should behave.like(defaultBehaviour)
 
-  "ReadCoordinator in shard mode" when {
+  "ReadCoordinator" when {
 
     "receive a select projecting a wildcard with a limit" should {
       "execute it successfully" in within(5.seconds) {
@@ -127,10 +127,11 @@ class ReadCoordinatorSpec
                                limit = Some(LimitOperator(2)))
           )
         )
+
         awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 2
-        }
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values.size shouldBe 2
+
       }
     }
 
@@ -151,11 +152,12 @@ class ReadCoordinatorSpec
             )
           )
         )
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 2
-          expected.values shouldBe LongMetric.recordsShard2.tail.reverse
+
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
         }
+        expected.values.size shouldBe 2
+        expected.values shouldBe LongMetric.recordsShard2.tail.reverse
       }
 
       "execute it successfully when ordered by another dimension" in within(5.seconds) {
@@ -171,12 +173,12 @@ class ReadCoordinatorSpec
                                order = Some(DescOrderOperator("name")))
           )
         )
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 3
-          LongMetric.recordsShard1 foreach { r =>
-            expected.values.contains(r) shouldBe true
-          }
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.size shouldBe 3
+        LongMetric.recordsShard1 foreach { r =>
+          expected.values.contains(r) shouldBe true
         }
       }
     }
