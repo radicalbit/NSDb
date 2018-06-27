@@ -20,90 +20,76 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, WarmUpCompleted}
 import org.scalatest._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ReadCoordinatorSpec
-    extends TestKit(
-      ActorSystem(
-        "ReadCoordinatorSpec",
-        ConfigFactory
-          .load()
-          .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
-      ))
+    extends TestKit(ActorSystem("ReadCoordinatorSpec"))
     with ImplicitSender
     with WordSpecLike
     with Matchers
     with BeforeAndAfterAll
-    with ReadCoordinatorBehaviour
-    with WriteInterval {
+    with WriteInterval
+    with ReadCoordinatorBehaviour {
 
-  override val probe                = TestProbe()
-  override val basePath             = "target/test_index/ReadCoordinatorSpec"
-  override val db                   = "db"
-  override val namespace            = "registry"
-  val schemaActor                   = system.actorOf(SchemaActor.props(basePath, db, namespace))
-  val metricsDataActor              = system.actorOf(MetricsDataActor.props(basePath))
-  override val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaActor)
+  override val probe       = TestProbe()
+  val probeActor           = probe.ref
+  override val basePath    = "target/test_index/ReadCoordinatorSpec"
+  override val db          = "db"
+  override val namespace   = "registry"
+  val schemaActor          = system.actorOf(SchemaActor.props(basePath, db, namespace))
+  val metricsDataActor     = system.actorOf(MetricsDataActor.props(basePath))
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaActor)
 
-  override def beforeAll = {
+  override def beforeAll(): Unit = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
     readCoordinatorActor ! WarmUpCompleted
 
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
+    val location = Location(_: String, "testNode", 0, 0)
 
-    val location1 = Location(_: String, "node1", 0, 5)
-    val location2 = Location(_: String, "node1", 6, 10)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "testNode"), 10 seconds)
 
     //long metric
     Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 10 seconds)
-
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
                  10 seconds)
 
-    LongMetric.recordsShard1.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(LongMetric.name)), 10 seconds))
-    LongMetric.recordsShard2.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(LongMetric.name)), 10 seconds))
+    LongMetric.testRecords.foreach { record =>
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(LongMetric.name)),
+                   10 seconds)
+    }
 
     //double metric
     Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 10 seconds)
-
     Await.result(schemaActor ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
                  10 seconds)
 
-    DoubleMetric.recordsShard1.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(DoubleMetric.name)), 10 seconds))
-    DoubleMetric.recordsShard2.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)), 10 seconds))
+    DoubleMetric.testRecords.foreach { record =>
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(DoubleMetric.name)),
+                   10 seconds)
+    }
 
     //aggregation metric
     Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 10 seconds)
-
     Await.result(
       schemaActor ? UpdateSchemaFromRecord(db, namespace, AggregationMetric.name, AggregationMetric.testRecords.head),
       10 seconds)
 
-    AggregationMetric.recordsShard1.foreach(
-      r =>
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
-                     10 seconds))
-    AggregationMetric.recordsShard2.foreach(
-      r =>
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
-                     10 seconds))
+    AggregationMetric.testRecords.foreach { record =>
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, record, location(AggregationMetric.name)),
+                   10 seconds)
+    }
 
     expectNoMessage(interval)
     expectNoMessage(interval)
