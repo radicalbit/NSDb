@@ -25,6 +25,7 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -53,7 +54,30 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  def warmUp: Receive = {
+    case WarmUpLocations(metricsLocations) =>
+      metricsLocations.foreach{ metricLocations =>
+        metricLocations.locations.foreach{ location =>
+          val db = metricLocations.db
+          val namespace = metricLocations.namespace
+          (cache ? PutInCache(LocationKey(metricLocations.db, metricLocations.namespace, metricLocations.metric, location.from, location.to), location))
+            .map {
+              case Cached(_, Some(_)) =>
+                mediator ! Publish("metadata", AddLocation(db, namespace, location))
+                LocationAdded(db, namespace, location)
+              case _ => AddLocationFailed(db, namespace, location)
+            }
+        }
+      }
+      context.become(shardBehaviour)
+  }
+
+  /**
+    * behaviour in case shard is true
+    */
+  def shardBehaviour: Receive = {
     case GetLocations(db, namespace, metric) =>
       val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .mapTo[CachedLocations]
@@ -104,6 +128,7 @@ object MetadataCoordinator {
 
   object commands {
 
+    case class WarmUpLocations(metricLocations: Seq[MetricLocations])
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)
