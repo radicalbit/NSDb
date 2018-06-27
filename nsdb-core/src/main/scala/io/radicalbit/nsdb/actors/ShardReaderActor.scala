@@ -63,11 +63,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   private val statementParser = new StatementParser()
 
-  /**
-    * Materialized configuration key. true if sharding is enabled.
-    */
-  lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
-
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   /**
@@ -247,9 +242,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         statementParser.parseStatement(statement, schema) match {
           case Success(parsedStatement @ ParsedSimpleQuery(_, metric, _, false, limit, fields, _)) =>
             val indexes =
-              if (sharding)
-                filterShardsThroughTime(statement.condition.map(_.expression), shardsForMetric(statement.metric))
-              else Seq((ShardKey(metric, 0, 0), getIndex(ShardKey(metric, 0, 0))))
+              filterShardsThroughTime(statement.condition.map(_.expression), shardsForMetric(statement.metric))
 
             val orderedResults = retrieveAndorderPlainResults(statement, parsedStatement, indexes, schema)
 

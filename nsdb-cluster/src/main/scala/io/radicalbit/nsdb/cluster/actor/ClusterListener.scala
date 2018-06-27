@@ -44,8 +44,6 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
   private val config = context.system.settings.config
 
-  lazy val sharding: Boolean = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
-
   override def preStart(): Unit =
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
 

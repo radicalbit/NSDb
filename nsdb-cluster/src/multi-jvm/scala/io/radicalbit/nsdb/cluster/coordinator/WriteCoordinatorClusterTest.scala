@@ -33,7 +33,7 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
-    |  read-coordinatoor.timeout = 10 seconds
+    |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds
     |  publisher.timeout = 10 seconds
@@ -41,7 +41,6 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |  write.scheduler.interval = 5 seconds
     |
     |  sharding {
-    |    enabled = true
     |    interval = 1m
     |  }
     |
