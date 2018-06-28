@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.index
 
+import com.typesafe.scalalogging.Logger
 import io.radicalbit.nsdb.index.Index
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
@@ -81,7 +82,12 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
   }
 
   def getMetadata(metric: String): Seq[Location] = {
-    Try(query(_keyField, metric, Seq.empty, Integer.MAX_VALUE)(identity)) match {
+    val queryTerm = new TermQuery(new Term(_keyField, metric))
+
+    val reader                           = DirectoryReader.open(directory)
+    implicit val searcher: IndexSearcher = new IndexSearcher(reader)
+
+    Try(query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)) match {
       case Success(metadataSeq) => metadataSeq
       case Failure(_)           => Seq.empty
     }

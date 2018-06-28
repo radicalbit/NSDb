@@ -20,7 +20,6 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
-import com.sun.tools.javac.file.Locations
 import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -53,13 +52,16 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
     )
 
   override def preStart(): Unit = {
-    val allLocations = FileUtils.getSubDirs(basePath).toList.flatMap{ db =>
-      FileUtils.getSubDirs(db).toList.flatMap{ namespace =>
-        val metrics = FileUtils.getSubDirs(namespace.getPath + "/shards").toList.flatMap{ metricShard =>
-          metricShard.getName.split("_").headOption
-        }.toSet
-        metrics.map{ metric =>
-          println(s"db : ${db.getName}, namespace : ${namespace.getName}, metric: ${metric} }")
+    val allLocations = FileUtils.getSubDirs(basePath).flatMap { db =>
+      FileUtils.getSubDirs(db).toList.flatMap { namespace =>
+        val metrics = FileUtils
+          .getSubDirs(namespace.getPath + "/shards")
+          .flatMap { metricShard =>
+            metricShard.getName.split("_").headOption
+          }
+          .toSet
+        metrics.map { metric =>
+          log.debug(s"db : ${db.getName}, namespace : ${namespace.getName}, metric: $metric }")
           val locations = getIndex(db.getName, namespace.getName).getMetadata(metric)
           MetricLocations(db.getName, namespace.getName, metric, locations)
         }

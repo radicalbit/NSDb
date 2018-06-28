@@ -22,7 +22,7 @@ import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
@@ -36,7 +36,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   GetLocations,
   GetWriteLocation
 }
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot, WarmUpCompleted}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
@@ -89,7 +89,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        publisherActor: ActorRef)
     extends Actor
     with ActorLogging
-    with NsdbPerfLogger {
+    with NsdbPerfLogger
+    with Stash {
 
   import akka.pattern.ask
 
@@ -205,7 +206,22 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  def warmUp: Receive = {
+    case WarmUpCompleted =>
+      unstashAll()
+      context.become(operative)
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      namespaces += (nodeName -> actor)
+      log.info(s"subscribed data actor for node $nodeName")
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case msq =>
+      stash()
+      log.error(s"Received ignored message $msq during warmUp")
+  }
+
+  def operative: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       namespaces += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
