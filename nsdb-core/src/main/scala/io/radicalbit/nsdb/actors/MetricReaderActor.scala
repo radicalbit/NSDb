@@ -138,11 +138,12 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def groupShardResults[W](shardResults: Future[Seq[Bit]], dimension: String)(
+  private def groupShardResults[W](shardResults: Future[Seq[SelectStatementExecuted]], dimension: String)(
       aggregationFunction: Seq[Bit] => W) = {
     shardResults.map(
       results =>
         results
+          .flatMap(_.values)
           .groupBy(_.dimensions(dimension))
           .mapValues(aggregationFunction)
           .values
@@ -182,14 +183,12 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           case (_, actor) =>
             (actor ? ExecuteSelectStatement(statement, schema)).mapTo[SelectStatementExecuted]
         })
-        .map(
-          e => e.flatMap(_.values)
-        )
-        .map(s => {
-          val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+        .map(seq => {
+          val flattenResults = seq.flatMap(_.values)
+          val o              = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
           implicit val ord: Ordering[JSerializable] =
             if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-          val sorted = s.sortBy(_.dimensions(statement.order.get.dimension))
+          val sorted = flattenResults.sortBy(_.dimensions(statement.order.get.dimension))
           sorted.take(statement.limit.get.value)
         })
 
@@ -212,8 +211,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           case (_, actor) =>
             (actor ? msg).mapTo[CountGot].map(_.count)
         })
-        .map(_.sum)
-        .map(s => CountGot(db, ns, metric, s))
+        .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
 
     case msg @ ExecuteSelectStatement(statement, schema) =>
@@ -253,9 +251,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
           val results = Future
             .sequence(filteredIndexes.map { case (_, actor) => (actor ? msg).mapTo[SelectStatementExecuted] })
-            .map(
-              e => e.flatMap(_.values)
-            )
           val shardResults = groupShardResults(results, distinctField) { values =>
             Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))), Map.empty)
           }
@@ -269,9 +264,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
           val result = Future
             .sequence(filteredIndexes.map { case (_, actor) => (actor ? msg).mapTo[SelectStatementExecuted] })
-            .map(
-              e => e.flatMap(_.values)
-            )
 
           val shardResults = groupShardResults(result, statement.groupBy.get) { values =>
             Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, Map.empty)
@@ -287,9 +279,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
               case (_, actor) =>
                 (actor ? msg).mapTo[SelectStatementExecuted]
             })
-            .map(
-              e => e.flatMap(_.values)
-            )
           val rawResult =
             groupShardResults(shardResults, statement.groupBy.get) { values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
