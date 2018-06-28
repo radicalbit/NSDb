@@ -250,7 +250,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               orderedResults.map(seq => {
                 val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
                 val count       = if (recordCount <= limit) recordCount else limit
-                // TODO: TO BE VERIFIED THE TAGS USAGE
+
                 Seq(
                   Bit(timestamp = 0,
                       value = count,
@@ -278,11 +278,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             }
 
             val shardResults = groupShardResults(results, distinctField) { values =>
-              // TODO: TO BE VERIFIED THE TAGS USAGE
               Bit(
                 timestamp = 0,
                 value = 0,
-                dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions), //  Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField)))
+                dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
                 tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
               )
             }
@@ -370,6 +369,15 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   override def receive: Receive = readOps
 
+  /**
+    * This is a utility method to extract dimensions or tags from a Bit sequence in a functional way without having
+    * the risk to throw dangerous exceptions.
+    *
+    * @param values the sequence of bits holding the fields to be extracted.
+    * @param field the name of the field to be extracted.
+    * @param extract the function defining how to extract the field from a given bit.
+    * @return
+    */
   private def retrieveField(values: Seq[Bit],
                             field: String,
                             extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
@@ -377,6 +385,15 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
       .getOrElse(Map.empty[String, JSerializable])
 
+  /**
+    * This is a utility method in charge to associate a dimension or a tag with the given count.
+    * It extracts the field from a Bit sequence in a functional way without having the risk to throw dangerous exceptions.
+    *
+    * @param values the sequence of bits holding the field to be extracted.
+    * @param count the value of the count to be associated with the field.
+    * @param extract the function defining how to extract the field from a given bit.
+    * @return
+    */
   private def retrieveCount(values: Seq[Bit],
                             count: Int,
                             extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
