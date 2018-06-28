@@ -128,7 +128,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     ): Future[GrpcMetricsGot] = {
       //TODO: add failure handling
       log.debug("Received command ShowMetrics for namespace {}", request.namespace)
-      (readCoordinator ? GetMetrics(request.db, request.namespace)).mapTo[MetricsGot].map {
+      (readCoordinator ? GetMetrics(request.db, request.namespace)).map {
         case MetricsGot(db, namespace, metrics) =>
           GrpcMetricsGot(db, namespace, metrics.toList, completedSuccessfully = true)
       }
@@ -165,9 +165,11 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     ): Future[Namespaces] = {
       log.debug("Received command ShowNamespaces for db: {}", request.db)
       (readCoordinator ? GetNamespaces(db = request.db))
-        .mapTo[NamespacesGot]
-        .map { namespaces =>
-          Namespaces(db = namespaces.db, namespaces = namespaces.namespaces.toSeq, completedSuccessfully = true)
+        .map {
+          case NamespacesGot(db, namespaces) =>
+            Namespaces(db = db, namespaces = namespaces.toSeq, completedSuccessfully = true)
+          case _ =>
+            Namespaces(db = request.db, completedSuccessfully = false, errors = "Cluster unable to fulfill request")
         }
         .recoverWith {
           case _ =>
@@ -303,7 +305,6 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                       completedSuccessfully = false,
                       reason = reason
                     )
-
                 }
                 .recoverWith {
                   case t =>

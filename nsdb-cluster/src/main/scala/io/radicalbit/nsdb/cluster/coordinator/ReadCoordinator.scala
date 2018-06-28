@@ -59,6 +59,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
       metricsDataActors += (nodeName -> actor)
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case msq =>
+      // Requests received during warm-up are ignored, this results in a timeout
       log.error(s"Received ignored message $msq during warmUp")
   }
 
