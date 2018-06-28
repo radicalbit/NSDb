@@ -137,5 +137,15 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
         )
       }
     }
+
+    "receive a insert metric with dimension string with one character" should {
+      "succeed" in {
+        parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people DIM(name = 'a') val=23 ") should be(
+          Success(
+            InsertSQLStatement(db = "db", "registry", "people", None, Some(ListAssignment(Map("name" -> "a"))), 23)
+          )
+        )
+      }
+    }
   }
 }

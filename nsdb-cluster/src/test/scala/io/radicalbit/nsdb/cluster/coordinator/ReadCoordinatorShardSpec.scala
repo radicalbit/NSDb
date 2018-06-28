@@ -166,13 +166,13 @@ class ReadCoordinatorShardSpec
                                metric = LongMetric.name,
                                distinct = false,
                                fields = AllFields,
-                               limit = Some(LimitOperator(2)),
+                               limit = Some(LimitOperator(3)),
                                order = Some(DescOrderOperator("name")))
           )
         )
         awaitAssert {
           val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 2
+          expected.values.size shouldBe 3
           LongMetric.recordsShard1 foreach { r =>
             expected.values.contains(r) shouldBe true
           }
