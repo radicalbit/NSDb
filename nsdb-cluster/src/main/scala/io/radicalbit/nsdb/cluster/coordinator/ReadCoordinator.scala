@@ -18,10 +18,11 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash, UnboundedStash}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WarmUpCompleted
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -42,14 +43,26 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     with NsdbPerfLogger {
 
   implicit val timeout: Timeout = Timeout(
-    context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
+    context.system.settings.config.getDuration("nsdb.read-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
   import context.dispatcher
 
   private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  def warmUp: Receive = {
+    case WarmUpCompleted =>
+      context.become(operating)
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      metricsDataActors += (nodeName -> actor)
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case msq =>
+      log.error(s"Received ignored message $msq during warmUp")
+  }
+
+  def operating: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       metricsDataActors += (nodeName -> actor)
       sender() ! MetricsDataActorSubscribed(actor, nodeName)

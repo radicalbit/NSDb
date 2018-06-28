@@ -38,7 +38,7 @@ import scala.util.Random
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
+class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with Stash {
 
   /**
     * mediator for [[DistributedPubSub]] system
@@ -57,21 +57,31 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = warmUp
 
   def warmUp: Receive = {
-    case WarmUpLocations(metricsLocations) =>
-      metricsLocations.foreach{ metricLocations =>
-        metricLocations.locations.foreach{ location =>
-          val db = metricLocations.db
+    case msg @ WarmUpLocations(metricsLocations) =>
+      log.debug(s"Received location warm-up message: $msg ")
+      metricsLocations.foreach { metricLocations =>
+        metricLocations.locations.foreach { location =>
+          val db        = metricLocations.db
           val namespace = metricLocations.namespace
-          (cache ? PutInCache(LocationKey(metricLocations.db, metricLocations.namespace, metricLocations.metric, location.from, location.to), location))
+          (cache ? PutInCache(LocationKey(metricLocations.db,
+                                          metricLocations.namespace,
+                                          metricLocations.metric,
+                                          location.from,
+                                          location.to),
+                              location))
             .map {
               case Cached(_, Some(_)) =>
-                mediator ! Publish("metadata", AddLocation(db, namespace, location))
                 LocationAdded(db, namespace, location)
               case _ => AddLocationFailed(db, namespace, location)
             }
         }
       }
+
+      mediator ! Publish("warm-up", WarmUpCompleted)
+      unstashAll()
       context.become(shardBehaviour)
+
+    case msg => stash()
   }
 
   /**
@@ -138,6 +148,8 @@ object MetadataCoordinator {
   }
 
   object events {
+
+    private[coordinator] case object WarmUpCompleted
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])

@@ -24,6 +24,7 @@ import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WarmUpCompleted
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -59,6 +60,8 @@ class ReadCoordinatorSpec
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
+
+    readCoordinatorActor ! WarmUpCompleted
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 

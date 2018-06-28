@@ -16,10 +16,13 @@
 
 package io.radicalbit.nsdb.cluster.util
 
+import java.io
 import java.io.{File, FileOutputStream, InputStream, OutputStream}
+import java.nio.file.Paths
 import java.util.zip.{ZipEntry, ZipFile}
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 /**
   * Contains utility methods to handle files.
@@ -39,7 +42,8 @@ object FileUtils {
     * @param path a string path.
     * @return all the first level sub directories of the given directory.
     */
-  def getSubDirs(path: String): Array[File] = new File(path).listFiles(_.isDirectory)
+  def getSubDirs(path: String): List[File] =
+    Option(new File(path).listFiles(_.isDirectory)).map(_.toList).getOrElse(List.empty)
 
   /**
     * Unzip a file into a target folder.

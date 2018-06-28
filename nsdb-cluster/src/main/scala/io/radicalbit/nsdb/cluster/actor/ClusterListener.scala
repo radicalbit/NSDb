@@ -68,6 +68,8 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
         name = s"metadata_$nameNode"
       )
 
+      mediator ! Subscribe("warm-up", readCoordinator)
+      mediator ! Subscribe("warm-up", writeCoordinator)
       mediator ! Subscribe("metadata", metadataActor)
 
       log.info(s"subscribing data actor for node $nameNode")

@@ -21,6 +21,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WarmUpCompleted
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
 
@@ -50,6 +51,7 @@ class WriteCoordinatorSpec
   implicit val timeout = Timeout(10 seconds)
 
   override def beforeAll: Unit = {
+    writeCoordinatorActor ! WarmUpCompleted
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 10 seconds)
     Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)

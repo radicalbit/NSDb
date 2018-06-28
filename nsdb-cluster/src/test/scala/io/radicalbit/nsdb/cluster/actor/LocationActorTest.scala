@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.ActorSystem
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
@@ -37,6 +37,12 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
+class FakeMetadataCoordinator extends Actor with ActorLogging {
+  def receive: Receive = {
+    case _ => log.info("received message")
+  }
+}
+
 class LocationActorTest
     extends TestKit(ActorSystem("SchemaActorSpec"))
     with ImplicitSender
@@ -45,8 +51,9 @@ class LocationActorTest
     with OneInstancePerTest
     with BeforeAndAfter {
 
-  val probe         = TestProbe()
-  val metadataActor = system.actorOf(MetadataActor.props("target/test_index/LocationActorTest", null))
+  val probe               = TestProbe()
+  val metadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
+  val metadataActor       = system.actorOf(MetadataActor.props("target/test_index/LocationActorTest", metadataCoordinator))
 
   lazy val db        = "db"
   lazy val namespace = "namespaceTest"
