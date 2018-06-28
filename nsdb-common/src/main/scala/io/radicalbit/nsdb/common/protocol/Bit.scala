@@ -34,17 +34,23 @@ trait TimeSeriesRecord {
   * - a numeric value
   *
   * - a Map of generic dimensions (string or numeric values allowed).
+  *
+  * - a Map of generic tags (string or numeric values allowed).
+  *
   * @param timestamp record timestamp.
   * @param value record value.
   * @param dimensions record dimensions.
   */
-case class Bit(timestamp: Long, value: JSerializable, dimensions: Map[String, JSerializable])
+case class Bit(timestamp: Long,
+               value: JSerializable,
+               dimensions: Map[String, JSerializable],
+               tags: Map[String, JSerializable])
     extends TimeSeriesRecord {
 
   /**
     * @return all fields included dimensions, timestamp and value.
     */
   def fields: Map[String, JSerializable] =
-    dimensions + ("timestamp" -> timestamp.asInstanceOf[JSerializable]) + ("value" -> value
+    dimensions ++ tags + ("timestamp" -> timestamp.asInstanceOf[JSerializable]) + ("value" -> value
       .asInstanceOf[JSerializable])
 }

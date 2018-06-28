@@ -108,8 +108,15 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     val facetResult: Option[FacetResult] = getFacetResult(query, groupField, sort, limit)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
-        .map(lv =>
-          Bit(0, lv.value.longValue(), Map(groupField -> indexType.cast(lv.label).asInstanceOf[JSerializable])))
+        .map(
+          lv =>
+            // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
+            Bit(
+              timestamp = 0,
+              value = lv.value.longValue(),
+              dimensions = Map(groupField -> indexType.cast(lv.label).asInstanceOf[JSerializable]),
+              tags = Map.empty[String, JSerializable]
+          ))
         .toSeq)
   }
 
@@ -123,6 +130,11 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     */
   def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
     val facetResult = getFacetResult(query, field, sort, Some(limit))
-    facetResult.fold(Seq.empty[Bit])(_.labelValues.map(lv => Bit(0, 0, Map(field -> lv.label))).toSeq)
+    // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
+    facetResult.fold(Seq.empty[Bit])(
+      _.labelValues
+        .map(lv =>
+          Bit(timestamp = 0, value = 0, dimensions = Map(field -> lv.label), tags = Map.empty[String, JSerializable]))
+        .toSeq)
   }
 }

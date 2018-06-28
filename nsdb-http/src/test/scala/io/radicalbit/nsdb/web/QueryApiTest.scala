@@ -68,8 +68,10 @@ object QueryApiTest {
 
   object FakeReadCoordinator {
     def bitsParametrized(from: Long, to: Long) =
-      Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2)), Bit(to, 3, Map("name" -> "name", "number" -> 2)))
-    val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2)), Bit(2, 3, Map("name" -> "name", "number" -> 2)))
+      Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2), Map.empty),
+          Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map.empty))
+    val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map.empty),
+                   Bit(2, 3, Map("name" -> "name", "number" -> 2), Map.empty))
   }
 
   class FakeWriteCoordinator extends Actor {
@@ -146,14 +148,16 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |    "dimensions" : {
           |      "name" : "name",
           |      "number" : 2
-          |    }
+          |    },
+          |    "tags" : { }
           |  }, {
           |    "timestamp" : 2,
           |    "value" : 3,
           |    "dimensions" : {
           |      "name" : "name",
           |      "number" : 2
-          |    }
+          |    },
+          |    "tags" : { }
           |  } ]
           |}""".stripMargin
 
@@ -184,14 +188,16 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |    "dimensions" : {
           |      "name" : "name",
           |      "number" : 2
-          |    }
+          |    },
+          |    "tags" : { }
           |  }, {
           |    "timestamp" : 2,
           |    "value" : 3,
           |    "dimensions" : {
           |      "name" : "name",
           |      "number" : 2
-          |    }
+          |    },
+          |    "tags" : { }
           |  } ]
           |}""".stripMargin
 
@@ -246,14 +252,16 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
         |    "dimensions" : {
         |      "name" : "name",
         |      "number" : 2
-        |    }
+        |    },
+        |    "tags" : { }
         |  }, {
         |    "timestamp" : 200,
         |    "value" : 3,
         |    "dimensions" : {
         |      "name" : "name",
         |      "number" : 2
-        |    }
+        |    },
+        |    "tags" : { }
         |  } ]
         |}""".stripMargin
 
@@ -277,14 +285,16 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |    "dimensions" : {
           |      "name" : "name",
           |      "number" : 2
-          |    }
+          |    },
+          |    "tags" : { }
           |  }, {
           |    "timestamp" : 2,
           |    "value" : 3,
           |    "dimensions" : {
           |      "name" : "name",
           |      "number" : 2
-          |    }
+          |    },
+          |    "tags" : { }
           |  } ]
           |}""".stripMargin
 

@@ -46,8 +46,8 @@ class NamespaceSchemaActorSpec
   val namespace  = "namespace"
   val namespace1 = "namespace1"
 
-  val nameRecord    = Bit(0, 1, Map("name"    -> "name"))
-  val surnameRecord = Bit(0, 1, Map("surname" -> "surname"))
+  val nameRecord    = Bit(0, 1, Map("name"    -> "name"), Map.empty)
+  val surnameRecord = Bit(0, 1, Map("surname" -> "surname"), Map.empty)
 
   before {
     implicit val timeout = Timeout(10 seconds)

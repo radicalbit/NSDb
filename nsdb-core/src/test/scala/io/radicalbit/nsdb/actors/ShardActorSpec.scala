@@ -61,7 +61,7 @@ class ShardActorSpec()
 
   "ShardAccumulatorActor" should "write and delete properly" in {
 
-    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
+    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
     val key = ShardKey("shardActorMetric", 0, 100)
 
     probe.send(shardAccumulatorActor, AddRecordToShard(db, namespace, key, bit))
@@ -100,11 +100,11 @@ class ShardActorSpec()
     val key  = ShardKey("shardActorMetric", 0, 100)
     val key2 = ShardKey("shardActorMetric", 101, 200)
 
-    val bit11 = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"))
-    val bit12 = Bit(System.currentTimeMillis, 30.5, Map("content" -> "content"))
-    val bit13 = Bit(System.currentTimeMillis, 50.5, Map("content" -> "content"))
-    val bit21 = Bit(System.currentTimeMillis, 150, Map("content"  -> "content"))
-    val bit22 = Bit(System.currentTimeMillis, 160, Map("content"  -> "content"))
+    val bit11 = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"), Map.empty)
+    val bit12 = Bit(System.currentTimeMillis, 30.5, Map("content" -> "content"), Map.empty)
+    val bit13 = Bit(System.currentTimeMillis, 50.5, Map("content" -> "content"), Map.empty)
+    val bit21 = Bit(System.currentTimeMillis, 150, Map("content"  -> "content"), Map.empty)
+    val bit22 = Bit(System.currentTimeMillis, 160, Map("content"  -> "content"), Map.empty)
 
     probe.send(shardAccumulatorActor, AddRecordToShard(db, namespace, key, bit11))
     probe.send(shardAccumulatorActor, AddRecordToShard(db, namespace, key, bit12))
@@ -148,8 +148,8 @@ class ShardActorSpec()
 
   "ShardAccumulatorActor" should "drop a metric" in {
 
-    val bit1 = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
-    val bit2 = Bit(System.currentTimeMillis, 30, Map("content" -> "content"))
+    val bit1 = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
+    val bit2 = Bit(System.currentTimeMillis, 30, Map("content" -> "content"), Map.empty)
 
     probe.send(shardAccumulatorActor, AddRecordToShard(db, namespace, ShardKey("testMetric", 0, 0), bit1))
     probe.send(shardAccumulatorActor, AddRecordToShard(db, namespace, ShardKey("testMetric", 0, 0), bit2))
