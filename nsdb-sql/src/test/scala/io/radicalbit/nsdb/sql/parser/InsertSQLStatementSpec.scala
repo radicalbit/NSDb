@@ -189,7 +189,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a insert metric with dimension string with one character" should {
+    "receive a insert metric with dimension string with one char" should {
       "succeed" in {
         parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people DIM(name = 'a') val=23 ") should be(
           Success(
