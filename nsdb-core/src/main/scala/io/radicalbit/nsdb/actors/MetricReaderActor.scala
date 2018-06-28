@@ -35,12 +35,11 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
-import org.apache.lucene.index.IndexNotFoundException
 import spire.implicits._
 import spire.math.Interval
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 /**
   * Actor responsible for:
@@ -51,10 +50,7 @@ import scala.util.{Failure, Success, Try}
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricReaderActor(val basePath: String, val db: String, val namespace: String)
-    extends Actor
-    //    with MetricsActor
-    with ActorLogging {
+class MetricReaderActor(val basePath: String, val db: String, val namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
 
   private val statementParser = new StatementParser()
@@ -64,24 +60,14 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  //  override def getIndex(key: ShardKey): TimeSeriesIndex =
-  //    shards.getOrElse(
-  //      key, {
-  //        val directory =
-  //          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}"))
-  //        val newIndex = new TimeSeriesIndex(directory)
-  //        shards += (key -> newIndex)
-  //        newIndex
-  //      }
-  //    )
+  private val actors: mutable.Map[ShardKey, ActorRef] = mutable.Map.empty
 
-  val actors: mutable.Map[ShardKey, ActorRef] = mutable.Map.empty
-
-  def getActor(key: ShardKey) = {
-    actors.get(key)
-  }
-
-  def getOrCreateActor(key: ShardKey) = {
+  /**
+    * Gets or creates the actor for a given shard key.
+    * @param key The shard key to identify the actor.
+    * @return The existing or the created shard actor.
+    */
+  private def getOrCreateActor(key: ShardKey) = {
     actors.getOrElse(key, {
       val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
       actors += (key -> newActor)
@@ -89,7 +75,12 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     })
   }
 
-  protected def actorsForMetric(metric: String) = actors.filter(_._1.metric == metric)
+  /**
+    * Retrieve all the shard actors for a given metric.
+    * @param metric The metric to filter shard actors
+    * @return All the shard actors for a given metric.
+    */
+  private def actorsForMetric(metric: String) = actors.filter(_._1.metric == metric)
 
   /**
     * Any existing shard is retrieved
@@ -105,23 +96,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val key        = ShardKey(metric, from.toLong, to.toLong)
           val shardActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
           actors += (key -> shardActor)
-        //          val directory =
-        //            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to"))
-        //          val newIndex = new TimeSeriesIndex(directory)
-        //          shards += (ShardKey(metric, from.toLong, to.toLong) -> newIndex)
-        //          val directoryFacets =
-        //            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to", "facet"))
-        //          val taxoDirectoryFacets =
-        //            new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${metric}_${from}_$to", "facet", "taxo"))
-        //          val newFacetIndex = new FacetIndex(directoryFacets, taxoDirectoryFacets)
-        //          facetIndexShards += (ShardKey(metric, from.toLong, to.toLong) -> newFacetIndex)
       }
-  }
-
-  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
-    out.recoverWith {
-      case _: IndexNotFoundException => Success(Seq.empty)
-    }
   }
 
   /**
@@ -187,24 +162,10 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
                                            parsedStatement: ParsedSimpleQuery,
                                            indexes: Seq[(ShardKey, ActorRef)],
                                            schema: Schema): Future[Seq[Bit]] = {
-    //    val (_, metric, q, _, limit, fields, sort) = ParsedSimpleQuery.unapply(parsedStatement).get
     if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
-      //      val result: ListBuffer[Seq[Bit]] = ListBuffer.empty
 
       val eventuallyOrderedActors =
         statement.getTimeOrdering.map(indexes.sortBy(_._1.from)(_)).getOrElse(indexes)
-
-      //      eventuallyOrdered.takeWhile {
-      //        case (_, index) =>
-      //          val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(identity)))
-      //          result += partials
-      //
-      //          val combined = Try(result.flatMap(_.get))
-      //
-      //          combined.isSuccess && combined.get.lengthCompare(statement.limit.map(_.value).getOrElse(Int.MaxValue)) < 0
-      //      }
-      //
-      //      Try(result.flatMap(_.get))
 
       Future
         .sequence(eventuallyOrderedActors.map {
@@ -219,7 +180,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
       Future
         .sequence(indexes.map {
           case (_, actor) =>
-            //          handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(identity)))
             (actor ? ExecuteSelectStatement(statement, schema)).mapTo[SelectStatementExecuted]
         })
         .map(
@@ -247,19 +207,16 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     case GetMetrics(_, _) =>
       sender() ! MetricsGot(db, namespace, actors.keys.map(_.metric).toSet)
     case msg @ GetCount(_, ns, metric) =>
-      //      Future.sequence()
       Future
         .sequence(actorsForMetric(metric).map {
           case (_, actor) =>
             (actor ? msg).mapTo[CountGot].map(_.count)
-          //          index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity).size
         })
         .map(_.sum)
         .map(s => CountGot(db, ns, metric, s))
         .pipeTo(sender)
 
     case msg @ ExecuteSelectStatement(statement, schema) =>
-      //      val postProcessedResult =
       statementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
@@ -288,7 +245,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             )
           f.pipeTo(sender)
 
-        case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
+        case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val filteredIndexes =
@@ -299,11 +256,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map(
               e => e.flatMap(_.values)
             )
-          //            val results = filteredIndexes.map {
-          //              case (_, index) =>
-          //                handleQueryResults(metric, Try(index.getDistinctField(q, fields.map(_.name).head, sort, limit)))
-          //            }
-
           val shardResults = groupShardResults(results, distinctField) { values =>
             Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))), Map.empty)
           }
@@ -312,18 +264,9 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map(v => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, v))
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, _, _, _: CountAllGroupsCollector[_], _, _)) =>
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
-
-          //              .map {
-          //              case (_, index) =>
-          //                handleQueryResults(
-          //                  metric,
-          //                  Try(index
-          //                    .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
-          //            }
-
           val result = Future
             .sequence(filteredIndexes.map { case (_, actor) => (actor ? msg).mapTo[SelectStatementExecuted] })
             .map(
@@ -338,11 +281,10 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map(values => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, values))
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, _, _, collector, _, _)) =>
           val shardResults = Future
             .sequence(actorsForMetric(statement.metric).toSeq.map {
               case (_, actor) =>
-                //                handleQueryResults(metric, Try(index.query(q, collector.clear, limit, sort)))
                 (actor ? msg).mapTo[SelectStatementExecuted]
             })
             .map(
@@ -369,19 +311,9 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         case Failure(ex) => Failure(ex)
         case _           => Failure(new InvalidStatementException("Not a select statement."))
       }
-
-    //      postProcessedResult match {
-    //        case Success(bits)                          => sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
-    //        case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
-    //        case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
-    //      }
     case DropMetric(_, _, metric) =>
       actorsForMetric(metric).foreach {
         case (key, actor) =>
-          //          implicit val writer: IndexWriter = index.getWriter
-          //          index.deleteAll()
-          //          writer.close()
-          //          index.refresh()
           actor ! DeleteAll
           actors -= key
       }
