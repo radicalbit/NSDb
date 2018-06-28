@@ -38,13 +38,19 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     (1 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_$i"))
+        Bit(timestamp = System.currentTimeMillis,
+            value = 23,
+            dimensions = Map("content" -> s"content_$i"),
+            tags = Map.empty)
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
 
     val repeatedValue =
-      Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_100"))
+      Bit(timestamp = System.currentTimeMillis,
+          value = 23,
+          dimensions = Map("content" -> s"content_100"),
+          tags = Map.empty)
     val w = facetIndex.write(repeatedValue)
     w.isSuccess shouldBe true
 
@@ -74,7 +80,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       val testData =
         Bit(timestamp = System.currentTimeMillis,
             value = 23,
-            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
+            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"),
+            tags = Map.empty)
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -103,7 +110,10 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     (1 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = i, value = 23, dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
+        Bit(timestamp = i,
+            value = 23,
+            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"),
+            tags = Map.empty)
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -133,7 +143,10 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     (1 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = i, value = 23, dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"))
+        Bit(timestamp = i,
+            value = 23,
+            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"),
+            tags = Map.empty)
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -149,8 +162,10 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     implicit val deleteWriter = facetIndex.getWriter
 
     facetIndex.delete(
-      Bit(timestamp = 100, value = 23, dimensions = Map("content" -> "content_100", "name" -> "name_100")))(
-      deleteWriter)
+      Bit(timestamp = 100,
+          value = 23,
+          dimensions = Map("content" -> "content_100", "name" -> "name_100"),
+          tags = Map.empty))(deleteWriter)
 
     deleteWriter.close()
     facetIndex.refresh()
@@ -172,7 +187,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       val testData =
         Bit(timestamp = i,
             value = factor,
-            dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"))
+            dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"),
+            tags = Map.empty)
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }

@@ -103,7 +103,6 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
   if (!commitLogEnabled)
     log.info("Commit Log is disabled")
 
-  lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
   private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty

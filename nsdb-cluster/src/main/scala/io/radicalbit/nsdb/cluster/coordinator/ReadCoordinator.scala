@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
@@ -45,9 +44,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
-
-  lazy val sharding: Boolean          = context.system.settings.config.getBoolean("nsdb.sharding.enabled")
-  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
   import context.dispatcher
 

@@ -36,7 +36,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = System.currentTimeMillis, value = 23, dimensions = Map("content" -> s"content_$i"))
+        Bit(timestamp = System.currentTimeMillis,
+            value = 23,
+            dimensions = Map("content" -> s"content_$i"),
+            tags = Map.empty)
       timeSeriesIndex.write(testData)
     }
     writer.close()
@@ -54,7 +57,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = i, value = 23.5, dimensions = Map("content" -> s"content-$i"))
+        Bit(timestamp = i, value = 23.5, dimensions = Map("content" -> s"content-$i"), tags = Map.empty)
       timeSeriesIndex.write(testData)
     }
 
@@ -81,7 +84,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = i, value = 23.5, dimensions = Map("content" -> s"content_$i"))
+        Bit(timestamp = i, value = 23.5, dimensions = Map("content" -> s"content_$i"), tags = Map.empty)
       timeSeriesIndex.write(testData)
     }
 
@@ -109,7 +112,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val timestamp = System.currentTimeMillis
 
-    val testData = Bit(timestamp = timestamp, value = 0.2, dimensions = Map("content" -> s"content"))
+    val testData = Bit(timestamp = timestamp, value = 0.2, dimensions = Map("content" -> s"content"), tags = Map.empty)
 
     timeSeriesIndex.write(testData)
 
@@ -143,7 +146,8 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     (0 to 9).foreach { i =>
       val testData = Bit(timestamp = System.currentTimeMillis,
                          value = 10,
-                         dimensions = Map("content" -> s"content_${i / 4}", "number" -> i))
+                         dimensions = Map("content" -> s"content_${i / 4}", "number" -> i),
+                         tags = Map.empty)
       timeSeriesIndex.write(testData)
     }
 
@@ -162,7 +166,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     val records: Seq[Bit] = (0 to 9).map { i =>
-      Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"))
+      Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"), tags = Map.empty)
     }
 
     implicit val writer = timeSeriesIndex.getWriter
@@ -176,9 +180,11 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
                                         None,
                                         Some(ascSort))
 
-    results shouldBe Seq(Bit(0, 3, Map("content" -> "content_0")),
-                         Bit(0, 7, Map("content" -> "content_1")),
-                         Bit(0, 9, Map("content" -> "content_2")))
+    results shouldBe Seq(
+      Bit(0, 3, Map("content" -> "content_0"), tags = Map.empty),
+      Bit(0, 7, Map("content" -> "content_1"), tags = Map.empty),
+      Bit(0, 9, Map("content" -> "content_2"), tags = Map.empty)
+    )
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
@@ -187,16 +193,18 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
                                             None,
                                             Some(descSort))
 
-    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")),
-                             Bit(0, 7, Map("content" -> "content_1")),
-                             Bit(0, 3, Map("content" -> "content_0")))
+    descResults shouldBe Seq(
+      Bit(0, 9, Map("content" -> "content_2"), tags = Map.empty),
+      Bit(0, 7, Map("content" -> "content_1"), tags = Map.empty),
+      Bit(0, 3, Map("content" -> "content_0"), tags = Map.empty)
+    )
   }
 
   "TimeSeriesIndex" should "support groupBy queries with ordering and limiting" in {
     val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
     val records: Seq[Bit] = (0 to 9).map { i =>
-      Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"))
+      Bit(timestamp = i, value = i, dimensions = Map("content" -> s"content_${i / 4}"), tags = Map.empty)
     }
 
     implicit val writer = timeSeriesIndex.getWriter
@@ -210,6 +218,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
                                             Some(2),
                                             Some(descSort))
 
-    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2")), Bit(0, 7, Map("content" -> "content_1")))
+    descResults shouldBe Seq(Bit(0, 9, Map("content" -> "content_2"), tags = Map.empty),
+                             Bit(0, 7, Map("content" -> "content_1"), tags = Map.empty))
   }
 }

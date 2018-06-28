@@ -51,14 +51,14 @@ class CommitLogCoordinatorSpec
 
   "CommitLogCoordinator" should {
     "write a insert entry" in within(5.seconds) {
-      val bit = Bit(0, 1, Map("dim" -> "v"))
+      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
       awaitAssert {
         commitLogCoordinatorActor ! WriteToCommitLog("db", "namespace", "metric", 1L, InsertAction(bit))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
     "write a reject entry" in within(5.seconds) {
-      val bit = Bit(0, 1, Map("dim" -> "v"))
+      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
       awaitAssert {
         commitLogCoordinatorActor ! WriteToCommitLog("db1", "namespace1", "metric1", 1L, RejectAction(bit))
         expectMsgType[WriteToCommitLogSucceeded]

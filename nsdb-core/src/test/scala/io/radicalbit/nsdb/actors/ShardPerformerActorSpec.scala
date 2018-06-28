@@ -54,7 +54,7 @@ class ShardPerformerActorSpec
 
     val key = ShardKey("IndexerPerformerActorMetric", 0, 0)
 
-    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"))
+    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
 
     val operations =
       Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, key, bit))

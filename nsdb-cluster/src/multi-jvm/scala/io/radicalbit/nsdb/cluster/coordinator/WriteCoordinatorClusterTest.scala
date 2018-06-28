@@ -33,7 +33,7 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
-    |  read-coordinatoor.timeout = 10 seconds
+    |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds
     |  publisher.timeout = 10 seconds
@@ -41,7 +41,6 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |  write.scheduler.interval = 5 seconds
     |
     |  sharding {
-    |    enabled = true
     |    interval = 1m
     |  }
     |
@@ -112,7 +111,7 @@ class WriteCoordinatorClusterTest
       initialLoc.locations.size shouldBe 0
 
       runOn(node1) {
-        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty))
+        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
@@ -125,7 +124,7 @@ class WriteCoordinatorClusterTest
       }
 
       runOn(node2) {
-        writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty))
+        writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
@@ -138,7 +137,7 @@ class WriteCoordinatorClusterTest
       }
 
       runOn(node2) {
-        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(60000, 1.0, Map.empty))
+        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(60000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
@@ -150,11 +149,11 @@ class WriteCoordinatorClusterTest
         locations.locations.head.to shouldBe 60000
       }
       runOn(node1) {
-        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty))
+        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
       runOn(node2) {
-        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(40000, 1.0, Map.empty))
+        writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(40000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
@@ -169,7 +168,7 @@ class WriteCoordinatorClusterTest
       enterBarrier("Single Location")
 
       runOn(node1) {
-        writeCoordinator ! MapInput(60001, "db", "namespace", "metric", Bit(60001, 1.0, Map.empty))
+        writeCoordinator ! MapInput(60001, "db", "namespace", "metric", Bit(60001, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 

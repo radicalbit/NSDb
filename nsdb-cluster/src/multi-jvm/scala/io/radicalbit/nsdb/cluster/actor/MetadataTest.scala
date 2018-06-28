@@ -38,7 +38,6 @@ object MetadataTest extends MultiNodeConfig {
     |  write.scheduler.interval = 15 seconds
     |
     |  sharding {
-    |    enabled = true
     |    interval = 1d
     |  }
     |

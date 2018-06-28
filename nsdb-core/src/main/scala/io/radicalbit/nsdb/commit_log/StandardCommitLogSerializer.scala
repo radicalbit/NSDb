@@ -264,11 +264,17 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
 
-        InsertEntry(db = db,
-                    namespace = namespace,
-                    metric = metric,
-                    timestamp = ts,
-                    Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+        InsertEntry(
+          db = db,
+          namespace = namespace,
+          metric = metric,
+          timestamp = ts,
+          // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
+          Bit(timestamp = ts,
+              value = 0,
+              dimensions = createDimensions(dimensions),
+              tags = Map.empty[String, JSerializable])
+        )
       case c if c == classOf[RejectEntry].getCanonicalName =>
         // metric
         val metric = readByteBuffer.read
@@ -282,11 +288,17 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
 
-        RejectEntry(db = db,
-                    namespace = namespace,
-                    metric = metric,
-                    timestamp = ts,
-                    Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions)))
+        RejectEntry(
+          db = db,
+          namespace = namespace,
+          metric = metric,
+          timestamp = ts,
+          // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
+          Bit(timestamp = ts,
+              value = 0,
+              dimensions = createDimensions(dimensions),
+              tags = Map.empty[String, JSerializable])
+        )
       case c if c == classOf[DeleteEntry].getCanonicalName =>
         // metric
         val metric          = readByteBuffer.read

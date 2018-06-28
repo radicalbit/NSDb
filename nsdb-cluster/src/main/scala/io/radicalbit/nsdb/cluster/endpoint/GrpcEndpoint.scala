@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.protocol.{Bit, MetricField}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.rpc.common.{Dimension, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
 import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
@@ -190,6 +190,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
         dimensions = request.dimensions.collect {
           case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
         },
+        tags = request.tags.collect {
+          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, tagFor(v.value))
+        },
         value = valueFor(request.value)
       )
 
@@ -230,6 +233,12 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     }
 
     private def dimensionFor(v: Dimension.Value): JSerializable = v match {
+      case _: Dimension.Value.DecimalValue => v.decimalValue.get
+      case _: Dimension.Value.LongValue    => v.longValue.get
+      case _                               => v.stringValue.get
+    }
+
+    private def tagFor(v: Tag.Value): JSerializable = v match {
       case _: Dimension.Value.DecimalValue => v.decimalValue.get
       case _: Dimension.Value.LongValue    => v.longValue.get
       case _                               => v.stringValue.get
@@ -312,15 +321,18 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
               val result = InsertSQLStatement
                 .unapply(insert)
                 .map {
-                  case (db, namespace, metric, ts, dimensions, value) =>
+                  case (db, namespace, metric, ts, dimensions, tags, value) =>
                     val timestamp = ts getOrElse System.currentTimeMillis
-                    writeCoordinator ? MapInput(timestamp,
-                                                db,
-                                                namespace,
-                                                metric,
-                                                Bit(timestamp = timestamp,
-                                                    value = value,
-                                                    dimensions = dimensions.map(_.fields).getOrElse(Map.empty)))
+                    writeCoordinator ? MapInput(
+                      timestamp,
+                      db,
+                      namespace,
+                      metric,
+                      Bit(timestamp = timestamp,
+                          value = value,
+                          dimensions = dimensions.map(_.fields).getOrElse(Map.empty),
+                          tags = tags.map(_.fields).getOrElse(Map.empty))
+                    )
                 }
                 .getOrElse(Future(throw new InvalidStatementException("The insert SQL statement is invalid.")))
               result

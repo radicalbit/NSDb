@@ -215,6 +215,10 @@ class NsdbILoop(host: Option[String],
               r.dimensions.map {
                 case (k, dim) =>
                   (k, dim.value.value.asInstanceOf[JSerializable])
+              },
+              r.tags.map {
+                case (k, dim) =>
+                  (k, dim.value.value.asInstanceOf[JSerializable])
               }
           ))
       )

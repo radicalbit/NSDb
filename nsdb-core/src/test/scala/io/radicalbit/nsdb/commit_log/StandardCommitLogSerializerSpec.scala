@@ -34,7 +34,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace = "test-namespace"
         val ts        = 1500909299161L
         val metric    = "test-metric"
-        val bit       = Bit(ts, 0, Map("dimension1" -> "value1"))
+        val bit       = Bit(ts, 0, Map("dimension1" -> "value1"), Map.empty)
         val originalEntry =
           InsertEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
 
@@ -54,7 +54,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val metric    = "test1-metric"
         val dimensions: Map[String, JSerializable] =
           Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
-        val bit = Bit(timestamp = ts, dimensions = dimensions, value = 0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = Map.empty, value = 0)
         val originalEntry =
           InsertEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
 

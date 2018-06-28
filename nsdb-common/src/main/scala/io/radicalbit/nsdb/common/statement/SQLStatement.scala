@@ -256,7 +256,8 @@ case class SelectSQLStatement(override val db: String,
   * @param namespace the namespace.
   * @param metric the metric.
   * @param timestamp optional timestamp; if not present the current timestamp will be taken.
-  * @param dimensions the dimension to be inserted.
+  * @param dimensions the dimensions to be inserted.
+  * @param tags the tags to be inserted.
   * @param value the value to be inserted.
   */
 case class InsertSQLStatement(override val db: String,
@@ -264,6 +265,7 @@ case class InsertSQLStatement(override val db: String,
                               override val metric: String,
                               timestamp: Option[Long],
                               dimensions: Option[ListAssignment],
+                              tags: Option[ListAssignment],
                               value: JSerializable)
     extends SQLStatement
 

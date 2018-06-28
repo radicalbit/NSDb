@@ -64,9 +64,13 @@ abstract class AbstractTimeSeriesIndex extends Index[Bit] with TypeSupport {
       fields.filter(_.count).map(_.toString -> document.getField("_count").numericValue()).toMap
 
     val value = document.getField(_valueField).numericValue()
-    Bit(timestamp = document.getField(_keyField).numericValue().longValue(),
-        value = value,
-        dimensions = dimensions ++ aggregated)
+    Bit(
+      timestamp = document.getField(_keyField).numericValue().longValue(),
+      value = value,
+      dimensions = dimensions ++ aggregated,
+      // TODO: PLEASE REMEMBER TO EXTRACT TAGS PROPERLY
+      tags = Map.empty[String, JSerializable]
+    )
   }
 
   def delete(data: Bit)(implicit writer: IndexWriter): Try[Long] = {

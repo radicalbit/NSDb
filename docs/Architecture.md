@@ -102,9 +102,8 @@ One of the most relevant properties of a time series database is that data conti
 
 Users can configure a sharding interval
 ```
-sharding {
- enabled = true
- interval = 15s //15m 15d 1y are valid values
+sharding { 
+    interval = 15s //15m 15d 1y are valid values
 }
 ```
 
