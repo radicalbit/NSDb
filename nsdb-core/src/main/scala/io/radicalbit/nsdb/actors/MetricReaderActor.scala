@@ -46,7 +46,7 @@ import scala.util.{Failure, Success}
   *
   * - Retrieving data from shards, aggregates and returns it to the sender.
   *
-  * @param basePath shards indexes path.
+  * @param basePath shards actors path.
   * @param db shards db.
   * @param namespace shards namespace.
   */
@@ -106,17 +106,19 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param schema metric's schema.
     * @return a single result obtained from the manipulation of multiple results from different shards.
     */
-  private def applyOrderingWithLimit(shardResult: Future[Seq[Bit]], statement: SelectSQLStatement, schema: Schema) = {
-    shardResult.map(s => {
-      val maybeSorted = if (statement.order.isDefined) {
-        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-        implicit val ord: Ordering[JSerializable] =
-          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
-          else o
-        s.sortBy(_.fields(statement.order.get.dimension))
-      } else s
-
-      if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
+  private def applyOrderingWithLimit(shardResult: Future[Either[SelectStatementFailed, Seq[Bit]]],
+                                     statement: SelectSQLStatement,
+                                     schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+    shardResult.map(s =>
+      s.map { seq =>
+        val maybeSorted = if (statement.order.isDefined) {
+          val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+          implicit val ord: Ordering[JSerializable] =
+            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
+            else o
+          seq.sortBy(_.fields(statement.order.get.dimension))
+        } else seq
+        if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
     })
   }
 
@@ -133,21 +135,48 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
   /**
     * Groups results coming from different shards according to the group by clause provided in the query.
-    * @param shardResults results coming from different shards.
-    * @param dimension the group by clause dimension
+    * @param statement the Sql statement to be executed againt every actor.
+    * @param groupBy the group by clause dimension.
+    * @param schema Metric's schema.
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def groupShardResults[W](shardResults: Future[Seq[SelectStatementExecuted]], dimension: String)(
-      aggregationFunction: Seq[Bit] => W) = {
-    shardResults.map(
-      results =>
-        results
-          .flatMap(_.values)
-          .groupBy(_.dimensions(dimension))
-          .mapValues(aggregationFunction)
-          .values
-          .toSeq)
+  private def gatherAndgroupShardResults(
+      actors: Seq[(ShardKey, ActorRef)],
+      statement: SelectSQLStatement,
+      groupBy: String,
+      schema: Schema)(aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+
+    gatherShardResults(actors, statement, schema) { seq =>
+      seq
+        .groupBy(_.dimensions(groupBy))
+        .mapValues(aggregationFunction)
+        .values
+        .toSeq
+    }
+  }
+
+  /**
+    * Gathers results from every shard actor and elaborate them.
+    * @param actors Shard actors to retrieve results from.
+    * @param statement the Sql statement to be executed againt every actor.
+    * @param schema Metric's schema.
+    * @param postProcFun The function that will be applied after data are retrieved from all the shards.
+    * @return the processed results.
+    */
+  private def gatherShardResults(actors: Seq[(ShardKey, ActorRef)], statement: SelectSQLStatement, schema: Schema)(
+      postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+    Future
+      .sequence(actors.map {
+        case (_, actor) => actor ? ExecuteSelectStatement(statement, schema)
+      })
+      .map { e =>
+        val errs = e.collect { case a: SelectStatementFailed => a }
+        if (errs.nonEmpty) {
+          Left(SelectStatementFailed(errs.map(_.reason).mkString(",")))
+        } else
+          Right(postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
+      }
   }
 
   /**
@@ -155,45 +184,43 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * and a where condition involving timestamp has been provided.
     * @param statement raw statement.
     * @param parsedStatement parsed statement.
-    * @param indexes shard indexes to retrieve data from.
+    * @param actors shard actors to retrieve data from.
     * @param schema metric's schema.
     * @return a single sequence of results obtained from different shards.
     */
   private def retrieveAndorderPlainResults(statement: SelectSQLStatement,
                                            parsedStatement: ParsedSimpleQuery,
-                                           indexes: Seq[(ShardKey, ActorRef)],
-                                           schema: Schema): Future[Seq[Bit]] = {
+                                           actors: Seq[(ShardKey, ActorRef)],
+                                           schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
 
       val eventuallyOrderedActors =
-        statement.getTimeOrdering.map(indexes.sortBy(_._1.from)(_)).getOrElse(indexes)
+        statement.getTimeOrdering.map(actors.sortBy(_._1.from)(_)).getOrElse(actors)
 
-      Future
-        .sequence(eventuallyOrderedActors.map {
-          case (_, actor) => (actor ? ExecuteSelectStatement(statement, schema)).mapTo[SelectStatementExecuted]
-        })
-        .map(
-          e => e.flatMap(_.values).take(parsedStatement.limit)
-        )
+      gatherShardResults(eventuallyOrderedActors, statement, schema) { seq =>
+        seq.take(parsedStatement.limit)
+      }
 
     } else {
 
-      Future
-        .sequence(indexes.map {
-          case (_, actor) =>
-            (actor ? ExecuteSelectStatement(statement, schema)).mapTo[SelectStatementExecuted]
-        })
-        .map(seq => {
-          val flattenResults = seq.flatMap(_.values)
-          val o              = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-          implicit val ord: Ordering[JSerializable] =
-            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-          val sorted = flattenResults.sortBy(_.dimensions(statement.order.get.dimension))
-          sorted.take(statement.limit.get.value)
-        })
-
+      gatherShardResults(actors, statement, schema) { seq =>
+        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+        implicit val ord: Ordering[JSerializable] =
+          if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
+        val sorted = seq.sortBy(_.dimensions(statement.order.get.dimension))
+        sorted.take(statement.limit.get.value)
+      }
     }
   }
+
+  private def generateResponse(db: String,
+                               namespace: String,
+                               metric: String,
+                               rawResp: Either[SelectStatementFailed, Seq[Bit]]) =
+    rawResp match {
+      case Right(seq) => SelectStatementExecuted(db, namespace, metric, seq)
+      case Left(err)  => err
+    }
 
   /**
     * behaviour for read operations.
@@ -214,7 +241,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
 
-    case msg @ ExecuteSelectStatement(statement, schema) =>
+    case _ @ExecuteSelectStatement(statement, schema) =>
       statementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
@@ -222,65 +249,64 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
           val orderedResults = retrieveAndorderPlainResults(statement, parsedStatement, actors, schema)
 
-          val f = if (fields.lengthCompare(1) == 0 && fields.head.count) {
-            orderedResults.map(seq => {
-              val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
-              val count       = if (recordCount <= limit) recordCount else limit
-              SelectStatementExecuted(statement.db,
-                                      statement.namespace,
-                                      statement.metric,
-                                      Seq(Bit(0, count, Map(seq.head.dimensions.head._1 -> count), Map.empty)))
-            })
-          } else
-            orderedResults.map(
-              s => {
-                val values = s.map(
-                  b =>
-                    if (b.dimensions.contains("count(*)")) b.copy(dimensions = b.dimensions + ("count(*)" -> s.size))
-                    else b)
-                SelectStatementExecuted(statement.db, statement.namespace, statement.metric, values)
-              }
-            )
-          f.pipeTo(sender)
-
+          orderedResults
+            .map {
+              case Right(seq) =>
+                if (fields.lengthCompare(1) == 0 && fields.head.count) {
+                  val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
+                  val count       = if (recordCount <= limit) recordCount else limit
+                  SelectStatementExecuted(statement.db,
+                                          statement.namespace,
+                                          statement.metric,
+                                          Seq(Bit(0, count, Map(seq.head.dimensions.head._1 -> count), Map.empty)))
+                } else {
+                  SelectStatementExecuted(
+                    statement.db,
+                    statement.namespace,
+                    statement.metric,
+                    seq.map(
+                      b =>
+                        if (b.dimensions.contains("count(*)"))
+                          b.copy(dimensions = b.dimensions + ("count(*)" -> seq.size))
+                        else b)
+                  )
+                }
+              case Left(err) => err
+            }
+            .pipeTo(sender)
         case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val results = Future
-            .sequence(filteredIndexes.map { case (_, actor) => (actor ? msg).mapTo[SelectStatementExecuted] })
-          val shardResults = groupShardResults(results, distinctField) { values =>
+          val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
             Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))), Map.empty)
           }
 
           applyOrderingWithLimit(shardResults, statement, schema)
-            .map(v => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, v))
+            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
         case Success(ParsedAggregatedQuery(_, _, _, _: CountAllGroupsCollector[_], _, _)) =>
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
-          val result = Future
-            .sequence(filteredIndexes.map { case (_, actor) => (actor ? msg).mapTo[SelectStatementExecuted] })
 
-          val shardResults = groupShardResults(result, statement.groupBy.get) { values =>
-            Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, Map.empty)
+          val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
+            values =>
+              Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, Map.empty)
           }
 
           applyOrderingWithLimit(shardResults, statement, schema)
-            .map(values => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, values))
+            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
         case Success(ParsedAggregatedQuery(_, _, _, collector, _, _)) =>
-          val shardResults = Future
-            .sequence(actorsForMetric(statement.metric).toSeq.map {
-              case (_, actor) =>
-                (actor ? msg).mapTo[SelectStatementExecuted]
-            })
           val rawResult =
-            groupShardResults(shardResults, statement.groupBy.get) { values =>
+            gatherAndgroupShardResults(actorsForMetric(statement.metric).toSeq,
+                                       statement,
+                                       statement.groupBy.get,
+                                       schema) { values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
               collector match {
@@ -294,7 +320,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             }
 
           applyOrderingWithLimit(rawResult, statement, schema)
-            .map(values => SelectStatementExecuted(statement.db, statement.namespace, statement.metric, values))
+            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
         case Failure(ex) => Failure(ex)
