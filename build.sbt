@@ -165,7 +165,7 @@ lazy val `nsdb-cluster` = project
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
       Cmd("USER", "nsdb"),
       Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "curl", "-f", "http://localhost:9000/status || exit 1"),
-      Cmd("CMD", s"bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
+      Cmd("CMD", s"bin/nsdb-cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
   )
   .settings(
