@@ -94,6 +94,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
         .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
+      //TODO Remove debugging code
       (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .flatMap {
           case CachedLocations(_, values) if values.nonEmpty =>
@@ -115,7 +116,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
             val randomNode = Random.shuffle(cluster.state.members).head
             val nodeName =
               s"${randomNode.address.host.getOrElse("noHost")}_${randomNode.address.port.getOrElse(2552)}"
-            (self ? AddLocation(db, namespace, Location(metric, nodeName, 0, shardingInterval.toMillis))).map {
+            (self ? AddLocation(db, namespace, Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
               case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
               case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
             }
