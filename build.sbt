@@ -181,6 +181,22 @@ lazy val `nsdb-cluster` = project
     packageDescription in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka"
   )
   .settings(
+    /* RPM Settings - to create, run as:
+       $ sbt `project nsdb-cluster` rpm:packageBin
+
+       See here for details:
+       http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
+     */
+    version in Rpm := version.value,
+    packageName in Rpm := name.value,
+    rpmRelease := "1",
+    packageSummary in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    packageDescription in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    rpmVendor := "Radicalbit",
+    rpmUrl := Some("https://github.com/radicalbit/NSDb"),
+    rpmLicense := Some("Apache")
+  )
+  .settings(
     mappings in Universal ++= {
       val confDir = baseDirectory.value / "src/main/resources"
 
