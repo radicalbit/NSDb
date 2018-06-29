@@ -52,5 +52,8 @@ mainRunner
 # IntelliJ specific
 .idea
 *.sc
-data
 nsdb-kafka-connect/full-stack
+
+# docker-compose example not traced volumes
+data
+certs
