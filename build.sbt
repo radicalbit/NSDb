@@ -154,9 +154,10 @@ lazy val `nsdb-cluster` = project
       Cmd("FROM", "tools.radicalbit.io/service-java-base:1.0"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
       Cmd("WORKDIR", s"/opt/${name.value}"),
+      Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
-      ExecCmd("RUN", "chown", "-R", "root:root", "."),
-      Cmd("USER", "root"),
+      ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
+      Cmd("USER", "nsdb"),
       Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "curl", "-f", "http://localhost:9000/status || exit 1"),
       Cmd("CMD", s"bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
