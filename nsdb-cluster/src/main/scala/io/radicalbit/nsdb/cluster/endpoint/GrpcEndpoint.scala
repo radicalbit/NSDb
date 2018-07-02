@@ -126,11 +126,16 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     override def showMetrics(
         request: ShowMetrics
     ): Future[GrpcMetricsGot] = {
-      //TODO: add failure handling
       log.debug("Received command ShowMetrics for namespace {}", request.namespace)
       (readCoordinator ? GetMetrics(request.db, request.namespace)).map {
         case MetricsGot(db, namespace, metrics) =>
           GrpcMetricsGot(db, namespace, metrics.toList, completedSuccessfully = true)
+        case _ =>
+          GrpcMetricsGot(request.db,
+                         request.namespace,
+                         List.empty,
+                         completedSuccessfully = false,
+                         "Unknown server error")
       }
     }
 

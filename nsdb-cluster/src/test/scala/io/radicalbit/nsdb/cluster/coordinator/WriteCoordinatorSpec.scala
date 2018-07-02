@@ -21,8 +21,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WarmUpCompleted
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import org.scalatest._
 
 import scala.concurrent.Await

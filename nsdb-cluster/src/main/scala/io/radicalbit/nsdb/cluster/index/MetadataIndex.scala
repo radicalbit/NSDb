@@ -84,8 +84,7 @@ class MetadataIndex(override val directory: BaseDirectory) extends Index[Locatio
   def getMetadata(metric: String): Seq[Location] = {
     val queryTerm = new TermQuery(new Term(_keyField, metric))
 
-    val reader                           = DirectoryReader.open(directory)
-    implicit val searcher: IndexSearcher = new IndexSearcher(reader)
+    implicit val searcher: IndexSearcher = getSearcher
 
     Try(query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)) match {
       case Success(metadataSeq) => metadataSeq

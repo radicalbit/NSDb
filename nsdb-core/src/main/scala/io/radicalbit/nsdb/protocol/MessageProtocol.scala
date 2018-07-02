@@ -69,6 +69,8 @@ object MessageProtocol {
     */
   object Events {
 
+    case object WarmUpCompleted
+
     sealed trait ErrorCode
     case class MetricNotFound(metric: String) extends ErrorCode
     case object Generic                       extends ErrorCode
