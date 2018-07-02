@@ -115,7 +115,7 @@ lazy val `nsdb-rpc` = project
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
-  .enablePlugins(JavaAppPackaging, DockerPlugin)
+  .enablePlugins(JavaAppPackaging, SbtNativePackager)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .settings(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
@@ -138,12 +138,25 @@ lazy val `nsdb-cluster` = project
   .configs(MultiJvm)
   .settings(assemblyJarName in assembly := "nsdb-cluster.jar")
   .settings(
+    /* Docker Settings - to create, run as:
+       $ sbt `project nsdb-cluster` docker:publishLocal
+
+       See here for details:
+       http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
+     */
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "src/main/resources"
 
       for {
         (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
       } yield file -> s"/opt/${name.value}/conf/$relativePath"
+    },
+    mappings in Docker ++= {
+      val confDir = baseDirectory.value / "../docker-scripts"
+
+      for {
+        (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
+      } yield file -> s"/opt/${name.value}/bin/$relativePath"
     },
     packageName in Docker := name.value,
     version in Docker := version.value,
@@ -154,12 +167,25 @@ lazy val `nsdb-cluster` = project
       Cmd("FROM", "tools.radicalbit.io/service-java-base:1.0"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
       Cmd("WORKDIR", s"/opt/${name.value}"),
+      Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
-      ExecCmd("RUN", "chown", "-R", "root:root", "."),
-      Cmd("USER", "root"),
-      Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "curl", "-f", "http://localhost:9000/status || exit 1"),
-      Cmd("CMD", s"bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
+      ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
+      Cmd("USER", "nsdb"),
+      Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "bin/nsdb-healthcheck"),
+      Cmd("CMD", "bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
+  )
+  .settings(
+    /* Debian Settings - to create, run as:
+       $ sbt `project nsdb-cluster` debian:packageBin
+
+       See here for details:
+       http://www.scala-sbt.org/sbt-native-packager/formats/debian.html
+     */
+    version in Debian := version.value,
+    maintainer in Debian := "Radicalbit <info@radicalbit.io>",
+    packageSummary in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    packageDescription in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka"
   )
   .settings(
     mappings in Universal ++= {

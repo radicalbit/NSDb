@@ -210,14 +210,15 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
       Try(shardResults.flatMap(_.get)).map(s => {
         val schemaField = schema.fields.find(_.name == statement.order.get.dimension).get
-        val o = schemaField.indexType.ord
+        val o           = schemaField.indexType.ord
         implicit val ord: Ordering[JSerializable] =
           if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
 
-        val sorted = if(schemaField.fieldClassType == DimensionFieldType)
-          s.sortBy(_.dimensions(statement.order.get.dimension))
-        else
-          s.sortBy(_.tags(statement.order.get.dimension))
+        val sorted =
+          if (schemaField.fieldClassType == DimensionFieldType)
+            s.sortBy(_.dimensions(statement.order.get.dimension))
+          else
+            s.sortBy(_.tags(statement.order.get.dimension))
 
         sorted.take(statement.limit.get.value)
       })

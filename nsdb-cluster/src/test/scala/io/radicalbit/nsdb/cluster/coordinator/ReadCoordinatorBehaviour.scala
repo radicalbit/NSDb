@@ -45,8 +45,9 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
     val name = "longMetric"
 
     val recordsShard1: Seq[Bit] = Seq(
+      Bit(1L, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
       Bit(2L, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
-      Bit(4L, 1L, Map("surname" -> "Doe"), Map("name" -> "John"))
+      Bit(4L, 1L, Map("surname" -> "D"), Map("name"   -> "J"))
     )
 
     val recordsShard2: Seq[Bit] = Seq(
@@ -186,13 +187,13 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             probe.expectMsgType[SelectStatementExecuted]
           }
 
-          expected.values.size shouldBe 5
+          expected.values.size shouldBe 6
           val result = expected.values.sortBy(_.timestamp)
 
           for {
-            i <- 0 to 4
+            i <- 0 to 5
           } {
-            result(i) shouldBe (if (i < 2) LongMetric.recordsShard1(i) else LongMetric.recordsShard2(i - 2))
+            result(i) shouldBe (if (i < 3) LongMetric.recordsShard1(i) else LongMetric.recordsShard2(i - 3))
           }
         }
       }
@@ -215,12 +216,13 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             probe.expectMsgType[SelectStatementExecuted]
           }
 
-          expected.values.size shouldBe 5
+          expected.values.size shouldBe 6
           val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
 
           names.count(_ == "Bill") shouldBe 1
           names.count(_ == "Frank") shouldBe 1
           names.count(_ == "Frankie") shouldBe 1
+          names.count(_ == "J") shouldBe 1
           names.count(_ == "John") shouldBe 2
         }
       }
@@ -243,10 +245,11 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             probe.expectMsgType[SelectStatementExecuted]
           }
 
-          expected.values.size shouldBe 5
+          expected.values.size shouldBe 6
 
           val names = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
           names.count(_ == "Doe") shouldBe 5
+          names.count(_ == "D") shouldBe 1
         }
       }
 
@@ -268,17 +271,17 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             probe.expectMsgType[SelectStatementExecuted]
           }
 
-          expected.values.size shouldBe 5
+          expected.values.size shouldBe 6
 
           val dimensions = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
           dimensions.count(_ == "Doe") shouldBe 5
 
-          expected.values.size shouldBe 5
           val tags = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
 
           tags.count(_ == "Bill") shouldBe 1
           tags.count(_ == "Frank") shouldBe 1
           tags.count(_ == "Frankie") shouldBe 1
+          tags.count(_ == "J") shouldBe 1
           tags.count(_ == "John") shouldBe 2
         }
       }
@@ -294,7 +297,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 metric = LongMetric.name,
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
@@ -307,7 +310,8 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           names.contains("Frank") shouldBe true
           names.contains("Frankie") shouldBe true
           names.contains("John") shouldBe true
-          names.size shouldBe 4
+          names.contains("J") shouldBe true
+          names.size shouldBe 5
         }
 
         "execute successfully with limit over distinct values" in within(5.seconds) {
@@ -342,7 +346,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
                 order = Some(AscOrderOperator("name")),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
@@ -352,6 +356,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
               Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
               Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+              Bit(0L, 0L, Map.empty, Map("name" -> "J")),
               Bit(0L, 0L, Map.empty, Map("name" -> "John"))
             )
           }
@@ -369,7 +374,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 distinct = true,
                 fields = ListFields(List(Field("name", None))),
                 order = Some(DescOrderOperator("name")),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
@@ -377,6 +382,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
             probe.expectMsgType[SelectStatementExecuted].values shouldBe Seq(
               Bit(0L, 0L, Map.empty, Map("name" -> "John")),
+              Bit(0L, 0L, Map.empty, Map("name" -> "J")),
               Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
               Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
               Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
@@ -396,7 +402,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                                  metric = LongMetric.name,
                                  distinct = false,
                                  fields = AllFields,
-                                 limit = Some(LimitOperator(5)))
+                                 limit = Some(LimitOperator(6)))
             )
           )
           awaitAssert {
@@ -413,7 +419,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                                  metric = LongMetric.name,
                                  distinct = true,
                                  fields = AllFields,
-                                 limit = Some(LimitOperator(5)))
+                                 limit = Some(LimitOperator(6)))
             )
           )
           awaitAssert {
@@ -433,7 +439,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("name", None), Field("surname", None))),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
@@ -455,7 +461,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                 metric = LongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)), Field("name", None))),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
@@ -463,11 +469,12 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
             expected.values.sortBy(_.timestamp) shouldBe Seq(
-              Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 5)),
-              Bit(4L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 5)),
-              Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 5)),
-              Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 5)),
-              Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 5))
+              Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+              Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+              Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+              Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+              Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+              Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
             )
           }
         }
@@ -607,7 +614,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                     ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
                     NotOperator
                   ))),
-                limit = Some(LimitOperator(4))
+                limit = Some(LimitOperator(6))
               )
             )
           )
@@ -615,7 +622,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
           awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
 
-            expected.values.size should be(4)
+            expected.values.size should be(5)
           }
         }
       }
@@ -669,13 +676,13 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                   expression2 =
                     ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
                 ))),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
           awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.size should be(5)
+            expected.values.size should be(6)
           }
         }
       }
@@ -722,13 +729,13 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
                   operator = AndOperator,
                   expression2 = EqualityExpression(dimension = "name", value = "John")
                 ))),
-                limit = Some(LimitOperator(5))
+                limit = Some(LimitOperator(6))
               )
             )
           )
           awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.size should be(2)
+            expected.values.size should be(1)
           }
         }
       }
@@ -753,7 +760,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.size should be(4)
+            expected.values.size should be(5)
           }
         }
       }
@@ -823,6 +830,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
               Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
               Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+              Bit(0L, 1L, Map.empty, Map("name" -> "J")),
               Bit(0L, 2L, Map.empty, Map("name" -> "John"))
             )
           }
@@ -849,6 +857,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
               Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
               Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
               Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+              Bit(0L, 1L, Map.empty, Map("name" -> "J")),
               Bit(0L, 2L, Map.empty, Map("name" -> "John"))
             )
           }
@@ -874,6 +883,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
             val expected = probe.expectMsgType[SelectStatementExecuted]
             expected.values shouldBe Seq(
               Bit(0L, 2, Map.empty, Map("name" -> "John")),
+              Bit(0L, 1, Map.empty, Map("name" -> "J")),
               Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
               Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
               Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
@@ -924,7 +934,7 @@ trait ReadCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =
 
           awaitAssert {
             val expected = probe.expectMsgType[SelectStatementExecuted]
-            expected.values.map(_.value) shouldBe Seq(2, 1, 1, 1)
+            expected.values.map(_.value) shouldBe Seq(2, 1, 1, 1, 1)
           }
 
           probe.send(
