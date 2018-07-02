@@ -78,8 +78,6 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
 
   val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
 
-  metadataCoordinator ! WarmUpLocations(List.empty)
-
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
       cluster join node(to).address

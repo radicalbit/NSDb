@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -94,7 +95,6 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
         .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
-      //TODO Remove debugging code
       (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .flatMap {
           case CachedLocations(_, values) if values.nonEmpty =>
@@ -116,7 +116,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
             val randomNode = Random.shuffle(cluster.state.members).head
             val nodeName =
               s"${randomNode.address.host.getOrElse("noHost")}_${randomNode.address.port.getOrElse(2552)}"
-            (self ? AddLocation(db, namespace, Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
+            (self ? AddLocation(db,
+                                namespace,
+                                Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
               case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
               case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
             }
@@ -149,8 +151,6 @@ object MetadataCoordinator {
   }
 
   object events {
-
-    private[coordinator] case object WarmUpCompleted
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])

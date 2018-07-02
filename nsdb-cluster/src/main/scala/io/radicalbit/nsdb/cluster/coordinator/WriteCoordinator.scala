@@ -36,7 +36,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   GetLocations,
   GetWriteLocation
 }
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot, WarmUpCompleted}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
@@ -208,6 +208,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   override def receive: Receive = warmUp
 
+  /**
+    * Initial state in which actor waits metadata warm-up completion.
+    */
   def warmUp: Receive = {
     case WarmUpCompleted =>
       unstashAll()

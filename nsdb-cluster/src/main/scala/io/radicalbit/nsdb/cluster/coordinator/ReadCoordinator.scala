@@ -22,7 +22,6 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WarmUpCompleted
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
 import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -52,6 +51,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
 
   override def receive: Receive = warmUp
 
+  /**
+    * Initial state in which actor waits metadata warm-up completion.
+    */
   def warmUp: Receive = {
     case WarmUpCompleted =>
       context.become(operating)
