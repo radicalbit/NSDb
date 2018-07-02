@@ -152,7 +152,7 @@ lazy val `nsdb-cluster` = project
       } yield file -> s"/opt/${name.value}/conf/$relativePath"
     },
     mappings in Docker ++= {
-      val confDir = baseDirectory.value / "../docker"
+      val confDir = baseDirectory.value / "../docker-scripts"
 
       for {
         (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
@@ -171,7 +171,7 @@ lazy val `nsdb-cluster` = project
       Cmd("ADD", "opt", "/opt"),
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
       Cmd("USER", "nsdb"),
-      Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "bin/healthcheck"),
+      Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "bin/nsdb-healthcheck"),
       Cmd("CMD", "bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
   )
