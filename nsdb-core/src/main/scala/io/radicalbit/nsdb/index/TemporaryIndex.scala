@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.index
 import org.apache.lucene.store.RAMDirectory
 
 /**
-  * Concrete implementation of [[AbstractTimeSeriesIndex]] which store data in memory.
+  * Concrete implementation of [[AbstractStructuredIndex]] which store data in memory.
   */
-class TemporaryIndex extends AbstractTimeSeriesIndex {
+class TemporaryIndex extends AbstractStructuredIndex {
   override lazy val directory = new RAMDirectory()
 }

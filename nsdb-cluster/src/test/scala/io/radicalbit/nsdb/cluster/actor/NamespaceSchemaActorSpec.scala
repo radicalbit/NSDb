@@ -20,7 +20,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -46,8 +46,8 @@ class NamespaceSchemaActorSpec
   val namespace  = "namespace"
   val namespace1 = "namespace1"
 
-  val nameRecord    = Bit(0, 1, Map("name"    -> "name"), Map.empty)
-  val surnameRecord = Bit(0, 1, Map("surname" -> "surname"), Map.empty)
+  val nameRecord    = Bit(0, 1, Map("name"    -> "name"), Map("city"       -> "milano"))
+  val surnameRecord = Bit(0, 1, Map("surname" -> "surname"), Map("country" -> "italy"))
 
   before {
     implicit val timeout = Timeout(10 seconds)
@@ -72,16 +72,30 @@ class NamespaceSchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR())
+        )
+      ))
 
     probe.send(namespaceSchemaActor, GetSchema(db, namespace1, "people"))
 
     val existingGot1 = probe.expectMsgType[SchemaGot]
     existingGot1.metric shouldBe "people"
     existingGot1.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("surname", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      ))
   }
 
   "SchemaActor" should "update schemas in case of success in different namespaces" in {
@@ -94,11 +108,17 @@ class NamespaceSchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()),
-                 SchemaField("timestamp", BIGINT()),
-                 SchemaField("value", INT()),
-                 SchemaField("surname", VARCHAR())))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      )
     )
 
     probe.send(namespaceSchemaActor, UpdateSchemaFromRecord(db, namespace1, "people", nameRecord))
@@ -110,11 +130,17 @@ class NamespaceSchemaActorSpec
     val existingGot1 = probe.expectMsgType[SchemaGot]
     existingGot1.metric shouldBe "people"
     existingGot1.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()),
-                 SchemaField("timestamp", BIGINT()),
-                 SchemaField("value", INT()),
-                 SchemaField("surname", VARCHAR())))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      )
     )
   }
 }

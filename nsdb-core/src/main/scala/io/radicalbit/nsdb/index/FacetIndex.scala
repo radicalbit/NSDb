@@ -17,8 +17,9 @@
 package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.index.lucene.OrderedTaxonomyFacetCounts
+import io.radicalbit.nsdb.model.TypedField
 import org.apache.lucene.document._
 import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
 import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
@@ -34,7 +35,7 @@ import scala.util.{Failure, Success, Try}
   * @param directory facet index base directory
   * @param taxoDirectory taxonomy base directory
   */
-class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory) extends AbstractTimeSeriesIndex {
+class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory) extends AbstractStructuredIndex {
 
   /**
     * @return the [[org.apache.lucene.facet.taxonomy.TaxonomyWriter]]
@@ -48,7 +49,12 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
 
   override def validateRecord(bit: Bit): Try[Seq[Field]] =
     validateSchemaTypeSupport(bit)
-      .map(se => se.flatMap(elem => elem.indexType.facetField(elem.name, elem.value)))
+      .map(
+        se =>
+          se.collect {
+              case t: TypedField if t.fieldClassType != DimensionFieldType => t
+            }
+            .flatMap(elem => elem.indexType.facetField(elem.name, elem.value)))
 
   def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): Try[Long] = {
     val doc       = new Document
@@ -108,20 +114,18 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     val facetResult: Option[FacetResult] = getFacetResult(query, groupField, sort, limit)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
-        .map(
-          lv =>
-            // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
-            Bit(
-              timestamp = 0,
-              value = lv.value.longValue(),
-              dimensions = Map(groupField -> indexType.cast(lv.label).asInstanceOf[JSerializable]),
-              tags = Map.empty[String, JSerializable]
-          ))
+        .map(lv =>
+          Bit(
+            timestamp = 0,
+            value = lv.value.longValue(),
+            dimensions = Map.empty[String, JSerializable],
+            tags = Map(groupField -> indexType.cast(lv.label).asInstanceOf[JSerializable])
+        ))
         .toSeq)
   }
 
   /**
-    * Gets results from a distinct query.
+    * Gets results from a distinct query. The distinct query can be run only using a single tag.
     * @param query query to be executed against the facet index.
     * @param field distinct field.
     * @param sort optional lucene [[Sort]]
@@ -130,11 +134,10 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     */
   def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
     val facetResult = getFacetResult(query, field, sort, Some(limit))
-    // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
         .map(lv =>
-          Bit(timestamp = 0, value = 0, dimensions = Map(field -> lv.label), tags = Map.empty[String, JSerializable]))
+          Bit(timestamp = 0, value = 0, dimensions = Map.empty[String, JSerializable], tags = Map(field -> lv.label)))
         .toSeq)
   }
 }

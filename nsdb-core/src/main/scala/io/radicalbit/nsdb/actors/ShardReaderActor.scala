@@ -24,7 +24,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.index.{FacetIndex, NumericType, TimeSeriesIndex}
@@ -34,7 +34,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter}
-import org.apache.lucene.search.MatchAllDocsQuery
+import org.apache.lucene.search.{MatchAllDocsQuery, Query, Sort}
 import org.apache.lucene.store.MMapDirectory
 import spire.implicits._
 import spire.math.Interval
@@ -60,8 +60,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     with ShardsActor
     with ActorLogging {
   import scala.collection.mutable
-
-  private val statementParser = new StatementParser()
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
@@ -91,7 +89,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       }
     )
 
-  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]) = {
+  private def handleQueryResults(metric: String, out: Try[Seq[Bit]]): Try[Seq[Bit]] = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
     }
@@ -111,7 +109,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         implicit val ord: Ordering[JSerializable] =
           if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
           else o
-        s.sortBy(_.fields(statement.order.get.dimension))
+        s.sortBy(_.fields(statement.order.get.dimension)._1)
       } else s
 
       if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
@@ -156,16 +154,16 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
   /**
     * Groups results coming from different shards according to the group by clause provided in the query.
     * @param shardResults results coming from different shards.
-    * @param dimension the group by clause dimension
+    * @param tag the group by clause tag
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def groupShardResults[W](shardResults: Seq[Try[Seq[Bit]]], dimension: String)(
+  private def groupShardResults[W](shardResults: Seq[Try[Seq[Bit]]], tag: String)(
       aggregationFunction: Seq[Bit] => W): Try[Seq[W]] = {
     Try(
       shardResults
         .flatMap(_.get)
-        .groupBy(_.dimensions(dimension))
+        .groupBy(_.tags(tag))
         .mapValues(aggregationFunction)
         .values
         .toSeq)
@@ -180,7 +178,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     * @param schema metric's schema.
     * @return a single sequence of results obtained from different shards.
     */
-  private def retrieveAndorderPlainResults(statement: SelectSQLStatement,
+  private def retrieveAndOrderPlainResults(statement: SelectSQLStatement,
                                            parsedStatement: ParsedSimpleQuery,
                                            indexes: Seq[(ShardKey, TimeSeriesIndex)],
                                            schema: Schema): Try[Seq[Bit]] = {
@@ -193,7 +191,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
       eventuallyOrdered.takeWhile {
         case (_, index) =>
-          val partials = handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(identity)))
+          val partials = handleQueryResults(metric, Try(index.query(schema, q, fields, limit, sort)(identity)))
           result += partials
 
           val combined = Try(result.flatMap(_.get))
@@ -207,17 +205,22 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
       val shardResults = indexes.map {
         case (_, index) =>
-          handleQueryResults(metric, Try(index.query(q, fields, limit, sort)(identity)))
+          handleQueryResults(metric, Try(index.query(schema, q, fields, limit, sort)(identity)))
       }
 
       Try(shardResults.flatMap(_.get)).map(s => {
-        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+        val schemaField = schema.fields.find(_.name == statement.order.get.dimension).get
+        val o = schemaField.indexType.ord
         implicit val ord: Ordering[JSerializable] =
           if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-        val sorted = s.sortBy(_.dimensions(statement.order.get.dimension))
+
+        val sorted = if(schemaField.fieldClassType == DimensionFieldType)
+          s.sortBy(_.dimensions(statement.order.get.dimension))
+        else
+          s.sortBy(_.tags(statement.order.get.dimension))
+
         sorted.take(statement.limit.get.value)
       })
-
     }
   }
 
@@ -234,124 +237,12 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     case GetCount(_, ns, metric) =>
       val hits = shardsForMetric(metric).map {
         case (_, index) =>
-          index.query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity).size
+          index.getCount()
       }.sum
       sender ! CountGot(db, ns, metric, hits)
     case ExecuteSelectStatement(statement, schema) =>
-      val postProcessedResult: Try[Seq[Bit]] =
-        statementParser.parseStatement(statement, schema) match {
-          case Success(parsedStatement @ ParsedSimpleQuery(_, metric, _, false, limit, fields, _)) =>
-            val indexes =
-              filterShardsThroughTime(statement.condition.map(_.expression), shardsForMetric(statement.metric))
-
-            val orderedResults = retrieveAndorderPlainResults(statement, parsedStatement, indexes, schema)
-
-            if (fields.lengthCompare(1) == 0 && fields.head.count) {
-              orderedResults.map(seq => {
-                val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
-                val count       = if (recordCount <= limit) recordCount else limit
-
-                Seq(
-                  Bit(timestamp = 0,
-                      value = count,
-                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
-              })
-            } else
-              orderedResults.map(
-                s =>
-                  s.map(
-                    b =>
-                      if (b.dimensions.contains("count(*)")) b.copy(dimensions = b.dimensions + ("count(*)" -> s.size))
-                      else b)
-              )
-
-          case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
-            val distinctField = fields.head.name
-
-            val filteredIndexes =
-              filterShardsThroughTime(statement.condition.map(_.expression), facetsShardsFromMetric(statement.metric))
-
-            val results = filteredIndexes.map {
-              case (_, index) =>
-                handleQueryResults(metric, Try(index.getDistinctField(q, fields.map(_.name).head, sort, limit)))
-            }
-
-            val shardResults = groupShardResults(results, distinctField) { values =>
-              Bit(
-                timestamp = 0,
-                value = 0,
-                dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
-                tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
-              )
-            }
-
-            applyOrderingWithLimit(shardResults, statement, schema)
-
-          case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
-            val result = filterShardsThroughTime(statement.condition.map(_.expression),
-                                                 facetsShardsFromMetric(statement.metric)).map {
-              case (_, index) =>
-                handleQueryResults(
-                  metric,
-                  Try(index
-                    .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
-            }
-
-            val shardResults = groupShardResults(result, statement.groupBy.get) { values =>
-              // TODO: TO BE VERIFIED THE TAGS USAGE
-              Bit(timestamp = 0,
-                  value = values.map(_.value.asInstanceOf[Long]).sum,
-                  dimensions = values.head.dimensions,
-                  tags = values.head.tags)
-            }
-
-            applyOrderingWithLimit(shardResults, statement, schema)
-
-          case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
-            val shardResults = shardsForMetric(statement.metric).toSeq.map {
-              case (_, index) =>
-                handleQueryResults(metric, Try(index.query(q, collector.clear, limit, sort)))
-            }
-            val rawResult =
-              groupShardResults(shardResults, statement.groupBy.get) { values =>
-                val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-                implicit val numeric: Numeric[JSerializable] = v.numeric
-                collector match {
-                  case _: MaxAllGroupsCollector[_, _] =>
-                    // TODO: TO BE VERIFIED THE TAGS USAGE
-                    Bit(timestamp = 0,
-                        value = values.map(_.value).max,
-                        dimensions = values.head.dimensions,
-                        tags = values.head.tags)
-                  case _: MinAllGroupsCollector[_, _] =>
-                    // TODO: TO BE VERIFIED THE TAGS USAGE
-                    Bit(timestamp = 0,
-                        value = values.map(_.value).min,
-                        dimensions = values.head.dimensions,
-                        tags = values.head.tags)
-                  case _: SumAllGroupsCollector[_, _] =>
-                    // TODO: TO BE VERIFIED THE TAGS USAGE
-                    Bit(timestamp = 0,
-                        value = values.map(_.value).sum,
-                        dimensions = values.head.dimensions,
-                        tags = values.head.tags)
-                }
-              }
-
-            applyOrderingWithLimit(rawResult, statement, schema)
-
-          case Failure(ex) => Failure(ex)
-          case _           => Failure(new InvalidStatementException("Not a select statement."))
-        }
-
-      postProcessedResult match {
-        case Success(bits) =>
-          sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
-        case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
-        case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
-      }
-    case msg @ DropMetric(_, _, metric) =>
+      executeSelectStatement(statement, schema)
+    case DropMetric(_, _, metric) =>
       shardsForMetric(metric).foreach {
         case (key, index) =>
           implicit val writer: IndexWriter = index.getWriter
@@ -365,6 +256,161 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         getIndex(key).refresh()
         getFacetIndex(key).refresh()
       }
+  }
+
+  private def executeSelectStatement(statement: SelectSQLStatement, schema: Schema): Unit = {
+
+    val parsedStatement = StatementParser.parseStatement(statement, schema)
+
+    val postProcessedResult: Try[Seq[Bit]] = parsedStatement match {
+      case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
+        executeSimpleQuery(statement, schema, parsedStatement, limit, fields)
+
+      case Success(ParsedSimpleQuery(_, metric, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
+        executeSimpleQueryFixedLength(statement, schema, metric, q, limit, fields, sort)
+
+      case Success(ParsedAggregatedQuery(_, metric, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
+        executeAggregateQueryWithCount(statement, schema, metric, q, collector, sort, limit)
+
+      case Success(ParsedAggregatedQuery(_, metric, q, collector, sort, limit)) =>
+        executeAggregationQuery(statement, schema, metric, q, collector, sort, limit)
+
+      case Failure(ex) => Failure(ex)
+      case _ =>
+        log.error("An error occurred trying to execute the following select statement {}.", statement)
+        Failure(new InvalidStatementException("Not a select statement."))
+    }
+
+    postProcessedResult match {
+      case Success(bits) =>
+        sender() ! SelectStatementExecuted(db, namespace, statement.metric, bits)
+      case Failure(ex: InvalidStatementException) => sender() ! SelectStatementFailed(ex.message)
+      case Failure(ex)                            => sender() ! SelectStatementFailed(ex.getMessage)
+    }
+  }
+
+  private def executeSimpleQuery(statement: SelectSQLStatement,
+                                 schema: Schema,
+                                 parsedStatement: ParsedSimpleQuery,
+                                 limit: Int,
+                                 fields: List[SimpleField]): Try[Seq[Bit]] = {
+    val indexes =
+      filterShardsThroughTime(statement.condition.map(_.expression), shardsForMetric(statement.metric))
+
+    val orderedResults = retrieveAndOrderPlainResults(statement, parsedStatement, indexes, schema)
+
+    if (fields.lengthCompare(1) == 0 && fields.head.count) {
+      orderedResults.map(seq => {
+        val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
+        val count       = if (recordCount <= limit) recordCount else limit
+
+        Seq(
+          Bit(timestamp = 0,
+              value = count,
+              dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
+              tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
+      })
+    } else
+      orderedResults.map(
+        s =>
+          s.map(
+            b =>
+              if (b.tags.contains("count(*)")) b.copy(tags = b.tags + ("count(*)" -> s.size))
+              else b)
+      )
+  }
+
+  private def executeSimpleQueryFixedLength(statement: SelectSQLStatement,
+                                            schema: Schema,
+                                            metric: String,
+                                            q: Query,
+                                            limit: Int,
+                                            fields: List[SimpleField],
+                                            sort: Option[Sort]): Try[Seq[Bit]] = {
+    val distinctField = fields.head.name
+
+    val filteredIndexes =
+      filterShardsThroughTime(statement.condition.map(_.expression), facetsShardsFromMetric(statement.metric))
+
+    val results = filteredIndexes.map {
+      case (_, index) =>
+        handleQueryResults(metric, Try(index.getDistinctField(q, fields.map(_.name).head, sort, limit)))
+    }
+
+    val shardResults = groupShardResults(results, distinctField) { values =>
+      Bit(
+        timestamp = 0,
+        value = 0,
+        dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
+        tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
+      )
+    }
+
+    applyOrderingWithLimit(shardResults, statement, schema)
+  }
+
+  private def executeAggregateQueryWithCount(statement: SelectSQLStatement,
+                                             schema: Schema,
+                                             metric: String,
+                                             q: Query,
+                                             collector: CountAllGroupsCollector[_],
+                                             sort: Option[Sort],
+                                             limit: Option[Int]): Try[Seq[Bit]] = {
+    val result =
+      filterShardsThroughTime(statement.condition.map(_.expression), facetsShardsFromMetric(statement.metric)).map {
+        case (_, index) =>
+          handleQueryResults(
+            metric,
+            Try(
+              index
+                .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType)))
+      }
+
+    val shardResults = groupShardResults(result, statement.groupBy.get) { values =>
+      Bit(timestamp = 0,
+          value = values.map(_.value.asInstanceOf[Long]).sum,
+          dimensions = values.head.dimensions,
+          tags = values.head.tags)
+    }
+
+    applyOrderingWithLimit(shardResults, statement, schema)
+  }
+
+  private def executeAggregationQuery(statement: SelectSQLStatement,
+                                      schema: Schema,
+                                      metric: String,
+                                      q: Query,
+                                      collector: AllGroupsAggregationCollector[_, _],
+                                      sort: Option[Sort],
+                                      limit: Option[Int]): Try[Seq[Bit]] = {
+    val shardResults = shardsForMetric(statement.metric).toSeq.map {
+      case (_, index) =>
+        handleQueryResults(metric, Try(index.query(schema, q, collector.clear, limit, sort)))
+    }
+    val rawResult =
+      groupShardResults(shardResults, statement.groupBy.get) { values =>
+        val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
+        implicit val numeric: Numeric[JSerializable] = v.numeric
+        collector match {
+          case _: MaxAllGroupsCollector[_, _] =>
+            Bit(timestamp = 0,
+                value = values.map(_.value).max,
+                dimensions = values.head.dimensions,
+                tags = values.head.tags)
+          case _: MinAllGroupsCollector[_, _] =>
+            Bit(timestamp = 0,
+                value = values.map(_.value).min,
+                dimensions = values.head.dimensions,
+                tags = values.head.tags)
+          case _: SumAllGroupsCollector[_, _] =>
+            Bit(timestamp = 0,
+                value = values.map(_.value).sum,
+                dimensions = values.head.dimensions,
+                tags = values.head.tags)
+        }
+      }
+
+    applyOrderingWithLimit(rawResult, statement, schema)
   }
 
   override def receive: Receive = readOps

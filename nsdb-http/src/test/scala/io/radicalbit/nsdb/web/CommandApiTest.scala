@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import akka.http.scaladsl.model.StatusCodes._
+import io.radicalbit.nsdb.common.protocol.DimensionFieldType
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.CommandApi
@@ -43,8 +44,8 @@ object CommandApiTest {
         val metrics = Set("metric1", "metric2")
 
         val schemas = Map(
-            "metric1" -> Schema("metric1", Set(SchemaField("dim1", VARCHAR()), SchemaField("dim2", INT()), SchemaField("dim3", BIGINT()))),
-            "metric2" -> Schema("metric2", Set(SchemaField("dim1", VARCHAR()), SchemaField("dim2", INT()), SchemaField("dim3", BIGINT()))),
+            "metric1" -> Schema("metric1", Set(SchemaField("dim1", DimensionFieldType, VARCHAR()), SchemaField("dim2", DimensionFieldType, INT()), SchemaField("dim3", DimensionFieldType, BIGINT()))),
+            "metric2" -> Schema("metric2", Set(SchemaField("dim1", DimensionFieldType, VARCHAR()), SchemaField("dim2", DimensionFieldType, INT()), SchemaField("dim3", DimensionFieldType, BIGINT()))),
         )
     }
 

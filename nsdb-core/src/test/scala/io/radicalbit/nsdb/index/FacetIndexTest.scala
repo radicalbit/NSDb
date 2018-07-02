@@ -23,7 +23,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import org.scalatest.{Assertion, FlatSpec, Matchers, OneInstancePerTest}
 
 class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*with ValidatedMatchers*/ {
 
@@ -40,8 +40,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       val testData =
         Bit(timestamp = System.currentTimeMillis,
             value = 23,
-            dimensions = Map("content" -> s"content_$i"),
-            tags = Map.empty)
+            dimensions = Map("dimension" -> s"dimension_$i"),
+            tags = Map("tag"             -> s"tag_$i"))
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -49,8 +49,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     val repeatedValue =
       Bit(timestamp = System.currentTimeMillis,
           value = 23,
-          dimensions = Map("content" -> s"content_100"),
-          tags = Map.empty)
+          dimensions = Map("dimension" -> s"dimension_100"),
+          tags = Map("tag"             -> s"tag_100"))
     val w = facetIndex.write(repeatedValue)
     w.isSuccess shouldBe true
 
@@ -59,12 +59,16 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val groups   = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100), VARCHAR())
-    val distinct = facetIndex.getDistinctField(new MatchAllDocsQuery(), "content", None, 100)
+    assert(fieldName = "dimension", limit = 100, expectedCountSize = 0, expectedSizeDistinct = 0)
+    assert(fieldName = "tag", limit = 100, expectedCountSize = 100, expectedSizeDistinct = 100)
 
-    groups.size shouldBe 100
-    distinct.size shouldBe 100
+    def assert(fieldName: String, limit: Int, expectedCountSize: Int, expectedSizeDistinct: Int): Assertion = {
+      val groups   = facetIndex.getCount(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+      val distinct = facetIndex.getDistinctField(new MatchAllDocsQuery(), fieldName, None, limit)
 
+      groups.size shouldBe expectedCountSize
+      distinct.size shouldBe expectedSizeDistinct
+    }
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
@@ -78,10 +82,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     (1 to 100).foreach { i =>
       val testData =
-        Bit(timestamp = System.currentTimeMillis,
-            value = 23,
-            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"),
-            tags = Map.empty)
+        Bit(
+          timestamp = System.currentTimeMillis,
+          value = 23,
+          dimensions = Map("dimension" -> s"dimension_$i", "name" -> s"name_$i"),
+          tags = Map("tag"             -> s"tag_$i", "surname"    -> s"surname_$i")
+        )
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -90,13 +96,19 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val contentGroups = facetIndex.getCount(new MatchAllDocsQuery(), "content", None, Some(100), VARCHAR())
+    assert(fieldName = "dimension", limit = 100, expectedCountSize = 0)
+    assert(fieldName = "name", limit = 100, expectedCountSize = 0)
 
-    contentGroups.size shouldBe 100
+    assert(fieldName = "tag", limit = 100, expectedCountSize = 100)
+    assert(fieldName = "surname", limit = 100, expectedCountSize = 100)
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR())
+    def assert(fieldName: String, limit: Int, expectedCountSize: Int): Assertion = {
+      val contentGroups = facetIndex.getCount(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+      contentGroups.size shouldBe expectedCountSize
 
-    nameGroups.size shouldBe 100
+      val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+      nameGroups.size shouldBe expectedCountSize
+    }
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
@@ -112,8 +124,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       val testData =
         Bit(timestamp = i,
             value = 23,
-            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"),
-            tags = Map.empty)
+            dimensions = Map("dimension" -> s"dimension_$i", "name" -> s"name_$i"),
+            tags = Map("tag"             -> s"tag_$i", "surname"    -> s"surname_$i"))
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -123,13 +135,16 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     implicit val searcher = facetIndex.getSearcher
 
     val contentGroups =
-      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", None, Some(100), VARCHAR())
-
+      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, Some(100), VARCHAR())
     contentGroups.size shouldBe 50
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR())
+    assert(fieldName = "name", limit = 100, expectedCountSize = 0)
+    assert(fieldName = "surname", limit = 100, expectedCountSize = 100)
 
-    nameGroups.size shouldBe 100
+    def assert(fieldName: String, limit: Int, expectedCountSize: Int): Assertion = {
+      val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+      nameGroups.size shouldBe expectedCountSize
+    }
   }
 
   "FacetIndex" should "suppport delete" in {
@@ -145,8 +160,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       val testData =
         Bit(timestamp = i,
             value = 23,
-            dimensions = Map("content" -> s"content_$i", "name" -> s"name_$i"),
-            tags = Map.empty)
+            dimensions = Map("dimension" -> s"dimension_$i", "name" -> s"name_$i"),
+            tags = Map("tag"             -> s"tag_$i", "surname"    -> s"surname_$i"))
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -155,22 +170,21 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     implicit val searcher = facetIndex.getSearcher
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR())
-
-    nameGroups.size shouldBe 100
+    facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 0
+    facetIndex.getCount(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 100
 
     implicit val deleteWriter = facetIndex.getWriter
 
     facetIndex.delete(
       Bit(timestamp = 100,
           value = 23,
-          dimensions = Map("content" -> "content_100", "name" -> "name_100"),
-          tags = Map.empty))(deleteWriter)
+          dimensions = Map("dimension" -> "dimension_100", "name" -> "name_100"),
+          tags = Map("tag"             -> "tag_100", "surname"    -> "surname_100")))(deleteWriter)
 
     deleteWriter.close()
     facetIndex.refresh()
 
-    facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 99
+    facetIndex.getCount(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 99
   }
 
   "FacetIndex" should "supports ordering and limiting" in {
@@ -185,10 +199,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     (1 to 100).foreach { i =>
       val factor = i / 4
       val testData =
-        Bit(timestamp = i,
-            value = factor,
-            dimensions = Map("content" -> s"content_$factor", "name" -> s"name_$factor"),
-            tags = Map.empty)
+        Bit(
+          timestamp = i,
+          value = factor,
+          dimensions = Map("dimension" -> s"dimension_$factor", "name" -> s"name_$factor"),
+          tags = Map("tag"             -> s"tag_$factor", "surname"    -> s"surname_$factor")
+        )
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -199,17 +215,19 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
-    val contentGroups =
-      facetIndex.getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "content", Some(descSort), Some(100), VARCHAR())
+    facetIndex
+      .getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "dimension", Some(descSort), Some(100), VARCHAR())
+      .size shouldBe 0
+    facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR()).size shouldBe 0
 
-    contentGroups.size shouldBe 13
+    facetIndex
+      .getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR())
+      .size shouldBe 13
+    val surnameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR())
 
-    val nameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR())
+    surnameGroups.size shouldBe 26
 
-    nameGroups.size shouldBe 26
-
-    nameGroups.head.value shouldBe 4
-    nameGroups.last.value shouldBe 1
+    surnameGroups.head.value shouldBe 4
+    surnameGroups.last.value shouldBe 1
   }
-
 }

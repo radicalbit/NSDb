@@ -46,8 +46,9 @@ object QueryApiTest {
     override def receive: Receive = {
       case ExecuteStatement(statement)
           if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
-        new StatementParser()
-          .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
+        StatementParser.parseStatement(
+          statement,
+          Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
           case scala.util.Success(_) =>
             val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
             sender ! SelectStatementExecuted(statement.db,
@@ -57,8 +58,9 @@ object QueryApiTest {
           case Failure(_) => sender ! SelectStatementFailed("statement not valid")
         }
       case ExecuteStatement(statement) =>
-        new StatementParser()
-          .parseStatement(statement, Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
+        StatementParser.parseStatement(
+          statement,
+          Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
           case scala.util.Success(_) =>
             sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
           case Failure(_) => sender ! SelectStatementFailed("statement not valid")
@@ -68,10 +70,10 @@ object QueryApiTest {
 
   object FakeReadCoordinator {
     def bitsParametrized(from: Long, to: Long) =
-      Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2), Map.empty),
-          Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map.empty))
-    val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map.empty),
-                   Bit(2, 3, Map("name" -> "name", "number" -> 2), Map.empty))
+      Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
+          Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map("country" -> "country")))
+    val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
+                   Bit(2, 3, Map("name" -> "name", "number" -> 2), Map("country" -> "country")))
   }
 
   class FakeWriteCoordinator extends Actor {
@@ -149,7 +151,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "name" : "name",
           |      "number" : 2
           |    },
-          |    "tags" : { }
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
           |  }, {
           |    "timestamp" : 2,
           |    "value" : 3,
@@ -157,7 +161,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "name" : "name",
           |      "number" : 2
           |    },
-          |    "tags" : { }
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
           |  } ]
           |}""".stripMargin
 
@@ -189,7 +195,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "name" : "name",
           |      "number" : 2
           |    },
-          |    "tags" : { }
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
           |  }, {
           |    "timestamp" : 2,
           |    "value" : 3,
@@ -197,7 +205,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "name" : "name",
           |      "number" : 2
           |    },
-          |    "tags" : { }
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
           |  } ]
           |}""".stripMargin
 
@@ -253,7 +263,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
         |      "name" : "name",
         |      "number" : 2
         |    },
-        |    "tags" : { }
+        |    "tags" : {
+        |      "country" : "country"
+        |    }
         |  }, {
         |    "timestamp" : 200,
         |    "value" : 3,
@@ -261,7 +273,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
         |      "name" : "name",
         |      "number" : 2
         |    },
-        |    "tags" : { }
+        |    "tags" : {
+        |      "country" : "country"
+        |    }
         |  } ]
         |}""".stripMargin
 
@@ -286,7 +300,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "name" : "name",
           |      "number" : 2
           |    },
-          |    "tags" : { }
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
           |  }, {
           |    "timestamp" : 2,
           |    "value" : 3,
@@ -294,7 +310,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "name" : "name",
           |      "number" : 2
           |    },
-          |    "tags" : { }
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
           |  } ]
           |}""".stripMargin
 

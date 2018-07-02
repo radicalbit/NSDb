@@ -43,7 +43,7 @@ import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.index.TimeSeriesIndex
+import io.radicalbit.nsdb.index.{SchemaIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -302,48 +302,56 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         namespaces.foreach { namespace =>
           val metrics = FileUtils.getSubDirs(namespace)
           metrics.foreach { metric =>
-            log.debug("restoring metric {}", metric.getName)
-            val index = new TimeSeriesIndex(new MMapDirectory(metric.toPath))
-            val minTimestamp = index
-              .query(new MatchAllDocsQuery(),
-                     Seq.empty,
-                     1,
-                     Some(new Sort(new SortField("timestamp", SortField.Type.LONG, false))))(identity)
-              .head
-              .timestamp
-            val maxTimestamp = index
-              .query(new MatchAllDocsQuery(),
-                     Seq.empty,
-                     1,
-                     Some(new Sort(new SortField("timestamp", SortField.Type.LONG, true))))(identity)
-              .head
-              .timestamp
-            var currentTimestamp = minTimestamp
-            var upBound          = currentTimestamp + shardingInterval.toMillis
+            val schemaIndex = new SchemaIndex(new MMapDirectory(Paths.get(metric.getAbsolutePath, "schemas")))
+            schemaIndex.getSchema(metric.getName).foreach { schema =>
+              log.debug("restoring metric {}", metric.getName)
+              val metricsIndex = new TimeSeriesIndex(new MMapDirectory(metric.toPath))
+              val minTimestamp = metricsIndex
+                .query(schema,
+                       new MatchAllDocsQuery(),
+                       Seq.empty,
+                       1,
+                       Some(new Sort(new SortField("timestamp", SortField.Type.LONG, false))))(identity)
+                .head
+                .timestamp
+              val maxTimestamp = metricsIndex
+                .query(schema,
+                       new MatchAllDocsQuery(),
+                       Seq.empty,
+                       1,
+                       Some(new Sort(new SortField("timestamp", SortField.Type.LONG, true))))(identity)
+                .head
+                .timestamp
+              var currentTimestamp = minTimestamp
+              var upBound          = currentTimestamp + shardingInterval.toMillis
 
-            while (currentTimestamp <= maxTimestamp) {
+              while (currentTimestamp <= maxTimestamp) {
 
-              val cluster = Cluster(context.system)
-              val nodeName =
-                s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-              val loc = Location(metric.getName, nodeName, currentTimestamp, upBound)
+                val cluster = Cluster(context.system)
+                val nodeName =
+                  s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+                val loc = Location(metric.getName, nodeName, currentTimestamp, upBound)
 
-              log.debug(s"restoring dump from metric ${metric.getName} and location $loc")
+                log.debug(s"restoring dump from metric ${metric.getName} and location $loc")
 
-              metadataCoordinator ! (AddLocation(db.getName, namespace.getName, loc), ActorRef.noSender)
-              index
-                .query(LongPoint.newRangeQuery("timestamp", currentTimestamp, upBound), Seq.empty, Int.MaxValue, None) {
-                  bit =>
+                metadataCoordinator ! (AddLocation(db.getName, namespace.getName, loc), ActorRef.noSender)
+                metricsIndex
+                  .query(schema,
+                         LongPoint.newRangeQuery("timestamp", currentTimestamp, upBound),
+                         Seq.empty,
+                         Int.MaxValue,
+                         None) { bit =>
                     updateSchema(db.getName, namespace.getName, metric.getName, bit) { _ =>
                       accumulateRecord(db.getName, namespace.getName, metric.getName, bit, loc)
                     }
-                }
-              currentTimestamp = upBound
-              upBound = currentTimestamp + shardingInterval.toMillis
-              System.gc()
-              System.runFinalization()
-              log.info("path {} restored", path)
-              sender() ! Restored(path)
+                  }
+                currentTimestamp = upBound
+                upBound = currentTimestamp + shardingInterval.toMillis
+                System.gc()
+                System.runFinalization()
+                log.info("path {} restored", path)
+                sender() ! Restored(path)
+              }
             }
           }
         }
@@ -368,18 +376,30 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                 .groupBy(_.getName.split("_").toList.head)
                 .foreach {
                   case (metricName, dirNames) =>
-                    val dumpMetricIndex =
-                      new TimeSeriesIndex(new MMapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
-                    dirNames.foreach { dirMetric =>
-                      implicit val writer: IndexWriter = dumpMetricIndex.getWriter
-                      val directory =
-                        new MMapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
-                      val shardIndex = new TimeSeriesIndex(directory)
-                      shardIndex.all(bit => dumpMetricIndex.write(bit))
-                      writer.close()
-                      System.gc()
-                      System.runFinalization()
-                    }
+                    (metricsSchemaActor ? GetSchema(db, namespace, metricName))
+                      .foreach {
+                        case SchemaGot(_, _, _, Some(schema)) =>
+                          val schemasDir =
+                            new MMapDirectory(Paths.get(basePath, db, namespace, "schemas", metricName))
+                          val schemaIndex  = new SchemaIndex(schemasDir)
+                          val schemaWriter = schemaIndex.getWriter
+                          schemaIndex.write(schema)(schemaWriter)
+                          schemaWriter.close()
+
+                          val dumpMetricIndex =
+                            new TimeSeriesIndex(new MMapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
+                          dirNames.foreach { dirMetric =>
+                            val shardWriter: IndexWriter = dumpMetricIndex.getWriter
+                            val shardsDir =
+                              new MMapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
+                            val shardIndex = new TimeSeriesIndex(shardsDir)
+                            shardIndex.all(schema, bit => dumpMetricIndex.write(bit)(shardWriter))
+                            shardWriter.close()
+                            System.gc()
+                            System.runFinalization()
+                          }
+                        case _ => log.error("No schema found for metric {}", metricName)
+                      }
                 }
             }
         }

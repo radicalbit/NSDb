@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
+import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.{MaxAllGroupsCollector, SumAllGroupsCollector}
@@ -32,17 +33,18 @@ import scala.util.{Failure, Success}
 
 class StatementParserSpec extends WordSpec with Matchers {
 
-  private val parser = new StatementParser
-
   val schema = Schema(
     "people",
     Set(
-      SchemaField("timestamp", BIGINT()),
-      SchemaField("name", VARCHAR()),
-      SchemaField("surname", VARCHAR()),
-      SchemaField("amount", DECIMAL()),
-      SchemaField("creationDate", BIGINT()),
-      SchemaField("value", DECIMAL())
+      SchemaField("timestamp", TimestampFieldType, BIGINT()),
+      SchemaField("value", ValueFieldType, DECIMAL()),
+      SchemaField("name", DimensionFieldType, VARCHAR()),
+      SchemaField("surname", DimensionFieldType, VARCHAR()),
+      SchemaField("amount", DimensionFieldType, DECIMAL()),
+      SchemaField("creationDate", DimensionFieldType, BIGINT()),
+      SchemaField("city", TagFieldType, VARCHAR()),
+      SchemaField("country", TagFieldType, VARCHAR()),
+      SchemaField("age", TagFieldType, INT())
     )
   )
 
@@ -50,7 +52,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select projecting a wildcard" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
@@ -73,7 +75,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select projecting a not existing dimension" should {
       "fails" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
@@ -87,7 +89,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select projecting a wildcard with distinct" should {
       "fail" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
@@ -101,7 +103,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select projecting a single dimension with distinct" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
@@ -125,7 +127,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select projecting a list of fields" should {
       "parse it successfully only in simple fields" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -148,7 +150,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail if distinct (Not supported yet)" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -162,7 +164,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully with mixed aggregated and simple" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -188,7 +190,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail when other aggregation than count is provided" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -207,7 +209,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a range selection" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -234,7 +236,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a = selection" should {
       "parse it successfully on a number vs a number" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -258,7 +260,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully on a string vs a string" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -282,7 +284,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully on a decimal vs a int" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -306,7 +308,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail on a int vs a decimal" in {
-        val result = parser.parseStatement(
+        val result = StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -321,7 +323,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         result.failure.exception shouldBe a[InvalidStatementException]
       }
       "parse it successfully on a number vs a string" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -348,7 +350,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -373,7 +375,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully on a decimal vs a int" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -398,7 +400,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail on a int vs a decimal" in {
-        val result = parser.parseStatement(
+        val result = StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -416,7 +418,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a GT AND a LTE selection" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -451,7 +453,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a GTE OR a LT selection" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -496,7 +498,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a GTE OR a = selection" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -541,7 +543,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a GTE OR a like selection" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -586,7 +588,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a ordering statement and a limit statement" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
@@ -612,7 +614,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a ordering by value statement and a limit statement" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(db = "db",
                              namespace = "registry",
                              metric = "people",
@@ -638,7 +640,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -667,12 +669,12 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a statement without limit" should {
       "fail" in {
-        parser.parseStatement(SelectSQLStatement(db = "db",
-                                                 namespace = "registry",
-                                                 metric = "people",
-                                                 distinct = false,
-                                                 fields = AllFields),
-                              schema) should be(
+        StatementParser.parseStatement(SelectSQLStatement(db = "db",
+                                                          namespace = "registry",
+                                                          metric = "people",
+                                                          distinct = false,
+                                                          fields = AllFields),
+                                       schema) should be(
           Success(
             ParsedSimpleQuery("registry", "people", new MatchAllDocsQuery(), false, Int.MaxValue)
           )
@@ -682,7 +684,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a range selection and a group by" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -704,7 +706,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully with count(*)" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -729,7 +731,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a complex select containing a range selection a desc ordering statement, a limit statement and a group by" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -758,7 +760,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a select containing a not nullable expression on string" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -793,7 +795,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
     "receive a select containing a nullable expression on string" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -822,7 +824,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
     "receive a select containing a not nullable expression on decimal" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -858,7 +860,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
     "receive a select containing a nullable expression on decimal" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -888,7 +890,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
     "receive a select containing a not nullable expression on long" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -925,7 +927,7 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
     "receive a select containing a nullable expression on long" should {
       "parse it successfully" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -956,7 +958,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a group by on a dimension of type different from varchar" should {
       "succeed" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -988,7 +990,7 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a group by with aggregation function on dimension different from value" should {
       "fail" in {
-        parser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",

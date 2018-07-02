@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.model
 
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType}
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
 import scala.util.Try
@@ -25,24 +25,27 @@ import scala.util.Try
 /**
   * It models a bit field
   * @param name field name.
+  * @param fieldClassType the field class Type [[FieldClassType]].
   * @param value field value.
   */
-case class RawField(name: String, value: JSerializable)
+case class RawField(name: String, fieldClassType: FieldClassType, value: JSerializable)
 
 /**
   * It models a bit field decorated by an internal type descriptor.
   * @param name field name.
+  * @param fieldClassType the field class Type [[FieldClassType]].
   * @param indexType type descriptor.
   * @param value field value.
   */
-case class TypedField(name: String, indexType: IndexType[_], value: JSerializable)
+case class TypedField(name: String, fieldClassType: FieldClassType, indexType: IndexType[_], value: JSerializable)
 
 /**
   * It models a schema field.
   * @param name field name.
+  * @param fieldClassType the field class Type [[FieldClassType]].
   * @param indexType the internal type descriptor.
   */
-case class SchemaField(name: String, indexType: IndexType[_])
+case class SchemaField(name: String, fieldClassType: FieldClassType, indexType: IndexType[_])
 
 /**
   * Schema for metrics.
@@ -71,6 +74,6 @@ object Schema extends TypeSupport {
     */
   def apply(metric: String, bit: Bit): Try[Schema] = {
     validateSchemaTypeSupport(bit).map((fields: Seq[TypedField]) =>
-      Schema(metric, fields.map(field => SchemaField(field.name, field.indexType)).toSet))
+      Schema(metric, fields.map(field => SchemaField(field.name, field.fieldClassType, field.indexType)).toSet))
   }
 }

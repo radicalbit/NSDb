@@ -64,7 +64,7 @@ class MetricsDataActorSpec()
 
   "metricsDataActor" should "write and delete properly" in within(5.seconds) {
 
-    val record = Bit(System.currentTimeMillis, 0.5, Map("content" -> s"content"), Map.empty)
+    val record = Bit(System.currentTimeMillis, 0.5, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace, record, location(metric)))
 
@@ -101,7 +101,7 @@ class MetricsDataActorSpec()
 
   "metricsDataActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
 
-    val record = Bit(System.currentTimeMillis, 24, Map("content" -> s"content"), Map.empty)
+    val record = Bit(System.currentTimeMillis, 24, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
 
@@ -131,7 +131,7 @@ class MetricsDataActorSpec()
 
   "metricsDataActor" should "delete a namespace" in within(5.seconds) {
 
-    val record = Bit(System.currentTimeMillis, 23, Map("content" -> s"content"), Map.empty)
+    val record = Bit(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
 
