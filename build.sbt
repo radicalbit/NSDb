@@ -44,6 +44,8 @@ lazy val root = project
   )
 
 addCommandAlias("dist", "universal:packageBin")
+addCommandAlias("deb", "debian:packageBin")
+addCommandAlias("rpm", "rpm:packageBin")
 
 val uiCompileTask = taskKey[Unit]("build UI")
 val copyTask      = taskKey[Unit]("copy UI")
@@ -115,7 +117,7 @@ lazy val `nsdb-rpc` = project
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
-  .enablePlugins(JavaAppPackaging, SbtNativePackager)
+  .enablePlugins(JavaServerAppPackaging, SbtNativePackager)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .settings(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
