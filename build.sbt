@@ -44,6 +44,8 @@ lazy val root = project
   )
 
 addCommandAlias("dist", "universal:packageBin")
+addCommandAlias("deb", "debian:packageBin")
+addCommandAlias("rpm", "rpm:packageBin")
 
 val uiCompileTask = taskKey[Unit]("build UI")
 val copyTask      = taskKey[Unit]("copy UI")
@@ -115,7 +117,7 @@ lazy val `nsdb-rpc` = project
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
-  .enablePlugins(JavaAppPackaging, SbtNativePackager)
+  .enablePlugins(JavaServerAppPackaging, SbtNativePackager)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .settings(
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
@@ -172,7 +174,7 @@ lazy val `nsdb-cluster` = project
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
       Cmd("USER", "nsdb"),
       Cmd("HEALTHCHECK", "--timeout=3s", "CMD", "bin/nsdb-healthcheck"),
-      Cmd("CMD", "bin/cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
+      Cmd("CMD", "bin/nsdb-cluster -Dlogback.configurationFile=conf/logback.xml -DconfDir=conf/")
     )
   )
   .settings(
@@ -186,6 +188,22 @@ lazy val `nsdb-cluster` = project
     maintainer in Debian := "Radicalbit <info@radicalbit.io>",
     packageSummary in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
     packageDescription in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka"
+  )
+  .settings(
+    /* RPM Settings - to create, run as:
+       $ sbt `project nsdb-cluster` rpm:packageBin
+
+       See here for details:
+       http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
+     */
+    version in Rpm := version.value,
+    packageName in Rpm := name.value,
+    rpmRelease := "1",
+    packageSummary in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    packageDescription in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    rpmVendor := "Radicalbit",
+    rpmUrl := Some("https://github.com/radicalbit/NSDb"),
+    rpmLicense := Some("Apache")
   )
   .settings(
     mappings in Universal ++= {
