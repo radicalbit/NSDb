@@ -1,0 +1,10 @@
+#!/bin/bash
+
+HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9000/status)
+HTTPS_STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://localhost:9443/status)
+
+if [ $HTTPS_STATUS -eq 200 ] || [ $HTTP_STATUS -eq 200 ]; then
+  exit 0
+else
+  exit 1
+fi
