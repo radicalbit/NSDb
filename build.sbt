@@ -44,6 +44,8 @@ lazy val root = project
   )
 
 addCommandAlias("dist", "universal:packageBin")
+addCommandAlias("deb", "debian:packageBin")
+addCommandAlias("rpm", "rpm:packageBin")
 
 val uiCompileTask = taskKey[Unit]("build UI")
 val copyTask      = taskKey[Unit]("copy UI")
