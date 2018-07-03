@@ -33,7 +33,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class MetricAccumulatorActorpec()
+class MetricAccumulatorActorSpec()
     extends TestKit(ActorSystem("metricAccumulatorSpec"))
     with ImplicitSender
     with FlatSpecLike
