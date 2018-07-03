@@ -8,7 +8,6 @@ import Button from 'antd/lib/button';
 import Icon from 'antd/lib/icon';
 import { notEmpty } from '../../utils/validations';
 
-import { selectors as authSelectors } from '../../store/auth';
 import { actions as nsdbActions, selectors as nsdbSelectors } from '../../store/nsdb';
 
 import MetricTable from '../../containers/MetricTable';

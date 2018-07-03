@@ -23,8 +23,8 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.routing.Broadcast
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -39,15 +39,15 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /**
-  * Actor responsible for accumulating write and delete operations which will be performed by [[ShardPerformerActor]].
+  * Actor responsible for accumulating write and delete operations which will be performed by [[MetricPerformerActor]].
   *
   * @param basePath shards indexes path.
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class ShardAccumulatorActor(val basePath: String, val db: String, val namespace: String, val readerActor: ActorRef)
+class MetricAccumulatorActor(val basePath: String, val db: String, val namespace: String, val readerActor: ActorRef)
     extends Actor
-    with ShardsActor
+    with MetricsActor
     with ActorLogging {
   import scala.collection.mutable
 
@@ -76,7 +76,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   private val opBufferMap: mutable.Map[String, ShardOperation] = mutable.Map.empty
 
   /**
-    * operations currently being written by the [[io.radicalbit.nsdb.actors.ShardPerformerActor]].
+    * operations currently being written by the [[io.radicalbit.nsdb.actors.MetricPerformerActor]].
     */
   private var performingOps: Map[String, ShardOperation] = Map.empty
 
@@ -92,11 +92,11 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 
   /**
-    * Any existing shard is retrieved, the [[ShardPerformerActor]] is initialized and actual writes are scheduled.
+    * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
   override def preStart: Unit = {
     performerActor =
-      context.actorOf(ShardPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
+      context.actorOf(MetricPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
 
     context.system.scheduler.schedule(0.seconds, interval) {
       if (opBufferMap.nonEmpty && performingOps.isEmpty) {
@@ -167,7 +167,7 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
     *
     * - [[ExecuteDeleteStatementInShards]] execute a delete statement among the given shards.
     *
-    * - [[Refresh]] refresh shard indexes after a [[PerformShardWrites]] operation executed by [[ShardPerformerActor]]
+    * - [[Refresh]] refresh shard indexes after a [[PerformShardWrites]] operation executed by [[MetricPerformerActor]]
     *
     */
   def accumulate: Receive = {
@@ -202,10 +202,10 @@ class ShardAccumulatorActor(val basePath: String, val db: String, val namespace:
   }
 }
 
-object ShardAccumulatorActor {
+object MetricAccumulatorActor {
 
   case class Refresh(writeIds: Seq[String], keys: Seq[ShardKey])
 
   def props(basePath: String, db: String, namespace: String, readerActor: ActorRef): Props =
-    Props(new ShardAccumulatorActor(basePath, db, namespace, readerActor))
+    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor))
 }

@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SelectStatementExecuted, WarmUpCompleted}
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -49,7 +49,7 @@ class ReadCoordinatorSpec
     with WriteInterval {
 
   override val probe                = TestProbe()
-  override val basePath             = "target/test_index/ReadCoordinatorSpec"
+  override val basePath             = "target/test_index/ReadCoordinatorShardSpec"
   override val db                   = "db"
   override val namespace            = "registry"
   val schemaActor                   = system.actorOf(SchemaActor.props(basePath, db, namespace))
@@ -127,10 +127,11 @@ class ReadCoordinatorSpec
                                limit = Some(LimitOperator(2)))
           )
         )
+
         awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 2
-        }
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values.size shouldBe 2
+
       }
     }
 
@@ -151,11 +152,12 @@ class ReadCoordinatorSpec
             )
           )
         )
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 2
-          expected.values shouldBe LongMetric.recordsShard2.tail.reverse
+
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
         }
+        expected.values.size shouldBe 2
+        expected.values shouldBe LongMetric.recordsShard2.tail.reverse
       }
 
       "execute it successfully when ordered by another dimension" in within(5.seconds) {
@@ -171,12 +173,12 @@ class ReadCoordinatorSpec
                                order = Some(DescOrderOperator("name")))
           )
         )
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values.size shouldBe 3
-          LongMetric.recordsShard1 foreach { r =>
-            expected.values.contains(r) shouldBe true
-          }
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.size shouldBe 3
+        LongMetric.recordsShard1 foreach { r =>
+          expected.values.contains(r) shouldBe true
         }
       }
     }

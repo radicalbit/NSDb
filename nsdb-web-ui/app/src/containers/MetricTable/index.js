@@ -3,7 +3,6 @@ import { connect } from 'react-redux';
 import { createStructuredSelector } from 'reselect';
 import Table from 'antd/lib/table';
 
-import { selectors as authSelectors } from '../../store/auth';
 import { actions as nsdbActions, selectors as nsdbSelectors } from '../../store/nsdb';
 
 import './index.less';
