@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
@@ -31,9 +30,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
-
-import scala.concurrent.Future
-import scala.util.Random
 
 /**
   * Actor that handles metadata (i.e. write location for metrics)
@@ -53,7 +49,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
     TimeUnit.SECONDS)
   import context.dispatcher
 
-  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+  lazy val shardingInterval: Long = context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
 
   override def receive: Receive = warmUp
 
@@ -95,35 +91,16 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
         .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
-      (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
-        .flatMap {
-          case CachedLocations(_, values) if values.nonEmpty =>
-            values.find(v => v.from <= timestamp && v.to >= timestamp) match {
-              case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
-              case None =>
-                val nodeName =
-                  s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-                (self ? AddLocation(db,
-                                    namespace,
-                                    Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis)))
-                  .map {
-                    case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                    case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-                  }
-            }
-
-          case CachedLocations(_, _) =>
-            val randomNode = Random.shuffle(cluster.state.members).head
-            val nodeName =
-              s"${randomNode.address.host.getOrElse("noHost")}_${randomNode.address.port.getOrElse(2552)}"
-            (self ? AddLocation(db,
-                                namespace,
-                                Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
-              case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-              case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-            }
+      val startShard = (timestamp / shardingInterval) * shardingInterval
+      val endShard   = startShard + shardingInterval
+      val nodeName =
+        s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+      (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
+        .map {
+          case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+          case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
         }
-        .pipeTo(sender())
+        .pipeTo(sender)
 
     case msg @ AddLocation(db, namespace, location) =>
       (cache ? PutInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
