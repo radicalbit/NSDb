@@ -25,11 +25,11 @@ import org.apache.lucene.store.MMapDirectory
 import scala.collection.mutable
 
 /**
-  * Trait containing common operation to be executed on shards indexes.
-  * Mixed in by [[ShardAccumulatorActor]] and [[ShardPerformerActor]],
+  * Trait containing common operation to be executed on metrics indexes.
+  * Mixed in by [[MetricAccumulatorActor]] and [[MetricPerformerActor]],
   *
   */
-trait ShardsActor { this: Actor =>
+trait MetricsActor { this: Actor =>
 
   /**
     * basePath shards indexes path.

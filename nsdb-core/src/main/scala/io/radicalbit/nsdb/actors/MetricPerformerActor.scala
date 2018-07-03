@@ -20,8 +20,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.ShardAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.ShardPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.IndexWriter
 
@@ -29,15 +29,15 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
 
 /**
-  * Actor responsible for performing write accumulated by [[ShardAccumulatorActor]] into shards indexes.
+  * Actor responsible for performing write accumulated by [[MetricAccumulatorActor]] into shards indexes.
   *
   * @param basePath shards indexes base path.
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class ShardPerformerActor(val basePath: String, val db: String, val namespace: String)
+class MetricPerformerActor(val basePath: String, val db: String, val namespace: String)
     extends Actor
-    with ShardsActor
+    with MetricsActor
     with ActorLogging {
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
@@ -91,10 +91,10 @@ class ShardPerformerActor(val basePath: String, val db: String, val namespace: S
   }
 }
 
-object ShardPerformerActor {
+object MetricPerformerActor {
 
   case class PerformShardWrites(opBufferMap: Map[String, ShardOperation])
 
   def props(basePath: String, db: String, namespace: String): Props =
-    Props(new ShardPerformerActor(basePath, db, namespace))
+    Props(new MetricPerformerActor(basePath, db, namespace))
 }

@@ -24,7 +24,7 @@ import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.actors.{ShardAccumulatorActor, ShardKey, ShardReaderActor}
+import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, ShardKey, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -44,30 +44,30 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
-    * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.ShardReaderActor]] to handle read requests
+    * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.MetricReaderActor]] to handle read requests
     *
     * @param db database name
     * @param namespace namespace name
     * @return [[(ShardReaderActor, ShardAccumulatorActor)]] for selected database and namespace
     */
   private def getOrCreateChildren(db: String, namespace: String): (ActorRef, ActorRef) = {
-    val readerOpt      = context.child(s"shard_reader_${db}_$namespace")
-    val accumulatorOpt = context.child(s"shard_accumulator_${db}_$namespace")
+    val readerOpt      = context.child(s"metric_reader_${db}_$namespace")
+    val accumulatorOpt = context.child(s"metric_accumulator_${db}_$namespace")
 
     val reader = readerOpt.getOrElse(
       context.actorOf(
         readParallelism.pool.props(
-          ShardReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
-        s"shard_reader_${db}_$namespace"
+          MetricReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
+        s"metric_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
-      context.actorOf(ShardAccumulatorActor.props(basePath, db, namespace, reader),
-                      s"shard_accumulator_${db}_$namespace"))
+      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader),
+                      s"metric_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
 
   private def getChildren(db: String, namespace: String): (Option[ActorRef], Option[ActorRef]) =
-    (context.child(s"shard_reader_${db}_$namespace"), context.child(s"shard_accumulator_${db}_$namespace"))
+    (context.child(s"metric_reader_${db}_$namespace"), context.child(s"metric_accumulator_${db}_$namespace"))
 
   /**
     * If exists, gets the reader for selected namespace and database.
@@ -75,10 +75,10 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     *
     * @param db database name
     * @param namespace namespace name
-    * @return Option containing child actor of class [[ShardAccumulatorActor]]
+    * @return Option containing child actor of class [[MetricAccumulatorActor]]
     */
   private def getReader(db: String, namespace: String): Option[ActorRef] =
-    context.child(s"shard_reader_${db}_$namespace")
+    context.child(s"metric_reader_${db}_$namespace")
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-data.timeout", TimeUnit.SECONDS),
@@ -108,7 +108,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       sender() ! DbsGot(dbs.toSet)
     case GetNamespaces(db) =>
       val namespaces = context.children.collect {
-        case a if a.path.name.startsWith("shard_reader") && a.path.name.split("_")(2) == db =>
+        case a if a.path.name.startsWith("metric_reader") && a.path.name.split("_")(2) == db =>
           a.path.name.split("_")(3)
       }.toSet
       sender() ! NamespacesGot(db, namespaces)

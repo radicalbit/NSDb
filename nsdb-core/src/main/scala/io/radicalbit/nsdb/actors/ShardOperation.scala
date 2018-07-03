@@ -28,7 +28,7 @@ import org.apache.lucene.search.Query
 case class ShardKey(metric: String, from: Long, to: Long)
 
 /**
-  * shard operations accumulated by [[ShardAccumulatorActor]] and performed by [[ShardPerformerActor]]
+  * shard operations accumulated by [[MetricAccumulatorActor]] and performed by [[MetricPerformerActor]]
   * Subclasses are
   *
   * - [[DeleteShardRecordOperation]] delete a record from a shard.

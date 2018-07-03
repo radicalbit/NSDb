@@ -74,7 +74,7 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.0.10"
+    lazy val version   = "10.1.3"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
@@ -86,7 +86,7 @@ object Dependencies {
     lazy val default         = namespace %% "akka-http" % version
     lazy val testkit         = namespace %% "akka-http-testkit" % version % Test
     lazy val akkaHttpJson4s  = "de.heikoseeberger" %% "akka-http-json4s" % "1.18.1"
-    lazy val sprayJson       = "com.typesafe.akka" %% "akka-http-spray-json" % "10.0.10"
+    lazy val sprayJson       = "com.typesafe.akka" %% "akka-http-spray-json" % version
     lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http" % "0.14.0"
     lazy val core            = Seq(core_http, default, testkit)
   }
