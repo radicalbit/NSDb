@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.web.routes
 
 import javax.ws.rs.Path
-
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.model.StatusCodes.{InternalServerError, NotFound}

@@ -42,14 +42,30 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     with NsdbPerfLogger {
 
   implicit val timeout: Timeout = Timeout(
-    context.system.settings.config.getDuration("nsdb.read-coordinatoor.timeout", TimeUnit.SECONDS),
+    context.system.settings.config.getDuration("nsdb.read-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
   import context.dispatcher
 
   private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  /**
+    * Initial state in which actor waits metadata warm-up completion.
+    */
+  def warmUp: Receive = {
+    case WarmUpCompleted =>
+      context.become(operating)
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      metricsDataActors += (nodeName -> actor)
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case msq =>
+      // Requests received during warm-up are ignored, this results in a timeout
+      log.error(s"Received ignored message $msq during warmUp")
+  }
+
+  def operating: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       metricsDataActors += (nodeName -> actor)
       sender() ! MetricsDataActorSubscribed(actor, nodeName)

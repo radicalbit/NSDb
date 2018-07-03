@@ -22,10 +22,10 @@ import scala.tools.nsc.Settings
 
 /**
   * Runner for Nsdb CLI.
-  * Internally makes use of [[scopt.OptionParser]] to parse CLI connection parameters as [[io.radicalbit.nsdb.cli.Cli.Params]].
+  * Internally makes use of [[scopt.OptionParser]] to parse CLI connection parameters as [[io.radicalbit.nsdb.cli.NsdbCli.Params]].
   * It instantiates CLI main class [[NsdbILoop]] with parsed parameters.
   */
-object Cli extends App {
+object NsdbCli extends App {
 
   /**
     * Wrapper for CLI parameters.

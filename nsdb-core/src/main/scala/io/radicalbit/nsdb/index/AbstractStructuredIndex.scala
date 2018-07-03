@@ -170,7 +170,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
   }
 
   /**
-    * Returns all the entries whiere `field` = `value`
+    * Returns all the entries where `field` = `value`
     * @param field the field name to use to filter data.
     * @param value the value to check the field with.
     * @param fields sequence of fields that must be included in the result.

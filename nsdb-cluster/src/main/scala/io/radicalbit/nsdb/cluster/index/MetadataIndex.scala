@@ -81,7 +81,11 @@ class MetadataIndex(override val directory: BaseDirectory) extends SimpleIndex[L
   }
 
   def getMetadata(metric: String): Seq[Location] = {
-    Try(query(_keyField, metric, Seq.empty, Integer.MAX_VALUE)(identity)) match {
+    val queryTerm = new TermQuery(new Term(_keyField, metric))
+
+    implicit val searcher: IndexSearcher = getSearcher
+
+    Try(query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)) match {
       case Success(metadataSeq) => metadataSeq
       case Failure(_)           => Seq.empty
     }

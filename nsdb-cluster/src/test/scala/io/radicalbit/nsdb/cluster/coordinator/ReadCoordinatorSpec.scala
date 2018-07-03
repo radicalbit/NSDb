@@ -60,6 +60,8 @@ class ReadCoordinatorSpec
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5 second)
 
+    readCoordinatorActor ! WarmUpCompleted
+
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 
     val location1 = Location(_: String, "node1", 0, 5)

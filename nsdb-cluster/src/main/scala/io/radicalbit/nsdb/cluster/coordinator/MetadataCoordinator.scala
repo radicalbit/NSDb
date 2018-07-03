@@ -25,10 +25,12 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 
 import scala.concurrent.Future
 import scala.util.Random
@@ -37,7 +39,7 @@ import scala.util.Random
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
+class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with Stash {
 
   /**
     * mediator for [[DistributedPubSub]] system
@@ -53,7 +55,40 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  def warmUp: Receive = {
+    case msg @ WarmUpLocations(metricsLocations) =>
+      log.debug(s"Received location warm-up message: $msg ")
+      metricsLocations.foreach { metricLocations =>
+        metricLocations.locations.foreach { location =>
+          val db        = metricLocations.db
+          val namespace = metricLocations.namespace
+          (cache ? PutInCache(LocationKey(metricLocations.db,
+                                          metricLocations.namespace,
+                                          metricLocations.metric,
+                                          location.from,
+                                          location.to),
+                              location))
+            .map {
+              case Cached(_, Some(_)) =>
+                LocationAdded(db, namespace, location)
+              case _ => AddLocationFailed(db, namespace, location)
+            }
+        }
+      }
+
+      mediator ! Publish("warm-up", WarmUpCompleted)
+      unstashAll()
+      context.become(shardBehaviour)
+
+    case msg => stash()
+  }
+
+  /**
+    * behaviour in case shard is true
+    */
+  def shardBehaviour: Receive = {
     case GetLocations(db, namespace, metric) =>
       val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
         .mapTo[CachedLocations]
@@ -81,7 +116,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging {
             val randomNode = Random.shuffle(cluster.state.members).head
             val nodeName =
               s"${randomNode.address.host.getOrElse("noHost")}_${randomNode.address.port.getOrElse(2552)}"
-            (self ? AddLocation(db, namespace, Location(metric, nodeName, 0, shardingInterval.toMillis))).map {
+            (self ? AddLocation(db,
+                                namespace,
+                                Location(metric, nodeName, timestamp, timestamp + shardingInterval.toMillis))).map {
               case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
               case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
             }
@@ -104,6 +141,7 @@ object MetadataCoordinator {
 
   object commands {
 
+    case class WarmUpLocations(metricLocations: Seq[MetricLocations])
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)

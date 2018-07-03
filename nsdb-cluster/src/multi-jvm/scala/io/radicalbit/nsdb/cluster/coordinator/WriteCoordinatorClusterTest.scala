@@ -13,7 +13,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, WarmUpCompleted}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
@@ -82,6 +82,8 @@ class WriteCoordinatorClusterTest
 
   val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
   val writeCoordinator    = system.actorSelection("/user/guardian/write-coordinator")
+
+  writeCoordinator ! WarmUpCompleted
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {

@@ -22,7 +22,7 @@ import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
@@ -89,7 +89,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        publisherActor: ActorRef)
     extends Actor
     with ActorLogging
-    with NsdbPerfLogger {
+    with NsdbPerfLogger
+    with Stash {
 
   import akka.pattern.ask
 
@@ -205,7 +206,25 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  /**
+    * Initial state in which actor waits metadata warm-up completion.
+    */
+  def warmUp: Receive = {
+    case WarmUpCompleted =>
+      unstashAll()
+      context.become(operative)
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      namespaces += (nodeName -> actor)
+      log.info(s"subscribed data actor for node $nodeName")
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case msq =>
+      stash()
+      log.error(s"Received ignored message $msq during warmUp")
+  }
+
+  def operative: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       namespaces += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")

@@ -17,14 +17,21 @@
 package io.radicalbit.nsdb.cli
 
 import io.radicalbit.nsdb.client.rpc.GRPCClient
-import io.radicalbit.nsdb.rpc.dump._
+import io.radicalbit.nsdb.rpc.dump.{RestoreRequest, RestoreResponse}
 
 import scala.concurrent.Await
 import scala.util.{Failure, Success}
 
-object Dump extends App {
+object NsdbRestore extends App {
 
-  case class Params(host: Option[String] = None, port: Option[Int] = None, destPath: String, targets: Seq[String])
+  /**
+    * Wrapper for Restore parameters.
+    *
+    * @param host rpc server address.
+    * @param port rpc server port.
+    * @param sourcePath source path containing the import bundle.
+    */
+  case class Params(host: Option[String] = None, port: Option[Int] = None, sourcePath: String)
 
   val parser = new scopt.OptionParser[Params]("scopt") {
     head("scopt", "3.x")
@@ -35,37 +42,19 @@ object Dump extends App {
       c.copy(port = Some(x))
     } text "the remote port"
     opt[String]("path").required() action { (x, c) =>
-      c.copy(destPath = x)
-    } text "path of the file save dump zip"
-    opt[Seq[String]]("inputs")
-      .required()
-      .action({ (x, c) =>
-        c.copy(targets = x)
-      })
-      .validate(
-        x =>
-          if (x.forall(dbNamespace => dbNamespace.contains(".") && dbNamespace.split("\\.").length == 2))
-            success
-          else
-            failure("invalid entry tuple"))
-      .text("list of database.namespace tuple")
+      c.copy(sourcePath = x)
+    } text "path of the file to restore"
   }
 
-  parser.parse(args, Params(None, None, "", Seq("db.namespace"))) foreach { params =>
+  parser.parse(args, Params(None, None, "")) foreach { params =>
     import scala.concurrent.duration._
 
-    val targets = params.targets.map { string =>
-      string.split("\\.").toList match {
-        case db :: namespace :: Nil => DumpTarget(db, namespace)
-      }
-    }
     val clientGrpc = new GRPCClient(host = params.host.getOrElse("127.0.0.1"), port = params.port.getOrElse(7817))
 
     Await.ready(clientGrpc.checkConnection(), 5.seconds).value.get match {
       case Success(_) =>
-        val response: DumpResponse =
-          Await.result(clientGrpc.createDump(DumpRequest(targets, params.destPath)), 10.seconds)
-        if (response.startedSuccessfully) println("Dump process started successfully")
+        val response: RestoreResponse = Await.result(clientGrpc.restore(RestoreRequest(params.sourcePath)), 10.seconds)
+        if (response.startedSuccessfully) println("Restore process started successfully")
         else sys.error(response.errorMsg)
       case Failure(_) => sys.error(s"instance is not available at the moment.")
     }
