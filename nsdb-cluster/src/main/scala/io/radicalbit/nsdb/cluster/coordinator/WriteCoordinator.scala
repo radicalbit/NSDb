@@ -69,7 +69,6 @@ object WriteCoordinator {
 
   case class Restore(path: String)  extends ControlMessage
   case class Restored(path: String) extends ControlMessage
-//  case class RestoreFailed(path: String, reason: String) extends ControlMessage
 
   case class CreateDump(inputPath: String, targets: Seq[DumpTarget]) extends ControlMessage
   case class DumpCreated(inputPath: String)                          extends ControlMessage
