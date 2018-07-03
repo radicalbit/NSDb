@@ -117,7 +117,7 @@ class WriteCoordinatorClusterTest
       }
       initialLoc.locations.size shouldBe 0
 
-      Thread.sleep(100)
+      Thread.sleep(200)
 
       runOn(node1) {
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty, Map.empty))
@@ -126,7 +126,7 @@ class WriteCoordinatorClusterTest
         }
       }
 
-      Thread.sleep(100)
+      Thread.sleep(200)
 
       metadataCoordinator ! GetLocations("db", "namespace", "metric")
       val locations_1 = awaitAssert {
@@ -135,6 +135,8 @@ class WriteCoordinatorClusterTest
       locations_1.locations.size shouldBe 1
       locations_1.locations.head.from shouldBe 0
       locations_1.locations.head.to shouldBe 60000
+
+      Thread.sleep(200)
 
       runOn(node2) {
         writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty, Map.empty))
@@ -188,7 +190,7 @@ class WriteCoordinatorClusterTest
         expectMsgType[InputMapped]
       }
 
-      Thread.sleep(100)
+      Thread.sleep(200)
 
       metadataCoordinator ! GetLocations("db", "namespace", "metric")
       val locations_5 = awaitAssert {
