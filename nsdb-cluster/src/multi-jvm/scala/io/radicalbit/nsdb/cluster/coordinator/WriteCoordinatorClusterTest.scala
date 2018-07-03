@@ -126,7 +126,7 @@ class WriteCoordinatorClusterTest
         }
       }
 
-      Thread.sleep(200)
+      Thread.sleep(500)
 
       metadataCoordinator ! GetLocations("db", "namespace", "metric")
       val locations_1 = awaitAssert {
