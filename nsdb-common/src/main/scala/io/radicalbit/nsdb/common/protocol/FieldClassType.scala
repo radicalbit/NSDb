@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.index
-
-import org.apache.lucene.store.BaseDirectory
+package io.radicalbit.nsdb.common.protocol
 
 /**
-  * Concrete implementation of [[AbstractStructuredIndex]] which stores file on disk.
-  *
-  * @param directory index directory
+  * Algebraic Data Type representing the field class types provided by NSDb.
   */
-class TimeSeriesIndex(override val directory: BaseDirectory) extends AbstractStructuredIndex
+sealed trait FieldClassType
+
+case object TimestampFieldType extends FieldClassType
+case object ValueFieldType     extends FieldClassType
+case object DimensionFieldType extends FieldClassType
+case object TagFieldType       extends FieldClassType

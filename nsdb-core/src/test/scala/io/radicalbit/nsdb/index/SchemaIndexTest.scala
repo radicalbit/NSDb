@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
+import io.radicalbit.nsdb.common.protocol.DimensionFieldType
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
@@ -39,7 +40,12 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     (0 to 100).foreach { i =>
       val testData = Schema(
         s"metric_$i",
-        Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field$i", VARCHAR())))
+        Set(
+          SchemaField("field1", DimensionFieldType, BIGINT()),
+          SchemaField("field2", DimensionFieldType, VARCHAR()),
+          SchemaField(s"field$i", DimensionFieldType, VARCHAR())
+        )
+      )
       schemaIndex.write(testData)
     }
     writer.close()
@@ -53,7 +59,12 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     firstSchema shouldBe Some(
       Schema(
         s"metric_0",
-        Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR()), SchemaField(s"field0", VARCHAR()))))
+        Set(
+          SchemaField("field1", DimensionFieldType, BIGINT()),
+          SchemaField("field2", DimensionFieldType, VARCHAR()),
+          SchemaField(s"field0", DimensionFieldType, VARCHAR())
+        )
+      ))
   }
 
   "SchemaIndex" should "update records" in {
@@ -64,7 +75,9 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(s"metric_1", Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    val testData = Schema(
+      s"metric_1",
+      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
     schemaIndex.write(testData)
     writer.close()
 
@@ -82,10 +95,14 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(s"metric_2", Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    val testData = Schema(
+      s"metric_2",
+      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
     schemaIndex.write(testData)
 
-    val testDataBis = Schema(s"metric_3", Set(SchemaField("field1", BIGINT()), SchemaField("field2", VARCHAR())))
+    val testDataBis = Schema(
+      s"metric_3",
+      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
     schemaIndex.write(testDataBis)
     writer.close()
 

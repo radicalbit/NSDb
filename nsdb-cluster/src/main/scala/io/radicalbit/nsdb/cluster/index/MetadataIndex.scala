@@ -16,8 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.index
 
-import com.typesafe.scalalogging.Logger
-import io.radicalbit.nsdb.index.Index
+import io.radicalbit.nsdb.index.SimpleIndex
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
@@ -41,7 +40,7 @@ case class Location(metric: String, node: String, from: Long, to: Long)
   * Index for storing metadata.
   * @param directory index bae directory.
   */
-class MetadataIndex(override val directory: BaseDirectory) extends Index[Location] {
+class MetadataIndex(override val directory: BaseDirectory) extends SimpleIndex[Location] {
   override val _keyField: String = "_metric"
 
   override def validateRecord(data: Location): Try[Seq[Field]] = {

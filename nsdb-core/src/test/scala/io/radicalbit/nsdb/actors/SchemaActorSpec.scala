@@ -20,9 +20,9 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
@@ -52,8 +52,13 @@ class SchemaActorSpec
       .isDefined shouldBe false
 
     Await.result(
-      schemaActor ? UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 1, Map("name" -> "name"), Map.empty)),
-      3 seconds)
+      schemaActor ? UpdateSchemaFromRecord(
+        db = "db",
+        namespace = "namespace",
+        metric = "people",
+        record = Bit(timestamp = 0, value = 1, dimensions = Map("name" -> "name"), tags = Map("city" -> "city"))),
+      3 seconds
+    )
   }
 
   "SchemaActor" should "get schemas" in {
@@ -69,26 +74,37 @@ class SchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()), SchemaField("timestamp", BIGINT()), SchemaField("value", INT()))))
+      Schema(
+        "people",
+        Set(
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("city", TagFieldType, VARCHAR())
+        )
+      ))
   }
 
   "SchemaActor" should "return a failed message when trying to update a schema with an incompatible one" in {
-    probe.send(schemaActor,
-               UpdateSchemaFromRecord("db",
-                                      "namespace",
-                                      "people",
-                                      Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord(
+        "db",
+        "namespace",
+        "people",
+        Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+    )
 
     probe.expectMsgType[UpdateSchemaFailed]
   }
 
   "SchemaActor" should "update schemas coming from a record" in {
     probe.send(schemaActor,
-               UpdateSchemaFromRecord("db",
-                                      "namespace",
-                                      "people",
-                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+               UpdateSchemaFromRecord(
+                 "db",
+                 "namespace",
+                 "people",
+                 Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy"))))
 
     val schema = probe.expectMsgType[SchemaUpdated].schema
     schema.fields.exists(_.name == "timestamp") shouldBe true
@@ -99,11 +115,17 @@ class SchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()),
-                 SchemaField("timestamp", BIGINT()),
-                 SchemaField("value", INT()),
-                 SchemaField("surname", VARCHAR())))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      )
     )
 
     probe.send(schemaActor,
@@ -114,10 +136,11 @@ class SchemaActorSpec
 
   "SchemaActor" should "return the same schema for a new schema included in the old one" in {
     probe.send(schemaActor,
-               UpdateSchemaFromRecord("db",
-                                      "namespace",
-                                      "people",
-                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+               UpdateSchemaFromRecord(
+                 "db",
+                 "namespace",
+                 "people",
+                 Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy"))))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -126,15 +149,22 @@ class SchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()),
-                 SchemaField("timestamp", BIGINT()),
-                 SchemaField("value", INT()),
-                 SchemaField("surname", VARCHAR())))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      )
     )
 
-    probe.send(schemaActor,
-               UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map.empty)))
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map("country" -> "italy"))))
     probe.expectMsgType[SchemaUpdated]
 
     probe.send(schemaActor, GetSchema("db", "namespace", "people"))
@@ -149,10 +179,11 @@ class SchemaActorSpec
     implicit val timeout = Timeout(3 seconds)
 
     probe.send(schemaActor,
-               UpdateSchemaFromRecord("db",
-                                      "namespace",
-                                      "people",
-                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+               UpdateSchemaFromRecord(
+                 "db",
+                 "namespace",
+                 "people",
+                 Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy"))))
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -161,18 +192,27 @@ class SchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema("people",
-             Set(SchemaField("name", VARCHAR()),
-                 SchemaField("timestamp", BIGINT()),
-                 SchemaField("value", INT()),
-                 SchemaField("surname", VARCHAR())))
+      Schema(
+        "people",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      )
     )
 
-    probe.send(schemaActor,
-               UpdateSchemaFromRecord("db",
-                                      "namespace",
-                                      "offices",
-                                      Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map.empty)))
+    probe.send(
+      schemaActor,
+      UpdateSchemaFromRecord(
+        "db",
+        "namespace",
+        "offices",
+        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+    )
 
     probe.expectMsgType[SchemaUpdated]
 
@@ -181,11 +221,17 @@ class SchemaActorSpec
     val schema = probe.expectMsgType[SchemaGot]
     schema.metric shouldBe "offices"
     schema.schema shouldBe Some(
-      Schema("offices",
-             Set(SchemaField("name", VARCHAR()),
-                 SchemaField("surname", VARCHAR()),
-                 SchemaField("timestamp", BIGINT()),
-                 SchemaField("value", INT())))
+      Schema(
+        "offices",
+        Set(
+          SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          SchemaField("value", ValueFieldType, INT()),
+          SchemaField("name", DimensionFieldType, VARCHAR()),
+          SchemaField("surname", DimensionFieldType, VARCHAR()),
+          SchemaField("city", TagFieldType, VARCHAR()),
+          SchemaField("country", TagFieldType, VARCHAR())
+        )
+      )
     )
 
     probe.send(
@@ -210,6 +256,5 @@ class SchemaActorSpec
       .result((schemaActor ? GetSchema("db", "namespace", "people")).mapTo[SchemaGot], 3 seconds)
       .schema
       .isDefined shouldBe true
-
   }
 }

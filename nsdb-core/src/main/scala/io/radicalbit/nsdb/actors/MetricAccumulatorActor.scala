@@ -51,8 +51,6 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
     with ActorLogging {
   import scala.collection.mutable
 
-  private val statementParser = new StatementParser()
-
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   /**
@@ -178,7 +176,7 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
       opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
       sender ! RecordDeleted(db, ns, key.metric, bit)
     case ExecuteDeleteStatementInShards(statement, schema, keys) =>
-      statementParser.parseStatement(statement, schema) match {
+      StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
           keys.foreach { key =>
             opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, q))

@@ -23,7 +23,9 @@ import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
+import io.radicalbit.nsdb.index.VARCHAR
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
@@ -62,7 +64,7 @@ class MetricAccumulatorActorpec()
 
   "MetricAccumulatorActor" should "write and delete properly" in {
 
-    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
+    val bit = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val key = ShardKey("shardActorMetric", 0, 100)
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key, bit))
@@ -98,14 +100,18 @@ class MetricAccumulatorActorpec()
 
   "MetricAccumulatorActor" should "write and delete properly the same metric in multiple keys" in {
 
+    val schema =
+      Schema("",
+             Set(SchemaField("dimension", DimensionFieldType, VARCHAR()), SchemaField("tag", TagFieldType, VARCHAR())))
+
     val key  = ShardKey("shardActorMetric", 0, 100)
     val key2 = ShardKey("shardActorMetric", 101, 200)
 
-    val bit11 = Bit(System.currentTimeMillis, 22.5, Map("content" -> "content"), Map.empty)
-    val bit12 = Bit(System.currentTimeMillis, 30.5, Map("content" -> "content"), Map.empty)
-    val bit13 = Bit(System.currentTimeMillis, 50.5, Map("content" -> "content"), Map.empty)
-    val bit21 = Bit(System.currentTimeMillis, 150, Map("content"  -> "content"), Map.empty)
-    val bit22 = Bit(System.currentTimeMillis, 160, Map("content"  -> "content"), Map.empty)
+    val bit11 = Bit(System.currentTimeMillis, 22.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit12 = Bit(System.currentTimeMillis, 30.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit13 = Bit(System.currentTimeMillis, 50.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit21 = Bit(System.currentTimeMillis, 150, Map("dimension"  -> "dimension"), Map("tag" -> "tag"))
+    val bit22 = Bit(System.currentTimeMillis, 160, Map("dimension"  -> "dimension"), Map("tag" -> "tag"))
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key, bit11))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key, bit12))
@@ -125,6 +131,7 @@ class MetricAccumulatorActorpec()
     probe.send(shardReaderActor, GetCount(db, namespace, "shardActorMetric"))
     awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
+
       expectedCount.metric shouldBe "shardActorMetric"
       expectedCount.count shouldBe 5
 
@@ -133,14 +140,14 @@ class MetricAccumulatorActorpec()
       metricAccumulatorActor.underlyingActor.shards.keys.toSeq.contains(ShardKey("shardActorMetric", 101, 200))
 
       val i1     = metricAccumulatorActor.underlyingActor.shards(ShardKey("shardActorMetric", 0, 100))
-      val shard1 = i1.all
+      val shard1 = i1.all(schema)
       shard1.size shouldBe 3
       shard1 should contain(bit11)
       shard1 should contain(bit12)
       shard1 should contain(bit13)
 
       val i2     = metricAccumulatorActor.underlyingActor.shards(ShardKey("shardActorMetric", 101, 200))
-      val shard2 = i2.all
+      val shard2 = i2.all(schema)
       shard2.size shouldBe 2
       shard2 should contain(bit21)
       shard2 should contain(bit22)
@@ -149,8 +156,8 @@ class MetricAccumulatorActorpec()
 
   "MetricAccumulatorActor" should "drop a metric" in {
 
-    val bit1 = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
-    val bit2 = Bit(System.currentTimeMillis, 30, Map("content" -> "content"), Map.empty)
+    val bit1 = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit2 = Bit(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, ShardKey("testMetric", 0, 0), bit1))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, ShardKey("testMetric", 0, 0), bit2))

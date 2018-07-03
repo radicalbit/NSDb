@@ -37,8 +37,8 @@ trait TimeSeriesRecord {
   *
   * - a Map of generic tags (string or numeric values allowed).
   *
-  * @param timestamp record timestamp.
-  * @param value record value.
+  * @param timestamp  record timestamp.
+  * @param value      record value.
   * @param dimensions record dimensions.
   */
 case class Bit(timestamp: Long,
@@ -50,7 +50,13 @@ case class Bit(timestamp: Long,
   /**
     * @return all fields included dimensions, timestamp and value.
     */
-  def fields: Map[String, JSerializable] =
-    dimensions ++ tags + ("timestamp" -> timestamp.asInstanceOf[JSerializable]) + ("value" -> value
-      .asInstanceOf[JSerializable])
+  def fields: Map[String, (JSerializable, FieldClassType)] =
+    extractFields(dimensions, DimensionFieldType) ++
+      extractFields(tags, TagFieldType) +
+      ("timestamp" -> (timestamp.asInstanceOf[JSerializable], TimestampFieldType)) +
+      ("value"     -> (value.asInstanceOf[JSerializable], ValueFieldType))
+
+  private def extractFields(m: Map[String, JSerializable],
+                            classType: FieldClassType): Map[String, (JSerializable, FieldClassType)] =
+    m.map { case (k, v) => k -> (v, classType) }
 }

@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.{DeleteAll, RefreshShard}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.index.lucene._
@@ -52,8 +52,6 @@ import scala.util.{Failure, Success}
   */
 class MetricReaderActor(val basePath: String, val db: String, val namespace: String) extends Actor with ActorLogging {
   import scala.collection.mutable
-
-  private val statementParser = new StatementParser()
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
@@ -119,7 +117,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           implicit val ord: Ordering[JSerializable] =
             if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
             else o
-          seq.sortBy(_.fields(statement.order.get.dimension))
+          seq.sortBy(_.fields(statement.order.get.dimension)._1)
         } else seq
         if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
     })
@@ -152,7 +150,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
     gatherShardResults(actors, statement, schema) { seq =>
       seq
-        .groupBy(_.dimensions(groupBy))
+        .groupBy(_.tags(groupBy))
         .mapValues(aggregationFunction)
         .values
         .toSeq
@@ -191,7 +189,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param schema metric's schema.
     * @return a single sequence of results obtained from different shards.
     */
-  private def retrieveAndorderPlainResults(statement: SelectSQLStatement,
+  private def retrieveAndOrderPlainResults(statement: SelectSQLStatement,
                                            parsedStatement: ParsedSimpleQuery,
                                            actors: Seq[(ShardKey, ActorRef)],
                                            schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
@@ -207,10 +205,17 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     } else {
 
       gatherShardResults(actors, statement, schema) { seq =>
-        val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+        val schemaField = schema.fields.find(_.name == statement.order.get.dimension).get
+        val o           = schemaField.indexType.ord
         implicit val ord: Ordering[JSerializable] =
           if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
-        val sorted = seq.sortBy(_.dimensions(statement.order.get.dimension))
+
+        val sorted =
+          if (schemaField.fieldClassType == DimensionFieldType)
+            seq.sortBy(_.dimensions(statement.order.get.dimension))
+          else
+            seq.sortBy(_.tags(statement.order.get.dimension))
+
         sorted.take(statement.limit.get.value)
       }
     }
@@ -245,12 +250,12 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         .pipeTo(sender)
 
     case _ @ExecuteSelectStatement(statement, schema) =>
-      statementParser.parseStatement(statement, schema) match {
+      StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val orderedResults = retrieveAndorderPlainResults(statement, parsedStatement, actors, schema)
+          val orderedResults = retrieveAndOrderPlainResults(statement, parsedStatement, actors, schema)
 
           orderedResults
             .map {
@@ -258,10 +263,14 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
                 if (fields.lengthCompare(1) == 0 && fields.head.count) {
                   val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
                   val count       = if (recordCount <= limit) recordCount else limit
-                  SelectStatementExecuted(statement.db,
-                                          statement.namespace,
-                                          statement.metric,
-                                          Seq(Bit(0, count, Map(seq.head.dimensions.head._1 -> count), Map.empty)))
+
+                  val bits = Seq(
+                    Bit(timestamp = 0,
+                        value = count,
+                        dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
+                        tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
+
+                  SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
                 } else {
                   SelectStatementExecuted(
                     statement.db,
@@ -269,8 +278,8 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
                     statement.metric,
                     seq.map(
                       b =>
-                        if (b.dimensions.contains("count(*)"))
-                          b.copy(dimensions = b.dimensions + ("count(*)" -> seq.size))
+                        if (b.tags.contains("count(*)"))
+                          b.copy(tags = b.tags + ("count(*)" -> seq.size))
                         else b)
                   )
                 }
@@ -284,7 +293,12 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
           val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
-            Bit(0, 0, Map[String, JSerializable]((distinctField, values.head.dimensions(distinctField))), Map.empty)
+            Bit(
+              timestamp = 0,
+              value = 0,
+              dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
+              tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
+            )
           }
 
           applyOrderingWithLimit(shardResults, statement, schema)
@@ -297,7 +311,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
           val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
-              Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, Map.empty)
+              Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
           }
 
           applyOrderingWithLimit(shardResults, statement, schema)
@@ -314,11 +328,11 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
               implicit val numeric: Numeric[JSerializable] = v.numeric
               collector match {
                 case _: MaxAllGroupsCollector[_, _] =>
-                  Bit(0, values.map(_.value).max, values.head.dimensions, Map.empty)
+                  Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
                 case _: MinAllGroupsCollector[_, _] =>
-                  Bit(0, values.map(_.value).min, values.head.dimensions, Map.empty)
+                  Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
                 case _: SumAllGroupsCollector[_, _] =>
-                  Bit(0, values.map(_.value).sum, values.head.dimensions, Map.empty)
+                  Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
               }
             }
 
@@ -342,6 +356,38 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
   }
 
   override def receive: Receive = readOps
+
+  /**
+    * This is a utility method to extract dimensions or tags from a Bit sequence in a functional way without having
+    * the risk to throw dangerous exceptions.
+    *
+    * @param values the sequence of bits holding the fields to be extracted.
+    * @param field the name of the field to be extracted.
+    * @param extract the function defining how to extract the field from a given bit.
+    * @return
+    */
+  private def retrieveField(values: Seq[Bit],
+                            field: String,
+                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+    values.headOption
+      .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
+      .getOrElse(Map.empty[String, JSerializable])
+
+  /**
+    * This is a utility method in charge to associate a dimension or a tag with the given count.
+    * It extracts the field from a Bit sequence in a functional way without having the risk to throw dangerous exceptions.
+    *
+    * @param values the sequence of bits holding the field to be extracted.
+    * @param count the value of the count to be associated with the field.
+    * @param extract the function defining how to extract the field from a given bit.
+    * @return
+    */
+  private def retrieveCount(values: Seq[Bit],
+                            count: Int,
+                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+    values.headOption
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
+      .getOrElse(Map.empty[String, JSerializable])
 
 }
 

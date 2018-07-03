@@ -20,7 +20,7 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, VARCHAR}
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
@@ -66,7 +66,9 @@ class PublisherActorSpec
   val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"), Map.empty)
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"), Map.empty)
 
-  val schema = Schema("people", Set(SchemaField("timestamp", BIGINT()), SchemaField("name", VARCHAR())))
+  val schema = Schema(
+    "people",
+    Set(SchemaField("timestamp", DimensionFieldType, BIGINT()), SchemaField("name", DimensionFieldType, VARCHAR())))
 
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))

@@ -39,7 +39,7 @@ trait TypeSupport {
     */
   def validateSchemaTypeSupport(bit: Bit): Try[Seq[TypedField]] = {
     val x = bit.fields.toSeq
-      .map { case (n, v) => IndexType.tryFromRawField(RawField(n, v)) }
+      .map { case (n, (v, t)) => IndexType.tryFromRawField(RawField(n, t, v)) }
     Try(x.map(f => f.get))
   }
 }
@@ -138,13 +138,13 @@ object IndexType {
 
   def fromRawField(rawField: RawField): Try[TypedField] =
     supportedType.find(_.actualType == rawField.value.getClass) match {
-      case Some(indexType) => Success(TypedField(rawField.name, indexType, rawField.value))
+      case Some(indexType) => Success(TypedField(rawField.name, rawField.fieldClassType, indexType, rawField.value))
       case None            => Failure(new RuntimeException(s"class ${rawField.value.getClass} is not supported"))
     }
 
   def tryFromRawField(rawField: RawField): Try[TypedField] =
     supportedType.find(_.actualType == rawField.value.getClass) match {
-      case Some(indexType) => Success(TypedField(rawField.name, indexType, rawField.value))
+      case Some(indexType) => Success(TypedField(rawField.name, rawField.fieldClassType, indexType, rawField.value))
       case None            => Failure(new RuntimeException(s"class ${rawField.value.getClass} is not supported"))
     }
 

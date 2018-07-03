@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
@@ -31,7 +32,10 @@ import scala.util.{Failure, Success, Try}
   * Index for entry of class [[Schema]].
   * @param directory index base directory.
   */
-class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
+class SchemaIndex(override val directory: BaseDirectory) extends SimpleIndex[Schema] {
+
+  import SchemaIndex._
+
   override val _keyField: String = "_metric"
 
   override def validateRecord(data: Schema): Try[Seq[Field]] = {
@@ -39,7 +43,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
       Seq(
         new StringField(_keyField, data.metric, Store.YES)
       ) ++
-        data.fields.map(e => new StringField(e.name, e.indexType.getClass.getCanonicalName, Store.YES)))
+        data.fields.map(e => new StringField(e.name, stringFieldValue(e), Store.YES)))
   }
 
   override def write(data: Schema)(implicit writer: IndexWriter): Try[Long] = {
@@ -50,16 +54,22 @@ class SchemaIndex(override val directory: BaseDirectory) extends Index[Schema] {
           fields.foreach(doc.add)
           writer.addDocument(doc)
         }
-      case Failure(t) => Failure(t)
+      case Failure(t) =>
+        t.printStackTrace()
+        Failure(t)
     }
   }
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Schema = {
     val fields = document.getFields.asScala.filterNot(f => f.name() == _keyField || f.name() == _countField)
-    Schema(document.get(_keyField),
-           fields
-             .map(f => SchemaField(f.name(), Class.forName(f.stringValue()).newInstance().asInstanceOf[IndexType[_]]))
-             .toSet)
+    Schema(
+      document.get(_keyField),
+      fields.map {
+        case f =>
+          val (fieldType, indexType) = fieldValue(f.stringValue)
+          SchemaField(f.name(), fieldType, indexType)
+      }.toSet
+    )
   }
 
   def getSchema(metric: String): Option[Schema] = {
@@ -109,6 +119,22 @@ object SchemaIndex {
 
     if (notCompatibleFields.nonEmpty)
       Failure(new RuntimeException(notCompatibleFields.mkString(",")))
-    else Success(Schema(secondSchema.metric, firstSchema.fields ++ secondSchema.fields))
+    else {
+      val schema = Schema(secondSchema.metric, firstSchema.fields ++ secondSchema.fields)
+      Success(schema)
+    }
+  }
+
+  def stringFieldValue(sf: SchemaField): String = s"${sf.fieldClassType}-${sf.indexType.getClass.getCanonicalName}"
+
+  def fieldValue(fieldSchemaType: String): (FieldClassType, IndexType[_]) = {
+    val array = fieldSchemaType.split("-")
+    val fieldType = array(0) match {
+      case "TimestampFieldType" => TimestampFieldType
+      case "ValueFieldType"     => ValueFieldType
+      case "DimensionFieldType" => DimensionFieldType
+      case "TagFieldType"       => TagFieldType
+    }
+    (fieldType, Class.forName(array(1)).newInstance().asInstanceOf[IndexType[_]])
   }
 }
