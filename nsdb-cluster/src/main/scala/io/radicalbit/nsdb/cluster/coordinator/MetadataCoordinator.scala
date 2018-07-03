@@ -27,9 +27,17 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
+  AddLocationFailed,
+  LocationAdded,
+  LocationGot,
+  LocationsGot
+}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
+
+import scala.concurrent.Future
+import scala.util.Random
 
 /**
   * Actor that handles metadata (i.e. write location for metrics)
@@ -95,10 +103,28 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
       val endShard   = startShard + shardingInterval
       val nodeName =
         s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-      (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
-        .map {
-          case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-          case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+      (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
+        .flatMap {
+          case CachedLocations(_, values) if values.nonEmpty =>
+            values.find(v => v.from <= timestamp && v.to >= timestamp) match {
+              case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
+              case None =>
+                (self ? AddLocation(db,
+                                    namespace,
+                                    Location(metric, nodeName, startShard, endShard)))
+                  .map {
+                    case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                    case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                  }
+            }
+
+          case CachedLocations(_, _) =>
+            (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
+              .map {
+                case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+              }
+
         }
         .pipeTo(sender)
 
