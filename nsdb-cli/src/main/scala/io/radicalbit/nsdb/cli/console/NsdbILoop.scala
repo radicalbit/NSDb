@@ -167,6 +167,17 @@ class NsdbILoop(host: Option[String],
           ))
     }
 
+  private def fieldClassTypeFor(field: GrpcMetricSchemaRetrieved.MetricField): FieldClassType = {
+    import GrpcMetricSchemaRetrieved.MetricField.FieldClassType._
+
+    field.fieldClassType match {
+      case DIMENSION => DimensionFieldType
+      case TAG       => TagFieldType
+      case TIMESTAMP => TimestampFieldType
+      case VALUE     => ValueFieldType
+    }
+  }
+
   /**
     * Manages server responses from [[CommandStatement]] client requests
     * Transform gRPC protocol depending messages into client managed ones.
@@ -180,10 +191,11 @@ class NsdbILoop(host: Option[String],
       case r: GrpcMetricsGot if r.completedSuccessfully =>
         NamespaceMetricsListRetrieved(r.db, r.namespace, r.metrics.toList)
       case r: GrpcMetricSchemaRetrieved if r.completedSuccessfully =>
-        MetricSchemaRetrieved(r.db,
-                              r.namespace,
-                              r.metric,
-                              r.fields.map(field => MetricField(field.name, field.`type`)).toList)
+        MetricSchemaRetrieved(
+          r.db,
+          r.namespace,
+          r.metric,
+          r.fields.map(field => MetricField(field.name, fieldClassTypeFor(field), field.indexType)).toList)
       case r: Namespaces if r.completedSuccessfully =>
         NamespacesListRetrieved(r.db, r.namespaces)
       case r: Namespaces =>
@@ -236,7 +248,7 @@ class NsdbILoop(host: Option[String],
     * Sends a [[CommandStatement]] to the server and handles its response.
     *
     * @param stm [[CommandStatement]] to be sent
-    * @param lineToRecord
+    * @param lineToRecord line to be displayed
     * @return
     */
   private def sendCommand(stm: CommandStatement, lineToRecord: String): Result = stm match {
@@ -289,7 +301,7 @@ class NsdbILoop(host: Option[String],
 
   private def processSQLStatementResponse(statementAttempt: Future[SQLStatementResult],
                                           print: SQLStatementResult => Try[String],
-                                          lineToRecord: String): Result = {
+                                          lineToRecord: String): Result =
     Try(Await.result(statementAttempt, 30 seconds)) match {
       case Success(resp: SQLStatementFailed) =>
         echo(s"Statement failed because : ${resp.reason}")
@@ -306,7 +318,6 @@ class NsdbILoop(host: Option[String],
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
         result(Some(lineToRecord))
     }
-  }
 
   private def echo(out: Try[String], lineToRecord: String): Result = out match {
     case Success(x) =>

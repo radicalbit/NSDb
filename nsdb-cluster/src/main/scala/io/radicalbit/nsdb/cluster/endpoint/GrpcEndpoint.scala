@@ -25,8 +25,9 @@ import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
-import io.radicalbit.nsdb.common.protocol.{Bit, MetricField}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
@@ -49,6 +50,7 @@ import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
+import io.radicalbit.nsdb.rpc.responseCommand.MetricSchemaRetrieved.MetricField.{FieldClassType => GrpcFieldClassType}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -139,23 +141,42 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       }
     }
 
-    override def describeMetric(
-        request: DescribeMetric
-    ): Future[GrpcMetricSchemaRetrieved] = {
+    override def describeMetric(request: DescribeMetric): Future[GrpcMetricSchemaRetrieved] = {
+
+      def extractField(schema: Option[Schema]): Set[MetricField] =
+        schema
+          .map(
+            _.fields.map(
+              field =>
+                MetricField(name = field.name,
+                            fieldClassType = field.fieldClassType,
+                            `type` = field.indexType.getClass.getSimpleName)))
+          .getOrElse(Set.empty[MetricField])
+
+      def extractFieldClassType(f: MetricField): GrpcFieldClassType = {
+        f.fieldClassType match {
+          case DimensionFieldType => GrpcFieldClassType.DIMENSION
+          case TagFieldType       => GrpcFieldClassType.TAG
+          case TimestampFieldType => GrpcFieldClassType.TIMESTAMP
+          case ValueFieldType     => GrpcFieldClassType.VALUE
+        }
+      }
+
       //TODO: add failure handling
       log.debug("Received command DescribeMetric for metric {}", request.metric)
+
       (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
         .map {
           case SchemaGot(db, namespace, metric, schema) =>
-            val fields = schema
-              .map(
-                _.fields.map(field => MetricField(name = field.name, `type` = field.indexType.getClass.getSimpleName)))
-              .getOrElse(Set.empty[MetricField])
-            GrpcMetricSchemaRetrieved(db,
-                                      namespace,
-                                      metric,
-                                      fields.map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, f.`type`)).toSeq,
-                                      completedSuccessfully = true)
+            GrpcMetricSchemaRetrieved(
+              db,
+              namespace,
+              metric,
+              extractField(schema)
+                .map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, extractFieldClassType(f), f.`type`))
+                .toSeq,
+              completedSuccessfully = true
+            )
           case _ =>
             GrpcMetricSchemaRetrieved(request.db,
                                       request.namespace,
@@ -251,7 +272,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
       case _                               => v.stringValue.get
     }
 
-    private def toGrpcBit(bit: Bit): GrpcBit = {
+    private def toGrpcBit(bit: Bit): GrpcBit =
       GrpcBit(
         timestamp = bit.timestamp,
         value = bit.value match {
@@ -271,9 +292,18 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
             (k, Dimension(Dimension.Value.LongValue(v.longValue())))
           case (k, v: java.math.BigDecimal) => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
           case (k, v)                       => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+        },
+        tags = bit.tags.map {
+          case (k, v: java.lang.Double)  => (k, Tag(Tag.Value.DecimalValue(v)))
+          case (k, v: java.lang.Float)   => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
+          case (k, v: java.lang.Long)    => (k, Tag(Tag.Value.LongValue(v)))
+          case (k, v: java.lang.Integer) => (k, Tag(Tag.Value.LongValue(v.longValue())))
+          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
+            (k, Tag(Tag.Value.LongValue(v.longValue())))
+          case (k, v: java.math.BigDecimal) => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
+          case (k, v)                       => (k, Tag(Tag.Value.StringValue(v.toString)))
         }
       )
-    }
 
     override def executeSQLStatement(
         request: SQLRequestStatement
@@ -341,6 +371,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
                     )
                 }
                 .getOrElse(Future(throw new InvalidStatementException("The insert SQL statement is invalid.")))
+
               result
                 .map {
                   case InputMapped(db, namespace, metric, record) =>

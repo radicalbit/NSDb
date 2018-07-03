@@ -68,7 +68,7 @@ case class SQLStatementFailed(db: String, namespace: String, metric: String, rea
   * @param name field name.
   * @param `type` field type (e.g. VARCHAR, INT, BIGINT, ecc.).
   */
-case class MetricField(name: String, `type`: String)
+case class MetricField(name: String, fieldClassType: FieldClassType, `type`: String)
 
 /**
   * Trait for every command statement executed through Grpc channel.
