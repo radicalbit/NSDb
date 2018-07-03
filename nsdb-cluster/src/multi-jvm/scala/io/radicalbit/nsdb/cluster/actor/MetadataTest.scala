@@ -110,9 +110,9 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
 
       awaitAssert {
         addresses.foreach(a => {
-          val metadataActor =
-            system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor.tell(GetLocations("db", "namespace", "metric"), probe.ref)
+          val locationActor =
+            system.actorSelection(s"user/location_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
+          locationActor.tell(GetLocations("db", "namespace", "metric"), probe.ref)
           probe.expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
         })
       }

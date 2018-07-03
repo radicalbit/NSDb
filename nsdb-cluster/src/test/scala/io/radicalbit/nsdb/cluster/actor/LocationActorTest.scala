@@ -53,7 +53,7 @@ class LocationActorTest
 
   val probe               = TestProbe()
   val metadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
-  val metadataActor       = system.actorOf(MetadataActor.props("target/test_index/LocationActorTest", metadataCoordinator))
+  val metadataActor       = system.actorOf(LocationActor.props("target/test_index/LocationActorTest", metadataCoordinator))
 
   lazy val db        = "db"
   lazy val namespace = "namespaceTest"

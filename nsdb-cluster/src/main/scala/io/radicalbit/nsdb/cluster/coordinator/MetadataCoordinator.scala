@@ -24,7 +24,7 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
+import io.radicalbit.nsdb.cluster.actor.LocationActor.MetricLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._

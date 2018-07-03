@@ -37,10 +37,10 @@ import scala.util.{Failure, Success, Try}
 case class Location(metric: String, node: String, from: Long, to: Long)
 
 /**
-  * Index for storing metadata.
+  * Index for storing metric locations.
   * @param directory index bae directory.
   */
-class MetadataIndex(override val directory: BaseDirectory) extends SimpleIndex[Location] {
+class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[Location] {
   override val _keyField: String = "_metric"
 
   override def validateRecord(data: Location): Try[Seq[Field]] = {
@@ -80,7 +80,7 @@ class MetadataIndex(override val directory: BaseDirectory) extends SimpleIndex[L
     )
   }
 
-  def getMetadata(metric: String): Seq[Location] = {
+  def getLocationsForMetric(metric: String): Seq[Location] = {
     val queryTerm = new TermQuery(new Term(_keyField, metric))
 
     implicit val searcher: IndexSearcher = getSearcher
@@ -91,7 +91,7 @@ class MetadataIndex(override val directory: BaseDirectory) extends SimpleIndex[L
     }
   }
 
-  def getMetadata(metric: String, t: Long): Option[Location] = {
+  def getLocationForMetricAtTime(metric: String, t: Long): Option[Location] = {
     val builder = new BooleanQuery.Builder()
     builder.add(LongPoint.newRangeQuery("to", t, Long.MaxValue), BooleanClause.Occur.SHOULD)
     builder.add(LongPoint.newRangeQuery("from", 0, t), BooleanClause.Occur.SHOULD).build()
