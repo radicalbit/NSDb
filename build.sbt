@@ -153,13 +153,13 @@ lazy val `nsdb-cluster` = project
 
       for {
         (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
-      } yield file -> s"/opt/${name.value}/conf/$relativePath"
+      } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
     },
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "../docker-scripts"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
+        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
     },
     version in Docker := version.value,
