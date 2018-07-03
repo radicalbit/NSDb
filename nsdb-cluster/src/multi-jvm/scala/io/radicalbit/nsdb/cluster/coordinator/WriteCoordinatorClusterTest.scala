@@ -117,6 +117,8 @@ class WriteCoordinatorClusterTest
       }
       initialLoc.locations.size shouldBe 0
 
+      Thread.sleep(1000)
+
       runOn(node1) {
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty, Map.empty))
         awaitAssert {
