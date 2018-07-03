@@ -68,11 +68,14 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @return The existing or the created shard actor.
     */
   private def getOrCreateActor(key: ShardKey) = {
-    actors.getOrElse(key, {
-      val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
-      actors += (key -> newActor)
-      newActor
-    })
+    actors.getOrElse(
+      key, {
+        val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key),
+                                       s"shard_reader_${key.metric}_${key.from}_${key.to}")
+        actors += (key -> newActor)
+        newActor
+      }
+    )
   }
 
   /**

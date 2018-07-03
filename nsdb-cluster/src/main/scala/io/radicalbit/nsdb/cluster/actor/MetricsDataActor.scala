@@ -51,23 +51,23 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     * @return [[(ShardReaderActor, ShardAccumulatorActor)]] for selected database and namespace
     */
   private def getOrCreateChildren(db: String, namespace: String): (ActorRef, ActorRef) = {
-    val readerOpt      = context.child(s"shard_reader_${db}_$namespace")
-    val accumulatorOpt = context.child(s"shard_accumulator_${db}_$namespace")
+    val readerOpt      = context.child(s"metric_reader_${db}_$namespace")
+    val accumulatorOpt = context.child(s"metric_accumulator_${db}_$namespace")
 
     val reader = readerOpt.getOrElse(
       context.actorOf(
         readParallelism.pool.props(
           MetricReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
-        s"shard_reader_${db}_$namespace"
+        s"metric_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
       context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader),
-                      s"shard_accumulator_${db}_$namespace"))
+                      s"metric_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
 
   private def getChildren(db: String, namespace: String): (Option[ActorRef], Option[ActorRef]) =
-    (context.child(s"shard_reader_${db}_$namespace"), context.child(s"shard_accumulator_${db}_$namespace"))
+    (context.child(s"metric_reader_${db}_$namespace"), context.child(s"metric_accumulator_${db}_$namespace"))
 
   /**
     * If exists, gets the reader for selected namespace and database.
@@ -78,7 +78,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
     * @return Option containing child actor of class [[MetricAccumulatorActor]]
     */
   private def getReader(db: String, namespace: String): Option[ActorRef] =
-    context.child(s"shard_reader_${db}_$namespace")
+    context.child(s"metric_reader_${db}_$namespace")
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-data.timeout", TimeUnit.SECONDS),
@@ -108,7 +108,7 @@ class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
       sender() ! DbsGot(dbs.toSet)
     case GetNamespaces(db) =>
       val namespaces = context.children.collect {
-        case a if a.path.name.startsWith("shard_reader") && a.path.name.split("_")(2) == db =>
+        case a if a.path.name.startsWith("metric_reader") && a.path.name.split("_")(2) == db =>
           a.path.name.split("_")(3)
       }.toSet
       sender() ! NamespacesGot(db, namespaces)

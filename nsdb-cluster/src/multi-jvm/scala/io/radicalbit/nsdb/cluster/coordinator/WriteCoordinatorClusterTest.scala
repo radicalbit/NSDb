@@ -83,8 +83,6 @@ class WriteCoordinatorClusterTest
   val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
   val writeCoordinator    = system.actorSelection("/user/guardian/write-coordinator")
 
-  writeCoordinator ! WarmUpCompleted
-
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
       cluster join node(to).address
