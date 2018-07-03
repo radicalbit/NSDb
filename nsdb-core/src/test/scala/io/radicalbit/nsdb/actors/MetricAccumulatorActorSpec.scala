@@ -32,7 +32,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class MetricAccumulatorActorpec()
-    extends TestKit(ActorSystem("shardActorSpec"))
+    extends TestKit(ActorSystem("metricAccumulatorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
