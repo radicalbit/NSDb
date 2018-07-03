@@ -1,4 +1,9 @@
 ![](docs/img/NSDb_logo_clear.png "")
+
+[![Build Status](https://travis-ci.org/radicalbit/NSDb.svg)](https://travis-ci.org/radicalbit/NSDb)
+[![codecov](https://codecov.io/github/radicalbit/NSDb/coverage.svg?branch=master)](https://codecov.io/github/radicalbit/NSDb?branch=master)
+[![License](https://img.shields.io/github/license/radicalbit/NSDb.svg)](LICENSE)
+
 # Natural Series Db #
 
 NSDb is a **time-series** database **streaming oriented**
