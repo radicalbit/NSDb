@@ -14,13 +14,14 @@ NSDb CLI makes use of gRPC client to communicate with NSDb cluster.
 ## Commands Usage
 CLI launch command:
 ```sh
-./nsdb-console --host 127.0.0.1 --port 7817 --database database_name
+./nsdb-cli --host 127.0.0.1 --port 7817 --database database_name
 ```
-accepts 3 parameters:
+accepts 4 parameters:
 ```
---host : NSDb host address, default value is localhost
---port : NSDb host port, default value is 7817
---database: database name on which establish connection
+--host : NSDb host address, default value is localhost (mandatory)
+--port : NSDb host port, default value is 7817 (mandatory)
+--database: database name on which establish connection (mandatory)
+--with: table max with (optional)
 ```
 
 To perform previously described operations users must select the namespace on which execute statements:
