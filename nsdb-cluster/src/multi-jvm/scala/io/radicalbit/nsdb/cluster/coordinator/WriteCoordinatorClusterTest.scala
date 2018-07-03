@@ -130,7 +130,6 @@ class WriteCoordinatorClusterTest
       val locations_1 = awaitAssert {
         expectMsgType[LocationsGot]
       }
-      println(s"---------------- size ${locations_1.locations.size}")
       locations_1.locations.size shouldBe 1
       locations_1.locations.head.from shouldBe 0
       locations_1.locations.head.to shouldBe 60000
