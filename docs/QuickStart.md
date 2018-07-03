@@ -16,9 +16,9 @@ $ sbt dist
 Once project packaging is completed, unzip archive created in path : `nsdb-cluster/target/universal`.
 ```bash
 $ cd nsdb/nsdb-cluster/target/universal
-$ unzip nsdb-cluster-0.1.3-SNAPSHOT.zip
-$ cd nsdb-cluster-0.1.3-SNAPSHOT/bin
-$ ./cluster
+$ unzip nsdb-0.6.0-SNAPSHOT.zip
+$ cd nsdb-0.6.0-SNAPSHOT/bin
+$ ./nsdb-cluster
 ```
 In order to check if the application is up and running properly user can call health-check API:
 ```bash
@@ -27,7 +27,7 @@ RUNNING
 ```
 Command Line Interface(CLI) can be launched executing in the same path:
 ```
-$ ./nsdb-console --host 127.0.0.1 --port 7817 --database database_name
+$ ./nsdb-cli --host 127.0.0.1 --port 7817 --database database_name
 ```
 For a comprehensive documentation regarding NSDb CLI refer to  [CLI doc](CLI_doc.md).
 
@@ -47,13 +47,11 @@ version: '3'
 services:
 
     nsdb:
-      image: tools.radicalbit.io/nsdb:0.0.3-SNAPSHOT
+      image: tools.radicalbit.io/nsdb:0.6.0-SNAPSHOT
       environment:
-        HTTP_INTERFACE: 0.0.0.0
-        HTTP_PORT: 9002
         AKKA_HOSTNAME: nsdb-node-1
       ports:
-        - 9010:9002
+        - 9010:9000
         - 9000:7817
 ```
 
@@ -65,7 +63,7 @@ version: '3'
 services:
 
     nsdb:
-      image: tools.radicalbit.io/nsdb:0.0.3-SNAPSHOT
+      image: tools.radicalbit.io/nsdb:0.6.0-SNAPSHOT
       volumes:
         - .conf:/opt/nsdb-cluster/conf
         - /host/data/path:/opt/nsdb-cluster/data
@@ -78,9 +76,16 @@ services:
 ```
 To start NSDb container:
 
+```bash
+$ docker-compose up
 ```
-$ docker-compose-up
+Command Line Interface(CLI) can be launched executing:
+```bash
+$ docker run --rm -it tools.radicalbit.io/nsdb:0.6.0-SNAPSHOT bin/nsdb-cli --host %HOST_IP% --port 7817 --database database_name
 ```
+where `%HOST_IP%` is the IP where NSDb is running.
+
+For a comprehensive documentation regarding NSDb CLI refer to  [CLI doc](CLI_doc.md).
 
 ## Next steps
 NSDb exposes data retrieval and insertion using both:

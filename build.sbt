@@ -146,29 +146,29 @@ lazy val `nsdb-cluster` = project
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
      */
+    packageName in Docker := "nsdb",
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "src/main/resources"
 
       for {
         (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
-      } yield file -> s"/opt/${name.value}/conf/$relativePath"
+      } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
     },
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "../docker-scripts"
 
       for {
         (file, relativePath) <- (confDir.*** --- confDir) x relativeTo(confDir)
-      } yield file -> s"/opt/${name.value}/bin/$relativePath"
+      } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
     },
-    packageName in Docker := name.value,
     version in Docker := version.value,
     maintainer in Docker := organization.value,
     dockerRepository := Some("tools.radicalbit.io"),
-    defaultLinuxInstallLocation in Docker := s"/opt/${name.value}",
+    defaultLinuxInstallLocation in Docker := s"/opt/${(packageName in Docker).value}",
     dockerCommands := Seq(
       Cmd("FROM", "tools.radicalbit.io/service-java-base:1.0"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
-      Cmd("WORKDIR", s"/opt/${name.value}"),
+      Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
       Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
@@ -184,6 +184,7 @@ lazy val `nsdb-cluster` = project
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/debian.html
      */
+    name in Debian := "nsdb",
     version in Debian := version.value,
     maintainer in Debian := "Radicalbit <info@radicalbit.io>",
     packageSummary in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
@@ -197,7 +198,7 @@ lazy val `nsdb-cluster` = project
        http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
      */
     version in Rpm := version.value,
-    packageName in Rpm := name.value,
+    packageName in Rpm := "nsdb",
     rpmRelease := "1",
     packageSummary in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
     packageDescription in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
@@ -206,6 +207,7 @@ lazy val `nsdb-cluster` = project
     rpmLicense := Some("Apache")
   )
   .settings(
+    packageName in Universal := s"nsdb-${version.value}",
     mappings in Universal ++= {
       val confDir = baseDirectory.value / "src/main/resources"
 
