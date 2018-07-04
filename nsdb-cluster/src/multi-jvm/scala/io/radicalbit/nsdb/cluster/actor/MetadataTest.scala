@@ -8,7 +8,7 @@ import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations, WarmUpLocations}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationAdded, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
@@ -90,7 +90,6 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
     "join cluster" in within(10.seconds) {
       join(node1, node1)
       join(node2, node1)
-
       awaitAssert {
         mediator ! Count
         expectMsg(2)
