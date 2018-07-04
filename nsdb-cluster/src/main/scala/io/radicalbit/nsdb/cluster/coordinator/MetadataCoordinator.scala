@@ -27,17 +27,11 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
-  AddLocationFailed,
-  LocationAdded,
-  LocationGot,
-  LocationsGot
-}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 
 import scala.concurrent.Future
-import scala.util.Random
 
 /**
   * Actor that handles metadata (i.e. write location for metrics)

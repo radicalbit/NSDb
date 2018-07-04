@@ -20,7 +20,7 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.coordinator.FakeCache.DeleteAll
+import io.radicalbit.nsdb.cluster.coordinator.FakeCache.{DeleteAll, DeleteDone}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   AddLocation,
   GetLocations,
@@ -30,8 +30,11 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationAdded, LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+import akka.pattern._
+import akka.util.Timeout
 
 import scala.collection.mutable
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class FakeCache extends Actor {
@@ -47,6 +50,7 @@ class FakeCache extends Actor {
       sender ! CachedLocations(key, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
+      sender() ! DeleteDone
   }
 }
 
@@ -54,6 +58,7 @@ object FakeCache {
   def props: Props = Props(new FakeCache)
 
   case object DeleteAll
+  case object DeleteDone
 }
 
 class MetadataCoordinatorSpec
@@ -72,6 +77,8 @@ class MetadataCoordinatorSpec
     with BeforeAndAfterEach
     with BeforeAndAfterAll {
 
+  import FakeCache._
+
   val probe               = TestProbe()
   val metadataCache       = system.actorOf(FakeCache.props)
   val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache))
@@ -82,13 +89,12 @@ class MetadataCoordinatorSpec
 
   override def beforeAll = {
     probe.send(metadataCoordinator, WarmUpLocations(List.empty))
-    awaitAssert {
-      probe.expectNoMessage(1 second)
-    }
+    probe.expectNoMessage(1 second)
   }
 
   override def beforeEach: Unit = {
-    metadataCache ! DeleteAll
+    implicit val timeout = Timeout(5 seconds)
+    Await.result(metadataCache ? DeleteAll, 5 seconds)
   }
 
   "MetadataCoordinator" should {
