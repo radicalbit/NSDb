@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.cluster.actor.LocationActor.MetricLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 
 import scala.concurrent.Future
@@ -62,14 +62,14 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
         metricLocations.locations.foreach { location =>
           val db        = metricLocations.db
           val namespace = metricLocations.namespace
-          (cache ? PutInCache(LocationKey(metricLocations.db,
-                                          metricLocations.namespace,
-                                          metricLocations.metric,
-                                          location.from,
-                                          location.to),
-                              location))
+          (cache ? PutLocationInCache(LocationKey(metricLocations.db,
+                                                  metricLocations.namespace,
+                                                  metricLocations.metric,
+                                                  location.from,
+                                                  location.to),
+                                      location))
             .map {
-              case Cached(_, Some(_)) =>
+              case LocationCached(_, Some(_)) =>
                 LocationAdded(db, namespace, location)
               case _ => AddLocationFailed(db, namespace, location)
             }
@@ -78,18 +78,22 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
 
       mediator ! Publish("warm-up", WarmUpCompleted)
       unstashAll()
-      context.become(shardBehaviour)
+      context.become(operative)
 
-    case msg => stash()
+    case _ => stash()
   }
 
   /**
     * behaviour in case shard is true
     */
-  def shardBehaviour: Receive = {
+  def operative: Receive = {
+//    case GetMetricInfo(db, namespace, metric) =>
+//      val f = (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
+//        .mapTo[MetricInfoCached]
+//        .map(l => MetricInfoGot(db, namespace, l.value))
     case GetLocations(db, namespace, metric) =>
-      val f = (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
-        .mapTo[CachedLocations]
+      val f = (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
+        .mapTo[LocationsCached]
         .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
@@ -97,9 +101,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
       val endShard   = startShard + shardingInterval
       val nodeName =
         s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-      (cache ? GetLocationsFromCache(MetricKey(db, namespace, metric)))
+      (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
         .flatMap {
-          case CachedLocations(_, values) if values.nonEmpty =>
+          case LocationsCached(_, values) if values.nonEmpty =>
             values.find(v => v.from <= timestamp && v.to >= timestamp) match {
               case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
               case None =>
@@ -109,26 +113,33 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
                     case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
                   }
             }
-
-          case CachedLocations(_, _) =>
+          case LocationCached(_, _) =>
             (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
               .map {
                 case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
                 case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
               }
-
         }
         .pipeTo(sender)
 
     case msg @ AddLocation(db, namespace, location) =>
-      (cache ? PutInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
+      (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
         .map {
-          case Cached(_, Some(_)) =>
+          case LocationCached(_, Some(_)) =>
             mediator ! Publish("metadata", msg)
             LocationAdded(db, namespace, location)
           case _ => AddLocationFailed(db, namespace, location)
         }
         .pipeTo(sender)
+//    case PutMetricInfo(db, namespace, metricInfo) =>
+//      (cache ? PutMetricInfoI(LocationKey(db, namespace, location.metric, location.from, location.to), location))
+//        .map {
+//          case LocationCached(_, Some(_)) =>
+//            mediator ! Publish("metadata", msg)
+//            LocationAdded(db, namespace, location)
+//          case _ => AddLocationFailed(db, namespace, location)
+//        }
+//        .pipeTo(sender)
   }
 }
 
@@ -143,6 +154,9 @@ object MetadataCoordinator {
     case class AddLocations(db: String, namespace: String, locations: Seq[Location])
     case class DeleteLocation(db: String, namespace: String, location: Location)
     case class DeleteNamespace(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
+
+    case class GetMetricInfo(db: String, namespace: String, metric: String)
+    case class PutMetricInfo(db: String, namespace: String, metricInfo: MetricInfo)
   }
 
   object events {
@@ -155,6 +169,9 @@ object MetadataCoordinator {
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
     case class NamespaceDeleted(db: String, namespace: String, occurredOn: Long)
+
+    case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])
+    case class MetricInfoPut(db: String, namespace: String, metricInfo: MetricInfo)
   }
 
   def props(cache: ActorRef): Props = Props(new MetadataCoordinator(cache))

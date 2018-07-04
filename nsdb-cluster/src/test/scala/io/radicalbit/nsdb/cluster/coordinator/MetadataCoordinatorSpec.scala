@@ -42,12 +42,12 @@ class FakeCache extends Actor {
   val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty[LocationKey, Location]
 
   def receive: Receive = {
-    case PutInCache(key, value) =>
+    case PutLocationInCache(key, value) =>
       locations.put(key, value)
-      sender ! Cached(key, Some(value))
+      sender ! LocationCached(key, Some(value))
     case GetLocationsFromCache(key) =>
       val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq
-      sender ! CachedLocations(key, locs)
+      sender ! LocationsCached(key, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
       sender() ! DeleteDone
