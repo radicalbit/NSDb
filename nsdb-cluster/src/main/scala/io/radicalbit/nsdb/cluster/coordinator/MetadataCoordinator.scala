@@ -87,10 +87,6 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
     * behaviour in case shard is true
     */
   def operative: Receive = {
-//    case GetMetricInfo(db, namespace, metric) =>
-//      val f = (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
-//        .mapTo[MetricInfoCached]
-//        .map(l => MetricInfoGot(db, namespace, l.value))
     case GetLocations(db, namespace, metric) =>
       val f = (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
         .mapTo[LocationsCached]
@@ -131,15 +127,22 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
           case _ => AddLocationFailed(db, namespace, location)
         }
         .pipeTo(sender)
-//    case PutMetricInfo(db, namespace, metricInfo) =>
-//      (cache ? PutMetricInfoI(LocationKey(db, namespace, location.metric, location.from, location.to), location))
-//        .map {
-//          case LocationCached(_, Some(_)) =>
+    case GetMetricInfo(db, namespace, metric) =>
+      (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
+        .map {
+          case MetricInfoCached(_, value) => MetricInfoGot(db, namespace, value)
+        }
+        .pipeTo(sender)
+    case PutMetricInfo(db, namespace, metricInfo) =>
+      (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
+        .map {
+          case MetricInfoCached(_, Some(_)) =>
 //            mediator ! Publish("metadata", msg)
-//            LocationAdded(db, namespace, location)
-//          case _ => AddLocationFailed(db, namespace, location)
-//        }
-//        .pipeTo(sender)
+            MetricInfoPut(db, namespace, metricInfo)
+          case MetricInfoAlreadyExisting => MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
+          case _                         => MetricInfoFailed(db, namespace, metricInfo, "Unknown response from cache")
+        }
+        .pipeTo(sender)
   }
 }
 
@@ -172,6 +175,7 @@ object MetadataCoordinator {
 
     case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])
     case class MetricInfoPut(db: String, namespace: String, metricInfo: MetricInfo)
+    case class MetricInfoFailed(db: String, namespace: String, metricInfo: MetricInfo, message: String)
   }
 
   def props(cache: ActorRef): Props = Props(new MetadataCoordinator(cache))
