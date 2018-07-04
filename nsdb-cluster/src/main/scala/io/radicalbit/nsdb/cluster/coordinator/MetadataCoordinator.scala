@@ -109,9 +109,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
             values.find(v => v.from <= timestamp && v.to >= timestamp) match {
               case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
               case None =>
-                (self ? AddLocation(db,
-                                    namespace,
-                                    Location(metric, nodeName, startShard, endShard)))
+                (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
                   .map {
                     case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
                     case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
