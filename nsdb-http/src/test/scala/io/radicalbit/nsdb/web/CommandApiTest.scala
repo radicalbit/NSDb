@@ -43,11 +43,21 @@ object CommandApiTest {
     val namespaces = Set("namespace1", "namespace2")
     val metrics    = Set("metric1", "metric2")
 
-        val schemas = Map(
-            "metric1" -> Schema("metric1", Set(SchemaField("dim1", DimensionFieldType, VARCHAR()), SchemaField("dim2", DimensionFieldType, INT()), SchemaField("dim3", DimensionFieldType, BIGINT()))),
-            "metric2" -> Schema("metric2", Set(SchemaField("dim1", DimensionFieldType, VARCHAR()), SchemaField("dim2", DimensionFieldType, INT()), SchemaField("dim3", DimensionFieldType, BIGINT()))),
-        )
-    }
+    val schemas = Map(
+      "metric1" -> Schema(
+        "metric1",
+        Set(SchemaField("dim1", DimensionFieldType, VARCHAR()),
+            SchemaField("dim2", DimensionFieldType, INT()),
+            SchemaField("dim3", DimensionFieldType, BIGINT()))
+      ),
+      "metric2" -> Schema(
+        "metric2",
+        Set(SchemaField("dim1", DimensionFieldType, VARCHAR()),
+            SchemaField("dim2", DimensionFieldType, INT()),
+            SchemaField("dim3", DimensionFieldType, BIGINT()))
+      )
+    )
+  }
 
   class FakeReadCoordinator extends Actor {
 

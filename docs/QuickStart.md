@@ -8,14 +8,14 @@ NSDb runs on Linux and Mac OS X. To be able to run NSDb, the only requirements a
 - sbt 0.13.x.
 
 ### Build and Launch
-We recommend starting NSDb using Docker by the way it is possible to package the project using sbt with command `dist`:
+It is possible to package the project using sbt with command `dist`:
 ```bash
 $ sbt dist
 ```
 
-Once project packaging is completed, unzip archive created in path : `nsdb-cluster/target/universal`.
+Once project packaging is completed, unzip archive created in path : `package`.
 ```bash
-$ cd nsdb/nsdb-cluster/target/universal
+$ cd package
 $ unzip nsdb-0.6.0-SNAPSHOT.zip
 $ cd nsdb-0.6.0-SNAPSHOT/bin
 $ ./nsdb-cluster
@@ -86,6 +86,40 @@ $ docker run --rm -it tools.radicalbit.io/nsdb:0.6.0-SNAPSHOT bin/nsdb-cli --hos
 where `%HOST_IP%` is the IP where NSDb is running.
 
 For a comprehensive documentation regarding NSDb CLI refer to  [CLI doc](CLI_doc.md).
+
+### Debian native package
+It is possible to create a native Debian package of the project using sbt with command `deb`:
+```bash
+$ sbt deb
+```
+
+Once project packaging is completed, deb package could be found in path : `package`.
+```bash
+$ cd package
+$ dpkg --install nsdb_0.6.0-SNAPSHOT_all.deb
+$ nsdb-cluster
+```
+Command Line Interface(CLI) can be launched executing in the same path:
+```bash
+$ nsdb-cli --host 127.0.0.1 --port 7817 --database database_name
+```
+
+### Centos/RHEL native package
+It is possible to create a native Centos/RHEL package of the project using sbt with command `rpm`:
+```bash
+$ sbt rpm
+```
+
+Once project packaging is completed, rpm package could be found in path : `package`.
+```bash
+$ cd package
+$ yum install nsdb-0.6.0-1.noarch.rpm
+$ nsdb-cluster
+```
+Command Line Interface(CLI) can be launched executing in the same path:
+```bash
+$ nsdb-cli --host 127.0.0.1 --port 7817 --database database_name
+```
 
 ## Next steps
 NSDb exposes data retrieval and insertion using both:

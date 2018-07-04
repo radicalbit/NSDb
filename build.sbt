@@ -43,12 +43,15 @@ lazy val root = project
     `nsdb-web-ui`
   )
 
-addCommandAlias("dist", "universal:packageBin")
-addCommandAlias("deb", "debian:packageBin")
-addCommandAlias("rpm", "rpm:packageBin")
+lazy val uiCompileTask = taskKey[Unit]("build UI")
+lazy val uiCopyTask    = taskKey[Unit]("copy UI")
+lazy val packageDist   = taskKey[File]("create universal package and move it to package folder")
+lazy val packageDeb    = taskKey[File]("create debian package and move it to package folder")
+lazy val packageRpm    = taskKey[File]("create RPM package and move it to package folder")
 
-val uiCompileTask = taskKey[Unit]("build UI")
-val copyTask      = taskKey[Unit]("copy UI")
+addCommandAlias("dist", "packageDist")
+addCommandAlias("deb", "packageDeb")
+addCommandAlias("rpm", "packageRpm")
 
 lazy val `nsdb-web-ui` = project
   .settings(Commons.settings: _*)
@@ -65,7 +68,7 @@ lazy val `nsdb-web-ui` = project
       log.info("Starting build ui task")
       yarn.toTask(" setup").value
     },
-    copyTask := {
+    uiCopyTask := {
       val log = streams.value.log
       uiCompileTask.value
       val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
@@ -76,7 +79,7 @@ lazy val `nsdb-web-ui` = project
       IO.copyDirectory(from, to)
 
     },
-    (compile in Compile) := ((compile in Compile) dependsOn copyTask).value
+    (compile in Compile) := ((compile in Compile) dependsOn uiCopyTask).value
   )
 
 lazy val `nsdb-common` = project
@@ -145,7 +148,7 @@ lazy val `nsdb-cluster` = project
        $ sbt `project nsdb-cluster` docker:publishLocal
 
        See here for details:
-       http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
+       http://www.scala-sbt.org/sbt-native-packager/formats/universal.html
      */
     packageName in Docker := "nsdb",
     mappings in Docker ++= {
@@ -189,7 +192,13 @@ lazy val `nsdb-cluster` = project
     version in Debian := version.value,
     maintainer in Debian := "Radicalbit <info@radicalbit.io>",
     packageSummary in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
-    packageDescription in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka"
+    packageDescription in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    packageDeb := {
+      val distFile = (packageBin in Debian).value
+      val output   = baseDirectory.value / ".." / "package" / distFile.getName
+      IO.move(distFile, output)
+      output
+    }
   )
   .settings(
     /* RPM Settings - to create, run as:
@@ -205,9 +214,21 @@ lazy val `nsdb-cluster` = project
     packageDescription in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
     rpmVendor := "Radicalbit",
     rpmUrl := Some("https://github.com/radicalbit/NSDb"),
-    rpmLicense := Some("Apache")
+    rpmLicense := Some("Apache"),
+    packageRpm := {
+      val distFile = (packageBin in Rpm).value
+      val output   = baseDirectory.value / ".." / "package" / distFile.getName
+      IO.move(distFile, output)
+      output
+    }
   )
   .settings(
+    /* Universal Settings - to create, run as:
+       $ sbt `project nsdb-cluster` universal:packageBin
+
+       See here for details:
+       http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
+     */
     packageName in Universal := s"nsdb-${version.value}",
     mappings in Universal ++= {
       val confDir = baseDirectory.value / "src/main/resources"
@@ -220,7 +241,13 @@ lazy val `nsdb-cluster` = project
     bashScriptDefines ++= Seq(
       """addJava "-DconfDir=${app_home}/../conf"""",
       """addJava "-Dlogback.configurationFile=${app_home}/../conf/logback.xml""""
-    )
+    ),
+    packageDist := {
+      val distFile = (packageBin in Universal).value
+      val output   = baseDirectory.value / ".." / "package" / distFile.getName
+      IO.move(distFile, output)
+      output
+    }
   )
   .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
 
