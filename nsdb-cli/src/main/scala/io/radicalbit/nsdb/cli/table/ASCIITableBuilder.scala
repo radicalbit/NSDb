@@ -29,28 +29,29 @@ import scala.util.Try
   * It provides a table representation of query and command results making use of [[de.vandermeer.asciitable.AsciiTable]].
   *
   * @param tableMaxWidth Defines table maxWidth, if the number of char of a single line is higher than this value,
-  *                      just a fixed number of dimension is rendered.
+  *                      just a fixed number of dimension / tag is rendered.
   */
 class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
 
-  type DimensionName = String
-  type Row           = List[String]
+  type FieldName = String
+  type Row       = List[String]
 
   /**
-    * Defines the number of dimension rendered in case of table exceeding tableMaxWidth
+    * Defines the number of fields rendered in case of table exceeding tableMaxWidth
     * It doesn't take count fo timestamp and value fixed columns
     */
-  private val dimensionLimit = 3
+  private val fieldLimit = 3
 
   /**
     * Extract ColumnNames from a successful [[SQLStatementExecuted]]
     * @param stm sql statement response
-    * @return [[Map]] representation of [[Bit]] dimensions
+    * @return [[Map]] representation of [[Bit]] dimensions and tags
     */
-  private def extractColumnNames(stm: SQLStatementExecuted): Map[DimensionName, Option[String]] =
+  private def extractColumnNames(stm: SQLStatementExecuted): Map[FieldName, Option[String]] =
     stm.res
-      .flatMap(_.dimensions.map {
-        case (name, _) if (name.trim.length > 0) => (name.trim, None)
+      .flatMap(bit =>
+        (bit.dimensions ++ bit.tags).map {
+          case (name, _) if name.trim.length > 0 => (name.trim, None)
       })
       .toMap
 
@@ -64,34 +65,33 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
     stm match {
       case statement: SQLStatementExecuted if statement.res.nonEmpty =>
         Try {
-          val at                                                = new AsciiTable()
-          val allDimensions: Map[DimensionName, Option[String]] = extractColumnNames(statement)
+          val allFields: Map[FieldName, Option[String]] = extractColumnNames(statement)
 
           val rows: List[Row] = statement.res.toList.map { x =>
-            val dimensionsMap    = x.dimensions.map { case (k, v)                                     => (k, Some(v.toString)) }
-            val mergedDimensions = allDimensions.combine(dimensionsMap).toList.sortBy { case (col, _) => col }
+            val fieldsMap    = (x.dimensions ++ x.tags).map { case (k, v)                 => (k, Some(v.toString)) }
+            val mergedFields = allFields.combine(fieldsMap).toList.sortBy { case (col, _) => col }
             // prepending timestamp and value
-            x.timestamp.toString +: x.value.toString +: mergedDimensions.map {
-              case (_, value) => value getOrElse ("")
+            x.timestamp.toString +: x.value.toString +: mergedFields.map {
+              case (_, value) => value getOrElse ""
             }
           }
 
-          val maxDimensionNumber = allDimensions.keys.size
+          val maxFieldNumber = allFields.keys.size
 
-          // Find max num of char for a file, if so omit some dimensions from rendering
-          if (Math.max(allDimensions.keys.foldLeft(0)((acc, k) => acc + k.length),
-                       allDimensions.values.flatten.foldLeft(0)((acc, k) => acc + k.length)) < tableMaxWidth)
-            render("timestamp" +: "value" +: allDimensions.toList.map(_._1).sorted, rows)
+          // Find max num of char for a file, if so omit some fields from rendering
+          if (Math.max(allFields.keys.foldLeft(0)((acc, k) => acc + k.length),
+                       allFields.values.flatten.foldLeft(0)((acc, k) => acc + k.length)) < tableMaxWidth)
+            render("timestamp" +: "value" +: allFields.toList.map(_._1).sorted, rows)
           else {
-            // Add a new column containing as header the number of omitted dimensions
-            val nMoreDimensions = maxDimensionNumber - dimensionLimit
-            val summaryHeader   = List(s"$nMoreDimensions more dimensions")
-            val headers = List("timestamp", "value") ++ allDimensions.toList
+            // Add a new column containing as header the number of omitted fields
+            val nMoreFields   = maxFieldNumber - fieldLimit
+            val summaryHeader = List(s"$nMoreFields more fields")
+            val headers = List("timestamp", "value") ++ allFields.toList
               .map(_._1)
               .sorted
-              .take(dimensionLimit) ++ summaryHeader
-            // take 2 more columns for timestamp and value, add one more columns for summary of remaining dimensions
-            val newRows = rows.map(column => column.take(dimensionLimit + 2) ++ List(""))
+              .take(fieldLimit) ++ summaryHeader
+            // take 2 more columns for timestamp and value, add one more columns for summary of remaining fields
+            val newRows = rows.map(column => column.take(fieldLimit + 2) ++ List(""))
             render(headers, newRows)
           }
 
@@ -116,7 +116,10 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
       case res: NamespaceMetricsListRetrieved =>
         Try(render(List("Metric Name"), res.metrics.map(m => List(m))))
       case res: MetricSchemaRetrieved =>
-        Try(render(List("Field Name", "Type"), res.fields.map(x => List(x.name, x.`type`))))
+        Try(
+          render(List("Field Name", "Type", "Field Class Type"),
+                 res.fields.map(x =>
+                   List(x.name, x.`type`, x.fieldClassType.toString.replace("FieldType", "").toUpperCase))))
       case res: NamespacesListRetrieved =>
         Try(render(List("Namespace Name"), res.namespaces.map(name => List(name)).toList))
       case res: CommandStatementExecutedWithFailure =>
@@ -132,7 +135,7 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
     * @param rows Matrix representing data entries string values
     * @return [[String]] of table representation
     */
-  private def render(headerColumns: List[DimensionName], rows: List[Row]): String = {
+  private def render(headerColumns: List[FieldName], rows: List[Row]): String = {
     val at = new AsciiTable()
     // header
     at.addRule

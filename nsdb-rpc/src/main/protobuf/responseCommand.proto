@@ -29,7 +29,14 @@ message MetricsGot{
 message MetricSchemaRetrieved{
     message MetricField{
         string name = 1;
-        string type = 2;
+        enum FieldClassType {
+            TIMESTAMP = 0;
+            VALUE = 1;
+            DIMENSION = 2;
+            TAG = 3;
+        }
+        FieldClassType fieldClassType = 2;
+        string indexType = 3;
     }
     string db = 1;
     string namespace = 2;
