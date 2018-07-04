@@ -43,6 +43,7 @@ src_managed/
 project/boot/
 project/plugins/project/
 project/project/
+package
 
 mainRunner
 # Scala-IDE specific
