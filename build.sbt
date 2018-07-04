@@ -148,7 +148,7 @@ lazy val `nsdb-cluster` = project
        $ sbt `project nsdb-cluster` docker:publishLocal
 
        See here for details:
-       http://www.scala-sbt.org/sbt-native-packager/formats/universal.html
+       http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
      */
     packageName in Docker := "nsdb",
     mappings in Docker ++= {
@@ -227,7 +227,7 @@ lazy val `nsdb-cluster` = project
        $ sbt `project nsdb-cluster` universal:packageBin
 
        See here for details:
-       http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
+       http://www.scala-sbt.org/sbt-native-packager/formats/universal.html
      */
     packageName in Universal := s"nsdb-${version.value}",
     mappings in Universal ++= {
