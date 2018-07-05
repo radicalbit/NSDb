@@ -319,8 +319,11 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .pipeTo(sender)
 
         case Success(ParsedAggregatedQuery(_, _, _, collector, _, _)) =>
+          val filteredIndexes =
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+
           val rawResult =
-            gatherAndgroupShardResults(actorsForMetric(statement.metric).toSeq,
+            gatherAndgroupShardResults(filteredIndexes,
                                        statement,
                                        statement.groupBy.get,
                                        schema) { values =>
