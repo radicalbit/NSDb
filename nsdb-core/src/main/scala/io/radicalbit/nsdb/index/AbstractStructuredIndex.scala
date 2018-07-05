@@ -21,6 +21,7 @@ import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassTy
 import io.radicalbit.nsdb.index.lucene.{AllGroupsAggregationCollector, Index}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
+import io.radicalbit.nsdb.util.PerfLogging._
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
@@ -110,24 +111,25 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                                      collector: AllGroupsAggregationCollector[VT, S],
                                      limit: Option[Int],
                                      sort: Option[Sort]): Seq[Document] = {
-    this.getSearcher.search(query, collector)
 
-    val sortedGroupMap = sort
+    logPerf(this.getSearcher.search(query, collector), "search")
+
+    val sortedGroupMap = logPerf(sort
       .flatMap(_.getSort.headOption)
       .map(s => collector.getOrderedMap(s))
       .getOrElse(collector.getGroupMap)
-      .toSeq
+      .toSeq, "sort")
 
-    val limitedGroupMap = limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap)
+    val limitedGroupMap = logPerf(limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap), "limit")
 
-    limitedGroupMap.map {
+    logPerf(limitedGroupMap.map {
       case (g, v) =>
         val doc = new Document
         doc.add(collector.indexField(g, collector.groupField))
         doc.add(collector.indexField(v, collector.aggField))
         doc.add(new LongPoint(_keyField, 0))
         doc
-    }
+    }, "collector")
   }
 
   /**
