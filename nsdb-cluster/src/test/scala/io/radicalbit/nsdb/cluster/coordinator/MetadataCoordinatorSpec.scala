@@ -21,14 +21,9 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.FakeCache.{DeleteAll, DeleteDone}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
-  AddLocation,
-  GetLocations,
-  GetWriteLocation,
-  WarmUpLocations
-}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationAdded, LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 import akka.pattern._
 import akka.util.Timeout
@@ -39,7 +34,9 @@ import scala.concurrent.duration._
 
 class FakeCache extends Actor {
 
-  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty[LocationKey, Location]
+  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty
+
+  val metricInfo: mutable.Map[MetricInfoKey, MetricInfo] = mutable.Map.empty
 
   def receive: Receive = {
     case PutLocationInCache(key, value) =>
@@ -50,7 +47,18 @@ class FakeCache extends Actor {
       sender ! LocationsCached(key, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
+      metricInfo.keys.foreach(k => metricInfo.remove(k))
       sender() ! DeleteDone
+    case PutMetricInfoInCache(key, value) =>
+      metricInfo.get(key) match {
+        case Some(v) =>
+          sender ! MetricInfoAlreadyExisting(key, v)
+        case None =>
+          metricInfo.put(key, value)
+          sender ! MetricInfoCached(key, Some(value))
+      }
+    case GetMetricInfoFromCache(key) =>
+      sender ! MetricInfoCached(key, metricInfo.get(key))
   }
 }
 
@@ -203,6 +211,46 @@ class MetadataCoordinatorSpec
       locationGot_3.location.get.to shouldBe 120000L
       locationGot_3.location.get.from shouldBe 60000L
 
+    }
+
+    "retrieve metric infos" in {
+
+      val metricInfo = MetricInfo(metric, 100)
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo.isEmpty shouldBe true
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoPut]
+      }.metricInfo shouldBe metricInfo
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo shouldBe Some(metricInfo)
+    }
+
+    "not allow to insert a metric info already inserted" in {
+
+      val metricInfo = MetricInfo(metric, 100)
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoPut]
+      }.metricInfo shouldBe metricInfo
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo shouldBe Some(metricInfo)
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoFailed]
+      }
     }
   }
 

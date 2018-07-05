@@ -20,11 +20,11 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
-import io.radicalbit.nsdb.cluster.actor.LocationActor.MetricLocations
+import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
-import io.radicalbit.nsdb.cluster.index.{Location, LocationIndex}
+import io.radicalbit.nsdb.cluster.index.{Location, LocationIndex, MetricInfo, MetricInfoIndex}
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
@@ -33,21 +33,31 @@ import scala.collection.mutable
 
 /**
   * Actor responsible of storing metric's locations into a persistent index.
-  * A [[LocationActor]] must be created for each node of the cluster.
+  * A [[MetadataActor]] must be created for each node of the cluster.
   *
   * @param basePath index base path.
   */
-class LocationActor(val basePath: String, metadataCoordinator: ActorRef) extends Actor with ActorLogging {
+class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends Actor with ActorLogging {
 
-  lazy val metadataIndexes: mutable.Map[(String, String), LocationIndex] = mutable.Map.empty
+  lazy val locationIndexes: mutable.Map[(String, String), LocationIndex]     = mutable.Map.empty
+  lazy val metricInfoIndexes: mutable.Map[(String, String), MetricInfoIndex] = mutable.Map.empty
 
   val remoteAddress = RemoteAddress(context.system)
 
-  private def getIndex(db: String, namespace: String): LocationIndex =
-    metadataIndexes.getOrElse(
+  private def getLocationIndex(db: String, namespace: String): LocationIndex =
+    locationIndexes.getOrElse(
       (db, namespace), {
         val newIndex = new LocationIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "metadata")))
-        metadataIndexes += ((db, namespace) -> newIndex)
+        locationIndexes += ((db, namespace) -> newIndex)
+        newIndex
+      }
+    )
+
+  private def getMetricInfoIndex(db: String, namespace: String): MetricInfoIndex =
+    metricInfoIndexes.getOrElse(
+      (db, namespace), {
+        val newIndex = new MetricInfoIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "metadata", "info")))
+        metricInfoIndexes += ((db, namespace) -> newIndex)
         newIndex
       }
     )
@@ -63,8 +73,9 @@ class LocationActor(val basePath: String, metadataCoordinator: ActorRef) extends
           .toSet
         metrics.map { metric =>
           log.debug(s"db : ${db.getName}, namespace : ${namespace.getName}, metric: $metric }")
-          val locations = getIndex(db.getName, namespace.getName).getLocationsForMetric(metric)
-          MetricLocations(db.getName, namespace.getName, metric, locations)
+          val locations  = getLocationIndex(db.getName, namespace.getName).getLocationsForMetric(metric)
+          val metricInfo = getMetricInfoIndex(db.getName, namespace.getName).getMetricInfo(metric)
+          MetricMetadata(db.getName, namespace.getName, metric, metricInfo, locations)
         }
       }
     }
@@ -77,46 +88,66 @@ class LocationActor(val basePath: String, metadataCoordinator: ActorRef) extends
   override def receive: Receive = {
 
     case GetLocations(db, namespace, metric) =>
-      val metadata = getIndex(db, namespace).getLocationsForMetric(metric)
+      val metadata = getLocationIndex(db, namespace).getLocationsForMetric(metric)
       sender ! LocationsGot(db, namespace, metric, metadata)
 
     case AddLocation(db, namespace, metadata) =>
-      val index                        = getIndex(db, namespace)
+      val index                        = getLocationIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.write(metadata)
       writer.close()
       sender ! LocationAdded(db, namespace, metadata)
 
     case AddLocations(db, namespace, metadataSeq) =>
-      val index                        = getIndex(db, namespace)
+      val index                        = getLocationIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       metadataSeq.foreach(index.write)
       writer.close()
       sender ! LocationsAdded(db, namespace, metadataSeq)
 
     case DeleteLocation(db, namespace, metadata) =>
-      val index                        = getIndex(db, namespace)
+      val index                        = getLocationIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.delete(metadata)
       writer.close()
       sender ! LocationDeleted(db, namespace, metadata)
 
     case DeleteNamespace(db, namespace, occurredOn) =>
-      val index                        = getIndex(db, namespace)
+      val index                        = getLocationIndex(db, namespace)
       implicit val writer: IndexWriter = index.getWriter
       index.deleteAll()
       writer.close()
       sender ! NamespaceDeleted(db, namespace, occurredOn)
+
+    case PutMetricInfo(db, namespace, metricInfo) =>
+      val index = getMetricInfoIndex(db, namespace)
+      index.getMetricInfo(metricInfo.metric) match {
+        case Some(_) => sender() ! MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
+        case None =>
+          implicit val writer: IndexWriter = index.getWriter
+          index.write(metricInfo)
+          writer.close()
+      }
+      sender ! MetricInfoPut(db, namespace, metricInfo)
+
+    case GetMetricInfo(db, namespace, metric) =>
+      val index         = getMetricInfoIndex(db, namespace)
+      val metricInfoOpt = index.getMetricInfo(metric)
+      sender ! MetricInfoGot(db, namespace, metricInfoOpt)
 
     case SubscribeAck(Subscribe("metadata", None, _)) =>
       log.debug("subscribed to topic metadata")
   }
 }
 
-object LocationActor {
+object MetadataActor {
 
-  case class MetricLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
+  case class MetricMetadata(db: String,
+                            namespace: String,
+                            metric: String,
+                            info: Option[MetricInfo],
+                            locations: Seq[Location])
 
   def props(basePath: String, coordinator: ActorRef): Props =
-    Props(new LocationActor(basePath, coordinator))
+    Props(new MetadataActor(basePath, coordinator))
 }

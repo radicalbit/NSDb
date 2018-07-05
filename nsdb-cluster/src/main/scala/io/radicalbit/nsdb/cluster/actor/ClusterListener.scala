@@ -62,10 +62,10 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
       val indexBasePath = config.getString("nsdb.index.base-path")
 
       val locationActor = context.system.actorOf(
-        LocationActor
+        MetadataActor
           .props(indexBasePath, metadataCoordinator)
           .withDeploy(Deploy(scope = RemoteScope(member.address))),
-        name = s"location_$nameNode"
+        name = s"metadata_$nameNode"
       )
 
       mediator ! Subscribe("warm-up", readCoordinator)

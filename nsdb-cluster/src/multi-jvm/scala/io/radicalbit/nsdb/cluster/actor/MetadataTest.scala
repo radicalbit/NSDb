@@ -8,9 +8,9 @@ import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations, PutMetricInfo}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationAdded, LocationsGot}
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
@@ -111,7 +111,7 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
       awaitAssert {
         addresses.foreach(a => {
           val locationActor =
-            system.actorSelection(s"user/location_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
+            system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
           locationActor.tell(GetLocations("db", "namespace", "metric"), probe.ref)
           probe.expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
         })
@@ -119,5 +119,28 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
 
       enterBarrier("after-add")
     }
+
+//    "add metric info from different nodes" in within(10.seconds) {
+//
+//      val probe     = TestProbe()
+//      val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
+//      val metricInfo = MetricInfo("metric", 100)
+//
+//      runOn(node1) {
+//        metadataCoordinator.tell(PutMetricInfo("db", "namespace", metricInfo), probe.ref)
+//        probe.expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
+//      }
+//
+//      awaitAssert {
+//        addresses.foreach(a => {
+//          val locationActor =
+//            system.actorSelection(s"user/location_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
+//          locationActor.tell(GetLocations("db", "namespace", "metric"), probe.ref)
+//          probe.expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
+//        })
+//      }
+//
+//      enterBarrier("after-add")
+//    }
   }
 }

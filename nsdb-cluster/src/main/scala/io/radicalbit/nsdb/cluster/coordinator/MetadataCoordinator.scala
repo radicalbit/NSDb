@@ -24,7 +24,7 @@ import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.LocationActor.MetricLocations
+import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -109,7 +109,7 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
                     case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
                   }
             }
-          case LocationCached(_, _) =>
+          case LocationsCached(_, _) =>
             (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
               .map {
                 case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
@@ -150,7 +150,7 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class WarmUpLocations(metricLocations: Seq[MetricLocations])
+    case class WarmUpLocations(metricLocations: Seq[MetricMetadata])
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)
