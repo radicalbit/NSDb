@@ -267,8 +267,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     }
 
     private def tagFor(v: Tag.Value): JSerializable = v match {
-      case _: Dimension.Value.DecimalValue => v.decimalValue.get
-      case _: Dimension.Value.LongValue    => v.longValue.get
+      case _: Tag.Value.DecimalValue => v.decimalValue.get
+      case _: Tag.Value.LongValue    => v.longValue.get
       case _                               => v.stringValue.get
     }
 

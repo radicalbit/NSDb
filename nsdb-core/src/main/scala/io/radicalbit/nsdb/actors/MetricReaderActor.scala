@@ -323,10 +323,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
           val rawResult =
-            gatherAndgroupShardResults(filteredIndexes,
-                                       statement,
-                                       statement.groupBy.get,
-                                       schema) { values =>
+            gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) { values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
               collector match {
