@@ -51,7 +51,8 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
     TimeUnit.SECONDS)
   import context.dispatcher
 
-  lazy val shardingInterval: Long = context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
+  lazy val defaultShardingInterval: Long =
+    context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
 
   override def receive: Receive = warmUp
 
@@ -83,6 +84,24 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
     case _ => stash()
   }
 
+  private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
+
+  private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
+
+  /**
+    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @return the actual shard interval.
+    */
+  private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
+    (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
+      .map {
+        case MetricInfoCached(_, Some(metricInfo)) => metricInfo.shardInterval
+        case _                                     => defaultShardingInterval
+      }
+
   /**
     * behaviour in case shard is true
     */
@@ -93,8 +112,6 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
         .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
-      val startShard = (timestamp / shardingInterval) * shardingInterval
-      val endShard   = startShard + shardingInterval
       val nodeName =
         s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
       (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
@@ -103,21 +120,32 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
             values.find(v => v.from <= timestamp && v.to >= timestamp) match {
               case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
               case None =>
-                (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
+                getShardInterval(db, namespace, metric)
+                  .flatMap { interval =>
+                    val start = getShardStartIstant(timestamp, interval)
+                    val end   = getShardEndIstant(start, interval)
+                    (self ? AddLocation(db, namespace, Location(metric, nodeName, start, end)))
+                      .map {
+                        case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                        case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                      }
+                  }
+
+            }
+          case LocationsCached(_, _) =>
+            getShardInterval(db, namespace, metric)
+              .flatMap { interval =>
+                val start = getShardStartIstant(timestamp, interval)
+                val end   = getShardEndIstant(start, interval)
+
+                (self ? AddLocation(db, namespace, Location(metric, nodeName, start, end)))
                   .map {
                     case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
                     case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
                   }
-            }
-          case LocationsCached(_, _) =>
-            (self ? AddLocation(db, namespace, Location(metric, nodeName, startShard, endShard)))
-              .map {
-                case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
               }
         }
         .pipeTo(sender)
-
     case msg @ AddLocation(db, namespace, location) =>
       (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
         .map {
