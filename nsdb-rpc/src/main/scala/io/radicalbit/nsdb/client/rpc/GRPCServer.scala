@@ -21,6 +21,8 @@ import io.radicalbit.nsdb.rpc.dump.DumpGrpc
 import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
 import io.radicalbit.nsdb.rpc.health.HealthGrpc
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
+import io.radicalbit.nsdb.rpc.init.InitMetricGrpc
+import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
@@ -42,6 +44,8 @@ trait GRPCServer {
 
   protected[this] def serviceCommand: NSDBServiceCommand
 
+  protected[this] def initMetricService: InitMetric
+
   protected[this] def health: Health
 
   protected[this] def dump: Dump
@@ -58,6 +62,7 @@ trait GRPCServer {
     .forPort(port)
     .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
     .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
+    .addService(InitMetricGrpc.bindService(initMetricService, executionContextExecutor))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
     .addService(DumpGrpc.bindService(dump, executionContextExecutor))
     .build

@@ -80,9 +80,10 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
   )
 
   def receive: Receive = {
-    case GetReadCoordinator  => sender() ! readCoordinator
-    case GetWriteCoordinator => sender() ! writeCoordinator
-    case GetPublisher        => sender() ! publisherActor
+    case GetReadCoordinator     => sender() ! readCoordinator
+    case GetWriteCoordinator    => sender() ! writeCoordinator
+    case GetMetadataCoordinator => sender() ! metadataCoordinator
+    case GetPublisher           => sender() ! publisherActor
   }
 
 }
