@@ -6,16 +6,16 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Count
 import akka.cluster.{Cluster, MemberStatus}
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
-import akka.testkit.{ImplicitSender, TestProbe}
+import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations, PutMetricInfo}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationAdded, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
 
-object MetadataTest extends MultiNodeConfig {
+object MetadataSpec extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
@@ -60,13 +60,13 @@ object MetadataTest extends MultiNodeConfig {
 
 }
 
-class MetadataTestMultiJvmNode1 extends MetadataTest
+class MetadataSpecMultiJvmNode1 extends MetadataSpec
 
-class MetadataTestMultiJvmNode2 extends MetadataTest
+class MetadataSpecMultiJvmNode2 extends MetadataSpec
 
-class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with ImplicitSender {
+class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with ImplicitSender {
 
-  import MetadataTest._
+  import MetadataSpec._
 
   override def initialParticipants = roles.size
 
@@ -95,52 +95,54 @@ class MetadataTest extends MultiNodeSpec(MetadataTest) with STMultiNodeSpec with
         expectMsg(2)
       }
 
-      enterBarrier("after-1")
+      enterBarrier("joined")
     }
 
     "add location from different nodes" in within(10.seconds) {
 
-      val probe     = TestProbe()
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator.tell(AddLocation("db", "namespace", Location("metric", "node-1", 0, 1)), probe.ref)
-        probe.expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
+        metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))
+        expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
       }
+
+      expectNoMessage(1 second)
 
       awaitAssert {
         addresses.foreach(a => {
-          val locationActor =
+          val metadataActor =
             system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          locationActor.tell(GetLocations("db", "namespace", "metric"), probe.ref)
-          probe.expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
+          metadataActor ! GetLocations("db", "namespace", "metric")
+          expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
         })
       }
 
-      enterBarrier("after-add")
+      enterBarrier("after-add-locations")
     }
 
-//    "add metric info from different nodes" in within(10.seconds) {
-//
-//      val probe     = TestProbe()
-//      val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
-//      val metricInfo = MetricInfo("metric", 100)
-//
-//      runOn(node1) {
-//        metadataCoordinator.tell(PutMetricInfo("db", "namespace", metricInfo), probe.ref)
-//        probe.expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
-//      }
-//
-//      awaitAssert {
-//        addresses.foreach(a => {
-//          val locationActor =
-//            system.actorSelection(s"user/location_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-//          locationActor.tell(GetLocations("db", "namespace", "metric"), probe.ref)
-//          probe.expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
-//        })
-//      }
-//
-//      enterBarrier("after-add")
-//    }
+    "add metric info from different nodes" in within(10.seconds) {
+
+      val addresses  = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
+      val metricInfo = MetricInfo("metric", 100)
+
+      runOn(node1) {
+        metadataCoordinator ! PutMetricInfo("db", "namespace", metricInfo)
+        expectMsg(MetricInfoPut("db", "namespace", metricInfo))
+      }
+
+      expectNoMessage(1 second)
+
+      awaitAssert {
+        addresses.foreach(a => {
+          val metadataActor =
+            system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
+          metadataActor ! GetMetricInfo("db", "namespace", "metric")
+          expectMsg(MetricInfoGot("db", "namespace", Some(metricInfo)))
+        })
+      }
+
+      enterBarrier("after-add-metrics-info")
+    }
   }
 }
