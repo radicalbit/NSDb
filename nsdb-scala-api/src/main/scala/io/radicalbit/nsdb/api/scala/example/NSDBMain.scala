@@ -34,7 +34,7 @@ object NSDBMainWrite extends App {
     .db("root")
     .namespace("registry")
     .bit("people")
-    .value(Some(new java.math.BigDecimal("13")))
+    .value(new java.math.BigDecimal("13"))
     .dimension("city", "Mouseton")
     .dimension("notimportant", None)
     .dimension("Someimportant", Some(2))

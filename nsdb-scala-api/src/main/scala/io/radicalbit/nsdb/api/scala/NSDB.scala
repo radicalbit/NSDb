@@ -222,15 +222,6 @@ case class Bit protected (db: String,
     */
   def value(v: java.math.BigDecimal): Bit = if (v.scale() > 0) value(v.doubleValue()) else value(v.longValue())
 
-  @deprecated("It does not make sense. Value must be always defined in a Bit", "0.1.4")
-  def value[T](v: Option[T]): Bit = v match {
-    case Some(v: Long)                 => value(v)
-    case Some(v: Int)                  => value(v)
-    case Some(v: Double)               => value(v)
-    case Some(v: java.math.BigDecimal) => value(v)
-    case _                             => this
-  }
-
   /**
     * Adds a Long dimension to the bit.
     * @param k the dimension name.
@@ -323,7 +314,7 @@ case class Bit protected (db: String,
 
   @deprecated(
     "It's not fully type safe and it's not possible to make it due to our best friend Jvm type erasure. It's better to be removed in order to prevent a non correct usage of the apis",
-    "0.2.0"
+    "0.7.0"
   )
   def dimension[T](k: String, d: Option[T]): Bit =
     d match {
