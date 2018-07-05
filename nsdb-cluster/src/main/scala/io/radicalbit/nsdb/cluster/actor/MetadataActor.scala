@@ -113,12 +113,17 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
       sender ! LocationDeleted(db, namespace, metadata)
 
     case DeleteNamespace(db, namespace, occurredOn) =>
-      val index                        = getLocationIndex(db, namespace)
-      implicit val writer: IndexWriter = index.getWriter
-      index.deleteAll()
-      writer.close()
-      sender ! NamespaceDeleted(db, namespace, occurredOn)
+      val locationIndex                    = getLocationIndex(db, namespace)
+      val locationIndexwriter: IndexWriter = locationIndex.getWriter
+      locationIndex.deleteAll()(locationIndexwriter)
+      locationIndexwriter.close()
 
+      val metricInfoIndex  = getMetricInfoIndex(db, namespace)
+      val metricInfoWriter = metricInfoIndex.getWriter
+      metricInfoIndex.deleteAll()(metricInfoWriter)
+      metricInfoWriter.close()
+
+      sender ! NamespaceDeleted(db, namespace, occurredOn)
     case PutMetricInfo(db, namespace, metricInfo) =>
       val index = getMetricInfoIndex(db, namespace)
       index.getMetricInfo(metricInfo.metric) match {
@@ -127,6 +132,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
           implicit val writer: IndexWriter = index.getWriter
           index.write(metricInfo)
           writer.close()
+          index.refresh()
       }
       sender ! MetricInfoPut(db, namespace, metricInfo)
 

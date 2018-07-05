@@ -26,6 +26,7 @@ import org.apache.lucene.store.BaseDirectory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+import io.radicalbit.nsdb.index.lucene.Index._
 
 /**
   * Metric Info.
@@ -71,14 +72,16 @@ class MetricInfoIndex(override val directory: BaseDirectory) extends SimpleIndex
   }
 
   def getMetricInfo(metric: String): Option[MetricInfo] = {
-    val queryTerm = new TermQuery(new Term(_keyField, metric))
+    val results = handleNoIndexResults(Try {
+      val queryTerm = new TermQuery(new Term(_keyField, metric))
 
-    val reader                           = DirectoryReader.open(directory)
-    implicit val searcher: IndexSearcher = new IndexSearcher(reader)
+      implicit val searcher: IndexSearcher = getSearcher
 
-    Try(query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity).headOption) match {
-      case Success(metadataSeq) => metadataSeq
-      case Failure(_)           => None
+      query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)
+    })
+    results match {
+      case Success(metricInfoes) => metricInfoes.headOption
+      case Failure(_)            => None
     }
   }
 

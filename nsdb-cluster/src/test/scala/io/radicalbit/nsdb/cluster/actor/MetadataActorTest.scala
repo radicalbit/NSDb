@@ -20,18 +20,9 @@ import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
-  AddLocation,
-  AddLocations,
-  DeleteNamespace,
-  GetLocations
-}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
-  LocationAdded,
-  LocationsGot,
-  NamespaceDeleted
-}
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -114,5 +105,18 @@ class MetadataActorTest
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
     existingGot.locations shouldBe (locations :+ newLocation)
+  }
+
+  "MetadataActor" should "add a new metricInfo" in {
+    val metricInfo = MetricInfo(metric, 10)
+
+    probe.send(metadataActor, PutMetricInfo(db, namespace, metricInfo))
+    probe.expectMsgType[MetricInfoPut].metricInfo shouldBe metricInfo
+
+    probe.send(metadataActor, GetMetricInfo(db, namespace, metric))
+    probe.expectMsgType[MetricInfoGot].metricInfo shouldBe Some(metricInfo)
+
+    probe.send(metadataActor, PutMetricInfo(db, namespace, metricInfo))
+    probe.expectMsgType[MetricInfoFailed].metricInfo shouldBe metricInfo
   }
 }

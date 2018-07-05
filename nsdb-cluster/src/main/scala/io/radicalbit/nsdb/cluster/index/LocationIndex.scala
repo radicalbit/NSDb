@@ -96,8 +96,7 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
     builder.add(LongPoint.newRangeQuery("to", t, Long.MaxValue), BooleanClause.Occur.SHOULD)
     builder.add(LongPoint.newRangeQuery("from", 0, t), BooleanClause.Occur.SHOULD).build()
 
-    val reader                           = DirectoryReader.open(directory)
-    implicit val searcher: IndexSearcher = new IndexSearcher(reader)
+    implicit val searcher: IndexSearcher = getSearcher
 
     Try(query(builder.build(), Seq.empty, Integer.MAX_VALUE, None)(identity).headOption) match {
       case Success(metadataSeq) => metadataSeq

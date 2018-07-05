@@ -133,11 +133,11 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
           case MetricInfoCached(_, value) => MetricInfoGot(db, namespace, value)
         }
         .pipeTo(sender)
-    case PutMetricInfo(db, namespace, metricInfo) =>
+    case msg @ PutMetricInfo(db, namespace, metricInfo) =>
       (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
         .map {
           case MetricInfoCached(_, Some(_)) =>
-//            mediator ! Publish("metadata", msg)
+            mediator ! Publish("metadata", msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting => MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
           case _                         => MetricInfoFailed(db, namespace, metricInfo, "Unknown response from cache")
