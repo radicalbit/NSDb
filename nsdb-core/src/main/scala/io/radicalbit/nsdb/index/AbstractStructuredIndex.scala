@@ -115,21 +115,25 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     logPerf(this.getSearcher.search(query, collector), "search")
 
     val sortedGroupMap = logPerf(sort
-      .flatMap(_.getSort.headOption)
-      .map(s => collector.getOrderedMap(s))
-      .getOrElse(collector.getGroupMap)
-      .toSeq, "sort")
+                                   .flatMap(_.getSort.headOption)
+                                   .map(s => collector.getOrderedMap(s))
+                                   .getOrElse(collector.getGroupMap)
+                                   .toSeq,
+                                 "sort")
 
     val limitedGroupMap = logPerf(limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap), "limit")
 
-    logPerf(limitedGroupMap.map {
-      case (g, v) =>
-        val doc = new Document
-        doc.add(collector.indexField(g, collector.groupField))
-        doc.add(collector.indexField(v, collector.aggField))
-        doc.add(new LongPoint(_keyField, 0))
-        doc
-    }, "collector")
+    logPerf(
+      limitedGroupMap.map {
+        case (g, v) =>
+          val doc = new Document
+          doc.add(collector.indexField(g, collector.groupField))
+          doc.add(collector.indexField(v, collector.aggField))
+          doc.add(new LongPoint(_keyField, 0))
+          doc
+      },
+      "collector"
+    )
   }
 
   /**
