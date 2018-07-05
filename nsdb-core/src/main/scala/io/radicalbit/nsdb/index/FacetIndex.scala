@@ -85,7 +85,7 @@ class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, s"facet_$groupField")
 
-    val actualLimit = limit getOrElse Int.MaxValue
+    val actualLimit = Int.MaxValue
 
     val fc = new FacetsCollector
     sort.fold { FacetsCollector.search(getSearcher, query, actualLimit, fc) } {
