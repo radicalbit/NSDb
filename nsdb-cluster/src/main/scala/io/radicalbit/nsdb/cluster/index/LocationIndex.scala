@@ -83,8 +83,6 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
   def getLocationsForMetric(metric: String): Seq[Location] = {
     val queryTerm = new TermQuery(new Term(_keyField, metric))
 
-    implicit val searcher: IndexSearcher = getSearcher
-
     Try(query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)) match {
       case Success(metadataSeq) => metadataSeq
       case Failure(_)           => Seq.empty
@@ -95,8 +93,6 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
     val builder = new BooleanQuery.Builder()
     builder.add(LongPoint.newRangeQuery("to", t, Long.MaxValue), BooleanClause.Occur.SHOULD)
     builder.add(LongPoint.newRangeQuery("from", 0, t), BooleanClause.Occur.SHOULD).build()
-
-    implicit val searcher: IndexSearcher = getSearcher
 
     Try(query(builder.build(), Seq.empty, Integer.MAX_VALUE, None)(identity).headOption) match {
       case Success(metadataSeq) => metadataSeq

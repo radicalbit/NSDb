@@ -107,8 +107,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
       }
 
-      expectNoMessage(1 second)
-
       awaitAssert {
         addresses.foreach(a => {
           val metadataActor =
@@ -130,8 +128,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         metadataCoordinator ! PutMetricInfo("db", "namespace", metricInfo)
         expectMsg(MetricInfoPut("db", "namespace", metricInfo))
       }
-
-      expectNoMessage(1 second)
 
       awaitAssert {
         addresses.foreach(a => {
