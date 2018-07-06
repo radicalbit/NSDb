@@ -102,9 +102,12 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
     */
   private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
     (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
-      .map {
-        case MetricInfoCached(_, Some(metricInfo)) => metricInfo.shardInterval
-        case _                                     => defaultShardingInterval
+      .flatMap {
+        case MetricInfoCached(_, Some(metricInfo)) => Future(metricInfo.shardInterval)
+        case _ =>
+          (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metric),
+                                        MetricInfo(metric, defaultShardingInterval)))
+            .map(_ => defaultShardingInterval)
       }
 
   /**
