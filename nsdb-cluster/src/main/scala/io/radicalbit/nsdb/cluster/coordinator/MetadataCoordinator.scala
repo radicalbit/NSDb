@@ -57,29 +57,34 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
   override def receive: Receive = warmUp
 
   def warmUp: Receive = {
-    case msg @ WarmUpLocations(metricsLocations) =>
+    case msg @ WarmUpMetadata(metricsMetadata) =>
       log.debug(s"Received location warm-up message: $msg ")
-      metricsLocations.foreach { metricLocations =>
-        metricLocations.locations.foreach { location =>
-          val db        = metricLocations.db
-          val namespace = metricLocations.namespace
-          (cache ? PutLocationInCache(LocationKey(metricLocations.db,
-                                                  metricLocations.namespace,
-                                                  metricLocations.metric,
-                                                  location.from,
-                                                  location.to),
-                                      location))
-            .map {
-              case LocationCached(_, Some(_)) =>
-                LocationAdded(db, namespace, location)
-              case _ => AddLocationFailed(db, namespace, location)
+      Future
+        .sequence(metricsMetadata.map { metadata =>
+          Future
+            .sequence(metadata.locations.map { location =>
+              (cache ? PutLocationInCache(
+                LocationKey(metadata.db, metadata.namespace, metadata.metric, location.from, location.to),
+                location))
+                .mapTo[LocationCached]
+            })
+            .flatMap { _ =>
+              metadata.info.map(metricInfo =>
+                (cache ? PutMetricInfoInCache(MetricInfoKey(metadata.db, metadata.namespace, metricInfo.metric),
+                                              metricInfo))
+                  .mapTo[MetricInfoCached]) getOrElse Future(MetricInfoGot(metadata.db, metadata.namespace, None))
             }
+        })
+        .recover {
+          case t =>
+            log.error(t, "error during warm up")
+            context.system.terminate()
         }
-      }
-
-      mediator ! Publish("warm-up", WarmUpCompleted)
-      unstashAll()
-      context.become(operative)
+        .foreach { _ =>
+          mediator ! Publish("warm-up", WarmUpCompleted)
+          unstashAll()
+          context.become(operative)
+        }
 
     case _ => stash()
   }
@@ -167,8 +172,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
           case MetricInfoCached(_, Some(_)) =>
             mediator ! Publish("metadata", msg)
             MetricInfoPut(db, namespace, metricInfo)
-          case MetricInfoAlreadyExisting => MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
-          case _                         => MetricInfoFailed(db, namespace, metricInfo, "Unknown response from cache")
+          case MetricInfoAlreadyExisting(_, _) =>
+            MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
+          case _ => MetricInfoFailed(db, namespace, metricInfo, "Unknown response from cache")
         }
         .pipeTo(sender)
   }
@@ -178,7 +184,7 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class WarmUpLocations(metricLocations: Seq[MetricMetadata])
+    case class WarmUpMetadata(metricLocations: Seq[MetricMetadata])
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)
