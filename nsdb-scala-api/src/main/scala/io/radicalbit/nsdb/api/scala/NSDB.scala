@@ -18,9 +18,10 @@ package io.radicalbit.nsdb.api.scala
 
 import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.GRPCClient
-import io.radicalbit.nsdb.rpc.common._
+import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
-import io.radicalbit.nsdb.rpc.request._
+import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
+import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
@@ -112,6 +113,14 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
       ))
 
   /**
+    * Init a bit by providing all the auxiliary information inside the [[BitInfo]]
+    * @param bitInfo the [[BitInfo]] to be written.
+    * @return a Future of the result of the operation. See [[InitMetricResponse]]
+    */
+  def init(bitInfo: BitInfo): Future[InitMetricResponse] =
+    client.initMetric(InitMetricRequest(bitInfo.db, bitInfo.namespace, bitInfo.metric, bitInfo.shardInterval))
+
+  /**
     * Writes a list of bits into NSdb using the current openend connection.
     * @param bs the list of bits to be inserted.
     * @return a Future containing the result of the operation. See [[RPCInsertResult]].
@@ -193,6 +202,13 @@ case class Bit protected (db: String,
                           value: RPCInsert.Value = RPCInsert.Value.Empty,
                           dimensions: List[DimensionAPI] = List.empty[DimensionAPI],
                           tags: List[TagAPI] = List.empty[TagAPI]) {
+
+  /**
+    * Builds a [[BitInfo]] from an existing bit
+    * @param interval the shard interval expressed in the Duration pattern (2d, 1h ecc.)
+    * @return the resulting [[BitInfo]]
+    */
+  def shardInterval(interval: String): BitInfo = BitInfo(db, namespace, metric, interval)
 
   /**
     * Adds a Long value to the bit.
@@ -333,3 +349,5 @@ case class Bit protected (db: String,
     */
   def timestamp(v: Long): Bit = copy(ts = Some(v))
 }
+
+case class BitInfo protected (db: String, namespace: String, metric: String, shardInterval: String)

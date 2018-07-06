@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.api.scala.example
 
 import io.radicalbit.nsdb.api.scala.NSDB
+import io.radicalbit.nsdb.rpc.init.InitMetricResponse
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 
@@ -61,6 +62,24 @@ object NSDBMainRead extends App {
     .query("select * from people limit 1")
 
   val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
+
+  println(Await.result(readRes, 10.seconds))
+}
+
+/**
+  * Example App for metric init.
+  */
+object NSDBInitRead extends App {
+
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+
+  val init = nsdb
+    .db("root")
+    .namespace("registry")
+    .bit("people")
+    .shardInterval("2d")
+
+  val readRes: Future[InitMetricResponse] = nsdb.init(init)
 
   println(Await.result(readRes, 10.seconds))
 }

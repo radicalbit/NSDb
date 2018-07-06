@@ -18,14 +18,14 @@ syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
 
-message InitRequest {
+message InitMetricRequest {
   string db = 1;
   string namespace = 2;
   string metric = 3;
   string shardInterval = 4;
 }
 
-message InitResponse {
+message InitMetricResponse {
   string db = 1;
   string namespace = 2;
   string metric = 3;
@@ -34,6 +34,6 @@ message InitResponse {
 }
 
 service InitMetric {
-  rpc InitMetric(InitRequest) returns (InitResponse);
+  rpc InitMetric(InitMetricRequest) returns (InitMetricResponse);
 }
 

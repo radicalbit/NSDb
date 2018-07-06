@@ -40,7 +40,7 @@ import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
-import io.radicalbit.nsdb.rpc.init.{InitRequest, InitResponse}
+import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -134,34 +134,34 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
     * Concrete implementation of the init metric service.
     */
   protected[this] object InitMetricService extends InitMetric {
-    override def initMetric(request: InitRequest): Future[InitResponse] = {
+    override def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
 
       Try { Duration(request.shardInterval).toMillis } match {
         case Success(interval) =>
           (metadataCoordinator ? PutMetricInfo(request.db, request.namespace, MetricInfo(request.metric, interval)))
             .map {
               case MetricInfoPut(_, _, _) =>
-                InitResponse(request.db, request.namespace, request.metric, completedSuccessfully = true)
+                InitMetricResponse(request.db, request.namespace, request.metric, completedSuccessfully = true)
               case MetricInfoFailed(_, _, _, message) =>
-                InitResponse(request.db,
-                             request.namespace,
-                             request.metric,
-                             completedSuccessfully = false,
-                             errorMsg = message)
+                InitMetricResponse(request.db,
+                                   request.namespace,
+                                   request.metric,
+                                   completedSuccessfully = false,
+                                   errorMsg = message)
               case _ =>
-                InitResponse(request.db,
-                             request.namespace,
-                             request.metric,
-                             completedSuccessfully = false,
-                             errorMsg = "Unknown response from server")
+                InitMetricResponse(request.db,
+                                   request.namespace,
+                                   request.metric,
+                                   completedSuccessfully = false,
+                                   errorMsg = "Unknown response from server")
             }
         case Failure(ex) =>
           Future(
-            InitResponse(request.db,
-                         request.namespace,
-                         request.metric,
-                         completedSuccessfully = false,
-                         errorMsg = ex.getMessage))
+            InitMetricResponse(request.db,
+                               request.namespace,
+                               request.metric,
+                               completedSuccessfully = false,
+                               errorMsg = ex.getMessage))
       }
     }
   }

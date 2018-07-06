@@ -42,7 +42,7 @@ public class InsertResult {
     }
 
     /**
-     * @return comma separated errors list, if the request is not successfully completed
+     * @return comma separated errorMsg list, if the request is not successfully completed
      */
     public String getErrors() {
         return errors;

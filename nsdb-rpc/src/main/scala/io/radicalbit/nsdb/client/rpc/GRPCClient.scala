@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.client.rpc
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
+import io.radicalbit.nsdb.rpc.init._
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -44,6 +45,7 @@ class GRPCClient(host: String, port: Int) {
   private val stubDump                = DumpGrpc.stub(channel)
   private val stubSql                 = NSDBServiceSQLGrpc.stub(channel)
   private val stubCommand             = NSDBServiceCommandGrpc.stub(channel)
+  private val stubInit                = InitMetricGrpc.stub(channel)
 
   def checkConnection(): Future[HealthCheckResponse] = {
     log.debug("checking connection")
@@ -58,6 +60,11 @@ class GRPCClient(host: String, port: Int) {
   def restore(request: RestoreRequest): Future[RestoreResponse] = {
     log.debug("creating dump")
     stubDump.restore(request)
+  }
+
+  def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
+    log.debug("Preparing a init request for {}", request)
+    stubInit.initMetric(request)
   }
 
   def write(request: RPCInsert): Future[RPCInsertResult] = {
