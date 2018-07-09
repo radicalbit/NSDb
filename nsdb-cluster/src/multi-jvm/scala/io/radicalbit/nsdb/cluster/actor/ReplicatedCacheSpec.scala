@@ -81,11 +81,10 @@ class ReplicatedMetadataCacheSpec
 
       expectNoMessage(1 second)
 
-      val replicaCount = awaitAssert {
+      awaitAssert {
         DistributedData(system).replicator ! GetReplicaCount
-        expectMsgType[ReplicaCount]
+        expectMsgType[ReplicaCount].n shouldBe 2
       }
-      replicaCount.n shouldBe 2
 
       enterBarrier("joined")
     }

@@ -82,11 +82,6 @@ class WriteCoordinatorClusterTest
 
   val mediator = DistributedPubSub(system).mediator
 
-  val metadataCoordinator =
-    system.actorSelection("/user/guardian/metadata-coordinator")
-  val writeCoordinator =
-    system.actorSelection("/user/guardian/write-coordinator")
-
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
       cluster join node(to).address
@@ -110,7 +105,13 @@ class WriteCoordinatorClusterTest
 
     "write records and update metadata" in within(10.seconds) {
 
+      val selfMember = cluster.selfMember
+      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
       awaitAssert {
+
+        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+
         metadataCoordinator ! GetLocations("db", "namespace", "metric")
         val initialLoc = expectMsgType[LocationsGot]
         initialLoc.locations.size shouldBe 0
@@ -118,12 +119,16 @@ class WriteCoordinatorClusterTest
 
       runOn(node1) {
         awaitAssert {
+          val writeCoordinator = system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName")
+
           writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty, Map.empty))
           expectMsgType[InputMapped]
         }
       }
 
       awaitAssert {
+        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+
         metadataCoordinator ! GetLocations("db", "namespace", "metric")
         val locations_1 = expectMsgType[LocationsGot]
         locations_1.locations.size shouldBe 1
@@ -133,12 +138,16 @@ class WriteCoordinatorClusterTest
 
       runOn(node2) {
         awaitAssert {
+          val writeCoordinator = system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName")
+
           writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty, Map.empty))
           expectMsgType[InputMapped]
         }
       }
 
       awaitAssert {
+        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+
         metadataCoordinator ! GetLocations("db", "namespace", "metric")
         val locations_2 = expectMsgType[LocationsGot]
         locations_2.locations.size shouldBe 1
@@ -147,10 +156,13 @@ class WriteCoordinatorClusterTest
       }
 
       runOn(node2) {
+        val writeCoordinator = system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName")
+
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(50000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
+      val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
       metadataCoordinator ! GetLocations("db", "namespace", "metric")
       awaitAssert {
         val locations_3 = expectMsgType[LocationsGot]
@@ -160,10 +172,14 @@ class WriteCoordinatorClusterTest
       }
 
       runOn(node1) {
+        val writeCoordinator = system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName")
+
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
       runOn(node2) {
+        val writeCoordinator = system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName")
+
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(40000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
@@ -179,6 +195,8 @@ class WriteCoordinatorClusterTest
       enterBarrier("Single Location")
 
       runOn(node1) {
+        val writeCoordinator = system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName")
+
         writeCoordinator ! MapInput(60001, "db", "namespace", "metric", Bit(60001, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
