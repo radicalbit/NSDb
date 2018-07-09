@@ -56,10 +56,13 @@ object MessageProtocol {
     case class DeleteRecordFromShard(db: String, namespace: String, shardKey: ShardKey, bit: Bit)
     case class DeleteAllMetrics(db: String, namespace: String)
 
+    case object GetCoordinators
     case object GetReadCoordinator
     case object GetWriteCoordinator
     case object GetMetadataCoordinator
     case object GetPublisher
+
+    case class CoordinatorsGot(metadataCoordinator: ActorRef, writeCoordinator: ActorRef, readCoordinator: ActorRef)
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)

@@ -21,20 +21,24 @@ import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
+import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.SubscribeMetricsDataActor
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
+  CoordinatorsGot,
+  GetCoordinators,
+  SubscribeMetricsDataActor
+}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
-  * @param writeCoordinator the global writeCoordinator
-  * @param readCoordinator the global readCoordinator
-  * @param metadataCoordinator the global metadataCoordinator
+  * @param metadataCache the global metadata cache actor.
   */
-class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef)
+class ClusterListener(
+    metadataCache: ActorRef /*writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef*/ )
     extends Actor
     with ActorLogging {
 
@@ -53,7 +57,7 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
     case MemberUp(member) =>
       log.info("Member is Up: {}", member.address)
 
-      val nameNode = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
+      val nodeName = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
 
       implicit val timeout: Timeout = Timeout(5.seconds)
 
@@ -61,27 +65,34 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 
       val indexBasePath = config.getString("nsdb.index.base-path")
 
-      val metadataActor = context.system.actorOf(
-        MetadataActor
-          .props(indexBasePath, metadataCoordinator)
-          .withDeploy(Deploy(scope = RemoteScope(member.address))),
-        name = s"metadata_$nameNode"
-      )
+      val nodeActorsGuardian =
+        context.system.actorOf(NodeActorsGuardian.props(metadataCache), name = s"guardian_$nodeName")
 
-      mediator ! Subscribe("warm-up", readCoordinator)
-      mediator ! Subscribe("warm-up", writeCoordinator)
-      mediator ! Subscribe("metadata", metadataActor)
+      (nodeActorsGuardian ? GetCoordinators).map {
+        case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator) =>
+          val metadataActor = context.system.actorOf(
+            MetadataActor
+              .props(indexBasePath, metadataCoordinator)
+              .withDeploy(Deploy(scope = RemoteScope(member.address))),
+            name = s"metadata_$nodeName"
+          )
 
-      log.info(s"subscribing data actor for node $nameNode")
-      val metricsDataActor = context.actorOf(
-        MetricsDataActor
-          .props(indexBasePath)
-          .withDeploy(Deploy(scope = RemoteScope(member.address)))
-          .withDispatcher("akka.actor.control-aware-dispatcher"),
-        s"namespace-data-actor_$nameNode"
-      )
-      writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nameNode)
-      readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nameNode)
+          mediator ! Subscribe("warm-up", readCoordinator)
+          mediator ! Subscribe("warm-up", writeCoordinator)
+          mediator ! Subscribe("metadata", metadataActor)
+
+          log.info(s"subscribing data actor for node $nodeName")
+          val metricsDataActor = context.actorOf(
+            MetricsDataActor
+              .props(indexBasePath)
+              .withDeploy(Deploy(scope = RemoteScope(member.address)))
+              .withDispatcher("akka.actor.control-aware-dispatcher"),
+            s"namespace-data-actor_$nodeName"
+          )
+          writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
+          readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
+        case _ =>
+      }
 
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)
@@ -92,6 +103,6 @@ class ClusterListener(writeCoordinator: ActorRef, readCoordinator: ActorRef, met
 }
 
 object ClusterListener {
-  def props(writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef) =
-    Props(new ClusterListener(writeCoordinator, readCoordinator, metadataCoordinator))
+  def props(metadataCache: ActorRef) =
+    Props(new ClusterListener(metadataCache))
 }

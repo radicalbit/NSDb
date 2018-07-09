@@ -47,7 +47,6 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     """.stripMargin))
 }
 
-// need one concrete test class per node
 class ReplicatedMetadataCacheMultiJvmNode1 extends ReplicatedMetadataCacheSpec
 
 class ReplicatedMetadataCacheMultiJvmNode2 extends ReplicatedMetadataCacheSpec

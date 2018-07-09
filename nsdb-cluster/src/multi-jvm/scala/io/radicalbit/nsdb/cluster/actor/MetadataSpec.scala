@@ -76,7 +76,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
-  val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
+//  val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
@@ -94,7 +94,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         mediator ! Count
         expectMsg(2)
       }
-
       enterBarrier("joined")
     }
 
@@ -103,8 +102,15 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
 
       runOn(node1) {
-        metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))
-        expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+
+        awaitAssert {
+          metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))
+          expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
+        }
       }
 
       awaitAssert {
@@ -125,8 +131,15 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val metricInfo = MetricInfo("metric", 100)
 
       runOn(node1) {
-        metadataCoordinator ! PutMetricInfo("db", "namespace", metricInfo)
-        expectMsg(MetricInfoPut("db", "namespace", metricInfo))
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+
+        awaitAssert {
+          metadataCoordinator ! PutMetricInfo("db", "namespace", metricInfo)
+          expectMsg(MetricInfoPut("db", "namespace", metricInfo))
+        }
       }
 
       awaitAssert {
