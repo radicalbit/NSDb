@@ -27,6 +27,11 @@ import io.radicalbit.nsdb.web.WebResources
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
+/**
+  * Class responsible to instantiate all the node endpoints (e.g. grpc, http and ws).
+  * @param nodeGuardian the node guardian actor, which is the parent of the node coordinators and publisher.
+  * @param system the global ActorSystem.
+  */
 class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit val system: ActorSystem)
     extends WebResources
     with NsdbSecurity

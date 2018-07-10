@@ -215,7 +215,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       context.become(operative)
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       metricsDataActors += (nodeName -> actor)
-      log.error(s"subscribed data actor for node $nodeName")
+      log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedNodes =>
       sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
