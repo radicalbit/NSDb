@@ -18,12 +18,13 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
@@ -35,8 +36,7 @@ import scala.concurrent.Future
   * @param namespaceSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the metrics schema actor.
   */
 class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
-    extends Actor
-    with ActorLogging
+    extends ActorPathLogging
     with NsdbPerfLogger {
 
   implicit val timeout: Timeout = Timeout(

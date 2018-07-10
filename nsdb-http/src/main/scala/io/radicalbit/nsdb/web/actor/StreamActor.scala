@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.web.actor
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
@@ -27,6 +27,7 @@ import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
 import scala.collection.mutable
@@ -43,8 +44,7 @@ class StreamActor(publisher: ActorRef,
                   publishInterval: Int,
                   securityHeaderPayload: Option[String],
                   authProvider: NSDBAuthProvider)
-    extends Actor
-    with ActorLogging {
+    extends ActorPathLogging {
 
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.stream.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)

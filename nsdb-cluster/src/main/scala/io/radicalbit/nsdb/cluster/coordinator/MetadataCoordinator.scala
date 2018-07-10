@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
+import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.concurrent.Future
 
@@ -37,7 +38,7 @@ import scala.concurrent.Future
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with Stash {
+class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
 
   /**
     * mediator for [[DistributedPubSub]] system

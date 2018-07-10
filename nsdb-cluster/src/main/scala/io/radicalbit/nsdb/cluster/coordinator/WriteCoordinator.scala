@@ -22,7 +22,7 @@ import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
+import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
@@ -48,6 +48,7 @@ import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.dump.DumpTarget
+import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import org.apache.commons.io.{FileUtils => ApacheFileUtils}
 import org.apache.lucene.document.LongPoint
@@ -86,8 +87,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        metadataCoordinator: ActorRef,
                        metricsSchemaActor: ActorRef,
                        publisherActor: ActorRef)
-    extends Actor
-    with ActorLogging
+    extends ActorPathLogging
     with NsdbPerfLogger
     with Stash {
 

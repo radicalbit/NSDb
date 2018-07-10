@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.actors
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -32,6 +32,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.ParsedSimpleQuery
+import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.IndexSearcher
 
@@ -67,7 +68,7 @@ case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
   * Every published event will be checked against every registered query. If the event fulfills the query, it will be published to every query relatedsubscriber.
   * @param readCoordinator global read coordinator responsible to execute queries when needed
   */
-class PublisherActor(readCoordinator: ActorRef) extends Actor with ActorLogging {
+class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
   /**
     * mutable subscriber map aggregated by query id
