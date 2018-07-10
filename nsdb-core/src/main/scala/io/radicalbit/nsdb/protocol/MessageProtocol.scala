@@ -57,9 +57,6 @@ object MessageProtocol {
     case class DeleteAllMetrics(db: String, namespace: String)
 
     case object GetCoordinators
-    case object GetReadCoordinator
-    case object GetWriteCoordinator
-    case object GetMetadataCoordinator
     case object GetPublisher
 
     case class CoordinatorsGot(metadataCoordinator: ActorRef, writeCoordinator: ActorRef, readCoordinator: ActorRef)

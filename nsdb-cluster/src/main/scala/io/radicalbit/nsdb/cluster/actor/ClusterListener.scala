@@ -24,6 +24,7 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.NsdbNodeEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
   CoordinatorsGot,
   GetCoordinators,
@@ -97,6 +98,8 @@ class ClusterListener(
               writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
               readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
             })
+
+          new NsdbNodeEndpoint(nodeActorsGuardian)(context.system)
 
         case _ =>
       }

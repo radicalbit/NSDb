@@ -40,7 +40,7 @@ class NodeActorsGuardian(metadataCache: ActorRef) extends Actor with ActorLoggin
       super.supervisorStrategy.decider.apply(t)
   }
 
-  val selfMember = Cluster(context.system).selfMember
+  private val selfMember = Cluster(context.system).selfMember
 
   val nodeName = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 

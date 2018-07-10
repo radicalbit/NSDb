@@ -18,17 +18,11 @@ package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.pattern.ask
+import akka.actor.{ActorSystem, Props}
 import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
-  GetMetadataCoordinator,
-  GetReadCoordinator,
-  GetWriteCoordinator
-}
 
 /**
   * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
@@ -50,16 +44,8 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val executionContext = system.dispatcher
 
-  lazy val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
+  system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
-  for {
-    readCoordinator     <- (guardian ? GetReadCoordinator).mapTo[ActorRef]
-    writeCoordinator    <- (guardian ? GetWriteCoordinator).mapTo[ActorRef]
-    metadataCoordinator <- (guardian ? GetMetadataCoordinator).mapTo[ActorRef]
-    _ = new GrpcEndpoint(readCoordinator = readCoordinator,
-                         writeCoordinator = writeCoordinator,
-                         metadataCoordinator = metadataCoordinator)
-  } ()
 }
 
 /**
