@@ -152,7 +152,7 @@ The same capabilities exposed by NSDb's Java API are implemented in Scala API to
 The `io.radicalbit.nsdb.api.scala.NSDB`class provides a method to create a connection to an instance of NSDb. Connection to gRPC NSDb's endpoint is instanciated ayncronously using `connect` methods that require `host` and `port` parameters.
 
 # Init API
-As well as for the Java apis, it is possible to set the shard interval for a metric, before the first bit is writter.
+As well as for the Java apis, it is possible to set the shard interval for a metric, before the first bit is written.
 
 ```scala
 object NSDBInitRead extends App {
