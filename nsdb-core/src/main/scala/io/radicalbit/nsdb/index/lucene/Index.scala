@@ -18,12 +18,12 @@ package io.radicalbit.nsdb.index.lucene
 
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 import org.apache.lucene.util.InfoStream
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 trait Index[T] {
 
@@ -140,4 +140,12 @@ trait Index[T] {
   }
 
   def count(): Int = this.getSearcher.getIndexReader.numDocs()
+}
+
+object Index {
+  def handleNoIndexResults[T](out: Try[Seq[T]]): Try[Seq[T]] = {
+    out.recoverWith {
+      case _: IndexNotFoundException => Success(Seq.empty)
+    }
+  }
 }
