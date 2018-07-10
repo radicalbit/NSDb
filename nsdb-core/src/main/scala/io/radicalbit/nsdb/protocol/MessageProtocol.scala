@@ -66,6 +66,8 @@ object MessageProtocol {
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
+
+    case object GetConnectedNodes
   }
 
   /**
@@ -108,6 +110,8 @@ object MessageProtocol {
 
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
     case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
+
+    case class ConnectedNodesGot(nodes: Seq[String])
   }
 
 }

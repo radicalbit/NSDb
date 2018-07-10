@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Deploy, Props}
-import akka.cluster.Cluster
+import akka.cluster.{Cluster, MemberStatus}
 import akka.cluster.ClusterEvent._
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
@@ -87,10 +87,17 @@ class ClusterListener(
               .props(indexBasePath)
               .withDeploy(Deploy(scope = RemoteScope(member.address)))
               .withDispatcher("akka.actor.control-aware-dispatcher"),
-            s"namespace-data-actor_$nodeName"
+            s"metrics-data-actor_$nodeName"
           )
-          writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
-          readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
+
+          cluster.state.members
+            .filter(_.status == MemberStatus.Up)
+            .foreach(member => {
+              val nodeName = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
+              writeCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
+              readCoordinator ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
+            })
+
         case _ =>
       }
 

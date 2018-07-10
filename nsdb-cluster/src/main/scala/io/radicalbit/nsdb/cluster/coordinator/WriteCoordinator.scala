@@ -37,7 +37,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   GetWriteLocation
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
+import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -105,7 +105,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
-  private val namespaces: mutable.Map[String, ActorRef] = mutable.Map.empty
+  private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   /**
     * Performs an ask to every namespace actor subscribed.
@@ -114,7 +114,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     */
   private def broadcastMessage(msg: Any) =
     Future
-      .sequence(namespaces.values.toSeq.map(actor => actor ? msg))
+      .sequence(metricsDataActors.values.toSeq.map(actor => actor ? msg))
       .map(_.head)
 
   /**
@@ -151,7 +151,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     * @param bit the bit containing the new schema.
     * @param op code executed in case of success.
     */
-  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] = {
+  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] =
     (metricsSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
@@ -161,7 +161,6 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
           Future(RecordRejected(db, namespace, metric, bit, errs))
       }
-  }
 
   /**
     * Gets the metadata location to write the bit in.
@@ -192,7 +191,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     * @param location the location to write the bit in.
     */
   def accumulateRecord(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
-    namespaces.get(location.node) match {
+    metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
           case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
@@ -215,19 +214,23 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       unstashAll()
       context.become(operative)
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      namespaces += (nodeName -> actor)
-      log.info(s"subscribed data actor for node $nodeName")
+      metricsDataActors += (nodeName -> actor)
+      log.error(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case msq =>
+    case GetConnectedNodes =>
+      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case msg =>
       stash()
-      log.error(s"Received ignored message $msq during warmUp")
+      log.error(s"Received and stashed message $msg during warmUp")
   }
 
   def operative: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      namespaces += (nodeName -> actor)
-      log.info(s"subscribed data actor for node $nodeName")
+      metricsDataActors += (nodeName -> actor)
+      log.error(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case GetConnectedNodes =>
+      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
     case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
@@ -236,6 +239,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           .flatMap {
             case WriteToCommitLogSucceeded(_, _, _, _) =>
               publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+
               getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
                 accumulateRecord(db, namespace, metric, bit, loc)
               }
@@ -251,7 +255,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       writeCommitLog(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
-            if (namespaces.isEmpty) {
+            if (metricsDataActors.isEmpty) {
               (metricsSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace))
             } else
               (metricsSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
@@ -264,7 +268,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement))
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
-            if (namespaces.isEmpty)
+            if (metricsDataActors.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
             else
               (metricsSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
@@ -295,7 +299,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
-            if (namespaces.isEmpty)
+            if (metricsDataActors.isEmpty)
               Future(MetricDropped(db, namespace, metric))
             else {
               (metricsSchemaActor ? DeleteSchema(db, namespace, metric))

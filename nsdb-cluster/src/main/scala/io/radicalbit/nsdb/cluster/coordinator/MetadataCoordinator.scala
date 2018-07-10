@@ -86,7 +86,9 @@ class MetadataCoordinator(cache: ActorRef) extends Actor with ActorLogging with 
           context.become(operative)
         }
 
-    case _ => stash()
+    case msg =>
+      stash()
+      log.error(s"Received and stashed message $msg during warmUp")
   }
 
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
