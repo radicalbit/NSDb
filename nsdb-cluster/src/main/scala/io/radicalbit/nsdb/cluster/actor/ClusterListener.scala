@@ -37,8 +37,9 @@ import scala.concurrent.duration._
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
   * @param metadataCache the global metadata cache actor.
+  * @param schemaCache the global schema cache actor.
   */
-class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
+class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Actor with ActorLogging {
 
   val cluster = Cluster(context.system)
 
@@ -64,7 +65,7 @@ class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
       val indexBasePath = config.getString("nsdb.index.base-path")
 
       val nodeActorsGuardian =
-        context.system.actorOf(NodeActorsGuardian.props(metadataCache), name = s"guardian_$nodeName")
+        context.system.actorOf(NodeActorsGuardian.props(metadataCache, schemaCache), name = s"guardian_$nodeName")
 
       (nodeActorsGuardian ? GetCoordinators).map {
         case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator) =>
@@ -110,6 +111,6 @@ class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
 }
 
 object ClusterListener {
-  def props(metadataCache: ActorRef) =
-    Props(new ClusterListener(metadataCache))
+  def props(metadataCache: ActorRef, schemaCache: ActorRef) =
+    Props(new ClusterListener(metadataCache, schemaCache))
 }
