@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetCoordinators, _}
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
   */
-class NodeActorsGuardian(metadataCache: ActorRef) extends Actor with ActorLogging {
+class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
@@ -101,5 +101,5 @@ class NodeActorsGuardian(metadataCache: ActorRef) extends Actor with ActorLoggin
 }
 
 object NodeActorsGuardian {
-  def props(metadataCache: ActorRef) = Props(new NodeActorsGuardian(metadataCache))
+  def props(metadataCache: ActorRef, schemaCache: ActorRef) = Props(new NodeActorsGuardian(metadataCache, schemaCache))
 }
