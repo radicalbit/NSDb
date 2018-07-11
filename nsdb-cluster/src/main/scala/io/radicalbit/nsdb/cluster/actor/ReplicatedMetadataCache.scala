@@ -65,7 +65,7 @@ object ReplicatedMetadataCache {
   final case class GetLocationsFromCache(key: MetricLocationsKey)
   final case class LocationCached(key: LocationKey, value: Option[Location])
   final case class LocationsCached(key: MetricLocationsKey, value: Seq[Location])
-  final case class Evict(key: LocationKey)
+  final case class EvictLocation(key: LocationKey)
 
   final case class PutMetricInfoInCache(key: MetricInfoKey, value: MetricInfo)
   final case class MetricInfoAlreadyExisting(key: MetricInfoKey, value: MetricInfo)
@@ -185,7 +185,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         }
         .pipeTo(sender)
 
-    case Evict(key) =>
+    case EvictLocation(key) =>
       val f = for {
         loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteMajority(writeDuration))(_ - key))
           .map(_ => LocationCached(key, None))
