@@ -218,7 +218,7 @@ class ReplicatedMetadataCacheSpec
           expectMsg(LocationCached(key, Some(location)))
         }
 
-        replicatedCache ! Evict(key)
+        replicatedCache ! EvictLocation(key)
         expectMsg(LocationCached(key, None))
       }
 
