@@ -31,34 +31,40 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT sum(value) FROM people group by name") should be(
           Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = ListFields(List(Field("value", Some(SumAggregation)))),
-                               groupBy = Some("name"))
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
           ))
       }
       "parse it successfully if sum(*) is provided" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT sum(*) FROM people group by name") should be(
           Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = ListFields(List(Field("*", Some(SumAggregation)))),
-                               groupBy = Some("name"))
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(SumAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
           ))
       }
       "parse it successfully if count(*) is provided" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT count(*) FROM people group by name") should be(
           Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-                               groupBy = Some("name"))
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(CountAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
           ))
       }
     }
@@ -75,7 +81,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-            groupBy = Some("name")
+            groupBy = Some(SimpleGroupByAggregation("name"))
           )))
       }
     }
@@ -93,7 +99,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("value", Some(MinAggregation)))),
             condition = Some(Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
-            groupBy = Some("name")
+            groupBy = Some(SimpleGroupByAggregation("name"))
           )))
       }
     }
@@ -116,7 +122,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               expression2 =
                 ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
             ))),
-            groupBy = Some("name")
+            groupBy = Some(SimpleGroupByAggregation("name"))
           )))
       }
     }
@@ -133,7 +139,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
             order = Some(AscOrderOperator("name")),
-            groupBy = Some("name")
+            groupBy = Some(SimpleGroupByAggregation("name"))
           )))
       }
     }
@@ -150,7 +156,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
             order = Some(AscOrderOperator("name")),
-            groupBy = Some("name"),
+            groupBy = Some(SimpleGroupByAggregation("name")),
             limit = Some(LimitOperator(1))
           )))
       }
@@ -175,7 +181,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               expression2 = EqualityExpression(dimension = "surname", value = "b483a480-832b"),
               operator = AndOperator
             ))),
-            groupBy = Some("surname")
+            groupBy = Some(SimpleGroupByAggregation("surname"))
           )))
 
         parser.parse(
@@ -210,7 +216,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                                         EqualityExpression("id", "c1234-56789"))
               )
             )),
-            groupBy = Some("id")
+            groupBy = Some(SimpleGroupByAggregation("id"))
           )))
       }
     }

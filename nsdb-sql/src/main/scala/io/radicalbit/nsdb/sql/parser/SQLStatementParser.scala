@@ -93,6 +93,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val group             = "GROUP BY" ignoreCase
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
+  private val temporalInterval  = "INTERVAL" ignoreCase
 
   private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
   private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9]*)""".r
@@ -115,8 +116,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   }
   private val stringValueWithWildcards = """(^[a-zA-Z_\$][a-zA-Z0-9_\-\$]*[a-zA-Z0-9\$])""".r
 
-  private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
+  private val timeMeasure = ("y".ignoreCase | "m".ignoreCase | "d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
+    case "Y" => 3600 * 1000 * 24 * 30 * 12
+    case "M" => 3600 * 1000 * 24 * 30
     case "D" => 24 * 3600 * 1000
     case "H" => 3600 * 1000
     case "M" => 60 * 1000
@@ -149,6 +152,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val assignments = OpenRoundBracket ~> assignment ~ rep(Comma ~> assignment) <~ CloseRoundBracket ^^ {
     case a ~ as => (a +: as).toMap
   }
+
+//  private lazy val groupByExpression: PackratParser[GroupByExpression]
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
@@ -220,7 +225,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   lazy val where: PackratParser[Expression] = Where ~> expression
 
-  lazy val groupBy: PackratParser[Option[String]] = (group ~> dimension) ?
+  lazy val groupBy
+    : Parser[Option[GroupByAggregation]] = ((group ~> (dimension ?) ~ ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?)) ?) ^^ {
+    case Some(Some(dim) ~ None) => Some(SimpleGroupByAggregation(dim))
+    case Some(None ~ Some(i))   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
+    case None                   => None
+  }
 
   lazy val order: PackratParser[Option[OrderOperator]] = ((Order ~> dimension ~ (Desc ?)) ?) ^^ {
     case Some(dim ~ Some(_)) => Some(DescOrderOperator(dim))
