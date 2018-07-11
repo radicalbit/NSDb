@@ -19,6 +19,9 @@ package io.radicalbit.nsdb.index.lucene
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.facet.{FacetResult, FacetsCollector}
+import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts}
+import org.apache.lucene.index.{IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer, Term}
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 import org.apache.lucene.util.InfoStream
@@ -140,6 +143,16 @@ trait Index[T] {
   }
 
   def count(): Int = this.getSearcher.getIndexReader.numDocs()
+
+  def executeCountLongRangeFacet(searcher: IndexSearcher,
+                                 query: Query,
+                                 fieldName: String,
+                                 ranges: Seq[LongRange]): FacetResult = {
+    val fc = new FacetsCollector
+    FacetsCollector.search(searcher, query, 0, fc)
+    val facets: LongRangeFacetCounts = new LongRangeFacetCounts("fieldName", fc, ranges: _*)
+    facets.getTopChildren(0, fieldName)
+  }
 }
 
 object Index {

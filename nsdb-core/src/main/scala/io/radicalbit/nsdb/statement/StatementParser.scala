@@ -20,7 +20,9 @@ import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import org.apache.lucene.facet.range.LongRange
 import org.apache.lucene.search._
+import spire.implicits._
 
 import scala.util.{Failure, Success, Try}
 
@@ -44,7 +46,7 @@ object StatementParser {
   /**
     * Retrieves internal [[InternalAggregationType]] based on provided into the query.
     * @param groupField group by field.
-    * @param aggregateField filed to apply the aggregation to.
+    * @param aggregateField field to apply the aggregation to.
     * @param agg aggregation clause in query (min, max, sum, count).
     * @return an instance of [[InternalAggregationType]] based on the given parameters.
     */
@@ -55,6 +57,48 @@ object StatementParser {
       case MinAggregation   => new InternalMinAggregation(groupField, aggregateField)
       case SumAggregation   => InternalSumAggregation(groupField, aggregateField)
     }
+  }
+
+  /**
+    * Temporal buckets are computed as done in shards definition. So, given the time origin time buckets are computed
+    * starting from actual timestamp going backward until limit is reached.
+    *
+    * @param interval
+    * @param limit
+    * @return
+    */
+  def computeRanges(interval: Long, limit: Option[Int], whereCondition: Option[Condition]): Seq[LongRange] = {
+
+    val nGroup = limit.getOrElse(10)
+
+    val timeIntervals = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
+    if (timeIntervals.nonEmpty) {
+      timeIntervals.flatMap { i =>
+        val lowerBound = i.bottom(1).getOrElse(Long.MinValue)
+        val upperBound = i.top(1).getOrElse(Long.MaxValue)
+        computeRangeForInterval(upperBound, lowerBound, interval, Seq.empty)
+      }
+    } else {
+      val upperBound = System.currentTimeMillis()
+      val lowerBound = upperBound - nGroup * interval
+      computeRangeForInterval(upperBound, lowerBound, interval, Seq.empty)
+    }
+
+  }
+
+  def computeRangeForInterval(upperInterval: Long,
+                              lowerInterval: Long,
+                              bucketSize: Long,
+                              acc: Seq[LongRange]): Seq[LongRange] = {
+    val upperBound = (upperInterval / bucketSize) * bucketSize
+    val lowerBound = upperBound - bucketSize
+    if (lowerBound > lowerInterval) {
+      computeRangeForInterval(lowerBound,
+                              lowerInterval,
+                              bucketSize,
+                              acc :+ new LongRange(s"$lowerBound-$upperBound", lowerBound, true, upperBound, false))
+    } else
+      acc :+ new LongRange(s"$lowerBound-$upperBound", lowerBound, true, upperBound, false)
   }
 
   /**
@@ -98,9 +142,25 @@ object StatementParser {
     expParsed.flatMap(exp =>
       (distinctValue, fieldList, statement.groupBy) match {
         case (_, Failure(exception), _) => Failure(exception)
+        // Trying to order by a dimension not in group by clause
         case (false, Success(Seq(Field(_, Some(_)))), Some(group))
             if sortOpt.isDefined && !Seq("value", group).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
+        // Match temporal count aggregation
+        //        case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
+        //          if fieldName == "value" || fieldName == "*" =>
+        //          val ranges = computeRanges(interval, limitOpt, statement.condition)
+        //          Success(
+        //            ParsedTemporalAggregatedQuery(
+        //              statement.namespace,
+        //              statement.metric,
+        //              exp.q,
+        //              //TODO: compute ranges given interval
+        //              Seq.empty[LongRange],
+        //              sortOpt,
+        //              limitOpt
+        //            )
+        //          )
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
             if schema.fields.map(_.name).contains(group) && (fieldName == "value" || fieldName == "*") =>
           Success(
@@ -220,6 +280,14 @@ object StatementParser {
                                    aggregationType: InternalAggregationType,
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
+      extends ParsedQuery
+
+  case class ParsedTemporalAggregatedQuery(namespace: String,
+                                           metric: String,
+                                           q: Query,
+                                           ranges: Seq[LongRange],
+                                           sort: Option[Sort] = None,
+                                           limit: Option[Int] = None)
       extends ParsedQuery
 
   /**

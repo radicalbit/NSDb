@@ -25,7 +25,7 @@ import io.radicalbit.nsdb.statement.StatementParser.InternalMaxAggregation
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
-import org.apache.lucene.store.{MMapDirectory, RAMDirectory}
+import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {

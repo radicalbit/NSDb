@@ -23,6 +23,7 @@ import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, LongPoint}
+import org.apache.lucene.facet.range.LongRange
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.scalatest.TryValues._
@@ -1004,6 +1005,25 @@ class StatementParserSpec extends WordSpec with Matchers {
         ) shouldBe a[Failure[InvalidStatementException]]
       }
 
+    }
+
+
+    "executing computeRangeForInterval " should {
+      "return a seq of ranges" in {
+        val res = StatementParser.computeRangeForInterval(10L, 0L, 5L, Seq.empty)
+        println(s"aaaaaa -> ${res.map(_.label)}")
+        res.map(_.label).contains("5-10") shouldBe true
+        res.map(_.label).contains("0-5") shouldBe true
+      }
+    }
+
+    "executing computeRanges " should {
+      "return a seq of ranges for a RangeExpression" in {
+        val res = StatementParser.computeRanges(5L, None, Some(Condition(RangeExpression(dimension = "timestamp", value1 = 0L, value2 = 10L))))
+        println(s"aaaaaab -> ${res.map(_.label)}")
+        res.map(_.label).contains("5-10") shouldBe true
+        res.map(_.label).contains("0-5") shouldBe true
+      }
     }
   }
 }

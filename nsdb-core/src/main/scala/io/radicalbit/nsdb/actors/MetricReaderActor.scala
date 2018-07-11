@@ -353,6 +353,39 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   }
 
   override def receive: Receive = readOps
+
+  /**
+    * This is a utility method to extract dimensions or tags from a Bit sequence in a functional way without having
+    * the risk to throw dangerous exceptions.
+    *
+    * @param values the sequence of bits holding the fields to be extracted.
+    * @param field the name of the field to be extracted.
+    * @param extract the function defining how to extract the field from a given bit.
+    * @return
+    */
+  private def retrieveField(values: Seq[Bit],
+                            field: String,
+                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+    values.headOption
+      .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
+      .getOrElse(Map.empty[String, JSerializable])
+
+  /**
+    * This is a utility method in charge to associate a dimension or a tag with the given count.
+    * It extracts the field from a Bit sequence in a functional way without having the risk to throw dangerous exceptions.
+    *
+    * @param values the sequence of bits holding the field to be extracted.
+    * @param count the value of the count to be associated with the field.
+    * @param extract the function defining how to extract the field from a given bit.
+    * @return
+    */
+  private def retrieveCount(values: Seq[Bit],
+                            count: Int,
+                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+    values.headOption
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
+      .getOrElse(Map.empty[String, JSerializable])
+
 }
 
 object MetricReaderActor {
