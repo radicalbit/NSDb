@@ -24,6 +24,8 @@ import org.apache.lucene.facet.range.LongRange
 import org.apache.lucene.search._
 import spire.implicits._
 
+import scala.annotation.tailrec
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -63,11 +65,11 @@ object StatementParser {
     * Temporal buckets are computed as done in shards definition. So, given the time origin time buckets are computed
     * starting from actual timestamp going backward until limit is reached.
     *
-    * @param interval
+    * @param rangeInterval
     * @param limit
     * @return
     */
-  def computeRanges(interval: Long, limit: Option[Int], whereCondition: Option[Condition]): Seq[LongRange] = {
+  def computeRanges(rangeInterval: Long, limit: Option[Int], whereCondition: Option[Condition]): Seq[LongRange] = {
 
     val nGroup = limit.getOrElse(10)
 
@@ -76,16 +78,26 @@ object StatementParser {
       timeIntervals.flatMap { i =>
         val lowerBound = i.bottom(1).getOrElse(Long.MinValue)
         val upperBound = i.top(1).getOrElse(Long.MaxValue)
-        computeRangeForInterval(upperBound, lowerBound, interval, Seq.empty)
+        computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
       }
     } else {
       val upperBound = System.currentTimeMillis()
-      val lowerBound = upperBound - nGroup * interval
-      computeRangeForInterval(upperBound, lowerBound, interval, Seq.empty)
+      val lowerBound = upperBound - nGroup * rangeInterval
+      computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
     }
 
   }
 
+  /**
+    * Recursive method used to compute ranges for a temporal interval defined in where condition
+    *
+    * @param upperInterval interval upper bound, it's the previous one lower bound
+    * @param lowerInterval interval lower bound, this value remained fixed during recursion
+    * @param bucketSize range duration expressed in millis
+    * @param acc result accumulator
+    * @return
+    */
+  @tailrec
   def computeRangeForInterval(upperInterval: Long,
                               lowerInterval: Long,
                               bucketSize: Long,

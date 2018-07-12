@@ -1007,7 +1007,6 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     }
 
-
     "executing computeRangeForInterval " should {
       "return a seq of ranges" in {
         val res = StatementParser.computeRangeForInterval(10L, 0L, 5L, Seq.empty)
