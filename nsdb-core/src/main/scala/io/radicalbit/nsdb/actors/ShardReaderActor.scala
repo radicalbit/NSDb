@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.Location
@@ -114,6 +116,24 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Failure(ex) =>
               log.error(ex, "error occurred executing query {} in location {}", statement, location)
               sender ! SelectStatementFailed(ex.getMessage)
+          }
+
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, ranges, _, _)) =>
+          handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
+            facetResult =>
+              facetResult.labelValues.toSeq
+                .map { lv =>
+                  val boundaries = lv.label.split("-").map(_.toLong).toSeq
+                  Bit(boundaries.head,
+                      lv.value,
+                      Map[String, JSerializable](("lowerBound", boundaries.head),
+                                                 ("upperBound", boundaries.tail.head)),
+                      Map.empty)
+                }
+          })) match {
+            case Success(bits) =>
+              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
 
         case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>

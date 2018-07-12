@@ -153,8 +153,6 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case a ~ as => (a +: as).toMap
   }
 
-//  private lazy val groupByExpression: PackratParser[GroupByExpression]
-
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
     unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
@@ -226,9 +224,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val where: PackratParser[Expression] = Where ~> expression
 
   lazy val groupBy
-    : Parser[Option[GroupByAggregation]] = ((group ~> (dimension ?) ~ ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?)) ?) ^^ {
-    case Some(Some(dim) ~ None) => Some(SimpleGroupByAggregation(dim))
-    case Some(None ~ Some(i))   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
+    : PackratParser[Option[GroupByAggregation]] = ((group ~> ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?) ~ (dimension ?)) ?) ^^ {
+    case Some(None ~ Some(dim)) => Some(SimpleGroupByAggregation(dim))
+    case Some(Some(i) ~ None)   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
     case None                   => None
   }
 

@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.index.lucene
 
+import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
 import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts}
@@ -152,14 +153,16 @@ trait Index[T] {
     directory.close()
   }
 
-  def executeCountLongRangeFacet(searcher: IndexSearcher,
-                                 query: Query,
-                                 fieldName: String,
-                                 ranges: Seq[LongRange]): FacetResult = {
+  def executeCountLongRangeFacet(
+      searcher: IndexSearcher,
+      query: Query,
+      fieldName: String,
+      ranges: Seq[LongRange]
+  )(f: FacetResult => Seq[Bit]): Seq[Bit] = {
     val fc = new FacetsCollector
     FacetsCollector.search(searcher, query, 0, fc)
     val facets: LongRangeFacetCounts = new LongRangeFacetCounts("fieldName", fc, ranges: _*)
-    facets.getTopChildren(0, fieldName)
+    f(facets.getTopChildren(0, fieldName))
   }
 }
 

@@ -226,5 +226,65 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
         parser.parse(db = "db", namespace = "registry", input = "SELECT count(name,surname) FROM people") shouldBe 'failure
       }
     }
+
+    "receive a select with a temporal group by with count aggregation in seconds" should {
+      "parse it successfully" in {
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT count(value) FROM people group by interval 3 s") should be(
+          Success(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              groupBy = Some(TemporalGroupByAggregation(3000))
+            )
+          ))
+      }
+    }
+
+    "receive a select with a temporal group by without measure in minutes" should {
+      "parse it successfully" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people  group by interval m") should be(
+          Success(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              groupBy = Some(TemporalGroupByAggregation(60000))
+            )
+          ))
+      }
+    }
+
+    "receive a select with a temporal group by, filtered by time with measure in years" should {
+      "parse it successfully" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input = "SELECT count(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2 Y") should be(
+          Success(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression[Long](dimension = "timestamp", comparison = GreaterThanOperator, value = 1),
+                expression2 =
+                  ComparisonExpression[Long](dimension = "timestamp", comparison = LessThanOperator, value = 100),
+                operator = AndOperator
+              ))),
+              fields = ListFields(List(Field("*", Some(CountAggregation)))),
+              groupBy = Some(TemporalGroupByAggregation(62208000000L))
+            )
+          ))
+      }
+    }
   }
 }
