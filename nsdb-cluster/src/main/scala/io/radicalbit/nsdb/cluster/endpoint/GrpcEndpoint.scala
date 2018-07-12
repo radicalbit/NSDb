@@ -269,7 +269,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
     private def tagFor(v: Tag.Value): JSerializable = v match {
       case _: Tag.Value.DecimalValue => v.decimalValue.get
       case _: Tag.Value.LongValue    => v.longValue.get
-      case _                               => v.stringValue.get
+      case _                         => v.stringValue.get
     }
 
     private def toGrpcBit(bit: Bit): GrpcBit =

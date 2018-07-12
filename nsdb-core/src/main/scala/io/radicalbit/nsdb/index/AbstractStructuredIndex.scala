@@ -18,10 +18,9 @@ package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, TagFieldType}
-import io.radicalbit.nsdb.index.lucene.{AllGroupsAggregationCollector, Index}
+import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.util.PerfLogging._
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
@@ -107,35 +106,6 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     executeQuery(searcher, query, limit, sort)(identity)
   }
 
-  private[index] def rawQuery[VT, S](query: Query,
-                                     collector: AllGroupsAggregationCollector[VT, S],
-                                     limit: Option[Int],
-                                     sort: Option[Sort]): Seq[Document] = {
-
-    logPerf(this.getSearcher.search(query, collector), "search")
-
-    val sortedGroupMap = logPerf(sort
-                                   .flatMap(_.getSort.headOption)
-                                   .map(s => collector.getOrderedMap(s))
-                                   .getOrElse(collector.getGroupMap)
-                                   .toSeq,
-                                 "sort")
-
-    val limitedGroupMap = logPerf(limit.map(sortedGroupMap.take).getOrElse(sortedGroupMap), "limit")
-
-    logPerf(
-      limitedGroupMap.map {
-        case (g, v) =>
-          val doc = new Document
-          doc.add(collector.indexField(g, collector.groupField))
-          doc.add(collector.indexField(v, collector.aggField))
-          doc.add(new LongPoint(_keyField, 0))
-          doc
-      },
-      "collector"
-    )
-  }
-
   /**
     * Executes a simple [[Query]] using the given schema.
     * @param schema the [[Schema]] to be used.
@@ -157,22 +127,6 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
       executeQuery(this.getSearcher, query, limit, sort) { doc =>
         f(toRecord(schema: Schema, doc, fields))
       }
-  }
-
-  /**
-    * Executes an aggregated query.
-    * @param query the [[Query]] to be executed.
-    * @param collector the subclass of [[AllGroupsAggregationCollector]]
-    * @param limit results limit.
-    * @param sort optional lucene [[Sort]].
-    * @return the query results as a list of entries.
-    */
-  def query(schema: Schema,
-            query: Query,
-            collector: AllGroupsAggregationCollector[_, _],
-            limit: Option[Int],
-            sort: Option[Sort]): Seq[Bit] = {
-    rawQuery(query, collector, limit, sort).map(d => toRecord(schema, d, Seq.empty))
   }
 
   /**

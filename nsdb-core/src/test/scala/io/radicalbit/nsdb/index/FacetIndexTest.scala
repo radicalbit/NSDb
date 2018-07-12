@@ -187,7 +187,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     facetIndex.getCount(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 99
   }
 
-  "FacetIndex" should "supports ordering and limiting" in {
+  "FacetIndex" should "supports ordering and limiting on count and sum" in {
     val facetIndex = new FacetIndex(
       new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
       new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
@@ -196,15 +196,19 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     implicit val writer     = facetIndex.getWriter
     implicit val taxoWriter = facetIndex.getTaxoWriter
 
+    var groups = Map.empty[String, Int]
+
     (1 to 100).foreach { i =>
       val factor = i / 4
+      val tag    = s"tag_$factor"
       val testData =
         Bit(
           timestamp = i,
           value = factor,
           dimensions = Map("dimension" -> s"dimension_$factor", "name" -> s"name_$factor"),
-          tags = Map("tag"             -> s"tag_$factor", "surname"    -> s"surname_$factor")
+          tags = Map("tag"             -> tag, "surname"               -> s"surname_$factor", "city" -> "Milano")
         )
+
       val w = facetIndex.write(testData)
       w.isSuccess shouldBe true
     }
@@ -223,11 +227,65 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     facetIndex
       .getCount(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR())
       .size shouldBe 13
+
+    val res = facetIndex
+      .getSum(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), BIGINT())
+    res.size shouldBe 12
+    res.foreach {
+      case bit =>
+        bit.tags.headOption match {
+          case Some(("tag", "tag_12")) => 12 * 3 shouldBe bit.value
+          case Some(("tag", v: String)) =>
+            v.split("_")(1).toInt * 4 shouldBe bit.value
+        }
+    }
+
     val surnameGroups = facetIndex.getCount(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR())
-
     surnameGroups.size shouldBe 26
-
     surnameGroups.head.value shouldBe 4
     surnameGroups.last.value shouldBe 1
+
+    val cityGroups = facetIndex.getSum(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), BIGINT())
+    cityGroups.size shouldBe 1
+    cityGroups.head.value shouldBe 1225
+  }
+
+  "FacetIndexSum" should "supports a simple sum" in {
+    val facetIndex = new FacetIndex(
+      new MMapDirectory(Paths.get(s"target/test_index/facet/${UUID.randomUUID}")),
+      new MMapDirectory(Paths.get(s"target/test_index/facet/taxo,${UUID.randomUUID}"))
+    )
+
+    implicit val writer     = facetIndex.getWriter
+    implicit val taxoWriter = facetIndex.getTaxoWriter
+
+    (1 to 100).foreach { i =>
+      val testData =
+        Bit(
+          timestamp = i,
+          value = 2,
+          dimensions = Map("dimension" -> "dimension", "name" -> s"name"),
+          tags = Map("tag"             -> "tag", "surname"    -> s"surname")
+        )
+      val w = facetIndex.write(testData)
+      w.isSuccess shouldBe true
+    }
+    taxoWriter.close()
+    writer.close()
+
+    implicit val searcher = facetIndex.getSearcher
+
+    val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
+
+    val res1 = facetIndex
+      .getSum(LongPoint.newRangeQuery("timestamp", 0, 100), "tag", Some(descSort), Some(100), VARCHAR(), BIGINT())
+
+    res1.size shouldBe 1
+    res1.head.value shouldBe 200
+
+    val res2 = facetIndex
+      .getSum(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), BIGINT())
+    res2.size shouldBe 1
+    res2.head.value shouldBe 100
   }
 }

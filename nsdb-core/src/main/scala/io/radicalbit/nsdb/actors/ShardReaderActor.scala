@@ -21,12 +21,11 @@ import java.nio.file.Paths
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.index.lucene.CountAllGroupsCollector
 import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCount}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
-import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.store.MMapDirectory
 
@@ -65,6 +64,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
+
         case Success(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
           handleQueryResults(Try(facetIndex.getDistinctField(q, fields.map(_.name).head, sort, limit))) match {
             case Success(bits) =>
@@ -72,19 +72,35 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Failure(ex) =>
               sender ! SelectStatementFailed(ex.getMessage)
           }
-        case Success(ParsedAggregatedQuery(_, _, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
-          handleQueryResults(Try(facetIndex
-            .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType))) match {
+
+        case Success(ParsedAggregatedQuery(_, _, q, InternalCountAggregation(groupField, _), sort, limit)) =>
+          handleQueryResults(
+            Try(
+              facetIndex
+                .getCount(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
-        case Success(ParsedAggregatedQuery(_, _, q, collector, sort, limit)) =>
-          handleQueryResults(Try(index.query(schema, q, collector.clear, limit, sort))) match {
+
+        case Success(ParsedAggregatedQuery(_, _, q, InternalSumAggregation(groupField, _), sort, limit)) =>
+          handleQueryResults(
+            Try(
+              facetIndex
+                .getSum(q,
+                        groupField,
+                        sort,
+                        limit,
+                        schema.fieldsMap(groupField).indexType,
+                        schema.fieldsMap("value").indexType))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
+
+        case Success(ParsedAggregatedQuery(_, _, q, aggregationType, sort, limit)) =>
+          sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")
+
         case Success(_)  => sender ! SelectStatementFailed("Unsupported query type")
         case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
       }

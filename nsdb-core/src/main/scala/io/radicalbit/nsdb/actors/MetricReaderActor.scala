@@ -29,7 +29,6 @@ import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
-import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -305,7 +304,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, _: CountAllGroupsCollector[_], _, _)) =>
+        case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
@@ -318,23 +317,23 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, collector, _, _)) =>
+        case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val rawResult =
-            gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) { values =>
+          val rawResult = gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
+            values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
-              collector match {
-                case _: MaxAllGroupsCollector[_, _] =>
+              aggregationType match {
+                case InternalMaxAggregation(_, _) =>
                   Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
-                case _: MinAllGroupsCollector[_, _] =>
+                case InternalMinAggregation(_, _) =>
                   Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
-                case _: SumAllGroupsCollector[_, _] =>
+                case InternalSumAggregation(_, _) =>
                   Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
               }
-            }
+          }
 
           applyOrderingWithLimit(rawResult, statement, schema)
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
@@ -368,7 +367,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     */
   private def retrieveField(values: Seq[Bit],
                             field: String,
-                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
     values.headOption
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
       .getOrElse(Map.empty[String, JSerializable])
@@ -384,7 +383,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     */
   private def retrieveCount(values: Seq[Bit],
                             count: Int,
-                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
     values.headOption
       .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
       .getOrElse(Map.empty[String, JSerializable])

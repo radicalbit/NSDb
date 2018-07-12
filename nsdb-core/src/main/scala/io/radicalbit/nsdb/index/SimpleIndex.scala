@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.index.lucene.{AllGroupsAggregationCollector, Index}
+import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
