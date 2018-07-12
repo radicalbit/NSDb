@@ -147,10 +147,14 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
   */
 case class LimitOperator(value: Int)
 
-sealed trait GroupByAggregation
+sealed trait GroupByAggregation {
+  def dimension: String
+}
 
 case class SimpleGroupByAggregation(dimension: String) extends GroupByAggregation
-case class TemporalGroupByAggregation(interval: Long)  extends GroupByAggregation
+case class TemporalGroupByAggregation(interval: Long) extends GroupByAggregation {
+  override val dimension: String = "timestamp"
+}
 
 /**
   * Generic Sql statement.

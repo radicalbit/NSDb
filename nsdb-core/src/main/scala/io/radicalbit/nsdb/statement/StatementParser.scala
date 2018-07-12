@@ -159,22 +159,24 @@ object StatementParser {
             if sortOpt.isDefined && !Seq("value", group).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
         // Match temporal count aggregation
-        //        case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
-        //          if fieldName == "value" || fieldName == "*" =>
-        //          val ranges = computeRanges(interval, limitOpt, statement.condition)
-        //          Success(
-        //            ParsedTemporalAggregatedQuery(
-        //              statement.namespace,
-        //              statement.metric,
-        //              exp.q,
-        //              //TODO: compute ranges given interval
-        //              Seq.empty[LongRange],
-        //              sortOpt,
-        //              limitOpt
-        //            )
-        //          )
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) && (fieldName == "value" || fieldName == "*") =>
+        case (false,
+              Success(Seq(Field(fieldName, Some(CountAggregation)))),
+              Some(TemporalGroupByAggregation(interval))) if fieldName == "value" || fieldName == "*" =>
+          Success(
+            ParsedTemporalAggregatedQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              computeRanges(interval, limitOpt, statement.condition),
+              sortOpt,
+              limitOpt
+            )
+          )
+        // not yet supported aggregations different from count
+        case (false, Success(Seq(Field(_, Some(_)))), Some(TemporalGroupByAggregation(_))) =>
+          Failure(new InvalidStatementException(StatementParserErrors.NOT_SUPPORTED_AGGREGATION_IN_TEMPORAL_GROUP_BY))
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
+            if schema.fields.map(_.name).contains(group.dimension) && (fieldName == "value" || fieldName == "*") =>
           Success(
             ParsedAggregatedQuery(
               statement.namespace,

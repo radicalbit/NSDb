@@ -148,6 +148,20 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     }
   }
 
+  private def gatherAndGroupTemporalShardResults(
+      actors: Seq[(ShardKey, ActorRef)],
+      statement: SelectSQLStatement,
+      schema: Schema)(aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+
+    gatherShardResults(actors, statement, schema) { seq =>
+      seq
+        .groupBy(_.timestamp)
+        .mapValues(aggregationFunction)
+        .values
+        .toSeq
+    }
+  }
+
   /**
     * Gathers results from every shard actor and elaborate them.
     *
@@ -335,6 +349,21 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             .map { resp =>
               generateResponse(statement.db, statement.namespace, statement.metric, resp)
             }
+            .pipeTo(sender)
+
+        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _)) =>
+          val actors =
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+
+          val shardResults = gatherAndGroupTemporalShardResults(actors, statement, schema) { values =>
+            Bit(values.head.timestamp,
+                values.map(_.value.asInstanceOf[Long]).sum,
+                values.head.dimensions,
+                values.head.tags)
+          }
+
+          applyOrderingWithLimit(shardResults, statement, schema)
+            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
         case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)

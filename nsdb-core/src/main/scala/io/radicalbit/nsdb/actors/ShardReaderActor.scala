@@ -96,6 +96,24 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
 
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, ranges, _, _)) =>
+          handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
+            facetResult =>
+              facetResult.labelValues.toSeq
+                .map { lv =>
+                  val boundaries = lv.label.split("-").map(_.toLong).toSeq
+                  Bit(boundaries.head,
+                      lv.value,
+                      Map[String, JSerializable](("lowerBound", boundaries.head),
+                                                 ("upperBound", boundaries.tail.head)),
+                      Map.empty)
+                }
+          })) match {
+            case Success(bits) =>
+              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+          }
+
 
         case Success(ParsedAggregatedQuery(_, _, q, aggregationType, sort, limit)) =>
           sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")

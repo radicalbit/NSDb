@@ -118,11 +118,11 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val stringValueWithWildcards = """(^[a-zA-Z_\$][a-zA-Z0-9_\-\$]*[a-zA-Z0-9\$])""".r
 
   private val timeMeasure = ("Y" | "M" | "D" | "h" | "m" | "s") ^^ {
-    case "Y" => (3600 * 1000 * 24 * 30 * 12).toLong
-    case "M" => (3600 * 1000 * 24 * 30).toLong
-    case "D" => (3600 * 1000 * 24).toLong
-    case "h" => (3600 * 1000).toLong
-    case "m" => (60 * 1000).toLong
+    case "Y" => 3600L * 1000 * 24 * 30 * 12
+    case "M" => 3600L * 1000 * 24 * 30
+    case "D" => 3600L * 1000 * 24
+    case "h" => 3600L * 1000
+    case "m" => 60L * 1000
     case "s" => 1000L
   }
 
@@ -152,8 +152,6 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val assignments = OpenRoundBracket ~> assignment ~ rep(Comma ~> assignment) <~ CloseRoundBracket ^^ {
     case a ~ as => (a +: as).toMap
   }
-
-//  private lazy val groupByExpression: PackratParser[GroupByExpression]
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
@@ -226,9 +224,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val where: PackratParser[Expression] = Where ~> expression
 
   lazy val groupBy
-    : Parser[Option[GroupByAggregation]] = ((group ~> (dimension ?) ~ ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?)) ?) ^^ {
-    case Some(Some(dim) ~ None) => Some(SimpleGroupByAggregation(dim))
-    case Some(None ~ Some(i))   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
+    : PackratParser[Option[GroupByAggregation]] = ((group ~> ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?) ~ (dimension ?)) ?) ^^ {
+    case Some(None ~ Some(dim)) => Some(SimpleGroupByAggregation(dim))
+    case Some(Some(i) ~ None)   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
     case None                   => None
   }
 
