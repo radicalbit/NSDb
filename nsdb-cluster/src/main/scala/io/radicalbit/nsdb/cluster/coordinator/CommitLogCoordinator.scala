@@ -16,9 +16,10 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
+import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
 
@@ -32,7 +33,7 @@ object CommitLogCoordinator {
   * [[CommitLogWriterActor]] trait .
   * In this implementation a writer is instantiated for each tuple (database, namespace).
   */
-class CommitLogCoordinator extends Actor with ActorLogging {
+class CommitLogCoordinator extends ActorPathLogging {
 
   private val commitLoggerWriters: mutable.Map[String, ActorRef] = mutable.Map.empty
 

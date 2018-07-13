@@ -18,12 +18,13 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
+import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.SchemaActor
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
 
@@ -31,7 +32,7 @@ import scala.collection.mutable
   * Actor responsible for dispatching read and write schema operations to che proper schema actor.
   * @param basePath indexes' base path.
   */
-class MetricsSchemaActor(val basePath: String) extends Actor with ActorLogging {
+class MetricsSchemaActor(val basePath: String) extends ActorPathLogging {
 
   val schemaActors: mutable.Map[NamespaceKey, ActorRef] = mutable.Map.empty
 

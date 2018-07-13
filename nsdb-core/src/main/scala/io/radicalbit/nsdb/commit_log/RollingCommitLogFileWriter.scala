@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.commit_log
 import java.io.{File, FileOutputStream}
 import java.nio.file.Paths
 
-import akka.actor.{ActorLogging, Props}
+import akka.actor.Props
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry
 import io.radicalbit.nsdb.util.Config._
@@ -58,7 +58,7 @@ object RollingCommitLogFileWriter {
   * Do no call its methods from the outside, use the protocol specified inside CommitLogWriter instead.
   *
   */
-class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLogWriterActor with ActorLogging {
+class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLogWriterActor {
 
   import RollingCommitLogFileWriter._
 
@@ -78,7 +78,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
   private var file: File               = _
   private var fileOS: FileOutputStream = _
 
-  override def preStart() = {
+  override def preStart(): Unit = {
     val existingFiles = Option(Paths.get(directory).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)

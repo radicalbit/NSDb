@@ -18,14 +18,13 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
-import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Commands.GetConnectedNodes
-import io.radicalbit.nsdb.cluster.coordinator.ReadCoordinator.Events.ConnectedNodesGot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
@@ -37,8 +36,7 @@ import scala.concurrent.Future
   * @param namespaceSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the metrics schema actor.
   */
 class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
-    extends Actor
-    with ActorLogging
+    extends ActorPathLogging
     with NsdbPerfLogger {
 
   implicit val timeout: Timeout = Timeout(
@@ -60,6 +58,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       metricsDataActors += (nodeName -> actor)
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case GetConnectedNodes =>
+      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
     case msq =>
       // Requests received during warm-up are ignored, this results in a timeout
       log.error(s"Received ignored message $msq during warmUp")
@@ -128,14 +128,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
 }
 
 object ReadCoordinator {
-
-  object Commands {
-    private[coordinator] case object GetConnectedNodes
-  }
-
-  object Events {
-    private[coordinator] case class ConnectedNodesGot(nodes: Seq[String])
-  }
 
   def props(metadataCoordinator: ActorRef, schemaActor: ActorRef): Props =
     Props(new ReadCoordinator(metadataCoordinator, schemaActor))

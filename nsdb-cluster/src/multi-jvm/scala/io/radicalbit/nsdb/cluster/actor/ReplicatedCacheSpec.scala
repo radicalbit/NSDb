@@ -47,7 +47,6 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     """.stripMargin))
 }
 
-// need one concrete test class per node
 class ReplicatedMetadataCacheMultiJvmNode1 extends ReplicatedMetadataCacheSpec
 
 class ReplicatedMetadataCacheMultiJvmNode2 extends ReplicatedMetadataCacheSpec
@@ -82,11 +81,10 @@ class ReplicatedMetadataCacheSpec
 
       expectNoMessage(1 second)
 
-      val replicaCount = awaitAssert {
+      awaitAssert {
         DistributedData(system).replicator ! GetReplicaCount
-        expectMsgType[ReplicaCount]
+        expectMsgType[ReplicaCount].n shouldBe 2
       }
-      replicaCount.n shouldBe 2
 
       enterBarrier("joined")
     }
