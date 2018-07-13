@@ -76,8 +76,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
-//  val metadataCoordinator = system.actorSelection("/user/guardian/metadata-coordinator")
-
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
       cluster join node(to).address

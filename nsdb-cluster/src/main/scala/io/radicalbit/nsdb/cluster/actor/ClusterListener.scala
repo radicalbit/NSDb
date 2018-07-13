@@ -38,10 +38,7 @@ import scala.concurrent.duration._
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
   * @param metadataCache the global metadata cache actor.
   */
-class ClusterListener(
-    metadataCache: ActorRef /*writeCoordinator: ActorRef, readCoordinator: ActorRef, metadataCoordinator: ActorRef*/ )
-    extends Actor
-    with ActorLogging {
+class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
 
   val cluster = Cluster(context.system)
 
