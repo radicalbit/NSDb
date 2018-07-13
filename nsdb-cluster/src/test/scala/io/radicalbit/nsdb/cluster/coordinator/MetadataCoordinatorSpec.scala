@@ -96,7 +96,7 @@ class MetadataCoordinatorSpec
   val metric    = "testMetric"
 
   override def beforeAll = {
-    probe.send(metadataCoordinator, WarmUpLocations(List.empty))
+    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
     probe.expectNoMessage(1 second)
   }
 

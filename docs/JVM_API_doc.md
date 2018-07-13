@@ -11,6 +11,36 @@ The main difference between Java and Scala APIs is the way asynchronous calls ar
 NSDb implements utility classes to perform writes and to execute queries using **Java language**.
 In both cases, communication to NSDb cluster is handled using a gRPC Client instantiated in ` io.radicalbit.nsdb.api.java.NSDB` connection class.
 
+## Init API
+Before writing into a metric, NSDb provides an api that makes possible to set some metric parameter in order to optimize write or read performance.
+The Init api allows the user to set a custom shard interval for a metric. If this api is not called, the default shard interval will be used for the metric.
+The shard interval is expressed using the [Java Duration](https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html) convention (23 seconds, 23 s, 24h etc).
+This operation is allowed only before the first bit is written. Otherwise an error message will be returned  
+
+**Example**
+```java
+public class NSDBInitMetric {
+
+    public static void main(String[] args) throws Exception {
+        NSDB nsdb = NSDB.connect("127.0.0.1", 7817).get();
+
+        NSDB.BitInfo bitInfo = nsdb.db("root")
+                .namespace("registry")
+                .bit("people").shardInterval("2d");
+
+
+        InitMetricResult result = nsdb.initMetric(bitInfo).get();
+        System.out.println("IsSuccessful = " + result.isCompletedSuccessfully());
+        System.out.println("errors = " + result.getErrorMsg());
+    }
+}
+```
+Results
+```
+IsSuccessful = true
+errors = ""
+```
+
 ## Write API
 The `NSDB` class  exposes a `write` method performing ` io.radicalbit.nsdb.api.java.NSDB.Bit` insetion into the specified metric.
 The record to be inserted must of class `Bit`. Bit's parameters are defined using build pattern.
@@ -120,6 +150,33 @@ dimensions {
 # Scala API
 The same capabilities exposed by NSDb's Java API are implemented in Scala API too.
 The `io.radicalbit.nsdb.api.scala.NSDB`class provides a method to create a connection to an instance of NSDb. Connection to gRPC NSDb's endpoint is instanciated ayncronously using `connect` methods that require `host` and `port` parameters.
+
+# Init API
+As well as for the Java apis, it is possible to set the shard interval for a metric, before the first bit is written.
+
+```scala
+object NSDBInitRead extends App {
+
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+
+  val init = nsdb
+    .db("root")
+    .namespace("registry")
+    .bit("people")
+    .shardInterval("2d")
+
+  val readRes: Future[InitMetricResponse] = nsdb.init(init)
+
+  println(Await.result(readRes, 10.seconds))
+}
+```
+
+Results:
+
+```
+completedSuccessfully: true
+errors: ""
+```
 
 ## Write API
 Scala Write API provides `NSDB.write` method used to define an `io.radicalbit.nsdb.api.scala.Bit` to be inserted leveraging a builder pattern.

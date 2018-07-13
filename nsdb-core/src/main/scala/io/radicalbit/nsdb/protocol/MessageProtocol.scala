@@ -58,6 +58,7 @@ object MessageProtocol {
 
     case object GetReadCoordinator
     case object GetWriteCoordinator
+    case object GetMetadataCoordinator
     case object GetPublisher
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)

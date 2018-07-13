@@ -20,6 +20,8 @@ import io.radicalbit.nsdb.client.rpc.GRPCClient;
 import io.radicalbit.nsdb.rpc.common.Dimension;
 import io.radicalbit.nsdb.rpc.common.Tag;
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse;
+import io.radicalbit.nsdb.rpc.init.InitMetricRequest;
+import io.radicalbit.nsdb.rpc.init.InitMetricResponse;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
 
@@ -318,6 +320,31 @@ public class NSDB {
             else return value(v.longValue());
         }
 
+        /**
+         * Builds a BitInfo from a Bit by specifying the shardinterval
+         * @param interval shard interval according to the Duration semantic (1d, 2h, 1m etc.)
+         * @return the BitInfo with the given shard interval
+         */
+        public BitInfo shardInterval(String interval) {
+            return new BitInfo(db, namespace, metric, interval);
+        }
+
+    }
+
+    public static class BitInfo {
+
+        private String db;
+        private String namespace;
+        private String metric;
+        private String shardInterval;
+
+        private BitInfo(String db, String namespace, String metric, String shardInterval) {
+            this.db = db;
+            this.namespace = namespace;
+            this.metric = metric;
+            this.shardInterval = shardInterval;
+        }
+
     }
 
 
@@ -371,7 +398,6 @@ public class NSDB {
      * @param sqlStatement the {@link SQLStatement} to be executed
      * @return a CompletableFuture of the result of the operation. See {@link QueryResult}
      */
-
     public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
         SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.sQLStatement);
         return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
@@ -383,11 +409,16 @@ public class NSDB {
      * @param bit the bit to be inserted
      * @return a Future containing the result of the operation. See {@link InsertResult}
      */
-
     public CompletableFuture<InsertResult> write(Bit bit) {
         return toJava(client.write(
                 new RPCInsert(bit.db, bit.namespace, bit.metric,
                         bit.timestamp, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), bit.value))).toCompletableFuture().thenApply(InsertResult::new);
+    }
+
+
+    public CompletableFuture<InitMetricResult> initMetric(BitInfo bitInfo) {
+        return toJava(client.initMetric(
+                new InitMetricRequest(bitInfo.db, bitInfo.namespace, bitInfo.metric, bitInfo.shardInterval))).toCompletableFuture().thenApply(InitMetricResult::new);
     }
 
 

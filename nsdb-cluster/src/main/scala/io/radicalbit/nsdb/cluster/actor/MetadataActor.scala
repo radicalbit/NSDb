@@ -63,24 +63,32 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
     )
 
   override def preStart(): Unit = {
-    val allLocations = FileUtils.getSubDirs(basePath).flatMap { db =>
+    val allMetadata = FileUtils.getSubDirs(basePath).flatMap { db =>
       FileUtils.getSubDirs(db).toList.flatMap { namespace =>
-        val metrics = FileUtils
+        val metricInfos = getMetricInfoIndex(db.getName, namespace.getName).all.map(e => e.metric -> e).toMap
+
+        val metricsWithShards = FileUtils
           .getSubDirs(namespace.getPath + "/shards")
           .flatMap { metricShard =>
             metricShard.getName.split("_").headOption
           }
           .toSet
-        metrics.map { metric =>
+
+        val metricsMetadataWithoutShards = (metricInfos -- metricsWithShards).map(e =>
+          MetricMetadata(db.getName, namespace.getName, e._1, Some(e._2), Seq.empty))
+
+        val metricsMetadataWithShards = metricsWithShards.map { metric =>
           log.debug(s"db : ${db.getName}, namespace : ${namespace.getName}, metric: $metric }")
           val locations  = getLocationIndex(db.getName, namespace.getName).getLocationsForMetric(metric)
-          val metricInfo = getMetricInfoIndex(db.getName, namespace.getName).getMetricInfo(metric)
+          val metricInfo = metricInfos.get(metric)
           MetricMetadata(db.getName, namespace.getName, metric, metricInfo, locations)
         }
+
+        metricsMetadataWithShards.toSeq ++ metricsMetadataWithoutShards
       }
     }
 
-    metadataCoordinator ! WarmUpLocations(allLocations)
+    metadataCoordinator ! WarmUpMetadata(allMetadata)
 
     log.debug("metadata actor started at {}/{}", remoteAddress.address, self.path.name)
   }
