@@ -27,6 +27,7 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
+import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.concurrent.duration._
 
@@ -90,6 +91,10 @@ class ReplicatedSchemaCache extends Actor with ActorLogging {
       replicator ! Get(schemaKey(key), ReadLocal, Some(SchemaRequest(key, sender())))
     case g @ GetSuccess(LWWMapKey(_), Some(SchemaRequest(key, replyTo))) =>
       val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
+
+      val x = g.dataValue.asInstanceOf[LWWMap[SchemaKey, Schema]]
+      log.error(s"---------------------- cache content $x")
+
       g.dataValue.asInstanceOf[LWWMap[SchemaKey, Schema]].get(key) match {
         case Some(value) => replyTo ! SchemaCached(db, namespace, metric, Some(value))
         case None        => replyTo ! SchemaCached(db, namespace, metric, None)

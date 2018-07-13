@@ -39,25 +39,6 @@ import scala.util.{Failure, Success}
   */
 class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: ActorRef) extends ActorPathLogging {
 
-//  /**
-//    * mediator for [[DistributedPubSub]] system
-//    */
-//  val mediator: ActorRef = DistributedPubSub(context.system).mediator
-
-//  val cluster = Cluster(context.system)
-
-//  val schemaActors: mutable.Map[NamespaceKey, ActorRef] = mutable.Map.empty
-
-//  private def getSchemaActor(db: String, namespace: String): ActorRef =
-//    schemaActors.getOrElse(
-//      NamespaceKey(db, namespace), {
-//        val schemaActor =
-//          context.actorOf(SchemaActor.props(basePath, db, namespace, schemaCache), s"schema-service-$db-$namespace")
-//        schemaActors += (NamespaceKey(db, namespace) -> schemaActor)
-//        schemaActor
-//      }
-//    )
-
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
@@ -115,7 +96,6 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                       SchemaUpdated(db, namespace, metric, newSchema)
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
-//              Future(SchemaUpdated(db, namespace, metric, newSchema))
               case (Failure(t), _) => Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
             }
 
@@ -124,7 +104,6 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
         }
         .pipeTo(sender)
     case DeleteSchema(db, namespace, metric) =>
-//      getSchemaActor(db, namespace).forward(msg)
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
           case msg @ SchemaCached(`db`, `namespace`, `metric`, Some(_)) =>

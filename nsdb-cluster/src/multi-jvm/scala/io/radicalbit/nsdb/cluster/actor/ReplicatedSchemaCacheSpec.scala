@@ -184,7 +184,6 @@ class ReplicatedSchemaCacheSpec
       val namespace = "namespace"
 
       val metric = "metric4"
-      val key    = SchemaKey(db, namespace, metric)
 
       val schema = Schema(metric, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
       val updatedSchema =

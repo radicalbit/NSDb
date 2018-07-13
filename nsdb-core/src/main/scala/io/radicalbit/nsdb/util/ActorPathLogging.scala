@@ -19,6 +19,10 @@ package io.radicalbit.nsdb.util
 import akka.actor.DiagnosticActorLogging
 import akka.event.Logging.MDC
 
+/**
+  * Trait useful to use the actor name as a Logback MDC parameter.
+  * @see [[https://logback.qos.ch/manual/mdc.html Logback Documentation]].
+  */
 trait ActorPathLogging extends DiagnosticActorLogging {
 
   override def mdc(currentMessage: Any): MDC =
