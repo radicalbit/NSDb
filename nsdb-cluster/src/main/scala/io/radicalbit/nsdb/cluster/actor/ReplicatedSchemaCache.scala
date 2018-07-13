@@ -25,6 +25,8 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
 
 import scala.concurrent.duration._
 
@@ -37,12 +39,6 @@ object ReplicatedSchemaCache {
     * @param metric location metric.
     */
   case class SchemaKey(db: String, namespace: String, metric: String)
-
-  final case class PutSchemaInCache(key: SchemaKey, value: Schema)
-  final case class SchemaCached(key: SchemaKey, value: Option[Schema])
-
-  final case class GetSchemaFromCache(key: SchemaKey)
-  final case class EvictSchema(key: SchemaKey)
 
   private final case class SchemaRequest(key: SchemaKey, replyTo: ActorRef)
 }
@@ -74,28 +70,33 @@ class ReplicatedSchemaCache extends Actor with ActorLogging {
   import context.dispatcher
 
   def receive: Receive = {
-    case PutSchemaInCache(key, value) =>
+    case PutSchemaInCache(db, namespace, metric, value) =>
+      val key = SchemaKey(db, namespace, metric)
       (replicator ? Update(schemaKey(key), LWWMap(), WriteMajority(writeDuration))(_ + (key -> value)))
         .map {
           case UpdateSuccess(_, _) =>
-            SchemaCached(key, Some(value))
-          case _ => SchemaCached(key, None)
+            SchemaCached(db, namespace, metric, Some(value))
+          case _ => SchemaCached(db, namespace, metric, None)
         }
         .pipeTo(sender())
-    case EvictSchema(key) =>
+    case EvictSchema(db, namespace, metric) =>
+      val key = SchemaKey(db, namespace, metric)
       (replicator ? Update(schemaKey(key), LWWMap(), WriteMajority(writeDuration))(_ - key))
-        .map(_ => SchemaCached(key, None))
+        .map(_ => SchemaCached(db, namespace, metric, None))
         .pipeTo(sender)
-    case GetSchemaFromCache(key) =>
+    case GetSchemaFromCache(db, namespace, metric) =>
+      val key = SchemaKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
       replicator ! Get(schemaKey(key), ReadLocal, Some(SchemaRequest(key, sender())))
     case g @ GetSuccess(LWWMapKey(_), Some(SchemaRequest(key, replyTo))) =>
+      val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
       g.dataValue.asInstanceOf[LWWMap[SchemaKey, Schema]].get(key) match {
-        case Some(value) => replyTo ! SchemaCached(key, Some(value))
-        case None        => replyTo ! SchemaCached(key, None)
+        case Some(value) => replyTo ! SchemaCached(db, namespace, metric, Some(value))
+        case None        => replyTo ! SchemaCached(db, namespace, metric, None)
       }
     case NotFound(_, Some(SchemaRequest(key, replyTo))) =>
-      replyTo ! SchemaCached(key, None)
+      val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
+      replyTo ! SchemaCached(db, namespace, metric, None)
     case msg: UpdateResponse[_] =>
       log.debug("received not handled update message {}", msg)
   }

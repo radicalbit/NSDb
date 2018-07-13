@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
@@ -38,12 +37,7 @@ import scala.concurrent.Future
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
-
-  /**
-    * mediator for [[DistributedPubSub]] system
-    */
-  val mediator: ActorRef = DistributedPubSub(context.system).mediator
+class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPathLogging with Stash {
 
   val cluster = Cluster(context.system)
 
@@ -218,5 +212,5 @@ object MetadataCoordinator {
     case class MetricInfoFailed(db: String, namespace: String, metricInfo: MetricInfo, message: String)
   }
 
-  def props(cache: ActorRef): Props = Props(new MetadataCoordinator(cache))
+  def props(cache: ActorRef, mediator: ActorRef): Props = Props(new MetadataCoordinator(cache, mediator))
 }

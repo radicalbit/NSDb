@@ -34,7 +34,7 @@ class FakeMetadataCoordinator extends Actor with ActorLogging {
   }
 }
 
-class MetadataActorTest
+class MetadataActorSpec
     extends TestKit(ActorSystem("SchemaActorSpec"))
     with ImplicitSender
     with FlatSpecLike

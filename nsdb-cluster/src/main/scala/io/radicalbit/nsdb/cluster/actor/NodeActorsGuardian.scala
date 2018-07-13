@@ -21,6 +21,7 @@ import java.util.concurrent.TimeoutException
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, ActorLogging, ActorRef, Deploy, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.cluster.Cluster
+import akka.cluster.pubsub.DistributedPubSub
 import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.coordinator._
@@ -42,6 +43,8 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val selfMember = Cluster(context.system).selfMember
 
+  private val mediator = DistributedPubSub(context.system).mediator
+
   val nodeName = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
   private val config = context.system.settings.config
@@ -50,19 +53,22 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
 
-  private val metricsSchemaActor = context.actorOf(
-    MetricsSchemaActor.props(indexBasePath).withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-    s"metrics-schema-actor_$nodeName")
+  private val schemaCoordinator = context.actorOf(
+    SchemaCoordinator
+      .props(indexBasePath, schemaCache, mediator)
+      .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+    s"schema-coordinator_$nodeName"
+  )
 
   private val metadataCoordinator =
     context.actorOf(
-      MetadataCoordinator.props(metadataCache).withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      MetadataCoordinator.props(metadataCache, mediator).withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       name = s"metadata-coordinator_$nodeName")
 
   private val readCoordinator =
     context.actorOf(
       ReadCoordinator
-        .props(metadataCoordinator, metricsSchemaActor)
+        .props(metadataCoordinator, schemaCoordinator)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$nodeName"
@@ -80,7 +86,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
       context.actorOf(
         WriteCoordinator
-          .props(Some(commitLogger), metadataCoordinator, metricsSchemaActor, publisherActor)
+          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor)
           .withDispatcher("akka.actor.control-aware-dispatcher")
           .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
         s"write-coordinator_$nodeName"
@@ -88,7 +94,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     } else
       context.actorOf(
         WriteCoordinator
-          .props(None, metadataCoordinator, metricsSchemaActor, publisherActor)
+          .props(None, metadataCoordinator, schemaCoordinator, publisherActor)
           .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
         s"write-coordinator_$nodeName"
       )

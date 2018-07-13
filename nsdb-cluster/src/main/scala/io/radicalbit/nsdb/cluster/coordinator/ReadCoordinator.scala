@@ -33,9 +33,9 @@ import scala.concurrent.Future
 /**
   * Actor that receives and handles every read request.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
-  * @param namespaceSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the metrics schema actor.
+  * @param schemaCoordinator [[SchemaCoordinator]] the metrics schema actor.
   */
-class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: ActorRef)
+class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger {
 
@@ -90,11 +90,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, namespaceSchemaActor: Actor
         .map(metrics => MetricsGot(db, namespace, metrics))
         .pipeTo(sender)
     case msg: GetSchema =>
-      namespaceSchemaActor forward msg
+      schemaCoordinator forward msg
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
       log.debug("executing {} ", statement)
-      (namespaceSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+      (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             Future
