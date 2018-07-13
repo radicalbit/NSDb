@@ -54,12 +54,12 @@ class SchemaActor(val basePath: String) extends Actor with ActorLogging {
     )
 
   override def preStart(): Unit = {
-    val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
-      FileUtils.getSubDirs(db).toList.flatMap { namespace =>
-        getOrCreateSchemaIndex(db.getName, namespace.getName).all
-      }
-    }
-
+    //TODO warmup
+//    val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
+//      FileUtils.getSubDirs(db).toList.flatMap { namespace =>
+//        getOrCreateSchemaIndex(db.getName, namespace.getName).all
+//      }
+//    }
     log.debug("schema actor started at {}/{}", remoteAddress.address, self.path.name)
   }
 
