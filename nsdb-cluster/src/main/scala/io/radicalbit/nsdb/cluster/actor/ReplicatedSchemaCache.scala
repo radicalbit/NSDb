@@ -42,12 +42,14 @@ object ReplicatedSchemaCache {
   case class SchemaKey(db: String, namespace: String, metric: String)
 
   private final case class SchemaRequest(key: SchemaKey, replyTo: ActorRef)
+
+  private final case class NamespaceRequest(db: String, namespace : String, replyTo: ActorRef)
 }
 
 /**
   * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
   */
-class ReplicatedSchemaCache extends Actor with ActorLogging {
+class ReplicatedSchemaCache extends ActorPathLogging {
 
   import akka.cluster.ddata.Replicator._
 
@@ -61,7 +63,7 @@ class ReplicatedSchemaCache extends Actor with ActorLogging {
     * @return [[LWWMapKey]] resulted from schemaKey hashCode
     */
   private def schemaKey(schemaKey: SchemaKey): LWWMapKey[SchemaKey, Schema] =
-    LWWMapKey("schema-cache-" + math.abs(schemaKey.hashCode) % 100)
+    LWWMapKey("schema-cache-" + math.abs((schemaKey.db + schemaKey.namespace).hashCode) % 100)
 
   private val writeDuration = 5.seconds
 
@@ -87,14 +89,9 @@ class ReplicatedSchemaCache extends Actor with ActorLogging {
         .pipeTo(sender)
     case GetSchemaFromCache(db, namespace, metric) =>
       val key = SchemaKey(db, namespace, metric)
-      log.debug("searching for key {} in cache", key)
       replicator ! Get(schemaKey(key), ReadLocal, Some(SchemaRequest(key, sender())))
     case g @ GetSuccess(LWWMapKey(_), Some(SchemaRequest(key, replyTo))) =>
       val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
-
-      val x = g.dataValue.asInstanceOf[LWWMap[SchemaKey, Schema]]
-      log.error(s"---------------------- cache content $x")
-
       g.dataValue.asInstanceOf[LWWMap[SchemaKey, Schema]].get(key) match {
         case Some(value) => replyTo ! SchemaCached(db, namespace, metric, Some(value))
         case None        => replyTo ! SchemaCached(db, namespace, metric, None)
