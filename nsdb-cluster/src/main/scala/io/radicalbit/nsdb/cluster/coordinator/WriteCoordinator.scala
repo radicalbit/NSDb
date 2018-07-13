@@ -79,8 +79,8 @@ object WriteCoordinator {
 /**
   * Actor that receives every write (or delete) request and coordinates them among internal data storage.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
-  * @param metricsSchemaActor [[io.radicalbit.nsdb.cluster.actor.MetricsSchemaActor]] the namespace schema actor.
-  * @param commitLogCoordinator     [[CommitLogCoordinator]] the commit log coordinator.
+  * @param metricsSchemaActor   [[SchemaCoordinator]] the namespace schema actor.
+  * @param commitLogCoordinator [[CommitLogCoordinator]] the commit log coordinator.
   * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
 class WriteCoordinator(commitLogCoordinator: Option[ActorRef],

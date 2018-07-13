@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorSystem, Props}
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
@@ -89,7 +90,7 @@ class MetadataCoordinatorSpec
 
   val probe               = TestProbe()
   val metadataCache       = system.actorOf(FakeCache.props)
-  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache))
+  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache, probe.ref))
 
   val db        = "testDb"
   val namespace = "testNamespace"
@@ -97,6 +98,7 @@ class MetadataCoordinatorSpec
 
   override def beforeAll = {
     probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
+    probe.expectMsgType[Publish]
     probe.expectNoMessage(1 second)
   }
 

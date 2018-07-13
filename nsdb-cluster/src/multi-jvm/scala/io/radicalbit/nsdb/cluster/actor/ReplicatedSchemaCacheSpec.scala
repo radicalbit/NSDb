@@ -11,6 +11,8 @@ import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
 
@@ -101,15 +103,15 @@ class ReplicatedSchemaCacheSpec
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! PutSchemaInCache(SchemaKey(db, namespace, metric), schema)
-          expectMsg(SchemaCached(key, Some(schema)))
+          replicatedCache ! PutSchemaInCache(db, namespace, metric, schema)
+          expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
         }
       }
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(key)
-          expectMsg(SchemaCached(key, Some(schema)))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
+          expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
         }
       }
       enterBarrier("after-add-schema")
@@ -127,16 +129,16 @@ class ReplicatedSchemaCacheSpec
 
       runOn(node1) {
         for (i ← 10 to 20) {
-          replicatedCache ! PutSchemaInCache(key(i), schema)
-          expectMsg(SchemaCached(key(i), Some(schema)))
+          replicatedCache ! PutSchemaInCache(key(i).db, key(i).namespace, key(i).metric, schema)
+          expectMsg(SchemaCached(key(i).db, key(i).namespace, key(i).metric, Some(schema)))
         }
       }
 
       runOn(node2) {
         awaitAssert {
           for (i ← 10 to 20) {
-            replicatedCache ! GetSchemaFromCache(key(i))
-            expectMsg(SchemaCached(key(i), Some(schema)))
+            replicatedCache ! GetSchemaFromCache(key(i).db, key(i).namespace, key(i).metric)
+            expectMsg(SchemaCached(key(i).db, key(i).namespace, key(i).metric, Some(schema)))
           }
         }
       }
@@ -153,24 +155,24 @@ class ReplicatedSchemaCacheSpec
       val schema = Schema(metric, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
 
       runOn(node1) {
-        replicatedCache ! PutSchemaInCache(key, schema)
-        expectMsg(SchemaCached(key, Some(schema)))
+        replicatedCache ! PutSchemaInCache(db, namespace, metric, schema)
+        expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
       }
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(key)
-          expectMsg(SchemaCached(key, Some(schema)))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
+          expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
         }
 
-        replicatedCache ! EvictSchema(key)
-        expectMsg(SchemaCached(key, None))
+        replicatedCache ! EvictSchema(db, namespace, metric)
+        expectMsg(SchemaCached(db, namespace, metric, None))
       }
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(key)
-          expectMsg(SchemaCached(key, None))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
+          expectMsg(SchemaCached(db, namespace, metric, None))
         }
       }
       enterBarrier("after-eviction")
@@ -189,19 +191,19 @@ class ReplicatedSchemaCacheSpec
         Schema("updatedMetric", Bit(0, 1L, Map("dimension" -> "dimension1"), Map("tag" -> "tag1"))).get
 
       runOn(node1) {
-        replicatedCache ! PutSchemaInCache(key, schema)
-        expectMsg(SchemaCached(key, Some(schema)))
+        replicatedCache ! PutSchemaInCache(db, namespace, metric, schema)
+        expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
       }
 
       runOn(node2) {
-        replicatedCache ! PutSchemaInCache(key, updatedSchema)
-        expectMsg(SchemaCached(key, Some(updatedSchema)))
+        replicatedCache ! PutSchemaInCache(db, namespace, metric, updatedSchema)
+        expectMsg(SchemaCached(db, namespace, metric, Some(updatedSchema)))
       }
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(key)
-          expectMsg(SchemaCached(key, Some(updatedSchema)))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
+          expectMsg(SchemaCached(db, namespace, metric, Some(updatedSchema)))
         }
       }
       enterBarrier("after-update")

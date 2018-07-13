@@ -54,7 +54,7 @@ trait TypeSupport {
   *
   * @tparam T corresponding java type.
   */
-sealed trait IndexType[T] {
+sealed trait IndexType[T] extends Serializable {
 
   /**
     * @return the scala type.
