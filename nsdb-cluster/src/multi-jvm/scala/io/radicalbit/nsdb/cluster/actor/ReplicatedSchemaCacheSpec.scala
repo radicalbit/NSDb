@@ -50,9 +50,9 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
     """.stripMargin))
 }
 
-class ReplicatedSchemaCacheSpecMultiJvmNode1 extends ReplicatedMetadataCacheSpec
+class ReplicatedSchemaCacheSpecMultiJvmNode1 extends ReplicatedSchemaCacheSpec
 
-class ReplicatedSchemaCacheSpecMultiJvmNode2 extends ReplicatedMetadataCacheSpec
+class ReplicatedSchemaCacheSpecMultiJvmNode2 extends ReplicatedSchemaCacheSpec
 
 class ReplicatedSchemaCacheSpec
     extends MultiNodeSpec(ReplicatedSchemaCacheSpec)
@@ -66,7 +66,7 @@ class ReplicatedSchemaCacheSpec
   override def initialParticipants = roles.size
 
   val cluster         = Cluster(system)
-  val replicatedCache = system.actorOf(Props[ReplicatedMetadataCache])
+  val replicatedCache = system.actorOf(Props[ReplicatedSchemaCache])
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
