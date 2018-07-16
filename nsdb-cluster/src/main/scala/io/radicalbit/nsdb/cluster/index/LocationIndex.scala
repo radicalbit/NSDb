@@ -20,7 +20,7 @@ import io.radicalbit.nsdb.index.SimpleIndex
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
-import org.apache.lucene.index.{DirectoryReader, IndexWriter, Term}
+import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 
@@ -28,11 +28,11 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 /**
-  * Metric shard location
+  * Metric shard location.
   * @param metric the metric.
-  * @param node a string rapresentation of a node, that is [hostname]_[port]
-  * @param from shard interval lower bound
-  * @param to shard interval upper bound
+  * @param node a string representation of a node, that is [hostname]_[port].
+  * @param from shard interval lower bound.
+  * @param to shard interval upper bound.
   */
 case class Location(metric: String, node: String, from: Long, to: Long)
 
