@@ -11,8 +11,13 @@ import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
+  DeleteNamespace,
+  EvictSchema,
+  GetSchemaFromCache,
+  PutSchemaInCache
+}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{NamespaceDeleted, SchemaCached}
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
 
@@ -76,6 +81,21 @@ class ReplicatedSchemaCacheSpec
     enterBarrier(from.name + "-joined")
   }
 
+  val db        = "db"
+  val namespace = "namespace"
+
+  val metric1 = "metric1"
+  val key1    = SchemaKey(db, namespace, metric1)
+  val schema1 = Schema(metric1, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+
+  val metric2 = "metric2"
+  val key2    = SchemaKey(db, namespace, metric2)
+  val schema2 = Schema(metric2, Bit(0, 1.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+
+  val metric3 = "metric3"
+  val key3    = SchemaKey(db, namespace, metric3)
+  val schema3 = Schema(metric3, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+
   "ReplicatedSchemaCacheSpec" must {
 
     "join cluster" in within(20.seconds) {
@@ -94,24 +114,22 @@ class ReplicatedSchemaCacheSpec
 
     "replicate cached entry" in within(5.seconds) {
 
-      val db        = "db"
-      val namespace = "namespace"
-
-      val metric = "metric1"
-      val key    = SchemaKey(db, namespace, metric)
-      val schema = Schema(metric, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+      awaitAssert {
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric1)
+        expectMsg(SchemaCached(db, namespace, metric1, None))
+      }
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! PutSchemaInCache(db, namespace, metric, schema)
-          expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
+          replicatedCache ! PutSchemaInCache(db, namespace, metric1, schema1)
+          expectMsg(SchemaCached(db, namespace, metric1, Some(schema1)))
         }
       }
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
-          expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric1)
+          expectMsg(SchemaCached(db, namespace, metric1, Some(schema1)))
         }
       }
       enterBarrier("after-add-schema")
@@ -120,17 +138,14 @@ class ReplicatedSchemaCacheSpec
 
     "replicate many cached entries" in within(5.seconds) {
 
-      val db        = "db"
-      val namespace = "namespace"
-
-      val metric      = "metric2"
-      def key(i: Int) = SchemaKey(db, namespace, s"${metric}_$i")
-      val schema      = Schema(metric, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+      def key(i: Int) = SchemaKey(db, namespace, s"multimetric_$i")
+      def schema(i: Int) =
+        Schema(s"multimetric_$i", Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
 
       runOn(node1) {
         for (i ← 10 to 20) {
-          replicatedCache ! PutSchemaInCache(key(i).db, key(i).namespace, key(i).metric, schema)
-          expectMsg(SchemaCached(key(i).db, key(i).namespace, key(i).metric, Some(schema)))
+          replicatedCache ! PutSchemaInCache(key(i).db, key(i).namespace, key(i).metric, schema(i))
+          expectMsg(SchemaCached(key(i).db, key(i).namespace, key(i).metric, Some(schema(i))))
         }
       }
 
@@ -138,7 +153,7 @@ class ReplicatedSchemaCacheSpec
         awaitAssert {
           for (i ← 10 to 20) {
             replicatedCache ! GetSchemaFromCache(key(i).db, key(i).namespace, key(i).metric)
-            expectMsg(SchemaCached(key(i).db, key(i).namespace, key(i).metric, Some(schema)))
+            expectMsg(SchemaCached(key(i).db, key(i).namespace, key(i).metric, Some(schema(i))))
           }
         }
       }
@@ -146,33 +161,34 @@ class ReplicatedSchemaCacheSpec
     }
 
     "replicate evicted entry" in within(5.seconds) {
-
-      val db        = "db"
-      val namespace = "namespace"
-
-      val metric = "metric3"
-      val key    = SchemaKey(db, namespace, metric)
-      val schema = Schema(metric, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
-
       runOn(node1) {
-        replicatedCache ! PutSchemaInCache(db, namespace, metric, schema)
-        expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
+        replicatedCache ! PutSchemaInCache(db, namespace, metric2, schema2)
+        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+
+        replicatedCache ! PutSchemaInCache(db, namespace, metric3, schema3)
+        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
       }
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
-          expectMsg(SchemaCached(db, namespace, metric, Some(schema)))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
+          expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
+          expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
         }
 
-        replicatedCache ! EvictSchema(db, namespace, metric)
-        expectMsg(SchemaCached(db, namespace, metric, None))
+        replicatedCache ! EvictSchema(db, namespace, metric3)
+        expectMsg(SchemaCached(db, namespace, metric3, None))
       }
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! GetSchemaFromCache(db, namespace, metric)
-          expectMsg(SchemaCached(db, namespace, metric, None))
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
+          expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+
+          replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
+          expectMsg(SchemaCached(db, namespace, metric3, None))
         }
       }
       enterBarrier("after-eviction")
@@ -208,6 +224,57 @@ class ReplicatedSchemaCacheSpec
       enterBarrier("after-update")
     }
 
+    "delete a namespace" in within(5.seconds) {
+      runOn(node1) {
+        replicatedCache ! PutSchemaInCache(db, namespace, metric2, schema2)
+        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+
+        replicatedCache ! PutSchemaInCache(db, namespace, metric3, schema3)
+        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
+      }
+
+      awaitAssert {
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
+        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
+        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
+      }
+
+      runOn(node2) {
+        replicatedCache ! DeleteNamespace(db, namespace)
+        expectMsg(NamespaceDeleted(db, namespace))
+      }
+
+      awaitAssert {
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
+        expectMsg(SchemaCached(db, namespace, metric2, None))
+
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
+        expectMsg(SchemaCached(db, namespace, metric3, None))
+      }
+
+      enterBarrier("after-namespace-deletion")
+
+      //TODO make it work
+//      runOn(node1) {
+//        replicatedCache ! PutSchemaInCache(db, namespace, metric2, schema2)
+//        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+//
+//        replicatedCache ! PutSchemaInCache(db, namespace, metric3, schema3)
+//        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
+//      }
+//
+//      awaitAssert {
+//        replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
+//        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+//
+//        replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
+//        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
+//      }
+
+//      enterBarrier("after-reinsertion")
+    }
   }
 
 }
