@@ -23,6 +23,8 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.{DeleteNamespaceSchema, WarmUpSchemas}
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
@@ -105,6 +107,11 @@ class FakeSchemaCache extends Actor {
     case EvictSchema(db, namespace, metric) =>
       schemas -= ((db, namespace, metric))
       sender ! SchemaCached(db, namespace, metric, None)
+    case DeleteNamespaceSchema(db, namespace) =>
+//      sender ! NamespaceSchemaDeleted(db, namespace)
+      schemas.clear()
+      sender ! NamespaceSchemaDeleted(db, namespace)
+
   }
 }
 
@@ -126,10 +133,8 @@ class ReadCoordinatorSpec
   val basePath  = "target/test_index/ReadCoordinatorShardSpec"
   val db        = "db"
   val namespace = "registry"
-  val schemaCoordinator = system.actorOf(SchemaCoordinator.props(
-    basePath,
-    system.actorOf(Props[FakeSchemaCache]),
-    system.actorOf(Props.empty))) //, db, namespace, system.actorOf(Props[FakeSchemaCache])))
+  val schemaCoordinator = system.actorOf(
+    SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
   val metricsDataActor     = system.actorOf(MetricsDataActor.props(basePath))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaCoordinator)
 
@@ -138,6 +143,7 @@ class ReadCoordinatorSpec
     implicit val timeout = Timeout(5 second)
 
     readCoordinatorActor ! WarmUpCompleted
+    schemaCoordinator ! WarmUpSchemas(List.empty)
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 

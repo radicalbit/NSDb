@@ -88,10 +88,12 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
     "join cluster" in within(10.seconds) {
       join(node1, node1)
       join(node2, node1)
-      awaitAssert {
-        mediator ! Count
-        expectMsg(2)
-      }
+
+      Thread.sleep(2000)
+
+      val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
+      nNodes shouldBe 2
+
       enterBarrier("joined")
     }
 

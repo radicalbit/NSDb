@@ -18,15 +18,16 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.nio.file.Paths
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.index.SchemaIndex
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{DeleteSchema, GetSchema, UpdateSchema}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{SchemaDeleted, SchemaGot, SchemaUpdated}
+import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{DeleteNamespace, DeleteSchema, GetSchema, UpdateSchema}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{NamespaceDeleted, SchemaDeleted, SchemaGot, SchemaUpdated}
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 
@@ -38,7 +39,7 @@ import scala.collection.mutable
   *
   * @param basePath index base path.
   */
-class SchemaActor(val basePath: String) extends Actor with ActorLogging {
+class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Actor with ActorLogging {
 
   lazy val schemaIndexes: mutable.Map[(String, String), SchemaIndex] = mutable.Map.empty
 
@@ -54,12 +55,14 @@ class SchemaActor(val basePath: String) extends Actor with ActorLogging {
     )
 
   override def preStart(): Unit = {
-    //TODO warmup
-//    val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
-//      FileUtils.getSubDirs(db).toList.flatMap { namespace =>
-//        getOrCreateSchemaIndex(db.getName, namespace.getName).all
-//      }
-//    }
+    val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
+      FileUtils.getSubDirs(db).toList.map { namespace =>
+        SchemaWarmUp(db.getName, namespace.getName, getOrCreateSchemaIndex(db.getName, namespace.getName).all)
+      }
+    }
+
+    schemaCoordinator ! WarmUpSchemas(allSchemas)
+
     log.debug("schema actor started at {}/{}", remoteAddress.address, self.path.name)
   }
 
@@ -85,22 +88,24 @@ class SchemaActor(val basePath: String) extends Actor with ActorLogging {
       index.refresh()
       sender ! SchemaDeleted(db, namespace, metric)
 
-    case DeleteNamespace(db, namespace, occurredOn) =>
+    case DeleteNamespace(db, namespace) =>
       val locationIndex                    = getOrCreateSchemaIndex(db, namespace)
-      val locationIndexwriter: IndexWriter = locationIndex.getWriter
-      locationIndex.deleteAll()(locationIndexwriter)
-      locationIndexwriter.close()
+      val locationIndexWriter: IndexWriter = locationIndex.getWriter
+      locationIndex.deleteAll()(locationIndexWriter)
+      locationIndexWriter.close()
       locationIndex.refresh()
 
-      sender ! NamespaceDeleted(db, namespace, occurredOn)
+      sender ! NamespaceDeleted(db, namespace)
 
-    case SubscribeAck(Subscribe("metadata", None, _)) =>
+    case SubscribeAck(Subscribe("schema", None, _)) =>
       log.debug("subscribed to topic metadata")
   }
 }
 
 object SchemaActor {
 
-  def props(basePath: String): Props =
-    Props(new SchemaActor(basePath))
+  def props(basePath: String, schemaCoordinator: ActorRef): Props =
+    Props(new SchemaActor(basePath, schemaCoordinator))
+
+  case class SchemaWarmUp(db: String, namespace: String, metricsSchemas: Seq[Schema])
 }
