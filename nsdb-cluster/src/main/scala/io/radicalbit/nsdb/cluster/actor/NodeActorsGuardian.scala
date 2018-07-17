@@ -100,8 +100,9 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       )
 
   def receive: Receive = {
-    case GetCoordinators => sender ! CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator)
-    case GetPublisher    => sender() ! publisherActor
+    case GetCoordinators =>
+      sender ! CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator)
+    case GetPublisher => sender() ! publisherActor
   }
 
 }

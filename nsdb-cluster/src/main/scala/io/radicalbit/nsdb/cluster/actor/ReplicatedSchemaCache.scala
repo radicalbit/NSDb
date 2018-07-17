@@ -24,6 +24,8 @@ import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{NamespaceDeleted, SchemaCached}
@@ -88,7 +90,7 @@ class ReplicatedSchemaCache extends ActorPathLogging {
       (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ - key))
         .map(_ => SchemaCached(db, namespace, metric, None))
         .pipeTo(sender)
-    case DeleteNamespace(db, namespace) =>
+    case DeleteNamespaceSchema(db, namespace) =>
       replicator ! Delete(namespaceKey(db, namespace),
                           WriteAll(writeDuration),
                           Some(NamespaceRequest(db, namespace, sender())))
@@ -109,7 +111,7 @@ class ReplicatedSchemaCache extends ActorPathLogging {
       val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
       replyTo ! SchemaCached(db, namespace, metric, None)
     case DeleteSuccess(_, Some(NamespaceRequest(db, namespace, replyTo))) =>
-      replyTo ! NamespaceDeleted(db, namespace)
+      replyTo ! NamespaceSchemaDeleted(db, namespace)
     case msg =>
       log.error("------------------received not handled update message {}", msg)
   }

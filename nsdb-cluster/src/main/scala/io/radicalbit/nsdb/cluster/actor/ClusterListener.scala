@@ -68,17 +68,21 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
         context.system.actorOf(NodeActorsGuardian.props(metadataCache, schemaCache), name = s"guardian_$nodeName")
 
       (nodeActorsGuardian ? GetCoordinators).map {
-        case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator) =>
-          val metadataActor = context.system.actorOf(
-            MetadataActor
-              .props(indexBasePath, metadataCoordinator)
-              .withDeploy(Deploy(scope = RemoteScope(member.address))),
-            name = s"metadata_$nodeName"
-          )
+        case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator) =>
+          val metadataActor = context.system.actorOf(MetadataActor
+                                                       .props(indexBasePath, metadataCoordinator)
+                                                       .withDeploy(Deploy(scope = RemoteScope(member.address))),
+                                                     name = s"metadata_$nodeName")
+          val schemaActor = context.system.actorOf(SchemaActor
+                                                     .props(indexBasePath, schemaCoordinator)
+                                                     .withDeploy(Deploy(scope = RemoteScope(member.address))),
+                                                   name = s"schema-actor_$nodeName")
 
           mediator ! Subscribe("warm-up", readCoordinator)
           mediator ! Subscribe("warm-up", writeCoordinator)
+
           mediator ! Subscribe("metadata", metadataActor)
+          mediator ! Subscribe("schemas", schemaActor)
 
           log.info(s"subscribing data actor for node $nodeName")
           val metricsDataActor = context.actorOf(

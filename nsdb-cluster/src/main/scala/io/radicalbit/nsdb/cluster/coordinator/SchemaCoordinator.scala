@@ -18,12 +18,14 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Props}
-import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSub
+import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.SchemaActor
+import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.{DeleteNamespaceSchema, WarmUpSchemas}
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.index.SchemaIndex
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -35,9 +37,14 @@ import scala.util.{Failure, Success}
 
 /**
   * Actor responsible for dispatching read and write schema operations to che proper schema actor.
+  * It performs write/update/deletion in distributed cache and boradcast events using distributed pub-sub messaging system handled by [[SchemaActor]]
+  * actors in each cluster node.
+  *
   * @param basePath indexes' base path.
   */
-class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: ActorRef) extends ActorPathLogging {
+class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: ActorRef)
+    extends ActorPathLogging
+    with Stash {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
@@ -72,7 +79,50 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
       }
 
-  override def receive: Receive = {
+  override def receive: Receive = warmUp
+
+  /**
+    * During warm-up operations schemas are read from local indexes and
+    * are loaded in memory distributed cache [[io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache]]
+    * When warm-up is completed the actor become operative
+    *
+    */
+  def warmUp: Receive = {
+    case WarmUpSchemas(schemasInfo) =>
+      schemasInfo.foreach { schemaInfo =>
+        val db                   = schemaInfo.db
+        val namespace            = schemaInfo.namespace
+        val schemas: Seq[Schema] = schemaInfo.metricsSchemas
+        schemas.foreach { schema =>
+          (schemaCache ? GetSchemaFromCache(db, namespace, schema.metric))
+            .flatMap {
+              case SchemaCached(_, _, _, schemaOpt) =>
+                schemaOpt match {
+                  case Some(oldSchema) =>
+                    checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema)
+                  case None =>
+                    (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
+                      .map {
+                        case SchemaCached(_, _, _, _) =>
+                          SchemaUpdated(db, namespace, schema.metric, schema)
+                        case msg =>
+                          UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache $msg"))
+                      }
+                  case _ =>
+                    Future(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache")))
+                }
+            }
+        }
+      }
+      unstashAll()
+      context.become(operative)
+
+    case msg =>
+      stash()
+      log.error(s"Received and stashed message $msg during warmUp")
+  }
+
+  def operative: Receive = {
     case GetSchema(db, namespace, metric) =>
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .map {
@@ -82,6 +132,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
         }
         .pipeTo(sender)
     case UpdateSchemaFromRecord(db, namespace, metric, record) =>
+      log.error(s"finally updating schema for $record")
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .flatMap {
           case SchemaCached(_, _, _, schemaOpt) =>
@@ -96,7 +147,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                       SchemaUpdated(db, namespace, metric, newSchema)
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
-              case (Failure(t), _) => Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
+              case (Failure(t), _) =>
+                Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
             }
 
           //TODO handle error
@@ -112,16 +164,16 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           case _ => SchemaDeleted(db, namespace, metric)
         }
         .pipeTo(sender)
-    case DeleteNamespace(db, namespace) =>
-      sender() ! NamespaceDeleted(db, namespace)
-//      val schemaActorToDelete = getSchemaActor(db, namespace)
-//      (schemaActorToDelete ? DeleteAllSchemas(db, namespace))
-//        .map { _ =>
-//          schemaActorToDelete ! PoisonPill
-//          schemaActors -= NamespaceKey(db, namespace)
-//          NamespaceDeleted(db, namespace)
-//        }
-//        .pipeTo(sender)
+    case msg @ DeleteNamespace(db, namespace) =>
+      (schemaCache ? DeleteNamespaceSchema(db, namespace))
+        .map {
+          case NamespaceSchemaDeleted(_, _) =>
+            mediator ! Publish("schema", DeleteNamespace(db, namespace))
+            NamespaceDeleted(db, namespace)
+          //FIXME:  always positive response
+          case _ => NamespaceDeleted(db, namespace)
+        }
+        .pipeTo(sender())
   }
 }
 
@@ -129,4 +181,13 @@ object SchemaCoordinator {
 
   def props(basePath: String, schemaCache: ActorRef, mediator: ActorRef): Props =
     Props(new SchemaCoordinator(basePath, schemaCache, mediator))
+
+  object events {
+    case class NamespaceSchemaDeleted(db: String, namespace: String)
+  }
+
+  object commands {
+    case class DeleteNamespaceSchema(db: String, namespace: String)
+    case class WarmUpSchemas(loadedSchemas: List[SchemaWarmUp])
+  }
 }

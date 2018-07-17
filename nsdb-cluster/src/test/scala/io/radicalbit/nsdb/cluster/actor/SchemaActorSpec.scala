@@ -16,8 +16,9 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorSystem}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.pattern.ask
+import akka.remote.ContainerFormats.ActorRef
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol._
@@ -53,7 +54,7 @@ class SchemaActorSpec
     with BeforeAndAfter {
 
   val probe       = TestProbe()
-  val schemaActor = system.actorOf(SchemaActor.props("target/test_index/schema_actor"))
+  val schemaActor = system.actorOf(SchemaActor.props("target/test_index/schema_actor", TestProbe().ref))
 
   def baseSchema(metric: String) = Schema(
     metric,

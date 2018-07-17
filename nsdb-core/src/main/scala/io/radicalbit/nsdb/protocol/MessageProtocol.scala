@@ -65,7 +65,10 @@ object MessageProtocol {
     case object GetCoordinators
     case object GetPublisher
 
-    case class CoordinatorsGot(metadataCoordinator: ActorRef, writeCoordinator: ActorRef, readCoordinator: ActorRef)
+    case class CoordinatorsGot(metadataCoordinator: ActorRef,
+                               writeCoordinator: ActorRef,
+                               readCoordinator: ActorRef,
+                               schemaCoordinator: ActorRef)
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)

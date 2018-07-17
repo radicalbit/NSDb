@@ -22,6 +22,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
@@ -32,37 +33,22 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-//class FakeSchemaCache extends Actor {
-//
-//  val schemas: mutable.Map[(String, String, String), Schema] = mutable.Map.empty
-//
-//  def receive: Receive = {
-//    case PutSchemaInCache(db, namespace, metric, value) =>
-//      schemas.put((db, namespace, metric), value)
-//      sender ! SchemaCached(db, namespace, metric, Some(value))
-//    case GetSchemaFromCache(db, namespace, metric) =>
-//      sender ! SchemaCached(db, namespace, metric, schemas.get((db, namespace, metric)))
-//  }
-//}
-
 class SchemaCoordinatorSpec
     extends TestKit(ActorSystem("SchemaCoordinatorSpec"))
-//      , ConfigFactory
-//      .load()
-//      .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
-//      .withValue("nsdb.metadata-coordinator.timeout", ConfigValueFactory.fromAnyRef("10s"))
-//      .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("60s"))))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
     with OneInstancePerTest
     with BeforeAndAfter {
 
-  val probe = TestProbe()
+  val mediatorProbe = TestProbe()
+  val probe         = TestProbe()
   val schemaCoordinator =
     system.actorOf(
       SchemaCoordinator
-        .props("target/test_index/NamespaceschemaCoordinatorSpec", system.actorOf(Props[FakeSchemaCache]), probe.ref))
+        .props("target/test_index/NamespaceSchemaCoordinatorSpec",
+               system.actorOf(Props[FakeSchemaCache]),
+               mediatorProbe.ref))
 
   val db         = "db"
   val namespace  = "namespace"
@@ -83,13 +69,18 @@ class SchemaCoordinatorSpec
 
   before {
     implicit val timeout = Timeout(10 seconds)
-//    Await.result(schemaCoordinator ? DeleteNamespace(db, namespace), 10 seconds)
-//    Await.result(schemaCoordinator ? DeleteNamespace(db, namespace1), 10 seconds)
+
+    schemaCoordinator ! WarmUpSchemas(List.empty)
+    Await.result(schemaCoordinator ? DeleteNamespace(db, namespace), 10 seconds)
+    Await.result(schemaCoordinator ? DeleteNamespace(db, namespace1), 10 seconds)
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, "people", nameRecord), 10 seconds)
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace1, "people", surnameRecord), 10 seconds)
 
-    probe.expectMsgType[Publish]
-    probe.expectMsgType[Publish]
+    mediatorProbe.expectMsgType[Publish]
+    mediatorProbe.expectMsgType[Publish]
+    mediatorProbe.expectMsgType[Publish]
+    mediatorProbe.expectMsgType[Publish]
+
   }
 
   "schemaCoordinator" should "get schemas" in {
@@ -118,9 +109,10 @@ class SchemaCoordinatorSpec
         Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-//    probe.expectMsg(Publish("schema", GetSchema("db", "namespace", "nonexisting")))
-
     probe.expectMsgType[UpdateSchemaFailed]
+
+    probe.expectNoMessage(1 second)
+
   }
 
   "schemaCoordinator" should "update schemas coming from a record" in {
@@ -133,7 +125,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -181,7 +173,7 @@ class SchemaCoordinatorSpec
     probe.send(schemaCoordinator,
                UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty, Map.empty)))
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -207,7 +199,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -254,7 +246,7 @@ class SchemaCoordinatorSpec
       schemaCoordinator,
       UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map("country" -> "italy"))))
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -296,7 +288,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -347,7 +339,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -454,7 +446,7 @@ class SchemaCoordinatorSpec
   "schemaCoordinator" should "update schemas in case of success in different namespaces" in {
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace, "people", surnameRecord))
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(
@@ -497,7 +489,7 @@ class SchemaCoordinatorSpec
 
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace1, "people", nameRecord))
 
-    probe.expectMsg(
+    mediatorProbe.expectMsg(
       Publish(
         "schema",
         UpdateSchema(

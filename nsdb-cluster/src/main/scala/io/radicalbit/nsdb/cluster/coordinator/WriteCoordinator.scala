@@ -64,9 +64,9 @@ object WriteCoordinator {
 
   def props(commitLogCoordinator: Option[ActorRef],
             metadataCoordinator: ActorRef,
-            namespaceSchemaActor: ActorRef,
+            schemaCoordinator: ActorRef,
             publisherActor: ActorRef): Props =
-    Props(new WriteCoordinator(commitLogCoordinator, metadataCoordinator, namespaceSchemaActor, publisherActor))
+    Props(new WriteCoordinator(commitLogCoordinator, metadataCoordinator, schemaCoordinator, publisherActor))
 
   case class Restore(path: String)  extends ControlMessage
   case class Restored(path: String) extends ControlMessage
@@ -79,13 +79,13 @@ object WriteCoordinator {
 /**
   * Actor that receives every write (or delete) request and coordinates them among internal data storage.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
-  * @param metricsSchemaActor   [[SchemaCoordinator]] the namespace schema actor.
+  * @param schemaCoordinator   [[SchemaCoordinator]] the namespace schema actor.
   * @param commitLogCoordinator [[CommitLogCoordinator]] the commit log coordinator.
   * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
 class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        metadataCoordinator: ActorRef,
-                       metricsSchemaActor: ActorRef,
+                       schemaCoordinator: ActorRef,
                        publisherActor: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger
@@ -152,7 +152,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     * @param op code executed in case of success.
     */
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] =
-    (metricsSchemaActor ? UpdateSchemaFromRecord(db, namespace, metric, bit))
+    (schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
           log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
@@ -256,9 +256,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty) {
-              (metricsSchemaActor ? msg).map(_ => NamespaceDeleted(db, namespace))
+              (schemaCoordinator ? msg).map(_ => NamespaceDeleted(db, namespace))
             } else
-              (metricsSchemaActor ? msg).flatMap(_ => broadcastMessage(msg))
+              (schemaCoordinator ? msg).flatMap(_ => broadcastMessage(msg))
           case WriteToCommitLogFailed(_, _, _, _, reason) =>
             log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
             context.system.terminate()
@@ -271,7 +271,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
             if (metricsDataActors.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
             else
-              (metricsSchemaActor ? GetSchema(statement.db, statement.namespace, statement.metric))
+              (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
                 .flatMap {
                   case SchemaGot(_, _, _, Some(schema)) =>
                     (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
@@ -302,7 +302,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
             if (metricsDataActors.isEmpty)
               Future(MetricDropped(db, namespace, metric))
             else {
-              (metricsSchemaActor ? DeleteSchema(db, namespace, metric))
+              (schemaCoordinator ? DeleteSchema(db, namespace, metric))
                 .mapTo[SchemaDeleted]
                 .flatMap(_ => broadcastMessage(msg))
             }
@@ -398,7 +398,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                 .groupBy(_.getName.split("_").toList.head)
                 .foreach {
                   case (metricName, dirNames) =>
-                    (metricsSchemaActor ? GetSchema(db, namespace, metricName))
+                    (schemaCoordinator ? GetSchema(db, namespace, metricName))
                       .foreach {
                         case SchemaGot(_, _, _, Some(schema)) =>
                           val schemasDir =

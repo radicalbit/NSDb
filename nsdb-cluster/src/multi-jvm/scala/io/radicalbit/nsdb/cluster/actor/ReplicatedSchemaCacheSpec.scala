@@ -9,6 +9,8 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
@@ -242,8 +244,8 @@ class ReplicatedSchemaCacheSpec
       }
 
       runOn(node2) {
-        replicatedCache ! DeleteNamespace(db, namespace)
-        expectMsg(NamespaceDeleted(db, namespace))
+        replicatedCache ! DeleteNamespaceSchema(db, namespace)
+        expectMsg(NamespaceSchemaDeleted(db, namespace))
       }
 
       awaitAssert {
