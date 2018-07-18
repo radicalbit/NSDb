@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.cluster.actor.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.{DeleteNamespaceSchema, WarmUpSchemas}
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
+import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.index.SchemaIndex
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -51,6 +52,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
     TimeUnit.SECONDS)
   import context.dispatcher
 
+  lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
+
   /**
     * Checks if a newSchema is compatible with an oldSchema. If schemas are compatible, the metric schema will be updated.
     * @param namespace schema's namespace.
@@ -63,15 +66,15 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                                    metric: String,
                                    oldSchema: Schema,
                                    newSchema: Schema) =
-    if (oldSchema == newSchema)
+    if (oldSchema == newSchema) {
       Future(SchemaUpdated(db, namespace, metric, newSchema))
-    else
+    } else
       SchemaIndex.union(oldSchema, newSchema) match {
         case Success(unionSchema) =>
           (schemaCache ? PutSchemaInCache(db, namespace, metric, unionSchema))
             .map {
               case SchemaCached(_, _, _, _) =>
-                mediator ! Publish("schema", UpdateSchema(db, namespace, metric, newSchema))
+                mediator ! Publish(schemaTopic, UpdateSchema(db, namespace, metric, newSchema))
                 SchemaUpdated(db, namespace, metric, newSchema)
               case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg"))
             }
@@ -89,6 +92,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
     */
   def warmUp: Receive = {
     case WarmUpSchemas(schemasInfo) =>
+      log.info("SchemaCoordinator performing warm-up at {}/{}", RemoteAddress(context.system).address, self.path.name)
       schemasInfo.foreach { schemaInfo =>
         val db                   = schemaInfo.db
         val namespace            = schemaInfo.namespace
@@ -132,7 +136,6 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
         }
         .pipeTo(sender)
     case UpdateSchemaFromRecord(db, namespace, metric, record) =>
-      log.error(s"finally updating schema for $record")
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .flatMap {
           case SchemaCached(_, _, _, schemaOpt) =>
@@ -143,7 +146,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                 (schemaCache ? PutSchemaInCache(db, namespace, metric, newSchema))
                   .map {
                     case SchemaCached(_, _, _, _) =>
-                      mediator ! Publish("schema", UpdateSchema(db, namespace, metric, newSchema))
+                      mediator ! Publish(schemaTopic, UpdateSchema(db, namespace, metric, newSchema))
                       SchemaUpdated(db, namespace, metric, newSchema)
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
@@ -159,7 +162,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
           case msg @ SchemaCached(`db`, `namespace`, `metric`, Some(_)) =>
-            mediator ! Publish("schema", msg)
+            mediator ! Publish(schemaTopic, msg)
             SchemaDeleted(db, namespace, metric)
           case _ => SchemaDeleted(db, namespace, metric)
         }
@@ -168,7 +171,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
       (schemaCache ? DeleteNamespaceSchema(db, namespace))
         .map {
           case NamespaceSchemaDeleted(_, _) =>
-            mediator ! Publish("schema", DeleteNamespace(db, namespace))
+            mediator ! Publish(schemaTopic, DeleteNamespace(db, namespace))
             NamespaceDeleted(db, namespace)
           //FIXME:  always positive response
           case _ => NamespaceDeleted(db, namespace)

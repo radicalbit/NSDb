@@ -78,19 +78,6 @@ class FakeMetadataCoordinator extends Actor with ActorLogging {
   }
 }
 
-//class FakeSchemaCache extends Actor {
-//
-//  val schemas: mutable.Map[(String, String, String), Schema] = mutable.Map.empty
-//
-//  def receive: Receive = {
-//    case PutSchemaInCache(db, namespace, metric, value) =>
-//      schemas.put((db, namespace, metric), value)
-//      sender ! SchemaCached(db, namespace, metric, Some(value))
-//    case GetSchemaFromCache(db, namespace, metric) =>
-//      sender ! SchemaCached(db, namespace, metric, schemas.get((db, namespace, metric)))
-//  }
-//}
-
 trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =>
 
   val probe = TestProbe()

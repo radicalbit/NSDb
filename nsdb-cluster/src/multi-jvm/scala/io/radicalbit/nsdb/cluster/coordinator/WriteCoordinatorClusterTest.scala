@@ -35,6 +35,14 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
+    |  cluster {
+    |    pub-sub{
+    |      warm-up-topic = "warm-up"
+    |      schema-topic = "schema"
+    |      metadata-topic = "metadata"
+    |    }
+    |  }
+    |
     |  index {
     |    base-path= "target/test_index/WriteCoordinatorClusterTest"
     |  }

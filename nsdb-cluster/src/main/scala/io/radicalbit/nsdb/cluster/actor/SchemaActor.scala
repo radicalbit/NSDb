@@ -46,6 +46,8 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
   val remoteAddress = RemoteAddress(context.system)
 
+  lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
+
   private def getOrCreateSchemaIndex(db: String, namespace: String): SchemaIndex =
     schemaIndexes.getOrElse(
       (db, namespace), {
@@ -61,6 +63,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
     *
     */
   override def preStart(): Unit = {
+    log.debug("Schema Actor performing warm-up")
     val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
       FileUtils.getSubDirs(db).toList.map { namespace =>
         SchemaWarmUp(db.getName, namespace.getName, getOrCreateSchemaIndex(db.getName, namespace.getName).all)
@@ -103,7 +106,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
       sender ! NamespaceDeleted(db, namespace)
 
-    case SubscribeAck(Subscribe("schema", None, _)) =>
+    case SubscribeAck(Subscribe(`schemaTopic`, None, _)) =>
       log.debug("subscribed to topic metadata")
   }
 }

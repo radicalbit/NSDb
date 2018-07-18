@@ -63,6 +63,9 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
       val indexBasePath = config.getString("nsdb.index.base-path")
+      val warmUpTopic   = config.getString("nsdb.cluster.pub-sub.warm-up-topic")
+      val schemaTopic   = config.getString("nsdb.cluster.pub-sub.schema-topic")
+      val metadataTopic = config.getString("nsdb.cluster.pub-sub.metadata-topic")
 
       val nodeActorsGuardian =
         context.system.actorOf(NodeActorsGuardian.props(metadataCache, schemaCache), name = s"guardian_$nodeName")
@@ -78,11 +81,11 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
                                                      .withDeploy(Deploy(scope = RemoteScope(member.address))),
                                                    name = s"schema-actor_$nodeName")
 
-          mediator ! Subscribe("warm-up", readCoordinator)
-          mediator ! Subscribe("warm-up", writeCoordinator)
+          mediator ! Subscribe(warmUpTopic, readCoordinator)
+          mediator ! Subscribe(warmUpTopic, writeCoordinator)
 
-          mediator ! Subscribe("metadata", metadataActor)
-          mediator ! Subscribe("schemas", schemaActor)
+          mediator ! Subscribe(metadataTopic, metadataActor)
+          mediator ! Subscribe(schemaTopic, schemaActor)
 
           log.info(s"subscribing data actor for node $nodeName")
           val metricsDataActor = context.actorOf(
