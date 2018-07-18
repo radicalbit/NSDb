@@ -82,9 +82,9 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
   override def receive: Receive = warmUp
 
   /**
-    * During warm-up operations schemas are read from local indexes and
+    * During warm-up operations, schemas are read from local indexes by the local [[SchemaActor]] and
     * are loaded in memory distributed cache [[io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache]]
-    * When warm-up is completed the actor become operative
+    * When warm-up is completed the actor become operative.
     *
     */
   def warmUp: Receive = {
@@ -127,7 +127,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .map {
           case SchemaCached(_, _, _, schemaOpt) => SchemaGot(db, namespace, metric, schemaOpt)
-          //TODO handle error
+          //FIXME handle error
           case _ => SchemaGot(db, namespace, metric, None)
         }
         .pipeTo(sender)

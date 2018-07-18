@@ -94,27 +94,6 @@ object AggregationMetric {
   val testRecords = recordsShard1 ++ recordsShard2
 }
 
-class FakeSchemaCache extends Actor {
-
-  val schemas: mutable.Map[(String, String, String), Schema] = mutable.Map.empty
-
-  def receive: Receive = {
-    case PutSchemaInCache(db, namespace, metric, value) =>
-      schemas.put((db, namespace, metric), value)
-      sender ! SchemaCached(db, namespace, metric, Some(value))
-    case GetSchemaFromCache(db, namespace, metric) =>
-      sender ! SchemaCached(db, namespace, metric, schemas.get((db, namespace, metric)))
-    case EvictSchema(db, namespace, metric) =>
-      schemas -= ((db, namespace, metric))
-      sender ! SchemaCached(db, namespace, metric, None)
-    case DeleteNamespaceSchema(db, namespace) =>
-//      sender ! NamespaceSchemaDeleted(db, namespace)
-      schemas.clear()
-      sender ! NamespaceSchemaDeleted(db, namespace)
-
-  }
-}
-
 class ReadCoordinatorSpec
     extends TestKit(
       ActorSystem(
