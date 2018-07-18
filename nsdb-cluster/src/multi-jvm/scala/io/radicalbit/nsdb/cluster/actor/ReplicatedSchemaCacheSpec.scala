@@ -13,13 +13,8 @@ import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteN
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
-  DeleteNamespace,
-  EvictSchema,
-  GetSchemaFromCache,
-  PutSchemaInCache
-}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{NamespaceDeleted, SchemaCached}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
 

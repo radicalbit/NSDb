@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteN
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{NamespaceDeleted, SchemaCached}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.concurrent.duration._

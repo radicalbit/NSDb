@@ -26,8 +26,8 @@ import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.index.SchemaIndex
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{DeleteNamespace, DeleteSchema, GetSchema, UpdateSchema}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{NamespaceDeleted, SchemaDeleted, SchemaGot, SchemaUpdated}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 
@@ -38,6 +38,7 @@ import scala.collection.mutable
   * A [[SchemaActor]] must be created for each node of the cluster.
   *
   * @param basePath index base path.
+  * @param schemaCoordinator [[ActorRef]] of local [[io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator]]
   */
 class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Actor with ActorLogging {
 
@@ -54,6 +55,11 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
       }
     )
 
+  /**
+    * During preStart all local persisted schemas are read from lucene indexes and a [[WarmUpSchemas]] message is sent
+    * to [[io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator]] in order to populate distributed cache.
+    *
+    */
   override def preStart(): Unit = {
     val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
       FileUtils.getSubDirs(db).toList.map { namespace =>

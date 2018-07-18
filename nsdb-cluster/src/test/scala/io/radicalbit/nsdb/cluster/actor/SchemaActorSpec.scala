@@ -16,9 +16,8 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem}
 import akka.pattern.ask
-import akka.remote.ContainerFormats.ActorRef
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol._
