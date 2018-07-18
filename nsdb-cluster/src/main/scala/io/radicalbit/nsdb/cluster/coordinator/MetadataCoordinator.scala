@@ -49,6 +49,9 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   lazy val defaultShardingInterval: Long =
     context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
 
+  lazy val warmUpTopic   = context.system.settings.config.getString("nsdb.cluster.pub-sub.warm-up-topic")
+  lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
+
   override def receive: Receive = warmUp
 
   def warmUp: Receive = {
@@ -76,7 +79,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             context.system.terminate()
         }
         .foreach { _ =>
-          mediator ! Publish("warm-up", WarmUpCompleted)
+          mediator ! Publish(warmUpTopic, WarmUpCompleted)
           unstashAll()
           context.become(operative)
         }
@@ -155,7 +158,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
         .map {
           case LocationCached(_, Some(_)) =>
-            mediator ! Publish("metadata", msg)
+            mediator ! Publish(metadataTopic, msg)
             LocationAdded(db, namespace, location)
           case _ => AddLocationFailed(db, namespace, location)
         }
@@ -170,7 +173,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
         .map {
           case MetricInfoCached(_, Some(_)) =>
-            mediator ! Publish("metadata", msg)
+            mediator ! Publish(metadataTopic, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")

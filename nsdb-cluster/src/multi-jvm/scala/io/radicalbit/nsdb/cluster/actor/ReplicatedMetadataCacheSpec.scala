@@ -30,6 +30,14 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
+    |  cluster {
+    |    pub-sub{
+    |      warm-up-topic = "warm-up"
+    |      schema-topic = "schema"
+    |      metadata-topic = "metadata"
+    |    }
+    |  }
+    |
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds

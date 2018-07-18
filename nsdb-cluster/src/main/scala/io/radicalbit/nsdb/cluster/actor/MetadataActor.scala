@@ -42,6 +42,8 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
   lazy val locationIndexes: mutable.Map[(String, String), LocationIndex]     = mutable.Map.empty
   lazy val metricInfoIndexes: mutable.Map[(String, String), MetricInfoIndex] = mutable.Map.empty
 
+  lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
+
   val remoteAddress = RemoteAddress(context.system)
 
   private def getLocationIndex(db: String, namespace: String): LocationIndex =
@@ -154,7 +156,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
       val metricInfoOpt = index.getMetricInfo(metric)
       sender ! MetricInfoGot(db, namespace, metricInfoOpt)
 
-    case SubscribeAck(Subscribe("metadata", None, _)) =>
+    case SubscribeAck(Subscribe(`metadataTopic`, None, _)) =>
       log.debug("subscribed to topic metadata")
   }
 }
