@@ -159,7 +159,7 @@ trait Index[T] {
   )(f: FacetResult => Seq[Bit]): Seq[Bit] = {
     val fc = new FacetsCollector
     FacetsCollector.search(searcher, query, 0, fc)
-    val facets: LongRangeFacetCounts = new LongRangeFacetCounts("fieldName", fc, ranges: _*)
+    val facets: LongRangeFacetCounts = new LongRangeFacetCounts(fieldName, fc, ranges: _*)
     f(facets.getTopChildren(0, fieldName))
   }
 }

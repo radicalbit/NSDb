@@ -23,6 +23,7 @@ import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.apache.lucene.facet.range.LongRange
 import org.apache.lucene.search._
 import spire.implicits._
+import spire.math.Interval
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
@@ -32,6 +33,9 @@ import scala.util.{Failure, Success, Try}
   * This class exposes method for parsing from a [[io.radicalbit.nsdb.common.statement.SQLStatement]] into a [[io.radicalbit.nsdb.statement.StatementParser.ParsedQuery]].
   */
 object StatementParser {
+
+  /** This value define the max number of temporal buckets computed foreach interval defined by where conditions */
+  final val NBuckets = 10
 
   /**
     * Parses a [[DeleteSQLStatement]] into a [[ParsedQuery]].
@@ -69,23 +73,25 @@ object StatementParser {
     * @param limit
     * @return
     */
-  def computeRanges(rangeInterval: Long, limit: Option[Int], whereCondition: Option[Condition]): Seq[LongRange] = {
+  def computeRanges(rangeInterval: Long,
+                    limit: Option[Int],
+                    whereCondition: Option[Condition],
+                    now: Long): Seq[LongRange] = {
 
-    val nGroup = limit.getOrElse(10)
+    val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
 
-    val timeIntervals = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
-    if (timeIntervals.nonEmpty) {
-      timeIntervals.flatMap { i =>
-        val lowerBound = i.bottom(1).getOrElse(Long.MinValue)
-        val upperBound = i.top(1).getOrElse(Long.MaxValue)
+    timeIntervals match {
+      case Nil =>
+        val upperBound = now
+        val lowerBound = upperBound - NBuckets * rangeInterval
         computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
-      }
-    } else {
-      val upperBound = System.currentTimeMillis()
-      val lowerBound = upperBound - nGroup * rangeInterval
-      computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
+      case _ =>
+        timeIntervals.flatMap { i =>
+          val lowerBound = i.bottom(1).getOrElse(0L)
+          val upperBound = i.top(1).getOrElse(now)
+          computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
+        }
     }
-
   }
 
   /**
@@ -104,7 +110,7 @@ object StatementParser {
                               acc: Seq[LongRange]): Seq[LongRange] = {
     val upperBound = (upperInterval / bucketSize) * bucketSize
     val lowerBound = upperBound - bucketSize
-    if (lowerBound > lowerInterval) {
+    if (lowerBound > lowerInterval && acc.size < NBuckets - 1) {
       computeRangeForInterval(lowerBound,
                               lowerInterval,
                               bucketSize,
@@ -162,12 +168,14 @@ object StatementParser {
         case (false,
               Success(Seq(Field(fieldName, Some(CountAggregation)))),
               Some(TemporalGroupByAggregation(interval))) if fieldName == "value" || fieldName == "*" =>
+          val now = System.currentTimeMillis()
+
           Success(
             ParsedTemporalAggregatedQuery(
               statement.namespace,
               statement.metric,
               exp.q,
-              computeRanges(interval, limitOpt, statement.condition),
+              computeRanges(interval, limitOpt, statement.condition, now),
               sortOpt,
               limitOpt
             )
