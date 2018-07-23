@@ -21,6 +21,7 @@ import java.nio.file.Paths
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCount}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
@@ -42,26 +43,20 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = shardKey)
 
-  private def handleQueryResults(out: Try[Seq[Bit]]): Try[Seq[Bit]] = {
-    out.recoverWith {
-      case _: IndexNotFoundException => Success(Seq.empty)
-    }
-  }
-
   override def receive: Receive = {
     case GetCount(_, _, metric) => sender ! CountGot(db, namespace, metric, index.getCount())
 
     case ExecuteSelectStatement(statement, schema) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
-          handleQueryResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
+          handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
 
         case Success(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
-          handleQueryResults(
+          handleNoIndexResults(
             Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, sort, limit))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
@@ -70,7 +65,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           }
 
         case Success(ParsedAggregatedQuery(_, _, q, InternalCountAggregation(groupField, _), sort, limit)) =>
-          handleQueryResults(
+          handleNoIndexResults(
             Try(
               facetIndexes.facetCountIndex
                 .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType))) match {
@@ -80,7 +75,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           }
 
         case Success(ParsedAggregatedQuery(_, _, q, InternalSumAggregation(groupField, _), sort, limit)) =>
-          handleQueryResults(
+          handleNoIndexResults(
             Try(
               facetIndexes.facetSumIndex
                 .result(q,

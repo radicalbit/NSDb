@@ -9,7 +9,7 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
 
@@ -47,7 +47,6 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     """.stripMargin))
 }
 
-// need one concrete test class per node
 class ReplicatedMetadataCacheMultiJvmNode1 extends ReplicatedMetadataCacheSpec
 
 class ReplicatedMetadataCacheMultiJvmNode2 extends ReplicatedMetadataCacheSpec
@@ -80,12 +79,14 @@ class ReplicatedMetadataCacheSpec
       join(node1, node1)
       join(node2, node1)
 
+      expectNoMessage(1 second)
+
       awaitAssert {
         DistributedData(system).replicator ! GetReplicaCount
-        expectMsg(ReplicaCount(roles.size))
+        expectMsgType[ReplicaCount].n shouldBe 2
       }
 
-      enterBarrier("after-1")
+      enterBarrier("joined")
     }
 
     "replicate cached entry" in within(5.seconds) {
@@ -93,94 +94,143 @@ class ReplicatedMetadataCacheSpec
       val metric    = "metric1"
       val key       = LocationKey("db", "namespace", metric, 0, 1)
       val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricKey("db", "namespace", metric)
-
-      val probe = TestProbe()
+      val metricKey = MetricLocationsKey("db", "namespace", metric)
 
       runOn(node1) {
         awaitAssert {
-
-          replicatedCache.tell(PutInCache(LocationKey("db", "namespace", metric, 0, 1),
-                                          Location(metric, "node1", 0, 1)),
-                               probe.ref)
-          probe.expectMsg(Cached(key, Some(location)))
+          replicatedCache ! PutLocationInCache(LocationKey("db", "namespace", metric, 0, 1),
+                                               Location(metric, "node1", 0, 1))
+          expectMsg(LocationCached(key, Some(location)))
         }
       }
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache.tell(GetFromCache(key), probe.ref)
-          probe.expectMsg(Cached(key, Some(location)))
+          replicatedCache ! GetLocationFromCache(key)
+          expectMsg(LocationCached(key, Some(location)))
         }
         awaitAssert {
-          replicatedCache.tell(GetLocationsFromCache(metricKey), probe.ref)
-          probe.expectMsg(CachedLocations(metricKey, Seq(location)))
+          replicatedCache ! GetLocationsFromCache(metricKey)
+          expectMsg(LocationsCached(metricKey, Seq(location)))
         }
       }
-      enterBarrier("after-add")
+      enterBarrier("after-add-location")
+
+      val metricInfoKey   = MetricInfoKey("db", "namespace", metric)
+      val metricInfoValue = MetricInfo(metric, 100)
+
+      runOn(node2) {
+        awaitAssert {
+          replicatedCache ! PutMetricInfoInCache(metricInfoKey, metricInfoValue)
+          expectMsg(MetricInfoCached(metricInfoKey, Some(metricInfoValue)))
+        }
+      }
+
+      runOn(node1) {
+        awaitAssert {
+          replicatedCache ! GetMetricInfoFromCache(metricInfoKey)
+          expectMsg(MetricInfoCached(metricInfoKey, Some(metricInfoValue)))
+        }
+      }
+      enterBarrier("after-add-metric-info")
+
     }
 
     "replicate many cached entries" in within(5.seconds) {
-      val probe     = TestProbe()
       val metric    = "metric2"
       val key       = LocationKey("db", "namespace", metric, _: Long, _: Long)
       val location  = Location(metric, "node1", _: Long, _: Long)
-      val metricKey = MetricKey("db", "namespace", metric)
+      val metricKey = MetricLocationsKey("db", "namespace", metric)
+
+      val metricInfoKey   = MetricInfoKey("db", "namespace", _: String)
+      val metricInfoValue = MetricInfo(_: String, 100)
 
       runOn(node1) {
         for (i ← 10 to 20) {
-          replicatedCache.tell(PutInCache(key(i - 1, i), location(i - 1, i)), probe.ref)
-          probe.expectMsg(Cached(key(i - 1, i), Some(location(i - 1, i))))
+          replicatedCache ! PutLocationInCache(key(i - 1, i), location(i - 1, i))
+          expectMsg(LocationCached(key(i - 1, i), Some(location(i - 1, i))))
+
+          replicatedCache ! PutMetricInfoInCache(metricInfoKey(s"metric_$i"), metricInfoValue(s"metric_$i"))
+          expectMsg(MetricInfoCached(metricInfoKey(s"metric_$i"), Some(metricInfoValue(s"metric_$i"))))
         }
       }
 
       runOn(node2) {
         awaitAssert {
           for (i ← 10 to 20) {
-            replicatedCache.tell(GetFromCache(key(i - 1, i)), probe.ref)
-            probe.expectMsg(Cached(key(i - 1, i), Some(location(i - 1, i))))
+            replicatedCache ! GetLocationFromCache(key(i - 1, i))
+            expectMsg(LocationCached(key(i - 1, i), Some(location(i - 1, i))))
+
+            replicatedCache ! GetMetricInfoFromCache(metricInfoKey(s"metric_$i"))
+            expectMsg(MetricInfoCached(metricInfoKey(s"metric_$i"), Some(metricInfoValue(s"metric_$i"))))
           }
         }
         awaitAssert {
-          replicatedCache.tell(GetLocationsFromCache(metricKey), probe.ref)
-          val cached = probe.expectMsgType[CachedLocations]
+          replicatedCache ! GetLocationsFromCache(metricKey)
+          val cached = expectMsgType[LocationsCached]
           cached.value.size shouldBe 11
         }
       }
       enterBarrier("after-build-add")
     }
 
-    "replicate evicted entry" in within(5.seconds) {
-      val metric    = "metric3"
-      val probe     = TestProbe()
-      val key       = LocationKey("db", "namespace", metric, 0, 1)
-      val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricKey("db", "namespace", metric)
+    "do not allow insertion of an already present metric info" in within(5.seconds) {
+      val metric          = "metric"
+      val metricInfoKey   = MetricInfoKey("db", "namespace", metric)
+      val metricInfoValue = MetricInfo(metric, 100)
+
+      runOn(node2) {
+        awaitAssert {
+          replicatedCache ! PutMetricInfoInCache(metricInfoKey, metricInfoValue)
+          expectMsg(MetricInfoCached(metricInfoKey, Some(metricInfoValue)))
+        }
+      }
 
       runOn(node1) {
-        replicatedCache.tell(PutInCache(key, location), probe.ref)
-        probe.expectMsg(Cached(key, Some(location)))
+        awaitAssert {
+          replicatedCache ! GetMetricInfoFromCache(metricInfoKey)
+          expectMsg(MetricInfoCached(metricInfoKey, Some(metricInfoValue)))
+        }
       }
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache.tell(GetFromCache(key), probe.ref)
-          probe.expectMsg(Cached(key, Some(location)))
+          replicatedCache ! PutMetricInfoInCache(metricInfoKey, metricInfoValue)
+          expectMsg(MetricInfoAlreadyExisting(metricInfoKey, metricInfoValue))
+        }
+      }
+    }
+
+    "replicate evicted entry" in within(5.seconds) {
+      val metric    = "metric3"
+      val key       = LocationKey("db", "namespace", metric, 0, 1)
+      val location  = Location(metric, "node1", 0, 1)
+      val metricKey = MetricLocationsKey("db", "namespace", metric)
+
+      runOn(node1) {
+        replicatedCache ! PutLocationInCache(key, location)
+        expectMsg(LocationCached(key, Some(location)))
+      }
+
+      runOn(node2) {
+        awaitAssert {
+          replicatedCache ! GetLocationFromCache(key)
+          expectMsg(LocationCached(key, Some(location)))
         }
 
-        replicatedCache.tell(Evict(key), probe.ref)
-        probe.expectMsg(Cached(key, None))
+        replicatedCache ! Evict(key)
+        expectMsg(LocationCached(key, None))
       }
 
       runOn(node1) {
         awaitAssert {
           val probe = TestProbe()
-          replicatedCache.tell(GetFromCache(key), probe.ref)
-          probe.expectMsg(Cached(key, None))
+          replicatedCache ! GetLocationFromCache(key)
+          expectMsg(LocationCached(key, None))
         }
         awaitAssert {
-          replicatedCache.tell(GetLocationsFromCache(metricKey), probe.ref)
-          val cached = probe.expectMsgType[CachedLocations]
+          replicatedCache ! GetLocationsFromCache(metricKey)
+          val cached = expectMsgType[LocationsCached]
           cached.value.size shouldBe 0
         }
 
@@ -193,27 +243,26 @@ class ReplicatedMetadataCacheSpec
       val key             = LocationKey("db", "namespace", metric, 0, 1)
       val location        = Location(metric, "node1", 0, 1)
       val updatedLocation = Location(metric, "node1", 0, 1)
-      val metricKey       = MetricKey("db", "namespace", metric)
-      val probe           = TestProbe()
+      val metricKey       = MetricLocationsKey("db", "namespace", metric)
 
       runOn(node1) {
-        replicatedCache.tell(PutInCache(key, location), probe.ref)
-        probe.expectMsg(Cached(key, Some(location)))
+        replicatedCache ! PutLocationInCache(key, location)
+        expectMsg(LocationCached(key, Some(location)))
       }
 
       runOn(node2) {
-        replicatedCache.tell(PutInCache(key, updatedLocation), probe.ref)
-        probe.expectMsg(Cached(key, Some(updatedLocation)))
+        replicatedCache ! PutLocationInCache(key, updatedLocation)
+        expectMsg(LocationCached(key, Some(updatedLocation)))
       }
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache.tell(GetFromCache(key), probe.ref)
-          probe.expectMsg(Cached(key, Some(updatedLocation)))
+          replicatedCache ! GetLocationFromCache(key)
+          expectMsg(LocationCached(key, Some(updatedLocation)))
         }
         awaitAssert {
-          replicatedCache.tell(GetLocationsFromCache(metricKey), probe.ref)
-          val cached = probe.expectMsgType[CachedLocations]
+          replicatedCache ! GetLocationsFromCache(metricKey)
+          val cached = expectMsgType[LocationsCached]
           cached.value.size shouldBe 1
         }
 

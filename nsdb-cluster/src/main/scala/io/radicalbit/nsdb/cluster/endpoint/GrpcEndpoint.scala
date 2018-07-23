@@ -22,7 +22,10 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
+import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol._
@@ -36,10 +39,13 @@ import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
+import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
+import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
+import io.radicalbit.nsdb.rpc.responseCommand.MetricSchemaRetrieved.MetricField.{FieldClassType => GrpcFieldClassType}
 import io.radicalbit.nsdb.rpc.responseCommand.{
   Namespaces,
   MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
@@ -50,10 +56,10 @@ import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
-import io.radicalbit.nsdb.rpc.responseCommand.MetricSchemaRetrieved.MetricField.{FieldClassType => GrpcFieldClassType}
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Concrete implementation of Nsdb's Grpc endpoint
@@ -61,7 +67,8 @@ import scala.util.{Failure, Success}
   * @param writeCoordinator the write coordinator actor
   * @param system the global actor system
   */
-class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implicit system: ActorSystem)
+class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metadataCoordinator: ActorRef)(
+    implicit system: ActorSystem)
     extends GRPCServer {
 
   private val log = LoggerFactory.getLogger(classOf[GrpcEndpoint])
@@ -77,6 +84,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
   override protected[this] def serviceSQL: NSDBServiceSQL = GrpcEndpointServiceSQL
 
   override protected[this] def serviceCommand: NSDBServiceCommand = GrpcEndpointServiceCommand
+
+  override protected[this] def initMetricService: InitMetric = InitMetricService
 
   override protected[this] def health: Health = GrpcEndpointServiceHealth
 
@@ -117,6 +126,42 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef)(implic
           RestoreResponse(startedSuccessfully = false,
                           errorMsg = "unknown response from write coordinator",
                           path = request.sourcePath)
+      }
+    }
+  }
+
+  /**
+    * Concrete implementation of the init metric service.
+    */
+  protected[this] object InitMetricService extends InitMetric {
+    override def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
+
+      Try { Duration(request.shardInterval).toMillis } match {
+        case Success(interval) =>
+          (metadataCoordinator ? PutMetricInfo(request.db, request.namespace, MetricInfo(request.metric, interval)))
+            .map {
+              case MetricInfoPut(_, _, _) =>
+                InitMetricResponse(request.db, request.namespace, request.metric, completedSuccessfully = true)
+              case MetricInfoFailed(_, _, _, message) =>
+                InitMetricResponse(request.db,
+                                   request.namespace,
+                                   request.metric,
+                                   completedSuccessfully = false,
+                                   errorMsg = message)
+              case _ =>
+                InitMetricResponse(request.db,
+                                   request.namespace,
+                                   request.metric,
+                                   completedSuccessfully = false,
+                                   errorMsg = "Unknown response from server")
+            }
+        case Failure(ex) =>
+          Future(
+            InitMetricResponse(request.db,
+                               request.namespace,
+                               request.metric,
+                               completedSuccessfully = false,
+                               errorMsg = ex.getMessage))
       }
     }
   }

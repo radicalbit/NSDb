@@ -14,11 +14,26 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+syntax = "proto3";
 
-import com.typesafe.scalalogging.LazyLogging
+package io.radicalbit.nsdb.rpc;
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with ProductionCluster with NsdbConfig with LazyLogging
+message InitMetricRequest {
+  string db = 1;
+  string namespace = 2;
+  string metric = 3;
+  string shardInterval = 4;
+}
+
+message InitMetricResponse {
+  string db = 1;
+  string namespace = 2;
+  string metric = 3;
+  bool completedSuccessfully = 4;
+  string errorMsg = 5;
+}
+
+service InitMetric {
+  rpc InitMetric(InitMetricRequest) returns (InitMetricResponse);
+}
+

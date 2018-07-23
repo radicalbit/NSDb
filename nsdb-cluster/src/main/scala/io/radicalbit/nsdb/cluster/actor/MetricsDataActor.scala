@@ -19,12 +19,12 @@ package io.radicalbit.nsdb.cluster.actor
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, ShardKey, MetricReaderActor}
+import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor, ShardKey}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -32,6 +32,7 @@ import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.concurrent.Future
 
@@ -39,7 +40,7 @@ import scala.concurrent.Future
   * Actor responsible for dispatching read or write commands to the proper actor and index.
   * @param basePath indexes' root path.
   */
-class MetricsDataActor(val basePath: String) extends Actor with ActorLogging {
+class MetricsDataActor(val basePath: String) extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 

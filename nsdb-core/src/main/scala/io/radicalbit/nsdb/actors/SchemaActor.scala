@@ -19,11 +19,12 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.Props
 import io.radicalbit.nsdb.index.SchemaIndex
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 
@@ -49,7 +50,7 @@ import scala.util.{Failure, Success}
   * @param db the db.
   * @param namespace the namespace.
   */
-class SchemaActor(val basePath: String, val db: String, val namespace: String) extends Actor with ActorLogging {
+class SchemaActor(val basePath: String, val db: String, val namespace: String) extends ActorPathLogging {
 
   /**
     * the lucene index to store schemas in

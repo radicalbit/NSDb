@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+package io.radicalbit.nsdb.util
 
-import com.typesafe.scalalogging.LazyLogging
+import akka.actor.DiagnosticActorLogging
+import akka.event.Logging.MDC
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with ProductionCluster with NsdbConfig with LazyLogging
+trait ActorPathLogging extends DiagnosticActorLogging {
+
+  override def mdc(currentMessage: Any): MDC =
+    Map("actorName" -> self.path.name)
+
+}

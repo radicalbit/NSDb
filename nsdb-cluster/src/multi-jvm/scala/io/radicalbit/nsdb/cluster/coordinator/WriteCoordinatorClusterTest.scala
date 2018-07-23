@@ -12,8 +12,8 @@ import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, WarmUpCompleted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetConnectedNodes, MapInput}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{ConnectedNodesGot, InputMapped}
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.scalatest.BeforeAndAfterAll
 
@@ -34,6 +34,10 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |}
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
+    |
+    |  index {
+    |    base-path= "target/test_index/WriteCoordinatorClusterTest"
+    |  }
     |
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
@@ -83,21 +87,21 @@ class WriteCoordinatorClusterTest
 
   val mediator = DistributedPubSub(system).mediator
 
-  val metadataCoordinator =
-    system.actorSelection("/user/guardian/metadata-coordinator")
-  val writeCoordinator =
-    system.actorSelection("/user/guardian/write-coordinator")
-
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
+      log.error(s"------- ADDRESS ${node(from).address}")
       cluster join node(to).address
     }
     enterBarrier(from.name + "-joined")
   }
 
-  "WriteCoordinator" must {
+  "WriteCoordinator" should {
 
     "join cluster" in within(10.seconds) {
+
+      val selfMember = cluster.selfMember
+      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
       join(node1, node1)
       join(node2, node1)
 
@@ -106,101 +110,189 @@ class WriteCoordinatorClusterTest
         expectMsg(2)
       }
 
+//      expectNoMessage(2 second)
+
       enterBarrier("Joined")
     }
 
     "write records and update metadata" in within(10.seconds) {
 
-      metadataCoordinator ! GetLocations("db", "namespace", "metric")
-      val initialLoc = awaitAssert {
-        expectMsgType[LocationsGot]
-      }
-      initialLoc.locations.size shouldBe 0
+      awaitAssert {
 
-      Thread.sleep(200)
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+        val initialLoc = expectMsgType[LocationsGot]
+        initialLoc.locations.size shouldBe 0
+      }
+
+      enterBarrier("Clean startup")
 
       runOn(node1) {
+
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val writeCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(0, 1.0, Map.empty, Map.empty))
+        expectMsgType[InputMapped]
+      }
+
+      awaitAssert {
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+        val locations_1 = expectMsgType[LocationsGot]
+        locations_1.locations.size shouldBe 1
+        locations_1.locations.head.from shouldBe 0
+        locations_1.locations.head.to shouldBe 60000
+      }
+
+      enterBarrier("single location from node 1")
+
+      runOn(node2) {
         awaitAssert {
+          val selfMember = cluster.selfMember
+          val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+          val writeCoordinator = Await.result(
+            system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName").resolveOne(5 seconds),
+            5 seconds)
+
+          writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty, Map.empty))
           expectMsgType[InputMapped]
         }
       }
 
-      Thread.sleep(500)
+      awaitAssert {
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-      metadataCoordinator ! GetLocations("db", "namespace", "metric")
-      val locations_1 = awaitAssert {
-        expectMsgType[LocationsGot]
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+        val locations_2 = expectMsgType[LocationsGot]
+        locations_2.locations.size shouldBe 1
+        locations_2.locations.head.from shouldBe 0
+        locations_2.locations.head.to shouldBe 60000
       }
-      locations_1.locations.size shouldBe 1
-      locations_1.locations.head.from shouldBe 0
-      locations_1.locations.head.to shouldBe 60000
 
-      Thread.sleep(200)
+      enterBarrier("single location from node 2")
 
       runOn(node2) {
-        writeCoordinator ! MapInput(1, "db", "namespace", "metric", Bit(1, 1.0, Map.empty, Map.empty))
-        awaitAssert {
-          expectMsgType[InputMapped]
-        }
-      }
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-      metadataCoordinator ! GetLocations("db", "namespace", "metric")
-      val locations_2 = awaitAssert {
-        expectMsgType[LocationsGot]
-      }
-      locations_2.locations.size shouldBe 1
-      locations_2.locations.head.from shouldBe 0
-      locations_2.locations.head.to shouldBe 60000
+        val writeCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
 
-      runOn(node2) {
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(50000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
-      metadataCoordinator ! GetLocations("db", "namespace", "metric")
-      val locations_3 = awaitAssert {
-        expectMsgType[LocationsGot]
+      awaitAssert {
+
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+
+        val locations_3 = expectMsgType[LocationsGot]
+        locations_3.locations.size shouldBe 1
+        locations_3.locations.head.from shouldBe 0
+        locations_3.locations.head.to shouldBe 60000
       }
-      locations_3.locations.size shouldBe 1
-      locations_3.locations.head.from shouldBe 0
-      locations_3.locations.head.to shouldBe 60000
 
       runOn(node1) {
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val writeCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(30000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
       runOn(node2) {
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val writeCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
         writeCoordinator ! MapInput(0, "db", "namespace", "metric", Bit(40000, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
-      metadataCoordinator ! GetLocations("db", "namespace", "metric")
-      val locations_4 = awaitAssert {
-        expectMsgType[LocationsGot]
+      awaitAssert {
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+
+        val locations_4 = expectMsgType[LocationsGot]
+        locations_4.locations.size shouldBe 1
+        locations_4.locations.head.from shouldBe 0
+        locations_4.locations.head.to shouldBe 60000
       }
-      locations_4.locations.size shouldBe 1
-      locations_4.locations.head.from shouldBe 0
-      locations_4.locations.head.to shouldBe 60000
 
       enterBarrier("Single Location")
 
       runOn(node1) {
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val writeCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/write-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
         writeCoordinator ! MapInput(60001, "db", "namespace", "metric", Bit(60001, 1.0, Map.empty, Map.empty))
         expectMsgType[InputMapped]
       }
 
-      Thread.sleep(200)
+      awaitAssert {
 
-      metadataCoordinator ! GetLocations("db", "namespace", "metric")
-      val locations_5 = awaitAssert {
-        expectMsgType[LocationsGot]
+        val selfMember = cluster.selfMember
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5 seconds),
+          5 seconds)
+
+        metadataCoordinator ! GetLocations("db", "namespace", "metric")
+
+        val locations_5 = expectMsgType[LocationsGot]
+        locations_5.locations.size shouldBe 2
+        locations_5.locations.head.from shouldBe 0
+        locations_5.locations.head.to shouldBe 60000
+        locations_5.locations.last.from shouldBe 60000
+        locations_5.locations.last.to shouldBe 120000
       }
-      locations_5.locations.size shouldBe 2
-      locations_5.locations.head.from shouldBe 0
-      locations_5.locations.head.to shouldBe 60000
-      locations_5.locations.last.from shouldBe 60000
-      locations_5.locations.last.to shouldBe 120000
 
       enterBarrier("Multiple Location")
 

@@ -21,14 +21,9 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.FakeCache.{DeleteAll, DeleteDone}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
-  AddLocation,
-  GetLocations,
-  GetWriteLocation,
-  WarmUpLocations
-}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationAdded, LocationGot, LocationsGot}
-import io.radicalbit.nsdb.cluster.index.Location
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 import akka.pattern._
 import akka.util.Timeout
@@ -39,18 +34,31 @@ import scala.concurrent.duration._
 
 class FakeCache extends Actor {
 
-  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty[LocationKey, Location]
+  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty
+
+  val metricInfo: mutable.Map[MetricInfoKey, MetricInfo] = mutable.Map.empty
 
   def receive: Receive = {
-    case PutInCache(key, value) =>
+    case PutLocationInCache(key, value) =>
       locations.put(key, value)
-      sender ! Cached(key, Some(value))
+      sender ! LocationCached(key, Some(value))
     case GetLocationsFromCache(key) =>
       val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq
-      sender ! CachedLocations(key, locs)
+      sender ! LocationsCached(key, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
+      metricInfo.keys.foreach(k => metricInfo.remove(k))
       sender() ! DeleteDone
+    case PutMetricInfoInCache(key, value) =>
+      metricInfo.get(key) match {
+        case Some(v) =>
+          sender ! MetricInfoAlreadyExisting(key, v)
+        case None =>
+          metricInfo.put(key, value)
+          sender ! MetricInfoCached(key, Some(value))
+      }
+    case GetMetricInfoFromCache(key) =>
+      sender ! MetricInfoCached(key, metricInfo.get(key))
   }
 }
 
@@ -88,7 +96,7 @@ class MetadataCoordinatorSpec
   val metric    = "testMetric"
 
   override def beforeAll = {
-    probe.send(metadataCoordinator, WarmUpLocations(List.empty))
+    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
     probe.expectNoMessage(1 second)
   }
 
@@ -162,12 +170,9 @@ class MetadataCoordinatorSpec
       loc.map(_.node) shouldBe Seq("node_01", "node_01")
     }
 
-    "retrieve correct write Location given a timestamp" in {
-      val timestamp_1 = 1L
-      val timestamp_2 = 60001L
-      val timestamp_3 = 60002L
+    "retrieve correct default write Location given a timestamp" in {
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, timestamp_1))
+      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 1))
       val locationGot = awaitAssert {
         probe.expectMsgType[LocationGot]
       }
@@ -179,7 +184,7 @@ class MetadataCoordinatorSpec
       locationGot.location.get.from shouldBe 0L
       locationGot.location.get.to shouldBe 60000L
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, timestamp_2))
+      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 60001))
       val locationGot_2 = awaitAssert {
         probe.expectMsgType[LocationGot]
       }
@@ -191,7 +196,7 @@ class MetadataCoordinatorSpec
       locationGot_2.location.get.from shouldBe 60000L
       locationGot_2.location.get.to shouldBe 120000L
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, timestamp_3))
+      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 60002))
       val locationGot_3 = awaitAssert {
         probe.expectMsgType[LocationGot]
       }
@@ -200,9 +205,100 @@ class MetadataCoordinatorSpec
       locationGot_3.namespace shouldBe namespace
       locationGot_3.metric shouldBe metric
       locationGot_3.location.isDefined shouldBe true
-      locationGot_3.location.get.to shouldBe 120000L
       locationGot_3.location.get.from shouldBe 60000L
+      locationGot_3.location.get.to shouldBe 120000L
 
+    }
+
+    "retrieve correct write Location for a initialized metric with a different shard interval" in {
+
+      val metricInfo = MetricInfo(metric, 100)
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoPut]
+      }.metricInfo shouldBe metricInfo
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo shouldBe Some(metricInfo)
+
+      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 1))
+      val locationGot = awaitAssert {
+        probe.expectMsgType[LocationGot]
+      }
+
+      locationGot.db shouldBe db
+      locationGot.namespace shouldBe namespace
+      locationGot.metric shouldBe metric
+      locationGot.location.isDefined shouldBe true
+      locationGot.location.get.from shouldBe 0L
+      locationGot.location.get.to shouldBe 100L
+
+      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 101))
+      val locationGot_2 = awaitAssert {
+        probe.expectMsgType[LocationGot]
+      }
+
+      locationGot_2.db shouldBe db
+      locationGot_2.namespace shouldBe namespace
+      locationGot_2.metric shouldBe metric
+      locationGot_2.location.isDefined shouldBe true
+      locationGot_2.location.get.from shouldBe 100L
+      locationGot_2.location.get.to shouldBe 200L
+
+      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 202))
+      val locationGot_3 = awaitAssert {
+        probe.expectMsgType[LocationGot]
+      }
+
+      locationGot_3.db shouldBe db
+      locationGot_3.namespace shouldBe namespace
+      locationGot_3.metric shouldBe metric
+      locationGot_3.location.isDefined shouldBe true
+      locationGot_3.location.get.from shouldBe 200L
+      locationGot_3.location.get.to shouldBe 300L
+    }
+
+    "retrieve metric infos" in {
+
+      val metricInfo = MetricInfo(metric, 100)
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo.isEmpty shouldBe true
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoPut]
+      }.metricInfo shouldBe metricInfo
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo shouldBe Some(metricInfo)
+    }
+
+    "not allow to insert a metric info already inserted" in {
+
+      val metricInfo = MetricInfo(metric, 100)
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoPut]
+      }.metricInfo shouldBe metricInfo
+
+      probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoGot]
+      }.metricInfo shouldBe Some(metricInfo)
+
+      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoFailed]
+      }
     }
   }
 
