@@ -22,7 +22,7 @@ import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
-import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
+import io.radicalbit.nsdb.index.AllFacetIndexes
 import org.apache.lucene.index.IndexWriter
 
 import scala.concurrent.ExecutionContextExecutor
@@ -50,42 +50,49 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
       val groupedByKey = opBufferMap.values.groupBy(_.shardKey)
       groupedByKey.foreach {
         case (key, ops) =>
-          val index                               = getIndex(key)
-          val facetIndex                          = getFacetIndex(key)
-          implicit val writer: IndexWriter        = index.getWriter
-          val facetWriter: IndexWriter            = facetIndex.getWriter
-          val taxoWriter: DirectoryTaxonomyWriter = facetIndex.getTaxoWriter
+          val index                        = getIndex(key)
+          val facetIndexes                 = facetIndexesFor(key)
+          implicit val writer: IndexWriter = index.getWriter
+
+          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = key)
+          val facetsIndexWriter = facets.newIndexWriter
+          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+
           ops.foreach {
             case WriteShardOperation(_, _, bit) =>
               index.write(bit) match {
                 case Success(_) =>
-                  facetIndex.write(bit)(facetWriter, taxoWriter) match {
+                  facets.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
                     case Failure(t) =>
-                      log.error(t, "error during write on facetIndex")
+                      // rollback main index
+                      // FIXME: we should manage here the possible delete failures
                       index.delete(bit)
+                      log.error(t, "error during write on facet indexes")
                   }
+
                 case Failure(t) => log.error(t, "error during write on index")
               }
             case DeleteShardRecordOperation(_, _, bit) =>
               index.delete(bit) match {
                 case Success(_) =>
-                  facetIndex.delete(bit)(facetWriter)
+                  facetIndexes.delete(bit)
                 case Failure(t) =>
                   log.error(t, s"error during delete of Bit: $bit")
               }
             case DeleteShardQueryOperation(_, _, q) =>
               index.delete(q) match {
                 case Success(_) =>
-                  facetIndex.delete(q)(facetWriter)
+                  facetIndexes.delete(q)
                 case Failure(t) =>
                   log.error(t, s"error during delete by query $q")
               }
           }
           writer.flush()
           writer.close()
-          taxoWriter.close()
-          facetWriter.close()
+
+          facetsTaxoWriter.close()
+          facetsIndexWriter.close()
       }
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
   }

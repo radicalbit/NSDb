@@ -25,14 +25,12 @@ import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
-import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.commons.io.FileUtils
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.store.MMapDirectory
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
@@ -122,9 +120,9 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
           index.refresh()
       }
       facetIndexShards.foreach {
-        case (k, index) =>
-          implicit val writer: IndexWriter = index.getWriter
-          index.deleteAll()
+        case (k, indexes) =>
+          implicit val writer: IndexWriter = indexes.newIndexWriter
+          indexes.deleteAll()
           writer.close()
           facetIndexShards -= k
       }
@@ -142,11 +140,11 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
           shards -= key
       }
       facetsShardsFromMetric(metric).foreach {
-        case (key, index) =>
-          implicit val writer: IndexWriter = index.getWriter
-          index.deleteAll()
+        case (key, indexes) =>
+          implicit val writer: IndexWriter = indexes.newIndexWriter
+          indexes.deleteAll()
           writer.close()
-          index.refresh()
+          indexes.refresh()
           facetIndexShards -= key
       }
 
@@ -190,7 +188,7 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
       performingOps = Map.empty
       keys.foreach { key =>
         getIndex(key).refresh()
-        getFacetIndex(key).refresh()
+        facetIndexesFor(key).refresh()
       }
       readerActor ! Broadcast(msg)
   }

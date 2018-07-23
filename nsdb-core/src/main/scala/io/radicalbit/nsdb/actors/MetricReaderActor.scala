@@ -64,7 +64,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param key The shard key to identify the actor.
     * @return The existing or the created shard actor.
     */
-  private def getOrCreateActor(key: ShardKey) = {
+  private def getOrCreateActor(key: ShardKey) =
     actors.getOrElse(
       key, {
         val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key),
@@ -73,7 +73,8 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         newActor
       }
     )
-  }
+
+  private def actorName(key: ShardKey) = s"shard_reader_${key.metric}_${key.from}_${key.to}"
 
   /**
     * Retrieve all the shard actors for a given metric.
@@ -141,7 +142,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def gatherAndgroupShardResults(
+  private def gatherAndGroupShardResults(
       actors: Seq[(ShardKey, ActorRef)],
       statement: SelectSQLStatement,
       groupBy: String,
@@ -291,7 +292,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
+          val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
             Bit(
               timestamp = 0,
               value = 0,
@@ -308,7 +309,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
+          val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
               Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
           }
@@ -321,7 +322,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val rawResult = gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
+          val rawResult = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
@@ -336,7 +337,9 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           }
 
           applyOrderingWithLimit(rawResult, statement, schema)
-            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
+            .map { resp =>
+              generateResponse(statement.db, statement.namespace, statement.metric, resp)
+            }
             .pipeTo(sender)
 
         case Failure(ex) => Failure(ex)
