@@ -125,7 +125,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                 .map { lv =>
                   val boundaries = lv.label.split("-").map(_.toLong).toSeq
                   Bit(boundaries.head,
-                      lv.value,
+                      lv.value.longValue(),
                       Map[String, JSerializable](("lowerBound", boundaries.head),
                                                  ("upperBound", boundaries.tail.head)),
                       Map.empty)
