@@ -167,9 +167,9 @@ class TimeRangeFacetTest extends FlatSpec with Matchers with OneInstancePerTest 
 
     val records: Seq[Bit] = (0 to 50).map { i =>
       Bit(timestamp = i.toLong,
-        value = i.toLong,
-        dimensions = Map("dimension" -> s"dimension_${i / 10}"),
-        tags = Map("tag"             -> s"tag_${i / 10}"))
+          value = i.toLong,
+          dimensions = Map("dimension" -> s"dimension_${i / 10}"),
+          tags = Map("tag"             -> s"tag_${i / 10}"))
     }
 
     implicit val writer = timeSeriesIndex.getWriter
