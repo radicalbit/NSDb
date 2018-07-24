@@ -31,7 +31,7 @@ import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import io.radicalbit.nsdb.util.ActorPathLogging
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 
 /**
   * Actor that handles metadata (i.e. write location for metrics)
@@ -45,6 +45,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     context.system.settings.config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
+  import scala.concurrent.duration._
 
   lazy val defaultShardingInterval: Long =
     context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
@@ -93,6 +94,16 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
 
+  private def performAddIntoCache(db: String, namespace: String, location: Location) = {
+    (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
+      .map {
+        case LocationCached(_, Some(_)) =>
+          mediator ! Publish(metadataTopic, AddLocation(db, namespace, location))
+          LocationAdded(db, namespace, location)
+        case _ => AddLocationFailed(db, namespace, location)
+      }
+  }
+
   /**
     * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
     * @param db the db.
@@ -122,7 +133,11 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     case GetWriteLocation(db, namespace, metric, timestamp) =>
       val nodeName =
         s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-      (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
+      val replyTo = sender()
+
+      // FIXME this operation must be blocking otherwise we may have concurrent location update, a solution could be delegation
+      // There must be a pool of actor one for each metric
+      val reply = (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
         .flatMap {
           case LocationsCached(_, values) if values.nonEmpty =>
             values.find(v => v.from <= timestamp && v.to >= timestamp) match {
@@ -132,11 +147,10 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                   .flatMap { interval =>
                     val start = getShardStartIstant(timestamp, interval)
                     val end   = getShardEndIstant(start, interval)
-                    (self ? AddLocation(db, namespace, Location(metric, nodeName, start, end)))
-                      .map {
-                        case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                        case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-                      }
+                    performAddIntoCache(db, namespace, Location(metric, nodeName, start, end)).map {
+                      case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                      case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                    }
                   }
 
             }
@@ -145,24 +159,17 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
               .flatMap { interval =>
                 val start = getShardStartIstant(timestamp, interval)
                 val end   = getShardEndIstant(start, interval)
-
-                (self ? AddLocation(db, namespace, Location(metric, nodeName, start, end)))
-                  .map {
-                    case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                    case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-                  }
+                performAddIntoCache(db, namespace, Location(metric, nodeName, start, end)).map {
+                  case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                  case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                }
               }
         }
-        .pipeTo(sender)
+
+      val response = Await.result(reply, 1 second)
+      replyTo ! response
     case msg @ AddLocation(db, namespace, location) =>
-      (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
-        .map {
-          case LocationCached(_, Some(_)) =>
-            mediator ! Publish(metadataTopic, msg)
-            LocationAdded(db, namespace, location)
-          case _ => AddLocationFailed(db, namespace, location)
-        }
-        .pipeTo(sender)
+      performAddIntoCache(db, namespace, location).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
         .map {

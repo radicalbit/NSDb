@@ -33,7 +33,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -51,6 +51,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
+  import scala.concurrent.duration._
 
   lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
 
@@ -136,7 +137,10 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
         }
         .pipeTo(sender)
     case UpdateSchemaFromRecord(db, namespace, metric, record) =>
-      (schemaCache ? GetSchemaFromCache(db, namespace, metric))
+      val replyTo = sender()
+      // FIXME: this operation must be blocking otherwise we may have concurrent schema update, a solution could be delegation
+      // There must be a pool of actors, one for each metric
+      val reply = (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .flatMap {
           case SchemaCached(_, _, _, schemaOpt) =>
             (Schema(metric, record), schemaOpt) match {
@@ -157,7 +161,9 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           //TODO handle error
           case _ => Future(SchemaGot(db, namespace, metric, None))
         }
-        .pipeTo(sender)
+
+      val response = Await.result(reply, 1 second)
+      replyTo ! response
     case DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
