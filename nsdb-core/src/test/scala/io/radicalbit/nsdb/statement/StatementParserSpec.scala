@@ -728,34 +728,34 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-//    "receive a complex select containing a range selection a desc ordering statement, a limit statement and a group by" should {
-//      "parse it successfully" in {
-//        StatementParser.parseStatement(
-//          SelectSQLStatement(
-//            db = "db",
-//            namespace = "registry",
-//            metric = "people",
-//            distinct = false,
-//            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
-//            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-//            groupBy = Some("name"),
-//            order = Some(DescOrderOperator(dimension = "value")),
-//            limit = Some(LimitOperator(5))
-//          ),
-//          schema
-//        ) should be(
-//          Success(
-//            ParsedAggregatedQuery(
-//              "registry",
-//              "people",
-//              LongPoint.newRangeQuery("timestamp", 2L, 4L),
-//              new MaxAllGroupsCollector[Long, String]("name", "value"),
-//              Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
-//              Some(5)
-//            ))
-//        )
-//      }
-//    }
+    "receive a complex select containing a range selection a desc ordering statement, a limit statement and a group by" should {
+      "parse it successfully" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            groupBy = Some("name"),
+            order = Some(DescOrderOperator(dimension = "value")),
+            limit = Some(LimitOperator(5))
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2L, 4L),
+              new InternalMaxAggregation("name", "value"),
+              Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
+              Some(5)
+            ))
+        )
+      }
+    }
 
     "receive a select containing a not nullable expression on string" should {
       "parse it successfully" in {

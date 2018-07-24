@@ -21,6 +21,7 @@ import java.util.UUID
 
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.statement.StatementParser.InternalMaxAggregation
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
@@ -148,6 +149,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
   }
 
+  //FIXME: these tests currently don't compile because the max aggregation is still not implemented on top of Lucene facets
+  //FIXME: please remember to remove comments in order to re-enable them
+
+
 //  "TimeSeriesIndex" should "support groupBy queries" in {
 //    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 //
@@ -163,7 +168,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //
 //    writer.close()
 //
-//    val collector = new MaxAllGroupsCollector[Long, String]("tag", "number")
+//    val collector = InternalMaxAggregation("tag", "number")
 //
 //    timeSeriesIndex.getSearcher.search(new MatchAllDocsQuery(), collector)
 //
@@ -171,7 +176,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //    val sorted = collector.getGroupMap.toSeq.sortBy(_._2)
 //    sorted shouldBe Seq(("tag_0", 3), ("tag_1", 7), ("tag_2", 9))
 //  }
-
+//
 //  "TimeSeriesIndex" should "support groupBy queries with ordering" in {
 //    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 //
@@ -190,7 +195,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //
 //    val results = timeSeriesIndex.query(schema,
 //                                        new MatchAllDocsQuery(),
-//                                        new MaxAllGroupsCollector[Long, String]("tag", "value"),
+//                                        InternalMaxAggregation("tag", "value"),
 //                                        None,
 //                                        Some(ascSort))
 //
@@ -204,7 +209,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //
 //    val descResults = timeSeriesIndex.query(schema,
 //                                            new MatchAllDocsQuery(),
-//                                            new MaxAllGroupsCollector[Long, String]("tag", "value"),
+//                                            InternalMaxAggregation("tag", "value"),
 //                                            None,
 //                                            Some(descSort))
 //
@@ -214,7 +219,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //      Bit(0, 3, Map.empty, tags = Map("tag" -> "tag_0"))
 //    )
 //  }
-
+//
 //  "TimeSeriesIndex" should "support groupBy queries with ordering and limiting" in {
 //    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 //
@@ -233,7 +238,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //
 //    val descResults = timeSeriesIndex.query(schema,
 //                                            new MatchAllDocsQuery(),
-//                                            new MaxAllGroupsCollector[Long, String]("dimension", "value"),
+//                                            InternalMaxAggregation("dimension", "value"),
 //                                            Some(2),
 //                                            Some(descSort))
 //

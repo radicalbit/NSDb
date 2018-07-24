@@ -76,9 +76,6 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
 
       val actualLimit = Int.MaxValue
 
-      //      sort.map(FacetsCollector.search(getSearcher, query, actualLimit, _, fc))
-      //        .getOrElse(FacetsCollector.search(getSearcher, query, actualLimit, fc))
-
       FacetsCollector.search(getSearcher, query, actualLimit, fc)
 
       val facetsFolder = valueIndexType match {
@@ -86,11 +83,6 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
         case Some(_: BIGINT)  => new TaxonomyFacetSumIntAssociations(facetName(groupField), taxoReader, config, fc)
         case Some(_: DECIMAL) => new TaxonomyFacetSumFloatAssociations(facetName(groupField), taxoReader, config, fc)
       }
-
-      //      val facetsFolder = sort.map(new OrderedTaxonomyFacetCounts(facetSumName(groupField), getReader, config, fc, _))
-      //          .getOrElse(new TaxonomyFacetSumIntAssociations(s"facet_$groupField", getReader, config, fc))
-
-      //      val facetsFolder = new TaxonomyFacetSumIntAssociations(facetSumName(groupField), getReader, config, fc)
 
       Option(facetsFolder.getTopChildren(actualLimit, groupField))
     }.recoverWith {
