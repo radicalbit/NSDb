@@ -16,19 +16,16 @@
 
 package io.radicalbit.nsdb.statement
 
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.apache.lucene.search._
 
-import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**
-  * This class exposes method for parsing from a [[SQLStatement]] into a [[io.radicalbit.nsdb.statement.StatementParser.ParsedQuery]].
+  * This class exposes method for parsing from a [[io.radicalbit.nsdb.common.statement.SQLStatement]] into a [[io.radicalbit.nsdb.statement.StatementParser.ParsedQuery]].
   */
 object StatementParser {
 
@@ -45,36 +42,18 @@ object StatementParser {
   }
 
   /**
-    * Retrieves internal [[AllGroupsAggregationCollector]] based on [[AllGroupsAggregationCollector]] provided into the query.
+    * Retrieves internal [[InternalAggregationType]] based on provided into the query.
     * @param groupField group by field.
     * @param aggregateField filed to apply the aggregation to.
     * @param agg aggregation clause in query (min, max, sum, count).
-    * @param aggregateFieldType aggregate field internal type descriptor, as a subclass of [[NumericType]].
-    * @param groupFieldType group field internal type descriptor, as a subclass of [[IndexType]].
-    * @return an instance of [[AllGroupsAggregationCollector]] based on the given parameters.
+    * @return an instance of [[InternalAggregationType]] based on the given parameters.
     */
-  private def getCollector[T <: NumericType[_, _], S <: IndexType[_]](
-      groupField: String,
-      aggregateField: String,
-      agg: Aggregation,
-      aggregateFieldType: T,
-      groupFieldType: S): AllGroupsAggregationCollector[_, _] = {
+  private def aggregationType(groupField: String, aggregateField: String, agg: Aggregation): InternalAggregationType = {
     agg match {
-      case CountAggregation =>
-        new CountAllGroupsCollector(groupField, aggregateField)(groupFieldType.ord,
-                                                                ClassTag(groupFieldType.actualType))
-      case MaxAggregation =>
-        new MaxAllGroupsCollector(groupField, aggregateField)(aggregateFieldType.scalaNumeric,
-                                                              groupFieldType.ord,
-                                                              ClassTag(groupFieldType.actualType))
-      case MinAggregation =>
-        new MinAllGroupsCollector(groupField, aggregateField)(aggregateFieldType.scalaNumeric,
-                                                              groupFieldType.ord,
-                                                              ClassTag(groupFieldType.actualType))
-      case SumAggregation =>
-        new SumAllGroupsCollector(groupField, aggregateField)(aggregateFieldType.scalaNumeric,
-                                                              groupFieldType.ord,
-                                                              ClassTag(groupFieldType.actualType))
+      case CountAggregation => new InternalCountAggregation(groupField, aggregateField)
+      case MaxAggregation   => new InternalMaxAggregation(groupField, aggregateField)
+      case MinAggregation   => new InternalMinAggregation(groupField, aggregateField)
+      case SumAggregation   => InternalSumAggregation(groupField, aggregateField)
     }
   }
 
@@ -129,11 +108,7 @@ object StatementParser {
               statement.namespace,
               statement.metric,
               exp.q,
-              getCollector(group,
-                           "value",
-                           agg,
-                           schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_ <: JSerializable, _]],
-                           schema.fieldsMap(group).indexType),
+              aggregationType(groupField = group, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
               sortOpt,
               limitOpt
             ))
@@ -235,14 +210,14 @@ object StatementParser {
     * @param namespace query namespace.
     * @param metric query metric.
     * @param q lucene's [[Query]]
-    * @param collector lucene [[AllGroupsAggregationCollector]] that must be used to collect and aggregate query's results.
+    * @param aggregationType lucene [[InternalAggregationType]] that must be used to collect and aggregate query's results.
     * @param sort lucene [[Sort]] clause. None if no sort has been supplied.
     * @param limit groups limit.
     */
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   collector: AllGroupsAggregationCollector[_, _],
+                                   aggregationType: InternalAggregationType,
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
       extends ParsedQuery
@@ -254,4 +229,20 @@ object StatementParser {
     * @param q lucene's [[Query]]
     */
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
+
+  sealed trait InternalAggregationType {
+
+    def groupField: String
+
+    def aggregateField: String
+  }
+
+  case class InternalCountAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalAggregationType
+  case class InternalMaxAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalAggregationType
+  case class InternalMinAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalAggregationType
+  case class InternalSumAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalAggregationType
 }

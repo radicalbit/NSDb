@@ -19,17 +19,17 @@ import sbt._
 object Dependencies {
 
   object scalaLang {
-    lazy val version   = "2.12.4"
+    lazy val version   = "2.12.6"
     lazy val namespace = "org.scala-lang"
     lazy val compiler  = namespace % "scala-compiler" % version
   }
 
   object scalaModules {
-    lazy val version           = "1.0.6"
+    lazy val version           = "1.1.1"
     lazy val namespace         = "org.scala-lang.modules"
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
 
-    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "0.8.0"
+    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "0.9.0"
   }
 
   object scopt {
@@ -51,7 +51,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.6"
+    lazy val version   = "2.5.13"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -66,7 +66,7 @@ object Dependencies {
   }
 
   object scala_logging {
-    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2"
+    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
   }
 
   object logback {
@@ -85,7 +85,7 @@ object Dependencies {
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
     lazy val default         = namespace %% "akka-http" % version
     lazy val testkit         = namespace %% "akka-http-testkit" % version % Test
-    lazy val akkaHttpJson4s  = "de.heikoseeberger" %% "akka-http-json4s" % "1.18.1"
+    lazy val akkaHttpJson4s  = "de.heikoseeberger" %% "akka-http-json4s" % "1.21.0"
     lazy val sprayJson       = "com.typesafe.akka" %% "akka-http-spray-json" % version
     lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http" % "0.14.0"
     lazy val core            = Seq(core_http, default, testkit)
@@ -98,25 +98,25 @@ object Dependencies {
   }
 
   object swagger {
-    lazy val version     = "1.5.18"
+    lazy val version     = "1.5.19"
     lazy val namespace   = "io.swagger"
     lazy val coreSwagger = namespace % "swagger-jaxrs" % version
   }
 
   object javaWebsocket {
-    lazy val version       = "1.3.0"
+    lazy val version       = "1.3.8"
     lazy val namespace     = "org.java-websocket"
     lazy val javaWebsocket = namespace % "Java-WebSocket" % version
   }
 
   object json4s {
-    lazy val version   = "3.5.2"
+    lazy val version   = "3.5.4"
     lazy val namespace = "org.json4s"
     lazy val jackson   = namespace %% "json4s-jackson" % version
   }
 
   object lucene {
-    lazy val version     = "6.6.0"
+    lazy val version     = "7.4.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -125,7 +125,7 @@ object Dependencies {
   }
 
   object scalatest {
-    lazy val version   = "3.0.0"
+    lazy val version   = "3.0.5"
     lazy val namespace = "org.scalatest"
     lazy val core      = namespace %% "scalatest" % version
   }
@@ -156,7 +156,7 @@ object Dependencies {
   }
 
   object kcql {
-    private lazy val version   = "2.5.1"
+    private lazy val version   = "2.8"
     private lazy val namespace = "com.datamountaineer"
     lazy val kcql              = namespace % "kcql" % version
   }
@@ -164,15 +164,15 @@ object Dependencies {
   lazy val asm = "asm" % "asm" % "3.3.1" % Test //import to use ClosureCleaner in test
 
   object gRPC {
-    lazy val version         = "1.4.0"
+    lazy val version         = scalapb.compiler.Version.grpcJavaVersion
     lazy val namespace       = "io.grpc"
     lazy val `grpc-netty`    = namespace % "grpc-netty" % version
     lazy val `grpc-protobuf` = namespace % "grpc-protobuf" % version
   }
 
   object scalaPB {
-    lazy val version        = "0.6.1"
-    lazy val namespace      = "com.trueaccord.scalapb"
+    lazy val version        = scalapb.compiler.Version.scalapbVersion
+    lazy val namespace      = "com.thesamet.scalapb"
     lazy val `runtime`      = namespace %% "scalapb-runtime" % version % "protobuf"
     lazy val `runtime-grpc` = namespace %% "scalapb-runtime-grpc" % version
   }
@@ -190,13 +190,13 @@ object Dependencies {
   }
 
   object config {
-    lazy val version   = "1.3.1"
+    lazy val version   = "1.3.3"
     lazy val namespace = "com.typesafe"
     lazy val core      = namespace % "config" % version
   }
 
   object gatling {
-    lazy val version    = "2.2.0"
+    lazy val version    = "2.3.1"
     lazy val namespace  = "io.gatling"
     lazy val test       = namespace % "gatling-test-framework" % version
     lazy val highcharts = s"$namespace.highcharts" % "gatling-charts-highcharts" % version

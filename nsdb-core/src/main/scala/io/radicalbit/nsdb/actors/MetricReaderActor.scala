@@ -29,7 +29,6 @@ import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
-import io.radicalbit.nsdb.index.lucene._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -65,7 +64,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param key The shard key to identify the actor.
     * @return The existing or the created shard actor.
     */
-  private def getOrCreateActor(key: ShardKey) = {
+  private def getOrCreateActor(key: ShardKey) =
     actors.getOrElse(
       key, {
         val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key),
@@ -74,7 +73,8 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         newActor
       }
     )
-  }
+
+  private def actorName(key: ShardKey) = s"shard_reader_${key.metric}_${key.from}_${key.to}"
 
   /**
     * Retrieve all the shard actors for a given metric.
@@ -142,7 +142,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def gatherAndgroupShardResults(
+  private def gatherAndGroupShardResults(
       actors: Seq[(ShardKey, ActorRef)],
       statement: SelectSQLStatement,
       groupBy: String,
@@ -292,7 +292,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
+          val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
             Bit(
               timestamp = 0,
               value = 0,
@@ -305,11 +305,11 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, _: CountAllGroupsCollector[_], _, _)) =>
+        case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
           val filteredIndexes =
             filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
 
-          val shardResults = gatherAndgroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
+          val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
               Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
           }
@@ -318,26 +318,28 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, collector, _, _)) =>
-          val rawResult =
-            gatherAndgroupShardResults(actorsForMetric(statement.metric).toSeq,
-                                       statement,
-                                       statement.groupBy.get,
-                                       schema) { values =>
+        case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+          val filteredIndexes =
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+
+          val rawResult = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
+            values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
-              collector match {
-                case _: MaxAllGroupsCollector[_, _] =>
+              aggregationType match {
+                case InternalMaxAggregation(_, _) =>
                   Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
-                case _: MinAllGroupsCollector[_, _] =>
+                case InternalMinAggregation(_, _) =>
                   Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
-                case _: SumAllGroupsCollector[_, _] =>
+                case InternalSumAggregation(_, _) =>
                   Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
               }
-            }
+          }
 
           applyOrderingWithLimit(rawResult, statement, schema)
-            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
+            .map { resp =>
+              generateResponse(statement.db, statement.namespace, statement.metric, resp)
+            }
             .pipeTo(sender)
 
         case Failure(ex) => Failure(ex)
@@ -368,7 +370,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     */
   private def retrieveField(values: Seq[Bit],
                             field: String,
-                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
     values.headOption
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
       .getOrElse(Map.empty[String, JSerializable])
@@ -384,7 +386,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     */
   private def retrieveCount(values: Seq[Bit],
                             count: Int,
-                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
     values.headOption
       .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
       .getOrElse(Map.empty[String, JSerializable])

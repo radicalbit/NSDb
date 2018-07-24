@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.index.lucene
+package io.radicalbit.nsdb.util
 
-import scala.reflect.ClassTag
+import com.typesafe.scalalogging.LazyLogging
 
-class MaxAllGroupsCollector[T: Numeric, S: Ordering: ClassTag](override val groupField: String,
-                                                               override val aggField: String)
-    extends AllGroupsAggregationCollector[T, S] {
+object PerfLogging extends LazyLogging {
 
-  override def accumulateFunction(prev: T, actual: T): Option[T] =
-    if (implicitly[Numeric[T]].lt(prev, actual)) Some(actual) else Some(prev)
-
+  def logPerf[T](action: => T, label: String): T = {
+    val st  = System.currentTimeMillis
+    val res = action
+    logger.info("Execution time of {}: {} ms.", label, (System.currentTimeMillis - st))
+    res
+  }
 }
