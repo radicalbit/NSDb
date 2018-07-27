@@ -14,9 +14,21 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+package io.radicalbit.nsdb.cluster.minicluster
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with NsdbClusterDefinition
+trait NsdbMiniCluster {
+
+  protected[this] val startingAkkaRemotePort = 2552
+  protected[this] val startingHttpPort       = 9000
+  protected[this] val startingGrpcPort       = 7817
+
+  protected[this] def nodesNumber: Int
+
+  protected[this] val nodes: Set[NsdbMiniClusterNode] =
+    (for {
+      i <- 0 to nodesNumber - 1
+    } yield
+      (new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
+                               httpPort = startingHttpPort + i,
+                               grpcPort = startingGrpcPort + i))).toSet
+}
