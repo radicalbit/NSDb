@@ -53,12 +53,14 @@ public abstract class LongTaxonomyFacets extends TaxonomyFacets {
     }
 
     private long rollup(int ord) throws IOException{
+        int[] children = getChildren();
+        int[] siblings = getSiblings();
         long sum = 0;
         while (ord != TaxonomyReader.INVALID_ORDINAL) {
-            long childValue = values[ord] + rollup(getChildren()[ord]);
+            long childValue = values[ord] + rollup(children[ord]);
             values[ord] = childValue;
             sum += childValue;
-            ord = getSiblings()[ord];
+            ord = siblings[ord];
         }
         return sum;
     }

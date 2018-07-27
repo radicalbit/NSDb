@@ -24,8 +24,23 @@ object DoubleAssociationFacetField {
     LongAssociationFacetField.longToBytesRef(java.lang.Double.doubleToLongBits(v))
   }
 
-  def bytesRefToFloat(b: BytesRef): Double = {
-    java.lang.Double.longBitsToDouble(LongAssociationFacetField.bytesRefToLong(b))
+  private def binaryRepresentation(bytesRef: BytesRef): String = {
+    bytesRef.bytes
+      .map { b =>
+        val string = Integer.toBinaryString(b & 0xFF)
+        if (string.size < 8) {
+          val filler: String = "0" * (8 - string.size)
+          filler + string
+        } else string
+      }
+      .mkString("")
+  }
+
+  //Not used because encoding from binary representation is done in TaxonomyFacetSumDoubleAssociations
+  def bytesRefToDouble(b: BytesRef): Double = {
+    val stringRep = binaryRepresentation(b)
+    val longRep   = java.lang.Long.parseLong(stringRep, 2)
+    java.lang.Double.longBitsToDouble(longRep)
   }
 }
 

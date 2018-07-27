@@ -34,15 +34,17 @@ object LongAssociationFacetField {
     new BytesRef(bytes)
   }
 
-  def bytesRefToLong(b: BytesRef): Long =
-    ((b.bytes(b.offset) & 0xFF) << 56) |
-      ((b.bytes(b.offset + 1) & 0xFF) << 48) |
-      ((b.bytes(b.offset + 2) & 0xFF) << 40) |
-      ((b.bytes(b.offset + 3) & 0xFF) << 32) |
-      ((b.bytes(b.offset + 4) & 0xFF) << 24) |
-      ((b.bytes(b.offset + 5) & 0xFF) << 16) |
-      ((b.bytes(b.offset + 6) & 0xFF) << 8) |
-      (b.bytes(b.offset + 7) & 0xFF)
+  //Not used because encoding from binary representation is done in TaxonomyFacetSumLongAssociations
+  def bytesRefToLong(b: BytesRef): java.lang.Long =
+    new java.lang.Long(
+      ((b.bytes(b.offset) & 0xFF) << 56) |
+        ((b.bytes(b.offset + 1) & 0xFF) << 48) |
+        ((b.bytes(b.offset + 2) & 0xFF) << 40) |
+        ((b.bytes(b.offset + 3) & 0xFF) << 32) |
+        ((b.bytes(b.offset + 4) & 0xFF) << 24) |
+        ((b.bytes(b.offset + 5) & 0xFF) << 16) |
+        ((b.bytes(b.offset + 6) & 0xFF) << 8) |
+        (b.bytes(b.offset + 7) & 0xFF))
 
 }
 

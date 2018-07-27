@@ -49,8 +49,8 @@ public abstract class DoubleTaxonomyFacets  extends TaxonomyFacets {
         }
     }
 
-    private long rollup(int ord) throws IOException{
-        long sum = 0;
+    private double rollup(int ord) throws IOException{
+        double sum = 0;
         while (ord != TaxonomyReader.INVALID_ORDINAL) {
             double childValue = values[ord] + rollup(getChildren()[ord]);
             values[ord] = childValue;

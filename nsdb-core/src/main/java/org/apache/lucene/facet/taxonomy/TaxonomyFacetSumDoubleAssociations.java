@@ -23,6 +23,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 public class TaxonomyFacetSumDoubleAssociations extends DoubleTaxonomyFacets{
@@ -69,15 +70,24 @@ public class TaxonomyFacetSumDoubleAssociations extends DoubleTaxonomyFacets{
                                 ((bytes[offset + 2] & 0xFF) << 8) |
                                 (bytes[offset + 3] & 0xFF);
                         offset += 4;
-                        long value =
-                                ((bytes[offset] & 0xFF) << 56) |
-                                        ((bytes[offset + 1] & 0xFF) << 48) |
-                                        ((bytes[offset + 2] & 0xFF) << 40) |
-                                        ((bytes[offset + 3] & 0xFF) << 32) |
-                                        ((bytes[offset + 4] & 0xFF) << 24) |
-                                        ((bytes[offset + 5] & 0xFF) << 16) |
-                                        ((bytes[offset + 6] & 0xFF) << 8) |
-                                        (bytes[offset + 7] & 0xFF);
+
+                        //FIXME it's not the best solution, the only one I found so far
+                        byte[] doubleBytes = Arrays.copyOfRange(bytes, 4, bytes.length);
+                        String strRep = "";
+                        for(byte b : doubleBytes){
+                            String s = Integer.toBinaryString(b & 0xFF);
+                            String returnString = s;
+                            if (s.length() <8){
+                                char[] charArray = new char[8 - s.length()];
+                                Arrays.fill(charArray, '0');
+                                String str = new String(charArray);
+                                returnString = str.concat(s);
+                            }
+                            strRep += returnString;
+                        }
+
+                        long value = java.lang.Long.parseLong(strRep, 2);
+
                         offset += 8;
                         values[ord] += Double.longBitsToDouble(value);
                     }

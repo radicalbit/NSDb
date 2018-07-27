@@ -107,9 +107,9 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
           Bit(
             timestamp = 0,
             value = lv.value match {
-              case x: java.lang.Integer => x.intValue().toLong
+              case x: java.lang.Integer => x.intValue()
               case x: java.lang.Long    => x.longValue()
-              case x: java.lang.Float   => x.floatValue().toDouble
+              case x: java.lang.Float   => x.floatValue()
               case x: java.lang.Double  => x.doubleValue()
             },
             dimensions = Map.empty[String, JSerializable],
