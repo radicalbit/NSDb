@@ -18,11 +18,10 @@ package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.index.lucene.{DoubleAssociationFacetField, LongAssociationFacetField}
 import org.apache.lucene.document.Field
-import org.apache.lucene.facet.taxonomy.{TaxonomyFacetSumLongAssociations, _}
+import org.apache.lucene.facet.taxonomy._
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.facet.{FacetResult, FacetsCollector, FacetsConfig}
+import org.apache.lucene.facet._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.{Query, Sort}
 import org.apache.lucene.store.BaseDirectory
