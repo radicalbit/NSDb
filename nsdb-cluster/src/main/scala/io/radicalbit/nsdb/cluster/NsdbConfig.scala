@@ -19,12 +19,13 @@ package io.radicalbit.nsdb.cluster
 import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
+import io.radicalbit.nsdb.common.NsdbConfig
 
 /**
   * Creates Nsdb configuration looking up the `ConfDir` folder or into the classpath.
   * The retrieved configuration is properly adjusted in case ssl is enabled or not
   */
-trait NsdbConfig {
+trait NsdbClusterConfig extends NsdbConfig {
   private lazy val initialConfig: Config = ConfigFactory
     .parseFile(Paths.get(System.getProperty("confDir"), "cluster.conf").toFile)
     .resolve()

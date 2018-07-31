@@ -18,18 +18,21 @@ package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.cluster.singleton._
 import akka.util.Timeout
-import com.typesafe.config.Config
-import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
+import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
+import io.radicalbit.nsdb.common.NsdbConfig
+
+import scala.concurrent.Future
+import scala.util.Success
 
 /**
   * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
   */
-trait NSDBAkkaCluster {
-
-  def config: Config
+trait NSDBAkkaCluster { this: NsdbConfig =>
 
   implicit lazy val system: ActorSystem = ActorSystem("nsdb", config)
 }
@@ -39,16 +42,46 @@ trait NSDBAkkaCluster {
   */
 trait NSDBAActors { this: NSDBAkkaCluster =>
 
+  import akka.pattern.ask
+
   implicit val timeout =
-    Timeout(config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+    Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   implicit val executionContext = system.dispatcher
 
-  system.actorOf(Props[DatabaseActorsGuardian], "guardian")
+  //FIXME mock message
+  case object End
+
+  system.actorOf(
+    ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
+                                  terminationMessage = End,
+                                  settings = ClusterSingletonManagerSettings(system)),
+    name = "databaseActorGuardian"
+  )
+
+  val databaseActorGuardianProxy = system.actorOf(
+    ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
+                                settings = ClusterSingletonProxySettings(system)),
+    name = "databaseActorGuardianProxy"
+  )
+
+  lazy val metadataCache = (databaseActorGuardianProxy ? GetMetadataCache).mapTo[ActorRef]
+  lazy val schemaCache   = (databaseActorGuardianProxy ? GetSchemaCache).mapTo[ActorRef]
+
+  Future.sequence(Seq(metadataCache, schemaCache)).onComplete {
+    case Success(m :: s :: Nil) =>
+      system.actorOf(
+        ClusterListener.props(m, s),
+        name = "clusterListener"
+      )
+    case e =>
+      system.log.error("Error retrieving caches, terminating system.")
+      system.terminate()
+  }
 
 }
 
 /**
   * Simply mix in [[NSDBAkkaCluster]] with [[NSDBAActors]]
   */
-trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors
+trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors with NsdbConfig

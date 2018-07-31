@@ -22,16 +22,15 @@ import akka.actor.ActorRef
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import com.typesafe.config.Config
 import io.radicalbit.nsdb.security.NsdbSecurity
 import io.radicalbit.nsdb.ui.StaticResources
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.util.{Failure, Success}
 
 /**
@@ -39,6 +38,8 @@ import scala.util.{Failure, Success}
   * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
   */
 trait WebResources extends StaticResources with WsResources with CorsSupport with SSLSupport { this: NsdbSecurity =>
+
+  def config: Config
 
   implicit val formats = DefaultFormats
 
@@ -72,11 +73,9 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
                                  config.getInt("nsdb.http.https-port"),
                                  connectionContext = serverContext)
           } else {
-            val port = config.getInt("nsdb.http.port")
+            val port = config.getInt("akka.remote.netty.tcp.http.port")
             logger.info(s"Cluster started with http protocol on port $port")
-            Http().bindAndHandle(withCors(api),
-                                 config.getString("nsdb.http.interface"),
-                                 config.getInt("nsdb.http.port"))
+            Http().bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), port)
           }
 
         scala.sys.addShutdownHook {

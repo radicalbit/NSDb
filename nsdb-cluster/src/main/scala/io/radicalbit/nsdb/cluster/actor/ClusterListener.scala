@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Deploy, Props}
+import akka.actor._
 import akka.cluster.{Cluster, MemberStatus}
 import akka.cluster.ClusterEvent._
 import akka.cluster.pubsub.DistributedPubSub
@@ -53,7 +53,8 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
   override def postStop(): Unit = cluster.unsubscribe(self)
 
   def receive: Receive = {
-    case MemberUp(member) =>
+    case MemberUp(member)
+        if member.address.port.isDefined && member.address.port.get == config.getInt("akka.remote.netty.tcp.port") =>
       log.info("Member is Up: {}", member.address)
 
       val nodeName = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
@@ -108,7 +109,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
         case _ =>
       }
-
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)
     case MemberRemoved(member, previousStatus) =>

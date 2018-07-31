@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.minicluster
+package io.radicalbit.nsdb.common
 
-class NsdbMiniClusterNode(val akkaRemotePort: Int, val httpPort: Int, val grpcPort: Int)
-    extends NsdbMiniClusterDefinition {}
+import com.typesafe.config.Config
+
+trait NsdbConfig {
+
+  def config: Config
+
+}

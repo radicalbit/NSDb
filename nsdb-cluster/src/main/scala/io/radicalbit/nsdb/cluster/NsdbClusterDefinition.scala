@@ -18,4 +18,4 @@ package io.radicalbit.nsdb.cluster
 
 import com.typesafe.scalalogging.LazyLogging
 
-trait NsdbClusterDefinition extends ProductionCluster with NsdbConfig with LazyLogging
+trait NsdbClusterDefinition extends ProductionCluster with NsdbClusterConfig with LazyLogging

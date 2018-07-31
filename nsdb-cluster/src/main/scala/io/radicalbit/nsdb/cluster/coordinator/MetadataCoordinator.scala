@@ -57,7 +57,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   def warmUp: Receive = {
     case msg @ WarmUpMetadata(metricsMetadata) =>
-      log.debug(s"Received location warm-up message: $msg ")
+      log.info(s"Received location warm-up message: $msg ")
       Future
         .sequence(metricsMetadata.map { metadata =>
           Future

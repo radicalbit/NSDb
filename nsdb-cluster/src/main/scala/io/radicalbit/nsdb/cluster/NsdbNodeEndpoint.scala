@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{CoordinatorsGot, GetCoordinators, GetPublisher}
@@ -38,7 +37,7 @@ class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit va
     with NsdbSecurity
     with LazyLogging {
 
-  override val config: Config = system.settings.config
+  override val config = system.settings.config
 
   Future
     .sequence(

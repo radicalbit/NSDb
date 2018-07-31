@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.minicluster
 trait NsdbMiniCluster {
 
   protected[this] val startingAkkaRemotePort = 2552
-  protected[this] val startingHttpPort       = 9000
+  protected[this] val startingHttpPort       = 9010
   protected[this] val startingGrpcPort       = 7817
 
   protected[this] def nodesNumber: Int
@@ -27,6 +27,7 @@ trait NsdbMiniCluster {
   protected[this] val nodes: Set[NsdbMiniClusterNode] =
     (for {
       i <- 0 to nodesNumber - 1
+      _ = Thread.sleep(1000)
     } yield
       (new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
                                httpPort = startingHttpPort + i,

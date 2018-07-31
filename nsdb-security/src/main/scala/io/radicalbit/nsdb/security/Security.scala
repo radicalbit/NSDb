@@ -28,9 +28,9 @@ import scala.util.{Failure, Success, Try}
   */
 trait NsdbSecurity {
 
-  protected def logger: Logger
-
   def config: Config
+
+  protected def logger: Logger
 
   /**
     * configuration key to set if security is enabled or not.
