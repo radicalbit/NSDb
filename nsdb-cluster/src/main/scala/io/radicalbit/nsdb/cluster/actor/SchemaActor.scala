@@ -63,7 +63,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
     *
     */
   override def preStart(): Unit = {
-    log.debug("Schema Actor performing warm-up")
+    log.info("Schema Actor performing warm-up at {}/{}", remoteAddress.address, self.path.name)
     val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
       FileUtils.getSubDirs(db).toList.map { namespace =>
         SchemaWarmUp(db.getName, namespace.getName, getOrCreateSchemaIndex(db.getName, namespace.getName).all)
@@ -72,7 +72,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
     schemaCoordinator ! WarmUpSchemas(allSchemas)
 
-    log.debug("schema actor started at {}/{}", remoteAddress.address, self.path.name)
+    log.info("Schema actor started at {}/{}", remoteAddress.address, self.path.name)
   }
 
   override def receive: Receive = {

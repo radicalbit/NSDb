@@ -16,5 +16,5 @@
 
 package io.radicalbit.nsdb.cluster.minicluster
 
-class NsdbMiniClusterNode(val akkaRemotePort: Int, val httpPort: Int, val grpcPort: Int)
+class NsdbMiniClusterNode(val akkaRemotePort: Int, val httpPort: Int, val grpcPort: Int, val data: String)
     extends NsdbMiniClusterDefinition {}

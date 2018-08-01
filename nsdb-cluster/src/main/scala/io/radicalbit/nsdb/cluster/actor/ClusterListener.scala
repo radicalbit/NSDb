@@ -43,6 +43,8 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
   val cluster = Cluster(context.system)
 
+  log.error(s"Created ClusterListener at path : ${self.path}")
+
   private val mediator = DistributedPubSub(context.system).mediator
 
   private val config = context.system.settings.config
@@ -70,6 +72,8 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
       val nodeActorsGuardian =
         context.system.actorOf(NodeActorsGuardian.props(metadataCache, schemaCache), name = s"guardian_$nodeName")
+
+      log.error(s"NodeActorGuardian path ${nodeActorsGuardian.path}")
 
       (nodeActorsGuardian ? GetCoordinators).map {
         case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator) =>

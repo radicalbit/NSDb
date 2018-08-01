@@ -32,6 +32,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetCoordinators, _}
   */
 class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends Actor with ActorLogging {
 
+  log.error(s"Metadata cache path : ${metadataCache.path}")
+  log.error(s"Schema cache path : ${schemaCache.path}")
+
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
       log.error("Got the following TimeoutException, resuming the processing", e)

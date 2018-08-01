@@ -1,14 +1,22 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.Props
+import java.util.concurrent.TimeUnit
+
+import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.cluster.{Cluster, MemberStatus}
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Count
+import akka.cluster.singleton.{
+  ClusterSingletonManager,
+  ClusterSingletonManagerSettings,
+  ClusterSingletonProxy,
+  ClusterSingletonProxySettings
+}
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
+import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -16,6 +24,8 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetConnectedNodes, 
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{ConnectedNodesGot, InputMapped}
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.scalatest.BeforeAndAfterAll
+import akka.pattern.ask
+import akka.util.Timeout
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -24,8 +34,16 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
+  nodeConfig(node1)(ConfigFactory.parseString("""
+      |akka.remote.netty.tcp.port=2552
+    """.stripMargin))
+
+  nodeConfig(node2)(ConfigFactory.parseString("""
+      |akka.remote.netty.tcp.port=2553
+    """.stripMargin))
+
   commonConfig(ConfigFactory.parseString("""
-    |akka.loglevel = ERROR
+    |akka.loglevel = INFO
     |akka.actor{
     | provider = "cluster"
     | control-aware-dispatcher {
@@ -89,9 +107,11 @@ class WriteCoordinatorClusterTest
 
   override def initialParticipants = roles.size
 
+  implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
+
   val cluster = Cluster(system)
 
-  val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
+//  val guardian = system.actorOf(Props[DatabaseActorsGuardian], "databaseActorGuardian")
 
   val mediator = DistributedPubSub(system).mediator
 
@@ -113,12 +133,40 @@ class WriteCoordinatorClusterTest
       join(node1, node1)
       join(node2, node1)
 
-      Thread.sleep(2000)
-
-      val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
-      nNodes shouldBe 2
+      awaitAssert {
+        val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
+        nNodes shouldBe 2
+      }
 
       enterBarrier("Joined")
+
+      runOn(node1) {
+        system.actorOf(Props(classOf[DatabaseActorsGuardian]), "databaseActorGuardian")
+      }
+
+      val databaseActorGuardianProxy =
+        Await.result(system.actorSelection("/user/databaseActorGuardian").resolveOne(5 seconds), 5 seconds)
+//      val databaseActorGuardian = system.actorOf(
+//        ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
+//                                      terminationMessage = PoisonPill,
+//                                      settings = ClusterSingletonManagerSettings(system)),
+//        name = "databaseActorGuardian"
+//      )
+
+//      val databaseActorGuardianProxy = system.actorOf(
+//        ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
+//                                    settings = ClusterSingletonProxySettings(system)),
+//        name = "databaseActorGuardianProxy"
+//      )
+
+      val metadataCache = Await.result((databaseActorGuardianProxy ? GetMetadataCache).mapTo[ActorRef], 5 seconds)
+      val schemaCache   = Await.result((databaseActorGuardianProxy ? GetSchemaCache).mapTo[ActorRef], 5 seconds)
+
+      val clusterListener = system.actorOf(
+        ClusterListener.props(metadataCache, schemaCache),
+        name = "clusterListener"
+      )
+
     }
 
     "write records and update metadata" in within(10.seconds) {

@@ -39,6 +39,8 @@ import scala.concurrent.{Await, Future}
   */
 class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPathLogging with Stash {
 
+  log.error(s"MetadataCoordinator path: ${self.path}")
+
   val cluster = Cluster(context.system)
 
   implicit val timeout: Timeout = Timeout(

@@ -21,6 +21,7 @@ trait NsdbMiniCluster {
   protected[this] val startingAkkaRemotePort = 2552
   protected[this] val startingHttpPort       = 9010
   protected[this] val startingGrpcPort       = 7817
+  protected[this] val dataFolder             = "data"
 
   protected[this] def nodesNumber: Int
 
@@ -31,5 +32,7 @@ trait NsdbMiniCluster {
     } yield
       (new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
                                httpPort = startingHttpPort + i,
-                               grpcPort = startingGrpcPort + i))).toSet
+                               grpcPort = startingGrpcPort + i,
+                               data = dataFolder + startingAkkaRemotePort + i
+      ))).toSet
 }

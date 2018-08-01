@@ -93,6 +93,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   import akka.pattern.ask
 
+  log.error(s"WriteCoordinator path: ${self.path}")
+
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
