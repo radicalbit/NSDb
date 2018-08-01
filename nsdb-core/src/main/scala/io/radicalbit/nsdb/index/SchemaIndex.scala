@@ -36,7 +36,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends SimpleIndex[Sch
 
   import SchemaIndex._
 
-  override val _keyField: String = "_metric"
+  override val _keyField: String = "metric"
 
   override def validateRecord(data: Schema): Try[Seq[Field]] = {
     Success(
@@ -54,9 +54,7 @@ class SchemaIndex(override val directory: BaseDirectory) extends SimpleIndex[Sch
           fields.foreach(doc.add)
           writer.addDocument(doc)
         }
-      case Failure(t) =>
-        t.printStackTrace()
-        Failure(t)
+      case Failure(t) => Failure(t)
     }
   }
 
@@ -64,10 +62,9 @@ class SchemaIndex(override val directory: BaseDirectory) extends SimpleIndex[Sch
     val fields = document.getFields.asScala.filterNot(f => f.name() == _keyField || f.name() == _countField)
     Schema(
       document.get(_keyField),
-      fields.map {
-        case f =>
-          val (fieldType, indexType) = fieldValue(f.stringValue)
-          SchemaField(f.name(), fieldType, indexType)
+      fields.map { f =>
+        val (fieldType, indexType) = fieldValue(f.stringValue)
+        SchemaField(f.name(), fieldType, indexType)
       }.toSet
     )
   }

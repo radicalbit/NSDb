@@ -18,9 +18,8 @@ package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
-import org.apache.lucene.queryparser.classic.QueryParser
+import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 
 import scala.util.{Failure, Success, Try}
@@ -73,8 +72,7 @@ trait SimpleIndex[T] extends Index[T] {
     */
   def query[B](field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None)(
       f: T => B): Seq[B] = {
-    val parser = new QueryParser(field, new StandardAnalyzer())
-    val q      = parser.parse(value)
+    val q = new WildcardQuery(new Term(field, value))
 
     query(q, fields, limit, sort)(f)
   }

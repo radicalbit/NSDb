@@ -86,10 +86,14 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     schemaIndex.getSchema("metric_1") shouldBe Some(testData)
 
-    val writer2 = schemaIndex.getWriter
-    schemaIndex.update("metric_1", testData2)(writer2)
-    writer2.close()
-    schemaIndex.refresh()
+    (1 to 100).foreach { i =>
+      val writer2 = schemaIndex.getWriter
+      schemaIndex.update("metric_1", testData2)(writer2)
+      writer2.close()
+      schemaIndex.refresh()
+    }
+
+    schemaIndex.all.size shouldBe 1
 
     schemaIndex.getSchema("metric_1") shouldBe Some(testData2)
   }

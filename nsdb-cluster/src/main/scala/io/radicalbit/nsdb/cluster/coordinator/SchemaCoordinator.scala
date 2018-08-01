@@ -33,12 +33,12 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 /**
   * Actor responsible for dispatching read and write schema operations to che proper schema actor.
-  * It performs write/update/deletion in distributed cache and boradcast events using distributed pub-sub messaging system handled by [[SchemaActor]]
+  * It performs write/update/deletion in distributed cache and broadcast events using distributed pub-sub messaging system handled by [[SchemaActor]]
   * actors in each cluster node.
   *
   * @param basePath indexes' base path.
@@ -51,9 +51,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
-  import scala.concurrent.duration._
 
-  lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
+  lazy val schemaTopic: String = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
 
   /**
     * Checks if a newSchema is compatible with an oldSchema. If schemas are compatible, the metric schema will be updated.
@@ -101,21 +100,18 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
         schemas.foreach { schema =>
           (schemaCache ? GetSchemaFromCache(db, namespace, schema.metric))
             .flatMap {
-              case SchemaCached(_, _, _, schemaOpt) =>
-                schemaOpt match {
-                  case Some(oldSchema) =>
-                    checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema)
-                  case None =>
-                    (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
-                      .map {
-                        case SchemaCached(_, _, _, _) =>
-                          SchemaUpdated(db, namespace, schema.metric, schema)
-                        case msg =>
-                          UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache $msg"))
-                      }
-                  case _ =>
-                    Future(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache")))
-                }
+              case SchemaCached(_, _, _, Some(oldSchema)) =>
+                checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema)
+              case SchemaCached(_, _, _, None) =>
+                (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
+                  .map {
+                    case SchemaCached(_, _, _, _) =>
+                      SchemaUpdated(db, namespace, schema.metric, schema)
+                    case msg =>
+                      UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache $msg"))
+                  }
+              case _ =>
+                Future(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache")))
             }
         }
       }
@@ -132,21 +128,23 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .map {
           case SchemaCached(_, _, _, schemaOpt) => SchemaGot(db, namespace, metric, schemaOpt)
-          //FIXME handle error
-          case _ => SchemaGot(db, namespace, metric, None)
+          case e =>
+            log.error(s"unexpected response from cache: expecting SchemaCached while got {}", e)
+            GetSchemaFailed(db,
+                            namespace,
+                            metric,
+                            s"unexpected response from cache: expecting SchemaCached while got $e")
         }
         .pipeTo(sender)
     case UpdateSchemaFromRecord(db, namespace, metric, record) =>
-      val replyTo = sender()
-      // FIXME: this operation must be blocking otherwise we may have concurrent schema update, a solution could be delegation
-      // There must be a pool of actors, one for each metric
-      val reply = (schemaCache ? GetSchemaFromCache(db, namespace, metric))
+      (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .flatMap {
           case SchemaCached(_, _, _, schemaOpt) =>
             (Schema(metric, record), schemaOpt) match {
               case (Success(newSchema), Some(oldSchema)) =>
                 checkAndUpdateSchema(db, namespace, metric, oldSchema, newSchema)
               case (Success(newSchema), None) =>
+                log.error("no schema found in cache form metric {}", metric)
                 (schemaCache ? PutSchemaInCache(db, namespace, metric, newSchema))
                   .map {
                     case SchemaCached(_, _, _, _) =>
@@ -158,12 +156,14 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                 Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
             }
 
-          //TODO handle error
-          case _ => Future(SchemaGot(db, namespace, metric, None))
-        }
-
-      val response = Await.result(reply, 1 second)
-      replyTo ! response
+          case e =>
+            log.error("unexpected response from cache: expecting SchemaCached while got {}", e)
+            Future(
+              GetSchemaFailed(db,
+                              namespace,
+                              metric,
+                              s"unexpected response from cache: expecting SchemaCached while got $e"))
+        } pipeTo sender()
     case DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
@@ -173,14 +173,20 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           case _ => SchemaDeleted(db, namespace, metric)
         }
         .pipeTo(sender)
-    case msg @ DeleteNamespace(db, namespace) =>
+    case _ @DeleteNamespace(db, namespace) =>
       (schemaCache ? DeleteNamespaceSchema(db, namespace))
         .map {
           case NamespaceSchemaDeleted(_, _) =>
             mediator ! Publish(schemaTopic, DeleteNamespace(db, namespace))
             NamespaceDeleted(db, namespace)
-          //FIXME:  always positive response
-          case _ => NamespaceDeleted(db, namespace)
+          case e =>
+            log.error(
+              "unexpected response while deleting namespace schema: expecting NamespaceSchemaDeleted while got {}",
+              e)
+            DeleteNamespaceFailed(
+              db,
+              namespace,
+              s"unexpected response while deleting namespace schema: expecting NamespaceSchemaDeleted while got $e")
         }
         .pipeTo(sender())
   }

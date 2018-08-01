@@ -46,7 +46,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
   val remoteAddress = RemoteAddress(context.system)
 
-  lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
+  private lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
 
   private def getOrCreateSchemaIndex(db: String, namespace: String): SchemaIndex =
     schemaIndexes.getOrElse(
