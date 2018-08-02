@@ -21,6 +21,9 @@ import org.apache.lucene.util.BytesRef;
 
 import java.util.Arrays;
 
+/**
+ * Used to write sum facets for Long fields
+ */
 public class LongAssociationFacetField extends AssociationFacetField {
 
     /**
@@ -40,7 +43,7 @@ public class LongAssociationFacetField extends AssociationFacetField {
      * big-endian.
      *
      * @param v long value
-     * @return
+     * @return {@link BytesRef} representation of long
      */
     public static BytesRef longToBytesRef(long v) {
         byte[] bytes = new byte[8];

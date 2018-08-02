@@ -18,6 +18,10 @@ package org.apache.lucene.facet;
 
 import org.apache.lucene.util.PriorityQueue;
 
+/**
+ * Keeps highest results, first by largest double value,
+ * then tie break by smallest ord.
+ */
 public class TopOrdAndDoubleQueue extends PriorityQueue<TopOrdAndDoubleQueue.OrdAndValue> {
 
     /** Holds a single entry. */

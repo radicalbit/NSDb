@@ -21,6 +21,9 @@ import org.apache.lucene.util.BytesRef;
 
 import java.util.Arrays;
 
+/**
+ * Used to write sum facets for Double fields
+ */
 public class DoubleAssociationFacetField extends AssociationFacetField {
     /**
      * Creates this from {@code dim} and {@code path} and a double
@@ -39,7 +42,7 @@ public class DoubleAssociationFacetField extends AssociationFacetField {
      * big-endian.
      *
      * @param v {@code double} value
-     * @return
+     * @return {@link BytesRef} representation of double
      */
     static BytesRef doubleToBytesRef(double v) {
         return LongAssociationFacetField.longToBytesRef(Double.doubleToLongBits(v));
