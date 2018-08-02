@@ -113,8 +113,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                         case msg =>
                           UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache $msg"))
                       }
-                  case _ =>
-                    Future(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache")))
+                  case e =>
+                    Future(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache $e")))
                 }
             }
         }

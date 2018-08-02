@@ -220,9 +220,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       replicator ! Get(locationKey(key), ReadLocal, Some(SingleLocationRequest(key, sender())))
     case GetLocationsFromCache(key) =>
       log.debug("searching for key {} in cache", key)
-      replicator ! Get(metricLocationsKey(key),
-                       ReadLocal,
-                       Some(MetricLocationsRequest(key, sender())))
+      replicator ! Get(metricLocationsKey(key), ReadLocal, Some(MetricLocationsRequest(key, sender())))
     case GetMetricInfoFromCache(key) =>
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricInfoKey(key), ReadLocal, Some(MetricInfoRequest(key, sender())))

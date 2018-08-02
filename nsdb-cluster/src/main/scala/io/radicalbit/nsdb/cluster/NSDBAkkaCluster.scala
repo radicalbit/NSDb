@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.cluster
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.cluster.singleton._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
@@ -49,24 +48,13 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val executionContext = system.dispatcher
 
-  //FIXME mock message
-  case object End
-
-  system.actorOf(
-    ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
-                                  terminationMessage = End,
-                                  settings = ClusterSingletonManagerSettings(system)),
+  val databaseActorGuardian = system.actorOf(
+    Props(classOf[DatabaseActorsGuardian]),
     name = "databaseActorGuardian"
   )
 
-  val databaseActorGuardianProxy = system.actorOf(
-    ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
-                                settings = ClusterSingletonProxySettings(system)),
-    name = "databaseActorGuardianProxy"
-  )
-
-  lazy val metadataCache = (databaseActorGuardianProxy ? GetMetadataCache).mapTo[ActorRef]
-  lazy val schemaCache   = (databaseActorGuardianProxy ? GetSchemaCache).mapTo[ActorRef]
+  lazy val metadataCache = (databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef]
+  lazy val schemaCache   = (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]
 
   Future.sequence(Seq(metadataCache, schemaCache)).onComplete {
     case Success(m :: s :: Nil) =>

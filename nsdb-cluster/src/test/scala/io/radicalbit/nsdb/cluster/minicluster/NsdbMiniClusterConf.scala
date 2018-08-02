@@ -24,14 +24,12 @@ trait NsdbMiniClusterConf extends NsdbConfig {
   def akkaRemotePort: Int
   def grpcPort: Int
   def httpPort: Int
-  def data : String
+  def data: String
 
   override def config: Config = ConfigFactory.parseString {
     s"""
        |akka {
-       |  loglevel = "DEBUG"
-       |  loggers = ["akka.event.slf4j.Slf4jLogger"]
-       |  logging-filter = "akka.event.slf4j.Slf4jLoggingFilter"
+       |  loglevel = "INFO"
        |
       |  log-dead-letters = 10
        |  log-dead-letters-during-shutdown = off

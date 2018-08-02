@@ -37,10 +37,10 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
-      log.error("Got the following TimeoutException, resuming the processing", e)
+      log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
     case t =>
-      log.error("generic error in write coordinator", t)
+      log.error(t, "generic error in write coordinator")
       super.supervisorStrategy.decider.apply(t)
   }
 

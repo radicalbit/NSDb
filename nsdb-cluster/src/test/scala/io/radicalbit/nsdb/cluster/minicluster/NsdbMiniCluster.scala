@@ -33,6 +33,5 @@ trait NsdbMiniCluster {
       (new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
                                httpPort = startingHttpPort + i,
                                grpcPort = startingGrpcPort + i,
-                               data = dataFolder + startingAkkaRemotePort + i
-      ))).toSet
+                               data = dataFolder + startingAkkaRemotePort + i))).toSet
 }

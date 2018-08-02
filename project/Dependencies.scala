@@ -51,7 +51,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.6"
+    lazy val version   = "2.5.14"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version

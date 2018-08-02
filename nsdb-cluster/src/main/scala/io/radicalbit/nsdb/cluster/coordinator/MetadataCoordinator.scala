@@ -186,7 +186,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
-          case _ => MetricInfoFailed(db, namespace, metricInfo, "Unknown response from cache")
+          case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
   }

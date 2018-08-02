@@ -29,10 +29,10 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
-      log.error("Got the following TimeoutException, resuming the processing", e)
+      log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
     case t =>
-      log.error("generic error occurred", t)
+      log.error(t, "generic error occurred")
       super.supervisorStrategy.decider.apply(t)
   }
 
