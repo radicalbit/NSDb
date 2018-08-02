@@ -1,18 +1,20 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.Props
+import akka.actor.{ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Count
 import akka.cluster.{Cluster, MemberStatus}
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
+import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object MetadataSpec extends MultiNodeConfig {
@@ -30,13 +32,6 @@ object MetadataSpec extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
-    |  cluster {
-    |    pub-sub{
-    |      warm-up-topic = "warm-up"
-    |      schema-topic = "schema"
-    |      metadata-topic = "metadata"
-    |    }
-    |  }
     |
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
@@ -66,11 +61,19 @@ object MetadataSpec extends MultiNodeConfig {
     |}
     """.stripMargin))
 
+  nodeConfig(node1)(ConfigFactory.parseString("""
+      |akka.remote.netty.tcp.port = 2552
+    """.stripMargin))
+
+  nodeConfig(node2)(ConfigFactory.parseString("""
+      |akka.remote.netty.tcp.port = 2553
+    """.stripMargin))
+
 }
 
-class MetadataSpecMultiJvmNode1 extends MetadataSpec
+class MetadataSpecMultiJvmNode1 extends MetadataSpec {}
 
-class MetadataSpecMultiJvmNode2 extends MetadataSpec
+class MetadataSpecMultiJvmNode2 extends MetadataSpec {}
 
 class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with ImplicitSender {
 
@@ -84,8 +87,27 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
+  import akka.pattern._
+
+  implicit val timeout: Timeout = Timeout(5.seconds)
+
+  lazy val metadataCache = Await.result((guardian ? GetMetadataCache).mapTo[ActorRef], 5.seconds)
+  lazy val schemaCache   = Await.result((guardian ? GetSchemaCache).mapTo[ActorRef], 5.seconds)
+
+  system.actorOf(ClusterListener.props(metadataCache, schemaCache), name = "clusterListener")
+//  Future.sequence(Seq(metadataCache, schemaCache)).onComplete {
+//    case Success(m :: s :: Nil) =>
+//  )
+//    case e =>
+//      system.log.error("Error retrieving caches, terminating system.")
+//      system.terminate()
+//  }
+
+  val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
+
       cluster join node(to).address
     }
     enterBarrier(from.name + "-joined")
@@ -102,6 +124,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
       nNodes shouldBe 2
 
+      Thread.sleep(5000)
+
       enterBarrier("joined")
     }
 
@@ -113,7 +137,9 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val selfMember = cluster.selfMember
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+        val metadataCoordinator = Await.result(
+          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5.seconds),
+          5.seconds)
 
         awaitAssert {
           metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))

@@ -63,6 +63,7 @@ object MessageProtocol {
     case class DeleteAllMetrics(db: String, namespace: String)
 
     case object GetCoordinators
+    case object GetMetricsDataActor
     case object GetPublisher
 
     case class CoordinatorsGot(metadataCoordinator: ActorRef,
@@ -74,6 +75,7 @@ object MessageProtocol {
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
 
     case object GetConnectedNodes
+    case class GetMetricsDataActors(replyTo: Option[ActorRef] = None)
   }
 
   /**

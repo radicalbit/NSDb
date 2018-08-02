@@ -23,6 +23,7 @@ import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
@@ -47,13 +48,11 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     context.system.settings.config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
+
   import scala.concurrent.duration._
 
   lazy val defaultShardingInterval: Long =
     context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
-
-  lazy val warmUpTopic   = context.system.settings.config.getString("nsdb.cluster.pub-sub.warm-up-topic")
-  lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
 
   override def receive: Receive = warmUp
 
@@ -82,7 +81,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             context.system.terminate()
         }
         .foreach { _ =>
-          mediator ! Publish(warmUpTopic, WarmUpCompleted)
+          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
           unstashAll()
           context.become(operative)
         }
@@ -100,7 +99,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
       .map {
         case LocationCached(_, Some(_)) =>
-          mediator ! Publish(metadataTopic, AddLocation(db, namespace, location))
+          mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, location))
           LocationAdded(db, namespace, location)
         case _ => AddLocationFailed(db, namespace, location)
       }
@@ -168,9 +167,9 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
               }
         }
 
-      val response = Await.result(reply, 1 second)
+      val response = Await.result(reply, 1.second)
       replyTo ! response
-    case msg @ AddLocation(db, namespace, location) =>
+    case _ @AddLocation(db, namespace, location) =>
       performAddIntoCache(db, namespace, location).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
@@ -182,7 +181,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
         .map {
           case MetricInfoCached(_, Some(_)) =>
-            mediator ! Publish(metadataTopic, msg)
+            mediator ! Publish(METADATA_TOPIC, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")

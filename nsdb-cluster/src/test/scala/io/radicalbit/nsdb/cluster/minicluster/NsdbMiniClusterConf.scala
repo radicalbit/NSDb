@@ -82,14 +82,6 @@ trait NsdbMiniClusterConf extends NsdbConfig {
        |    port = $grpcPort
        |  }
        |
-      |  cluster {
-       |    pub-sub{
-       |      warm-up-topic = "warm-up"
-       |      schema-topic = "schema"
-       |      metadata-topic = "metadata"
-       |    }
-       |  }
-       |
       |  http {
        |    interface = "0.0.0.0"
        |    port = $httpPort

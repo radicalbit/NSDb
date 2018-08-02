@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.actor.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.{DeleteNamespaceSchema, WarmUpSchemas}
@@ -51,9 +52,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
-  import scala.concurrent.duration._
 
-  lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
+  import scala.concurrent.duration._
 
   /**
     * Checks if a newSchema is compatible with an oldSchema. If schemas are compatible, the metric schema will be updated.
@@ -75,7 +75,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           (schemaCache ? PutSchemaInCache(db, namespace, metric, unionSchema))
             .map {
               case SchemaCached(_, _, _, _) =>
-                mediator ! Publish(schemaTopic, UpdateSchema(db, namespace, metric, newSchema))
+                mediator ! Publish(SCHEMA_TOPIC, UpdateSchema(db, namespace, metric, newSchema))
                 SchemaUpdated(db, namespace, metric, newSchema)
               case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg"))
             }
@@ -150,7 +150,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                 (schemaCache ? PutSchemaInCache(db, namespace, metric, newSchema))
                   .map {
                     case SchemaCached(_, _, _, _) =>
-                      mediator ! Publish(schemaTopic, UpdateSchema(db, namespace, metric, newSchema))
+                      mediator ! Publish(SCHEMA_TOPIC, UpdateSchema(db, namespace, metric, newSchema))
                       SchemaUpdated(db, namespace, metric, newSchema)
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
@@ -162,22 +162,22 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           case _ => Future(SchemaGot(db, namespace, metric, None))
         }
 
-      val response = Await.result(reply, 1 second)
+      val response = Await.result(reply, 1.second)
       replyTo ! response
     case DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
           case msg @ SchemaCached(`db`, `namespace`, `metric`, Some(_)) =>
-            mediator ! Publish(schemaTopic, msg)
+            mediator ! Publish(SCHEMA_TOPIC, msg)
             SchemaDeleted(db, namespace, metric)
           case _ => SchemaDeleted(db, namespace, metric)
         }
         .pipeTo(sender)
-    case msg @ DeleteNamespace(db, namespace) =>
+    case _ @DeleteNamespace(db, namespace) =>
       (schemaCache ? DeleteNamespaceSchema(db, namespace))
         .map {
           case NamespaceSchemaDeleted(_, _) =>
-            mediator ! Publish(schemaTopic, DeleteNamespace(db, namespace))
+            mediator ! Publish(SCHEMA_TOPIC, DeleteNamespace(db, namespace))
             NamespaceDeleted(db, namespace)
           //FIXME:  always positive response
           case _ => NamespaceDeleted(db, namespace)

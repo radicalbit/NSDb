@@ -68,6 +68,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
   def operating: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       metricsDataActors += (nodeName -> actor)
+      log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedNodes =>
       sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
