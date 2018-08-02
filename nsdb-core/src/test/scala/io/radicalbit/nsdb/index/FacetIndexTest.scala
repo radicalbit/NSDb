@@ -245,7 +245,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       .size shouldBe 13
 
     val res = facetIndexes.facetSumIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
+      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), Some(INT()))
     res.size shouldBe 12
     res.foreach {
       case bit =>
@@ -263,7 +263,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
     surnameGroups.last.value shouldBe 1
 
     val cityGroups =
-      facetIndexes.facetSumIndex.result(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), Some(BIGINT()))
+      facetIndexes.facetSumIndex.result(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), Some(INT()))
     cityGroups.size shouldBe 1
     cityGroups.head.value shouldBe 1225
   }
@@ -282,7 +282,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
       val testData =
         Bit(
           timestamp = i,
-          value = 2,
+          value = 2L,
           dimensions = Map("dimension" -> "dimension", "name" -> s"name"),
           tags = Map("tag"             -> "tag", "surname"    -> s"surname")
         )

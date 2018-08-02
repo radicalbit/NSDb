@@ -21,7 +21,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.Field
 import org.apache.lucene.facet.taxonomy._
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.facet.{FacetResult, FacetsCollector, FacetsConfig}
+import org.apache.lucene.facet._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.{Query, Sort}
 import org.apache.lucene.store.BaseDirectory
@@ -43,9 +43,9 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
 
     def facetWrite(f: Field, path: String, c: FacetsConfig): Field = bit.value match {
       case x: java.lang.Integer => new IntAssociationFacetField(x, f.name, path)
-      case x: java.lang.Long    => new IntAssociationFacetField(x.toInt, f.name, path)
+      case x: java.lang.Long    => new LongAssociationFacetField(x, f.name, path)
       case x: java.lang.Float   => new FloatAssociationFacetField(x, f.name, path)
-      case x: java.lang.Double  => new FloatAssociationFacetField(new java.lang.Float(x), f.name, path)
+      case x: java.lang.Double  => new DoubleAssociationFacetField(x, f.name, path)
     }
 
     def setupConfig(fields: Seq[Field]): FacetsConfig = {
@@ -80,8 +80,8 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
 
       val facetsFolder = valueIndexType match {
         case Some(_: INT)     => new TaxonomyFacetSumIntAssociations(facetName(groupField), taxoReader, config, fc)
-        case Some(_: BIGINT)  => new TaxonomyFacetSumIntAssociations(facetName(groupField), taxoReader, config, fc)
-        case Some(_: DECIMAL) => new TaxonomyFacetSumFloatAssociations(facetName(groupField), taxoReader, config, fc)
+        case Some(_: BIGINT)  => new TaxonomyFacetSumLongAssociations(facetName(groupField), taxoReader, config, fc)
+        case Some(_: DECIMAL) => new TaxonomyFacetSumDoubleAssociations(facetName(groupField), taxoReader, config, fc)
       }
 
       Option(facetsFolder.getTopChildren(actualLimit, groupField))
@@ -106,9 +106,9 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
           Bit(
             timestamp = 0,
             value = lv.value match {
-              case x: java.lang.Integer => x.intValue().toLong
+              case x: java.lang.Integer => x.intValue()
               case x: java.lang.Long    => x.longValue()
-              case x: java.lang.Float   => x.floatValue().toDouble
+              case x: java.lang.Float   => x.floatValue()
               case x: java.lang.Double  => x.doubleValue()
             },
             dimensions = Map.empty[String, JSerializable],
