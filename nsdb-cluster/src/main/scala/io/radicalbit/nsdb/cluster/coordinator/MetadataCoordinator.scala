@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
@@ -38,12 +37,7 @@ import scala.concurrent.Future
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
-
-  /**
-    * mediator for [[DistributedPubSub]] system
-    */
-  val mediator: ActorRef = DistributedPubSub(context.system).mediator
+class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPathLogging with Stash {
 
   val cluster = Cluster(context.system)
 
@@ -54,6 +48,9 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
 
   lazy val defaultShardingInterval: Long =
     context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
+
+  private lazy val warmUpTopic   = context.system.settings.config.getString("nsdb.cluster.pub-sub.warm-up-topic")
+  private lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
 
   override def receive: Receive = warmUp
 
@@ -82,7 +79,7 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
             context.system.terminate()
         }
         .foreach { _ =>
-          mediator ! Publish("warm-up", WarmUpCompleted)
+          mediator ! Publish(warmUpTopic, WarmUpCompleted)
           unstashAll()
           context.become(operative)
         }
@@ -95,6 +92,16 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
   private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
+
+  private def performAddIntoCache(db: String, namespace: String, location: Location) = {
+    (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
+      .map {
+        case LocationCached(_, Some(_)) =>
+          mediator ! Publish(metadataTopic, AddLocation(db, namespace, location))
+          LocationAdded(db, namespace, location)
+        case _ => AddLocationFailed(db, namespace, location)
+      }
+  }
 
   /**
     * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
@@ -125,6 +132,7 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
     case GetWriteLocation(db, namespace, metric, timestamp) =>
       val nodeName =
         s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+
       (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
         .flatMap {
           case LocationsCached(_, values) if values.nonEmpty =>
@@ -135,11 +143,10 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
                   .flatMap { interval =>
                     val start = getShardStartIstant(timestamp, interval)
                     val end   = getShardEndIstant(start, interval)
-                    (self ? AddLocation(db, namespace, Location(metric, nodeName, start, end)))
-                      .map {
-                        case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                        case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-                      }
+                    performAddIntoCache(db, namespace, Location(metric, nodeName, start, end)).map {
+                      case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                      case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                    }
                   }
 
             }
@@ -148,24 +155,14 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
               .flatMap { interval =>
                 val start = getShardStartIstant(timestamp, interval)
                 val end   = getShardEndIstant(start, interval)
-
-                (self ? AddLocation(db, namespace, Location(metric, nodeName, start, end)))
-                  .map {
-                    case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                    case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
-                  }
+                performAddIntoCache(db, namespace, Location(metric, nodeName, start, end)).map {
+                  case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
+                  case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+                }
               }
-        }
-        .pipeTo(sender)
-    case msg @ AddLocation(db, namespace, location) =>
-      (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
-        .map {
-          case LocationCached(_, Some(_)) =>
-            mediator ! Publish("metadata", msg)
-            LocationAdded(db, namespace, location)
-          case _ => AddLocationFailed(db, namespace, location)
-        }
-        .pipeTo(sender)
+        } pipeTo sender()
+    case _ @AddLocation(db, namespace, location) =>
+      performAddIntoCache(db, namespace, location).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
         .map {
@@ -176,7 +173,7 @@ class MetadataCoordinator(cache: ActorRef) extends ActorPathLogging with Stash {
       (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
         .map {
           case MetricInfoCached(_, Some(_)) =>
-            mediator ! Publish("metadata", msg)
+            mediator ! Publish(metadataTopic, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
@@ -218,5 +215,5 @@ object MetadataCoordinator {
     case class MetricInfoFailed(db: String, namespace: String, metricInfo: MetricInfo, message: String)
   }
 
-  def props(cache: ActorRef): Props = Props(new MetadataCoordinator(cache))
+  def props(cache: ActorRef, mediator: ActorRef): Props = Props(new MetadataCoordinator(cache, mediator))
 }

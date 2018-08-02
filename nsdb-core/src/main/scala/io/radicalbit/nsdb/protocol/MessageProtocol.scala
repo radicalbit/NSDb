@@ -36,6 +36,11 @@ object MessageProtocol {
     case class GetNamespaces(db: String)                 extends ControlMessage
     case class GetMetrics(db: String, namespace: String) extends ControlMessage
     case class GetSchema(db: String, namespace: String, metric: String)
+
+    case class PutSchemaInCache(db: String, namespace: String, metric: String, schema: Schema)
+    case class GetSchemaFromCache(db: String, namespace: String, metric: String)
+    case class EvictSchema(db: String, namespace: String, metric: String)
+
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
 
@@ -48,6 +53,7 @@ object MessageProtocol {
     case class DeleteNamespace(db: String, namespace: String)
 
     case class UpdateSchemaFromRecord(db: String, namespace: String, metric: String, record: Bit)
+    case class UpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema)
     case class DeleteSchema(db: String, namespace: String, metric: String)
     case class DeleteAllSchemas(db: String, namespace: String)
 
@@ -59,7 +65,10 @@ object MessageProtocol {
     case object GetCoordinators
     case object GetPublisher
 
-    case class CoordinatorsGot(metadataCoordinator: ActorRef, writeCoordinator: ActorRef, readCoordinator: ActorRef)
+    case class CoordinatorsGot(metadataCoordinator: ActorRef,
+                               writeCoordinator: ActorRef,
+                               readCoordinator: ActorRef,
+                               schemaCoordinator: ActorRef)
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
@@ -81,6 +90,8 @@ object MessageProtocol {
     case class DbsGot(dbs: Set[String])
     case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
+    case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String)
+    case class SchemaCached(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
@@ -90,6 +101,7 @@ object MessageProtocol {
     case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
     case class MetricDropped(db: String, namespace: String, metric: String)
     case class NamespaceDeleted(db: String, namespace: String)
+    case class DeleteNamespaceFailed(db: String, namespace: String, reason: String)
 
     case class SchemaUpdated(db: String, namespace: String, metric: String, schema: Schema)
     case class UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])

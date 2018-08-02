@@ -151,8 +151,6 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
   //FIXME: these tests currently don't compile because the max aggregation is still not implemented on top of Lucene facets
   //FIXME: please remember to remove comments in order to re-enable them
-
-
 //  "TimeSeriesIndex" should "support groupBy queries" in {
 //    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 //

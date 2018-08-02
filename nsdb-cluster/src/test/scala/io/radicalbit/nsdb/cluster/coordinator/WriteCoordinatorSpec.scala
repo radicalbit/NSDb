@@ -21,6 +21,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import org.scalatest._
@@ -52,9 +53,10 @@ class WriteCoordinatorSpec
 
   override def beforeAll: Unit = {
     writeCoordinatorActor ! WarmUpCompleted
+    schemaCoordinator ! WarmUpSchemas(List.empty)
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 10 seconds)
-    Await.result(namespaceSchemaActor ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)
+    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)
   }
 
   "WriteCoordinator" should behave.like(defaultBehaviour)

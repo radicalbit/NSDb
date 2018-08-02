@@ -30,6 +30,14 @@ object MetadataSpec extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
+    |  cluster {
+    |    pub-sub{
+    |      warm-up-topic = "warm-up"
+    |      schema-topic = "schema"
+    |      metadata-topic = "metadata"
+    |    }
+    |  }
+    |
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds
@@ -88,10 +96,12 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
     "join cluster" in within(10.seconds) {
       join(node1, node1)
       join(node2, node1)
-      awaitAssert {
-        mediator ! Count
-        expectMsg(2)
-      }
+
+      Thread.sleep(2000)
+
+      val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
+      nNodes shouldBe 2
+
       enterBarrier("joined")
     }
 

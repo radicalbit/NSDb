@@ -19,17 +19,18 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
-import io.radicalbit.nsdb.cluster.actor.{MetricsDataActor, MetricsSchemaActor}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{Matchers, _}
@@ -90,15 +91,17 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
-  lazy val namespaceSchemaActor = TestActorRef[MetricsSchemaActor](MetricsSchemaActor.props(basePath))
-  lazy val metricsDataActor     = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath))
-  lazy val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber])
+  lazy val schemaCoordinator =
+    TestActorRef[SchemaCoordinator](
+      SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
+  lazy val metricsDataActor = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath))
+  lazy val subscriber       = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
   lazy val fakeMetadataCoordinator = system.actorOf(Props[FakeMetadataCoordinator])
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(None,
                                                                          fakeMetadataCoordinator,
-                                                                         namespaceSchemaActor,
+                                                                         schemaCoordinator,
                                                                          publisherActor)
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
@@ -180,7 +183,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       expectNoMessage(interval)
 
-      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
+//      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
       metricsDataActor.underlyingActor.context.children.map(_.path.name).exists(_.contains(namespace)) shouldBe false
 
       probe.send(metricsDataActor, GetNamespaces(db))
@@ -239,7 +242,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       expectNoMessage(interval)
       expectNoMessage(interval)
 
-      probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
+      probe.send(schemaCoordinator, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
       probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
@@ -259,7 +262,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       }
       result.count shouldBe 0
 
-      probe.send(namespaceSchemaActor, GetSchema(db, namespace, "testMetric"))
+      probe.send(schemaCoordinator, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe false
     }
 

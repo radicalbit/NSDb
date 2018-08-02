@@ -37,8 +37,10 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
 
   private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
 
+  private val schemaCache = context.actorOf(Props[ReplicatedSchemaCache], "Schema-cache")
+
   context.actorOf(
-    ClusterListener.props(metadataCache),
+    ClusterListener.props(metadataCache, schemaCache),
     name = "clusterListener"
   )
 

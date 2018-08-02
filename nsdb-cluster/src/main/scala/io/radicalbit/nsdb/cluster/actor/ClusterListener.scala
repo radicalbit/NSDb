@@ -37,8 +37,9 @@ import scala.concurrent.duration._
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
   * @param metadataCache the global metadata cache actor.
+  * @param schemaCache the global schema cache actor.
   */
-class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
+class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Actor with ActorLogging {
 
   val cluster = Cluster(context.system)
 
@@ -62,22 +63,29 @@ class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
       implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
       val indexBasePath = config.getString("nsdb.index.base-path")
+      val warmUpTopic   = config.getString("nsdb.cluster.pub-sub.warm-up-topic")
+      val schemaTopic   = config.getString("nsdb.cluster.pub-sub.schema-topic")
+      val metadataTopic = config.getString("nsdb.cluster.pub-sub.metadata-topic")
 
       val nodeActorsGuardian =
-        context.system.actorOf(NodeActorsGuardian.props(metadataCache), name = s"guardian_$nodeName")
+        context.system.actorOf(NodeActorsGuardian.props(metadataCache, schemaCache), name = s"guardian_$nodeName")
 
       (nodeActorsGuardian ? GetCoordinators).map {
-        case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator) =>
-          val metadataActor = context.system.actorOf(
-            MetadataActor
-              .props(indexBasePath, metadataCoordinator)
-              .withDeploy(Deploy(scope = RemoteScope(member.address))),
-            name = s"metadata_$nodeName"
-          )
+        case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator) =>
+          val metadataActor = context.system.actorOf(MetadataActor
+                                                       .props(indexBasePath, metadataCoordinator)
+                                                       .withDeploy(Deploy(scope = RemoteScope(member.address))),
+                                                     name = s"metadata_$nodeName")
+          val schemaActor = context.system.actorOf(SchemaActor
+                                                     .props(indexBasePath, schemaCoordinator)
+                                                     .withDeploy(Deploy(scope = RemoteScope(member.address))),
+                                                   name = s"schema-actor_$nodeName")
 
-          mediator ! Subscribe("warm-up", readCoordinator)
-          mediator ! Subscribe("warm-up", writeCoordinator)
-          mediator ! Subscribe("metadata", metadataActor)
+          mediator ! Subscribe(warmUpTopic, readCoordinator)
+          mediator ! Subscribe(warmUpTopic, writeCoordinator)
+
+          mediator ! Subscribe(metadataTopic, metadataActor)
+          mediator ! Subscribe(schemaTopic, schemaActor)
 
           log.info(s"subscribing data actor for node $nodeName")
           val metricsDataActor = context.actorOf(
@@ -110,6 +118,6 @@ class ClusterListener(metadataCache: ActorRef) extends Actor with ActorLogging {
 }
 
 object ClusterListener {
-  def props(metadataCache: ActorRef) =
-    Props(new ClusterListener(metadataCache))
+  def props(metadataCache: ActorRef, schemaCache: ActorRef) =
+    Props(new ClusterListener(metadataCache, schemaCache))
 }

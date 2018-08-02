@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.Props
-import akka.cluster.Cluster
+import akka.cluster.{Cluster, MemberStatus}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Count
 import akka.remote.testconductor.RoleName
@@ -34,6 +34,14 @@ object WriteCoordinatorClusterTest extends MultiNodeConfig {
     |}
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
+    |
+    |  cluster {
+    |    pub-sub{
+    |      warm-up-topic = "warm-up"
+    |      schema-topic = "schema"
+    |      metadata-topic = "metadata"
+    |    }
+    |  }
     |
     |  index {
     |    base-path= "target/test_index/WriteCoordinatorClusterTest"
@@ -105,12 +113,10 @@ class WriteCoordinatorClusterTest
       join(node1, node1)
       join(node2, node1)
 
-      awaitAssert {
-        mediator ! Count
-        expectMsg(2)
-      }
+      Thread.sleep(2000)
 
-//      expectNoMessage(2 second)
+      val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
+      nNodes shouldBe 2
 
       enterBarrier("Joined")
     }

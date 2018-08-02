@@ -44,7 +44,10 @@ class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit va
     .onComplete {
 
       case Success(
-          Seq(CoordinatorsGot(metadataCoordinator, writeCoordinator: ActorRef, readCoordinator: ActorRef),
+          Seq(CoordinatorsGot(metadataCoordinator,
+                              writeCoordinator: ActorRef,
+                              readCoordinator: ActorRef,
+                              schemaCoordinator: ActorRef),
               publisher: ActorRef)) =>
         new GrpcEndpoint(readCoordinator = readCoordinator,
                          writeCoordinator = writeCoordinator,

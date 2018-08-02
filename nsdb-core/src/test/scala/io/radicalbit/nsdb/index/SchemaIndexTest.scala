@@ -31,11 +31,10 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
   "SchemaIndex" should "write and read properly" in {
 
     lazy val directory = new RAMDirectory()
-    Paths.get(s"target/test_index/SchemaIndex/${UUID.randomUUID}")
-
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
     val schemaIndex = new SchemaIndex(directory)
+
+    implicit val writer = schemaIndex.getWriter
 
     (0 to 100).foreach { i =>
       val testData = Schema(
@@ -69,31 +68,43 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "SchemaIndex" should "update records" in {
 
-    lazy val directory = new RAMDirectory()
+    val testData = Schema(
+      "metric_1",
+      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
+    val testData2 = Schema(
+      "metric_1",
+      Set(SchemaField("field1", DimensionFieldType, INT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
 
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
+    lazy val directory = new RAMDirectory()
 
     val schemaIndex = new SchemaIndex(directory)
 
-    val testData = Schema(
-      s"metric_1",
-      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
+    implicit val writer = schemaIndex.getWriter
+
     schemaIndex.write(testData)
     writer.close()
 
-    val result = schemaIndex.getSchema("metric_1")
+    schemaIndex.getSchema("metric_1") shouldBe Some(testData)
 
-    result shouldBe Some(testData)
+    (1 to 100).foreach { i =>
+      val writer2 = schemaIndex.getWriter
+      schemaIndex.update("metric_1", testData2)(writer2)
+      writer2.close()
+      schemaIndex.refresh()
+    }
 
+    schemaIndex.all.size shouldBe 1
+
+    schemaIndex.getSchema("metric_1") shouldBe Some(testData2)
   }
 
   "SchemaIndex" should "drop schema" in {
 
     lazy val directory = new RAMDirectory()
 
-    implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
-
     val schemaIndex = new SchemaIndex(directory)
+
+    implicit val writer = schemaIndex.getWriter
 
     val testData = Schema(
       s"metric_2",
