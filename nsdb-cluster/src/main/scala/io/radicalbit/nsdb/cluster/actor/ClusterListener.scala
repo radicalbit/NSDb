@@ -24,8 +24,8 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.NsdbNodeEndpoint
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{CoordinatorsGot, GetCoordinators, GetMetricsDataActors}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -40,14 +40,14 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
   val cluster = Cluster(context.system)
 
-  log.error(s"Created ClusterListener at path : ${self.path}")
-
   private val mediator = DistributedPubSub(context.system).mediator
 
   private val config = context.system.settings.config
 
-  override def preStart(): Unit =
+  override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
+    log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
+  }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
 
@@ -56,7 +56,7 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
         if member.address.port.isDefined && member.address.port.get == config.getInt("akka.remote.netty.tcp.port") =>
       log.info("Member is Up: {}", member.address)
 
-      val nodeName = s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
+      val nodeName = createNodeName(member)
 
       implicit val timeout: Timeout = Timeout(5.seconds)
 

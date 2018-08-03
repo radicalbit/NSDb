@@ -27,6 +27,7 @@ import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
+import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetCoordinators, _}
 
 /**
@@ -47,7 +48,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  val nodeName = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+  val nodeName = createNodeName(selfMember)
 
   private val config = context.system.settings.config
 

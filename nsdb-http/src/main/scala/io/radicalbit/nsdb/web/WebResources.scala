@@ -45,7 +45,7 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
 
   implicit val materializer = ActorMaterializer()
   implicit val dispatcher   = system.dispatcher
-  implicit lazy val httpTimeout: Timeout =
+  implicit val httpTimeout: Timeout =
     Timeout(config.getDuration("nsdb.http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   /**

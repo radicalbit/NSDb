@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.cluster
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.cluster.Cluster
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
@@ -60,13 +61,12 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
     case Success(m :: s :: Nil) =>
       system.actorOf(
         ClusterListener.props(m, s),
-        name = "clusterListener"
+        name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
       )
-    case e =>
+    case _ =>
       system.log.error("Error retrieving caches, terminating system.")
       system.terminate()
   }
-
 }
 
 /**
