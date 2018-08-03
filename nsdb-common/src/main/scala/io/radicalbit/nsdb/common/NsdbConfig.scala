@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+package io.radicalbit.nsdb.common
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with NsdbClusterDefinition
+import com.typesafe.config.Config
+
+trait NsdbConfig {
+
+  def config: Config
+
+}

@@ -23,10 +23,12 @@ import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -38,7 +40,6 @@ import scala.concurrent.Future
   * @param cache cluster aware metric's location cache
   */
 class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPathLogging with Stash {
-
   val cluster = Cluster(context.system)
 
   implicit val timeout: Timeout = Timeout(
@@ -56,7 +57,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   def warmUp: Receive = {
     case msg @ WarmUpMetadata(metricsMetadata) =>
-      log.debug(s"Received location warm-up message: $msg ")
+      log.info(s"Received location warm-up message: $msg ")
       Future
         .sequence(metricsMetadata.map { metadata =>
           Future
@@ -79,7 +80,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             context.system.terminate()
         }
         .foreach { _ =>
-          mediator ! Publish(warmUpTopic, WarmUpCompleted)
+          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
           unstashAll()
           context.become(operative)
         }
@@ -97,7 +98,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
       .map {
         case LocationCached(_, Some(_)) =>
-          mediator ! Publish(metadataTopic, AddLocation(db, namespace, location))
+          mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, location))
           LocationAdded(db, namespace, location)
         case _ => AddLocationFailed(db, namespace, location)
       }
@@ -130,9 +131,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
         .map(l => LocationsGot(db, namespace, metric, l.value))
       f.pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
-      val nodeName =
-        s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-
+      val nodeName = createNodeName(cluster.selfMember)
       (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
         .flatMap {
           case LocationsCached(_, values) if values.nonEmpty =>
@@ -173,11 +172,11 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
         .map {
           case MetricInfoCached(_, Some(_)) =>
-            mediator ! Publish(metadataTopic, msg)
+            mediator ! Publish(METADATA_TOPIC, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
-          case _ => MetricInfoFailed(db, namespace, metricInfo, "Unknown response from cache")
+          case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
   }

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+package io.radicalbit.nsdb.cluster.minicluster
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with NsdbClusterDefinition
+object MiniClusterStarter extends App with NsdbMiniCluster {
+  override protected[this] def nodesNumber = 2
+}

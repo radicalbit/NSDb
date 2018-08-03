@@ -92,7 +92,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
 
     metadataCoordinator ! WarmUpMetadata(allMetadata)
 
-    log.debug("metadata actor started at {}/{}", remoteAddress.address, self.path.name)
+    log.info("metadata actor started at {}/{}", remoteAddress.address, self.path.name)
   }
 
   override def receive: Receive = {

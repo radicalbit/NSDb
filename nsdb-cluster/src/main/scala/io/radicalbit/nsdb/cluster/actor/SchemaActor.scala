@@ -20,6 +20,7 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Subscribe, SubscribeAck}
+import io.radicalbit.nsdb.cluster.PubSubTopics.SCHEMA_TOPIC
 import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
@@ -46,8 +47,6 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
   val remoteAddress = RemoteAddress(context.system)
 
-  private lazy val schemaTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.schema-topic")
-
   private def getOrCreateSchemaIndex(db: String, namespace: String): SchemaIndex =
     schemaIndexes.getOrElse(
       (db, namespace), {
@@ -63,7 +62,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
     *
     */
   override def preStart(): Unit = {
-    log.debug("Schema Actor performing warm-up")
+    log.info("Schema Actor performing warm-up at {}/{}", remoteAddress.address, self.path.name)
     val allSchemas = FileUtils.getSubDirs(basePath).flatMap { db =>
       FileUtils.getSubDirs(db).toList.map { namespace =>
         SchemaWarmUp(db.getName, namespace.getName, getOrCreateSchemaIndex(db.getName, namespace.getName).all)
@@ -72,7 +71,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
     schemaCoordinator ! WarmUpSchemas(allSchemas)
 
-    log.debug("schema actor started at {}/{}", remoteAddress.address, self.path.name)
+    log.info("Schema actor started at {}/{}", remoteAddress.address, self.path.name)
   }
 
   override def receive: Receive = {
@@ -106,7 +105,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Act
 
       sender ! NamespaceDeleted(db, namespace)
 
-    case SubscribeAck(Subscribe(`schemaTopic`, None, _)) =>
+    case SubscribeAck(Subscribe(SCHEMA_TOPIC, None, _)) =>
       log.debug("subscribed to topic metadata")
   }
 }

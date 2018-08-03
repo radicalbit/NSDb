@@ -126,14 +126,14 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   def receive: Receive = {
     case PutLocationInCache(key, value) =>
       val f = for {
-        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteMajority(writeDuration))(_ + (key -> value)))
+        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ + (key -> value)))
           .map {
             case UpdateSuccess(_, _) =>
               LocationCached(key, Some(value))
             case _ => LocationCached(key, None)
           }
         metricKey = MetricLocationsKey(key.db, key.namespace, key.metric)
-        getMetric <- (replicator ? Get(metricLocationsKey(metricKey), ReadMajority(writeDuration))).map {
+        getMetric <- (replicator ? Get(metricLocationsKey(metricKey), ReadLocal)).map {
           case g @ GetSuccess(LWWMapKey(_), _) =>
             LocationsCached(
               metricKey,
@@ -148,7 +148,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         _ <- {
           val locMap  = getMetric.value.map(e => (e.from, e.to) -> e).toMap
           val newLocs = (locMap + ((value.from, value.to) -> value)).values.map(identity).toSeq
-          (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteMajority(writeDuration))(
+          (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
             _ + (metricKey -> newLocs)))
             .map {
               case UpdateSuccess(_, _) =>
@@ -187,10 +187,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
     case EvictLocation(key) =>
       val f = for {
-        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteMajority(writeDuration))(_ - key))
+        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ - key))
           .map(_ => LocationCached(key, None))
         metricKey = MetricLocationsKey(key.db, key.namespace, key.metric)
-        getMetric <- (replicator ? Get(metricLocationsKey(metricKey), ReadMajority(writeDuration))).map {
+        getMetric <- (replicator ? Get(metricLocationsKey(metricKey), ReadLocal)).map {
           case g @ GetSuccess(LWWMapKey(_), _) =>
             LocationsCached(
               metricKey,
@@ -205,7 +205,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         _ <- {
           val locMap  = getMetric.value.map(e => (e.from, e.to) -> e).toMap
           val newLocs = (locMap - ((key.from, key.to))).values.map(identity).toSeq
-          (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteMajority(writeDuration))(
+          (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
             _ + (metricKey -> newLocs)))
             .map {
               case UpdateSuccess(_, _) =>
@@ -217,12 +217,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       f.pipeTo(sender)
     case GetLocationFromCache(key) =>
       log.debug("searching for key {} in cache", key)
-      replicator ! Get(locationKey(key), ReadMajority(writeDuration), Some(SingleLocationRequest(key, sender())))
+      replicator ! Get(locationKey(key), ReadLocal, Some(SingleLocationRequest(key, sender())))
     case GetLocationsFromCache(key) =>
       log.debug("searching for key {} in cache", key)
-      replicator ! Get(metricLocationsKey(key),
-                       ReadMajority(writeDuration),
-                       Some(MetricLocationsRequest(key, sender())))
+      replicator ! Get(metricLocationsKey(key), ReadLocal, Some(MetricLocationsRequest(key, sender())))
     case GetMetricInfoFromCache(key) =>
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricInfoKey(key), ReadLocal, Some(MetricInfoRequest(key, sender())))
@@ -231,6 +229,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         case Some(value) => replyTo ! LocationCached(key, Some(value))
         case None        => replyTo ! LocationCached(key, None)
       }
+    case g: GetFailure[_] =>
+      log.error(s"Error in cache GetFailure: $g")
     case g @ GetSuccess(LWWMapKey(_), Some(MetricLocationsRequest(key, replyTo))) =>
       g.dataValue
         .asInstanceOf[LWWMap[MetricLocationsKey, Seq[Location]]]

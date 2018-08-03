@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+package io.radicalbit.nsdb.cluster.minicluster
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with NsdbClusterDefinition
+import com.typesafe.scalalogging.LazyLogging
+import io.radicalbit.nsdb.cluster.ProductionCluster
+
+trait NsdbMiniClusterDefinition extends ProductionCluster with NsdbMiniClusterConf with LazyLogging {}

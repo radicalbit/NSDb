@@ -22,9 +22,12 @@ import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, ActorLogging, ActorRef, Deploy, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
+import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
+import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetCoordinators, _}
 
 /**
@@ -34,10 +37,10 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
-      log.error("Got the following TimeoutException, resuming the processing", e)
+      log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
     case t =>
-      log.error("generic error in write coordinator", t)
+      log.error(t, "generic error in write coordinator")
       super.supervisorStrategy.decider.apply(t)
   }
 
@@ -45,7 +48,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  val nodeName = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+  val nodeName = createNodeName(selfMember)
 
   private val config = context.system.settings.config
 
@@ -99,12 +102,26 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
         s"write-coordinator_$nodeName"
       )
 
+  val metricsDataActor = context.actorOf(
+    MetricsDataActor
+      .props(indexBasePath)
+      .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
+      .withDispatcher("akka.actor.control-aware-dispatcher"),
+    s"metrics-data-actor_$nodeName"
+  )
+
   def receive: Receive = {
     case GetCoordinators =>
       sender ! CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator)
-    case GetPublisher => sender() ! publisherActor
+    case GetPublisher        => sender() ! publisherActor
+    case GetMetricsDataActor => sender() ! metricsDataActor
+    case GetMetricsDataActors(replyTo) =>
+      log.info("gossiping for node {}", nodeName)
+      replyTo match {
+        case Some(actor) => actor ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
+        case None        => mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
+      }
   }
-
 }
 
 object NodeActorsGuardian {

@@ -91,7 +91,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   override protected[this] def dump: Dump = GrpcEndpointServiceDump
 
-  override protected[this] val port: Int = 7817
+  override protected[this] val port: Int = system.settings.config.getInt("nsdb.grpc.port")
 
   override protected[this] val parserSQL = new SQLStatementParser
 

@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.cluster
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{CoordinatorsGot, GetCoordinators, GetPublisher}
@@ -35,8 +36,9 @@ import scala.util.{Failure, Success}
 class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit val system: ActorSystem)
     extends WebResources
     with NsdbSecurity
-    with NsdbConfig
     with LazyLogging {
+
+  override val config: Config = system.settings.config
 
   Future
     .sequence(
@@ -59,5 +61,4 @@ class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit va
         logger.error("error on loading coordinators", ex)
         System.exit(1)
     }
-
 }

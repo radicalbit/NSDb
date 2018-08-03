@@ -51,7 +51,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.13"
+    lazy val version   = "2.5.14"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -231,7 +231,8 @@ object Dependencies {
 
   object Common {
     val libraries = Seq(
-      scala_logging.scala_logging
+      scala_logging.scala_logging,
+      config.core
     )
   }
 

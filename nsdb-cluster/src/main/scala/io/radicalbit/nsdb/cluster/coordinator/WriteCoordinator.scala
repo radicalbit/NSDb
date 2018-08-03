@@ -26,7 +26,6 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
@@ -38,6 +37,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
+import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -217,8 +217,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       metricsDataActors += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case GetConnectedDataNodes =>
+      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg =>
       stash()
       log.error(s"Received and stashed message $msg during warmUp")
@@ -229,8 +229,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       metricsDataActors += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case GetConnectedDataNodes =>
+      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
@@ -349,10 +349,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
               while (currentTimestamp <= maxTimestamp) {
 
-                val cluster = Cluster(context.system)
-                val nodeName =
-                  s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-                val loc = Location(metric.getName, nodeName, currentTimestamp, upBound)
+                val cluster  = Cluster(context.system)
+                val nodeName = createNodeName(cluster.selfMember)
+                val loc      = Location(metric.getName, nodeName, currentTimestamp, upBound)
 
                 log.debug(s"restoring dump from metric ${metric.getName} and location $loc")
 

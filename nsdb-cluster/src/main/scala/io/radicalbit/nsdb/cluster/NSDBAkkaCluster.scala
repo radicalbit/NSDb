@@ -18,18 +18,21 @@ package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.cluster.Cluster
 import akka.util.Timeout
-import com.typesafe.config.Config
-import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
+import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
+import io.radicalbit.nsdb.common.NsdbConfig
+
+import scala.concurrent.Future
+import scala.util.Success
 
 /**
   * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
   */
-trait NSDBAkkaCluster {
-
-  def config: Config
+trait NSDBAkkaCluster { this: NsdbConfig =>
 
   implicit lazy val system: ActorSystem = ActorSystem("nsdb", config)
 }
@@ -39,16 +42,34 @@ trait NSDBAkkaCluster {
   */
 trait NSDBAActors { this: NSDBAkkaCluster =>
 
+  import akka.pattern.ask
+
   implicit val timeout =
-    Timeout(config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+    Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   implicit val executionContext = system.dispatcher
 
-  system.actorOf(Props[DatabaseActorsGuardian], "guardian")
+  val databaseActorGuardian = system.actorOf(
+    Props(classOf[DatabaseActorsGuardian]),
+    name = "databaseActorGuardian"
+  )
 
+  lazy val metadataCache = (databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef]
+  lazy val schemaCache   = (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]
+
+  Future.sequence(Seq(metadataCache, schemaCache)).onComplete {
+    case Success(m :: s :: Nil) =>
+      system.actorOf(
+        ClusterListener.props(m, s),
+        name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+      )
+    case _ =>
+      system.log.error("Error retrieving caches, terminating system.")
+      system.terminate()
+  }
 }
 
 /**
   * Simply mix in [[NSDBAkkaCluster]] with [[NSDBAActors]]
   */
-trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors
+trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors with NsdbConfig

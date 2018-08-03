@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster
+package io.radicalbit.nsdb.cluster.minicluster
 
-/**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
-  */
-object NsdbCluster extends App with NsdbClusterDefinition
+import org.scalatest._
+
+class MiniClusterSpec extends FlatSpec with NsdbMiniCluster with Matchers with OneInstancePerTest with BeforeAndAfter {
+
+  override protected[this] val nodesNumber = 2
+
+  "MiniCluster" should "start sucessfully" in {
+
+    nodesNumber shouldBe 2
+  }
+}
