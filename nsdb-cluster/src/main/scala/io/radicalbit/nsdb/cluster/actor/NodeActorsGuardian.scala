@@ -22,12 +22,12 @@ import akka.actor.SupervisorStrategy.Resume
 import akka.actor.{Actor, ActorLogging, ActorRef, Deploy, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
+import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetCoordinators, _}
-import io.radicalbit.nsdb.cluster.PubSubTopics._
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -118,7 +118,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     case GetPublisher        => sender() ! publisherActor
     case GetMetricsDataActor => sender() ! metricsDataActor
     case GetMetricsDataActors(replyTo) =>
-      log.info(s"gossiping for node $nodeName")
+      log.info("gossiping for node {}", nodeName)
       replyTo match {
         case Some(actor) => actor ! SubscribeMetricsDataActor(metricsDataActor, nodeName)
         case None        => mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))

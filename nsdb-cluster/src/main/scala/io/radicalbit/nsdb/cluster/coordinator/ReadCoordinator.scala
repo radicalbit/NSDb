@@ -58,8 +58,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       metricsDataActors += (nodeName -> actor)
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case GetConnectedDataNodes =>
+      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msq =>
       // Requests received during warm-up are ignored, this results in a timeout
       log.error(s"Received ignored message $msq during warmUp")
@@ -70,8 +70,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       metricsDataActors += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case GetConnectedDataNodes =>
+      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg @ GetDbs =>
       Future
         .sequence(metricsDataActors.values.toSeq.map(actor => (actor ? msg).mapTo[DbsGot].map(_.dbs)))

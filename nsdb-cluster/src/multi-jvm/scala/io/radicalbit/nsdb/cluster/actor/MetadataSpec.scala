@@ -95,13 +95,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   lazy val schemaCache   = Await.result((guardian ? GetSchemaCache).mapTo[ActorRef], 5.seconds)
 
   system.actorOf(ClusterListener.props(metadataCache, schemaCache), name = "clusterListener")
-//  Future.sequence(Seq(metadataCache, schemaCache)).onComplete {
-//    case Success(m :: s :: Nil) =>
-//  )
-//    case e =>
-//      system.log.error("Error retrieving caches, terminating system.")
-//      system.terminate()
-//  }
 
   val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
 
@@ -124,21 +117,30 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
       nNodes shouldBe 2
 
-      Thread.sleep(5000)
+      awaitAssert {
+        Await
+          .ready(
+            system
+              .actorSelection(s"/user/metadata_$nodeName")
+              .resolveOne(5.seconds),
+            5.seconds
+          )
+          .value
+          .get
+          .isSuccess shouldBe true
+      }
 
       enterBarrier("joined")
     }
 
     "add location from different nodes" in within(10.seconds) {
 
-      val addresses = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
-
       runOn(node1) {
         val selfMember = cluster.selfMember
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
         val metadataCoordinator = Await.result(
-          system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5.seconds),
+          system.actorSelection(s"/user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5.seconds),
           5.seconds)
 
         awaitAssert {
@@ -148,12 +150,16 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       }
 
       awaitAssert {
-        addresses.foreach(a => {
-          val metadataActor =
-            system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor ! GetLocations("db", "namespace", "metric")
-          expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
-        })
+        val metadataActor =
+          Await.result(
+            system
+              .actorSelection(
+                s"/user/metadata_${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}")
+              .resolveOne(5.seconds),
+            5.seconds
+          )
+        metadataActor ! GetLocations("db", "namespace", "metric")
+        expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
       }
 
       enterBarrier("after-add-locations")
@@ -177,12 +183,11 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       }
 
       awaitAssert {
-        addresses.foreach(a => {
-          val metadataActor =
-            system.actorSelection(s"user/metadata_${a.host.getOrElse("noHost")}_${a.port.getOrElse(2552)}")
-          metadataActor ! GetMetricInfo("db", "namespace", "metric")
-          expectMsg(MetricInfoGot("db", "namespace", Some(metricInfo)))
-        })
+        val metadataActor =
+          system.actorSelection(
+            s"user/metadata_${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}")
+        metadataActor ! GetMetricInfo("db", "namespace", "metric")
+        expectMsg(MetricInfoGot("db", "namespace", Some(metricInfo)))
       }
 
       enterBarrier("after-add-metrics-info")

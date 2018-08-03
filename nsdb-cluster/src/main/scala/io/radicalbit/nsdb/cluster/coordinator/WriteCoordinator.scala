@@ -219,8 +219,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       metricsDataActors += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case GetConnectedDataNodes =>
+      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg =>
       stash()
       log.error(s"Received and stashed message $msg during warmUp")
@@ -231,8 +231,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       metricsDataActors += (nodeName -> actor)
       log.info(s"subscribed data actor for node $nodeName")
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case GetConnectedNodes =>
-      sender ! ConnectedNodesGot(metricsDataActors.keys.toSeq)
+    case GetConnectedDataNodes =>
+      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
