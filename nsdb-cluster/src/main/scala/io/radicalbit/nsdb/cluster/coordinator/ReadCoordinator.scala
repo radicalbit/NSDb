@@ -99,7 +99,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
             Future
-              .sequence(metricsDataActors.values.toSeq.map(actor => actor ? ExecuteSelectStatement(statement, schema)))
+              .sequence(metricsDataActors.values.toSeq.map { actor =>
+                actor ? ExecuteSelectStatement(statement, schema)
+              })
               .map { seq =>
                 val errs = seq.collect {
                   case e: SelectStatementFailed => e.reason

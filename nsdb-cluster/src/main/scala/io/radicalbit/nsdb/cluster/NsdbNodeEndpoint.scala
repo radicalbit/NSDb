@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.cluster
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{CoordinatorsGot, GetCoordinators, GetPublisher}
@@ -37,7 +38,7 @@ class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit va
     with NsdbSecurity
     with LazyLogging {
 
-  override val config = system.settings.config
+  override val config: Config = system.settings.config
 
   Future
     .sequence(
@@ -45,7 +46,10 @@ class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit va
     .onComplete {
 
       case Success(
-          Seq(CoordinatorsGot(metadataCoordinator, writeCoordinator: ActorRef, readCoordinator: ActorRef, _),
+          Seq(CoordinatorsGot(metadataCoordinator,
+                              writeCoordinator: ActorRef,
+                              readCoordinator: ActorRef,
+                              schemaCoordinator: ActorRef),
               publisher: ActorRef)) =>
         new GrpcEndpoint(readCoordinator = readCoordinator,
                          writeCoordinator = writeCoordinator,

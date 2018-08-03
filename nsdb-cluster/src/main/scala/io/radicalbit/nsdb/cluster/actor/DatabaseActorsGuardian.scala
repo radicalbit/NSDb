@@ -36,9 +36,9 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
       super.supervisorStrategy.decider.apply(t)
   }
 
-  lazy val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
+  private lazy val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], "metadata-cache")
 
-  lazy val schemaCache = context.actorOf(Props[ReplicatedSchemaCache], "schema-cache")
+  private lazy val schemaCache = context.actorOf(Props[ReplicatedSchemaCache], "Schema-cache")
 
   def receive: Receive = {
     case GetMetadataCache =>

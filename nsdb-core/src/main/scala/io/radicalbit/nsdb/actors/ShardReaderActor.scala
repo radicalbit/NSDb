@@ -20,13 +20,14 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
-import io.radicalbit.nsdb.index.lucene.CountAllGroupsCollector
-import io.radicalbit.nsdb.index.lucene.Index._
-import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
+import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCount}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
-import io.radicalbit.nsdb.statement.StatementParser.{ParsedAggregatedQuery, ParsedSimpleQuery}
+import io.radicalbit.nsdb.statement.StatementParser._
+import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.store.MMapDirectory
 
 import scala.util.{Failure, Success, Try}
@@ -37,15 +38,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
   lazy val directory =
     new MMapDirectory(
       Paths.get(basePath, db, namespace, "shards", s"${shardKey.metric}_${shardKey.from}_${shardKey.to}"))
+
   lazy val index = new TimeSeriesIndex(directory)
 
-  lazy val facetDirectory =
-    new MMapDirectory(
-      Paths.get(basePath, db, namespace, "shards", s"${shardKey.metric}_${shardKey.from}_${shardKey.to}", "facet"))
-  lazy val taxoDirectory = new MMapDirectory(
-    Paths
-      .get(basePath, db, namespace, "shards", s"${shardKey.metric}_${shardKey.from}_${shardKey.to}", "facet", "taxo"))
-  lazy val facetIndex = new FacetIndex(facetDirectory, taxoDirectory)
+  lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = shardKey)
 
   override def receive: Receive = {
     case GetCount(_, _, metric) => sender ! CountGot(db, namespace, metric, index.getCount())
@@ -58,32 +54,50 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
+
         case Success(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
-          handleNoIndexResults(Try(facetIndex.getDistinctField(q, fields.map(_.name).head, sort, limit))) match {
+          handleNoIndexResults(
+            Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, sort, limit))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) =>
               sender ! SelectStatementFailed(ex.getMessage)
           }
-        case Success(ParsedAggregatedQuery(_, _, q, collector: CountAllGroupsCollector[_], sort, limit)) =>
-          handleNoIndexResults(Try(facetIndex
-            .getCount(q, collector.groupField, sort, limit, schema.fieldsMap(collector.groupField).indexType))) match {
+
+        case Success(ParsedAggregatedQuery(_, _, q, InternalCountAggregation(groupField, _), sort, limit)) =>
+          handleNoIndexResults(
+            Try(
+              facetIndexes.facetCountIndex
+                .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
-        case Success(ParsedAggregatedQuery(_, _, q, collector, sort, limit)) =>
-          handleNoIndexResults(Try(index.query(schema, q, collector.clear, limit, sort))) match {
+
+        case Success(ParsedAggregatedQuery(_, _, q, InternalSumAggregation(groupField, _), sort, limit)) =>
+          handleNoIndexResults(
+            Try(
+              facetIndexes.facetSumIndex
+                .result(q,
+                        groupField,
+                        sort,
+                        limit,
+                        schema.fieldsMap(groupField).indexType,
+                        Some(schema.fieldsMap("value").indexType)))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
+
+        case Success(ParsedAggregatedQuery(_, _, q, aggregationType, sort, limit)) =>
+          sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")
+
         case Success(_)  => sender ! SelectStatementFailed("Unsupported query type")
         case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
       }
     case RefreshShard =>
       index.refresh()
-      facetIndex.refresh()
+      facetIndexes.refresh()
   }
 }
 

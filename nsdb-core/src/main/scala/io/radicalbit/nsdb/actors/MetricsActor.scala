@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 
 import akka.actor.Actor
-import io.radicalbit.nsdb.index.{FacetIndex, TimeSeriesIndex}
+import io.radicalbit.nsdb.index._
 import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
@@ -52,9 +52,9 @@ trait MetricsActor { this: Actor =>
   private[actors] val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
 
   /**
-    * all facet index shards for the given db and namespace grouped by [[ShardKey]]
+    * all facet shard indexes for the given db and namespace grouped by [[ShardKey]]
     */
-  protected val facetIndexShards: mutable.Map[ShardKey, FacetIndex] = mutable.Map.empty
+  protected val facetIndexShards: mutable.Map[ShardKey, AllFacetIndexes] = mutable.Map.empty
 
   protected def shardsForMetric(metric: String)        = shards.filter(_._1.metric == metric)
   protected def facetsShardsFromMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
@@ -64,7 +64,7 @@ trait MetricsActor { this: Actor =>
     * @param key the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the index for the key
     */
-  protected def getIndex(key: ShardKey) =
+  protected def getIndex(key: ShardKey): TimeSeriesIndex =
     shards.getOrElse(
       key, {
         val directory =
@@ -80,18 +80,12 @@ trait MetricsActor { this: Actor =>
     * @param key the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the facet index for the key
     */
-  protected def getFacetIndex(key: ShardKey) =
+  protected def facetIndexesFor(key: ShardKey): AllFacetIndexes =
     facetIndexShards.getOrElse(
       key, {
-        val directory =
-          new MMapDirectory(
-            Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
-        val taxoDirectory = new MMapDirectory(
-          Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet", "taxo"))
-        val newIndex = new FacetIndex(directory, taxoDirectory)
-        facetIndexShards += (key -> newIndex)
-        newIndex
+        val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = key)
+        facetIndexShards += (key -> facetIndexes)
+        facetIndexes
       }
     )
-
 }

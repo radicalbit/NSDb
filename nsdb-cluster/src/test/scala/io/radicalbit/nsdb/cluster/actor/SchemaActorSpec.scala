@@ -105,15 +105,18 @@ class SchemaActorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(baseSchema("people"))
-
   }
 
   "SchemaActor" should "update a schema" in {
-    probe.send(schemaActor, UpdateSchema("db", "namespace", "people", decimalValueSchema("people")))
+    (1 to 100) foreach { _ =>
+      probe.send(schemaActor, UpdateSchema("db", "namespace", "people", decimalValueSchema("people")))
+    }
 
-    val schema = probe.expectMsgType[SchemaUpdated].schema
-    schema.fields.exists(_.name == "timestamp") shouldBe true
-    schema.fields.exists(_.name == "value") shouldBe true
+    (1 to 100) foreach { _ =>
+      val schema = probe.expectMsgType[SchemaUpdated].schema
+      schema.fields.exists(_.name == "timestamp") shouldBe true
+      schema.fields.exists(_.name == "value") shouldBe true
+    }
 
     probe.send(schemaActor, GetSchema("db", "namespace", "people"))
 

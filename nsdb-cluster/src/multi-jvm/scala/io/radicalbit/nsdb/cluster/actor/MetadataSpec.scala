@@ -32,7 +32,6 @@ object MetadataSpec extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
-    |
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds

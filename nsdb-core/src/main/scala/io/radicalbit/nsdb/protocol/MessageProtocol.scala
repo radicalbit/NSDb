@@ -92,6 +92,7 @@ object MessageProtocol {
     case class DbsGot(dbs: Set[String])
     case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
+    case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String)
     case class SchemaCached(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
@@ -102,6 +103,7 @@ object MessageProtocol {
     case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
     case class MetricDropped(db: String, namespace: String, metric: String)
     case class NamespaceDeleted(db: String, namespace: String)
+    case class DeleteNamespaceFailed(db: String, namespace: String, reason: String)
 
     case class SchemaUpdated(db: String, namespace: String, metric: String, schema: Schema)
     case class UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])
