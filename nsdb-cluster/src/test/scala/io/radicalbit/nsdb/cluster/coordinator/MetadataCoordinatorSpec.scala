@@ -18,7 +18,9 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.FakeCache.{DeleteAll, DeleteDone}
@@ -26,8 +28,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
-import akka.pattern._
-import akka.util.Timeout
 
 import scala.collection.mutable
 import scala.concurrent.Await
@@ -40,26 +40,30 @@ class FakeCache extends Actor {
   val metricInfo: mutable.Map[MetricInfoKey, MetricInfo] = mutable.Map.empty
 
   def receive: Receive = {
-    case PutLocationInCache(key, value) =>
+    case PutLocationInCache(db, namespace, metric, from, to, value) =>
+      val key = LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
       locations.put(key, value)
-      sender ! LocationCached(key, Some(value))
-    case GetLocationsFromCache(key) =>
+      sender ! LocationCached(db, namespace, metric, from, to, Some(value))
+    case GetLocationsFromCache(db, namespace, metric) =>
+      val key                 = MetricLocationsKey(db, namespace, metric)
       val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq
-      sender ! LocationsCached(key, locs)
+      sender ! LocationsCached(db, namespace, metric, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
       metricInfo.keys.foreach(k => metricInfo.remove(k))
       sender() ! DeleteDone
-    case PutMetricInfoInCache(key, value) =>
+    case PutMetricInfoInCache(db, namespace, metric, value) =>
+      val key = MetricInfoKey(db, namespace, metric)
       metricInfo.get(key) match {
         case Some(v) =>
           sender ! MetricInfoAlreadyExisting(key, v)
         case None =>
           metricInfo.put(key, value)
-          sender ! MetricInfoCached(key, Some(value))
+          sender ! MetricInfoCached(db, namespace, metric, Some(value))
       }
-    case GetMetricInfoFromCache(key) =>
-      sender ! MetricInfoCached(key, metricInfo.get(key))
+    case GetMetricInfoFromCache(db, namespace, metric) =>
+      val key = MetricInfoKey(db, namespace, metric)
+      sender ! MetricInfoCached(db, namespace, metric, metricInfo.get(key))
   }
 }
 
