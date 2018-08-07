@@ -35,25 +35,25 @@ import scala.concurrent.duration._
 
 class FakeCache extends Actor {
 
-  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty
+  val locations: mutable.Map[LocationWithNodeKey, Location] = mutable.Map.empty
 
-  val metricInfo: mutable.Map[MetricInfoKey, MetricInfo] = mutable.Map.empty
+  val metricInfo: mutable.Map[MetricInfoCacheKey, MetricInfo] = mutable.Map.empty
 
   def receive: Receive = {
     case PutLocationInCache(db, namespace, metric, from, to, value) =>
-      val key = LocationKey(db: String, namespace: String, metric: String, from: Long, to: Long)
+      val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
       locations.put(key, value)
       sender ! LocationCached(db, namespace, metric, from, to, Some(value))
     case GetLocationsFromCache(db, namespace, metric) =>
-      val key                 = MetricLocationsKey(db, namespace, metric)
-      val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq
+      val key                 = MetricLocationsCacheKey(db, namespace, metric)
+      val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq.sortBy(_.from)
       sender ! LocationsCached(db, namespace, metric, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
       metricInfo.keys.foreach(k => metricInfo.remove(k))
       sender() ! DeleteDone
     case PutMetricInfoInCache(db, namespace, metric, value) =>
-      val key = MetricInfoKey(db, namespace, metric)
+      val key = MetricInfoCacheKey(db, namespace, metric)
       metricInfo.get(key) match {
         case Some(v) =>
           sender ! MetricInfoAlreadyExisting(key, v)
@@ -62,7 +62,7 @@ class FakeCache extends Actor {
           sender ! MetricInfoCached(db, namespace, metric, Some(value))
       }
     case GetMetricInfoFromCache(db, namespace, metric) =>
-      val key = MetricInfoKey(db, namespace, metric)
+      val key = MetricInfoCacheKey(db, namespace, metric)
       sender ! MetricInfoCached(db, namespace, metric, metricInfo.get(key))
   }
 }
@@ -139,26 +139,7 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[LocationAdded]
       }
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
-      val retrievedLocations = awaitAssert {
-        probe.expectMsgType[LocationsGot]
-      }
-
-      retrievedLocations.locations.size shouldBe 1
-      val loc = retrievedLocations.locations.head
-      loc.metric shouldBe metric
-      loc.from shouldBe 0L
-      loc.to shouldBe 30000L
-      loc.node shouldBe "node_01"
-    }
-
-    "retrieve Locations for a metric" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
-      awaitAssert {
-        probe.expectMsgType[LocationAdded]
-      }
-
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 30000L, 60000L)))
+      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
       awaitAssert {
         probe.expectMsgType[LocationAdded]
       }
@@ -169,11 +150,51 @@ class MetadataCoordinatorSpec
       }
 
       retrievedLocations.locations.size shouldBe 2
+      val loc = retrievedLocations.locations.head
+      loc.metric shouldBe metric
+      loc.from shouldBe 0L
+      loc.to shouldBe 30000L
+      loc.node shouldBe "node_01"
+
+      val loc2 = retrievedLocations.locations.last
+      loc2.metric shouldBe metric
+      loc2.from shouldBe 0L
+      loc2.to shouldBe 30000L
+      loc2.node shouldBe "node_02"
+    }
+
+    "retrieve Locations for a metric" in {
+      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
+      awaitAssert {
+        probe.expectMsgType[LocationAdded]
+      }
+
+      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
+      awaitAssert {
+        probe.expectMsgType[LocationAdded]
+      }
+
+      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 30000L, 60000L)))
+      awaitAssert {
+        probe.expectMsgType[LocationAdded]
+      }
+
+      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 30000L, 60000L)))
+      awaitAssert {
+        probe.expectMsgType[LocationAdded]
+      }
+
+      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+      val retrievedLocations = awaitAssert {
+        probe.expectMsgType[LocationsGot]
+      }
+
+      retrievedLocations.locations.size shouldBe 4
       val loc = retrievedLocations.locations
-      loc.map(_.metric) shouldBe Seq(metric, metric)
-      loc.map(_.from) shouldBe Seq(0L, 30000L)
-      loc.map(_.to) shouldBe Seq(30000L, 60000L)
-      loc.map(_.node) shouldBe Seq("node_01", "node_01")
+      loc.map(_.metric) shouldBe Seq(metric, metric, metric, metric)
+      loc.map(_.node) shouldBe Seq("node_01", "node_02", "node_01", "node_02")
+      loc.map(_.from) shouldBe Seq(0L, 0L, 30000L, 30000L)
+      loc.map(_.to) shouldBe Seq(30000L, 30000L, 60000L, 60000L)
     }
 
     "retrieve correct default write Location given a timestamp" in {

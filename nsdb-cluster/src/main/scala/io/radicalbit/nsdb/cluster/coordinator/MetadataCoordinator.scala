@@ -50,9 +50,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   lazy val defaultShardingInterval: Long =
     context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
 
-  private lazy val warmUpTopic   = context.system.settings.config.getString("nsdb.cluster.pub-sub.warm-up-topic")
-  private lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
-
   override def receive: Receive = warmUp
 
   def warmUp: Receive = {
@@ -99,7 +96,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   private def performAddLocationIntoCache(db: String, namespace: String, location: Location) = {
     (cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location))
       .map {
-        case LocationCached(db, namespace, _, _, _, _) =>
+        case LocationCached(_, _, _, _, _, _) =>
           mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, location))
           LocationAdded(db, namespace, location)
         case _ => AddLocationFailed(db, namespace, location)
@@ -122,15 +119,12 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             .map(_ => defaultShardingInterval)
       }
 
-  /**
-    * behaviour in case shard is true
-    */
   def operative: Receive = {
     case GetLocations(db, namespace, metric) =>
-      val f = (cache ? GetLocationsFromCache(db, namespace, metric))
+      (cache ? GetLocationsFromCache(db, namespace, metric))
         .mapTo[LocationsCached]
         .map(l => LocationsGot(db, namespace, metric, l.value))
-      f.pipeTo(sender())
+        .pipeTo(sender())
     case GetWriteLocation(db, namespace, metric, timestamp) =>
       val nodeName = createNodeName(cluster.selfMember)
       (cache ? GetLocationsFromCache(db, namespace, metric))
@@ -148,7 +142,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                       case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
                     }
                   }
-
             }
           case LocationsCached(_, _, _, _) =>
             getShardInterval(db, namespace, metric)
