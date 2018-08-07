@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorSystem, Props}
+import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -101,6 +102,9 @@ class MetadataCoordinatorSpec
   val metric    = "testMetric"
 
   override def beforeAll = {
+    val cluster = Cluster(system)
+    cluster.join(cluster.selfAddress)
+
     probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
     probe.expectMsgType[Publish]
     probe.expectNoMessage(1 second)
@@ -125,23 +129,24 @@ class MetadataCoordinatorSpec
     "add a Location" in {
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 60000L)))
       val locationAdded = awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       locationAdded.db shouldBe db
       locationAdded.namespace shouldBe namespace
-      locationAdded.location shouldBe Location(metric, "node_01", 0L, 60000L)
+      locationAdded.locations.size shouldBe 1
+      locationAdded.locations.head shouldBe Location(metric, "node_01", 0L, 60000L)
     }
 
     "retrieve a Location for a metric" in {
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
       awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
       awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
@@ -166,22 +171,22 @@ class MetadataCoordinatorSpec
     "retrieve Locations for a metric" in {
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
       awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
       awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 30000L, 60000L)))
       awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 30000L, 60000L)))
       awaitAssert {
-        probe.expectMsgType[LocationAdded]
+        probe.expectMsgType[LocationsAdded]
       }
 
       probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
@@ -199,41 +204,44 @@ class MetadataCoordinatorSpec
 
     "retrieve correct default write Location given a timestamp" in {
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 1))
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
       val locationGot = awaitAssert {
-        probe.expectMsgType[LocationGot]
+        probe.expectMsgType[LocationsGot]
       }
 
       locationGot.db shouldBe db
       locationGot.namespace shouldBe namespace
       locationGot.metric shouldBe metric
-      locationGot.location.isDefined shouldBe true
-      locationGot.location.get.from shouldBe 0L
-      locationGot.location.get.to shouldBe 60000L
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 60001))
+      locationGot.locations.size shouldBe 1
+      locationGot.locations.head.from shouldBe 0L
+      locationGot.locations.head.to shouldBe 60000L
+
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001))
       val locationGot_2 = awaitAssert {
-        probe.expectMsgType[LocationGot]
+        probe.expectMsgType[LocationsGot]
       }
 
       locationGot_2.db shouldBe db
       locationGot_2.namespace shouldBe namespace
       locationGot_2.metric shouldBe metric
-      locationGot_2.location.isDefined shouldBe true
-      locationGot_2.location.get.from shouldBe 60000L
-      locationGot_2.location.get.to shouldBe 120000L
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 60002))
+      locationGot_2.locations.size shouldBe 1
+      locationGot_2.locations.head.from shouldBe 60000L
+      locationGot_2.locations.head.to shouldBe 120000L
+
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002))
       val locationGot_3 = awaitAssert {
-        probe.expectMsgType[LocationGot]
+        probe.expectMsgType[LocationsGot]
       }
 
       locationGot_3.db shouldBe db
       locationGot_3.namespace shouldBe namespace
       locationGot_3.metric shouldBe metric
-      locationGot_3.location.isDefined shouldBe true
-      locationGot_3.location.get.from shouldBe 60000L
-      locationGot_3.location.get.to shouldBe 120000L
+
+      locationGot_3.locations.size shouldBe 1
+      locationGot_3.locations.head.from shouldBe 60000L
+      locationGot_3.locations.head.to shouldBe 120000L
 
     }
 
@@ -251,41 +259,44 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[MetricInfoGot]
       }.metricInfo shouldBe Some(metricInfo)
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 1))
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
       val locationGot = awaitAssert {
-        probe.expectMsgType[LocationGot]
+        probe.expectMsgType[LocationsGot]
       }
 
       locationGot.db shouldBe db
       locationGot.namespace shouldBe namespace
       locationGot.metric shouldBe metric
-      locationGot.location.isDefined shouldBe true
-      locationGot.location.get.from shouldBe 0L
-      locationGot.location.get.to shouldBe 100L
+      locationGot.locations.size shouldBe 1
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 101))
+      locationGot.locations.head.from shouldBe 0L
+      locationGot.locations.head.to shouldBe 100L
+
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 101))
       val locationGot_2 = awaitAssert {
-        probe.expectMsgType[LocationGot]
+        probe.expectMsgType[LocationsGot]
       }
 
       locationGot_2.db shouldBe db
       locationGot_2.namespace shouldBe namespace
       locationGot_2.metric shouldBe metric
-      locationGot_2.location.isDefined shouldBe true
-      locationGot_2.location.get.from shouldBe 100L
-      locationGot_2.location.get.to shouldBe 200L
 
-      probe.send(metadataCoordinator, GetWriteLocation(db, namespace, metric, 202))
+      locationGot_2.locations.size shouldBe 1
+      locationGot_2.locations.head.from shouldBe 100L
+      locationGot_2.locations.head.to shouldBe 200L
+
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 202))
       val locationGot_3 = awaitAssert {
-        probe.expectMsgType[LocationGot]
+        probe.expectMsgType[LocationsGot]
       }
 
       locationGot_3.db shouldBe db
       locationGot_3.namespace shouldBe namespace
       locationGot_3.metric shouldBe metric
-      locationGot_3.location.isDefined shouldBe true
-      locationGot_3.location.get.from shouldBe 200L
-      locationGot_3.location.get.to shouldBe 300L
+
+      locationGot_3.locations.size shouldBe 1
+      locationGot_3.locations.head.from shouldBe 200L
+      locationGot_3.locations.head.to shouldBe 300L
     }
 
     "retrieve metric infos" in {

@@ -79,6 +79,7 @@ object ReplicatedMetadataCache {
                                       value: Location)
   final case class GetLocationFromCache(db: String, namespace: String, metric: String, from: Long, to: Long)
   final case class GetLocationsFromCache(db: String, namespace: String, metric: String)
+
   final case class LocationCached(db: String, namespace: String, metric: String, from: Long, to: Long, value: Location)
   final case class LocationFromCacheGot(db: String,
                                         namespace: String,
@@ -87,6 +88,7 @@ object ReplicatedMetadataCache {
                                         to: Long,
                                         value: Option[Location])
   final case class PutLocationInCacheFailed(db: String, namespace: String, metric: String, from: Long, to: Long)
+
   final case class LocationsCached(db: String, namespace: String, metric: String, value: Seq[Location])
   final case class EvictLocation(db: String, namespace: String, metric: String, node: String, from: Long, to: Long)
 

@@ -144,7 +144,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
         awaitAssert {
           metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))
-          expectMsg(LocationAdded("db", "namespace", Location("metric", "node-1", 0, 1)))
+          expectMsg(LocationsAdded("db", "namespace", Seq(Location("metric", "node-1", 0, 1))))
         }
       }
 
@@ -166,7 +166,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
     "add metric info from different nodes" in within(10.seconds) {
 
-      val addresses  = cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address)
       val metricInfo = MetricInfo("metric", 100)
 
       runOn(node1) {
