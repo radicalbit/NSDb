@@ -43,7 +43,7 @@ class FakeCache extends Actor {
     case PutLocationInCache(db, namespace, metric, from, to, value) =>
       val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
       locations.put(key, value)
-      sender ! LocationCached(db, namespace, metric, from, to, Some(value))
+      sender ! LocationCached(db, namespace, metric, from, to, value)
     case GetLocationsFromCache(db, namespace, metric) =>
       val key                 = MetricLocationsCacheKey(db, namespace, metric)
       val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq.sortBy(_.from)
