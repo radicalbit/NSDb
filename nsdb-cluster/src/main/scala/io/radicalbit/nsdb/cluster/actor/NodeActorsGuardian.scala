@@ -54,8 +54,6 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val indexBasePath = config.getString("nsdb.index.base-path")
 
-  private val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
-
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
       .props(indexBasePath, schemaCache, mediator)
@@ -85,22 +83,40 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       s"publisher-actor_$nodeName"
     )
   private val writeCoordinator =
-    if (writeToCommitLog) {
-      val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
-      context.actorOf(
-        WriteCoordinator
-          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor, mediator)
-          .withDispatcher("akka.actor.control-aware-dispatcher")
-          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-        s"write-coordinator_$nodeName"
-      )
-    } else
-      context.actorOf(
-        WriteCoordinator
-          .props(None, metadataCoordinator, schemaCoordinator, publisherActor, mediator)
-          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-        s"write-coordinator_$nodeName"
-      )
+//<<<<<<< HEAD
+//    if (writeToCommitLog) {
+//      val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
+//      context.actorOf(
+//        WriteCoordinator
+//          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor, mediator)
+//          .withDispatcher("akka.actor.control-aware-dispatcher")
+//          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+//        s"write-coordinator_$nodeName"
+//      )
+//    } else
+//      context.actorOf(
+//        WriteCoordinator
+//          .props(None, metadataCoordinator, schemaCoordinator, publisherActor, mediator)
+//          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+//        s"write-coordinator_$nodeName"
+//      )
+//=======
+//    if (writeToCommitLog) {
+//      val commitLogCoordinator = context.actorOf(Props[CommitLogCoordinator], s"commit-log-coordinator_$nodeName")
+//      context.actorOf(
+//        WriteCoordinator
+//          .props(Some(commitLogCoordinator), metadataCoordinator, schemaCoordinator, publisherActor)
+//          .withDispatcher("akka.actor.control-aware-dispatcher")
+//          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+//        s"write-coordinator_$nodeName"
+//      )
+//    } else
+    context.actorOf(
+      WriteCoordinator
+        .props(metadataCoordinator, schemaCoordinator, publisherActor)
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      s"write-coordinator_$nodeName"
+    )
 
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
@@ -120,6 +136,12 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     case GetMetricsDataActors =>
       log.debug("gossiping from node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
+    case GetCommitLogCoordinators(replyTo) =>
+      log.info("gossiping for node {}", nodeName)
+      replyTo match {
+        case Some(actor) => actor ! SubscribeCommitLogCoordinator(metricsDataActor, nodeName)
+        case None        => mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(metricsDataActor, nodeName))
+      }
   }
 }
 

@@ -70,10 +70,12 @@ object MessageProtocol {
                                   publisher: ActorRef)
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
-    case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
+    case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String)
 
     case object GetConnectedDataNodes
+
     case object GetMetricsDataActors
+    case class GetCommitLogCoordinators(replyTo: Option[ActorRef] = None)
   }
 
   /**
@@ -114,11 +116,11 @@ object MessageProtocol {
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)
 
-    case class CommitLogActorSubscribed(actor: ActorRef, host: Option[String] = None)
-    case class CommitLogActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
+    case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String)
+//    case class CommitLogActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
 
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
-    case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
+//    case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
 
     case class ConnectedDataNodesGot(nodes: Seq[String])
   }

@@ -28,15 +28,8 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
-  AddRecordToLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
-  AddLocation,
-  GetLocations,
-  GetWriteLocations
-}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.index.Location
@@ -65,17 +58,8 @@ import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
 
-  def props(commitLogCoordinator: Option[ActorRef],
-            metadataCoordinator: ActorRef,
-            schemaCoordinator: ActorRef,
-            publisherActor: ActorRef,
-            mediator: ActorRef): Props =
-    Props(
-      new WriteCoordinator(commitLogCoordinator,
-                           metadataCoordinator,
-                           schemaCoordinator,
-                           publisherActor,
-                           mediator: ActorRef))
+  def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, publisherActor: ActorRef,mediator: ActorRef): Props =
+    Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, publisherActor, mediator))
 
   case class Restore(path: String)  extends ControlMessage
   case class Restored(path: String) extends ControlMessage
@@ -89,14 +73,9 @@ object WriteCoordinator {
   * Actor that receives every write (or delete) request and coordinates them among internal data storage.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator   [[SchemaCoordinator]] the namespace schema actor.
-  * @param commitLogCoordinator [[CommitLogCoordinator]] the commit log coordinator.
   * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
-class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
-                       metadataCoordinator: ActorRef,
-                       schemaCoordinator: ActorRef,
-                       publisherActor: ActorRef,
-                       mediator: ActorRef)
+class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, publisherActor: ActorRef,           mediator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger
     with Stash {
@@ -115,7 +94,12 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
+  lazy val consistencyLevel: Int =
+    context.system.settings.config.getInt("nsdb.cluster.consistency-level")
+
   private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+
+  private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   /**
     * Performs an ask to every namespace actor subscribed.
@@ -139,13 +123,14 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                              namespace: String,
                              ts: Long,
                              metric: String,
+                             nodeName: String,
                              action: CommitLoggerAction): Future[CommitLogResponse] = {
-    if (commitLogEnabled && commitLogCoordinator.isDefined)
-      (commitLogCoordinator.get ? WriteToCommitLog(db = db,
-                                                   namespace = namespace,
-                                                   metric = metric,
-                                                   ts = ts,
-                                                   action = action))
+    if (commitLogEnabled && commitLogCoordinators.get(nodeName).isDefined)
+      (commitLogCoordinators(nodeName) ? WriteToCommitLog(db = db,
+                                                          namespace = namespace,
+                                                          metric = metric,
+                                                          ts = ts,
+                                                          action = action))
         .mapTo[CommitLogResponse]
     else if (commitLogEnabled) {
       Future.successful(
@@ -208,7 +193,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
           case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
           case msg: RecordRejected => msg
           case _ =>
-            RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
+            RecordRejected(db, namespace, metric, bit, List("unknown response from metrics Actor"))
         }
       case None =>
         log.error(s"no data actor for node ${location.node}")
@@ -251,6 +236,10 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
   }
 
   def operative: Receive = {
+    case SubscribeCommitLogCoordinator(actor, nodeName) =>
+      commitLogCoordinators += (nodeName -> actor)
+      log.info(s"subscribed commit log coordinator actor for node $nodeName")
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
@@ -264,7 +253,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { loc =>
         updateSchema(db, namespace, metric, bit) { schema =>
-          writeCommitLog(db, namespace, bit.timestamp, metric, InsertAction(bit))
+          writeCommitLog(db, namespace, bit.timestamp, metric, "", InsertAction(bit))
             .flatMap {
               case WriteToCommitLogSucceeded(_, _, _, _) =>
                 publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
@@ -282,9 +271,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
-
     case msg @ DeleteNamespace(db, namespace) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
+      writeCommitLog(db, namespace, System.currentTimeMillis(), "", "", DeleteNamespaceAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty) {
@@ -297,7 +285,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement))
+      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteAction(statement))
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty)
@@ -328,7 +316,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
+      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteMetricAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty)

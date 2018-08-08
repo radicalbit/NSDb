@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.io.File
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -35,7 +35,7 @@ class CommitLogCoordinatorSpec
     with Matchers
     with BeforeAndAfterAll {
 
-  private val commitLogCoordinatorActor = system actorOf CommitLogCoordinator.props
+  private val commitLogCoordinatorActor = system actorOf Props[CommitLogCoordinator]
 
   private val conf = ConfigFactory.load()
 

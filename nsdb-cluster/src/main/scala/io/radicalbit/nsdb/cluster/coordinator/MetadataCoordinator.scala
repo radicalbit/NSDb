@@ -105,7 +105,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
           locations.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
           Future(LocationsAdded(db, namespace, locations.map(_.value)))
         //some error occurred
-        case results: Seq[_] =>
+        case results: Seq[Any] =>
           val successToBeEvicted = results.collect {
             case e: LocationCached => e.value
           }
