@@ -173,20 +173,21 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       }
 
   /**
-    * Gets the metadata location to write the bit in.
+    * Gets the metadata locations to write the bit in. The number of location returned depends on the configured replication factor
     * @param db the db.
     * @param namespace the namespace.
     * @param metric the metric.
     * @param bit the bit.
     * @param ts the timestamp of the write operation.
     * @param op code executed in case of success.
+    * @return [[LocationsGot]] if communication with metadata coordinator succeeds, RecordRejected otherwise
     */
-  def getMetadataLocation(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
+  def getMetadataLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Seq[Location] => Future[Any]): Future[Any] =
     (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).flatMap {
-      case LocationsGot(_, _, _, locs) =>
-        log.debug(s"received locations for metric $metric, $locs")
-        op(locs)
+      case LocationsGot(_, _, _, locations) =>
+        log.debug(s"received locations for metric $metric, $locations")
+        op(locations)
       case _ =>
         log.error(s"no location found for bit $bit")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
@@ -261,24 +262,27 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      updateSchema(db, namespace, metric, bit) { schema =>
-        writeCommitLog(db, namespace, bit.timestamp, metric, InsertAction(bit))
-          .flatMap {
-            case WriteToCommitLogSucceeded(_, _, _, _) =>
-              publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { loc =>
+        updateSchema(db, namespace, metric, bit) { schema =>
+          writeCommitLog(db, namespace, bit.timestamp, metric, InsertAction(bit))
+            .flatMap {
+              case WriteToCommitLogSucceeded(_, _, _, _) =>
+                publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
 
-              getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
                 //FIXME right now multiple locations are supported but not handled, in the future, this trivial implementation will be replaced by something definitely more sophisticated
                 accumulateRecord(db, namespace, metric, bit, loc.head)
-              }
-            case WriteToCommitLogFailed(_, _, _, _, reason) =>
-              log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-              context.system.terminate()
-          }
+
+              case WriteToCommitLogFailed(_, _, _, _, reason) =>
+                log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
+                context.system.terminate()
+            }
+
+        }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
+
     case msg @ DeleteNamespace(db, namespace) =>
       writeCommitLog(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
         .flatMap {
