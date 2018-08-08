@@ -87,10 +87,10 @@ object ReplicatedMetadataCache {
                                         from: Long,
                                         to: Long,
                                         value: Option[Location])
-  final case class PutLocationInCacheFailed(db: String, namespace: String, metric: String, from: Long, to: Long)
+  final case class PutLocationInCacheFailed(db: String, namespace: String, metric: String, location: Location)
 
   final case class LocationsCached(db: String, namespace: String, metric: String, value: Seq[Location])
-  final case class EvictLocation(db: String, namespace: String, metric: String, node: String, from: Long, to: Long)
+  final case class EvictLocation(db: String, namespace: String, location: Location)
 
   final case class LocationEvicted(db: String, namespace: String, metric: String, node: String, from: Long, to: Long)
   final case class EvictLocationFailed(db: String, namespace: String, metric: String, from: Long, to: Long)
@@ -162,14 +162,14 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
           .map {
             case UpdateSuccess(_, _) =>
               LocationCached(db, namespace, metric, from, to, value)
-            case _ => PutLocationInCacheFailed(db, namespace, metric, from, to)
+            case _ => PutLocationInCacheFailed(db, namespace, metric, value)
           }
         _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
           _ + (keyWithNode -> value)))
           .map {
             case UpdateSuccess(_, _) =>
               LocationsCached(db, namespace, metric, Seq(value))
-            case _ => PutLocationInCacheFailed(db, namespace, metric, from, to)
+            case _ => PutLocationInCacheFailed(db, namespace, metric, value)
           }
       } yield loc
       f.pipeTo(sender())
@@ -201,7 +201,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         }
         .pipeTo(sender)
 
-    case EvictLocation(db, namespace, metric, node, from, to) =>
+    case EvictLocation(db, namespace, Location(metric, node, from, to)) =>
       val key         = LocationCacheKey(db, namespace, metric, from, to)
       val keyWithNode = LocationWithNodeKey(db, namespace, metric, node, from, to)
       val metricKey   = MetricLocationsCacheKey(key.db, key.namespace, key.metric)

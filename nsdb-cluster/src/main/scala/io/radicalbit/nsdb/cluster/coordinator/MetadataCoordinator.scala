@@ -96,18 +96,28 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
 
-  private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) = {
-
+  private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) =
     Future
       .sequence(locations.map(location =>
         cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location)))
-      .map {
-        case locs: Seq[LocationCached] =>
-          locs.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
-          LocationsAdded(db, namespace, locs.map(_.value))
-        //FIXME handle other results
+      .flatMap {
+        case locations: Seq[LocationCached] =>
+          locations.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
+          Future(LocationsAdded(db, namespace, locations.map(_.value)))
+        //some error occurred
+        case results: Seq[_] =>
+          val successToBeEvicted = results.collect {
+            case e: LocationCached => e.value
+          }
+          val errors = results.collect {
+            case e: PutLocationInCacheFailed => e.location
+          }
+          Future
+            .sequence(successToBeEvicted.map(location => cache ? EvictLocation(db, namespace, location)))
+            .flatMap { _ =>
+              Future(AddLocationsFailed(db, namespace, errors))
+            }
       }
-  }
 
   /**
     * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
@@ -141,8 +151,8 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                   .flatMap { interval =>
                     val start = getShardStartIstant(timestamp, interval)
                     val end   = getShardEndIstant(start, interval)
-                    //TODO node choice logic here
 
+                    //TODO more sophisticated node choice logic must be added here
                     val nodes = cluster.state.members
                       .filter(_.status == MemberStatus.Up)
                       .take(replicationFactor)
@@ -152,7 +162,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
                     performAddLocationIntoCache(db, namespace, locations).map {
                       case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                      //FIXME handle other results
+                      case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                     }
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
@@ -170,11 +180,9 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
                 val locations = nodes.map(Location(metric, _, start, end)).toSeq
 
-                log.error("-----------" + cluster.state.members)
-
                 performAddLocationIntoCache(db, namespace, locations).map {
                   case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                  //FIXME handle other results
+                  case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
           case e =>
@@ -222,11 +230,12 @@ object MetadataCoordinator {
   object events {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
-//    case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])
+    case class GetWriteLocationsFailed(db: String, namespace: String, metric: String, timestamp: Long)
     case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)
     case class LocationAdded(db: String, namespace: String, location: Location)
     case class AddLocationFailed(db: String, namespace: String, location: Location)
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
+    case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
     case class NamespaceDeleted(db: String, namespace: String, occurredOn: Long)
 

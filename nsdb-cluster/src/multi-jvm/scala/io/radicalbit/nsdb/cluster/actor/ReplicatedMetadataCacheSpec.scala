@@ -240,7 +240,7 @@ class ReplicatedMetadataCacheSpec
           expectMsg(LocationsCached("db", "namespace", metric, Seq(location)))
         }
 
-        replicatedCache ! EvictLocation("db", "namespace", metric, "node1", 0, 1)
+        replicatedCache ! EvictLocation("db", "namespace", Location(metric, "node1", 0, 1))
         expectMsg(LocationEvicted("db", "namespace", metric, "node1", 0, 1))
       }
 
