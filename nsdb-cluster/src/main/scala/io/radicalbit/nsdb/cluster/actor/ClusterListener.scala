@@ -28,8 +28,8 @@ import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
@@ -94,7 +94,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
             new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataActor, publisherActor)(context.system)
-
           case _ =>
         }
     case UnreachableMember(member) =>

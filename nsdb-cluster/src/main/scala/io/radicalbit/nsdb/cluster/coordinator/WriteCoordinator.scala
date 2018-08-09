@@ -190,7 +190,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
-          case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
+          case msg: RecordAdded    => msg //InputMapped(db, namespace, metric, r.record)
           case msg: RecordRejected => msg
           case _ =>
             RecordRejected(db, namespace, metric, bit, List("unknown response from metrics Actor"))
@@ -251,21 +251,47 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     case msg @ MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { loc =>
+      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
-          writeCommitLog(db, namespace, bit.timestamp, metric, "", InsertAction(bit))
-            .flatMap {
-              case WriteToCommitLogSucceeded(_, _, _, _) =>
+          val consistentLocations = locations.take(consistencyLevel)
+          val eventualLocations   = locations.diff(consistentLocations)
+
+          val consistentResult = Future
+            .sequence(consistentLocations.map { loc =>
+              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+                .flatMap {
+                  case WriteToCommitLogSucceeded(_, _, _, _) =>
+                    accumulateRecord(db, namespace, metric, bit, locations.head)
+                  case err: WriteToCommitLogFailed => Future(err)
+                }
+            })
+            .map {
+              case _: Seq[RecordAdded] =>
                 publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-
-                //FIXME right now multiple locations are supported but not handled, in the future, this trivial implementation will be replaced by something definitely more sophisticated
-                accumulateRecord(db, namespace, metric, bit, loc.head)
-
-              case WriteToCommitLogFailed(_, _, _, _, reason) =>
-                log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-                context.system.terminate()
+                InputMapped(db, namespace, metric, bit)
+              case r: Seq[Any] =>
+                val toCompensateStage = r.filter(_.isInstanceOf[RecordAdded])
+                //FIXME add compensation
+                val toCompensateCL = r.filter(!_.isInstanceOf[WriteToCommitLogFailed])
+                //FIXME add compensation
+                RecordRejected(db, namespace, metric, bit, List(""))
             }
 
+          Future
+            .sequence(eventualLocations.map { loc =>
+              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+                .flatMap {
+                  case WriteToCommitLogSucceeded(_, _, _, _) =>
+                    accumulateRecord(db, namespace, metric, bit, loc)
+//                      .map{
+//                      case RecordAdded =>
+//                      case RecordRejected =>
+//                    }
+                  case err: WriteToCommitLogFailed => Future(err)
+                }
+            })
+
+          consistentResult
         }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
