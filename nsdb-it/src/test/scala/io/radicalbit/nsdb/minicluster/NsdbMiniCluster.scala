@@ -27,7 +27,7 @@ trait NsdbMiniCluster {
 
   protected[this] def nodesNumber: Int
 
-  val nodes: Set[NsdbMiniClusterNode] =
+  lazy val nodes: Set[NsdbMiniClusterNode] =
     (for {
       i <- 0 until nodesNumber
       _ = Thread.sleep(1000)
@@ -35,10 +35,10 @@ trait NsdbMiniCluster {
       new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
                               httpPort = startingHttpPort + i,
                               grpcPort = startingGrpcPort + i,
-                              dataDir = dataFolder + startingAkkaRemotePort + i)).toSet
+                              dataDir = dataFolder + (startingAkkaRemotePort + i))).toSet
 
   def start() = {
-//    nodes
+    nodes
     Thread.sleep(2000)
   }
   def stop() = {

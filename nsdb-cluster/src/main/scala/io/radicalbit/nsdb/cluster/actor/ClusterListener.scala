@@ -26,10 +26,10 @@ import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{CoordinatorsGot, GetCoordinators, GetMetricsDataActors}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
@@ -69,9 +69,13 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
       mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
-      (nodeActorsGuardian ? GetCoordinators)
+      Future
+        .sequence(
+          Seq((nodeActorsGuardian ? GetCoordinators).mapTo[CoordinatorsGot],
+              (nodeActorsGuardian ? GetPublisher).mapTo[ActorRef]))
         .map {
-          case CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator) =>
+          case Seq(CoordinatorsGot(metadataCoordinator, writeCoordinator, readCoordinator, schemaCoordinator),
+                   publisherActor: ActorRef) =>
             val metadataActor = context.system.actorOf(MetadataActor
                                                          .props(indexBasePath, metadataCoordinator)
                                                          .withDeploy(Deploy(scope = RemoteScope(member.address))),
@@ -95,8 +99,7 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
               mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors())
             }
 
-            new NsdbNodeEndpoint(nodeActorsGuardian)(context.system)
-
+            new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataActor, publisherActor)(context.system)
           case _ =>
         }
     case UnreachableMember(member) =>

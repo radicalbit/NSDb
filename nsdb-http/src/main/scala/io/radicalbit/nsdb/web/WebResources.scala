@@ -43,17 +43,10 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
 
   implicit val formats = DefaultFormats
 
-  implicit val materializer = ActorMaterializer()
-  implicit val dispatcher   = system.dispatcher
-  implicit val httpTimeout: Timeout =
+  implicit lazy val materializer = ActorMaterializer()
+  implicit lazy val dispatcher   = system.dispatcher
+  implicit lazy val httpTimeout: Timeout =
     Timeout(config.getDuration("nsdb.http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
-
-  /**
-    * Nsdb cluster node guardian actor, which is the parent of node coordinators and publisher.
-    *
-    * @return node guardian [[ActorRef]]
-    */
-  def nodeGuardian: ActorRef
 
   def initWebEndpoint(writeCoordinator: ActorRef, readCoordinator: ActorRef, publisher: ActorRef) =
     authProvider match {
@@ -73,7 +66,7 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
                                  config.getInt("nsdb.http.https-port"),
                                  connectionContext = serverContext)
           } else {
-            val port = config.getInt("akka.remote.netty.tcp.http.port")
+            val port = config.getInt("nsdb.http.port")
             logger.info(s"Cluster started with http protocol on port $port")
             Http().bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), port)
           }

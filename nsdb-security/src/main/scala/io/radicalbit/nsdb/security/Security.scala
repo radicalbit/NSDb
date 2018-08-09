@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.security
 
+import akka.event.LoggingAdapter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.Logger
 import io.radicalbit.nsdb.common.exception.NsdbSecurityException
@@ -30,7 +31,7 @@ trait NsdbSecurity {
 
   def config: Config
 
-  protected def logger: Logger
+  protected def logger: LoggingAdapter
 
   /**
     * configuration key to set if security is enabled or not.
