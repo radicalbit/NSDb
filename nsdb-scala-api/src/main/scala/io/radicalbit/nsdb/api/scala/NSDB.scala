@@ -246,8 +246,10 @@ case class Bit protected (db: String,
     * @param d the Long dimension value.
     * @return a new instance with `(k -> d)` as a dimension.
     */
-  def dimension(k: String, d: Long): Bit =
-    copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.LongValue(d))))
+  def dimension(k: String, d: Long): Bit = {
+    dimensions += ((k, Dimension(Dimension.Value.LongValue(d))))
+    this
+  }
 
   /**
     * Adds a Int dimension to the bit.
@@ -255,8 +257,10 @@ case class Bit protected (db: String,
     * @param d the Int dimension value.
     * @return a new instance with `(k -> d)` as a dimension.
     */
-  def dimension(k: String, d: Int): Bit =
-    copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.LongValue(d.longValue()))))
+  def dimension(k: String, d: Int): Bit = {
+    dimensions += ((k, Dimension(Dimension.Value.LongValue(d.longValue()))))
+    this
+  }
 
   /**
     * Adds a Double dimension to the bit.
@@ -264,8 +268,10 @@ case class Bit protected (db: String,
     * @param d the Double dimension value.
     * @return a new instance with `(k -> d)` as a dimension.
     */
-  def dimension(k: String, d: Double): Bit =
-    copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.DecimalValue(d))))
+  def dimension(k: String, d: Double): Bit = {
+    dimensions += ((k, Dimension(Dimension.Value.DecimalValue(d))))
+    this
+  }
 
   /**
     * Adds a String dimension to the bit.
@@ -273,8 +279,10 @@ case class Bit protected (db: String,
     * @param d the String dimension value.
     * @return a new instance with `(k -> d)` as a dimension.
     */
-  def dimension(k: String, d: String): Bit =
-    copy(dimensions = dimensions :+ (k, Dimension(Dimension.Value.StringValue(d))))
+  def dimension(k: String, d: String): Bit = {
+    dimensions += ((k, Dimension(Dimension.Value.StringValue(d))))
+    this
+  }
 
   /**
     * Adds a [[java.math.BigDecimal]] dimension to the bit.
@@ -291,8 +299,10 @@ case class Bit protected (db: String,
     * @param d the Long tag value.
     * @return a new instance with `(k -> d)` as a tag.
     */
-  def tag(k: String, d: Long): Bit =
-    copy(tags = tags :+ (k, Tag(Tag.Value.LongValue(d))))
+  def tag(k: String, d: Long): Bit = {
+    tags += ((k, Tag(Tag.Value.LongValue(d))))
+    this
+  }
 
   /**
     * Adds a Int tag to the bit.
@@ -300,8 +310,10 @@ case class Bit protected (db: String,
     * @param d the Int tag value.
     * @return a new instance with `(k -> d)` as a tag.
     */
-  def tag(k: String, d: Int): Bit =
-    copy(tags = tags :+ (k, Tag(Tag.Value.LongValue(d.longValue()))))
+  def tag(k: String, d: Int): Bit = {
+    tags += ((k, Tag(Tag.Value.LongValue(d.longValue()))))
+    this
+  }
 
   /**
     * Adds a Double tag to the bit.
@@ -309,8 +321,10 @@ case class Bit protected (db: String,
     * @param d the Double tag value.
     * @return a new instance with `(k -> d)` as a tag.
     */
-  def tag(k: String, d: Double): Bit =
-    copy(tags = tags :+ (k, Tag(Tag.Value.DecimalValue(d))))
+  def tag(k: String, d: Double): Bit = {
+    tags += ((k, Tag(Tag.Value.DecimalValue(d))))
+    this
+  }
 
   /**
     * Adds a String tag to the bit.
@@ -318,8 +332,10 @@ case class Bit protected (db: String,
     * @param d the String tag value.
     * @return a new instance with `(k -> d)` as a tag.
     */
-  def tag(k: String, d: String): Bit =
-    copy(tags = tags :+ (k, Tag(Tag.Value.StringValue(d))))
+  def tag(k: String, d: String): Bit = {
+    tags += ((k, Tag(Tag.Value.StringValue(d))))
+    this
+  }
 
   /**
     * Adds a [[java.math.BigDecimal]] tag to the bit.

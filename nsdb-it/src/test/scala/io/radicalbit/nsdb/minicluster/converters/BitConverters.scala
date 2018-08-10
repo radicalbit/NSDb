@@ -14,7 +14,7 @@ object BitConverters {
   implicit class BitConverter(bit: Bit) {
 
     def asApiBit(db: String, namespace: String, metric: String): ApiBit = {
-      val initialBit = Db(db).namespace(namespace).metric(metric)
+      val initialBit = Db(db).namespace(namespace).metric(metric).timestamp(bit.timestamp)
       val apiBit = bit.value match {
         case v: java.lang.Long                         => initialBit.value(v)
         case v: java.lang.Double                       => initialBit.value(v)
@@ -30,7 +30,7 @@ object BitConverters {
         case (k, v: java.lang.Long)       => apiBit.dimension(k, v)
         case (k, v: java.lang.Integer)    => apiBit.dimension(k, v)
         case (k, v: java.math.BigDecimal) => apiBit.dimension(k, v)
-        case (k, v: String) => apiBit.dimension(k, v)
+        case (k, v: String)               => apiBit.dimension(k, v)
       }
 
       bit.tags.foreach {
@@ -39,7 +39,7 @@ object BitConverters {
         case (k, v: java.lang.Long)       => apiBit.tag(k, v)
         case (k, v: java.lang.Integer)    => apiBit.tag(k, v)
         case (k, v: java.math.BigDecimal) => apiBit.tag(k, v)
-        case (k, v: String) => apiBit.tag(k, v)
+        case (k, v: String)               => apiBit.tag(k, v)
       }
       apiBit
     }

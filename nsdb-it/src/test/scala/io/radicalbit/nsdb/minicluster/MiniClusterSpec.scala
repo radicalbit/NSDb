@@ -1,5 +1,5 @@
 package io.radicalbit.nsdb.minicluster
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.scalatest.{BeforeAndAfterAll, FunSuite, OneInstancePerTest, Sequential}
 
 trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll {
 

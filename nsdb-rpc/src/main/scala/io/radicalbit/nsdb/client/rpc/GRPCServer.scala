@@ -54,7 +54,7 @@ trait GRPCServer {
 
   sys.addShutdownHook {
     System.err.println("Shutting down gRPC server since JVM is shutting down")
-    close()
+    stop()
     System.err.println("Server shut down")
   }
 
@@ -69,5 +69,5 @@ trait GRPCServer {
 
   def start(): Try[Server] = Try(server.start())
 
-  def close(): Try[Server] = Try(server.shutdown())
+  def stop(): Try[Server] = Try(server.shutdown())
 }

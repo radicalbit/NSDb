@@ -24,6 +24,10 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -67,6 +71,51 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
       log.debug("readcoordinator data actor : {}", metricsDataActors.size)
     }
+  }
+
+  /**
+    * Gathers results from every shard actor and elaborate them.
+    * @param statement the Sql statement to be executed againt every actor.
+    * @param schema Metric's schema.
+    * @param postProcFun The function that will be applied after data are retrieved from all the shards.
+    * @return the processed results.
+    */
+  private def gatherNodeResults(statement: SelectSQLStatement, schema: Schema)(
+      postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+    Future
+      .sequence(metricsDataActors.map {
+        case (_, actor) => actor ? ExecuteSelectStatement(statement, schema)
+      })
+      .map { e =>
+        val errs = e.collect { case a: SelectStatementFailed => a }
+        if (errs.nonEmpty) {
+          Left(SelectStatementFailed(errs.map(_.reason).mkString(",")))
+        } else
+          Right(postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
+      }
+  }
+
+  /**
+    * Applies, if needed, ordering and limiting to results from multiple node.
+    * @param nodeResults sequence of node results.
+    * @param statement the initial sql statement.
+    * @param schema metric's schema.
+    * @return a single result obtained from the manipulation of multiple results from different nodes.
+    */
+  private def applyOrderingWithLimit(nodeResults: Future[Either[SelectStatementFailed, Seq[Bit]]],
+                                     statement: SelectSQLStatement,
+                                     schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+    nodeResults.map(s =>
+      s.map { seq =>
+        val maybeSorted = if (statement.order.isDefined) {
+          val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+          implicit val ord: Ordering[JSerializable] =
+            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
+            else o
+          seq.sortBy(_.fields(statement.order.get.dimension)._1)
+        } else seq
+        if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
+    })
   }
 
   /**
@@ -123,24 +172,30 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
-            Future
-              .sequence(metricsDataActors.values.toSeq.map { actor =>
-                actor ? ExecuteSelectStatement(statement, schema)
-              })
-              .map { seq =>
-                val errs = seq.collect {
-                  case e: SelectStatementFailed => e.reason
-                }
-                if (errs.isEmpty) {
-                  val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
-                  SelectStatementExecuted(statement.db,
-                                          statement.namespace,
-                                          statement.metric,
-                                          results.flatMap(_.values))
-                } else {
-                  SelectStatementFailed(errs.mkString(","))
-                }
-              }
+//            Future
+//              .sequence(metricsDataActors.values.toSeq.map { actor =>
+//                actor ? ExecuteSelectStatement(statement, schema)
+//              })
+//              .map { seq =>
+//                val errs = seq.collect {
+//                  case e: SelectStatementFailed => e.reason
+//                }
+//                if (errs.isEmpty) {
+//                  val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
+//                  SelectStatementExecuted(statement.db,
+//                                          statement.namespace,
+//                                          statement.metric,
+//                                          results.flatMap(_.values))
+//                } else {
+//                  SelectStatementFailed(errs.mkString(","))
+//                }
+//              }
+
+            applyOrderingWithLimit(gatherNodeResults(statement, schema)(identity), statement, schema).map {
+              case Right(results) =>
+                SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results)
+              case Left(failed) => failed
+            }
           case _ =>
             Future(
               SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))

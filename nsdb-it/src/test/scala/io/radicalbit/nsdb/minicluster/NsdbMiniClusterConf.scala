@@ -33,6 +33,4 @@ trait NsdbMiniClusterConf extends NsdbConfig {
       .withValue("nsdb.grpc.port", ConfigValueFactory.fromAnyRef(grpcPort))
       .withValue("nsdb.http.port", ConfigValueFactory.fromAnyRef(httpPort))
       .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
-//      .withoutPath("akka.cluster")
-
 }

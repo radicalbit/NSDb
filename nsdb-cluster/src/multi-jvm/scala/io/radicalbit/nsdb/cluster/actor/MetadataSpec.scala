@@ -61,11 +61,11 @@ object MetadataSpec extends MultiNodeConfig {
     """.stripMargin))
 
   nodeConfig(node1)(ConfigFactory.parseString("""
-      |akka.remote.netty.tcp.port = 2552
+      |akka.remote.netty.tcp.port = 25520
     """.stripMargin))
 
   nodeConfig(node2)(ConfigFactory.parseString("""
-      |akka.remote.netty.tcp.port = 2553
+      |akka.remote.netty.tcp.port = 25530
     """.stripMargin))
 
 }
@@ -95,7 +95,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   system.actorOf(ClusterListener.props(metadataCache, schemaCache), name = "clusterListener")
 
-  val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+  lazy val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {

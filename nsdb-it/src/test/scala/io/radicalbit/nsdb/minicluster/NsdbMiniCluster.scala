@@ -16,9 +16,14 @@
 
 package io.radicalbit.nsdb.minicluster
 
+import java.io.File
+
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.commons.io.FileUtils
+
 import scala.concurrent.Await
 
-trait NsdbMiniCluster {
+trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] val startingAkkaRemotePort = 2552
   protected[this] val startingHttpPort       = 9010
@@ -38,12 +43,14 @@ trait NsdbMiniCluster {
                               dataDir = dataFolder + (startingAkkaRemotePort + i))).toSet
 
   def start() = {
+    FileUtils.deleteDirectory(new File(dataFolder))
     nodes
     Thread.sleep(3000)
   }
   def stop() = {
     import scala.concurrent.duration._
-//    nodes.foreach(n => Cluster(n.system).leave(n.address))
     nodes.foreach(n => Await.result(n.system.terminate(), 10.seconds))
+    nodes.foreach(n => Await.result(n.system.whenTerminated, 10.seconds))
+    Thread.sleep(3000)
   }
 }

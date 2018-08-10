@@ -95,7 +95,11 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
   override protected[this] val parserSQL = new SQLStatementParser
 
   start() match {
-    case Success(_)  => log.info("GrpcEndpoint started on port {}", port)
+    case Success(_) =>
+      log.info("GrpcEndpoint started on port {}", port)
+      system.registerOnTermination {
+        stop()
+      }
     case Failure(ex) => log.error("error in starting Grpc endpoint", ex)
   }
 
