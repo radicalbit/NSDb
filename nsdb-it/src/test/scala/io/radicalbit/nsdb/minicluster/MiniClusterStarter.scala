@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.minicluster
+package io.radicalbit.nsdb.minicluster
 
-import com.typesafe.scalalogging.LazyLogging
-import io.radicalbit.nsdb.cluster.ProductionCluster
+class MiniClusterStarter(override val nodesNumber: Int) extends NsdbMiniCluster
 
-trait NsdbMiniClusterDefinition extends ProductionCluster with NsdbMiniClusterConf with LazyLogging {}
+object MiniClusterStarter extends App with NsdbMiniCluster {
+  override protected[this] def nodesNumber = 2
+
+  start()
+}

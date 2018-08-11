@@ -14,16 +14,9 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.minicluster
+package io.radicalbit.nsdb.minicluster
 
-import org.scalatest._
+import com.typesafe.scalalogging.LazyLogging
+import io.radicalbit.nsdb.cluster.ProductionCluster
 
-class MiniClusterSpec extends FlatSpec with NsdbMiniCluster with Matchers with OneInstancePerTest with BeforeAndAfter {
-
-  override protected[this] val nodesNumber = 2
-
-  "MiniCluster" should "start sucessfully" in {
-
-    nodesNumber shouldBe 2
-  }
-}
+trait NsdbMiniClusterDefinition extends ProductionCluster with NsdbMiniClusterConf with LazyLogging {}

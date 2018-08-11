@@ -14,24 +14,36 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.minicluster
+package io.radicalbit.nsdb.minicluster
+
+import scala.concurrent.Await
 
 trait NsdbMiniCluster {
 
   protected[this] val startingAkkaRemotePort = 2552
   protected[this] val startingHttpPort       = 9010
   protected[this] val startingGrpcPort       = 7817
-  protected[this] val dataFolder             = "data"
+  protected[this] val dataFolder             = "target/minicluster/data"
 
   protected[this] def nodesNumber: Int
 
-  protected[this] val nodes: Set[NsdbMiniClusterNode] =
+  val nodes: Set[NsdbMiniClusterNode] =
     (for {
-      i <- 0 to nodesNumber - 1
+      i <- 0 until nodesNumber
       _ = Thread.sleep(1000)
     } yield
-      (new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
-                               httpPort = startingHttpPort + i,
-                               grpcPort = startingGrpcPort + i,
-                               data = dataFolder + startingAkkaRemotePort + i))).toSet
+      new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
+                              httpPort = startingHttpPort + i,
+                              grpcPort = startingGrpcPort + i,
+                              dataDir = dataFolder + startingAkkaRemotePort + i)).toSet
+
+  def start() = {
+//    nodes
+    Thread.sleep(2000)
+  }
+  def stop() = {
+    import scala.concurrent.duration._
+//    nodes.foreach(n => Cluster(n.system).leave(n.address))
+    nodes.foreach(n => Await.result(n.system.terminate(), 10.seconds))
+  }
 }

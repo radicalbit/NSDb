@@ -20,13 +20,14 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.cluster.Cluster
+import akka.event.Logging
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.common.NsdbConfig
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.util.Success
 
 /**
@@ -34,7 +35,9 @@ import scala.util.Success
   */
 trait NSDBAkkaCluster { this: NsdbConfig =>
 
-  implicit lazy val system: ActorSystem = ActorSystem("nsdb", config)
+  implicit val system: ActorSystem = ActorSystem("nsdb", config)
+//  val log                               = Logging.getLogger(system, this)
+
 }
 
 /**

@@ -77,8 +77,6 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
     Timeout(system.settings.config.getDuration("nsdb.rpc-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
   implicit val sys = system.dispatcher
 
-  log.info("Starting GrpcEndpoint")
-
   override protected[this] val executionContextExecutor = implicitly[ExecutionContext]
 
   override protected[this] def serviceSQL: NSDBServiceSQL = GrpcEndpointServiceSQL
