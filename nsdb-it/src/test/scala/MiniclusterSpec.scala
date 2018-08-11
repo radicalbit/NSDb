@@ -11,4 +11,9 @@ trait MiniclusterSpec extends FunSuite with BeforeAndAfterAll {
   override def afterAll(): Unit = {
     minicluster.stop()
   }
+
+  lazy val indexingTime =
+    minicluster.nodes.head.system.settings.config.getDuration("nsdb.write.scheduler.interval").toMillis
+
+  def waitIndexing = Thread.sleep(indexingTime + 1000)
 }
