@@ -62,20 +62,18 @@ object MessageProtocol {
     case class DeleteRecordFromShard(db: String, namespace: String, shardKey: ShardKey, bit: Bit)
     case class DeleteAllMetrics(db: String, namespace: String)
 
-    case object GetCoordinators
-    case object GetMetricsDataActor
-    case object GetPublisher
-
-    case class CoordinatorsGot(metadataCoordinator: ActorRef,
-                               writeCoordinator: ActorRef,
-                               readCoordinator: ActorRef,
-                               schemaCoordinator: ActorRef)
+    case object GetNodeChildActors
+    case class NodeChildActorsGot(metadataCoordinator: ActorRef,
+                                  writeCoordinator: ActorRef,
+                                  readCoordinator: ActorRef,
+                                  schemaCoordinator: ActorRef,
+                                  publisher: ActorRef)
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogActor(actor: ActorRef, nodeName: Option[String] = None)
 
     case object GetConnectedDataNodes
-    case class GetMetricsDataActors(replyTo: Option[ActorRef] = None)
+    case object GetMetricsDataActors
   }
 
   /**
