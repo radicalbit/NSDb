@@ -64,20 +64,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       * scheduler that updates aggregated queries subscribers
       */
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-//    queries
-//      .filter {
-//        case (id, q) =>
-//          q.aggregated && subscribedActorsByQueryId.get(id).isDefined && subscribedActorsByQueryId(id).nonEmpty
-//      }
-//      .foreach {
-//        case (id, nsdbQuery) =>
-//          val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-//            .map {
-//              case e: SelectStatementExecuted  => RecordsPublished(id, e.metric, e.values)
-//              case SelectStatementFailed(_, _) => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
-//            }
-//          subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
-//      }
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
       log.debug("readcoordinator data actor : {}", metricsDataActors.size)
     }

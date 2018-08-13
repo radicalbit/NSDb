@@ -17,15 +17,14 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor._
-import akka.cluster.{Cluster, Member}
+import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe, SubscribeAck}
-import akka.pattern.{ask, pipe}
+import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
+import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-//import io.radicalbit.nsdb.cluster.actor.ClusterListener.Subscribed
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
@@ -53,12 +52,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
   override def postStop(): Unit = cluster.unsubscribe(self)
 
   def receive: Receive = {
-//    case Subscribed(member) =>
-//      val nodeName = createNodeName(member)
-//
-//      log.info("requesting metrics data actors after node {} joined", nodeName)
-//      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-
     case MemberUp(member)
         if member.address.port.isDefined && member.address.port.get == config.getInt("akka.remote.netty.tcp.port") =>
       log.info("Member is Up: {}", member.address)
@@ -75,8 +68,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
         context.system.actorOf(
           NodeActorsGuardian.props(metadataCache, schemaCache).withDeploy(Deploy(scope = RemoteScope(member.address))),
           name = s"guardian_$nodeName")
-
-//      mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
       (nodeActorsGuardian ? GetNodeChildActors)
         .map {
@@ -104,20 +95,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
             new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataActor, publisherActor)(context.system)
 
-//            (for {
-//              _ <- (mediator ? Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)).mapTo[SubscribeAck]
-//              _ <- (mediator ? Subscribe(COORDINATORS_TOPIC, writeCoordinator)).mapTo[SubscribeAck]
-//              _ <- (mediator ? Subscribe(COORDINATORS_TOPIC, readCoordinator)).mapTo[SubscribeAck]
-//              _ <- (mediator ? Subscribe(METADATA_TOPIC, metadataActor)).mapTo[SubscribeAck]
-//              _ <- (mediator ? Subscribe(SCHEMA_TOPIC, schemaActor)).mapTo[SubscribeAck]
-//              _ <- {
-//                log.info("requesting metrics data actors after node {} joined", nodeName)
-//                mediator ? Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
-//              }
-//            } yield Subscribed(member)).pipeTo(self)
-//              {
-//              new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataActor, publisherActor)(context.system)
-//            }
           case _ =>
         }
     case UnreachableMember(member) =>
@@ -129,8 +106,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 }
 
 object ClusterListener {
-
-//  case class Subscribed(member: Member)
 
   def props(metadataCache: ActorRef, schemaCache: ActorRef) =
     Props(new ClusterListener(metadataCache, schemaCache))

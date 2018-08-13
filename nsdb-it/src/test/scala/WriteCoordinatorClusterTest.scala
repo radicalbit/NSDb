@@ -28,11 +28,14 @@ class WriteCoordinatorClusterTest extends MiniclusterSpec {
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
   test("join cluster") {
-    assert(Cluster(minicluster.nodes.head.system).state.members.count(_.status == MemberStatus.Up) == 2)
+    assert(Cluster(minicluster.nodes.head.system).state.members.count(_.status == MemberStatus.Up) == minicluster.nodes.size)
   }
 
   test("add record from first node") {
-    val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+
+    val firstNode = minicluster.nodes.head
+
+    val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
 
     val bit = nsdb
       .db("root")
@@ -65,7 +68,10 @@ class WriteCoordinatorClusterTest extends MiniclusterSpec {
   }
 
   test("add record from second node") {
-    val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7818)(ExecutionContext.global), 10.seconds)
+
+    val secondNode = minicluster.nodes.last
+
+    val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
 
     val bit = nsdb
       .db("root")
