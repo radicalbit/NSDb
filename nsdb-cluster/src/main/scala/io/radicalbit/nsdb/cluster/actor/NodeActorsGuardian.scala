@@ -71,7 +71,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
   private val readCoordinator =
     context.actorOf(
       ReadCoordinator
-        .props(metadataCoordinator, schemaCoordinator)
+        .props(metadataCoordinator, schemaCoordinator, mediator)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$nodeName"
@@ -89,7 +89,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
       context.actorOf(
         WriteCoordinator
-          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor)
+          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor, mediator)
           .withDispatcher("akka.actor.control-aware-dispatcher")
           .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
         s"write-coordinator_$nodeName"
@@ -97,7 +97,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     } else
       context.actorOf(
         WriteCoordinator
-          .props(None, metadataCoordinator, schemaCoordinator, publisherActor)
+          .props(None, metadataCoordinator, schemaCoordinator, publisherActor, mediator)
           .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
         s"write-coordinator_$nodeName"
       )
@@ -118,6 +118,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
                                   schemaCoordinator,
                                   publisherActor)
     case GetMetricsDataActors =>
+      log.debug("gossiping from node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
   }
 }

@@ -101,7 +101,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(None,
                                                                          fakeMetadataCoordinator,
                                                                          schemaCoordinator,
-                                                                         publisherActor)
+                                                                         publisherActor,
+                                                                         system.actorOf(Props.empty))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)

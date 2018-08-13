@@ -39,7 +39,7 @@ trait NsdbMiniCluster {
 
   def start() = {
     nodes
-    Thread.sleep(2000)
+    Thread.sleep(3000)
   }
   def stop() = {
     import scala.concurrent.duration._

@@ -19,9 +19,11 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
+import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
+import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -29,13 +31,14 @@ import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * Actor that receives and handles every read request.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator [[SchemaCoordinator]] the metrics schema actor.
   */
-class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef)
+class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger {
 
@@ -49,6 +52,37 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
   override def receive: Receive = warmUp
 
+  override def preStart(): Unit = {
+
+    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    /**
+      * scheduler that updates aggregated queries subscribers
+      */
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+//    queries
+//      .filter {
+//        case (id, q) =>
+//          q.aggregated && subscribedActorsByQueryId.get(id).isDefined && subscribedActorsByQueryId(id).nonEmpty
+//      }
+//      .foreach {
+//        case (id, nsdbQuery) =>
+//          val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
+//            .map {
+//              case e: SelectStatementExecuted  => RecordsPublished(id, e.metric, e.values)
+//              case SelectStatementFailed(_, _) => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
+//            }
+//          subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+//      }
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      log.debug("readcoordinator data actor : {}", metricsDataActors.size)
+    }
+  }
+
   /**
     * Initial state in which actor waits metadata warm-up completion.
     */
@@ -56,7 +90,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     case WarmUpCompleted =>
       context.become(operating)
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      metricsDataActors += (nodeName -> actor)
+      if (!metricsDataActors.get(nodeName).contains(actor)) {
+        metricsDataActors += (nodeName -> actor)
+        log.info(s"subscribed data actor for node $nodeName")
+      }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
@@ -67,8 +104,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
   def operating: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      metricsDataActors += (nodeName -> actor)
-      log.info(s"subscribed data actor for node $nodeName")
+      if (!metricsDataActors.get(nodeName).contains(actor)) {
+        metricsDataActors += (nodeName -> actor)
+        log.info(s"subscribed data actor for node $nodeName")
+      }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
@@ -94,7 +133,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       schemaCoordinator forward msg
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
-      log.debug("executing {} ", statement)
+      log.info("executing {} with {} data actors", statement, metricsDataActors.size)
       (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
@@ -132,7 +171,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
 object ReadCoordinator {
 
-  def props(metadataCoordinator: ActorRef, schemaActor: ActorRef): Props =
-    Props(new ReadCoordinator(metadataCoordinator, schemaActor))
+  def props(metadataCoordinator: ActorRef, schemaActor: ActorRef, mediator: ActorRef): Props =
+    Props(new ReadCoordinator(metadataCoordinator, schemaActor, mediator: ActorRef))
 
 }
