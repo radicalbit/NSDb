@@ -75,7 +75,7 @@ object MessageProtocol {
     case object GetConnectedDataNodes
 
     case object GetMetricsDataActors
-    case class GetCommitLogCoordinators(replyTo: Option[ActorRef] = None)
+    case object GetCommitLogCoordinators
   }
 
   /**

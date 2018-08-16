@@ -16,25 +16,25 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
+import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.{DeleteNamespaceSchema, WarmUpSchemas}
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.WarmUpMetadata
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
-import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -100,6 +100,8 @@ class ReadCoordinatorSpec
         "ReadCoordinatorSpec",
         ConfigFactory
           .load()
+          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2553))
+          .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
       ))
     with ImplicitSender
@@ -113,16 +115,25 @@ class ReadCoordinatorSpec
   val db        = "db"
   val namespace = "registry"
   val schemaCoordinator = system.actorOf(
-    SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
-  val metricsDataActor     = system.actorOf(MetricsDataActor.props(basePath))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaCoordinator, system.actorOf(Props.empty))
+    SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)),
+    "schemacoordinator")
+  val metadataCoordinator = system.actorOf(
+    MetadataCoordinator.props(system.actorOf(Props[FakeMetadataCache]), probe.ref),
+    "metadatacoordinator")
+  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath))
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
+                                                                  schemaCoordinator,
+                                                                  system.actorOf(Props.empty))
 
   override def beforeAll = {
     import scala.concurrent.duration._
-    implicit val timeout = Timeout(5 second)
+    implicit val timeout = Timeout(5.second)
 
-    readCoordinatorActor ! WarmUpCompleted
+    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
+    probe.expectMsgType[Publish]
+//    expectNoMessage(1 second)
     schemaCoordinator ! WarmUpSchemas(List.empty)
+    readCoordinatorActor ! WarmUpCompleted
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 

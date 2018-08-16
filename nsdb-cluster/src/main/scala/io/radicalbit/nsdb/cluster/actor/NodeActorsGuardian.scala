@@ -40,7 +40,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
     case t =>
-      log.error(t, "generic error in write coordinator")
+      log.error(t, "generic error occurred")
       super.supervisorStrategy.decider.apply(t)
   }
 
@@ -118,6 +118,13 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       s"write-coordinator_$nodeName"
     )
 
+  private val commitLogCoordinator =
+    context.actorOf(
+      Props[CommitLogCoordinator]
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      s"commitlog-coordinator_$nodeName"
+    )
+
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
       .props(indexBasePath)
@@ -134,14 +141,12 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
                                   schemaCoordinator,
                                   publisherActor)
     case GetMetricsDataActors =>
-      log.debug("gossiping from node {}", nodeName)
+      log.debug("gossiping metric data actors from node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
-    case GetCommitLogCoordinators(replyTo) =>
-      log.info("gossiping for node {}", nodeName)
-      replyTo match {
-        case Some(actor) => actor ! SubscribeCommitLogCoordinator(metricsDataActor, nodeName)
-        case None        => mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(metricsDataActor, nodeName))
-      }
+    case GetCommitLogCoordinators =>
+      log.debug("gossiping commit logs for node {}", nodeName)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
+//      }
   }
 }
 

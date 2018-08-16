@@ -16,64 +16,20 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.coordinator.FakeCache.{DeleteAll, DeleteDone}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 
-import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
-
-class FakeCache extends Actor {
-
-  val locations: mutable.Map[LocationWithNodeKey, Location] = mutable.Map.empty
-
-  val metricInfo: mutable.Map[MetricInfoCacheKey, MetricInfo] = mutable.Map.empty
-
-  def receive: Receive = {
-    case PutLocationInCache(db, namespace, metric, from, to, value) =>
-      val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
-      locations.put(key, value)
-      sender ! LocationCached(db, namespace, metric, from, to, value)
-    case GetLocationsFromCache(db, namespace, metric) =>
-      val key                 = MetricLocationsCacheKey(db, namespace, metric)
-      val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq.sortBy(_.from)
-      sender ! LocationsCached(db, namespace, metric, locs)
-    case DeleteAll =>
-      locations.keys.foreach(k => locations.remove(k))
-      metricInfo.keys.foreach(k => metricInfo.remove(k))
-      sender() ! DeleteDone
-    case PutMetricInfoInCache(db, namespace, metric, value) =>
-      val key = MetricInfoCacheKey(db, namespace, metric)
-      metricInfo.get(key) match {
-        case Some(v) =>
-          sender ! MetricInfoAlreadyExisting(key, v)
-        case None =>
-          metricInfo.put(key, value)
-          sender ! MetricInfoCached(db, namespace, metric, Some(value))
-      }
-    case GetMetricInfoFromCache(db, namespace, metric) =>
-      val key = MetricInfoCacheKey(db, namespace, metric)
-      sender ! MetricInfoCached(db, namespace, metric, metricInfo.get(key))
-  }
-}
-
-object FakeCache {
-  def props: Props = Props(new FakeCache)
-
-  case object DeleteAll
-  case object DeleteDone
-}
 
 class MetadataCoordinatorSpec
     extends TestKit(
@@ -82,7 +38,6 @@ class MetadataCoordinatorSpec
         ConfigFactory
           .load()
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
-          .withValue("nsdb.metadata-coordinator.timeout", ConfigValueFactory.fromAnyRef("10s"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("60s"))
       ))
     with ImplicitSender
@@ -91,10 +46,10 @@ class MetadataCoordinatorSpec
     with BeforeAndAfterEach
     with BeforeAndAfterAll {
 
-  import FakeCache._
+  import FakeMetadataCache._
 
   val probe               = TestProbe()
-  val metadataCache       = system.actorOf(FakeCache.props)
+  val metadataCache       = system.actorOf(FakeMetadataCache.props)
   val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache, probe.ref))
 
   val db        = "testDb"

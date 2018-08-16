@@ -97,8 +97,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   lazy val consistencyLevel: Int =
     context.system.settings.config.getInt("nsdb.cluster.consistency-level")
 
-  private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
-
+  private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   /**
@@ -209,7 +208,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       log.debug("writecoordinator data actor : {}", metricsDataActors.size)
+      log.debug("writecoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
   }
 
@@ -228,6 +229,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         log.info(s"subscribed data actor for node $nodeName")
       }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
+      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
+        commitLogCoordinators += (nodeName -> actor)
+        log.info(s"subscribed commit log actor for node $nodeName")
+      }
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg =>
@@ -236,16 +243,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   }
 
   def operative: Receive = {
-    case SubscribeCommitLogCoordinator(actor, nodeName) =>
-      commitLogCoordinators += (nodeName -> actor)
-      log.info(s"subscribed commit log coordinator actor for node $nodeName")
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
         log.info(s"subscribed data actor for node $nodeName")
       }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
+      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
+        commitLogCoordinators += (nodeName -> actor)
+        log.info(s"subscribed commit log actor for node $nodeName")
+      }
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg @ MapInput(ts, db, namespace, metric, bit) =>

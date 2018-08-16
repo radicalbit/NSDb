@@ -59,15 +59,15 @@ class MetadataActorSpec
 
   before {
     implicit val timeout = Timeout(5 seconds)
-    Await.result(metadataActor ? DeleteNamespace(db, namespace), 5 seconds)
+    Await.result(metadataActor ? DeleteNamespaceMetadata(db, namespace), 5 seconds)
     Await.result(metadataActor ? AddLocations(db, namespace, locations), 5 seconds)
   }
 
   "MetadataActor" should "delete locations for a namespace" in {
 
-    probe.send(metadataActor, DeleteNamespace(db, namespace))
+    probe.send(metadataActor, DeleteNamespaceMetadata(db, namespace))
 
-    val deleted = probe.expectMsgType[NamespaceDeleted]
+    val deleted = probe.expectMsgType[NamespaceMetadataDeleted]
     deleted.namespace shouldBe namespace
 
     probe.send(metadataActor, GetLocations(db, namespace, metric))
