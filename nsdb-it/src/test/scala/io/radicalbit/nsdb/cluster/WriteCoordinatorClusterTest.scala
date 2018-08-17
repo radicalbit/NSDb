@@ -1,3 +1,5 @@
+package io.radicalbit.nsdb.cluster
+
 /*
  * Copyright 2018 Radicalbit S.r.l.
  *
@@ -19,28 +21,40 @@ import java.util.concurrent.TimeUnit
 import akka.cluster.{Cluster, MemberStatus}
 import akka.util.Timeout
 import io.radicalbit.nsdb.api.scala.NSDB
+import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters.GrpcBitConverter
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.minicluster.MiniClusterSpec
+import io.radicalbit.nsdb.minicluster.converters.BitConverters.ApiBitConverter
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
-class WriteCoordinatorClusterTest extends MiniclusterSpec {
+class WriteCoordinatorClusterTest extends MiniClusterSpec {
+
+  override val nodesNumber: Int = 2
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
   test("join cluster") {
-    assert(Cluster(minicluster.nodes.head.system).state.members.count(_.status == MemberStatus.Up) == minicluster.nodes.size)
+    assert(
+      Cluster(minicluster.nodes.head.system).state.members
+        .count(_.status == MemberStatus.Up) == minicluster.nodes.size)
   }
 
   test("add record from first node") {
 
     val firstNode = minicluster.nodes.head
 
-    val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+    val nsdb =
+      Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+
+//    val timestamp =
 
     val bit = nsdb
       .db("root")
       .namespace("registry")
-      .bit("people")
+      .metric("people")
+      .timestamp(System.currentTimeMillis())
       .value(new java.math.BigDecimal("13"))
       .dimension("city", "Mouseton")
       .dimension("notimportant", None)
@@ -54,7 +68,7 @@ class WriteCoordinatorClusterTest extends MiniclusterSpec {
 
     assert(res.completedSuccessfully)
 
-    waitIndexing
+    waitIndexing()
 
     val query = nsdb
       .db("root")
@@ -65,32 +79,30 @@ class WriteCoordinatorClusterTest extends MiniclusterSpec {
 
     assert(readRes.completedSuccessfully)
     assert(readRes.records.size == 1)
+    assert(readRes.records.head.asBit == bit.asCommonBit)
   }
 
   test("add record from second node") {
 
     val secondNode = minicluster.nodes.last
 
-    val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
+    val nsdb =
+      Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
 
-    val bit = nsdb
-      .db("root")
-      .namespace("registry")
-      .bit("people")
-      .value(new java.math.BigDecimal("14"))
-      .dimension("city", "Mouseton")
-      .dimension("notimportant", None)
-      .dimension("Someimportant", Some(2))
-      .dimension("gender", "F")
-      .dimension("bigDecimalLong", new java.math.BigDecimal("13"))
-      .dimension("bigDecimalDouble", new java.math.BigDecimal("13.5"))
-      .dimension("OptionBigDecimal", Some(new java.math.BigDecimal("16.5")))
+    val bit = Bit(timestamp = System.currentTimeMillis(),
+                  dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
+                  value = 2,
+                  tags = Map.empty)
 
-    val res = Await.result(nsdb.write(bit), 10.seconds)
+    import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
+
+    val apiBit = bit.asApiBit("root", "registry", "people")
+
+    val res = Await.result(nsdb.write(apiBit), 10.seconds)
 
     assert(res.completedSuccessfully)
 
-    waitIndexing
+    waitIndexing()
 
     val query = nsdb
       .db("root")

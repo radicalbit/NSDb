@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
+import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
@@ -33,7 +34,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
 import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
@@ -58,7 +59,7 @@ import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -75,9 +76,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   implicit val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.rpc-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
-  implicit val sys = system.dispatcher
+  implicit val dispatcher: ExecutionContextExecutor = system.dispatcher
 
-  override protected[this] val executionContextExecutor = implicitly[ExecutionContext]
+  override protected[this] val executionContextExecutor: ExecutionContext = implicitly[ExecutionContext]
 
   override protected[this] def serviceSQL: NSDBServiceSQL = GrpcEndpointServiceSQL
 
@@ -316,39 +317,6 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       case _                         => v.stringValue.get
     }
 
-    private def toGrpcBit(bit: Bit): GrpcBit =
-      GrpcBit(
-        timestamp = bit.timestamp,
-        value = bit.value match {
-          case v: java.lang.Long                         => GrpcBit.Value.LongValue(v)
-          case v: java.lang.Double                       => GrpcBit.Value.DecimalValue(v)
-          case v: java.lang.Float                        => GrpcBit.Value.DecimalValue(v.doubleValue())
-          case v: java.lang.Integer                      => GrpcBit.Value.LongValue(v.longValue())
-          case v: java.math.BigDecimal if v.scale() == 0 => GrpcBit.Value.LongValue(v.longValue())
-          case v: java.math.BigDecimal                   => GrpcBit.Value.DecimalValue(v.doubleValue())
-        },
-        dimensions = bit.dimensions.map {
-          case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
-          case (k, v: java.lang.Float)   => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
-          case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
-          case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
-            (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
-          case (k, v)                       => (k, Dimension(Dimension.Value.StringValue(v.toString)))
-        },
-        tags = bit.tags.map {
-          case (k, v: java.lang.Double)  => (k, Tag(Tag.Value.DecimalValue(v)))
-          case (k, v: java.lang.Float)   => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
-          case (k, v: java.lang.Long)    => (k, Tag(Tag.Value.LongValue(v)))
-          case (k, v: java.lang.Integer) => (k, Tag(Tag.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
-            (k, Tag(Tag.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
-          case (k, v)                       => (k, Tag(Tag.Value.StringValue(v.toString)))
-        }
-      )
-
     override def executeSQLStatement(
         request: SQLRequestStatement
     ): Future[SQLStatementResponse] = {
@@ -374,7 +342,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
                       namespace = namespace,
                       metric = metric,
                       completedSuccessfully = true,
-                      records = values.map(toGrpcBit)
+                      records = values.map(bit => bit.asGrpcBit)
                     )
                   // SelectExecution Failure
                   case SelectStatementFailed(reason, _) =>
@@ -423,7 +391,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
                                          namespace = namespace,
                                          metric = metric,
                                          completedSuccessfully = true,
-                                         records = Seq(toGrpcBit(record)))
+                                         records = Seq(record.asGrpcBit))
                   case msg: RecordRejected =>
                     SQLStatementResponse(db = msg.db,
                                          namespace = msg.namespace,

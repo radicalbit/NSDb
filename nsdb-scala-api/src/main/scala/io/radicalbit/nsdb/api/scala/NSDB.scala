@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
@@ -59,7 +60,7 @@ object NSDB {
       val series = nsdb
         .db("root")
         .namespace("registry")
-        .bit("people")
+        .metric("people")
         .value(Some(new java.math.BigDecimal("13")))
         .dimension("city", "Mouseton")
 
@@ -106,7 +107,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         database = bit.db,
         namespace = bit.namespace,
         metric = bit.metric,
-        timestamp = bit.ts getOrElse System.currentTimeMillis,
+        timestamp = bit.timestamp getOrElse System.currentTimeMillis,
         value = bit.value,
         dimensions = bit.dimensions.toMap,
         tags = bit.tags.toMap
@@ -169,11 +170,12 @@ case class Db(name: String) {
 case class Namespace(db: String, name: String) {
 
   /**
-    * Builds the bit to be inserted.
-    * @param bit metric name.
+    * Builds the metric to be inserted.
+    *
+    * @param metric metric name.
     * @return a bit with empty dimensions and value.
     */
-  def bit(bit: String): Bit = Bit(db = db, namespace = name, metric = bit)
+  def metric(metric: String): Bit = Bit(db = db, namespace = name, metric = metric)
 
   /**
     * Builds the query to be executed.
@@ -191,17 +193,17 @@ case class SQLStatement(db: String, namespace: String, sQLStatement: String)
   * @param db the db.
   * @param namespace the namespace.
   * @param metric the metric.
-  * @param ts bit timestamp.
+  * @param timestamp bit timestamp.
   * @param value bit value.
   * @param dimensions bit dimensions list.
   */
 case class Bit protected (db: String,
                           namespace: String,
                           metric: String,
-                          ts: Option[Long] = None,
+                          timestamp: Option[Long] = None,
                           value: RPCInsert.Value = RPCInsert.Value.Empty,
-                          dimensions: List[DimensionAPI] = List.empty[DimensionAPI],
-                          tags: List[TagAPI] = List.empty[TagAPI]) {
+                          dimensions: ListBuffer[DimensionAPI] = ListBuffer.empty[DimensionAPI],
+                          tags: ListBuffer[TagAPI] = ListBuffer.empty[TagAPI]) {
 
   /**
     * Builds a [[BitInfo]] from an existing bit
@@ -347,7 +349,7 @@ case class Bit protected (db: String,
     * @param v the timestamp.
     * @return a new instance with `v` as a timestamp.
     */
-  def timestamp(v: Long): Bit = copy(ts = Some(v))
+  def timestamp(v: Long): Bit = copy(timestamp = Some(v))
 }
 
 case class BitInfo protected (db: String, namespace: String, metric: String, shardInterval: String)
