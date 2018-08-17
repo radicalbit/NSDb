@@ -91,8 +91,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @param locations locations to filter the shard actors with.
     * @return filtered map containing all the actors for the given locations.
     */
-  private def actorsForLocations(locations: Seq[Location]): Map[Location, ActorRef] =
-    actors.filterKeys(locations.toSet).toMap
+  private def actorsForLocations(locations: Seq[Location]): Seq[(Location, ActorRef)] =
+    actors.filterKeys(locations.toSet).toSeq
 
   /**
     * Any existing shard is retrieved
@@ -241,7 +241,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
+            actorsForLocations(locations)
 
           val orderedResults = retrieveAndOrderPlainResults(statement, parsedStatement, actors, schema)
 
@@ -278,7 +278,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val distinctField = fields.head.name
 
           val filteredIndexes =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
+            actorsForLocations(locations)
 
           val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
             Bit(
@@ -295,7 +295,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
         case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
           val filteredIndexes =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
+            actorsForLocations(locations)
 
           val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
@@ -308,7 +308,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
         case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
+            actorsForLocations(locations)
 
           val rawResult = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>

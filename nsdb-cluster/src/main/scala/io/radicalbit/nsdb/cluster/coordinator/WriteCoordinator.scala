@@ -304,10 +304,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                 .flatMap {
                   case WriteToCommitLogSucceeded(_, _, _, _) =>
                     accumulateRecord(db, namespace, metric, bit, loc)
-//                      .map{
-//                      case RecordAdded =>
-//                      case RecordRejected =>
-//                    }
                   case err: WriteToCommitLogFailed => Future(err)
                 }
             })

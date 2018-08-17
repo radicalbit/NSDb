@@ -103,9 +103,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String) extends Actor
       }
   }
 
-  override def receive: Receive = commons orElse shardBehaviour
-
-  def commons: Receive = {
+  override def receive: Receive = {
     case GetDbs =>
       val dbs = context.children.collect { case c if c.path.name.split("_").length == 4 => c.path.name.split("_")(2) }
       sender() ! DbsGot(dbs.toSet)
@@ -144,9 +142,6 @@ class MetricsDataActor(val basePath: String, val nodeName: String) extends Actor
         case Some(child) => child forward msg
         case None        => sender() ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)
       }
-  }
-
-  def shardBehaviour: Receive = {
     case AddRecordToLocation(db, namespace, bit, location) =>
       getOrCreateChildren(db, namespace)._2
         .forward(AddRecordToShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
