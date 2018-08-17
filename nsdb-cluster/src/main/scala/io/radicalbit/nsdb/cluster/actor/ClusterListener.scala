@@ -28,8 +28,8 @@ import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster

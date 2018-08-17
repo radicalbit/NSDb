@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -46,10 +46,13 @@ import scala.util.{Failure, Success}
   * - Retrieving data from shards, aggregates and returns it to the sender.
   *
   * @param basePath shards actors path.
+  * @param nodeName String representation of the host and the port Actor is deployed at.
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricReaderActor(val basePath: String, val db: String, val namespace: String) extends Actor with ActorLogging {
+class MetricReaderActor(val basePath: String, nodeName: String, val db: String, val namespace: String)
+    extends Actor
+    with ActorLogging {
   import scala.collection.mutable
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
@@ -57,31 +60,39 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  private val actors: mutable.Map[ShardKey, ActorRef] = mutable.Map.empty
+  private val actors: mutable.Map[Location, ActorRef] = mutable.Map.empty
 
   /**
     * Gets or creates the actor for a given shard key.
-    * @param key The shard key to identify the actor.
+    * @param location The shard key to identify the actor.
     * @return The existing or the created shard actor.
     */
-  private def getOrCreateActor(key: ShardKey) =
+  private def getOrCreateActor(location: Location) =
     actors.getOrElse(
-      key, {
-        val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key),
-                                       s"shard_reader_${key.metric}_${key.from}_${key.to}")
-        actors += (key -> newActor)
+      location, {
+        val newActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, location), actorName(location))
+        actors += (location -> newActor)
         newActor
       }
     )
 
-  private def actorName(key: ShardKey) = s"shard_reader_${key.metric}_${key.from}_${key.to}"
+  private def actorName(location: Location) =
+    s"shard_reader_${location.node}_${location.metric}_${location.from}_${location.to}"
 
   /**
     * Retrieve all the shard actors for a given metric.
     * @param metric The metric to filter shard actors
     * @return All the shard actors for a given metric.
     */
-  private def actorsForMetric(metric: String) = actors.filter(_._1.metric == metric)
+  private def actorsForMetric(metric: String): mutable.Map[Location, ActorRef] = actors.filter(_._1.metric == metric)
+
+  /**
+    * Filters all the shard actors of a metrics given a set of locations.
+    * @param locations locations to filter the shard actors with.
+    * @return filtered map containing all the actors for the given locations.
+    */
+  private def actorsForLocations(locations: Seq[Location]): Map[Location, ActorRef] =
+    actors.filterKeys(locations.toSet).toMap
 
   /**
     * Any existing shard is retrieved
@@ -94,13 +105,13 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
       .map(_.split("_"))
       .foreach {
         case Array(metric, from, to) =>
-          val key        = ShardKey(metric, from.toLong, to.toLong)
+          val key        = Location(metric, nodeName, from.toLong, to.toLong)
           val shardActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
           actors += (key -> shardActor)
       }
   }
 
-  private def filterShardsThroughTime[T](expression: Option[Expression], indexes: mutable.Map[ShardKey, T]) = {
+  private def filterShardsThroughTime[T](expression: Option[Expression], indexes: Map[Location, T]) = {
     val intervals = TimeRangeExtractor.extractTimeRange(expression)
     indexes.filter {
       case (key, _) if intervals.nonEmpty =>
@@ -113,14 +124,14 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
   /**
     * Groups results coming from different shards according to the group by clause provided in the query.
-    * @param statement the Sql statement to be executed againt every actor.
+    * @param statement the Sql statement to be executed against every actor.
     * @param groupBy the group by clause dimension.
     * @param schema Metric's schema.
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
   private def gatherAndGroupShardResults(
-      actors: Seq[(ShardKey, ActorRef)],
+      actors: Seq[(Location, ActorRef)],
       statement: SelectSQLStatement,
       groupBy: String,
       schema: Schema)(aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
@@ -142,11 +153,11 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
-  private def gatherShardResults(actors: Seq[(ShardKey, ActorRef)], statement: SelectSQLStatement, schema: Schema)(
+  private def gatherShardResults(actors: Seq[(Location, ActorRef)], statement: SelectSQLStatement, schema: Schema)(
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(actors.map {
-        case (_, actor) => actor ? ExecuteSelectStatement(statement, schema)
+        case (_, actor) => actor ? ExecuteSelectStatement(statement, schema, actors.map(_._1))
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
@@ -168,7 +179,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
     */
   private def retrieveAndOrderPlainResults(statement: SelectSQLStatement,
                                            parsedStatement: ParsedSimpleQuery,
-                                           actors: Seq[(ShardKey, ActorRef)],
+                                           actors: Seq[(Location, ActorRef)],
                                            schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
 
@@ -226,11 +237,11 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
 
-    case ExecuteSelectStatement(statement, schema) =>
+    case ExecuteSelectStatement(statement, schema, locations) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
 
           val orderedResults = retrieveAndOrderPlainResults(statement, parsedStatement, actors, schema)
 
@@ -267,7 +278,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val distinctField = fields.head.name
 
           val filteredIndexes =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
 
           val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
             Bit(
@@ -284,7 +295,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
         case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
           val filteredIndexes =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
 
           val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
@@ -297,7 +308,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
         case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+            filterShardsThroughTime(statement.condition.map(_.expression), actorsForLocations(locations))
 
           val rawResult = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
             values =>
@@ -372,6 +383,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
 
 object MetricReaderActor {
 
-  def props(basePath: String, db: String, namespace: String): Props =
-    Props(new MetricReaderActor(basePath, db, namespace))
+  def props(basePath: String, nodeName: String, db: String, namespace: String): Props =
+    Props(new MetricReaderActor(basePath, nodeName, db, namespace))
 }

@@ -24,13 +24,12 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.WarmUpMetadata
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, WarmUpMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
-import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{Location, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
@@ -120,7 +119,7 @@ class ReadCoordinatorSpec
   val metadataCoordinator = system.actorOf(
     MetadataCoordinator.props(system.actorOf(Props[FakeMetadataCache]), probe.ref),
     "metadatacoordinator")
-  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath))
+  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "node1"))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
                                                                   system.actorOf(Props.empty))
@@ -131,7 +130,7 @@ class ReadCoordinatorSpec
 
     probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
     probe.expectMsgType[Publish]
-//    expectNoMessage(1 second)
+
     schemaCoordinator ! WarmUpSchemas(List.empty)
     readCoordinatorActor ! WarmUpCompleted
 
@@ -147,10 +146,14 @@ class ReadCoordinatorSpec
       schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
       10 seconds)
 
-    LongMetric.recordsShard1.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(LongMetric.name)), 10 seconds))
-    LongMetric.recordsShard2.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(LongMetric.name)), 10 seconds))
+    LongMetric.recordsShard1.foreach(r => {
+      Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(LongMetric.name)), 10 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(LongMetric.name)), 10 seconds)
+    })
+    LongMetric.recordsShard2.foreach(r => {
+      Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(LongMetric.name)), 10 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(LongMetric.name)), 10 seconds)
+    })
 
     //double metric
     Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 10 seconds)
@@ -159,10 +162,14 @@ class ReadCoordinatorSpec
       schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
       10 seconds)
 
-    DoubleMetric.recordsShard1.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(DoubleMetric.name)), 10 seconds))
-    DoubleMetric.recordsShard2.foreach(r =>
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)), 10 seconds))
+    DoubleMetric.recordsShard1.foreach(r => {
+      Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(DoubleMetric.name)), 10 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(DoubleMetric.name)), 10 seconds)
+    })
+    DoubleMetric.recordsShard2.foreach(r => {
+      Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(DoubleMetric.name)), 10 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)), 10 seconds)
+    })
 
     //aggregation metric
     Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 10 seconds)
@@ -173,14 +180,16 @@ class ReadCoordinatorSpec
                                                             AggregationMetric.testRecords.head),
                  10 seconds)
 
-    AggregationMetric.recordsShard1.foreach(
-      r =>
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
-                     10 seconds))
-    AggregationMetric.recordsShard2.foreach(
-      r =>
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
-                     10 seconds))
+    AggregationMetric.recordsShard1.foreach(r => {
+      Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(AggregationMetric.name)), 10 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
+                   10 seconds)
+    })
+    AggregationMetric.recordsShard2.foreach(r => {
+      Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(AggregationMetric.name)), 10 seconds)
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
+                   10 seconds)
+    })
 
     expectNoMessage(interval)
     expectNoMessage(interval)

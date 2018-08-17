@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.index
 
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.RAMDirectory

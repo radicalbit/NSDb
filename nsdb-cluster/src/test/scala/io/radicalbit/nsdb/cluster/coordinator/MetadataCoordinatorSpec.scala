@@ -25,7 +25,8 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
+import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.Await

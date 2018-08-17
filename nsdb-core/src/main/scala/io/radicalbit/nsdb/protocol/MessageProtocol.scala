@@ -18,10 +18,9 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
-import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Location, Schema}
 
 /**
   * common messages exchanged among all the nsdb actors.
@@ -42,13 +41,13 @@ object MessageProtocol {
     case class EvictSchema(db: String, namespace: String, metric: String)
 
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
-    case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema)
+    case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema, locations: Seq[Location])
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
     case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
     case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
-    case class ExecuteDeleteStatementInShards(statement: DeleteSQLStatement, schema: Schema, keys: Seq[ShardKey])
+    case class ExecuteDeleteStatementInShards(statement: DeleteSQLStatement, schema: Schema, keys: Seq[Location])
     case class DropMetric(db: String, namespace: String, metric: String)
     case class DeleteNamespace(db: String, namespace: String)
 
@@ -58,8 +57,8 @@ object MessageProtocol {
     case class DeleteAllSchemas(db: String, namespace: String)
 
     case class GetCount(db: String, namespace: String, metric: String)
-    case class AddRecordToShard(db: String, namespace: String, shardKey: ShardKey, bit: Bit)
-    case class DeleteRecordFromShard(db: String, namespace: String, shardKey: ShardKey, bit: Bit)
+    case class AddRecordToShard(db: String, namespace: String, location: Location, bit: Bit)
+    case class DeleteRecordFromShard(db: String, namespace: String, shardKey: Location, bit: Bit)
     case class DeleteAllMetrics(db: String, namespace: String)
 
     case object GetNodeChildActors
@@ -117,10 +116,8 @@ object MessageProtocol {
     case class AllMetricsDeleted(db: String, namespace: String)
 
     case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String)
-//    case class CommitLogActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
 
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
-//    case class NamespaceDataActorSubscriptionFailed(actor: ActorRef, host: Option[String] = None, reason: String)
 
     case class ConnectedDataNodesGot(nodes: Seq[String])
   }

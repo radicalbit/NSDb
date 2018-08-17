@@ -24,6 +24,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 
 import scala.concurrent.duration._
@@ -52,7 +53,7 @@ class MetricPerformerActorSpec
 
   "ShardPerformerActor" should "write and delete properly" in within(5.seconds) {
 
-    val key = ShardKey("IndexerPerformerActorMetric", 0, 0)
+    val key = Location("IndexerPerformerActorMetric", "node1", 0, 0)
 
     val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
 

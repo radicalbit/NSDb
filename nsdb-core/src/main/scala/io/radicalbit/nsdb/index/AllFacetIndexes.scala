@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 
 import com.typesafe.scalalogging.LazyLogging
-import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
@@ -31,13 +31,15 @@ import org.apache.lucene.util.InfoStream
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-class AllFacetIndexes(basePath: String, db: String, namespace: String, key: ShardKey) extends LazyLogging {
+class AllFacetIndexes(basePath: String, db: String, namespace: String, location: Location) extends LazyLogging {
 
   private val directory =
-    new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet"))
+    new MMapDirectory(
+      Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}", "facet"))
 
   private val taxoDirectory = new MMapDirectory(
-    Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}", "facet", "taxo"))
+    Paths
+      .get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}", "facet", "taxo"))
 
   val facetCountIndex = new FacetCountIndex(directory, taxoDirectory)
 

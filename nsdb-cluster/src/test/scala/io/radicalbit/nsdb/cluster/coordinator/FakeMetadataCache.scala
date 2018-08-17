@@ -16,10 +16,11 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import FakeMetadataCache.{DeleteAll, DeleteDone}
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
+import io.radicalbit.nsdb.cluster.coordinator.FakeMetadataCache.{DeleteAll, DeleteDone}
+import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.model.Location
 
 import scala.collection.mutable
 

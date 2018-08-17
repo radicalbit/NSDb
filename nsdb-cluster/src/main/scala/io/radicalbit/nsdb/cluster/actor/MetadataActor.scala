@@ -24,8 +24,9 @@ import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
-import io.radicalbit.nsdb.cluster.index.{Location, LocationIndex, MetricInfo, MetricInfoIndex}
+import io.radicalbit.nsdb.cluster.index.{LocationIndex, MetricInfo, MetricInfoIndex}
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 

@@ -27,9 +27,9 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, Subscr
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{Matchers, _}
@@ -93,7 +93,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   lazy val schemaCoordinator =
     TestActorRef[SchemaCoordinator](
       SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
-  lazy val metricsDataActor = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath))
+  lazy val metricsDataActor = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "testNode"))
   lazy val subscriber       = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))

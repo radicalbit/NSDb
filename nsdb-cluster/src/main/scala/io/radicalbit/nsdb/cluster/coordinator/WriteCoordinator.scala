@@ -28,18 +28,24 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, GetLocations, GetWriteLocations}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
+  AddRecordToLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
+  AddLocation,
+  GetLocations,
+  GetWriteLocations
+}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
-import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{SchemaIndex, TimeSeriesIndex}
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.dump.DumpTarget
@@ -58,7 +64,10 @@ import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
 
-  def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, publisherActor: ActorRef,mediator: ActorRef): Props =
+  def props(metadataCoordinator: ActorRef,
+            schemaCoordinator: ActorRef,
+            publisherActor: ActorRef,
+            mediator: ActorRef): Props =
     Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, publisherActor, mediator))
 
   case class Restore(path: String)  extends ControlMessage
@@ -75,7 +84,10 @@ object WriteCoordinator {
   * @param schemaCoordinator   [[SchemaCoordinator]] the namespace schema actor.
   * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
-class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, publisherActor: ActorRef,           mediator: ActorRef)
+class WriteCoordinator(metadataCoordinator: ActorRef,
+                       schemaCoordinator: ActorRef,
+                       publisherActor: ActorRef,
+                       mediator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger
     with Stash {
@@ -257,7 +269,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case msg @ MapInput(ts, db, namespace, metric, bit) =>
+    case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>

@@ -22,7 +22,8 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
+import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.model.Location
 import org.scalatest._
 
 import scala.concurrent.Await

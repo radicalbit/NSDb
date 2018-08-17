@@ -26,11 +26,13 @@ trait NsdbMiniClusterConf extends NsdbConfig {
   def httpPort: Int
   def dataDir: String
 
-  override def config: Config = ConfigFactory.load("minicluster.conf")
-    .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(akkaRemotePort))
-    .withValue("nsdb.grpc.port", ConfigValueFactory.fromAnyRef(grpcPort))
-    .withValue("nsdb.http.port", ConfigValueFactory.fromAnyRef(httpPort))
-    .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
+  override def config: Config =
+    ConfigFactory
+      .load("minicluster.conf")
+      .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(akkaRemotePort))
+      .withValue("nsdb.grpc.port", ConfigValueFactory.fromAnyRef(grpcPort))
+      .withValue("nsdb.http.port", ConfigValueFactory.fromAnyRef(httpPort))
+      .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
 //    .withoutPath("akka.cluster")
 
 }

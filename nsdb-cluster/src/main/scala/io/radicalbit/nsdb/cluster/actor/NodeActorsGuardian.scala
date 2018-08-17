@@ -83,37 +83,9 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       s"publisher-actor_$nodeName"
     )
   private val writeCoordinator =
-//<<<<<<< HEAD
-//    if (writeToCommitLog) {
-//      val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
-//      context.actorOf(
-//        WriteCoordinator
-//          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor, mediator)
-//          .withDispatcher("akka.actor.control-aware-dispatcher")
-//          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-//        s"write-coordinator_$nodeName"
-//      )
-//    } else
-//      context.actorOf(
-//        WriteCoordinator
-//          .props(None, metadataCoordinator, schemaCoordinator, publisherActor, mediator)
-//          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-//        s"write-coordinator_$nodeName"
-//      )
-//=======
-//    if (writeToCommitLog) {
-//      val commitLogCoordinator = context.actorOf(Props[CommitLogCoordinator], s"commit-log-coordinator_$nodeName")
-//      context.actorOf(
-//        WriteCoordinator
-//          .props(Some(commitLogCoordinator), metadataCoordinator, schemaCoordinator, publisherActor)
-//          .withDispatcher("akka.actor.control-aware-dispatcher")
-//          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-//        s"write-coordinator_$nodeName"
-//      )
-//    } else
     context.actorOf(
       WriteCoordinator
-        .props(metadataCoordinator, schemaCoordinator, publisherActor)
+        .props(metadataCoordinator, schemaCoordinator, publisherActor, mediator)
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"write-coordinator_$nodeName"
     )
@@ -127,7 +99,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath)
+      .props(indexBasePath, nodeName)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$nodeName"

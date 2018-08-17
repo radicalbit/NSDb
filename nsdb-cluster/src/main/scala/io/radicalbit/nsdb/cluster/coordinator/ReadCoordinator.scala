@@ -24,9 +24,11 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -80,11 +82,14 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
-  private def gatherNodeResults(statement: SelectSQLStatement, schema: Schema)(
+  private def gatherNodeResults(statement: SelectSQLStatement,
+                                schema: Schema,
+                                uniqueLocationsByNode: Map[String, Seq[Location]])(
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(metricsDataActors.map {
-        case (_, actor) => actor ? ExecuteSelectStatement(statement, schema)
+        case (nodeName, actor) =>
+          actor ? ExecuteSelectStatement(statement, schema, uniqueLocationsByNode.getOrElse(nodeName, Seq.empty))
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
@@ -151,10 +156,19 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
-      (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+
+      Future
+        .sequence(Seq(
+          schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
+          metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
+        ))
         .flatMap {
-          case SchemaGot(_, _, _, Some(schema)) =>
-            applyOrderingWithLimit(gatherNodeResults(statement, schema)(identity), statement, schema).map {
+          case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
+            val uniqueLocationsByNode = locations.groupBy(l => (l.from, l.to)).map(_._2.head).toSeq.groupBy(_.node)
+
+            applyOrderingWithLimit(gatherNodeResults(statement, schema, uniqueLocationsByNode)(identity),
+                                   statement,
+                                   schema).map {
               case Right(results) =>
                 SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results)
               case Left(failed) => failed
