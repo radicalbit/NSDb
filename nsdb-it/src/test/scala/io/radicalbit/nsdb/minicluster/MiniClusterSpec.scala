@@ -8,7 +8,7 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll {
   lazy val minicluster: NsdbMiniCluster = new MiniClusterStarter(nodesNumber)
 
   override def beforeAll(): Unit = {
-    minicluster.start()
+    minicluster.start(true)
   }
 
   override def afterAll(): Unit = {

@@ -28,7 +28,7 @@ trait NsdbMiniCluster extends LazyLogging {
   protected[this] val startingAkkaRemotePort = 2552
   protected[this] val startingHttpPort       = 9010
   protected[this] val startingGrpcPort       = 7817
-  protected[this] val dataFolder             = "target/minicluster/data"
+  protected[this] val rootFolder             = "target/minicluster"
 
   protected[this] def nodesNumber: Int
 
@@ -37,20 +37,24 @@ trait NsdbMiniCluster extends LazyLogging {
       i <- 0 until nodesNumber
       _ = Thread.sleep(1000)
     } yield
-      new NsdbMiniClusterNode(akkaRemotePort = startingAkkaRemotePort + i,
-                              httpPort = startingHttpPort + i,
-                              grpcPort = startingGrpcPort + i,
-                              dataDir = dataFolder + (startingAkkaRemotePort + i))).toSet
+      new NsdbMiniClusterNode(
+        akkaRemotePort = startingAkkaRemotePort + i,
+        httpPort = startingHttpPort + i,
+        grpcPort = startingGrpcPort + i,
+        dataDir = s"$rootFolder/data${startingAkkaRemotePort + i}"
+      )).toSet
 
-  def start() = {
-    FileUtils.deleteDirectory(new File(dataFolder))
+  def start(cleanup: Boolean = false) = {
+    if (cleanup)
+      FileUtils.deleteDirectory(new File(rootFolder))
     nodes
-    Thread.sleep(3000)
+    Thread.sleep(5000)
   }
+
   def stop() = {
     import scala.concurrent.duration._
     nodes.foreach(n => Await.result(n.system.terminate(), 10.seconds))
     nodes.foreach(n => Await.result(n.system.whenTerminated, 10.seconds))
-    Thread.sleep(3000)
+    Thread.sleep(5000)
   }
 }

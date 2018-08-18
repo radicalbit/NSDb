@@ -132,9 +132,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     assert(readRes.records.size == 3)
 
     val results = readRes.records.map(_.asBit)
-    LongMetric.testRecords.take(3) foreach { r =>
-      assert(results.contains(r))
-    }
+    results.foreach(r => assert(LongMetric.testRecords.take(3).contains(r)))
 
   }
 

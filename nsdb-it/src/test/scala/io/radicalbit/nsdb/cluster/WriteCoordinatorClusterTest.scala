@@ -45,16 +45,16 @@ class WriteCoordinatorClusterTest extends MiniClusterSpec {
 
     val firstNode = minicluster.nodes.head
 
+    val timestamp = System.currentTimeMillis()
+
     val nsdb =
       Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
-
-//    val timestamp =
 
     val bit = nsdb
       .db("root")
       .namespace("registry")
       .metric("people")
-      .timestamp(System.currentTimeMillis())
+      .timestamp(timestamp)
       .value(new java.math.BigDecimal("13"))
       .dimension("city", "Mouseton")
       .dimension("notimportant", None)
