@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.minicluster.converters.BitConverters.ApiBitConverter
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
-class WriteCoordinatorClusterTest extends MiniClusterSpec {
+class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
   override val nodesNumber: Int = 2
 
