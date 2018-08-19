@@ -249,7 +249,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
 
-    case _ @ExecuteSelectStatement(statement, schema) =>
+    case ExecuteSelectStatement(statement, schema) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
@@ -342,8 +342,8 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             }
             .pipeTo(sender)
 
-        case Failure(ex) => Failure(ex)
-        case _           => Failure(new InvalidStatementException("Not a select statement."))
+        case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+        case _           => sender ! SelectStatementFailed("Not a select statement.")
       }
     case DropMetric(_, _, metric) =>
       actorsForMetric(metric).foreach {

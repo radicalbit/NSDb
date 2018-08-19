@@ -123,21 +123,21 @@ lazy val `nsdb-cluster` = project
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(JavaServerAppPackaging, SbtNativePackager)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
-//  .settings(
-//    compile in MultiJvm := ((compile in MultiJvm) triggeredBy (compile in Test)).value,
-//    executeTests in Test := {
-//      val testResults      = (executeTests in Test).value
-//      val multiNodeResults = (executeTests in MultiJvm).value
-//      val overall =
-//        if (testResults.overall.id < multiNodeResults.overall.id)
-//          multiNodeResults.overall
-//        else
-//          testResults.overall
-//      Tests.Output(overall,
-//                   testResults.events ++ multiNodeResults.events,
-//                   testResults.summaries ++ multiNodeResults.summaries)
-//    }
-//  )
+  .settings(
+    compile in MultiJvm := ((compile in MultiJvm) triggeredBy (compile in Test)).value,
+    executeTests in Test := {
+      val testResults      = (executeTests in Test).value
+      val multiNodeResults = (executeTests in MultiJvm).value
+      val overall =
+        if (testResults.overall.id < multiNodeResults.overall.id)
+          multiNodeResults.overall
+        else
+          testResults.overall
+      Tests.Output(overall,
+                   testResults.events ++ multiNodeResults.events,
+                   testResults.summaries ++ multiNodeResults.summaries)
+    }
+  )
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(scriptClasspath in bashScriptDefines += "../ext-lib/*")

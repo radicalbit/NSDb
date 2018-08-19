@@ -93,6 +93,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         } else
           Right(postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
       }
+      .recover {
+        case t =>
+          log.error(t, "an error occurred while gathering results from nodes")
+          Left(SelectStatementFailed(t.getMessage))
+      }
   }
 
   /**
@@ -172,25 +177,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
-//            Future
-//              .sequence(metricsDataActors.values.toSeq.map { actor =>
-//                actor ? ExecuteSelectStatement(statement, schema)
-//              })
-//              .map { seq =>
-//                val errs = seq.collect {
-//                  case e: SelectStatementFailed => e.reason
-//                }
-//                if (errs.isEmpty) {
-//                  val results = seq.asInstanceOf[Seq[SelectStatementExecuted]]
-//                  SelectStatementExecuted(statement.db,
-//                                          statement.namespace,
-//                                          statement.metric,
-//                                          results.flatMap(_.values))
-//                } else {
-//                  SelectStatementFailed(errs.mkString(","))
-//                }
-//              }
-
             applyOrderingWithLimit(gatherNodeResults(statement, schema)(identity), statement, schema).map {
               case Right(results) =>
                 SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results)

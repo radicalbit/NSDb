@@ -89,6 +89,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     nsdb.write(AggregationMetric.testRecords.map(_.asApiBit(db, namespace, AggregationMetric.name)))
 
     waitIndexing()
+    waitIndexing()
   }
 
   override def afterAll(): Unit = {
@@ -136,1001 +137,430 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
   }
 
-  //    test("receive a GetDbs") {
-  //        probe.send(readCoordinatorActor, GetDbs)
-  //
-  //        val expected = probe.expectMsgType[DbsGot]
-  //        expected.dbs shouldBe Set(db)
-  //    }
-  //
-  //    test("receive a GetNamespace") {
-  //      "return it properly" in within(5.seconds) {
-  //        probe.send(readCoordinatorActor, GetNamespaces(db))
-  //
-  //        val expected = probe.expectMsgType[NamespacesGot]
-  //        expected.namespaces shouldBe Set(namespace)
-  //
-  //      }
-  //    }
-  //
-  //    "receive a GetMetrics given a namespace" should {
-  //      "return it properly" in within(5.seconds) {
-  //        probe.send(readCoordinatorActor, GetMetrics(db, namespace))
-  //
-  //        val expected = probe.expectMsgType[MetricsGot]
-  //
-  //        expected.namespace shouldBe namespace
-  //        expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name, AggregationMetric.name)
-  //
-  //      }
-  //    }
-
-  //    "receive a GetSchema given a namespace and a metric" should {
-  //      "return it properly" in within(5.seconds) {
-  //        probe.send(readCoordinatorActor, GetSchema(db, namespace, LongMetric.name))
-  //
-  //        awaitAssert {
-  //          val expected = probe.expectMsgType[SchemaGot]
-  //          expected.namespace shouldBe namespace
-  //          expected.metric shouldBe LongMetric.name
-  //          expected.schema shouldBe defined
-  //
-  //          expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
-  //            Seq(
-  //              SchemaField("name", TagFieldType, VARCHAR()),
-  //              SchemaField("surname", DimensionFieldType, VARCHAR()),
-  //              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-  //              SchemaField("value", ValueFieldType, BIGINT())
-  //            )
-  //        }
-  //
-  //        probe.send(readCoordinatorActor, GetSchema(db, namespace, DoubleMetric.name))
-  //
-  //        awaitAssert {
-  //          val expected = probe.expectMsgType[SchemaGot]
-  //          expected.namespace shouldBe namespace
-  //          expected.metric shouldBe DoubleMetric.name
-  //          expected.schema shouldBe defined
-  //
-  //          expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
-  //            Seq(
-  //              SchemaField("name", TagFieldType, VARCHAR()),
-  //              SchemaField("surname", DimensionFieldType, VARCHAR()),
-  //              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-  //              SchemaField("value", ValueFieldType, DECIMAL())
-  //            )
-  //        }
-  //      }
-  //    }
-
-  /*
-    "receive a select over all fields" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = LongMetric.name,
-                               distinct = false,
-                               fields = ListFields(List(Field("*", None))),
-                               limit = None)
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-
-        expected.values.size shouldBe 6
-        val result = expected.values.sortBy(_.timestamp)
-
-        for {
-          i <- 0 to 5
-        } {
-          result(i) shouldBe (if (i < 3) LongMetric.recordsShard1(i) else LongMetric.recordsShard2(i - 3))
-        }
-      }
-    }
-
-    "receive a select over tags fields" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = LongMetric.name,
-                               distinct = false,
-                               fields = ListFields(List(Field("name", None))),
-                               limit = None)
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-
-        expected.values.size shouldBe 6
-        val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
-
-        names.count(_ == "Bill") shouldBe 1
-        names.count(_ == "Frank") shouldBe 1
-        names.count(_ == "Frankie") shouldBe 1
-        names.count(_ == "J") shouldBe 1
-        names.count(_ == "John") shouldBe 2
-      }
-    }
-
-    "receive a select over dimensions fields" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = LongMetric.name,
-                               distinct = false,
-                               fields = ListFields(List(Field("surname", None))),
-                               limit = None)
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-
-        expected.values.size shouldBe 6
-
-        val names = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
-        names.count(_ == "Doe") shouldBe 5
-        names.count(_ == "D") shouldBe 1
-      }
-    }
-
-    "receive a select over dimensions and tags fields" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = LongMetric.name,
-                               distinct = false,
-                               fields = ListFields(List(Field("name", None), Field("surname", None))),
-                               limit = None)
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-
-        expected.values.size shouldBe 6
-
-        val dimensions = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
-        dimensions.count(_ == "Doe") shouldBe 5
-
-        val tags = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
-
-        tags.count(_ == "Bill") shouldBe 1
-        tags.count(_ == "Frank") shouldBe 1
-        tags.count(_ == "Frankie") shouldBe 1
-        tags.count(_ == "J") shouldBe 1
-        tags.count(_ == "John") shouldBe 2
-      }
-    }
-
-    "receive a select distinct over a single field" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = true,
-              fields = ListFields(List(Field("name", None))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
-
-        names.contains("Bill") shouldBe true
-        names.contains("Frank") shouldBe true
-        names.contains("Frankie") shouldBe true
-        names.contains("John") shouldBe true
-        names.contains("J") shouldBe true
-        names.size shouldBe 5
-      }
-
-      "execute successfully with limit over distinct values" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = true,
-              fields = ListFields(List(Field("name", None))),
-              limit = Some(LimitOperator(2))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
-        names.size shouldBe 2
-      }
-
-      "execute successfully with ascending order" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = true,
-              fields = ListFields(List(Field("name", None))),
-              order = Some(AscOrderOperator("name")),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-
-        expected.values shouldBe Seq(
-          Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "John"))
-        )
-      }
-
-      "execute successfully with descending order" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = true,
-              fields = ListFields(List(Field("name", None))),
-              order = Some(DescOrderOperator("name")),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values shouldBe Seq(
-          Bit(0L, 0L, Map.empty, Map("name" -> "John")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
-        )
-      }
-    }
-
-    "receive a select projecting a wildcard" should {
-      "execute it successfully" in within(5.seconds) {
-
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = LongMetric.name,
-                               distinct = false,
-                               fields = AllFields,
-                               limit = Some(LimitOperator(6)))
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
-      }
-      "fail if distinct" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = LongMetric.name,
-                               distinct = true,
-                               fields = AllFields,
-                               limit = Some(LimitOperator(6)))
-          )
-        )
-        awaitAssert {
-          probe.expectMsgType[SelectStatementFailed]
-        }
-      }
-    }
-
-    "receive a select projecting a list of fields" should {
-      "execute it successfully with only simple fields" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None), Field("surname", None))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-
-          expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
-        }
-      }
-
-      "execute it successfully with mixed aggregated and simple" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation)), Field("name", None))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-          Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-          Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-          Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
-        )
-      }
-
-      "execute it successfully with only a count" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)))
-              ),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values shouldBe Seq(
-          Bit(0, 4L, Map.empty, Map("count(*)" -> 4))
-        )
-      }
-
-      "fail when other aggregation than count is provided" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)),
-                     Field("surname", None),
-                     Field("creationDate", Some(SumAggregation)))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        awaitAssert {
-          probe.expectMsgType[SelectStatementFailed]
-        }
-      }
-
-      "fail when is select distinct" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = true,
-              fields = ListFields(List(Field("name", None), Field("surname", None))),
-              limit = Some(LimitOperator(5))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementFailed]
-        }
-      }
-    }
-
-    "receive a select containing a range selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.size should be(2)
-      }
-    }
-
-    "receive a select containing a GTE selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-
-        expected.values.size shouldBe 1
-        expected.values.head shouldBe Bit(10, 1, Map.empty, Map("name" -> "Frankie"))
-      }
-    }
-
-    "receive a select containing a GTE and a NOT selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(
-                Condition(
-                  UnaryLogicalExpression(
-                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
-                    NotOperator
-                  ))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-
-          expected.values.size should be(5)
-        }
-      }
-    }
-
-    "receive a select containing a GT AND a LTE selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
-                operator = AndOperator,
-                expression2 =
-                  ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
-              ))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.size should be(1)
-      }
-    }
-
-    "receive a select containing a GTE OR a LT selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
-                operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
-              ))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.size should be(6)
-      }
-    }
-
-    "receive a select containing a = selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 2L))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.size should be(1)
-      }
-    }
-
-    "receive a select containing a GTE AND a = selection" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
-                operator = AndOperator,
-                expression2 = EqualityExpression(dimension = "name", value = "John")
-              ))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.size should be(1)
-      }
-    }
-
-    "receive a select containing a GTE selection and a group by" should {
-      "execute it successfully" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              condition = Some(Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
-              groupBy = Some("name")
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.size should be(5)
-      }
-    }
-
-    "receive a select containing a GTE selection and a group by without any aggregation" should {
-      "fail" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("creationDate", None))),
-              condition = Some(Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
-              groupBy = Some("name")
-            )
-          )
-        )
-        awaitAssert {
-          probe.expectMsgType[SelectStatementFailed]
-        }
-      }
-    }
-
-    "receive a select containing a non existing entity" should {
-      "return an error message properly" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(db = db,
-                               namespace = namespace,
-                               metric = "nonexisting",
-                               distinct = false,
-                               fields = AllFields,
-                               limit = Some(LimitOperator(5)))
-          )
-        )
-        awaitAssert {
-          probe.expectMsgType[SelectStatementFailed]
-        }
-      }
-    }
-
-    "receive a select containing a group by on string dimension " should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some("name"),
-              order = Some(AscOrderOperator("name"))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values shouldBe Seq(
-          Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 2L, Map.empty, Map("name" -> "John"))
-        )
-      }
-
-      "execute it successfully with asc ordering over string dimension" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some("name"),
-              order = Some(AscOrderOperator("name"))
-            )
-          )
-        )
-
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values shouldBe Seq(
-          Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 2L, Map.empty, Map("name" -> "John"))
-        )
-      }
-
-      "execute it successfully with desc ordering over string dimension" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("name"),
-              order = Some(DescOrderOperator("name"))
-            )
-          )
-        )
-
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values shouldBe Seq(
-            Bit(0L, 2, Map.empty, Map("name" -> "John")),
-            Bit(0L, 1, Map.empty, Map("name" -> "J")),
-            Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
-            Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
-            Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
-          )
-        }
-
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = DoubleMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("name"),
-              order = Some(DescOrderOperator("name"))
-            )
-          )
-        )
-
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values shouldBe Seq(
-            Bit(0L, 3.0, Map.empty, Map("name" -> "John")),
-            Bit(0L, 1.5, Map.empty, Map("name" -> "Frankie")),
-            Bit(0L, 1.5, Map.empty, Map("name" -> "Frank")),
-            Bit(0L, 1.5, Map.empty, Map("name" -> "Bill"))
-          )
-        }
-      }
-
-      "execute it successfully with desc ordering over numerical dimension" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("name"),
-              order = Some(DescOrderOperator("value"))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values.map(_.value) shouldBe Seq(2, 1, 1, 1, 1)
-
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = DoubleMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("name"),
-              order = Some(DescOrderOperator("value"))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values.map(_.value) shouldBe Seq(3.0, 1.5, 1.5, 1.5)
-
-      }
-
-      "execute it successfully with asc ordering over numerical dimension" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("name"),
-              order = Some(AscOrderOperator("value")),
-              limit = Some(LimitOperator(2))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values.map(_.value) shouldBe Seq(1, 1)
-
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = DoubleMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("name"),
-              order = Some(AscOrderOperator("value")),
-              limit = Some(LimitOperator(2))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values.map(_.value) shouldBe Seq(1.5, 1.5)
-      }
-    }
-
-    "receive a select containing a group by on long dimension" should {
-      "execute it successfully with count aggregation" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = AggregationMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some("age"),
-              order = Some(AscOrderOperator("value"))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values shouldBe Seq(Bit(0L, 1, Map.empty, Map("age" -> 20)), Bit(0L, 5, Map.empty, Map("age" -> 15)))
-      }
-
-      "execute it successfully with sum aggregation" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = AggregationMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              groupBy = Some("age"),
-              order = Some(AscOrderOperator("age"))
-            )
-          )
-        )
-
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values shouldBe Seq(
+  test("receive a select over tags fields") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    val names = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+
+    assert(names.count(_ == "Bill") == 1)
+    assert(names.count(_ == "Frank") == 1)
+    assert(names.count(_ == "Frankie") == 1)
+    assert(names.count(_ == "J") == 1)
+    assert(names.count(_ == "John") == 2)
+  }
+
+  test("receive a select over dimensions fields") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select surname from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 6)
+
+    val names = readRes.records.flatMap(_.dimensions.values.map(_.getStringValue))
+    assert(names.count(_ == "Doe") == 5)
+    assert(names.count(_ == "D") == 1)
+
+  }
+
+  test("receive a select over dimensions and tags fields") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name, surname from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.size == 6)
+
+    val dimensions = readRes.records.flatMap(_.dimensions.values.map(_.getStringValue))
+    assert(dimensions.count(_ == "Doe") == 5)
+
+    val tags = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+
+    assert(tags.count(_ == "Bill") == 1)
+    assert(tags.count(_ == "Frank") == 1)
+    assert(tags.count(_ == "Frankie") == 1)
+    assert(tags.count(_ == "J") == 1)
+    assert(tags.count(_ == "John") == 2)
+  }
+
+  test("receive a select distinct over a single field") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select distinct name from ${LongMetric.name} limit 6")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    val names = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+
+    assert(names.contains("Bill"))
+    assert(names.contains("Frank"))
+    assert(names.contains("Frankie"))
+    assert(names.contains("John"))
+    assert(names.contains("J"))
+    assert(names.size == 5)
+  }
+
+  test("execute successfully with limit over distinct values") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select distinct name from ${LongMetric.name} limit 2")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 2)
+  }
+
+  test("execute successfully with ascending order") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select distinct name from ${LongMetric.name} order by name limit 6")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.size == 5)
+
+    assert(
+      readRes.records.map(_.asBit) == Seq(
+        Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "J")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "John"))
+      ))
+  }
+
+  test("execute successfully with descending order") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select distinct name from ${LongMetric.name} order by name desc limit 6")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.size == 5)
+
+    assert(
+      readRes.records.map(_.asBit) == Seq(
+        Bit(0L, 0L, Map.empty, Map("name" -> "John")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "J")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
+        Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
+      ))
+  }
+
+  test("fail if receive a  distinct select projecting a wildcard") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select distinct * from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(!readRes.completedSuccessfully)
+  }
+
+  test("receive a select projecting a list of fields with mixed aggregated and simple") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(*), name from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
+        Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+        Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+        Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+        Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+        Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+        Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+      ))
+  }
+
+  test("receive a select projecting a list of fields with only a count") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(*) from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.size == 1)
+
+    assert(readRes.records.head.asBit == Bit(0, 6L, Map.empty, Map("count(*)" -> 6)))
+  }
+
+  test("fail if receive a select projecting a list of fields when other aggregation than count is provided") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(*), surname, sum(creationDate) from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(!readRes.completedSuccessfully)
+  }
+
+  test("fail if receive a select distinct projecting a list of fields ") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select distinct name, surname from ${LongMetric.name}")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(!readRes.completedSuccessfully)
+  }
+
+  test("receive a select containing a range selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where timestamp in (2,4) limit 4")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.size == 2)
+
+  }
+
+  test("receive a select containing a GTE selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where timestamp >= 10")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 1)
+    assert(readRes.records.head.asBit == Bit(10, 1, Map.empty, Map("name" -> "Frankie")))
+  }
+
+  test("receive a select containing a GTE and a NOT selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where not timestamp >= 10")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 5)
+  }
+
+  test("receive a select containing a GT AND a LTE selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where timestamp > 2 and timestamp <= 4 limit 4")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 1)
+  }
+
+  test("receive a select containing a GTE OR a LT selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where timestamp >= 2 or timestamp <= 4")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 6)
+
+  }
+
+  test("receive a select containing a = selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where timestamp = 2 ")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 1)
+  }
+
+  test("receive a select containing a GTE AND a = selection") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select name from ${LongMetric.name} where timestamp >= 2 and name = John")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    assert(readRes.records.size == 1)
+  }
+
+  test("receive a select containing a GTE selection and a group by") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select sum(value) from ${LongMetric.name} where timestamp >= 2 group by name")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.size == 5)
+  }
+
+  test("fail if receive a select containing a GTE selection and a group by without any aggregation") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select creationDate from ${LongMetric.name} where timestamp => 2 group by name")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(!readRes.completedSuccessfully)
+
+  }
+
+  test("receive a select containing a non existing entity") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select creationDate from nonexisting where timestamp => 2 group by name")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(!readRes.completedSuccessfully)
+  }
+
+  test("receive a group by statement with asc ordering over string dimension") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(value) from ${LongMetric.name} group by name order by name")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit) == Seq(
+        Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
+        Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+        Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+        Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+        Bit(0L, 2L, Map.empty, Map("name" -> "John"))
+      ))
+  }
+
+  test("receive a group by statement with desc ordering over string dimension") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(value) from ${LongMetric.name} group by name order by name desc")
+
+    var readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit) == Seq(
+        Bit(0L, 2, Map.empty, Map("name" -> "John")),
+        Bit(0L, 1, Map.empty, Map("name" -> "J")),
+        Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
+        Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
+        Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
+      ))
+
+    val sumQuery = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select sum(value) from ${DoubleMetric.name} group by name order by name desc")
+
+    readRes = Await.result(nsdb.execute(sumQuery), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit) == Seq(
+        Bit(0L, 3.0, Map.empty, Map("name" -> "John")),
+        Bit(0L, 1.5, Map.empty, Map("name" -> "Frankie")),
+        Bit(0L, 1.5, Map.empty, Map("name" -> "Frank")),
+        Bit(0L, 1.5, Map.empty, Map("name" -> "Bill"))
+      ))
+  }
+
+  test("execute a group by select statement with desc ordering over numerical dimension") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select sum(value) from ${LongMetric.name} group by name order by value desc")
+
+    var readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(readRes.records.map(_.asBit.value.asInstanceOf[Long]) == Seq(2, 1, 1, 1, 1))
+
+    val doubleQuery = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select sum(value) from ${DoubleMetric.name} group by name order by value desc")
+
+    readRes = Await.result(nsdb.execute(doubleQuery), 10.seconds)
+
+    assert(readRes.records.map(_.asBit.value.asInstanceOf[Double]) == Seq(3.0, 1.5, 1.5, 1.5))
+  }
+
+  test("receive a select containing a group by on long dimension with count aggregation") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(value) from ${AggregationMetric.name} group by age order by value")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit) ==
+        Seq(Bit(0L, 1, Map.empty, Map("age" -> 20)), Bit(0L, 5, Map.empty, Map("age" -> 15))))
+  }
+
+  test("receive a select containing a group by on long dimension with sum aggregation") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select sum(value) from ${AggregationMetric.name} group by age order by age")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit) ==
+        Seq(
           Bit(0L, 6L, Map.empty, Map("age" -> 15L)),
           Bit(0L, 2L, Map.empty, Map("age" -> 20L))
-        )
-      }
-    }
+        ))
+  }
 
-    "receive a select containing a group by on double dimension" should {
-      "execute it successfully with count aggregation" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = AggregationMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some("height"),
-              order = Some(DescOrderOperator("value"))
-            )
-          )
-        )
+  test("receive a select containing a group by on double dimension with count aggregation") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select count(value) from ${AggregationMetric.name} group by height order by value desc")
 
-        awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }.values shouldBe Seq(
-          Bit(0L, 3, Map.empty, Map("height" -> 30.5)),
-          Bit(0L, 2, Map.empty, Map("height" -> 32.0)),
-          Bit(0L, 1, Map.empty, Map("height" -> 31.0))
-        )
-      }
-    }
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    "execute it successfully with sum aggregation" in within(5.seconds) {
-      probe.send(
-        readCoordinatorActor,
-        ExecuteStatement(
-          SelectSQLStatement(
-            db = db,
-            namespace = namespace,
-            metric = AggregationMetric.name,
-            distinct = false,
-            fields = ListFields(List(Field("value", Some(SumAggregation)))),
-            groupBy = Some("height"),
-            order = Some(AscOrderOperator("height"))
-          )
-        )
-      )
+    assert(
+      readRes.records.map(_.asBit) == Seq(
+        Bit(0L, 3, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 2, Map.empty, Map("height" -> 32.0)),
+        Bit(0L, 1, Map.empty, Map("height" -> 31.0))
+      ))
+  }
 
-      awaitAssert {
-        probe.expectMsgType[SelectStatementExecuted]
-      }.values shouldBe Seq(
+  test("receive a select containing a group by on double dimension with sum aggregation") {
+    val query = nsdb
+      .db(db)
+      .namespace(namespace)
+      .query(s"select sum(value) from ${AggregationMetric.name} group by height order by height")
+
+    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+    assert(
+      readRes.records.map(_.asBit) == Seq(
         Bit(0L, 5, Map.empty, Map("height" -> 30.5)),
         Bit(0L, 1, Map.empty, Map("height" -> 31.0)),
         Bit(0L, 2, Map.empty, Map("height" -> 32.0))
-      )
-    }
-  }*/
+      ))
+  }
 }
