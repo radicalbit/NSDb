@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.cluster
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.event.Logging
+import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.security.NsdbSecurity
@@ -35,7 +35,7 @@ class NsdbNodeEndpoint(readCoordinator: ActorRef,
 
   override val config: Config = system.settings.config
 
-  override protected def logger = Logging.getLogger(system, this)
+  override protected def logger: LoggingAdapter = Logging.getLogger(system, this)
 
   new GrpcEndpoint(readCoordinator = readCoordinator,
                    writeCoordinator = writeCoordinator,
