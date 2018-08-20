@@ -268,7 +268,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
               publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
 
               getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
-                //FIXME
+                //FIXME right now multiple locations are supported but not handled, in the future, this trivial implementation will be replaced by something definitely more sophisticated
                 accumulateRecord(db, namespace, metric, bit, loc.head)
               }
             case WriteToCommitLogFailed(_, _, _, _, reason) =>

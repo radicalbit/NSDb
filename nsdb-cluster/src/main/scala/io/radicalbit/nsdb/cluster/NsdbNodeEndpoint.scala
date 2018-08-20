@@ -35,7 +35,7 @@ class NsdbNodeEndpoint(readCoordinator: ActorRef,
 
   override val config: Config = system.settings.config
 
-  override protected def logger: LoggingAdapter = Logging.getLogger(system, this)
+  override protected val logger: LoggingAdapter = Logging.getLogger(system, this)
 
   new GrpcEndpoint(readCoordinator = readCoordinator,
                    writeCoordinator = writeCoordinator,

@@ -24,10 +24,10 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -101,29 +101,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
   }
 
   /**
-    * Applies, if needed, ordering and limiting to results from multiple node.
-    * @param nodeResults sequence of node results.
-    * @param statement the initial sql statement.
-    * @param schema metric's schema.
-    * @return a single result obtained from the manipulation of multiple results from different nodes.
-    */
-  private def applyOrderingWithLimit(nodeResults: Future[Either[SelectStatementFailed, Seq[Bit]]],
-                                     statement: SelectSQLStatement,
-                                     schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
-    nodeResults.map(s =>
-      s.map { seq =>
-        val maybeSorted = if (statement.order.isDefined) {
-          val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-          implicit val ord: Ordering[JSerializable] =
-            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
-            else o
-          seq.sortBy(_.fields(statement.order.get.dimension)._1)
-        } else seq
-        if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
-    })
-  }
-
-  /**
     * Initial state in which actor waits metadata warm-up completion.
     */
   def warmUp: Receive = {
@@ -173,7 +150,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       schemaCoordinator forward msg
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
-      log.info("executing {} with {} data actors", statement, metricsDataActors.size)
+      log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
       (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) =>
