@@ -185,8 +185,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                   case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
-          case e =>
-            println(e)
+          case _ =>
             Future(LocationsGot(db, namespace, metric, Seq.empty))
         } pipeTo sender()
     case AddLocation(db, namespace, location) =>
