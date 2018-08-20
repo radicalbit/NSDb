@@ -162,7 +162,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
                     performAddLocationIntoCache(db, namespace, locations).map {
                       case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                      case _                               => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                      case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                     }
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
@@ -182,7 +182,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
                 performAddLocationIntoCache(db, namespace, locations).map {
                   case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                  case _                               => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                  case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
           case _ =>
