@@ -19,18 +19,17 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocation}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{Matchers, _}
@@ -65,7 +64,7 @@ class FakeMetadataCoordinator extends Actor with ActorLogging {
   override def receive: Receive = {
     case GetLocations(db, namespace, metric) =>
       sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
-    case GetWriteLocation(db, namespace, metric, timestamp) =>
+    case GetWriteLocations(db, namespace, metric, timestamp) =>
       val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
       locations
         .get((namespace, metric))
@@ -74,7 +73,7 @@ class FakeMetadataCoordinator extends Actor with ActorLogging {
         } { oldSeq =>
           locations += (namespace, metric) -> (oldSeq :+ location)
         }
-      sender() ! LocationGot(db, namespace, metric, Some(location))
+      sender() ! LocationsGot(db, namespace, metric, Seq(location))
   }
 }
 

@@ -33,13 +33,13 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   AddLocation,
   GetLocations,
-  GetWriteLocation
+  GetWriteLocations
 }
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationGot, LocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
-import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
@@ -172,11 +172,11 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     * @param op code executed in case of success.
     */
   def getMetadataLocation(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
-      op: Location => Future[Any]): Future[Any] =
-    (metadataCoordinator ? GetWriteLocation(db, namespace, metric, ts)).flatMap {
-      case LocationGot(_, _, _, Some(loc)) =>
-        log.debug(s"received location for metric $metric, $loc")
-        op(loc)
+      op: Seq[Location] => Future[Any]): Future[Any] =
+    (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).flatMap {
+      case LocationsGot(_, _, _, locs) =>
+        log.debug(s"received locations for metric $metric, $locs")
+        op(locs)
       case _ =>
         log.error(s"no location found for bit $bit")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
@@ -241,7 +241,8 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
               publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
 
               getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
-                accumulateRecord(db, namespace, metric, bit, loc)
+                //FIXME
+                accumulateRecord(db, namespace, metric, bit, loc.head)
               }
             case WriteToCommitLogFailed(_, _, _, _, reason) =>
               log.error(s"Failed to write to commit-log for: $msg with reason: $reason")

@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
-import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
@@ -50,8 +50,8 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   lazy val defaultShardingInterval: Long =
     context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
 
-  private lazy val warmUpTopic   = context.system.settings.config.getString("nsdb.cluster.pub-sub.warm-up-topic")
-  private lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
+  lazy val replicationFactor: Int =
+    context.system.settings.config.getInt("nsdb.cluster.replication-factor")
 
   override def receive: Receive = warmUp
 
@@ -62,15 +62,17 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
         .sequence(metricsMetadata.map { metadata =>
           Future
             .sequence(metadata.locations.map { location =>
-              (cache ? PutLocationInCache(
-                LocationKey(metadata.db, metadata.namespace, metadata.metric, location.from, location.to),
-                location))
+              (cache ? PutLocationInCache(metadata.db,
+                                          metadata.namespace,
+                                          metadata.metric,
+                                          location.from,
+                                          location.to,
+                                          location))
                 .mapTo[LocationCached]
             })
             .flatMap { _ =>
               metadata.info.map(metricInfo =>
-                (cache ? PutMetricInfoInCache(MetricInfoKey(metadata.db, metadata.namespace, metricInfo.metric),
-                                              metricInfo))
+                (cache ? PutMetricInfoInCache(metadata.db, metadata.namespace, metricInfo.metric, metricInfo))
                   .mapTo[MetricInfoCached]) getOrElse Future(MetricInfoGot(metadata.db, metadata.namespace, None))
             }
         })
@@ -94,15 +96,28 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
 
-  private def performAddIntoCache(db: String, namespace: String, location: Location) = {
-    (cache ? PutLocationInCache(LocationKey(db, namespace, location.metric, location.from, location.to), location))
-      .map {
-        case LocationCached(_, Some(_)) =>
-          mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, location))
-          LocationAdded(db, namespace, location)
-        case _ => AddLocationFailed(db, namespace, location)
+  private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) =
+    Future
+      .sequence(locations.map(location =>
+        cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location)))
+      .flatMap {
+        case locations: Seq[LocationCached] =>
+          locations.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
+          Future(LocationsAdded(db, namespace, locations.map(_.value)))
+        //some error occurred
+        case results: Seq[_] =>
+          val successToBeEvicted = results.collect {
+            case e: LocationCached => e.value
+          }
+          val errors = results.collect {
+            case e: PutLocationInCacheFailed => e.location
+          }
+          Future
+            .sequence(successToBeEvicted.map(location => cache ? EvictLocation(db, namespace, location)))
+            .flatMap { _ =>
+              Future(AddLocationsFailed(db, namespace, errors))
+            }
       }
-  }
 
   /**
     * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
@@ -112,66 +127,79 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     * @return the actual shard interval.
     */
   private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
-    (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
+    (cache ? GetMetricInfoFromCache(db, namespace, metric))
       .flatMap {
-        case MetricInfoCached(_, Some(metricInfo)) => Future(metricInfo.shardInterval)
+        case MetricInfoCached(_, _, _, Some(metricInfo)) => Future(metricInfo.shardInterval)
         case _ =>
-          (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metric),
-                                        MetricInfo(metric, defaultShardingInterval)))
+          (cache ? PutMetricInfoInCache(db, namespace, metric, MetricInfo(metric, defaultShardingInterval)))
             .map(_ => defaultShardingInterval)
       }
 
-  /**
-    * behaviour in case shard is true
-    */
   def operative: Receive = {
     case GetLocations(db, namespace, metric) =>
-      val f = (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
+      (cache ? GetLocationsFromCache(db, namespace, metric))
         .mapTo[LocationsCached]
         .map(l => LocationsGot(db, namespace, metric, l.value))
-      f.pipeTo(sender())
-    case GetWriteLocation(db, namespace, metric, timestamp) =>
-      val nodeName = createNodeName(cluster.selfMember)
-      (cache ? GetLocationsFromCache(MetricLocationsKey(db, namespace, metric)))
+        .pipeTo(sender())
+    case GetWriteLocations(db, namespace, metric, timestamp) =>
+      (cache ? GetLocationsFromCache(db, namespace, metric))
         .flatMap {
-          case LocationsCached(_, values) if values.nonEmpty =>
-            values.find(v => v.from <= timestamp && v.to >= timestamp) match {
-              case Some(loc) => Future(LocationGot(db, namespace, metric, Some(loc)))
-              case None =>
+          case LocationsCached(_, _, _, values) if values.nonEmpty =>
+            values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
+              case Nil =>
                 getShardInterval(db, namespace, metric)
                   .flatMap { interval =>
                     val start = getShardStartIstant(timestamp, interval)
                     val end   = getShardEndIstant(start, interval)
-                    performAddIntoCache(db, namespace, Location(metric, nodeName, start, end)).map {
-                      case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                      case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+
+                    //TODO more sophisticated node choice logic must be added here
+                    val nodes = cluster.state.members
+                      .filter(_.status == MemberStatus.Up)
+                      .take(replicationFactor)
+                      .map(createNodeName)
+
+                    val locations = nodes.map(Location(metric, _, start, end)).toSeq
+
+                    performAddLocationIntoCache(db, namespace, locations).map {
+                      case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
+                      case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                     }
                   }
-
+              case s => Future(LocationsGot(db, namespace, metric, s))
             }
-          case LocationsCached(_, _) =>
+          case LocationsCached(_, _, _, _) =>
             getShardInterval(db, namespace, metric)
               .flatMap { interval =>
                 val start = getShardStartIstant(timestamp, interval)
                 val end   = getShardEndIstant(start, interval)
-                performAddIntoCache(db, namespace, Location(metric, nodeName, start, end)).map {
-                  case LocationAdded(_, _, location) => LocationGot(db, namespace, metric, Some(location))
-                  case AddLocationFailed(_, _, _)    => LocationGot(db, namespace, metric, None)
+
+                val nodes = cluster.state.members
+                  .filter(_.status == MemberStatus.Up)
+                  .take(replicationFactor)
+                  .map(createNodeName)
+
+                val locations = nodes.map(Location(metric, _, start, end)).toSeq
+
+                performAddLocationIntoCache(db, namespace, locations).map {
+                  case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
+                  case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
+          case _ =>
+            Future(LocationsGot(db, namespace, metric, Seq.empty))
         } pipeTo sender()
-    case _ @AddLocation(db, namespace, location) =>
-      performAddIntoCache(db, namespace, location).pipeTo(sender)
+    case AddLocation(db, namespace, location) =>
+      performAddLocationIntoCache(db, namespace, Seq(location)).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
-      (cache ? GetMetricInfoFromCache(MetricInfoKey(db, namespace, metric)))
+      (cache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
-          case MetricInfoCached(_, value) => MetricInfoGot(db, namespace, value)
+          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, value)
         }
         .pipeTo(sender)
     case msg @ PutMetricInfo(db, namespace, metricInfo) =>
-      (cache ? PutMetricInfoInCache(MetricInfoKey(db, namespace, metricInfo.metric), metricInfo))
+      (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
         .map {
-          case MetricInfoCached(_, Some(_)) =>
+          case MetricInfoCached(_, _, _, Some(_)) =>
             mediator ! Publish(METADATA_TOPIC, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
@@ -188,7 +216,7 @@ object MetadataCoordinator {
 
     case class WarmUpMetadata(metricLocations: Seq[MetricMetadata])
     case class GetLocations(db: String, namespace: String, metric: String)
-    case class GetWriteLocation(db: String, namespace: String, metric: String, timestamp: Long)
+    case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)
     case class AddLocations(db: String, namespace: String, locations: Seq[Location])
     case class DeleteLocation(db: String, namespace: String, location: Location)
@@ -201,11 +229,12 @@ object MetadataCoordinator {
   object events {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
-    case class LocationGot(db: String, namespace: String, metric: String, location: Option[Location])
+    case class GetWriteLocationsFailed(db: String, namespace: String, metric: String, timestamp: Long)
     case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)
     case class LocationAdded(db: String, namespace: String, location: Location)
     case class AddLocationFailed(db: String, namespace: String, location: Location)
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
+    case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
     case class NamespaceDeleted(db: String, namespace: String, occurredOn: Long)
 

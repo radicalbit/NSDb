@@ -48,7 +48,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  val nodeName = createNodeName(selfMember)
+  private val nodeName = createNodeName(selfMember)
 
   private val config = context.system.settings.config
 
@@ -102,7 +102,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
         s"write-coordinator_$nodeName"
       )
 
-  val metricsDataActor = context.actorOf(
+  private val metricsDataActor = context.actorOf(
     MetricsDataActor
       .props(indexBasePath)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
