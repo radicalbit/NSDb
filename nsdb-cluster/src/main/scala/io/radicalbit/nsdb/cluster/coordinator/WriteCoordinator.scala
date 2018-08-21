@@ -282,7 +282,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
               writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
                 .flatMap {
                   case WriteToCommitLogSucceeded(_, _, _, _) =>
-                    accumulateRecord(db, namespace, metric, bit, locations.head)
+                    accumulateRecord(db, namespace, metric, bit, loc)
                   case err: WriteToCommitLogFailed => Future(err)
                 }
             })

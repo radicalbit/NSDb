@@ -84,9 +84,10 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    nsdb.write(LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name)))
-    nsdb.write(DoubleMetric.testRecords.map(_.asApiBit(db, namespace, DoubleMetric.name)))
-    nsdb.write(AggregationMetric.testRecords.map(_.asApiBit(db, namespace, AggregationMetric.name)))
+    Await.result(nsdb.write(LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name))), 10.seconds)
+    Await.result(nsdb.write(DoubleMetric.testRecords.map(_.asApiBit(db, namespace, DoubleMetric.name))), 10.seconds)
+    Await.result(nsdb.write(AggregationMetric.testRecords.map(_.asApiBit(db, namespace, AggregationMetric.name))),
+                 10.seconds)
 
     waitIndexing()
     waitIndexing()

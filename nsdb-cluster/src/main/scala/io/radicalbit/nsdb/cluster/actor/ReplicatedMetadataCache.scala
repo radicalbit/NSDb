@@ -135,7 +135,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     * @return [[LWWMapKey]] resulted from metricKey hashCode
     */
   private def metricLocationsKey(metricKey: MetricLocationsCacheKey): LWWMapKey[LocationWithNodeKey, Location] =
-    LWWMapKey("metric-locations-cache-" + math.abs(metricKey.hashCode) % 100)
+    LWWMapKey(s"metric-locations-cache-${metricKey.db}-${metricKey.namespace}-${metricKey.metric}")
 
   /**
     * convert a [[MetricInfoCacheKey]] into an internal cache key
