@@ -34,7 +34,7 @@ object NSDBMainWrite extends App {
   val series = nsdb
     .db("root")
     .namespace("registry")
-    .bit("people")
+    .metric("people")
     .value(new java.math.BigDecimal("13"))
     .dimension("city", "Mouseton")
     .dimension("notimportant", None)
@@ -76,7 +76,7 @@ object NSDBInitRead extends App {
   val init = nsdb
     .db("root")
     .namespace("registry")
-    .bit("people")
+    .metric("people")
     .shardInterval("2d")
 
   val readRes: Future[InitMetricResponse] = nsdb.init(init)

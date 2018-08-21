@@ -19,16 +19,17 @@ package io.radicalbit.nsdb.api.java
 import io.radicalbit.nsdb.common.{JDouble, JLong}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
+import io.radicalbit.nsdb.rpc.request.RPCInsert.Value
 
 import scala.collection.JavaConverters._
 
 /**
-  * Utility class written in scala io order to provide convenience methods for a better scala - java interoperability.
+  * Utility class written in scala in order to provide convenience methods for a better scala - java interoperability.
   * e.g. avoiding explicit calls to scala auxiliary objects <pre>RPCInsert.Value$.Empty$.MODULE$</pre>
   */
 protected object ScalaUtils {
 
-  def emptyValue = RPCInsert.Value.Empty
+  def emptyValue: Value.Empty.type = RPCInsert.Value.Empty
 
   def longValue(v: JLong) = RPCInsert.Value.LongValue(v)
 
@@ -46,6 +47,6 @@ protected object ScalaUtils {
 
   def stringTag(v: String) = Tag(Tag.Value.StringValue(v))
 
-  def convertMap[K, V](jMap: java.util.Map[K, V]) = jMap.asScala.toMap
+  def convertMap[K, V](jMap: java.util.Map[K, V]): Map[K, V] = jMap.asScala.toMap
 
 }

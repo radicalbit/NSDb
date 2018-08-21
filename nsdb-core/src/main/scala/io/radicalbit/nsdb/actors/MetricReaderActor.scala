@@ -25,11 +25,11 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.{DeleteAll, RefreshShard}
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -98,29 +98,6 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
           val shardActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
           actors += (key -> shardActor)
       }
-  }
-
-  /**
-    * Applies, if needed, ordering and limiting to results from multiple shards.
-    * @param shardResult sequence of shard results.
-    * @param statement the initial sql statement.
-    * @param schema metric's schema.
-    * @return a single result obtained from the manipulation of multiple results from different shards.
-    */
-  private def applyOrderingWithLimit(shardResult: Future[Either[SelectStatementFailed, Seq[Bit]]],
-                                     statement: SelectSQLStatement,
-                                     schema: Schema): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
-    shardResult.map(s =>
-      s.map { seq =>
-        val maybeSorted = if (statement.order.isDefined) {
-          val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-          implicit val ord: Ordering[JSerializable] =
-            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
-            else o
-          seq.sortBy(_.fields(statement.order.get.dimension)._1)
-        } else seq
-        if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
-    })
   }
 
   private def filterShardsThroughTime[T](expression: Option[Expression], indexes: mutable.Map[ShardKey, T]) = {
@@ -249,7 +226,7 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
 
-    case _ @ExecuteSelectStatement(statement, schema) =>
+    case ExecuteSelectStatement(statement, schema) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
@@ -342,8 +319,8 @@ class MetricReaderActor(val basePath: String, val db: String, val namespace: Str
             }
             .pipeTo(sender)
 
-        case Failure(ex) => Failure(ex)
-        case _           => Failure(new InvalidStatementException("Not a select statement."))
+        case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+        case _           => sender ! SelectStatementFailed("Not a select statement.")
       }
     case DropMetric(_, _, metric) =>
       actorsForMetric(metric).foreach {

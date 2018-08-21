@@ -115,7 +115,7 @@ class ReadCoordinatorSpec
   val schemaCoordinator = system.actorOf(
     SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
   val metricsDataActor     = system.actorOf(MetricsDataActor.props(basePath))
-  val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaCoordinator)
+  val readCoordinatorActor = system actorOf ReadCoordinator.props(null, schemaCoordinator, system.actorOf(Props.empty))
 
   override def beforeAll = {
     import scala.concurrent.duration._

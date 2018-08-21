@@ -14,16 +14,9 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.util
+package io.radicalbit.nsdb.minicluster
 
 import com.typesafe.scalalogging.LazyLogging
+import io.radicalbit.nsdb.cluster.ProductionCluster
 
-object PerfLogging extends LazyLogging {
-
-  def logPerf[T](action: => T, label: String): T = {
-    val st  = System.currentTimeMillis
-    val res = action
-    logger.info("Execution time of {}: {} ms.", label, (System.currentTimeMillis - st))
-    res
-  }
-}
+trait NsdbMiniClusterDefinition extends ProductionCluster with NsdbMiniClusterConf with LazyLogging {}

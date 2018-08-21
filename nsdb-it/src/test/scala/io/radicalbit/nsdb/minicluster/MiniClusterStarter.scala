@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.minicluster
+package io.radicalbit.nsdb.minicluster
 
-import org.scalatest._
+class MiniClusterStarter(override val nodesNumber: Int) extends NsdbMiniCluster
 
-class MiniClusterSpec extends FlatSpec with NsdbMiniCluster with Matchers with OneInstancePerTest with BeforeAndAfter {
+object MiniClusterStarter extends App with NsdbMiniCluster {
+  override protected[this] def nodesNumber = 2
 
-  override protected[this] val nodesNumber = 2
-
-  "MiniCluster" should "start sucessfully" in {
-
-    nodesNumber shouldBe 2
-  }
+  start()
 }

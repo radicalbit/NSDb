@@ -195,7 +195,13 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
     val expectedBit =
-      Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(12).dimension("d2", 12).dimension("d1", "d1")
+      Db("my_id_val")
+        .namespace("foo")
+        .metric("metric")
+        .timestamp(12)
+        .value(12)
+        .dimension("d2", 12)
+        .dimension("d1", "d1")
 
     bit shouldBe expectedBit
   }
@@ -211,7 +217,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
                                   NsdbSinkWriter.parse(simpleRecordWithDimentions, Some("globalDb"), None, None))
 
     val expectedBit =
-      Db("globalDb").namespace("foo").bit("metric").timestamp(12).value(12)
+      Db("globalDb").namespace("foo").metric("metric").timestamp(12).value(12)
 
     bit shouldBe expectedBit
   }
@@ -227,7 +233,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
                                   NsdbSinkWriter.parse(simpleRecordWithDimentions, None, Some("globalNs"), None))
 
     val expectedBit =
-      Db("my_id_val").namespace("globalNs").bit("metric").timestamp(12).value(12)
+      Db("my_id_val").namespace("globalNs").metric("metric").timestamp(12).value(12)
 
     bit shouldBe expectedBit
   }
@@ -246,7 +252,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val expectedBit =
       Db("globalDb")
         .namespace("globalNs")
-        .bit("metric")
+        .metric("metric")
         .timestamp(12)
         .value(12)
         .dimension("dim1", "d1")
@@ -265,7 +271,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
       NsdbSinkWriter.convertToBit(parsedKcql,
                                   NsdbSinkWriter.parse(decimalRecord, Some("globalDb"), Some("globalNs"), None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
@@ -273,7 +279,7 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
       val expectedBit =
         Db("globalDb")
           .namespace("globalNs")
-          .bit("metric")
+          .metric("metric")
           .timestamp(now)
           .value(new java.math.BigDecimal("30.44"))
           .dimension("d2", new java.math.BigDecimal("15.01"))
@@ -292,7 +298,13 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
     val expectedBit =
-      Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(12).dimension("d2", 12).dimension("d1", "d1")
+      Db("my_id_val")
+        .namespace("foo")
+        .metric("metric")
+        .timestamp(12)
+        .value(12)
+        .dimension("d2", 12)
+        .dimension("d1", "d1")
 
     bit shouldBe expectedBit
   }
@@ -321,7 +333,13 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
     val expectedBit =
-      Db("my_id_val").namespace("foo").bit("metric").timestamp(12).value(1).dimension("d2", 12).dimension("d1", "d1")
+      Db("my_id_val")
+        .namespace("foo")
+        .metric("metric")
+        .timestamp(12)
+        .value(1)
+        .dimension("d2", 12)
+        .dimension("d1", "d1")
 
     bit shouldBe expectedBit
   }
@@ -348,12 +366,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val bit: Bit =
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
     timestamp.foreach { now =>
-      val expected = Db("my_id_val").namespace("foo").bit("metric").timestamp(now).value(12).dimension("d1", "d1")
+      val expected = Db("my_id_val").namespace("foo").metric("metric").timestamp(now).value(12).dimension("d1", "d1")
       bit shouldBe expected
     }
   }
@@ -367,12 +385,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val bit: Bit =
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
     timestamp.foreach { now =>
-      val expected = Db("my_id_val").namespace("foo").bit("metric").timestamp(now).value(12).dimension("d1", "d1")
+      val expected = Db("my_id_val").namespace("foo").metric("metric").timestamp(now).value(12).dimension("d1", "d1")
       bit shouldBe expected
     }
   }
@@ -386,12 +404,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val bit: Bit =
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
     timestamp.map { now =>
-      val expected = Db("my_id_val").namespace("foo").bit("metric").timestamp(now).value(12).dimension("d1", "d1")
+      val expected = Db("my_id_val").namespace("foo").metric("metric").timestamp(now).value(12).dimension("d1", "d1")
       bit shouldBe expected
     }
   }
@@ -405,12 +423,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val bit: Bit =
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
     timestamp.map { now =>
-      val expected = Db("my_id_val").namespace("foo").bit("metric").timestamp(now).value(12).dimension("d1", "d1")
+      val expected = Db("my_id_val").namespace("foo").metric("metric").timestamp(now).value(12).dimension("d1", "d1")
       bit shouldBe expected
     }
   }
@@ -424,12 +442,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val bit: Bit =
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
     timestamp.map { now =>
-      val expected = Db("my_id_val").namespace("foo").bit("metric").timestamp(now).value(12).dimension("d1", "d1")
+      val expected = Db("my_id_val").namespace("foo").metric("metric").timestamp(now).value(12).dimension("d1", "d1")
       bit shouldBe expected
     }
   }
@@ -443,12 +461,12 @@ class NsdbSinkWriterSpec extends FlatSpec with Matchers with OneInstancePerTest 
     val bit: Bit =
       NsdbSinkWriter.convertToBit(parsedKcql, NsdbSinkWriter.parse(simpleRecordWithDimentions, None, None, None))
 
-    val timestamp = bit.ts
+    val timestamp = bit.timestamp
 
     timestamp shouldBe defined
 
     timestamp.map { now =>
-      val expected = Db("my_id_val").namespace("foo").bit("metric").timestamp(now).value(12).dimension("d1", "d1")
+      val expected = Db("my_id_val").namespace("foo").metric("metric").timestamp(now).value(12).dimension("d1", "d1")
       bit shouldBe expected
     }
   }

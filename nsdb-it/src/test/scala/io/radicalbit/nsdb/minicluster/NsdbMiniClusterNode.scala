@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.minicluster
+package io.radicalbit.nsdb.minicluster
 
-import com.typesafe.scalalogging.LazyLogging
-import io.radicalbit.nsdb.cluster.ProductionCluster
-
-trait NsdbMiniClusterDefinition extends ProductionCluster with NsdbMiniClusterConf with LazyLogging {}
+class NsdbMiniClusterNode(val akkaRemotePort: Int, val httpPort: Int, val grpcPort: Int, val dataDir: String)
+    extends NsdbMiniClusterDefinition {}

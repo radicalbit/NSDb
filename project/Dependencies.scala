@@ -327,6 +327,12 @@ object Dependencies {
     )
   }
 
+  object It {
+    lazy val libraries = Seq(
+      scalatest.core % Test
+    )
+  }
+
   object Performance {
     lazy val libraries = Seq(
       config.core,

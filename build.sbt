@@ -40,6 +40,7 @@ lazy val root = project
     `nsdb-flink-connector`,
     `nsdb-kafka-connect`,
     `nsdb-perf`,
+    `nsdb-it`,
     `nsdb-web-ui`
   )
 
@@ -346,6 +347,13 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .enablePlugins(GatlingPlugin)
+
+lazy val `nsdb-it` = (project in file("nsdb-it"))
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.dontPublish: _*)
+  .settings(libraryDependencies ++= Dependencies.It.libraries)
+  .dependsOn(`nsdb-cluster`)
+  .dependsOn(`nsdb-scala-api`)
 
 onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value
 

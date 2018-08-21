@@ -24,8 +24,10 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
+import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.dispatch.ControlMessage
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
@@ -59,14 +61,21 @@ import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
 
   def props(commitLogCoordinator: Option[ActorRef],
             metadataCoordinator: ActorRef,
             schemaCoordinator: ActorRef,
-            publisherActor: ActorRef): Props =
-    Props(new WriteCoordinator(commitLogCoordinator, metadataCoordinator, schemaCoordinator, publisherActor))
+            publisherActor: ActorRef,
+            mediator: ActorRef): Props =
+    Props(
+      new WriteCoordinator(commitLogCoordinator,
+                           metadataCoordinator,
+                           schemaCoordinator,
+                           publisherActor,
+                           mediator: ActorRef))
 
   case class Restore(path: String)  extends ControlMessage
   case class Restored(path: String) extends ControlMessage
@@ -86,7 +95,8 @@ object WriteCoordinator {
 class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                        metadataCoordinator: ActorRef,
                        schemaCoordinator: ActorRef,
-                       publisherActor: ActorRef)
+                       publisherActor: ActorRef,
+                       mediator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger
     with Stash {
@@ -204,6 +214,19 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
 
+  override def preStart(): Unit = {
+    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      log.debug("writecoordinator data actor : {}", metricsDataActors.size)
+    }
+  }
+
   override def receive: Receive = warmUp
 
   /**
@@ -214,8 +237,10 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       unstashAll()
       context.become(operative)
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      metricsDataActors += (nodeName -> actor)
-      log.info(s"subscribed data actor for node $nodeName")
+      if (!metricsDataActors.get(nodeName).contains(actor)) {
+        metricsDataActors += (nodeName -> actor)
+        log.info(s"subscribed data actor for node $nodeName")
+      }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
@@ -226,8 +251,10 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   def operative: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      metricsDataActors += (nodeName -> actor)
-      log.info(s"subscribed data actor for node $nodeName")
+      if (!metricsDataActors.get(nodeName).contains(actor)) {
+        metricsDataActors += (nodeName -> actor)
+        log.info(s"subscribed data actor for node $nodeName")
+      }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
@@ -241,7 +268,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
               publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
 
               getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
-                //FIXME
+                //FIXME right now multiple locations are supported but not handled, in the future, this trivial implementation will be replaced by something definitely more sophisticated
                 accumulateRecord(db, namespace, metric, bit, loc.head)
               }
             case WriteToCommitLogFailed(_, _, _, _, reason) =>

@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.common.NsdbConfig
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Success
 
 /**
@@ -34,7 +34,8 @@ import scala.util.Success
   */
 trait NSDBAkkaCluster { this: NsdbConfig =>
 
-  implicit lazy val system: ActorSystem = ActorSystem("nsdb", config)
+  implicit val system: ActorSystem = ActorSystem("nsdb", config)
+
 }
 
 /**
@@ -44,29 +45,30 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
 
   import akka.pattern.ask
 
-  implicit val timeout =
+  implicit val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  implicit val executionContext = system.dispatcher
+  implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  val databaseActorGuardian = system.actorOf(
+  private val databaseActorGuardian = system.actorOf(
     Props(classOf[DatabaseActorsGuardian]),
     name = "databaseActorGuardian"
   )
 
-  lazy val metadataCache = (databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef]
-  lazy val schemaCache   = (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]
-
-  Future.sequence(Seq(metadataCache, schemaCache)).onComplete {
-    case Success(m :: s :: Nil) =>
-      system.actorOf(
-        ClusterListener.props(m, s),
-        name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
-      )
-    case _ =>
-      system.log.error("Error retrieving caches, terminating system.")
-      system.terminate()
-  }
+  Future
+    .sequence(
+      Seq((databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef],
+          (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]))
+    .onComplete {
+      case Success(m :: s :: Nil) =>
+        system.actorOf(
+          ClusterListener.props(m, s),
+          name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+        )
+      case _ =>
+        system.log.error("Error retrieving caches, terminating system.")
+        system.terminate()
+    }
 }
 
 /**

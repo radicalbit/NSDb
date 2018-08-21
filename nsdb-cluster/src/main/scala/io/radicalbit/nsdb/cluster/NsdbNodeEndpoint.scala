@@ -17,48 +17,30 @@
 package io.radicalbit.nsdb.cluster
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.pattern.ask
+import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
-import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{CoordinatorsGot, GetCoordinators, GetPublisher}
 import io.radicalbit.nsdb.security.NsdbSecurity
 import io.radicalbit.nsdb.web.WebResources
 
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
-
 /**
   * Class responsible to instantiate all the node endpoints (e.g. grpc, http and ws).
-  * @param nodeGuardian the node guardian actor, which is the parent of the node coordinators and publisher.
-  * @param system the global ActorSystem.
   */
-class NsdbNodeEndpoint(override val nodeGuardian: ActorRef)(override implicit val system: ActorSystem)
+class NsdbNodeEndpoint(readCoordinator: ActorRef,
+                       writeCoordinator: ActorRef,
+                       metadataCoordinator: ActorRef,
+                       publisher: ActorRef)(override implicit val system: ActorSystem)
     extends WebResources
-    with NsdbSecurity
-    with LazyLogging {
+    with NsdbSecurity {
 
   override val config: Config = system.settings.config
 
-  Future
-    .sequence(
-      Seq((nodeGuardian ? GetCoordinators).mapTo[CoordinatorsGot], (nodeGuardian ? GetPublisher).mapTo[ActorRef]))
-    .onComplete {
+  override protected val logger: LoggingAdapter = Logging.getLogger(system, this)
 
-      case Success(
-          Seq(CoordinatorsGot(metadataCoordinator,
-                              writeCoordinator: ActorRef,
-                              readCoordinator: ActorRef,
-                              schemaCoordinator: ActorRef),
-              publisher: ActorRef)) =>
-        new GrpcEndpoint(readCoordinator = readCoordinator,
-                         writeCoordinator = writeCoordinator,
-                         metadataCoordinator = metadataCoordinator)
+  new GrpcEndpoint(readCoordinator = readCoordinator,
+                   writeCoordinator = writeCoordinator,
+                   metadataCoordinator = metadataCoordinator)
 
-        initWebEndpoint(writeCoordinator, readCoordinator, publisher)
+  initWebEndpoint(writeCoordinator, readCoordinator, publisher)
 
-      case Failure(ex) =>
-        logger.error("error on loading coordinators", ex)
-        System.exit(1)
-    }
 }
