@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema}
-import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
+import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -64,6 +64,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
   /**
     * Gets or creates the actor for a given shard key.
+    *
     * @param location The shard key to identify the actor.
     * @return The existing or the created shard actor.
     */
@@ -81,6 +82,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
   /**
     * Retrieve all the shard actors for a given metric.
+    *
     * @param metric The metric to filter shard actors
     * @return All the shard actors for a given metric.
     */
@@ -88,6 +90,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
   /**
     * Filters all the shard actors of a metrics given a set of locations.
+    *
     * @param locations locations to filter the shard actors with.
     * @return filtered map containing all the actors for the given locations.
     */
@@ -124,6 +127,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
   /**
     * Groups results coming from different shards according to the group by clause provided in the query.
+    *
     * @param statement the Sql statement to be executed against every actor.
     * @param groupBy the group by clause dimension.
     * @param schema Metric's schema.
@@ -139,14 +143,14 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     gatherShardResults(actors, statement, schema) { seq =>
       seq
         .groupBy(_.tags(groupBy))
-        .mapValues(aggregationFunction)
-        .values
+        .map(m => aggregationFunction(m._2))
         .toSeq
     }
   }
 
   /**
     * Gathers results from every shard actor and elaborate them.
+    *
     * @param actors Shard actors to retrieve results from.
     * @param statement the Sql statement to be executed againt every actor.
     * @param schema Metric's schema.
@@ -171,6 +175,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   /**
     * Retrieves and order results from different shards in case the statement does not contains aggregations
     * and a where condition involving timestamp has been provided.
+    *
     * @param statement raw statement.
     * @param parsedStatement parsed statement.
     * @param actors shard actors to retrieve data from.
@@ -346,39 +351,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   }
 
   override def receive: Receive = readOps
-
-  /**
-    * This is a utility method to extract dimensions or tags from a Bit sequence in a functional way without having
-    * the risk to throw dangerous exceptions.
-    *
-    * @param values the sequence of bits holding the fields to be extracted.
-    * @param field the name of the field to be extracted.
-    * @param extract the function defining how to extract the field from a given bit.
-    * @return
-    */
-  private def retrieveField(values: Seq[Bit],
-                            field: String,
-                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
-    values.headOption
-      .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
-      .getOrElse(Map.empty[String, JSerializable])
-
-  /**
-    * This is a utility method in charge to associate a dimension or a tag with the given count.
-    * It extracts the field from a Bit sequence in a functional way without having the risk to throw dangerous exceptions.
-    *
-    * @param values the sequence of bits holding the field to be extracted.
-    * @param count the value of the count to be associated with the field.
-    * @param extract the function defining how to extract the field from a given bit.
-    * @return
-    */
-  private def retrieveCount(values: Seq[Bit],
-                            count: Int,
-                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
-    values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
-      .getOrElse(Map.empty[String, JSerializable])
-
 }
 
 object MetricReaderActor {

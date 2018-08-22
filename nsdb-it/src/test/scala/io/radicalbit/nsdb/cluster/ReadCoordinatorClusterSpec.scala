@@ -271,7 +271,8 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     assert(!readRes.completedSuccessfully)
   }
 
-  test("receive a select projecting a list of fields with mixed aggregated and simple") {
+  //the more i think about this feature, the more it seems unnecessary and misleading
+  ignore("receive a select projecting a list of fields with mixed aggregated and simple") {
     val query = nsdb
       .db(db)
       .namespace(namespace)
