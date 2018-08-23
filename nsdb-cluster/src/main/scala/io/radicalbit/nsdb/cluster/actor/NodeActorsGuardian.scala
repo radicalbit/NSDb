@@ -118,7 +118,6 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     case GetCommitLogCoordinators =>
       log.debug("gossiping commit logs for node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
-//      }
   }
 }
 
