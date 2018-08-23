@@ -20,6 +20,7 @@ import java.nio.file.Paths
 
 import akka.actor.Actor
 import io.radicalbit.nsdb.index._
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
@@ -27,7 +28,6 @@ import scala.collection.mutable
 /**
   * Trait containing common operation to be executed on metrics indexes.
   * Mixed in by [[MetricAccumulatorActor]] and [[MetricPerformerActor]],
-  *
   */
 trait MetricsActor { this: Actor =>
 
@@ -47,24 +47,26 @@ trait MetricsActor { this: Actor =>
   val namespace: String
 
   /**
-    * all index shards for the given db and namespace grouped by [[ShardKey]]
+    * all index shards for the given db and namespace grouped by [[Location]]
     */
-  private[actors] val shards: mutable.Map[ShardKey, TimeSeriesIndex] = mutable.Map.empty
+  private[actors] val shards: mutable.Map[Location, TimeSeriesIndex] = mutable.Map.empty
 
   /**
-    * all facet shard indexes for the given db and namespace grouped by [[ShardKey]]
+    * all facet shard indexes for the given db and namespace grouped by [[Location]]
     */
-  protected val facetIndexShards: mutable.Map[ShardKey, AllFacetIndexes] = mutable.Map.empty
+  protected val facetIndexShards: mutable.Map[Location, AllFacetIndexes] = mutable.Map.empty
 
-  protected def shardsForMetric(metric: String)        = shards.filter(_._1.metric == metric)
-  protected def facetsShardsFromMetric(metric: String) = facetIndexShards.filter(_._1.metric == metric)
+  protected def shardsForMetric(metric: String): mutable.Map[Location, TimeSeriesIndex] =
+    shards.filter(_._1.metric == metric)
+  protected def facetsShardsFromMetric(metric: String): mutable.Map[Location, AllFacetIndexes] =
+    facetIndexShards.filter(_._1.metric == metric)
 
   /**
-    * Retrieves or creates an index for the given [[ShardKey]]
+    * Retrieves or creates an index for the given [[Location]]
     * @param key the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the index for the key
     */
-  protected def getIndex(key: ShardKey): TimeSeriesIndex =
+  protected def getIndex(key: Location): TimeSeriesIndex =
     shards.getOrElse(
       key, {
         val directory =
@@ -76,14 +78,14 @@ trait MetricsActor { this: Actor =>
     )
 
   /**
-    * Retrieves or creates a facet index for the given [[ShardKey]]
+    * Retrieves or creates a facet index for the given [[Location]]
     * @param key the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the facet index for the key
     */
-  protected def facetIndexesFor(key: ShardKey): AllFacetIndexes =
+  protected def facetIndexesFor(key: Location): AllFacetIndexes =
     facetIndexShards.getOrElse(
       key, {
-        val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = key)
+        val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = key)
         facetIndexShards += (key -> facetIndexes)
         facetIndexes
       }

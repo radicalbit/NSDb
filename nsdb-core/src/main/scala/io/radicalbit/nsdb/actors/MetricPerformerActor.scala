@@ -47,14 +47,14 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
 
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
-      val groupedByKey = opBufferMap.values.groupBy(_.shardKey)
+      val groupedByKey = opBufferMap.values.groupBy(_.location)
       groupedByKey.foreach {
         case (key, ops) =>
           val index                        = getIndex(key)
           val facetIndexes                 = facetIndexesFor(key)
           implicit val writer: IndexWriter = index.getWriter
 
-          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = key)
+          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = key)
           val facetsIndexWriter = facets.newIndexWriter
           val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
 

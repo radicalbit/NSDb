@@ -39,14 +39,13 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
-import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{SchemaIndex, TimeSeriesIndex}
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.dump.DumpTarget
@@ -65,17 +64,11 @@ import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
 
-  def props(commitLogCoordinator: Option[ActorRef],
-            metadataCoordinator: ActorRef,
+  def props(metadataCoordinator: ActorRef,
             schemaCoordinator: ActorRef,
             publisherActor: ActorRef,
             mediator: ActorRef): Props =
-    Props(
-      new WriteCoordinator(commitLogCoordinator,
-                           metadataCoordinator,
-                           schemaCoordinator,
-                           publisherActor,
-                           mediator: ActorRef))
+    Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, publisherActor, mediator))
 
   case class Restore(path: String)  extends ControlMessage
   case class Restored(path: String) extends ControlMessage
@@ -89,11 +82,9 @@ object WriteCoordinator {
   * Actor that receives every write (or delete) request and coordinates them among internal data storage.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator   [[SchemaCoordinator]] the namespace schema actor.
-  * @param commitLogCoordinator [[CommitLogCoordinator]] the commit log coordinator.
   * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
-class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
-                       metadataCoordinator: ActorRef,
+class WriteCoordinator(metadataCoordinator: ActorRef,
                        schemaCoordinator: ActorRef,
                        publisherActor: ActorRef,
                        mediator: ActorRef)
@@ -115,7 +106,11 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
-  private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+  lazy val consistencyLevel: Int =
+    context.system.settings.config.getInt("nsdb.cluster.consistency-level")
+
+  private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
+  private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   /**
     * Performs an ask to every namespace actor subscribed.
@@ -139,13 +134,14 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
                              namespace: String,
                              ts: Long,
                              metric: String,
+                             nodeName: String,
                              action: CommitLoggerAction): Future[CommitLogResponse] = {
-    if (commitLogEnabled && commitLogCoordinator.isDefined)
-      (commitLogCoordinator.get ? WriteToCommitLog(db = db,
-                                                   namespace = namespace,
-                                                   metric = metric,
-                                                   ts = ts,
-                                                   action = action))
+    if (commitLogEnabled && commitLogCoordinators.get(nodeName).isDefined)
+      (commitLogCoordinators(nodeName) ? WriteToCommitLog(db = db,
+                                                          namespace = namespace,
+                                                          metric = metric,
+                                                          ts = ts,
+                                                          action = action))
         .mapTo[CommitLogResponse]
     else if (commitLogEnabled) {
       Future.successful(
@@ -173,20 +169,21 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
       }
 
   /**
-    * Gets the metadata location to write the bit in.
+    * Gets the metadata locations to write the bit in. The number of location returned depends on the configured replication factor
     * @param db the db.
     * @param namespace the namespace.
     * @param metric the metric.
     * @param bit the bit.
     * @param ts the timestamp of the write operation.
     * @param op code executed in case of success.
+    * @return [[LocationsGot]] if communication with metadata coordinator succeeds, RecordRejected otherwise
     */
-  def getMetadataLocation(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
+  def getMetadataLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Seq[Location] => Future[Any]): Future[Any] =
     (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).flatMap {
-      case LocationsGot(_, _, _, locs) =>
-        log.debug(s"received locations for metric $metric, $locs")
-        op(locs)
+      case LocationsGot(_, _, _, locations) =>
+        log.debug(s"received locations for metric $metric, $locations")
+        op(locations)
       case _ =>
         log.error(s"no location found for bit $bit")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
@@ -204,10 +201,10 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
-          case r: RecordAdded      => InputMapped(db, namespace, metric, r.record)
+          case msg: RecordAdded    => msg
           case msg: RecordRejected => msg
           case _ =>
-            RecordRejected(db, namespace, metric, bit, List("unknown response from NamespaceActor"))
+            RecordRejected(db, namespace, metric, bit, List("unknown response from metrics Actor"))
         }
       case None =>
         log.error(s"no data actor for node ${location.node}")
@@ -223,7 +220,9 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       log.debug("writecoordinator data actor : {}", metricsDataActors.size)
+      log.debug("writecoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
   }
 
@@ -242,6 +241,12 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         log.info(s"subscribed data actor for node $nodeName")
       }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
+      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
+        commitLogCoordinators += (nodeName -> actor)
+        log.info(s"subscribed commit log actor for node $nodeName")
+      }
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg =>
@@ -256,31 +261,61 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         log.info(s"subscribed data actor for node $nodeName")
       }
       sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
+      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
+        commitLogCoordinators += (nodeName -> actor)
+        log.info(s"subscribed commit log actor for node $nodeName")
+      }
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case msg @ MapInput(ts, db, namespace, metric, bit) =>
+    case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      updateSchema(db, namespace, metric, bit) { schema =>
-        writeCommitLog(db, namespace, bit.timestamp, metric, InsertAction(bit))
-          .flatMap {
-            case WriteToCommitLogSucceeded(_, _, _, _) =>
-              publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+        updateSchema(db, namespace, metric, bit) { schema =>
+          val consistentLocations = locations.take(consistencyLevel)
+          val eventualLocations   = locations.diff(consistentLocations)
 
-              getMetadataLocation(db, namespace, metric, bit, bit.timestamp) { loc =>
-                //FIXME right now multiple locations are supported but not handled, in the future, this trivial implementation will be replaced by something definitely more sophisticated
-                accumulateRecord(db, namespace, metric, bit, loc.head)
-              }
-            case WriteToCommitLogFailed(_, _, _, _, reason) =>
-              log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-              context.system.terminate()
-          }
+          val consistentResult = Future
+            .sequence(consistentLocations.map { loc =>
+              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+                .flatMap {
+                  case WriteToCommitLogSucceeded(_, _, _, _) =>
+                    accumulateRecord(db, namespace, metric, bit, loc)
+                  case err: WriteToCommitLogFailed => Future(err)
+                }
+            })
+            .map {
+              case _: Seq[RecordAdded] =>
+                publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+                InputMapped(db, namespace, metric, bit)
+              case r: Seq[Any] =>
+                val toCompensateStage = r.filter(_.isInstanceOf[RecordAdded])
+                //FIXME add compensation
+                val toCompensateCL = r.filter(!_.isInstanceOf[WriteToCommitLogFailed])
+                //FIXME add compensation
+                RecordRejected(db, namespace, metric, bit, List(""))
+            }
+
+          Future
+            .sequence(eventualLocations.map { loc =>
+              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+                .flatMap {
+                  case WriteToCommitLogSucceeded(_, _, _, _) =>
+                    accumulateRecord(db, namespace, metric, bit, loc)
+                  case err: WriteToCommitLogFailed => Future(err)
+                }
+            })
+
+          consistentResult
+        }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), "", DeleteNamespaceAction)
+      writeCommitLog(db, namespace, System.currentTimeMillis(), "", "", DeleteNamespaceAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty) {
@@ -293,7 +328,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteAction(statement))
+      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteAction(statement))
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty)
@@ -324,7 +359,7 @@ class WriteCoordinator(commitLogCoordinator: Option[ActorRef],
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, DeleteMetricAction)
+      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteMetricAction)
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _) =>
             if (metricsDataActors.isEmpty)

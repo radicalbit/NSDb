@@ -24,12 +24,11 @@ import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor, ShardKey}
+import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
-import io.radicalbit.nsdb.cluster.index.Location
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -39,8 +38,9 @@ import scala.concurrent.Future
 /**
   * Actor responsible for dispatching read or write commands to the proper actor and index.
   * @param basePath indexes' root path.
+  * @param nodeName String representation of the host and the port Actor is deployed at.
   */
-class MetricsDataActor(val basePath: String) extends ActorPathLogging {
+class MetricsDataActor(val basePath: String, val nodeName: String) extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
@@ -58,7 +58,9 @@ class MetricsDataActor(val basePath: String) extends ActorPathLogging {
     val reader = readerOpt.getOrElse(
       context.actorOf(
         readParallelism.pool.props(
-          MetricReaderActor.props(basePath, db, namespace).withDispatcher("akka.actor.control-aware-dispatcher")),
+          MetricReaderActor
+            .props(basePath, nodeName, db, namespace)
+            .withDispatcher("akka.actor.control-aware-dispatcher")),
         s"metric_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
@@ -101,9 +103,7 @@ class MetricsDataActor(val basePath: String) extends ActorPathLogging {
       }
   }
 
-  override def receive: Receive = commons orElse shardBehaviour
-
-  def commons: Receive = {
+  override def receive: Receive = {
     case GetDbs =>
       val dbs = context.children.collect { case c if c.path.name.split("_").length == 4 => c.path.name.split("_")(2) }
       sender() ! DbsGot(dbs.toSet)
@@ -137,23 +137,23 @@ class MetricsDataActor(val basePath: String) extends ActorPathLogging {
         case Some(child) => child forward msg
         case None        => sender() ! CountGot(db, namespace, metric, 0)
       }
-    case msg @ ExecuteSelectStatement(statement, _) =>
+    case msg @ ExecuteSelectStatement(statement, _, _) =>
       getReader(statement.db, statement.namespace) match {
         case Some(child) => child forward msg
         case None        => sender() ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)
       }
-  }
-
-  def shardBehaviour: Receive = {
     case AddRecordToLocation(db, namespace, bit, location) =>
       getOrCreateChildren(db, namespace)._2
-        .forward(AddRecordToShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
+        .forward(AddRecordToShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
     case DeleteRecordFromLocation(db, namespace, bit, location) =>
       getOrCreateChildren(db, namespace)._2
-        .forward(DeleteRecordFromShard(db, namespace, ShardKey(location.metric, location.from, location.to), bit))
+        .forward(
+          DeleteRecordFromShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
     case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
       getOrCreateChildren(statement.db, statement.namespace)._2.forward(
-        ExecuteDeleteStatementInShards(statement, schema, locations.map(l => ShardKey(l.metric, l.from, l.to))))
+        ExecuteDeleteStatementInShards(statement,
+                                       schema,
+                                       locations.map(l => Location(l.metric, nodeName, l.from, l.to))))
   }
 
 }
@@ -181,7 +181,7 @@ object MetricsDataActor {
                       enclosingConfig.getInt("upper-bound"))
   }
 
-  def props(basePath: String): Props = Props(new MetricsDataActor(basePath))
+  def props(basePath: String, nodeName: String): Props = Props(new MetricsDataActor(basePath, nodeName))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)

@@ -29,7 +29,8 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
+import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import io.radicalbit.nsdb.util.ActorPathLogging
 
@@ -56,7 +57,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   override def receive: Receive = warmUp
 
   def warmUp: Receive = {
-    case msg @ WarmUpMetadata(metricsMetadata) =>
+    case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
       log.info(s"Received location warm-up message: $msg ")
       Future
         .sequence(metricsMetadata.map { metadata =>
@@ -86,7 +87,10 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
           unstashAll()
           context.become(operative)
         }
-
+    case _: WarmUpMetadata =>
+      mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
+      unstashAll()
+      context.become(operative)
     case msg =>
       stash()
       log.error(s"Received and stashed message $msg during warmUp")
@@ -162,7 +166,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
                     performAddLocationIntoCache(db, namespace, locations).map {
                       case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                      case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                      case _                               => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                     }
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
@@ -182,7 +186,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
                 performAddLocationIntoCache(db, namespace, locations).map {
                   case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                  case _ => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                  case _                               => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
           case _ =>
@@ -220,7 +224,7 @@ object MetadataCoordinator {
     case class AddLocation(db: String, namespace: String, location: Location)
     case class AddLocations(db: String, namespace: String, locations: Seq[Location])
     case class DeleteLocation(db: String, namespace: String, location: Location)
-    case class DeleteNamespace(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
+    case class DeleteNamespaceMetadata(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(db: String, namespace: String, metricInfo: MetricInfo)
@@ -236,7 +240,7 @@ object MetadataCoordinator {
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
     case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
-    case class NamespaceDeleted(db: String, namespace: String, occurredOn: Long)
+    case class NamespaceMetadataDeleted(db: String, namespace: String, occurredOn: Long)
 
     case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])
     case class MetricInfoPut(db: String, namespace: String, metricInfo: MetricInfo)

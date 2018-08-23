@@ -16,12 +16,11 @@ object BitConverters {
     def asApiBit(db: String, namespace: String, metric: String): ApiBit = {
       val initialBit = Db(db).namespace(namespace).metric(metric).timestamp(bit.timestamp)
       val apiBit = bit.value match {
-        case v: java.lang.Long                         => initialBit.value(v)
-        case v: java.lang.Double                       => initialBit.value(v)
-        case v: java.lang.Float                        => initialBit.value(v.toDouble)
-        case v: java.lang.Integer                      => initialBit.value(v)
-        case v: java.math.BigDecimal if v.scale() == 0 => initialBit.value(v)
-        case v: java.math.BigDecimal                   => initialBit.value(v)
+        case v: java.lang.Long       => initialBit.value(v)
+        case v: java.lang.Double     => initialBit.value(v)
+        case v: java.lang.Float      => initialBit.value(v.toDouble)
+        case v: java.lang.Integer    => initialBit.value(v)
+        case v: java.math.BigDecimal => initialBit.value(v)
       }
 
       bit.dimensions.foreach {

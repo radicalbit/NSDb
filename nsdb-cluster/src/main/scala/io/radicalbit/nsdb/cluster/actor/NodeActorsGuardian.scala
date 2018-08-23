@@ -40,7 +40,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
     case t =>
-      log.error(t, "generic error in write coordinator")
+      log.error(t, "generic error occurred")
       super.supervisorStrategy.decider.apply(t)
   }
 
@@ -53,8 +53,6 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
   private val config = context.system.settings.config
 
   private val indexBasePath = config.getString("nsdb.index.base-path")
-
-  private val writeToCommitLog = config.getBoolean("nsdb.commit-log.enabled")
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
@@ -85,26 +83,23 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       s"publisher-actor_$nodeName"
     )
   private val writeCoordinator =
-    if (writeToCommitLog) {
-      val commitLogger = context.actorOf(CommitLogCoordinator.props(), "commit-logger-coordinator")
-      context.actorOf(
-        WriteCoordinator
-          .props(Some(commitLogger), metadataCoordinator, schemaCoordinator, publisherActor, mediator)
-          .withDispatcher("akka.actor.control-aware-dispatcher")
-          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-        s"write-coordinator_$nodeName"
-      )
-    } else
-      context.actorOf(
-        WriteCoordinator
-          .props(None, metadataCoordinator, schemaCoordinator, publisherActor, mediator)
-          .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-        s"write-coordinator_$nodeName"
-      )
+    context.actorOf(
+      WriteCoordinator
+        .props(metadataCoordinator, schemaCoordinator, publisherActor, mediator)
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      s"write-coordinator_$nodeName"
+    )
+
+  private val commitLogCoordinator =
+    context.actorOf(
+      Props[CommitLogCoordinator]
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      s"commitlog-coordinator_$nodeName"
+    )
 
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath)
+      .props(indexBasePath, nodeName)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$nodeName"
@@ -118,8 +113,11 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
                                   schemaCoordinator,
                                   publisherActor)
     case GetMetricsDataActors =>
-      log.debug("gossiping from node {}", nodeName)
+      log.debug("gossiping metric data actors from node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
+    case GetCommitLogCoordinators =>
+      log.debug("gossiping commit logs for node {}", nodeName)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
   }
 }
 

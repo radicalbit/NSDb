@@ -23,11 +23,6 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
 
-object CommitLogCoordinator {
-
-  def props(): Props = Props(new CommitLogCoordinator())
-}
-
 /**
   * Actor whose purpose is to handle writes on commit-log files delegating the action to writers implementing
   * [[CommitLogWriterActor]] trait .

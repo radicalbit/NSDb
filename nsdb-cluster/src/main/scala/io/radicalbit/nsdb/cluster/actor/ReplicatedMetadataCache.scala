@@ -23,7 +23,8 @@ import akka.cluster.Cluster
 import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.index.{Location, MetricInfo}
+import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.model.Location
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -134,7 +135,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     * @return [[LWWMapKey]] resulted from metricKey hashCode
     */
   private def metricLocationsKey(metricKey: MetricLocationsCacheKey): LWWMapKey[LocationWithNodeKey, Location] =
-    LWWMapKey("metric-locations-cache-" + math.abs(metricKey.hashCode) % 100)
+    LWWMapKey(s"metric-locations-cache-${metricKey.db}-${metricKey.namespace}-${metricKey.metric}")
 
   /**
     * convert a [[MetricInfoCacheKey]] into an internal cache key

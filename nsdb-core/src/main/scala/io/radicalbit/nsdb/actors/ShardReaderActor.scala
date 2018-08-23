@@ -22,6 +22,7 @@ import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCount}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
@@ -30,21 +31,29 @@ import org.apache.lucene.store.MMapDirectory
 
 import scala.util.{Failure, Success, Try}
 
-class ShardReaderActor(val basePath: String, val db: String, val namespace: String, val shardKey: ShardKey)
+/**
+  * Actor responsible to perform read operations for a single shard.
+  *
+  * @param basePath Index base path.
+  * @param db the shard db.
+  * @param namespace the shard namespace.
+  * @param location the shard location.
+  */
+class ShardReaderActor(val basePath: String, val db: String, val namespace: String, val location: Location)
     extends Actor {
 
   lazy val directory =
     new MMapDirectory(
-      Paths.get(basePath, db, namespace, "shards", s"${shardKey.metric}_${shardKey.from}_${shardKey.to}"))
+      Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}"))
 
   lazy val index = new TimeSeriesIndex(directory)
 
-  lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, key = shardKey)
+  lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
 
   override def receive: Receive = {
     case GetCount(_, _, metric) => sender ! CountGot(db, namespace, metric, index.getCount())
 
-    case ExecuteSelectStatement(statement, schema) =>
+    case ExecuteSelectStatement(statement, schema, locations) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
@@ -105,6 +114,6 @@ object ShardReaderActor {
 
   case object RefreshShard
 
-  def props(basePath: String, db: String, namespace: String, shardKey: ShardKey): Props =
-    Props(new ShardReaderActor(basePath, db, namespace, shardKey))
+  def props(basePath: String, db: String, namespace: String, location: Location): Props =
+    Props(new ShardReaderActor(basePath, db, namespace, location))
 }

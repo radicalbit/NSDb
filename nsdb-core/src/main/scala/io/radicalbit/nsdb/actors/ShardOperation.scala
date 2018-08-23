@@ -17,15 +17,8 @@
 package io.radicalbit.nsdb.actors
 
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.search.Query
-
-/**
-  * key to identify a shard.
-  * @param metric shard's metric.
-  * @param from shard's location lower bound.
-  * @param to shard's location upper bound.
-  */
-case class ShardKey(metric: String, from: Long, to: Long)
 
 /**
   * shard operations accumulated by [[MetricAccumulatorActor]] and performed by [[MetricPerformerActor]]
@@ -45,11 +38,11 @@ sealed trait ShardOperation {
   val namespace: String
 
   /**
-    * operation key. {@see ShardKey}
+    * operation key. @see ShardKey
     */
-  val shardKey: ShardKey
+  val location: Location
 }
 
-case class DeleteShardRecordOperation(namespace: String, shardKey: ShardKey, bit: Bit)    extends ShardOperation
-case class DeleteShardQueryOperation(namespace: String, shardKey: ShardKey, query: Query) extends ShardOperation
-case class WriteShardOperation(namespace: String, shardKey: ShardKey, bit: Bit)           extends ShardOperation
+case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit)    extends ShardOperation
+case class DeleteShardQueryOperation(namespace: String, location: Location, query: Query) extends ShardOperation
+case class WriteShardOperation(namespace: String, location: Location, bit: Bit)           extends ShardOperation

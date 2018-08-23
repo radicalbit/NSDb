@@ -94,7 +94,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
             new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataActor, publisherActor)(context.system)
-
           case _ =>
         }
     case UnreachableMember(member) =>

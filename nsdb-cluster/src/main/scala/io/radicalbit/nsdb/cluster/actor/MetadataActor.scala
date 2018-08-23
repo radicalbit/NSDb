@@ -24,8 +24,9 @@ import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
-import io.radicalbit.nsdb.cluster.index.{Location, LocationIndex, MetricInfo, MetricInfoIndex}
+import io.radicalbit.nsdb.cluster.index.{LocationIndex, MetricInfo, MetricInfoIndex}
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
 
@@ -125,7 +126,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
       index.refresh()
       sender ! LocationDeleted(db, namespace, metadata)
 
-    case DeleteNamespace(db, namespace, occurredOn) =>
+    case DeleteNamespaceMetadata(db, namespace, occurredOn) =>
       val locationIndex                    = getLocationIndex(db, namespace)
       val locationIndexwriter: IndexWriter = locationIndex.getWriter
       locationIndex.deleteAll()(locationIndexwriter)
@@ -138,7 +139,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
       metricInfoWriter.close()
       metricInfoIndex.refresh()
 
-      sender ! NamespaceDeleted(db, namespace, occurredOn)
+      sender ! NamespaceMetadataDeleted(db, namespace, occurredOn)
     case PutMetricInfo(db, namespace, metricInfo) =>
       val index = getMetricInfoIndex(db, namespace)
       index.getMetricInfo(metricInfo.metric) match {

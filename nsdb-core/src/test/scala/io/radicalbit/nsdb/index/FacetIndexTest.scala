@@ -18,20 +18,24 @@ package io.radicalbit.nsdb.index
 
 import java.util.UUID
 
-import io.radicalbit.nsdb.actors.ShardKey
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.scalatest.{Assertion, FlatSpec, Matchers, OneInstancePerTest}
 
-class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*with ValidatedMatchers*/ {
+class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+
+  val nodeName = "node1"
 
   "FacetIndex" should "write and read properly on disk" in {
-    val facetIndexes = new AllFacetIndexes(basePath = "target",
-                                           db = "test_index",
-                                           namespace = "test_facet_index",
-                                           key =
-                                             ShardKey(metric = UUID.randomUUID.toString, from = 0, to = Long.MaxValue))
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
 
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
@@ -74,11 +78,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
 
-    val facetIndexes = new AllFacetIndexes(basePath = "target",
-                                           db = "test_index",
-                                           namespace = "test_facet_index",
-                                           key =
-                                             ShardKey(metric = UUID.randomUUID.toString, from = 0, to = Long.MaxValue))
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
 
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
@@ -117,11 +123,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
-    val facetIndexes = new AllFacetIndexes(basePath = "target",
-                                           db = "test_index",
-                                           namespace = "test_facet_index",
-                                           key =
-                                             ShardKey(metric = UUID.randomUUID.toString, from = 0, to = Long.MaxValue))
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
 
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
@@ -159,11 +167,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
   }
 
   "FacetIndex" should "suppport delete" in {
-    val facetIndexes = new AllFacetIndexes(basePath = "target",
-                                           db = "test_index",
-                                           namespace = "test_facet_index",
-                                           key =
-                                             ShardKey(metric = UUID.randomUUID.toString, from = 0, to = Long.MaxValue))
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
 
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
@@ -204,11 +214,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
   }
 
   "FacetIndex" should "supports ordering and limiting on count and sum" in {
-    val facetIndexes = new AllFacetIndexes(basePath = "target",
-                                           db = "test_index",
-                                           namespace = "test_facet_index",
-                                           key =
-                                             ShardKey(metric = UUID.randomUUID.toString, from = 0, to = Long.MaxValue))
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
 
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
@@ -269,11 +281,13 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest /*wi
   }
 
   "FacetIndexSum" should "supports a simple sum" in {
-    val facetIndexes = new AllFacetIndexes(basePath = "target",
-                                           db = "test_index",
-                                           namespace = "test_facet_index",
-                                           key =
-                                             ShardKey(metric = UUID.randomUUID.toString, from = 0, to = Long.MaxValue))
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
 
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter

@@ -25,6 +25,7 @@ import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -167,9 +168,9 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
     *
     */
   def accumulate: Receive = {
-    case AddRecordToShard(_, ns, key, bit) =>
-      opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, key, bit))
-      sender ! RecordAdded(db, ns, key.metric, bit)
+    case AddRecordToShard(_, ns, location, bit) =>
+      opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, location, bit))
+      sender ! RecordAdded(db, ns, location.metric, bit)
     case DeleteRecordFromShard(_, ns, key, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
       sender ! RecordDeleted(db, ns, key.metric, bit)
@@ -200,7 +201,7 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
 
 object MetricAccumulatorActor {
 
-  case class Refresh(writeIds: Seq[String], keys: Seq[ShardKey])
+  case class Refresh(writeIds: Seq[String], keys: Seq[Location])
 
   def props(basePath: String, db: String, namespace: String, readerActor: ActorRef): Props =
     Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor))
