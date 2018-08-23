@@ -201,7 +201,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
-          case msg: RecordAdded    => msg //InputMapped(db, namespace, metric, r.record)
+          case msg: RecordAdded    => msg
           case msg: RecordRejected => msg
           case _ =>
             RecordRejected(db, namespace, metric, bit, List("unknown response from metrics Actor"))

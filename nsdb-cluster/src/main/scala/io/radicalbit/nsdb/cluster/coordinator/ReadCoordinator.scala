@@ -135,31 +135,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                         groupBy: String,
                                         schema: Schema,
                                         uniqueLocationsByNode: Map[String, Seq[Location]])(
-      aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
-
-    Future
-      .sequence(metricsDataActors.map {
-        case (nodeName, actor) =>
-          actor ? ExecuteSelectStatement(statement, schema, uniqueLocationsByNode.getOrElse(nodeName, Seq.empty))
-      })
-      .map { e =>
-        val errs = e.collect { case a: SelectStatementFailed => a }
-        if (errs.nonEmpty) {
-          Left(SelectStatementFailed(errs.map(_.reason).mkString(",")))
-        } else
-          Right(
-            e.asInstanceOf[Seq[SelectStatementExecuted]]
-              .flatMap(_.values)
-              .groupBy(_.tags(groupBy))
-              .map(m => aggregationFunction(m._2))
-              .toSeq)
-      }
-      .recover {
-        case t =>
-          log.error(t, "an error occurred while gathering results from nodes")
-          Left(SelectStatementFailed(t.getMessage))
-      }
-  }
+      aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] =
+    gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq =>
+      seq.groupBy(_.tags(groupBy)).map(m => aggregationFunction(m._2)).toSeq)
 
   /**
     * Initial state in which actor waits metadata warm-up completion.
