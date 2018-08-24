@@ -263,17 +263,23 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           value = new Array[Byte](readByteBuffer.getInt)
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
+        // tags
+        val numOfTags = readByteBuffer.getInt
+        val tags = (for {
+          _ <- 1 to numOfTags
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
 
         InsertEntry(
           db = db,
           namespace = namespace,
           metric = metric,
           timestamp = ts,
-          // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
-          Bit(timestamp = ts,
-              value = 0,
-              dimensions = createDimensions(dimensions),
-              tags = Map.empty[String, JSerializable])
+          //TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
+          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags))
         )
       case c if c == classOf[RejectEntry].getCanonicalName =>
         // metric
@@ -327,7 +333,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                        e.namespace,
                        e.metric,
                        extractValue(e.bit.value),
-                       extractDimensions(e.bit.dimensions))
+                       extractDimensions(e.bit.dimensions),
+                       extractDimensions(e.bit.tags)
+        )
       case e: RejectEntry =>
         serializeEntry(e.getClass.getCanonicalName,
                        e.timestamp,
@@ -335,7 +343,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                        e.namespace,
                        e.metric,
                        extractValue(e.bit.value),
-                       extractDimensions(e.bit.dimensions))
+                       extractDimensions(e.bit.dimensions),
+                       extractDimensions(e.bit.tags),
+        )
       case e: DeleteEntry =>
         serializeDeleteByQuery(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric, e.expression)
       case e: DeleteNamespaceEntry => serializeCommons(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace)
@@ -425,6 +435,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     * @param metric metric
     * @param value [[Bit]] value
     * @param dimensions [[Bit]] dimensions
+    * @param tags [[Bit]] tags
     * @return Bytes representation
     */
   private def serializeEntry(
@@ -434,7 +445,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       namespace: String,
       metric: String,
       value: Value,
-      dimensions: List[Dimension]
+      dimensions: List[Dimension],
+      tags: List[Dimension]
   ): Array[Byte] = {
     serializeCommons(className, ts, db, namespace)
     // metric
@@ -442,6 +454,15 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     // dimensions
     writeBuffer.putInt(dimensions.length)
     dimensions.foreach {
+      case (name, typ, value) =>
+        writeBuffer.write(name)
+        writeBuffer.write(typ)
+        writeBuffer.putInt(value.length)
+        writeBuffer.put(value)
+    }
+    // tags
+    writeBuffer.putInt(tags.length)
+    tags.foreach {
       case (name, typ, value) =>
         writeBuffer.write(name)
         writeBuffer.write(typ)

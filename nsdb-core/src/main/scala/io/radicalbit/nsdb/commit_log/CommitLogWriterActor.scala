@@ -16,10 +16,10 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import akka.actor.Actor
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, Expression}
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.util.{Failure, Success, Try}
@@ -27,6 +27,16 @@ import scala.util.{Failure, Success, Try}
 object CommitLogWriterActor {
 
   sealed trait CommitLoggerAction
+
+  sealed trait BitEntryAction {
+    def bit: Bit
+  }
+
+  case class ReceivedEntryAction(bit: Bit)    extends BitEntryAction
+  case class AccumulatedEntryAction(bit: Bit) extends BitEntryAction
+  case class PersistedEntryAction(bit: Bit)   extends BitEntryAction
+  case class RejectedEntryAction(bit: Bit)    extends BitEntryAction
+
   case class InsertAction(bit: Bit)                               extends CommitLoggerAction
   case class RejectAction(bit: Bit)                               extends CommitLoggerAction
   case class DeleteAction(deleteSQLStatement: DeleteSQLStatement) extends CommitLoggerAction
@@ -38,10 +48,23 @@ object CommitLogWriterActor {
   sealed trait CommitLogRequest  extends CommitLogProtocol
   sealed trait CommitLogResponse extends CommitLogProtocol
 
-  case class WriteToCommitLog(db: String, namespace: String, metric: String, ts: Long, action: CommitLoggerAction)
+  case class WriteToCommitLog(db: String,
+                              namespace: String,
+                              metric: String,
+                              ts: Long,
+                              action: CommitLoggerAction,
+                              location: Location)
       extends CommitLogRequest
 
-  case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String)
+  case class WriteBitToCommitLog(db: String,
+                                 namespace: String,
+                                 metric: String,
+                                 ts: Long,
+                                 action: BitEntryAction,
+                                 location: Location)
+      extends CommitLogRequest
+
+  case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String, location: Location)
       extends CommitLogResponse
   case class WriteToCommitLogFailed(db: String, namespace: String, ts: Long, metric: String, reason: String)
       extends CommitLogResponse
@@ -70,6 +93,16 @@ object CommitLogWriterActor {
     def timestamp: Long
   }
 
+  sealed trait CommitLogOperation extends CommitLogEntry
+
+  trait BitOperation extends CommitLogOperation {
+    def metric: String
+    def bit: Bit
+  }
+
+  case class ReceivedEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
+      extends CommitLogEntry
+
   case class InsertEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
       extends CommitLogEntry
   case class DeleteEntry(db: String,
@@ -78,6 +111,7 @@ object CommitLogWriterActor {
                          override val timestamp: Long,
                          expression: Expression)
       extends CommitLogEntry
+  //FIXME: remove useless message
   case class RejectEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
       extends CommitLogEntry
   case class DeleteMetricEntry(db: String, namespace: String, metric: String, override val timestamp: Long)
@@ -100,36 +134,49 @@ trait CommitLogWriterActor extends ActorPathLogging {
   protected def serializer: CommitLogSerializer
 
   final def receive: Receive = {
-    case entry @ InsertEntry(db, namespace, metric, timestamp, bit) =>
-      createEntry(entry) match {
-        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
-        case Failure(ex) =>
-          sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, ex.getMessage)
-      }
-    case entry @ DeleteEntry(db, namespace, metric, timestamp, _) =>
-      createEntry(entry) match {
-        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
-        case Failure(ex) =>
-          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
-      }
-    case entry @ RejectEntry(db, namespace, metric, timestamp, _) =>
-      createEntry(entry) match {
-        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
+
+    case entry @ WriteBitToCommitLog(db,
+                                     namespace,
+                                     metric,
+                                     timestamp,
+                                     bitEntryAction: ReceivedEntryAction,
+                                     location) =>
+      createEntry(ReceivedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case entry @ DeleteMetricEntry(db, namespace, metric, timestamp) =>
-      createEntry(entry) match {
-        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
-        case Failure(ex) =>
-          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
-      }
-    case entry @ DeleteNamespaceEntry(db, namespace, timestamp) =>
-      createEntry(entry) match {
-        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, "")
-        case Failure(ex) =>
-          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, "", ex.getMessage)
-      }
+
+//    case entry @ InsertEntry(db, namespace, metric, timestamp, bit, location) =>
+//      createEntry(entry) match {
+//        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+//        case Failure(ex) =>
+//          sender() ! WriteToCommitLogFailed(db, namespace, bit.timestamp, metric, ex.getMessage)
+//      }
+//    case entry @ DeleteEntry(db, namespace, metric, timestamp, _, location) =>
+//      createEntry(entry) match {
+//        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+//        case Failure(ex) =>
+//          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
+//      }
+//    case entry @ RejectEntry(db, namespace, metric, timestamp, _, location) =>
+//      createEntry(entry) match {
+//        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+//        case Failure(ex) =>
+//          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
+//      }
+//    case entry @ DeleteMetricEntry(db, namespace, metric, timestamp, location) =>
+//      createEntry(entry) match {
+//        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+//        case Failure(ex) =>
+//          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
+//      }
+//    case entry @ DeleteNamespaceEntry(db, namespace, timestamp, location) =>
+//      createEntry(entry) match {
+//        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, "", location)
+//        case Failure(ex) =>
+//          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, "", ex.getMessage)
+//      }
 
   }
 

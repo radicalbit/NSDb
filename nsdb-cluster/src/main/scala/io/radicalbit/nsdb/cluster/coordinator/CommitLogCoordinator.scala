@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.ActorRef
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -44,16 +44,16 @@ class CommitLogCoordinator extends ActorPathLogging {
   }
 
   def receive: Receive = {
-    case WriteToCommitLog(db, namespace, metric, timestamp, InsertAction(bit)) =>
+    case msg @ WriteBitToCommitLog(db, namespace, _, _, _, _) =>
+      getWriter(db, namespace).forward(msg)
+    case WriteToCommitLog(db, namespace, metric, timestamp, InsertAction(bit), _) =>
       getWriter(db, namespace).forward(InsertEntry(db, namespace, metric, timestamp, bit))
-    case WriteToCommitLog(db, namespace, metric, timestamp, RejectAction(bit)) =>
-      getWriter(db, namespace).forward(RejectEntry(db, namespace, metric, timestamp, bit))
-    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteAction(deleteStatement)) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteAction(deleteStatement), _) =>
       getWriter(db, namespace).forward(
         DeleteEntry(db, namespace, metric, timestamp, deleteStatement.condition.expression))
-    case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction) =>
+    case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction, _) =>
       getWriter(db, namespace).forward(DeleteNamespaceEntry(db, namespace, timestamp))
-    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction, _) =>
       getWriter(db, namespace).forward(DeleteMetricEntry(db, namespace, metric, timestamp))
     case _ =>
       log.error("UnexpectedMessage")
