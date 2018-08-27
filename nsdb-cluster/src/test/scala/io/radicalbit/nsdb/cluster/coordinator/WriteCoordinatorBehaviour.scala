@@ -27,6 +27,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, Subscr
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, WriteToCommitLogSucceeded}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Location
@@ -77,6 +78,15 @@ class FakeMetadataCoordinator extends Actor with ActorLogging {
   }
 }
 
+class FakeCommitLogCoordinator extends Actor with ActorLogging {
+  override def receive: Receive = {
+    case _ @WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
+      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+    case _ =>
+      log.error("UnexpectedMessage")
+  }
+}
+
 trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =>
 
   val probe = TestProbe()
@@ -90,6 +100,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
+  lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
   lazy val schemaCoordinator =
     TestActorRef[SchemaCoordinator](
       SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))

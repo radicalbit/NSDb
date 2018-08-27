@@ -44,17 +44,8 @@ class CommitLogCoordinator extends ActorPathLogging {
   }
 
   def receive: Receive = {
-    case msg @ WriteBitToCommitLog(db, namespace, _, _, _, _) =>
+    case msg @ WriteToCommitLog(db, namespace, _, _, _, _) =>
       getWriter(db, namespace).forward(msg)
-    case WriteToCommitLog(db, namespace, metric, timestamp, InsertAction(bit), _) =>
-      getWriter(db, namespace).forward(InsertEntry(db, namespace, metric, timestamp, bit))
-    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteAction(deleteStatement), _) =>
-      getWriter(db, namespace).forward(
-        DeleteEntry(db, namespace, metric, timestamp, deleteStatement.condition.expression))
-    case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction, _) =>
-      getWriter(db, namespace).forward(DeleteNamespaceEntry(db, namespace, timestamp))
-    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction, _) =>
-      getWriter(db, namespace).forward(DeleteMetricEntry(db, namespace, metric, timestamp))
     case _ =>
       log.error("UnexpectedMessage")
   }

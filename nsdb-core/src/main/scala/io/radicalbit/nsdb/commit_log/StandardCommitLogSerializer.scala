@@ -251,7 +251,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     val namespace = readByteBuffer.read
 
     className match {
-      case c if c == classOf[InsertEntry].getCanonicalName =>
+      case c if c == classOf[ReceivedEntry].getCanonicalName =>
         // metric
         val metric = readByteBuffer.read
         // dimensions
@@ -273,15 +273,14 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
 
-        InsertEntry(
+        ReceivedEntry(
           db = db,
           namespace = namespace,
           metric = metric,
           timestamp = ts,
-          //TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
           Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags))
         )
-      case c if c == classOf[RejectEntry].getCanonicalName =>
+      case c if c == classOf[AccumulatedEntry].getCanonicalName =>
         // metric
         val metric = readByteBuffer.read
         // dimensions
@@ -294,7 +293,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
 
-        RejectEntry(
+        AccumulatedEntry(
           db = db,
           namespace = namespace,
           metric = metric,
@@ -326,7 +325,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     */
   override def serialize(entry: CommitLogEntry): Array[Byte] =
     entry match {
-      case e: InsertEntry =>
+      case e: ReceivedEntry =>
         serializeEntry(e.getClass.getCanonicalName,
                        e.timestamp,
                        e.db,
@@ -336,7 +335,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                        extractDimensions(e.bit.dimensions),
                        extractDimensions(e.bit.tags)
         )
-      case e: RejectEntry =>
+      case e: AccumulatedEntry =>
         serializeEntry(e.getClass.getCanonicalName,
                        e.timestamp,
                        e.db,
@@ -346,6 +345,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                        extractDimensions(e.bit.dimensions),
                        extractDimensions(e.bit.tags),
         )
+        //FIXME: Add PersistedEntry, RejectedEntry ecc
       case e: DeleteEntry =>
         serializeDeleteByQuery(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric, e.expression)
       case e: DeleteNamespaceEntry => serializeCommons(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace)
@@ -426,7 +426,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   }
 
   /**
-    * Serializes [[InsertEntry]] and [[RejectEntry]]
+    * Serializes bit related entries
     *
     * @param className class canonicalName
     * @param ts timestamp

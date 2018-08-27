@@ -58,7 +58,7 @@ import org.apache.lucene.store.MMapDirectory
 import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
@@ -100,10 +100,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     TimeUnit.SECONDS)
   import context.dispatcher
 
-  val commitLogEnabled: Boolean = context.system.settings.config.getBoolean("nsdb.commit-log.enabled")
   log.info("WriteCoordinator is ready.")
-  if (!commitLogEnabled)
-    log.info("Commit Log is disabled")
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
@@ -138,45 +135,19 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                              ts: Long,
                              metric: String,
                              nodeName: String,
-                             action: CommitLoggerAction): Future[CommitLogResponse] = {
-    if (commitLogEnabled && commitLogCoordinators.get(nodeName).isDefined)
-      (commitLogCoordinators(nodeName) ? WriteToCommitLog(db = db,
-                                                          namespace = namespace,
-                                                          metric = metric,
-                                                          ts = ts,
-                                                          action = action,
-                                                          Location(metric, nodeName, 0, 0)))
-        .mapTo[CommitLogResponse]
-    else if (commitLogEnabled) {
-      Future.successful(
-        WriteToCommitLogFailed(db, namespace, ts, metric, "CommitLog enabled but not defined, shutting down"))
-    } else
-      //FIXME just to make it compile
-      Future.successful(
-        WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric, Location(metric, nodeName, 0, 0)))
-  }
-
-  private def writeBitToComitLog(db: String,
-                                 namespace: String,
-                                 ts: Long,
-                                 metric: String,
-                                 nodeName: String,
-                                 bitEntryAction: BitEntryAction): Future[CommitLogResponse] = {
-    if (commitLogEnabled && commitLogCoordinators.get(nodeName).isDefined)
-      (commitLogCoordinators(nodeName) ? WriteBitToCommitLog(db = db,
-                                                             namespace = namespace,
-                                                             metric = metric,
-                                                             ts = ts,
-                                                             action = bitEntryAction,
-                                                             Location(metric, nodeName, 0, 0)))
-        .mapTo[CommitLogResponse]
-    else if (commitLogEnabled) {
-      Future.successful(
-        WriteToCommitLogFailed(db, namespace, ts, metric, "CommitLog enabled but not defined, shutting down"))
-    } else
-      //FIXME just to make it compile
-      Future.successful(
-        WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric, Location(metric, nodeName, 0, 0)))
+                             action: CommitLoggerAction,
+                             location: Location): Future[CommitLogResponse] = {
+    commitLogCoordinators.get(nodeName) match {
+      case Some(commitLogCoordinator) =>
+        (commitLogCoordinator ? WriteToCommitLog(db = db,
+                                                 namespace = namespace,
+                                                 metric = metric,
+                                                 ts = ts,
+                                                 action = action,
+                                                 location)).mapTo[CommitLogResponse]
+      case None =>
+        Future(WriteToCommitLogFailed(db, namespace, ts, metric, "Commit log not existing for requested node"))
+    }
   }
 
   /**
@@ -309,17 +280,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       // Case covering request for a metric not waiting for commit-log ack
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+      val a = getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
-
-          val commitLogResponses =
+          val commitLogResponses: Future[Seq[CommitLogResponse]] =
             Future
               .sequence(consistentLocations.map { loc =>
-                writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+                writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
               })
-
           val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
             .flatMap {
               case acks: Seq[WriteToCommitLogSucceeded] =>
@@ -351,7 +320,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
 
           Future
             .sequence(eventualLocations.map { loc =>
-              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
                 .flatMap {
                   case WriteToCommitLogSucceeded(_, _, _, _, _) =>
                     accumulateRecord(db, namespace, metric, bit, loc)
@@ -360,13 +329,21 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             })
 
           accumulatedResponses
+
         }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), "", "", DeleteNamespaceAction)
+      //FIXME add cluster aware deletion
+      writeCommitLog(db,
+                     namespace,
+                     System.currentTimeMillis(),
+                     "",
+                     commitLogCoordinators.keys.head,
+                     DeleteNamespaceAction,
+                     Location("", commitLogCoordinators.keys.head, 0, 0))
         .flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty) {
@@ -379,8 +356,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         }
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteAction(statement))
-        .flatMap {
+      //FIXME add cluster aware deletion
+      writeCommitLog(
+        db,
+        namespace,
+        System.currentTimeMillis(),
+        metric,
+        commitLogCoordinators.keys.head,
+        DeleteAction(statement),
+        Location(metric, commitLogCoordinators.keys.head, 0, 0)
+      ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
@@ -410,8 +395,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteMetricAction)
-        .flatMap {
+      //FIXME add cluster aware deletion
+      writeCommitLog(
+        db,
+        namespace,
+        System.currentTimeMillis(),
+        metric,
+        commitLogCoordinators.keys.head,
+        DeleteMetricAction,
+        Location(metric, commitLogCoordinators.keys.head, 0, 0)
+      ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
               Future(MetricDropped(db, namespace, metric))
