@@ -61,11 +61,11 @@ case class Bit(timestamp: Long,
     m.map { case (k, v) => k -> (v, classType) }
 
   /**
-  * Compare the bit to another one ignoring the timestamp.
+    * Compare the bit to another one ignoring the timestamp.
     * @param other the bit to be compared
     * @return true if everything but timestamp is equals
     */
-  def timelessEquals(other: Bit): Boolean  = {
+  def timelessEquals(other: Bit): Boolean = {
     this.value == other.value && this.dimensions == other.dimensions && this.tags == other.tags
   }
 

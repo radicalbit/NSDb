@@ -60,10 +60,3 @@ class WebSocketClient(host: String, port: Int) extends LazyLogging with Synchron
     ws ! TextMessage.Strict(
       s"""{"db":"$db","namespace":"$namespace","metric":"$metric","queryString":"select * from $metric limit 1"}""")
 }
-
-object WebSocketClient extends App {
-
-  val x = new WebSocketClient("localhost", 9010)
-
-  x.subscribe("db", "namespace", "metirc")
-}

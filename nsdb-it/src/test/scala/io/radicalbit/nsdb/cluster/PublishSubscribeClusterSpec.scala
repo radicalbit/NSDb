@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.cluster.{Cluster, MemberStatus}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordsPublished
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.minicluster.MiniClusterSpec
@@ -73,15 +73,10 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
     assert(firstSubscriptionBuffer.length == 1)
 
-    val y = parse(firstSubscriptionBuffer.head.asTextMessage.getStrictText)
-    val x = (parse(firstSubscriptionBuffer.head.asTextMessage.getStrictText) \ "records")
+    val firstSubscriptionResponse =
+      parse(firstSubscriptionBuffer.head.asTextMessage.getStrictText)
 
-    val z = y.extractOpt[Seq[SubscribedByQueryString]]
-
-    val firstSubscribedResponse =  (parse(firstSubscriptionBuffer.head.asTextMessage.getStrictText) \ "records").extractOpt[Seq[Bit]]
-    assert(firstSubscribedResponse.isDefined)
-    assert(firstSubscribedResponse.get.size == 1)
-    assert(firstSubscribedResponse.get.head.timelessEquals(bit))
+    assert((firstSubscriptionResponse \ "records").extract[JArray].arr.size == 1)
 
     secondNodeWsClient.subscribe("db", "namespace", "metric2")
 
@@ -89,35 +84,33 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
     assert(secondSubscriptionBuffer.length == 1)
 
-    val secondSubscribedResponse =  parse(secondSubscriptionBuffer.head.asTextMessage.getStrictText).extractOpt[SubscribedByQueryString]
-    assert(secondSubscribedResponse.isDefined)
-    assert(secondSubscribedResponse.get.records.size == 1)
-    assert(secondSubscribedResponse.get.records.head.timelessEquals(bit))
+    val secondSubscriptionResponse =
+      parse(secondSubscriptionBuffer.head.asTextMessage.getStrictText)
+
+    assert((secondSubscriptionResponse \ "records").extract[JArray].arr.size == 1)
 
     //streaming phase
     Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
     Await.result(nsdbSecondNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds)
 
-
     val firstStreamingBuffer = firstNodeWsClient.receivedBuffer()
     assert(firstStreamingBuffer.length == 1)
 
-    val firstStreamingResponse =  parse(firstStreamingBuffer.head.asTextMessage.getStrictText).extractOpt[RecordsPublished]
+    val firstStreamingResponse =
+      parse(firstStreamingBuffer.head.asTextMessage.getStrictText)
 
-    assert(firstStreamingResponse.isDefined)
-    assert(firstStreamingResponse.get.records.size == 1)
-    assert(firstStreamingResponse.get.records.head.timelessEquals(bit))
+    assert((firstStreamingResponse \ "metric").extract[String] == "metric1")
+    assert((firstStreamingResponse \ "records").extract[JArray].arr.size == 1)
 
     val secondStreamingBuffer = secondNodeWsClient.receivedBuffer()
 
     assert(firstSubscriptionBuffer.length == 1)
 
-    val secondStreamingResponse =  parse(secondStreamingBuffer.head.asTextMessage.getStrictText).extractOpt[RecordsPublished]
+    val secondStreamingResponse =
+      parse(secondStreamingBuffer.head.asTextMessage.getStrictText)
 
-    assert(secondStreamingResponse.isDefined)
-    assert(secondStreamingResponse.get.records.size == 1)
-    assert(secondStreamingResponse.get.records.head.timelessEquals(bit))
-
+    assert((secondStreamingResponse \ "metric").extract[String] == "metric2")
+    assert((secondStreamingResponse \ "records").extract[JArray].arr.size == 1)
   }
 
   test("support cross-node subscription and publishing") {

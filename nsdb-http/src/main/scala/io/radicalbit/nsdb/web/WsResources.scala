@@ -33,7 +33,7 @@ import org.json4s.jackson.Serialization.write
 
 trait WsResources {
 
-  implicit val formats: DefaultFormats.type
+  implicit def formats: Formats
 
   implicit def system: ActorSystem
 
