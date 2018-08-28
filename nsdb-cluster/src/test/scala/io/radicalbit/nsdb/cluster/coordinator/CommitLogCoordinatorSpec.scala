@@ -64,13 +64,18 @@ class CommitLogCoordinatorSpec
       }
     }
     //FIXME: Actually not implemented
-//    "write a reject entry" in within(5.seconds) {
-//      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
-//      awaitAssert {
-//        commitLogCoordinatorActor ! WriteToCommitLog("db1", "namespace1", "metric1", 1L, RejectedEntryAction(bit), Location("metric", "", 1, 1))
-//        expectMsgType[WriteToCommitLogSucceeded]
-//      }
-//    }
+    "write a reject entry" in within(5.seconds) {
+      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
+      awaitAssert {
+        commitLogCoordinatorActor ! WriteToCommitLog("db1",
+                                                     "namespace1",
+                                                     "metric1",
+                                                     1L,
+                                                     RejectedEntryAction(bit),
+                                                     Location("metric", "", 1, 1))
+        expectMsgType[WriteToCommitLogSucceeded]
+      }
+    }
     "write a delete by query" in within(5.seconds) {
       val deleteStatement =
         DeleteSQLStatement("db2", "namespace2", "metric2", Condition(RangeExpression("age", 1L, 2L)))

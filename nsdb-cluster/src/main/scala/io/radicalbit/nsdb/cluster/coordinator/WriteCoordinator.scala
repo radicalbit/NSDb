@@ -280,7 +280,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
       // Case covering request for a metric not waiting for commit-log ack
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      val a = getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
