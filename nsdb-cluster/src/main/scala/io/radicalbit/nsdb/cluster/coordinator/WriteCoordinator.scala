@@ -58,10 +58,8 @@ import org.apache.lucene.store.MMapDirectory
 import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-
-import scala.reflect.runtime.universe._
 
 object WriteCoordinator {
 
@@ -234,14 +232,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
           }
       }
 
-    if (filteredResponses._1.size == responses.size)
+    if (filteredResponses._1.size == responses.size) {
       Future
         .sequence(filteredResponses._1.map { commitLogSuccess =>
           accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
         })
         .map { results =>
           handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
-        } else
+        }
+    } else
       //FIXME add compensation for commit log
       Future(RecordRejected(db, namespace, metric, bit, List("")))
   }
