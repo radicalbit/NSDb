@@ -130,6 +130,18 @@ trait CommitLogWriterActor extends ActorPathLogging {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
+    case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: PersistedEntryAction, location) =>
+      createEntry(PersistedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+        case Failure(ex) =>
+          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
+      }
+    case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: RejectedEntryAction, location) =>
+      createEntry(RejectedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+        case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+        case Failure(ex) =>
+          sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
+      }
 
     case _ @WriteToCommitLog(db, namespace, metric, timestamp, deleteEntryAction: DeleteAction, location) =>
       createEntry(DeleteEntry(db,
