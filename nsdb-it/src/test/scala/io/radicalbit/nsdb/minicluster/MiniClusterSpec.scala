@@ -1,9 +1,12 @@
 package io.radicalbit.nsdb.minicluster
-import org.scalatest.{BeforeAndAfterAll, FunSuite, OneInstancePerTest, Sequential}
+import org.json4s.DefaultFormats
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll {
 
   val nodesNumber: Int
+
+  implicit val formats = DefaultFormats
 
   lazy val minicluster: NsdbMiniCluster = new MiniClusterStarter(nodesNumber)
 

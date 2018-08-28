@@ -85,7 +85,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
   private val writeCoordinator =
     context.actorOf(
       WriteCoordinator
-        .props(metadataCoordinator, schemaCoordinator, publisherActor, mediator)
+        .props(metadataCoordinator, schemaCoordinator, mediator)
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"write-coordinator_$nodeName"
     )
@@ -118,6 +118,9 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     case GetCommitLogCoordinators =>
       log.debug("gossiping commit logs for node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
+    case GetPublishers =>
+      log.debug("gossiping publishers for node {}", nodeName)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))
   }
 }
 

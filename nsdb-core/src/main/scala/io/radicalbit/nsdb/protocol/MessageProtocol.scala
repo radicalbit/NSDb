@@ -70,11 +70,13 @@ object MessageProtocol {
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String)
+    case class SubscribePublisher(actor: ActorRef, nodeName: String)
 
     case object GetConnectedDataNodes
 
     case object GetMetricsDataActors
     case object GetCommitLogCoordinators
+    case object GetPublishers
   }
 
   /**
@@ -119,8 +121,8 @@ object MessageProtocol {
     case class AllMetricsDeleted(db: String, namespace: String)
 
     case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String)
-
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
+    case class PublisherSubscribed(actor: ActorRef, nodeName: String)
 
     case class ConnectedDataNodesGot(nodes: Seq[String])
   }

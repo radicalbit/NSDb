@@ -46,12 +46,13 @@ trait NsdbMiniCluster extends LazyLogging {
         commitLogDir = s"$clFolder$i"
       )).toSet
 
-  def start(cleanup: Boolean = false) = {
+  def start(cleanup: Boolean = false): Unit = {
     if (cleanup)
       FileUtils.deleteDirectory(new File(rootFolder))
     nodes
     Thread.sleep(5000)
   }
+
   def stop(): Unit = {
     import scala.concurrent.duration._
     nodes.foreach(n => Await.result(n.system.terminate(), 10.seconds))

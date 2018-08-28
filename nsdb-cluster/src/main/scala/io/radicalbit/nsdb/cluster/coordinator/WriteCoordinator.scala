@@ -63,11 +63,8 @@ import scala.concurrent.duration.FiniteDuration
 
 object WriteCoordinator {
 
-  def props(metadataCoordinator: ActorRef,
-            schemaCoordinator: ActorRef,
-            publisherActor: ActorRef,
-            mediator: ActorRef): Props =
-    Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, publisherActor, mediator))
+  def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
+    Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
 
   case class Restore(path: String)
   case class Restored(path: String)
@@ -83,12 +80,8 @@ object WriteCoordinator {
   * Actor that receives every write (or delete) request and coordinates them among internal data storage.
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator   [[SchemaCoordinator]] the namespace schema actor.
-  * @param publisherActor       [[io.radicalbit.nsdb.actors.PublisherActor]] the publisher actor.
   */
-class WriteCoordinator(metadataCoordinator: ActorRef,
-                       schemaCoordinator: ActorRef,
-                       publisherActor: ActorRef,
-                       mediator: ActorRef)
+class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
     with NsdbPerfLogger
     with Stash {
@@ -109,6 +102,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
 
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
+  private val publishers: mutable.Map[String, ActorRef]            = mutable.Map.empty
 
   private val ackPendingMetrics: mutable.Set[AckPendingMetric] = mutable.Set.empty
 
@@ -262,7 +256,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     if (filteredResponses._1.size == responses.size) {
       unstashAll()
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-      publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+      publishers.foreach {
+        case (_, publisherActor) => publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+      }
       InputMapped(db, namespace, metric, bit)
     } else {
       //FIXME add compensation for accumulation
@@ -281,6 +277,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetPublishers)
       log.debug("writecoordinator data actor : {}", metricsDataActors.size)
       log.debug("writecoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
@@ -307,6 +304,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         log.info(s"subscribed commit log actor for node $nodeName")
       }
       sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
+    case SubscribePublisher(actor: ActorRef, nodeName) =>
+      if (!publishers.get(nodeName).contains(actor)) {
+        publishers += (nodeName -> actor)
+        log.info(s"subscribed publisher actor for node $nodeName")
+      }
+      sender() ! PublisherSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case msg =>
@@ -327,6 +330,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         log.info(s"subscribed commit log actor for node $nodeName")
       }
       sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
+    case SubscribePublisher(actor: ActorRef, nodeName) =>
+      if (!publishers.get(nodeName).contains(actor)) {
+        publishers += (nodeName -> actor)
+        log.info(s"subscribed publisher actor for node $nodeName")
+      }
+      sender() ! PublisherSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case MapInput(ts, db, namespace, metric, bit)
@@ -352,7 +361,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
             .flatMap { results =>
               handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema)
             }
-
           Future
             .sequence(eventualLocations.map { loc =>
               writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
