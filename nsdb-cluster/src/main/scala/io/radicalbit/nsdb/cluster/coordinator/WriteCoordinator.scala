@@ -200,7 +200,11 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
     * @param bit the bit.
     * @param location the location to write the bit in.
     */
-  def accumulateRecord(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
+  def accumulateRecord(db: String,
+                       namespace: String,
+                       metric: String,
+                       bit: Bit,
+                       location: Location): Future[WriteCoordinatorResponse] =
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
@@ -214,52 +218,59 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
 
-  def handleCommitLogCoordinatorResponses[A: TypeTag](list: A,
-                                                      db: String,
-                                                      namespace: String,
-                                                      metric: String,
-                                                      bit: Bit,
-                                                      schema: Schema): Future[WriteCoordinatorResponse] = {
-    typeOf[A] match {
-      case acks if acks =:= typeOf[Seq[WriteToCommitLogSucceeded]] =>
-        Future
-          .sequence(acks.asInstanceOf[Seq[WriteToCommitLogSucceeded]].map { commitLogSuccess =>
-            accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
-          })
-          .map { results =>
-            handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+  def handleCommitLogCoordinatorResponses(responses: Seq[CommitLogResponse],
+                                          db: String,
+                                          namespace: String,
+                                          metric: String,
+                                          bit: Bit,
+                                          schema: Schema): Future[WriteCoordinatorResponse] = {
+    val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
+    val filteredResponses: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) =
+      responses.foldRight(emptyLists) {
+        case (f, (as, ps)) =>
+          f match {
+            case a @ WriteToCommitLogSucceeded(_, _, _, _, _) => (a :: as, ps)
+            case p @ WriteToCommitLogFailed(_, _, _, _, _)    => (as, p :: ps)
           }
-      case res =>
-        val r                 = res.asInstanceOf[Seq[CommitLogResponse]]
-        val toCompensateStage = r.filter(_.isInstanceOf[WriteToCommitLogSucceeded])
-        //FIXME add compensation commit log success
-        val toCompensateCL = r.filter(!_.isInstanceOf[WriteToCommitLogFailed])
-        //FIXME add compensation commit log failures
-        Future(RecordRejected(db, namespace, metric, bit, List("")))
-    }
+      }
+
+    if (filteredResponses._1.size == responses.size)
+      Future
+        .sequence(filteredResponses._1.map { commitLogSuccess =>
+          accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
+        })
+        .map { results =>
+          handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+        } else
+      //FIXME add compensation for commit log
+      Future(RecordRejected(db, namespace, metric, bit, List("")))
   }
 
-  def handleAccumulatorResponses[A: TypeTag](responses: A,
-                                             db: String,
-                                             namespace: String,
-                                             metric: String,
-                                             bit: Bit,
-                                             schema: Schema): WriteCoordinatorResponse =
-    typeOf[A] match {
-      case acks if acks =:= typeOf[Seq[RecordAdded]] =>
-        unstashAll()
-        ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-        publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-        InputMapped(db, namespace, metric, bit)
-      case res =>
-        val r                 = res.asInstanceOf[Seq[WriteCoordinatorResponse]]
-        val toCompensateStage = r.filter(_.isInstanceOf[RecordAdded])
-        //FIXME add compensation for accumulation success
-        val toCompensateCL = r.filter(!_.isInstanceOf[RecordRejected])
-        //FIXME add compensation for accumulation failures
-        ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-        RecordRejected(db, namespace, metric, bit, List(""))
+  def handleAccumulatorResponses(responses: Seq[WriteCoordinatorResponse],
+                                 db: String,
+                                 namespace: String,
+                                 metric: String,
+                                 bit: Bit,
+                                 schema: Schema): WriteCoordinatorResponse = {
+    val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
+    val filteredResponses: (List[RecordAdded], List[RecordRejected]) = responses.foldRight(emptyLists) {
+      case (f, (as, ps)) =>
+        f match {
+          case a @ RecordAdded(_, _, _, _)       => (a :: as, ps)
+          case p @ RecordRejected(_, _, _, _, _) => (as, p :: ps)
+        }
     }
+    if (filteredResponses._1.size == responses.size) {
+      unstashAll()
+      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
+      publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+      InputMapped(db, namespace, metric, bit)
+    } else {
+      //FIXME add compensation for accumulation
+      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
+      RecordRejected(db, namespace, metric, bit, List(""))
+    }
+  }
 
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
@@ -339,7 +350,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef,
                 writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
               })
           val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
-            .flatMap { results: Seq[CommitLogResponse] =>
+            .flatMap { results =>
               handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema)
             }
 

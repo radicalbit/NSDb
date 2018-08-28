@@ -58,7 +58,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val tags: Map[String, JSerializable] =
           Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
         val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
-        val id        = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
           ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
