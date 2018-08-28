@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{DeleteEntry, ReceivedEntry}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLogBitEntry, DeleteEntry, ReceivedEntry}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
@@ -35,8 +35,9 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val ts        = 1500909299161L
         val metric    = "test-metric"
         val bit       = Bit(ts, 0, Map("dimension1" -> "value1"), Map("tag1" -> "tag1"))
+        val id        = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
-          ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
+          ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
@@ -57,8 +58,9 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val tags: Map[String, JSerializable] =
           Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
         val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id        = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
-          ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
+          ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)

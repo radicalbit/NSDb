@@ -82,14 +82,58 @@ object CommitLogWriterActor {
     def timestamp: Long
   }
 
-  case class ReceivedEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
-      extends CommitLogEntry
-  case class AccumulatedEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
-      extends CommitLogEntry
-  case class PersistedEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
-      extends CommitLogEntry
-  case class RejectedEntry(db: String, namespace: String, metric: String, override val timestamp: Long, bit: Bit)
-      extends CommitLogEntry
+  sealed trait CommitLogBitEntry extends CommitLogEntry {
+    def id: Int
+  }
+
+  case object CommitLogBitEntry {
+    case class ClassBitIdentifier(db: String, namespace: String, metric: String, bit: Bit)
+
+    /**
+      * Utility method used to generate an identifier for a bit
+      * timestamp coming from [[CommitLogEntry]] is purposely not taken in account
+      * used to intify persisted events related to the same logical [[Bit]]
+      *
+      * @param db database names
+      * @param namespace namespace name
+      * @param metric metric name
+      * @param bit [[Bit]] entity
+      * @return hash code representing the actual bit considering also the location (db, namespace, metric)
+      */
+    def bitIdentifier(db: String, namespace: String, metric: String, bit: Bit): Int = {
+      val identifier = ClassBitIdentifier(db, namespace, metric, bit)
+      identifier.hashCode()
+    }
+  }
+
+  case class ReceivedEntry(db: String,
+                           namespace: String,
+                           metric: String,
+                           override val timestamp: Long,
+                           bit: Bit,
+                           id: Int)
+      extends CommitLogBitEntry
+  case class AccumulatedEntry(db: String,
+                              namespace: String,
+                              metric: String,
+                              override val timestamp: Long,
+                              bit: Bit,
+                              id: Int)
+      extends CommitLogBitEntry
+  case class PersistedEntry(db: String,
+                            namespace: String,
+                            metric: String,
+                            override val timestamp: Long,
+                            bit: Bit,
+                            id: Int)
+      extends CommitLogBitEntry
+  case class RejectedEntry(db: String,
+                           namespace: String,
+                           metric: String,
+                           override val timestamp: Long,
+                           bit: Bit,
+                           id: Int)
+      extends CommitLogBitEntry
   case class DeleteEntry(db: String,
                          namespace: String,
                          metric: String,
@@ -118,26 +162,50 @@ trait CommitLogWriterActor extends ActorPathLogging {
   final def receive: Receive = {
 
     case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: ReceivedEntryAction, location) =>
-      createEntry(ReceivedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+      createEntry(
+        ReceivedEntry(db,
+                      namespace,
+                      metric,
+                      timestamp,
+                      bitEntryAction.bit,
+                      CommitLogBitEntry.bitIdentifier(db, namespace, metric, bitEntryAction.bit))) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
 
     case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: AccumulatedEntryAction, location) =>
-      createEntry(AccumulatedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+      createEntry(
+        AccumulatedEntry(db,
+                         namespace,
+                         metric,
+                         timestamp,
+                         bitEntryAction.bit,
+                         CommitLogBitEntry.bitIdentifier(db, namespace, metric, bitEntryAction.bit))) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
     case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: PersistedEntryAction, location) =>
-      createEntry(PersistedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+      createEntry(
+        PersistedEntry(db,
+                       namespace,
+                       metric,
+                       timestamp,
+                       bitEntryAction.bit,
+                       CommitLogBitEntry.bitIdentifier(db, namespace, metric, bitEntryAction.bit))) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
     case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: RejectedEntryAction, location) =>
-      createEntry(RejectedEntry(db, namespace, metric, timestamp, bitEntryAction.bit)) match {
+      createEntry(
+        RejectedEntry(db,
+                      namespace,
+                      metric,
+                      timestamp,
+                      bitEntryAction.bit,
+                      CommitLogBitEntry.bitIdentifier(db, namespace, metric, bitEntryAction.bit))) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)

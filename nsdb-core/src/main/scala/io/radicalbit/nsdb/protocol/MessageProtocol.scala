@@ -112,7 +112,7 @@ object MessageProtocol {
     case class AllSchemasDeleted(db: String, namespace: String)
 
     case class CountGot(db: String, namespace: String, metric: String, count: Int)
-    case class RecordAdded(db: String, namespace: String, metric: String, record: Bit)
+    case class RecordAdded(db: String, namespace: String, metric: String, record: Bit) extends WriteCoordinatorResponse
     case class RecordRejected(db: String, namespace: String, metric: String, record: Bit, reasons: List[String])
         extends WriteCoordinatorResponse
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
