@@ -3,26 +3,48 @@ import java.util.concurrent.atomic.AtomicReference
 
 import scala.collection.mutable.ListBuffer
 
+/**
+  * Provides utilities for managing a thread-safe buffer leveraging [[AtomicReference]] capabilities.
+  * @tparam T Buffer element type.
+  */
 trait SynchronizedBuffer[T] {
 
-  private[this] val buffer = new AtomicReference(ListBuffer[T]())
+  private[this] val _buffer = new AtomicReference(ListBuffer[T]())
 
-  def accumulate(fn: T): Unit = {
-    update(_ += fn)
+  /**
+    * Add an element to the buffer.
+    * @param element the element to accumulate.
+    */
+  def accumulate(element: T): Unit = {
+    update(_ += element)
   }
 
-  def pop(ref: T): Unit = {
-    update(_ -= ref)
+  /**
+    * Removes an element from the buffer.
+    * @param element the element to be removed.
+    */
+  def pop(element: T): Unit = {
+    update(_ -= element)
   }
 
-  def clearBuffer() = buffer.compareAndSet(buffer.get(), ListBuffer.empty)
+  /**
+    * Remove all the elements from the buffer.
+    */
+  def clearBuffer(): Boolean = _buffer.compareAndSet(_buffer.get(), ListBuffer.empty)
 
-  def getBuffer() = buffer.get()
+  /**
+    * @return the buffer state.
+    */
+  def buffer: ListBuffer[T] = _buffer.get()
 
+  /**
+    * Generic method to update the buffer given a transformation function
+    * @param fn the transformation function to apply to the buffer
+    */
   private[this] def update(fn: ListBuffer[T] => ListBuffer[T]): Unit = {
     while (true) {
-      val listenerMap = buffer.get()
-      if (buffer.compareAndSet(listenerMap, fn(listenerMap)))
+      val listenerMap = _buffer.get()
+      if (_buffer.compareAndSet(listenerMap, fn(listenerMap)))
         return // success
     }
   }

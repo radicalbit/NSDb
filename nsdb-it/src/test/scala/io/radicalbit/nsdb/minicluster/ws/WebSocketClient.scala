@@ -12,6 +12,11 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
+/**
+  * Utility class that creates a WebSocket with convenience methods to subscribe to a NSDb query
+  * @param host the host to connect to
+  * @param port the port to connect to
+  */
 class WebSocketClient(host: String, port: Int) extends LazyLogging with SynchronizedBuffer[Message] {
   implicit val system       = ActorSystem()
   implicit val materializer = ActorMaterializer()
@@ -25,7 +30,7 @@ class WebSocketClient(host: String, port: Int) extends LazyLogging with Synchron
   val messageSink: Sink[Message, NotUsed] =
     Flow[Message]
       .map { message =>
-        logger.info(s"Received text message: [$message]")
+        logger.debug(s"Received text message: [$message]")
         accumulate(message)
       }
       .to(Sink.ignore)
@@ -51,7 +56,7 @@ class WebSocketClient(host: String, port: Int) extends LazyLogging with Synchron
   def receivedBuffer(clear: Boolean = true): ListBuffer[Message] = {
     Thread.sleep(1000)
 
-    val buf = getBuffer()
+    val buf = buffer
     if (clear) clearBuffer()
     buf
   }
