@@ -31,8 +31,6 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.duration._
-
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(_) =>
@@ -40,7 +38,7 @@ class FakeReadCoordinatorActor extends Actor {
   }
 }
 
-class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers with WsResources {
+class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers with WsResources {
 
   implicit val formats = DefaultFormats
 
@@ -103,10 +101,10 @@ class WebSocketTest() extends FlatSpec with ScalatestRouteTest with Matchers wit
         val response = parse(subscribed).extractOpt[SubscribedByQueryString].get
 
         wsClient.sendMessage(
-          s"""{"db":"db","namespace":"registry","metric":"people","quid":${response.quid}} """
+          s"""{"db":"db","namespace":"registry","metric":"people","quid":"${response.quid}"} """
         )
         val subscribedQId = wsClient.expectMessage().asTextMessage.getStrictText
-        parse(subscribed).extractOpt[SubscribedByQuid].isDefined shouldBe true
+        parse(subscribedQId).extractOpt[SubscribedByQuid].isDefined shouldBe true
 
         //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
       }
