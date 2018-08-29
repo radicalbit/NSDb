@@ -219,10 +219,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
     val filteredResponses: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) =
       responses.foldRight(emptyLists) {
-        case (f, (as, ps)) =>
-          f match {
-            case a @ WriteToCommitLogSucceeded(_, _, _, _, _) => (a :: as, ps)
-            case p @ WriteToCommitLogFailed(_, _, _, _, _)    => (as, p :: ps)
+        case (res, (successes, failures)) =>
+          res match {
+            case s @ WriteToCommitLogSucceeded(_, _, _, _, _) => (s :: successes, failures)
+            case f @ WriteToCommitLogFailed(_, _, _, _, _)    => (successes, f :: failures)
           }
       }
 
@@ -247,10 +247,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  schema: Schema): WriteCoordinatorResponse = {
     val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
     val filteredResponses: (List[RecordAdded], List[RecordRejected]) = responses.foldRight(emptyLists) {
-      case (f, (as, ps)) =>
-        f match {
-          case a @ RecordAdded(_, _, _, _)       => (a :: as, ps)
-          case p @ RecordRejected(_, _, _, _, _) => (as, p :: ps)
+      case (res, (successes, failures)) =>
+        res match {
+          case s @ RecordAdded(_, _, _, _)       => (s :: successes, failures)
+          case f @ RecordRejected(_, _, _, _, _) => (successes, f :: failures)
         }
     }
     if (filteredResponses._1.size == responses.size) {
