@@ -282,7 +282,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       }
       InputMapped(db, namespace, metric, bit)
     } else {
-      //FIXME add compensation for accumulation
+      succeedResponses.foreach { response =>
+        metricsDataActors.get(response.location.node) match {
+          case Some(mda) => mda ! DeleteRecordFromShard(db, namespace, response.location, bit)
+          case None      =>
+        }
+      }
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       RecordRejected(db, namespace, metric, bit, List(""))
     }
