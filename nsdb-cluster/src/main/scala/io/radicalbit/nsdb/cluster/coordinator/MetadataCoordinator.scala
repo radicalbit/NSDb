@@ -102,25 +102,31 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) =
     Future
-      .sequence(locations.map(location =>
-        cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location)))
-      .flatMap {
-        case locations: Seq[LocationCached] =>
-          locations.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
-          Future(LocationsAdded(db, namespace, locations.map(_.value)))
-        //some error occurred
-        case results: Seq[_] =>
-          val successToBeEvicted = results.collect {
-            case e: LocationCached => e.value
+      .sequence(
+        locations.map(location =>
+          (cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location))
+            .mapTo[AddLocationResponse]))
+      .flatMap { responses =>
+        val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =
+          responses.foldRight((List.empty[LocationCached], List.empty[PutLocationInCacheFailed])) {
+            case (f, (successAcc, errorAcc)) =>
+              f match {
+                case success: LocationCached         => (success :: successAcc, errorAcc)
+                case error: PutLocationInCacheFailed => (successAcc, error :: errorAcc)
+              }
           }
-          val errors = results.collect {
-            case e: PutLocationInCacheFailed => e.location
-          }
+
+        if (successResponses.size == responses.size) {
+          successResponses.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
+          Future(LocationsAdded(db, namespace, successResponses.map(_.value)))
+        } else {
           Future
-            .sequence(successToBeEvicted.map(location => cache ? EvictLocation(db, namespace, location)))
+            .sequence(successResponses.map(location => cache ? EvictLocation(db, namespace, location.value)))
             .flatMap { _ =>
-              Future(AddLocationsFailed(db, namespace, errors))
+              Future(AddLocationsFailed(db, namespace, errorResponses.map(_.location)))
             }
+        }
+
       }
 
   /**
@@ -165,8 +171,8 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                     val locations = nodes.map(Location(metric, _, start, end)).toSeq
 
                     performAddLocationIntoCache(db, namespace, locations).map {
-                      case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                      case _                               => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                      case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
+                      case _                          => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                     }
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
@@ -185,8 +191,8 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                 val locations = nodes.map(Location(metric, _, start, end)).toSeq
 
                 performAddLocationIntoCache(db, namespace, locations).map {
-                  case LocationsAdded(_, _, locations) => LocationsGot(db, namespace, metric, locations)
-                  case _                               => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                  case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
+                  case _                          => GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
           case _ =>
