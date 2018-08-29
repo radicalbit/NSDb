@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{DeleteEntry, InsertEntry}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLogBitEntry, DeleteEntry, ReceivedEntry}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
@@ -34,9 +34,10 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace = "test-namespace"
         val ts        = 1500909299161L
         val metric    = "test-metric"
-        val bit       = Bit(ts, 0, Map("dimension1" -> "value1"), Map.empty)
+        val bit       = Bit(ts, 0, Map("dimension1" -> "value1"), Map("tag1" -> "tag1"))
+        val id        = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
-          InsertEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
+          ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
@@ -54,9 +55,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val metric    = "test1-metric"
         val dimensions: Map[String, JSerializable] =
           Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
-        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = Map.empty, value = 0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
-          InsertEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit)
+          ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)

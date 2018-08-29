@@ -79,6 +79,9 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
   private var fileOS: FileOutputStream = _
 
   override def preStart(): Unit = {
+
+    new File(directory).mkdirs()
+
     val existingFiles = Option(Paths.get(directory).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)

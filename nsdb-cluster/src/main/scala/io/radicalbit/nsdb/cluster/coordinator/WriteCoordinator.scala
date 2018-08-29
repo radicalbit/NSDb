@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
-import akka.dispatch.ControlMessage
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
@@ -67,11 +66,13 @@ object WriteCoordinator {
   def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
     Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
 
-  case class Restore(path: String)  extends ControlMessage
-  case class Restored(path: String) extends ControlMessage
+  case class Restore(path: String)
+  case class Restored(path: String)
 
-  case class CreateDump(inputPath: String, targets: Seq[DumpTarget]) extends ControlMessage
-  case class DumpCreated(inputPath: String)                          extends ControlMessage
+  case class CreateDump(inputPath: String, targets: Seq[DumpTarget])
+  case class DumpCreated(inputPath: String)
+
+  case class AckPendingMetric(db: String, namespace: String, metric: String)
 
 }
 
@@ -92,10 +93,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     TimeUnit.SECONDS)
   import context.dispatcher
 
-  val commitLogEnabled: Boolean = context.system.settings.config.getBoolean("nsdb.commit-log.enabled")
   log.info("WriteCoordinator is ready.")
-  if (!commitLogEnabled)
-    log.info("Commit Log is disabled")
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
@@ -105,6 +103,13 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
   private val publishers: mutable.Map[String, ActorRef]            = mutable.Map.empty
+
+  /**
+    * This mutable state is aimed to store metric for which the actor is waiting for CommitLog ack
+    * If a metric, identified according to its "coordinates" in [[AckPendingMetric]], is contained in this Set
+    * the coming request for the latter will be stashed until CL acks are received.
+    */
+  private val ackPendingMetrics: mutable.Set[AckPendingMetric] = mutable.Set.empty
 
   /**
     * Performs an ask to every namespace actor subscribed.
@@ -129,18 +134,19 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                              ts: Long,
                              metric: String,
                              nodeName: String,
-                             action: CommitLoggerAction): Future[CommitLogResponse] = {
-    if (commitLogEnabled && commitLogCoordinators.get(nodeName).isDefined)
-      (commitLogCoordinators(nodeName) ? WriteToCommitLog(db = db,
-                                                          namespace = namespace,
-                                                          metric = metric,
-                                                          ts = ts,
-                                                          action = action))
-        .mapTo[CommitLogResponse]
-    else if (commitLogEnabled) {
-      Future.successful(
-        WriteToCommitLogFailed(db, namespace, ts, metric, "CommitLog enabled but not defined, shutting down"))
-    } else Future.successful(WriteToCommitLogSucceeded(db = db, namespace = namespace, ts, metric))
+                             action: CommitLoggerAction,
+                             location: Location): Future[CommitLogResponse] = {
+    commitLogCoordinators.get(nodeName) match {
+      case Some(commitLogCoordinator) =>
+        (commitLogCoordinator ? WriteToCommitLog(db = db,
+                                                 namespace = namespace,
+                                                 metric = metric,
+                                                 ts = ts,
+                                                 action = action,
+                                                 location)).mapTo[CommitLogResponse]
+      case None =>
+        Future(WriteToCommitLogFailed(db, namespace, ts, metric, "Commit log not existing for requested node"))
+    }
   }
 
   /**
@@ -191,7 +197,11 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     * @param bit the bit.
     * @param location the location to write the bit in.
     */
-  def accumulateRecord(db: String, namespace: String, metric: String, bit: Bit, location: Location): Future[Any] =
+  def accumulateRecord(db: String,
+                       namespace: String,
+                       metric: String,
+                       bit: Bit,
+                       location: Location): Future[WriteCoordinatorResponse] =
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
@@ -204,6 +214,64 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         log.error(s"no data actor for node ${location.node}")
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
+
+  def handleCommitLogCoordinatorResponses(responses: Seq[CommitLogResponse],
+                                          db: String,
+                                          namespace: String,
+                                          metric: String,
+                                          bit: Bit,
+                                          schema: Schema): Future[WriteCoordinatorResponse] = {
+    val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
+    val (succeedResponses: List[WriteToCommitLogSucceeded], failedResponses: List[WriteToCommitLogFailed]) =
+      responses.foldRight(emptyLists) {
+        case (res, (successes, failures)) =>
+          res match {
+            case s: WriteToCommitLogSucceeded => (s :: successes, failures)
+            case f: WriteToCommitLogFailed    => (successes, f :: failures)
+          }
+      }
+
+    if (succeedResponses.size == responses.size) {
+      Future
+        .sequence(succeedResponses.map { commitLogSuccess =>
+          accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
+        })
+        .map { results =>
+          handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+        }
+    } else
+      //FIXME add compensation for commit log
+      Future(RecordRejected(db, namespace, metric, bit, List("")))
+  }
+
+  def handleAccumulatorResponses(responses: Seq[WriteCoordinatorResponse],
+                                 db: String,
+                                 namespace: String,
+                                 metric: String,
+                                 bit: Bit,
+                                 schema: Schema): WriteCoordinatorResponse = {
+    val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
+    val (succeedResponses: List[RecordAdded], failedResponses: List[RecordRejected]) =
+      responses.foldRight(emptyLists) {
+        case (res, (successes, failures)) =>
+          res match {
+            case s: RecordAdded    => (s :: successes, failures)
+            case f: RecordRejected => (successes, f :: failures)
+          }
+      }
+    if (succeedResponses.size == responses.size) {
+      unstashAll()
+      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
+      publishers.foreach {
+        case (_, publisherActor) => publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+      }
+      InputMapped(db, namespace, metric, bit)
+    } else {
+      //FIXME add compensation for accumulation
+      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
+      RecordRejected(db, namespace, metric, bit, List(""))
+    }
+  }
 
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
@@ -276,56 +344,57 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       sender() ! PublisherSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case MapInput(ts, db, namespace, metric, bit) =>
+    case MapInput(ts, db, namespace, metric, bit)
+        if ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
+      // Case covering request for a metric waiting for commit-log ack
+      log.debug(s"Stashed message due to async ack from commit-log for metric $metric")
+      stash()
+    case MapInput(ts, db, namespace, metric, bit)
+        if !ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
+      // Case covering request for a metric not waiting for commit-log ack
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
       getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
-
-          val consistentResult = Future
-            .sequence(consistentLocations.map { loc =>
-              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
-                .flatMap {
-                  case WriteToCommitLogSucceeded(_, _, _, _) =>
-                    accumulateRecord(db, namespace, metric, bit, loc)
-                  case err: WriteToCommitLogFailed => Future(err)
-                }
-            })
-            .map {
-              case m: Seq[_] if m.isInstanceOf[Seq[RecordAdded]] =>
-                publishers.foreach {
-                  case (_, publisherActor) => publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-                }
-                InputMapped(db, namespace, metric, bit)
-              case r: Seq[_] =>
-                val toCompensateStage = r.filter(_.isInstanceOf[RecordAdded])
-                //FIXME add compensation
-                val toCompensateCL = r.filter(!_.isInstanceOf[WriteToCommitLogFailed])
-                //FIXME add compensation
-                RecordRejected(db, namespace, metric, bit, List(""))
+          val commitLogResponses: Future[Seq[CommitLogResponse]] =
+            Future
+              .sequence(consistentLocations.map { loc =>
+                writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
+              })
+          val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
+            .flatMap { results =>
+              handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema)
             }
           Future
             .sequence(eventualLocations.map { loc =>
-              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, InsertAction(bit))
+              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
                 .flatMap {
-                  case WriteToCommitLogSucceeded(_, _, _, _) =>
+                  case WriteToCommitLogSucceeded(_, _, _, _, _) =>
                     accumulateRecord(db, namespace, metric, bit, loc)
                   case err: WriteToCommitLogFailed => Future(err)
                 }
             })
 
-          consistentResult
+          accumulatedResponses
+
         }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), "", "", DeleteNamespaceAction)
+      //FIXME add cluster aware deletion
+      writeCommitLog(db,
+                     namespace,
+                     System.currentTimeMillis(),
+                     "",
+                     commitLogCoordinators.keys.head,
+                     DeleteNamespaceAction,
+                     Location("", commitLogCoordinators.keys.head, 0, 0))
         .flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _) =>
+          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty) {
               (schemaCoordinator ? msg).map(_ => NamespaceDeleted(db, namespace))
             } else
@@ -336,9 +405,17 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
         .pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteAction(statement))
-        .flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _) =>
+      //FIXME add cluster aware deletion
+      writeCommitLog(
+        db,
+        namespace,
+        System.currentTimeMillis(),
+        metric,
+        commitLogCoordinators.keys.head,
+        DeleteAction(statement),
+        Location(metric, commitLogCoordinators.keys.head, 0, 0)
+      ).flatMap {
+          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
             else
@@ -367,9 +444,17 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      writeCommitLog(db, namespace, System.currentTimeMillis(), metric, "", DeleteMetricAction)
-        .flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _) =>
+      //FIXME add cluster aware deletion
+      writeCommitLog(
+        db,
+        namespace,
+        System.currentTimeMillis(),
+        metric,
+        commitLogCoordinators.keys.head,
+        DeleteMetricAction,
+        Location(metric, commitLogCoordinators.keys.head, 0, 0)
+      ).flatMap {
+          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
               Future(MetricDropped(db, namespace, metric))
             else {

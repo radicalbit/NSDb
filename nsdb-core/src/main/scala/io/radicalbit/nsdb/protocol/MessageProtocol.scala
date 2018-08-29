@@ -99,7 +99,9 @@ object MessageProtocol {
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
     case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
 
-    case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
+    sealed trait WriteCoordinatorResponse
+
+    case class InputMapped(db: String, namespace: String, metric: String, record: Bit) extends WriteCoordinatorResponse
     case class DeleteStatementExecuted(db: String, namespace: String, metric: String)
     case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
     case class MetricDropped(db: String, namespace: String, metric: String)
@@ -112,8 +114,9 @@ object MessageProtocol {
     case class AllSchemasDeleted(db: String, namespace: String)
 
     case class CountGot(db: String, namespace: String, metric: String, count: Int)
-    case class RecordAdded(db: String, namespace: String, metric: String, record: Bit)
+    case class RecordAdded(db: String, namespace: String, metric: String, record: Bit) extends WriteCoordinatorResponse
     case class RecordRejected(db: String, namespace: String, metric: String, record: Bit, reasons: List[String])
+        extends WriteCoordinatorResponse
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)
 

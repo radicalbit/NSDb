@@ -251,7 +251,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     val namespace = readByteBuffer.read
 
     className match {
-      case c if c == classOf[InsertEntry].getCanonicalName =>
+      case c if c == classOf[ReceivedEntry].getCanonicalName =>
         // metric
         val metric = readByteBuffer.read
         // dimensions
@@ -263,19 +263,27 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           value = new Array[Byte](readByteBuffer.getInt)
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
+        // tags
+        val numOfTags = readByteBuffer.getInt
+        val tags = (for {
+          _ <- 1 to numOfTags
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+        //bit identifier
+        val id = readByteBuffer.getInt
 
-        InsertEntry(
+        ReceivedEntry(
           db = db,
           namespace = namespace,
           metric = metric,
           timestamp = ts,
-          // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
-          Bit(timestamp = ts,
-              value = 0,
-              dimensions = createDimensions(dimensions),
-              tags = Map.empty[String, JSerializable])
+          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+          id
         )
-      case c if c == classOf[RejectEntry].getCanonicalName =>
+      case c if c == classOf[AccumulatedEntry].getCanonicalName =>
         // metric
         val metric = readByteBuffer.read
         // dimensions
@@ -287,17 +295,89 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
           value = new Array[Byte](readByteBuffer.getInt)
           _     = readByteBuffer.get(value)
         } yield (name, typ, value)).toList
+        // tags
+        val numOfTags = readByteBuffer.getInt
+        val tags = (for {
+          _ <- 1 to numOfTags
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+        //bit identifier
+        val id = readByteBuffer.getInt
 
-        RejectEntry(
+        AccumulatedEntry(
           db = db,
           namespace = namespace,
           metric = metric,
           timestamp = ts,
-          // TODO: PLEASE REMEMBER TO USE TAGS PROPERLY
-          Bit(timestamp = ts,
-              value = 0,
-              dimensions = createDimensions(dimensions),
-              tags = Map.empty[String, JSerializable])
+          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+          id
+        )
+      case c if c == classOf[PersistedEntry].getCanonicalName =>
+        // metric
+        val metric = readByteBuffer.read
+        // dimensions
+        val numOfDim = readByteBuffer.getInt
+        val dimensions = (for {
+          _ <- 1 to numOfDim
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+        // tags
+        val numOfTags = readByteBuffer.getInt
+        val tags = (for {
+          _ <- 1 to numOfTags
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+        //bit identifier
+        val id = readByteBuffer.getInt
+
+        PersistedEntry(
+          db = db,
+          namespace = namespace,
+          metric = metric,
+          timestamp = ts,
+          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+          id
+        )
+      case c if c == classOf[RejectedEntry].getCanonicalName =>
+        // metric
+        val metric = readByteBuffer.read
+        // dimensions
+        val numOfDim = readByteBuffer.getInt
+        val dimensions = (for {
+          _ <- 1 to numOfDim
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+        // tags
+        val numOfTags = readByteBuffer.getInt
+        val tags = (for {
+          _ <- 1 to numOfTags
+          name  = readByteBuffer.read
+          typ   = readByteBuffer.read
+          value = new Array[Byte](readByteBuffer.getInt)
+          _     = readByteBuffer.get(value)
+        } yield (name, typ, value)).toList
+        //bit identifier
+        val id = readByteBuffer.getInt
+
+        RejectedEntry(
+          db = db,
+          namespace = namespace,
+          metric = metric,
+          timestamp = ts,
+          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+          id
         )
       case c if c == classOf[DeleteEntry].getCanonicalName =>
         // metric
@@ -308,7 +388,6 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                     metric = metric,
                     timestamp = ts,
                     expression = createExpression(expressionClass))
-
     }
   }
 
@@ -320,22 +399,54 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     */
   override def serialize(entry: CommitLogEntry): Array[Byte] =
     entry match {
-      case e: InsertEntry =>
-        serializeEntry(e.getClass.getCanonicalName,
-                       e.timestamp,
-                       e.db,
-                       e.namespace,
-                       e.metric,
-                       extractValue(e.bit.value),
-                       extractDimensions(e.bit.dimensions))
-      case e: RejectEntry =>
-        serializeEntry(e.getClass.getCanonicalName,
-                       e.timestamp,
-                       e.db,
-                       e.namespace,
-                       e.metric,
-                       extractValue(e.bit.value),
-                       extractDimensions(e.bit.dimensions))
+      case e: ReceivedEntry =>
+        serializeEntry(
+          e.getClass.getCanonicalName,
+          e.timestamp,
+          e.db,
+          e.namespace,
+          e.metric,
+          extractValue(e.bit.value),
+          extractDimensions(e.bit.dimensions),
+          extractDimensions(e.bit.tags),
+          e.id
+        )
+      case e: AccumulatedEntry =>
+        serializeEntry(
+          e.getClass.getCanonicalName,
+          e.timestamp,
+          e.db,
+          e.namespace,
+          e.metric,
+          extractValue(e.bit.value),
+          extractDimensions(e.bit.dimensions),
+          extractDimensions(e.bit.tags),
+          e.id
+        )
+      case e: PersistedEntry =>
+        serializeEntry(
+          e.getClass.getCanonicalName,
+          e.timestamp,
+          e.db,
+          e.namespace,
+          e.metric,
+          extractValue(e.bit.value),
+          extractDimensions(e.bit.dimensions),
+          extractDimensions(e.bit.tags),
+          e.id
+        )
+      case e: RejectedEntry =>
+        serializeEntry(
+          e.getClass.getCanonicalName,
+          e.timestamp,
+          e.db,
+          e.namespace,
+          e.metric,
+          extractValue(e.bit.value),
+          extractDimensions(e.bit.dimensions),
+          extractDimensions(e.bit.tags),
+          e.id
+        )
       case e: DeleteEntry =>
         serializeDeleteByQuery(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace, e.metric, e.expression)
       case e: DeleteNamespaceEntry => serializeCommons(e.getClass.getCanonicalName, e.timestamp, e.db, e.namespace)
@@ -416,7 +527,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   }
 
   /**
-    * Serializes [[InsertEntry]] and [[RejectEntry]]
+    * Serializes bit related entries
     *
     * @param className class canonicalName
     * @param ts timestamp
@@ -425,6 +536,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     * @param metric metric
     * @param value [[Bit]] value
     * @param dimensions [[Bit]] dimensions
+    * @param tags [[Bit]] tags
     * @return Bytes representation
     */
   private def serializeEntry(
@@ -434,7 +546,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       namespace: String,
       metric: String,
       value: Value,
-      dimensions: List[Dimension]
+      dimensions: List[Dimension],
+      tags: List[Dimension],
+      id: Int
   ): Array[Byte] = {
     serializeCommons(className, ts, db, namespace)
     // metric
@@ -448,6 +562,16 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         writeBuffer.putInt(value.length)
         writeBuffer.put(value)
     }
+    // tags
+    writeBuffer.putInt(tags.length)
+    tags.foreach {
+      case (name, typ, value) =>
+        writeBuffer.write(name)
+        writeBuffer.write(typ)
+        writeBuffer.putInt(value.length)
+        writeBuffer.put(value)
+    }
+    writeBuffer.putInt(id)
 
     writeBuffer.array
   }

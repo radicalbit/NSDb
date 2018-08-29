@@ -54,6 +54,7 @@ class WriteCoordinatorSpec
   override def beforeAll: Unit = {
     writeCoordinatorActor ! WarmUpCompleted
     schemaCoordinator ! WarmUpSchemas(List.empty)
+    Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(commitLogCoordinator, "node1"), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, "node1"), 10 seconds)
     Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 10 seconds)

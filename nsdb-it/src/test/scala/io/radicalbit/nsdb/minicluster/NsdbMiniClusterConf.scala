@@ -25,6 +25,7 @@ trait NsdbMiniClusterConf extends NsdbConfig {
   def grpcPort: Int
   def httpPort: Int
   def dataDir: String
+  def commitLogDir: String
 
   override def config: Config =
     ConfigFactory
@@ -33,4 +34,5 @@ trait NsdbMiniClusterConf extends NsdbConfig {
       .withValue("nsdb.grpc.port", ConfigValueFactory.fromAnyRef(grpcPort))
       .withValue("nsdb.http.port", ConfigValueFactory.fromAnyRef(httpPort))
       .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
+      .withValue("nsdb.commit-log.directory", ConfigValueFactory.fromAnyRef(commitLogDir))
 }
