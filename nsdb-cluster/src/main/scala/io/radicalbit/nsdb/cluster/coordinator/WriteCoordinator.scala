@@ -239,9 +239,24 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         .map { results =>
           handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
         }
-    } else
-      //FIXME add compensation for commit log
-      Future(RecordRejected(db, namespace, metric, bit, List("")))
+    } else {
+      //Reverting successful writes committing Rejection Entry
+      succeedResponses.foreach { response =>
+        writeCommitLog(db,
+                       namespace,
+                       response.ts,
+                       metric,
+                       response.location.node,
+                       RejectedEntryAction(bit),
+                       response.location)
+      }
+      Future(
+        RecordRejected(db,
+                       namespace,
+                       metric,
+                       bit,
+                       List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}")))
+    }
   }
 
   def handleAccumulatorResponses(responses: Seq[WriteCoordinatorResponse],
@@ -267,7 +282,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       }
       InputMapped(db, namespace, metric, bit)
     } else {
-      //FIXME add compensation for accumulation
+      succeedResponses.foreach { response =>
+        metricsDataActors.get(response.location.node) match {
+          case Some(mda) => mda ! DeleteRecordFromShard(db, namespace, response.location, bit)
+          case None      =>
+        }
+      }
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       RecordRejected(db, namespace, metric, bit, List(""))
     }
@@ -367,18 +387,26 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             .flatMap { results =>
               handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema)
             }
-          Future
-            .sequence(eventualLocations.map { loc =>
-              writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
-                .flatMap {
-                  case WriteToCommitLogSucceeded(_, _, _, _, _) =>
-                    accumulateRecord(db, namespace, metric, bit, loc)
-                  case err: WriteToCommitLogFailed => Future(err)
-                }
-            })
+
+          accumulatedResponses.flatMap {
+            case _: RecordAdded =>
+              // Send write requests for eventual consistent location iff consistent locations had accumulated the data
+              Future
+                .sequence(eventualLocations.map { loc =>
+                  writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
+                    .flatMap {
+                      case r: WriteToCommitLogSucceeded =>
+                        accumulateRecord(db, namespace, metric, bit, loc)
+                      case err: WriteToCommitLogFailed =>
+                        Future(RecordRejected(db, namespace, metric, bit, List(err.reason)))
+                    }
+                })
+            case r: RecordRejected =>
+              // It does nothing for responses not included in consistency level
+              Future(r)
+          }
 
           accumulatedResponses
-
         }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
