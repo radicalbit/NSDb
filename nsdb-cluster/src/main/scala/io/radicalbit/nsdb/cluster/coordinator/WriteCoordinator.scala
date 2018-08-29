@@ -104,6 +104,11 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
   private val publishers: mutable.Map[String, ActorRef]            = mutable.Map.empty
 
+  /**
+    * This mutable state is aimed to store metric for which the actor is waiting for CommitLog ack
+    * If a metric, identified according to its "coordinates" in [[AckPendingMetric]], is contained in this Set
+    * the coming request for the latter will be stashed until CL acks are received.
+    */
   private val ackPendingMetrics: mutable.Set[AckPendingMetric] = mutable.Set.empty
 
   /**
@@ -217,18 +222,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                           bit: Bit,
                                           schema: Schema): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
-    val filteredResponses: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) =
+    val (succeedResponses: List[WriteToCommitLogSucceeded], failedResponses: List[WriteToCommitLogFailed]) =
       responses.foldRight(emptyLists) {
         case (res, (successes, failures)) =>
           res match {
-            case s @ WriteToCommitLogSucceeded(_, _, _, _, _) => (s :: successes, failures)
-            case f @ WriteToCommitLogFailed(_, _, _, _, _)    => (successes, f :: failures)
+            case s: WriteToCommitLogSucceeded => (s :: successes, failures)
+            case f: WriteToCommitLogFailed    => (successes, f :: failures)
           }
       }
 
-    if (filteredResponses._1.size == responses.size) {
+    if (succeedResponses.size == responses.size) {
       Future
-        .sequence(filteredResponses._1.map { commitLogSuccess =>
+        .sequence(succeedResponses.map { commitLogSuccess =>
           accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
         })
         .map { results =>
@@ -246,14 +251,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  bit: Bit,
                                  schema: Schema): WriteCoordinatorResponse = {
     val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
-    val filteredResponses: (List[RecordAdded], List[RecordRejected]) = responses.foldRight(emptyLists) {
-      case (res, (successes, failures)) =>
-        res match {
-          case s @ RecordAdded(_, _, _, _)       => (s :: successes, failures)
-          case f @ RecordRejected(_, _, _, _, _) => (successes, f :: failures)
-        }
-    }
-    if (filteredResponses._1.size == responses.size) {
+    val (succeedResponses: List[RecordAdded], failedResponses: List[RecordRejected]) =
+      responses.foldRight(emptyLists) {
+        case (res, (successes, failures)) =>
+          res match {
+            case s: RecordAdded    => (s :: successes, failures)
+            case f: RecordRejected => (successes, f :: failures)
+          }
+      }
+    if (succeedResponses.size == responses.size) {
       unstashAll()
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       publishers.foreach {

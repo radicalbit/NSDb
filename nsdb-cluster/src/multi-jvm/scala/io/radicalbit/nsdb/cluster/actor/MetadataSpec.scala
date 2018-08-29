@@ -56,7 +56,10 @@ object MetadataSpec extends MultiNodeConfig {
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds
     |  commit-log {
-    |    enabled = false
+    |    serializer = "io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer"
+    |    writer = "io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter"
+    |    directory = "target/commitLog"
+    |    max-size = 50000
     |  }
     |}
     """.stripMargin))
