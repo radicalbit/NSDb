@@ -166,7 +166,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
   }
 
-  "FacetIndex" should "suppport delete" in {
+  "FacetIndex" should "support delete" in {
     val facetIndexes =
       new AllFacetIndexes(
         basePath = "target",
@@ -325,5 +325,50 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
       .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
     res2.size shouldBe 1
     res2.head.value shouldBe 100
+  }
+
+  "FacetIndex" should "supports sum on double values" in {
+    val facetIndexes =
+      new AllFacetIndexes(
+        basePath = "target",
+        db = "test_index",
+        namespace = "test_facet_index",
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+      )
+
+    implicit val writer     = facetIndexes.newIndexWriter
+    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+
+    var groups = Map.empty[String, Int]
+
+    (1 to 100).foreach { i =>
+      val factor: Double = 1.2d
+      val tag    = s"tag_${i/10}"
+      val testData =
+        Bit(
+          timestamp = i,
+          value = factor,
+          dimensions = Map("dimension" -> s"dimension_$factor", "name" -> s"name_$factor"),
+          tags = Map("tag"             -> tag, "surname"               -> s"surname_$factor", "city" -> "Milano")
+        )
+
+      facetIndexes.write(testData).isSuccess shouldBe true
+    }
+    taxoWriter.close()
+    writer.close()
+
+    implicit val searcher = facetIndexes.facetSumIndex.getSearcher
+
+    val res = facetIndexes.facetSumIndex
+      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), Some(DECIMAL()))
+    res.size shouldBe 6
+    res.foreach {
+      case bit =>
+        bit.tags.headOption match {
+          case Some(("tag", "tag_0")) =>   Math.abs(bit.value.asInstanceOf[Double] - 10.8d) should be  < 1e-7
+          case Some(("tag", "tag_5")) =>    Math.abs(bit.value.asInstanceOf[Double] - 1.2d) should be  < 1e-7
+          case Some(("tag", v: String)) =>Math.abs(bit.value.asInstanceOf[Double] - 12.0d) should be  < 1e-7
+        }
+    }
   }
 }
