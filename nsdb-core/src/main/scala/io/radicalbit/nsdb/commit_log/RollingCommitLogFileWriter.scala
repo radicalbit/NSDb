@@ -67,7 +67,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
   private val separator       = System.getProperty("line.separator").toCharArray.head
   private val serializerClass = getString(CommitLogSerializerConf)
   private val directory       = getString(CommitLogDirectoryConf)
-  private val maxSize         = getInt(CommitLogMaxSizeConf)
+  private val maxSize         = getLong(CommitLogMaxSizeConf)
   private val FileNamePrefix  = "nsdb"
 
   log.info("Initializing the commit log serializer {}...", serializerClass)

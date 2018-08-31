@@ -343,7 +343,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     (1 to 100).foreach { i =>
       val factor: Double = 1.2d
-      val tag    = s"tag_${i/10}"
+      val tag            = s"tag_${i / 10}"
       val testData =
         Bit(
           timestamp = i,
@@ -365,9 +365,9 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     res.foreach {
       case bit =>
         bit.tags.headOption match {
-          case Some(("tag", "tag_0")) =>   Math.abs(bit.value.asInstanceOf[Double] - 10.8d) should be  < 1e-7
-          case Some(("tag", "tag_5")) =>    Math.abs(bit.value.asInstanceOf[Double] - 1.2d) should be  < 1e-7
-          case Some(("tag", v: String)) =>Math.abs(bit.value.asInstanceOf[Double] - 12.0d) should be  < 1e-7
+          case Some(("tag", "tag_0"))   => Math.abs(bit.value.asInstanceOf[Double] - 10.8d) should be < 1e-7
+          case Some(("tag", "tag_5"))   => Math.abs(bit.value.asInstanceOf[Double] - 1.2d) should be < 1e-7
+          case Some(("tag", v: String)) => Math.abs(bit.value.asInstanceOf[Double] - 12.0d) should be < 1e-7
         }
     }
   }
