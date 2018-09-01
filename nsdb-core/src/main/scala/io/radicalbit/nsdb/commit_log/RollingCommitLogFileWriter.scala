@@ -28,12 +28,14 @@ import scala.util.Try
 
 object RollingCommitLogFileWriter {
 
-  def props(db: String, namespace: String) = Props(new RollingCommitLogFileWriter(db, namespace))
+  def props(db: String, namespace: String, metric: String) =
+    Props(new RollingCommitLogFileWriter(db, namespace, metric))
 
   private[commit_log] val FileNameSeparator = "~"
 
   private[commit_log] def nextFileName(db: String,
                                        namespace: String,
+                                       metric: String,
                                        fileNamePrefix: String,
                                        fileNameSeparator: String,
                                        fileNames: Seq[String]): String = {
@@ -48,7 +50,7 @@ object RollingCommitLogFileWriter {
         .getOrElse(0)
     }
 
-    f"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$generateNextId"
+    f"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric$fileNameSeparator$generateNextId"
   }
 }
 
@@ -56,9 +58,8 @@ object RollingCommitLogFileWriter {
   * Concrete actor extending [[CommitLogWriterActor]] whose purpose is to log [[CommitLogEntry]] on file.
   * This class is intended to be thread safe because CommitLogWriter extends the Actor trait.
   * Do no call its methods from the outside, use the protocol specified inside CommitLogWriter instead.
-  *
   */
-class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLogWriterActor {
+class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) extends CommitLogWriterActor {
 
   import RollingCommitLogFileWriter._
 
@@ -85,11 +86,11 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
     val existingFiles = Option(Paths.get(directory).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
-      .filter(name => name.contains(s"$db$FileNameSeparator$namespace"))
+      .filter(name => name.contains(s"$db$FileNameSeparator$namespace$FileNameSeparator$metric"))
 
     val newFileName = existingFiles match {
       case fileNames if fileNames.nonEmpty => fileNames.maxBy(s => s.split(FileNameSeparator)(3).toInt)
-      case fileNames                       => nextFileName(db, namespace, FileNamePrefix, FileNameSeparator, fileNames.toSeq)
+      case fileNames                       => nextFileName(db, namespace, metric, FileNamePrefix, FileNameSeparator, fileNames.toSeq)
     }
 
     file = new File(s"$directory/$newFileName")
@@ -130,6 +131,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
   protected def newFile(directory: String): File = {
     val nextFile = nextFileName(db,
                                 namespace,
+                                metric,
                                 fileNamePrefix = FileNamePrefix,
                                 fileNameSeparator = FileNameSeparator,
                                 fileNames = new File(directory).listFiles().map(_.getName))

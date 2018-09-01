@@ -31,10 +31,12 @@ class RollingCommitLogFileWriterSpec
 
     val db                = "database"
     val namespace         = "namespace"
+    val metric            = "metric"
     val prefix            = "DummyFileNamePrefix"
     val fileNameSeparator = RollingCommitLogFileWriter.FileNameSeparator
 
-    def name(counter: String) = s"$prefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$counter"
+    def name(counter: String) =
+      s"$prefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric$fileNameSeparator$counter"
 
     "starting from an empty commit log directory" should {
       "use the correct name" in {
@@ -42,6 +44,7 @@ class RollingCommitLogFileWriterSpec
         val files = List.empty[String]
         val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
                                                                    namespace = namespace,
+                                                                   metric = metric,
                                                                    fileNamePrefix = prefix,
                                                                    fileNameSeparator = fileNameSeparator,
                                                                    fileNames = files)
@@ -54,6 +57,7 @@ class RollingCommitLogFileWriterSpec
         val files = List(name("0"))
         val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
                                                                    namespace = namespace,
+                                                                   metric = metric,
                                                                    fileNamePrefix = prefix,
                                                                    fileNameSeparator = fileNameSeparator,
                                                                    fileNames = files)
@@ -66,6 +70,7 @@ class RollingCommitLogFileWriterSpec
         val files = List(name("0"), name("1"), name("2"), name("3"))
         val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
                                                                    namespace = namespace,
+                                                                   metric = metric,
                                                                    fileNamePrefix = prefix,
                                                                    fileNameSeparator = fileNameSeparator,
                                                                    fileNames = files)
@@ -75,18 +80,21 @@ class RollingCommitLogFileWriterSpec
 
     "starting from a commit log directory having few unordered existing log" should {
       "use the correct name" in {
-        val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
-                                                                   namespace = namespace,
-                                                                   fileNamePrefix = prefix,
-                                                                   fileNameSeparator = fileNameSeparator,
-                                                                   fileNames =
-                                                                     List(name("3"), name("2"), name("0"), name("1")))
+        val nextFileName = RollingCommitLogFileWriter.nextFileName(
+          db = db,
+          namespace = namespace,
+          metric = metric,
+          fileNamePrefix = prefix,
+          fileNameSeparator = fileNameSeparator,
+          fileNames = List(name("3"), name("2"), name("0"), name("1"))
+        )
         nextFileName should be(name("4"))
 
         val nextFileName1 =
           RollingCommitLogFileWriter.nextFileName(
             db = db,
             namespace = namespace,
+            metric = metric,
             fileNamePrefix = prefix,
             fileNameSeparator = fileNameSeparator,
             fileNames = List(name("3"), name("0"), name("2"), name("1"), name("111"))
@@ -108,6 +116,7 @@ class RollingCommitLogFileWriterSpec
                          "_dada")
         val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
                                                                    namespace = namespace,
+                                                                   metric = metric,
                                                                    fileNamePrefix = prefix,
                                                                    fileNameSeparator = fileNameSeparator,
                                                                    fileNames = files)

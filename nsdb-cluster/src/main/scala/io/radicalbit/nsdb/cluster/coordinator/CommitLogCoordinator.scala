@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 import akka.actor.ActorRef
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
@@ -30,22 +31,23 @@ import scala.collection.mutable
   */
 class CommitLogCoordinator extends ActorPathLogging {
 
-  private val commitLoggerWriters: mutable.Map[String, ActorRef] = mutable.Map.empty
+  private val commitLoggerWriters: mutable.Map[Coordinates, ActorRef] = mutable.Map.empty
 
-  private def getWriter(db: String, namespace: String): ActorRef = {
+  private def getWriter(db: String, namespace: String, metric: String): ActorRef = {
     commitLoggerWriters.getOrElse(
-      s"$db-$namespace", {
+      Coordinates(db, namespace, metric), {
         val commitLogWriter =
-          context.actorOf(RollingCommitLogFileWriter.props(db, namespace), s"commit-log-writer-$db-$namespace")
-        commitLoggerWriters += (s"$db-$namespace" -> commitLogWriter)
+          context.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric),
+                          s"commit-log-writer-$db-$namespace-$metric")
+        commitLoggerWriters += (Coordinates(db, namespace, metric) -> commitLogWriter)
         commitLogWriter
       }
     )
   }
 
   def receive: Receive = {
-    case msg @ WriteToCommitLog(db, namespace, _, _, _, _) =>
-      getWriter(db, namespace).forward(msg)
+    case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
+      getWriter(db, namespace, metric).forward(msg)
     case _ =>
       log.error("UnexpectedMessage")
   }
