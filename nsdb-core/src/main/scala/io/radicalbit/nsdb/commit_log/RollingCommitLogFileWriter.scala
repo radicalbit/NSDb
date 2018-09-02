@@ -18,12 +18,16 @@ package io.radicalbit.nsdb.commit_log
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
 import akka.actor.Props
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.util.Config._
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object RollingCommitLogFileWriter {
@@ -72,12 +76,15 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   private val FileNamePrefix  = "nsdb"
 
   log.info("Initializing the commit log serializer {}...", serializerClass)
-  override protected val serializer: CommitLogSerializer =
+  override protected implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
   log.info("Commit log serializer {} initialized successfully.", serializerClass)
 
   private var file: File               = _
   private var fileOS: FileOutputStream = _
+
+  private val oldFilesToCheck: ListBuffer[File]                     = ListBuffer.empty
+  private val pendingOutdatedEntries: mutable.Map[(File, Int), Int] = mutable.Map.empty
 
   override def preStart(): Unit = {
 
@@ -95,15 +102,62 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
     file = new File(s"$directory/$newFileName")
     fileOS = newOutputStream(file)
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    import context.dispatcher
+
+    /**
+      * Checks if the old commit log files can be safely deleted in order to preserve disk space.
+      * Basically, checks if a file is balanced (every entry is finalised), if this is positive, the file can be safely deleted,
+      * otherwise all the non balanced entries must be stored in an auxiliary memory queue, that will be popped every time a finalisation entry comes.
+      * When the memory queue is balanced (there is only one placeholder for a given file) the given file can easily be removed as well.
+      */
+    context.system.scheduler.schedule(interval, interval) {
+
+      import CommitLogFile._
+
+      oldFilesToCheck.foreach { file =>
+        val pendingEntries = file.checkPendingEntries
+        if (pendingEntries.isEmpty) {
+          file.delete()
+          oldFilesToCheck -= file
+        } else {
+          pendingEntries.foreach { p =>
+            pendingOutdatedEntries += ((file, 0) -> 0)
+            pendingOutdatedEntries += ((file, p) -> p)
+          }
+        }
+      }
+
+      val adjustedFiles = pendingOutdatedEntries.keys.groupBy(_._1).collect {
+        case (k: File, v: Iterable[(File, Int)]) if v.size == 1 && v.head._2 == 0 =>
+          v.head._1
+      }
+
+      adjustedFiles.foreach{f =>
+        f.delete()
+        pendingOutdatedEntries -= ((f, 0))
+      }
+    }
   }
 
   override protected def createEntry(entry: CommitLogEntry): Try[Unit] = {
     log.debug("Received the entry {}.", entry)
 
+    entry match {
+      case e: FinalizationEntry => pendingOutdatedEntries -= (file -> e.asInstanceOf[FinalizationEntry].id)
+      case _                    => //nothing to do here
+    }
+
     val operation = Try(appendToDisk(entry))
+
     checkAndUpdateRollingFile(file).foreach {
       case (f, fos) =>
         file = f
+        fileOS.close()
         fileOS = fos
     }
 
@@ -121,7 +175,11 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   protected def checkAndUpdateRollingFile(current: File): Option[(File, FileOutputStream)] =
     if (current.length() >= maxSize) {
+
       val f = newFile(current)
+
+      oldFilesToCheck += current
+
       Some(f, newOutputStream(f))
     } else
       None

@@ -86,6 +86,11 @@ object CommitLogWriterActor {
     def id: Int
   }
 
+  /**
+    * To mark an entry that describe the end of a commit log record lifecycle. e.g. [[PersistedEntry]] and   [[RejectedEntry]]
+    */
+  sealed trait FinalizationEntry extends CommitLogBitEntry
+
   case object CommitLogBitEntry {
     case class ClassBitIdentifier(db: String, namespace: String, metric: String, bit: Bit)
 
@@ -126,14 +131,14 @@ object CommitLogWriterActor {
                             override val timestamp: Long,
                             bit: Bit,
                             id: Int)
-      extends CommitLogBitEntry
+      extends FinalizationEntry
   case class RejectedEntry(db: String,
                            namespace: String,
                            metric: String,
                            override val timestamp: Long,
                            bit: Bit,
                            id: Int)
-      extends CommitLogBitEntry
+      extends FinalizationEntry
   case class DeleteEntry(db: String,
                          namespace: String,
                          metric: String,

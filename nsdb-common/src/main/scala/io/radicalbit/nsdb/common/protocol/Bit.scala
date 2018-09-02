@@ -78,3 +78,7 @@ case class Bit(timestamp: Long,
   }
 
 }
+
+object Bit {
+  def empty = Bit(0, 0L, Map.empty, Map.empty)
+}
