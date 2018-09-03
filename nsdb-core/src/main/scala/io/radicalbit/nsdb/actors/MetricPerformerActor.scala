@@ -71,7 +71,8 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
                       log.error(t, "error during write on facet indexes")
                   }
 
-                case Failure(t) => log.error(t, "error during write on index")
+                case Failure(t) =>
+                  log.error(t, "error during write on index")
               }
             case DeleteShardRecordOperation(_, _, bit) =>
               index.delete(bit) match {

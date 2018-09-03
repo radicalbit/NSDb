@@ -170,7 +170,8 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
   def accumulate: Receive = {
     case AddRecordToShard(_, ns, location, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, location, bit))
-      sender ! RecordAdded(db, ns, location.metric, bit, location)
+      val ts = System.currentTimeMillis()
+      sender ! RecordAdded(db, ns, location.metric, bit, location, ts)
     case DeleteRecordFromShard(_, ns, key, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
       sender ! RecordDeleted(db, ns, key.metric, bit)

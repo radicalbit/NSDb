@@ -104,7 +104,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   lazy val schemaCoordinator =
     TestActorRef[SchemaCoordinator](
       SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
-  lazy val metricsDataActor = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "testNode"))
+  lazy val metricsDataActor = TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "node1"))
   lazy val subscriber       = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))

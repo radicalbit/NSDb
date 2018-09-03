@@ -145,7 +145,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                                  action = action,
                                                  location)).mapTo[CommitLogResponse]
       case None =>
-        Future(WriteToCommitLogFailed(db, namespace, ts, metric, "Commit log not existing for requested node"))
+        Future(
+          WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeName "))
     }
   }
 
@@ -220,7 +221,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                           namespace: String,
                                           metric: String,
                                           bit: Bit,
-                                          schema: Schema): Future[WriteCoordinatorResponse] = {
+                                          schema: Schema)(
+      fn: List[WriteToCommitLogSucceeded] => Future[WriteCoordinatorResponse]): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
     val (succeedResponses: List[WriteToCommitLogSucceeded], failedResponses: List[WriteToCommitLogFailed]) =
       responses.foldRight(emptyLists) {
@@ -232,13 +234,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       }
 
     if (succeedResponses.size == responses.size) {
-      Future
-        .sequence(succeedResponses.map { commitLogSuccess =>
-          accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
-        })
-        .map { results =>
-          handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
-        }
+      fn(succeedResponses)
     } else {
       //Reverting successful writes committing Rejection Entry
       succeedResponses.foreach { response =>
@@ -264,7 +260,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  namespace: String,
                                  metric: String,
                                  bit: Bit,
-                                 schema: Schema): WriteCoordinatorResponse = {
+                                 schema: Schema): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
     val (succeedResponses: List[RecordAdded], failedResponses: List[RecordRejected]) =
       responses.foldRight(emptyLists) {
@@ -280,7 +276,25 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       publishers.foreach {
         case (_, publisherActor) => publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
       }
-      InputMapped(db, namespace, metric, bit)
+
+      val accumulationResult = Future
+        .sequence {
+          succeedResponses.map { accumulatorResponse =>
+            writeCommitLog(db,
+                           namespace,
+                           accumulatorResponse.timestamp,
+                           metric,
+                           accumulatorResponse.location.node,
+                           AccumulatedEntryAction(bit),
+                           accumulatorResponse.location)
+          }
+        }
+        .flatMap { responses =>
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(res =>
+            Future.successful(InputMapped(db, namespace, metric, bit)))
+        }
+
+      accumulationResult
     } else {
       succeedResponses.foreach { response =>
         metricsDataActors.get(response.location.node) match {
@@ -288,8 +302,26 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           case None      =>
         }
       }
+
+      val accumulationResult = Future
+        .sequence {
+          succeedResponses.map { accumulatorResponse =>
+            writeCommitLog(db,
+                           namespace,
+                           accumulatorResponse.timestamp,
+                           metric,
+                           accumulatorResponse.location.node,
+                           RejectedEntryAction(bit),
+                           accumulatorResponse.location)
+          }
+        }
+        .flatMap { responses =>
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(res =>
+            Future.successful(RecordRejected(db, namespace, metric, bit, List(""))))
+        }
+
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-      RecordRejected(db, namespace, metric, bit, List(""))
+      accumulationResult
     }
   }
 
@@ -378,6 +410,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
+          //FIXME common code
           val commitLogResponses: Future[Seq[CommitLogResponse]] =
             Future
               .sequence(consistentLocations.map { loc =>
@@ -385,22 +418,40 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
               })
           val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
             .flatMap { results =>
-              handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema)
+              handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) { succeedResponses =>
+                Future
+                  .sequence(succeedResponses.map { commitLogSuccess =>
+                    accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
+                  })
+                  .flatMap { results =>
+                    handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+                  }
+              }
             }
 
+          // Send write requests for eventual consistent location iff consistent locations had accumulated the data
           accumulatedResponses.flatMap {
-            case _: RecordAdded =>
-              // Send write requests for eventual consistent location iff consistent locations had accumulated the data
-              Future
-                .sequence(eventualLocations.map { loc =>
-                  writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
-                    .flatMap {
-                      case r: WriteToCommitLogSucceeded =>
-                        accumulateRecord(db, namespace, metric, bit, loc)
-                      case err: WriteToCommitLogFailed =>
-                        Future(RecordRejected(db, namespace, metric, bit, List(err.reason)))
-                    }
-                })
+            case _: InputMapped =>
+              //FIXME common code
+              val eventualCommitLogResponses: Future[Seq[CommitLogResponse]] =
+                Future
+                  .sequence(eventualLocations.map { loc =>
+                    writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
+                  })
+              val eventualAccumulatedResponses: Future[WriteCoordinatorResponse] = eventualCommitLogResponses
+                .flatMap { results =>
+                  handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) {
+                    succeedResponses =>
+                      Future
+                        .sequence(succeedResponses.map { commitLogSuccess =>
+                          accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
+                        })
+                        .flatMap { results =>
+                          handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+                        }
+                  }
+                }
+              eventualAccumulatedResponses
             case r: RecordRejected =>
               // It does nothing for responses not included in consistency level
               Future(r)
