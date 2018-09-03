@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.actors
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -55,8 +55,9 @@ class MetricAccumulatorActorSpec()
     system.actorOf(RoundRobinPool(1, None).props(MetricReaderActor.props(basePath, nodeName, db, namespace)))
 
   val metricAccumulatorActor =
-    TestActorRef[MetricAccumulatorActor](MetricAccumulatorActor.props(basePath, db, namespace, shardReaderActor),
-                                         probeActor)
+    TestActorRef[MetricAccumulatorActor](
+      MetricAccumulatorActor.props(basePath, db, namespace, shardReaderActor, system.actorOf(Props.empty)),
+      probeActor)
 
   before {
     implicit val timeout = Timeout(5 second)

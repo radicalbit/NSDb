@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
@@ -39,11 +39,14 @@ class MetricPerformerActorSpec
   val probe      = TestProbe()
   val probeActor = probe.ref
 
-  val basePath  = "target/test_index"
-  val db        = "db"
-  val namespace = "namespace"
+  val basePath                   = "target/test_index"
+  val db                         = "db"
+  val namespace                  = "namespace"
+  val localWriteCoordinator      = TestProbe()
+  val localWriteCoordinatorActor = localWriteCoordinator.ref
   val indexerPerformerActor =
-    TestActorRef[MetricPerformerActor](MetricPerformerActor.props(basePath, db, namespace), probeActor)
+    TestActorRef[MetricPerformerActor](MetricPerformerActor.props(basePath, db, namespace, localWriteCoordinatorActor),
+                                       probeActor)
 
   before {
     import scala.collection.JavaConverters._
@@ -64,5 +67,11 @@ class MetricPerformerActorSpec
     awaitAssert {
       probe.expectMsgType[Refresh]
     }
+
+    awaitAssert {
+      val msg = localWriteCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+      msg.persistedBits.size shouldBe 1
+    }
+
   }
 }

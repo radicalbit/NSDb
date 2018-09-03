@@ -24,7 +24,6 @@ import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.actors.MetricAccumulatorActor.PersistedBits
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -66,7 +65,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoo
         s"metric_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
-      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader),
+      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localWriteCoordinator),
                       s"metric_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
@@ -156,8 +155,6 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoo
         ExecuteDeleteStatementInShards(statement,
                                        schema,
                                        locations.map(l => Location(l.metric, nodeName, l.from, l.to))))
-    case persistedAck: PersistedBits =>
-      localWriteCoordinator ! persistedAck
   }
 
 }

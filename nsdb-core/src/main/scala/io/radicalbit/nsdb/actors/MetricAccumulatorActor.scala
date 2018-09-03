@@ -25,7 +25,6 @@ import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
-import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -45,7 +44,11 @@ import scala.util.{Failure, Success}
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricAccumulatorActor(val basePath: String, val db: String, val namespace: String, val readerActor: ActorRef)
+class MetricAccumulatorActor(val basePath: String,
+                             val db: String,
+                             val namespace: String,
+                             val readerActor: ActorRef,
+                             val localWriteCoordinator: ActorRef)
     extends Actor
     with MetricsActor
     with ActorLogging {
@@ -93,8 +96,8 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
   override def preStart: Unit = {
-    performerActor =
-      context.actorOf(MetricPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
+    performerActor = context.actorOf(MetricPerformerActor.props(basePath, db, namespace, localWriteCoordinator),
+                                     s"shard-performer-service-$db-$namespace")
 
     context.system.scheduler.schedule(0.seconds, interval) {
       if (opBufferMap.nonEmpty && performingOps.isEmpty) {
@@ -204,15 +207,11 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
 object MetricAccumulatorActor {
 
   case class Refresh(writeIds: Seq[String], keys: Seq[Location])
-  case class PersistedBits(persistedBits: Seq[PersistedBit])
-  case class PersistedBit(db: String,
-                          namespace: String,
-                          metric: String,
-                          timestamp: Long,
-                          bit: Bit,
-                          location: Location,
-                          successfully: Boolean)
 
-  def props(basePath: String, db: String, namespace: String, readerActor: ActorRef): Props =
-    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor))
+  def props(basePath: String,
+            db: String,
+            namespace: String,
+            readerActor: ActorRef,
+            localWriteCoordinator: ActorRef): Props =
+    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor, localWriteCoordinator))
 }
