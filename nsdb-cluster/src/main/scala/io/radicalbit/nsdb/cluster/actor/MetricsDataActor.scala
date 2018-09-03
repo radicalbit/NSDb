@@ -24,6 +24,7 @@ import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.PersistedBits
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -40,7 +41,8 @@ import scala.concurrent.Future
   * @param basePath indexes' root path.
   * @param nodeName String representation of the host and the port Actor is deployed at.
   */
-class MetricsDataActor(val basePath: String, val nodeName: String) extends ActorPathLogging {
+class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoordinator: ActorRef)
+    extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
@@ -154,6 +156,8 @@ class MetricsDataActor(val basePath: String, val nodeName: String) extends Actor
         ExecuteDeleteStatementInShards(statement,
                                        schema,
                                        locations.map(l => Location(l.metric, nodeName, l.from, l.to))))
+    case persistedAck: PersistedBits =>
+      localWriteCoordinator ! persistedAck
   }
 
 }
@@ -181,7 +185,8 @@ object MetricsDataActor {
                       enclosingConfig.getInt("upper-bound"))
   }
 
-  def props(basePath: String, nodeName: String): Props = Props(new MetricsDataActor(basePath, nodeName))
+  def props(basePath: String, nodeName: String, localWriteCoordinator: ActorRef): Props =
+    Props(new MetricsDataActor(basePath, nodeName, localWriteCoordinator))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)

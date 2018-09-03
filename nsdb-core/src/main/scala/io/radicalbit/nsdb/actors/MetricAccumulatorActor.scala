@@ -25,6 +25,7 @@ import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -203,6 +204,14 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
 object MetricAccumulatorActor {
 
   case class Refresh(writeIds: Seq[String], keys: Seq[Location])
+  case class PersistedBits(persistedBits: Seq[PersistedBit])
+  case class PersistedBit(db: String,
+                          namespace: String,
+                          metric: String,
+                          timestamp: Long,
+                          bit: Bit,
+                          location: Location,
+                          successfully: Boolean)
 
   def props(basePath: String, db: String, namespace: String, readerActor: ActorRef): Props =
     Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor))

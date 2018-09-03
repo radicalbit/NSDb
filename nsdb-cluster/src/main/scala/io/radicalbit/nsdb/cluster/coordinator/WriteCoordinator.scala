@@ -26,6 +26,7 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.PersistedBits
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
@@ -216,6 +217,23 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
     }
 
+  /**
+    * Given a sequence of [[CommitLogResponse]] (may be successful or failed both) applies the passed function
+    * ,if the responses are all successful. Otherwise, it returns a message of failure [[RecordRejected]].
+    * The argument function maps incoming successful requests in a [[WriteCoordinatorResponse]]
+    * that can be [[RecordRejected]] in case of failure  or [[InputMapped]] in case of success after fn application.
+    *
+    * In case of commitLog failed responses it performs compensation for correctly written entities.
+    *
+    * @param responses [[Seq]] of commit log responses
+    * @param db database name
+    * @param namespace namespace name
+    * @param metric metric name
+    * @param bit [[Bit]] being written
+    * @param schema [[Bit]] schema
+    * @param fn function to be applied in case of successful responses
+    * @return a [[WriteCoordinatorResponse]]
+    */
   def handleCommitLogCoordinatorResponses(responses: Seq[CommitLogResponse],
                                           db: String,
                                           namespace: String,
@@ -296,6 +314,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
       accumulationResult
     } else {
+      // case in which the accumulation on some node failed
+      // we need to delete the accumulated bits on the successful node commit in these nodes a RejectedEntry
       succeedResponses.foreach { response =>
         metricsDataActors.get(response.location.node) match {
           case Some(mda) => mda ! DeleteRecordFromShard(db, namespace, response.location, bit)
@@ -303,7 +323,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
       }
 
-      val accumulationResult = Future
+      val commitLogRejection = Future
         .sequence {
           succeedResponses.map { accumulatorResponse =>
             writeCommitLog(db,
@@ -321,7 +341,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
 
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-      accumulationResult
+      commitLogRejection
     }
   }
 
@@ -336,8 +356,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetPublishers)
-      log.debug("writecoordinator data actor : {}", metricsDataActors.size)
-      log.debug("writecoordinator commit log  actor : {}", commitLogCoordinators.size)
+      log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
+      log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
   }
 
@@ -546,6 +566,22 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             context.system.terminate()
         }
         .pipeTo(sender())
+
+    case persistedAck: PersistedBits =>
+      // Handle successful events of Bit Persistence
+      persistedAck.persistedBits.collect {
+        case persistedBit if persistedBit.successfully =>
+          writeCommitLog(
+            persistedBit.db,
+            persistedBit.namespace,
+            persistedBit.timestamp,
+            persistedBit.metric,
+            persistedBit.location.node,
+            PersistedEntryAction(persistedBit.bit),
+            persistedBit.location
+          )
+        //FIXME: Right now in case of failure during persistence nothing is done
+      }
     case Restore(path: String) =>
       log.info("restoring dump at path {}", path)
       val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"

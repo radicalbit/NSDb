@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.{PersistedBit, PersistedBits, Refresh}
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.index.AllFacetIndexes
 import org.apache.lucene.index.IndexWriter
@@ -48,7 +48,7 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.location)
-      groupedByKey.foreach {
+      val persistedBits = groupedByKey.flatMap {
         case (key, ops) =>
           val index                        = getIndex(key)
           val facetIndexes                 = facetIndexesFor(key)
@@ -58,22 +58,31 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
           val facetsIndexWriter = facets.newIndexWriter
           val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
 
-          ops.foreach {
+          val performedBitOperations = ops.collect {
             case WriteShardOperation(_, _, bit) =>
               index.write(bit) match {
                 case Success(_) =>
                   facets.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
+                      val timestamp = System.currentTimeMillis()
+                      PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
                     case Failure(t) =>
+                      val timestamp = System.currentTimeMillis()
                       // rollback main index
                       // FIXME: we should manage here the possible delete failures
                       index.delete(bit)
                       log.error(t, "error during write on facet indexes")
+                      PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
                   }
 
                 case Failure(t) =>
+                  val timestamp = System.currentTimeMillis()
                   log.error(t, "error during write on index")
+                  PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
               }
+          }.toSeq
+
+          ops.collect {
             case DeleteShardRecordOperation(_, _, bit) =>
               index.delete(bit) match {
                 case Success(_) =>
@@ -94,7 +103,12 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
 
           facetsTaxoWriter.close()
           facetsIndexWriter.close()
-      }
+
+          performedBitOperations
+      }.toSeq
+
+
+      context.parent ! PersistedBits(persistedBits)
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
   }
 }
