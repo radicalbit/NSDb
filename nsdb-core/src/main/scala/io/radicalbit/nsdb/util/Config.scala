@@ -31,4 +31,6 @@ object Config {
 
   def getInt(property: String)(implicit config: TypeSafeConfig): Int = config.getInt(property)
 
+  def getLong(property: String)(implicit config: TypeSafeConfig): Long = config.getLong(property)
+
 }

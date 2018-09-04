@@ -16,6 +16,7 @@
 
 package org.apache.lucene.facet.taxonomy;
 
+import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.facet.FacetsCollector;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.index.BinaryDocValues;
@@ -70,26 +71,10 @@ public class TaxonomyFacetSumDoubleAssociations extends DoubleTaxonomyFacets{
                                 ((bytes[offset + 2] & 0xFF) << 8) |
                                 (bytes[offset + 3] & 0xFF);
                         offset += 4;
-
-                        //FIXME it's not the best solution, the only one I found so far
                         byte[] doubleBytes = Arrays.copyOfRange(bytes, 4, bytes.length);
-                        String strRep = "";
-                        for(byte b : doubleBytes){
-                            String s = Integer.toBinaryString(b & 0xFF);
-                            String returnString = s;
-                            if (s.length() <8){
-                                char[] charArray = new char[8 - s.length()];
-                                Arrays.fill(charArray, '0');
-                                String str = new String(charArray);
-                                returnString = str.concat(s);
-                            }
-                            strRep += returnString;
-                        }
-
-                        long value = java.lang.Long.parseLong(strRep, 2);
 
                         offset += 8;
-                        values[ord] += Double.longBitsToDouble(value);
+                        values[ord] += DoublePoint.decodeDimension(doubleBytes, 0);
                     }
                 }
             }

@@ -16,6 +16,7 @@
 
 package org.apache.lucene.facet;
 
+import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.facet.taxonomy.AssociationFacetField;
 import org.apache.lucene.util.BytesRef;
 
@@ -45,7 +46,9 @@ public class DoubleAssociationFacetField extends AssociationFacetField {
      * @return {@link BytesRef} representation of double
      */
     static BytesRef doubleToBytesRef(double v) {
-        return LongAssociationFacetField.longToBytesRef(Double.doubleToLongBits(v));
+        byte[] bytes = new byte[8];
+        DoublePoint.encodeDimension(v, bytes, 0);
+        return new BytesRef(bytes);
     }
 
     @Override
