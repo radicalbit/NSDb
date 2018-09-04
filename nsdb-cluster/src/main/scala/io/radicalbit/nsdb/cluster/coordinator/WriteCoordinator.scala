@@ -168,7 +168,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           op(schema)
         case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          Future(RecordRejected(db, namespace, metric, bit, errs))
+          Future(RecordRejected(db, namespace, metric, bit, Location("", "", 0, 0), errs, System.currentTimeMillis()))
       }
 
   /**
@@ -189,7 +189,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         op(locations)
       case _ =>
         log.error(s"no location found for bit $bit")
-        Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
+        Future(
+          RecordRejected(db,
+                         namespace,
+                         metric,
+                         bit,
+                         Location("", "", 0, 0),
+                         List(s"no location found for bit $bit"),
+                         System.currentTimeMillis()))
     }
 
   /**
@@ -211,11 +218,24 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           case msg: RecordAdded    => msg
           case msg: RecordRejected => msg
           case _ =>
-            RecordRejected(db, namespace, metric, bit, List("unknown response from metrics Actor"))
+            RecordRejected(db,
+                           namespace,
+                           metric,
+                           bit,
+                           location,
+                           List("unknown response from metrics Actor"),
+                           System.currentTimeMillis())
         }
       case None =>
         log.error(s"no data actor for node ${location.node}")
-        Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
+        Future(
+          RecordRejected(db,
+                         namespace,
+                         metric,
+                         bit,
+                         location,
+                         List(s"no data actor for node ${location.node}"),
+                         System.currentTimeMillis()))
     }
 
   /**
@@ -266,11 +286,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                        response.location)
       }
       Future(
-        RecordRejected(db,
-                       namespace,
-                       metric,
-                       bit,
-                       List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}")))
+        RecordRejected(
+          db,
+          namespace,
+          metric,
+          bit,
+          Location(metric, "", 0, 0),
+          List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}"),
+          System.currentTimeMillis()
+        ))
     }
   }
 
@@ -298,7 +322,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
       val accumulationResult = Future
         .sequence {
-          succeedResponses.map { accumulatorResponse =>
+          responses.map { accumulatorResponse =>
             writeCommitLog(db,
                            namespace,
                            accumulatorResponse.timestamp,
@@ -326,7 +350,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
       val commitLogRejection = Future
         .sequence {
-          succeedResponses.map { accumulatorResponse =>
+          responses.map { accumulatorResponse =>
             writeCommitLog(db,
                            namespace,
                            accumulatorResponse.timestamp,
@@ -337,8 +361,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           }
         }
         .flatMap { responses =>
-          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(res =>
-            Future.successful(RecordRejected(db, namespace, metric, bit, List(""))))
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(
+            res =>
+              Future.successful(
+                RecordRejected(db,
+                               namespace,
+                               metric,
+                               bit,
+                               Location(metric, "", 0, 0),
+                               List(""),
+                               System.currentTimeMillis())))
         }
 
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
@@ -475,6 +507,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
               eventualAccumulatedResponses
             case r: RecordRejected =>
               // It does nothing for responses not included in consistency level
+              log.error("Eventual writes are not performed due to error during ")
               Future(r)
           }
 

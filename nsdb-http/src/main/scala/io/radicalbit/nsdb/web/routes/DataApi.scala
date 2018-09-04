@@ -85,7 +85,7 @@ trait DataApi {
                                             insertBody.bit)) {
                 case Success(_: InputMapped) =>
                   complete("OK")
-                case Success(RecordRejected(_, _, _, _, reasons)) =>
+                case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
                   complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
                 case Success(_) =>
                   complete(HttpResponse(InternalServerError, entity = "unknown response"))
