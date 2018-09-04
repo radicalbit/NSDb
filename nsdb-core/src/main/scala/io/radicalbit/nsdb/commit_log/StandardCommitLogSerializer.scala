@@ -239,156 +239,166 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     * @param entry a Array[Byte] to be deserialized into a [[CommitLogEntry]]
     * @return the deserialize [[CommitLogEntry]]
     */
-  override def deserialize(entry: Array[Byte]): CommitLogEntry = {
+  override def deserialize(entry: Array[Byte]): Option[CommitLogEntry] = {
     readByteBuffer.clear(entry)
     //classname
     val className = readByteBuffer.read
-    // timestamp
-    val ts = readByteBuffer.read.toLong
-    // database
-    val db = readByteBuffer.read
-    //  namespace
-    val namespace = readByteBuffer.read
 
-    className match {
-      case c if c == classOf[ReceivedEntry].getCanonicalName =>
-        // metric
-        val metric = readByteBuffer.read
-        // dimensions
-        val numOfDim = readByteBuffer.getInt
-        val dimensions = (for {
-          _ <- 1 to numOfDim
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        // tags
-        val numOfTags = readByteBuffer.getInt
-        val tags = (for {
-          _ <- 1 to numOfTags
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        //bit identifier
-        val id = readByteBuffer.getInt
+    if (className != "") {
 
-        ReceivedEntry(
-          db = db,
-          namespace = namespace,
-          metric = metric,
-          timestamp = ts,
-          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
-          id
-        )
-      case c if c == classOf[AccumulatedEntry].getCanonicalName =>
-        // metric
-        val metric = readByteBuffer.read
-        // dimensions
-        val numOfDim = readByteBuffer.getInt
-        val dimensions = (for {
-          _ <- 1 to numOfDim
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        // tags
-        val numOfTags = readByteBuffer.getInt
-        val tags = (for {
-          _ <- 1 to numOfTags
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        //bit identifier
-        val id = readByteBuffer.getInt
+      // timestamp
+      val timestampStr = readByteBuffer.read
+      val ts           = timestampStr.toLong
+      // database
+      val db = readByteBuffer.read
+      //  namespace
+      val namespace = readByteBuffer.read
 
-        AccumulatedEntry(
-          db = db,
-          namespace = namespace,
-          metric = metric,
-          timestamp = ts,
-          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
-          id
-        )
-      case c if c == classOf[PersistedEntry].getCanonicalName =>
-        // metric
-        val metric = readByteBuffer.read
-        // dimensions
-        val numOfDim = readByteBuffer.getInt
-        val dimensions = (for {
-          _ <- 1 to numOfDim
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        // tags
-        val numOfTags = readByteBuffer.getInt
-        val tags = (for {
-          _ <- 1 to numOfTags
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        //bit identifier
-        val id = readByteBuffer.getInt
+      className match {
+        case c if c == classOf[ReceivedEntry].getCanonicalName =>
+          // metric
+          val metric = readByteBuffer.read
+          // dimensions
+          val numOfDim = readByteBuffer.getInt
+          val dimensions = (for {
+            _ <- 1 to numOfDim
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          // tags
+          val numOfTags = readByteBuffer.getInt
+          val tags = (for {
+            _ <- 1 to numOfTags
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          //bit identifier
+          val id = readByteBuffer.getInt
 
-        PersistedEntry(
-          db = db,
-          namespace = namespace,
-          metric = metric,
-          timestamp = ts,
-          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
-          id
-        )
-      case c if c == classOf[RejectedEntry].getCanonicalName =>
-        // metric
-        val metric = readByteBuffer.read
-        // dimensions
-        val numOfDim = readByteBuffer.getInt
-        val dimensions = (for {
-          _ <- 1 to numOfDim
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        // tags
-        val numOfTags = readByteBuffer.getInt
-        val tags = (for {
-          _ <- 1 to numOfTags
-          name  = readByteBuffer.read
-          typ   = readByteBuffer.read
-          value = new Array[Byte](readByteBuffer.getInt)
-          _     = readByteBuffer.get(value)
-        } yield (name, typ, value)).toList
-        //bit identifier
-        val id = readByteBuffer.getInt
+          Some(
+            ReceivedEntry(
+              db = db,
+              namespace = namespace,
+              metric = metric,
+              timestamp = ts,
+              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              id
+            ))
+        case c if c == classOf[AccumulatedEntry].getCanonicalName =>
+          // metric
+          val metric = readByteBuffer.read
+          // dimensions
+          val numOfDim = readByteBuffer.getInt
+          val dimensions = (for {
+            _ <- 1 to numOfDim
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          // tags
+          val numOfTags = readByteBuffer.getInt
+          val tags = (for {
+            _ <- 1 to numOfTags
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          //bit identifier
+          val id = readByteBuffer.getInt
 
-        RejectedEntry(
-          db = db,
-          namespace = namespace,
-          metric = metric,
-          timestamp = ts,
-          Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
-          id
-        )
-      case c if c == classOf[DeleteEntry].getCanonicalName =>
-        // metric
-        val metric          = readByteBuffer.read
-        val expressionClass = readByteBuffer.read
-        DeleteEntry(db = db,
-                    namespace = namespace,
-                    metric = metric,
-                    timestamp = ts,
-                    expression = createExpression(expressionClass))
-    }
+          Some(
+            AccumulatedEntry(
+              db = db,
+              namespace = namespace,
+              metric = metric,
+              timestamp = ts,
+              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              id
+            ))
+        case c if c == classOf[PersistedEntry].getCanonicalName =>
+          // metric
+          val metric = readByteBuffer.read
+          // dimensions
+          val numOfDim = readByteBuffer.getInt
+          val dimensions = (for {
+            _ <- 1 to numOfDim
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          // tags
+          val numOfTags = readByteBuffer.getInt
+          val tags = (for {
+            _ <- 1 to numOfTags
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          //bit identifier
+          val id = readByteBuffer.getInt
+
+          Some(
+            PersistedEntry(
+              db = db,
+              namespace = namespace,
+              metric = metric,
+              timestamp = ts,
+              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              id
+            ))
+        case c if c == classOf[RejectedEntry].getCanonicalName =>
+          // metric
+          val metric = readByteBuffer.read
+          // dimensions
+          val numOfDim = readByteBuffer.getInt
+          val dimensions = (for {
+            _ <- 1 to numOfDim
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          // tags
+          val numOfTags = readByteBuffer.getInt
+          val tags = (for {
+            _ <- 1 to numOfTags
+            name  = readByteBuffer.read
+            typ   = readByteBuffer.read
+            value = new Array[Byte](readByteBuffer.getInt)
+            _     = readByteBuffer.get(value)
+          } yield (name, typ, value)).toList
+          //bit identifier
+          val id = readByteBuffer.getInt
+
+          Some(
+            RejectedEntry(
+              db = db,
+              namespace = namespace,
+              metric = metric,
+              timestamp = ts,
+              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              id
+            ))
+        case c if c == classOf[DeleteEntry].getCanonicalName =>
+          // metric
+          val metric          = readByteBuffer.read
+          val expressionClass = readByteBuffer.read
+          Some(
+            DeleteEntry(db = db,
+                        namespace = namespace,
+                        metric = metric,
+                        timestamp = ts,
+                        expression = createExpression(expressionClass)))
+      }
+    } else None
   }
 
   /**

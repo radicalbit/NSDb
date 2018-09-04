@@ -18,39 +18,13 @@ package io.radicalbit.nsdb.commit_log
 import java.io.{File, FileOutputStream}
 import java.util.UUID
 
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
-  AccumulatedEntry,
-  PersistedEntry,
-  ReceivedEntry,
-  RejectedEntry
-}
-import io.radicalbit.nsdb.common.protocol.Bit
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
-class CommitLogFileSpec extends WordSpec with Matchers {
+class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with BeforeAndAfterAll {
 
-  val directory = "target/test_index"
-
-  implicit val serializer = new StandardCommitLogSerializer
-
-  private val separator = System.getProperty("line.separator").toCharArray.head
-
-  def receivedEntry(id: Int)    = ReceivedEntry("db", "namespace", "metric", 0, Bit.empty, id)
-  def accumulatedEntry(id: Int) = AccumulatedEntry("db", "namespace", "metric", 0, Bit.empty, id)
-  def persistedEntry(id: Int)   = PersistedEntry("db", "namespace", "metric", 0, Bit.empty, id)
-  def rejectedEntry(id: Int)    = RejectedEntry("db", "namespace", "metric", 0, Bit.empty, id)
-
-  val balancedEntrySeq = Seq(
-    receivedEntry(0),
-    accumulatedEntry(0),
-    persistedEntry(0),
-    receivedEntry(1),
-    accumulatedEntry(1),
-    persistedEntry(1),
-    receivedEntry(2),
-    accumulatedEntry(2),
-    rejectedEntry(2)
-  )
+  override def beforeAll(): Unit = {
+    new File(directory).mkdirs()
+  }
 
   "CommitLogFile" should {
 
@@ -61,10 +35,9 @@ class CommitLogFileSpec extends WordSpec with Matchers {
 
       balancedEntrySeq.foreach { entry =>
         fileOS.write(serializer.serialize(entry))
-        fileOS.write(separator)
+        fileOS.flush()
       }
 
-      fileOS.flush()
       fileOS.close()
 
       import CommitLogFile.CommitLogFile
@@ -77,9 +50,8 @@ class CommitLogFileSpec extends WordSpec with Matchers {
       val file   = new File(s"$directory/testCommitLog${UUID.randomUUID().toString}")
       val fileOS = new FileOutputStream(file, true)
 
-      balancedEntrySeq.dropRight(1) foreach { entry =>
+      unbalancedEntrySeq foreach { entry =>
         fileOS.write(serializer.serialize(entry))
-        fileOS.write(separator)
       }
 
       fileOS.flush()
@@ -87,7 +59,7 @@ class CommitLogFileSpec extends WordSpec with Matchers {
 
       import CommitLogFile.CommitLogFile
 
-      file.checkPendingEntries shouldBe Seq(2)
+      file.checkPendingEntries shouldBe Seq(id1)
     }
 
   }

@@ -26,9 +26,9 @@ import scala.util.{Failure, Success, Try}
 
 object CommitLogWriterActor {
 
-  sealed trait CommitLoggerAction
+  sealed trait CommitLogAction
 
-  sealed trait BitEntryAction extends CommitLoggerAction {
+  sealed trait BitEntryAction extends CommitLogAction {
     def bit: Bit
   }
 
@@ -36,9 +36,9 @@ object CommitLogWriterActor {
   case class AccumulatedEntryAction(bit: Bit)                     extends BitEntryAction
   case class PersistedEntryAction(bit: Bit)                       extends BitEntryAction
   case class RejectedEntryAction(bit: Bit)                        extends BitEntryAction
-  case class DeleteAction(deleteSQLStatement: DeleteSQLStatement) extends CommitLoggerAction
-  case object DeleteNamespaceAction                               extends CommitLoggerAction
-  case object DeleteMetricAction                                  extends CommitLoggerAction
+  case class DeleteAction(deleteSQLStatement: DeleteSQLStatement) extends CommitLogAction
+  case object DeleteNamespaceAction                               extends CommitLogAction
+  case object DeleteMetricAction                                  extends CommitLogAction
 
   sealed trait CommitLogProtocol
 
@@ -49,7 +49,7 @@ object CommitLogWriterActor {
                               namespace: String,
                               metric: String,
                               ts: Long,
-                              action: CommitLoggerAction,
+                              action: CommitLogAction,
                               location: Location)
       extends CommitLogRequest
 
@@ -164,7 +164,7 @@ trait CommitLogWriterActor extends ActorPathLogging {
     */
   protected def serializer: CommitLogSerializer
 
-  final def receive: Receive = {
+  def receive: Receive = {
 
     case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: ReceivedEntryAction, location) =>
       createEntry(
@@ -238,7 +238,6 @@ trait CommitLogWriterActor extends ActorPathLogging {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, "", ex.getMessage)
       }
-
   }
 
   /**

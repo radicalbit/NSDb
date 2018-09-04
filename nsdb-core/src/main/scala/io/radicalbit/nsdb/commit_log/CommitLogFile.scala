@@ -15,12 +15,11 @@
  */
 
 package io.radicalbit.nsdb.commit_log
-import java.io.File
+import java.io.{File, FileInputStream}
 
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 
 import scala.collection.mutable.ListBuffer
-import scala.io.Source
 
 object CommitLogFile {
 
@@ -29,21 +28,23 @@ object CommitLogFile {
     def checkPendingEntries(implicit serializer: CommitLogSerializer): List[Int] = {
       val pending: ListBuffer[Int] = ListBuffer.empty[Int]
 
-      Source.fromFile(file).getLines().foreach { l =>
-        val rawEntry = serializer.deserialize(l.getBytes)
+      val contents    = new Array[Byte](5000)
+      val inputStream = new FileInputStream(file)
+      var r           = inputStream.read(contents)
+      while (r != -1) {
+
+        val rawEntry = serializer.deserialize(contents)
 
         rawEntry match {
-          case bitEntry: CommitLogBitEntry =>
-            bitEntry match {
-              case e: ReceivedEntry    => if (!pending.contains(e.id)) pending += e.id
-              case e: AccumulatedEntry => if (!pending.contains(e.id)) pending += e.id
-              case e: PersistedEntry   => pending.remove(pending.indexOf(e.id))
-              case e: RejectedEntry    => pending.remove(pending.indexOf(e.id))
-            }
-          case _ =>
+          case Some(e: ReceivedEntry)    => if (!pending.contains(e.id)) pending += e.id
+          case Some(e: AccumulatedEntry) => if (!pending.contains(e.id)) pending += e.id
+          case Some(e: PersistedEntry)   => if (pending.contains(e.id)) pending -= e.id
+          case Some(e: RejectedEntry)    => if (pending.contains(e.id)) pending -= e.id
+          case None                      =>
         }
-
+        r = inputStream.read(contents)
       }
+
       pending.toList
     }
 

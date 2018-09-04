@@ -16,24 +16,119 @@
 
 package io.radicalbit.nsdb.commit_log
 
+import java.io.{File, FileOutputStream}
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLogBitEntry, RejectedEntryAction, WriteToCommitLog}
+import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
+import io.radicalbit.nsdb.model.Location
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
+
+import scala.concurrent.duration.FiniteDuration
 
 class RollingCommitLogFileWriterSpec
     extends TestKit(ActorSystem("radicaldb-test"))
     with ImplicitSender
     with WordSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfter
+    with CommitLogSpec {
+
+    private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
+    private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
+
+  private val interval = FiniteDuration(
+    system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
+  before {
+    new File(directory).mkdirs()
+
+    val existingFiles = Option(Paths.get(directory).toFile.listFiles())
+      .map(_.toSet)
+      .getOrElse(Set.empty)
+
+    existingFiles.foreach(f => f.delete)
+  }
+
+  "A rolling commit log writer " when {
+    "starting" should {
+      "check and delete old files when they are balanced" in {
+        val firstFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq.empty)
+
+        val secondFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq(firstFileName))
+
+        val balancedFile   = new File(s"$directory/$firstFileName")
+        val balancedFileOS = new FileOutputStream(balancedFile, true)
+
+        balancedEntrySeq foreach { entry =>
+          balancedFileOS.write(serializer.serialize(entry))
+        }
+
+        balancedFileOS.flush()
+        balancedFileOS.close()
+
+        val unbalancedFile   = new File(s"$directory/$secondFileName")
+        val unbalancedFileOS = new FileOutputStream(unbalancedFile, true)
+
+        unbalancedEntrySeq foreach { entry =>
+          unbalancedFileOS.write(serializer.serialize(entry))
+        }
+
+        unbalancedFileOS.flush()
+        unbalancedFileOS.close()
+
+        val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
+
+        Thread.sleep(interval.toMillis + 1000)
+
+        val existingFiles = Option(Paths.get(directory).toFile.list())
+          .map(_.toSet)
+          .getOrElse(Set.empty)
+
+        existingFiles.size shouldBe 1
+        existingFiles shouldBe Set(secondFileName)
+
+      }
+
+      "check and delete old files when they are not balanced" in {
+        val firstFileName  = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq.empty)
+        val secondFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq(firstFileName))
+
+        val unbalancedFile   = new File(s"$directory/$secondFileName")
+        val unbalancedFileOS = new FileOutputStream(unbalancedFile, true)
+
+        unbalancedEntrySeq foreach { entry =>
+          unbalancedFileOS.write(serializer.serialize(entry))
+        }
+
+        unbalancedFileOS.flush()
+        unbalancedFileOS.close()
+
+        val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
+
+        Thread.sleep(interval.toMillis + 1000)
+
+        rolling ! WriteToCommitLog(db, namespace, metric, 1, RejectedEntryAction(bit1), Location(metric, "node", 0, 0))
+
+        rolling ! ForceRolling
+
+        Thread.sleep(interval.toMillis + 1000)
+
+        val existingFiles = Option(Paths.get(directory).toFile.list())
+          .map(_.toSet)
+          .getOrElse(Set.empty)
+
+        existingFiles.size shouldBe 1
+        new File(s"$directory/${existingFiles.head}").length() shouldBe 0
+      }
+    }
+  }
 
   "A commit log file name" when {
-
-    val db                = "database"
-    val namespace         = "namespace"
-    val metric            = "metric"
-    val prefix            = "DummyFileNamePrefix"
-    val fileNameSeparator = RollingCommitLogFileWriter.FileNameSeparator
 
     def name(counter: String) =
       s"$prefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric$fileNameSeparator$counter"
@@ -42,12 +137,8 @@ class RollingCommitLogFileWriterSpec
       "use the correct name" in {
 
         val files = List.empty[String]
-        val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
-                                                                   namespace = namespace,
-                                                                   metric = metric,
-                                                                   fileNamePrefix = prefix,
-                                                                   fileNameSeparator = fileNameSeparator,
-                                                                   fileNames = files)
+        val nextFileName =
+          RollingCommitLogFileWriter.nextFileName(db = db, namespace = namespace, metric = metric, fileNames = files)
         nextFileName should be(name("0"))
       }
     }
@@ -55,12 +146,8 @@ class RollingCommitLogFileWriterSpec
     "starting from a commit log directory having an existing log" should {
       "use the correct name" in {
         val files = List(name("0"))
-        val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
-                                                                   namespace = namespace,
-                                                                   metric = metric,
-                                                                   fileNamePrefix = prefix,
-                                                                   fileNameSeparator = fileNameSeparator,
-                                                                   fileNames = files)
+        val nextFileName =
+          RollingCommitLogFileWriter.nextFileName(db = db, namespace = namespace, metric = metric, fileNames = files)
         nextFileName should be(name("1"))
       }
     }
@@ -68,12 +155,8 @@ class RollingCommitLogFileWriterSpec
     "starting from a commit log directory having few ordered existing log" should {
       "use the correct name" in {
         val files = List(name("0"), name("1"), name("2"), name("3"))
-        val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
-                                                                   namespace = namespace,
-                                                                   metric = metric,
-                                                                   fileNamePrefix = prefix,
-                                                                   fileNameSeparator = fileNameSeparator,
-                                                                   fileNames = files)
+        val nextFileName =
+          RollingCommitLogFileWriter.nextFileName(db = db, namespace = namespace, metric = metric, fileNames = files)
         nextFileName should be(name("4"))
       }
     }
@@ -84,8 +167,6 @@ class RollingCommitLogFileWriterSpec
           db = db,
           namespace = namespace,
           metric = metric,
-          fileNamePrefix = prefix,
-          fileNameSeparator = fileNameSeparator,
           fileNames = List(name("3"), name("2"), name("0"), name("1"))
         )
         nextFileName should be(name("4"))
@@ -95,8 +176,6 @@ class RollingCommitLogFileWriterSpec
             db = db,
             namespace = namespace,
             metric = metric,
-            fileNamePrefix = prefix,
-            fileNameSeparator = fileNameSeparator,
             fileNames = List(name("3"), name("0"), name("2"), name("1"), name("111"))
           )
         nextFileName1 should be(name("112"))
@@ -114,12 +193,8 @@ class RollingCommitLogFileWriterSpec
                          "jdksjadlkajdlsa",
                          "_______",
                          "_dada")
-        val nextFileName = RollingCommitLogFileWriter.nextFileName(db = db,
-                                                                   namespace = namespace,
-                                                                   metric = metric,
-                                                                   fileNamePrefix = prefix,
-                                                                   fileNameSeparator = fileNameSeparator,
-                                                                   fileNames = files)
+        val nextFileName =
+          RollingCommitLogFileWriter.nextFileName(db = db, namespace = namespace, metric = metric, fileNames = files)
         nextFileName should be(name("4"))
       }
     }
