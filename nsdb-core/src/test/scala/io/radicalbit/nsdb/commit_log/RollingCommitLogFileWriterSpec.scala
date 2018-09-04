@@ -37,8 +37,8 @@ class RollingCommitLogFileWriterSpec
     with BeforeAndAfter
     with CommitLogSpec {
 
-    private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
-    private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
+  private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
+  private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
 
   private val interval = FiniteDuration(
     system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),

@@ -122,7 +122,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
       import CommitLogFile._
 
-      oldFilesToCheck.foreach (file => {
+      oldFilesToCheck.foreach(file => {
         val pendingEntries = file.checkPendingEntries
         if (pendingEntries.isEmpty) {
           file.delete()
