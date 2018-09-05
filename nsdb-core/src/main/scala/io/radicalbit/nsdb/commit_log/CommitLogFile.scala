@@ -23,8 +23,17 @@ import scala.collection.mutable.ListBuffer
 
 object CommitLogFile {
 
+  /**
+    * Useful to add the check entries feature to a File
+    */
   implicit class CommitLogFile(val file: File) {
 
+    /**
+      * Check if the entries of the file (It is supposed to be a valid commit log file) are balanced,
+      * i.e. every [[ReceivedEntry]] or [[AccumulatedEntry]] must have its related [[PersistedEntry]] or [[RejectedEntry]]
+      * @param serializer Serializer to use for deserialization purposes
+      * @return the list of unbalanced entries, if exist. Empty list if the file is correctly balanced.
+      */
     def checkPendingEntries(implicit serializer: CommitLogSerializer): List[Int] = {
       val pending: ListBuffer[Int] = ListBuffer.empty[Int]
 

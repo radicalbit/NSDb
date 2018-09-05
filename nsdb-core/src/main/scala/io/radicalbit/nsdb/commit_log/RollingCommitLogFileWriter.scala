@@ -79,8 +79,8 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
   log.info("Commit log serializer {} initialized successfully.", serializerClass)
 
-  private var file: File                 = _
-  private var fileOS: OutputStreamWriter = _
+  private var file: File               = _
+  private var fileOS: FileOutputStream = _
 
   private val oldFilesToCheck: ListBuffer[File]                   = ListBuffer.empty
   private val pendingOutdatedEntries: mutable.Map[File, Seq[Int]] = mutable.Map.empty
@@ -171,13 +171,12 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   protected def close(): Unit = fileOS.close()
 
   protected def appendToDisk(entry: CommitLogEntry): Unit = {
-    val byt = serializer.serialize(entry)
-    fileOS.write(new String(serializer.serialize(entry)))
+    fileOS.write(serializer.serialize(entry))
     fileOS.flush()
     log.debug("Entry {} appended successfully to the commit log file {}.", entry, file.getAbsoluteFile)
   }
 
-  protected def checkAndUpdateRollingFile(current: File): Option[(File, OutputStreamWriter)] =
+  protected def checkAndUpdateRollingFile(current: File): Option[(File, FileOutputStream)] =
     if (current.length() >= maxSize) {
 
       val f = newFile(current)
@@ -195,8 +194,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     new File(s"$directory/$nextFile")
   }
 
-  protected def newOutputStream(file: File): OutputStreamWriter =
-    new OutputStreamWriter(new FileOutputStream(file, true), "UTF-8")
+  protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file, true)
 
   override def receive: Receive = super.receive orElse {
     case ForceRolling =>
