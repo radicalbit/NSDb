@@ -16,27 +16,34 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import java.io.{File, FileOutputStream}
+import java.io._
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
 import akka.actor.Props
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.util.Config._
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object RollingCommitLogFileWriter {
 
-  def props(db: String, namespace: String) = Props(new RollingCommitLogFileWriter(db, namespace))
+  /**
+    * Force rolling no matter the criteria. For test purpose
+    */
+  case object ForceRolling
 
-  private[commit_log] val FileNameSeparator = "~"
+  def props(db: String, namespace: String, metric: String) =
+    Props(new RollingCommitLogFileWriter(db, namespace, metric))
 
-  private[commit_log] def nextFileName(db: String,
-                                       namespace: String,
-                                       fileNamePrefix: String,
-                                       fileNameSeparator: String,
-                                       fileNames: Seq[String]): String = {
+  private[commit_log] val fileNameSeparator = "~"
+  private[commit_log] val fileNamePrefix    = "nsdb"
+
+  private[commit_log] def nextFileName(db: String, namespace: String, metric: String, fileNames: Seq[String]): String = {
 
     def generateNextId: Int = {
       fileNames
@@ -48,7 +55,7 @@ object RollingCommitLogFileWriter {
         .getOrElse(0)
     }
 
-    f"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$generateNextId"
+    f"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric$fileNameSeparator$generateNextId"
   }
 }
 
@@ -56,27 +63,28 @@ object RollingCommitLogFileWriter {
   * Concrete actor extending [[CommitLogWriterActor]] whose purpose is to log [[CommitLogEntry]] on file.
   * This class is intended to be thread safe because CommitLogWriter extends the Actor trait.
   * Do no call its methods from the outside, use the protocol specified inside CommitLogWriter instead.
-  *
   */
-class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLogWriterActor {
+class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) extends CommitLogWriterActor {
 
   import RollingCommitLogFileWriter._
 
   implicit val config: Config = context.system.settings.config
 
-  private val separator       = System.getProperty("line.separator").toCharArray.head
   private val serializerClass = getString(CommitLogSerializerConf)
   private val directory       = getString(CommitLogDirectoryConf)
   private val maxSize         = getLong(CommitLogMaxSizeConf)
-  private val FileNamePrefix  = "nsdb"
 
   log.info("Initializing the commit log serializer {}...", serializerClass)
-  override protected val serializer: CommitLogSerializer =
+  override protected implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
   log.info("Commit log serializer {} initialized successfully.", serializerClass)
 
   private var file: File               = _
   private var fileOS: FileOutputStream = _
+
+  private val oldFilesToCheck: ListBuffer[File]                   = ListBuffer.empty
+  private val pendingOutdatedEntries: mutable.Map[File, Seq[Int]] = mutable.Map.empty
+  private val pendingFinalizingEntries: ListBuffer[Int]           = ListBuffer.empty
 
   override def preStart(): Unit = {
 
@@ -85,24 +93,75 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
     val existingFiles = Option(Paths.get(directory).toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
-      .filter(name => name.contains(s"$db$FileNameSeparator$namespace"))
+      .filter(name => name.contains(s"$db$fileNameSeparator$namespace$fileNameSeparator$metric"))
 
     val newFileName = existingFiles match {
-      case fileNames if fileNames.nonEmpty => fileNames.maxBy(s => s.split(FileNameSeparator)(3).toInt)
-      case fileNames                       => nextFileName(db, namespace, FileNamePrefix, FileNameSeparator, fileNames.toSeq)
+      case fileNames if fileNames.nonEmpty =>
+        val lastFile = fileNames.maxBy(s => s.split(fileNameSeparator)(4).toInt)
+        oldFilesToCheck ++= (fileNames - lastFile).map(name => new File(s"$directory/$name"))
+        lastFile
+      case fileNames => nextFileName(db, namespace, metric, fileNames.toSeq)
     }
 
     file = new File(s"$directory/$newFileName")
     fileOS = newOutputStream(file)
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    import context.dispatcher
+
+    /**
+      * Checks if the old commit log files can be safely deleted in order to preserve disk space.
+      * Basically, checks if a file is balanced (every entry is finalised), if this is positive, the file can be safely deleted,
+      * otherwise all the non balanced entries must be stored in an auxiliary memory queue, that will be popped every time a finalisation entry comes.
+      * When the memory queue is balanced (there is only one placeholder for a given file) the given file can easily be removed as well.
+      */
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+
+      import CommitLogFile._
+
+      oldFilesToCheck.foreach(file => {
+        val pendingEntries = file.checkPendingEntries
+        if (pendingEntries.isEmpty) {
+          file.delete()
+          oldFilesToCheck -= file
+        } else {
+          pendingOutdatedEntries += (file -> pendingEntries)
+        }
+        ()
+      })
+
+      val adjustedFiles = pendingOutdatedEntries.collect {
+        case (f: File, e: Seq[Int]) if e.forall(pendingFinalizingEntries.contains(_)) => f
+      }
+
+      adjustedFiles.foreach { f =>
+        f.delete()
+        oldFilesToCheck -= f
+        pendingOutdatedEntries -= f
+      }
+      pendingFinalizingEntries.clear()
+    }
   }
 
   override protected def createEntry(entry: CommitLogEntry): Try[Unit] = {
     log.debug("Received the entry {}.", entry)
 
+    entry match {
+      case e: FinalizationEntry =>
+        pendingFinalizingEntries += e.id
+
+      case _ => //nothing to do here
+    }
+
     val operation = Try(appendToDisk(entry))
+
     checkAndUpdateRollingFile(file).foreach {
       case (f, fos) =>
         file = f
+        fileOS.close()
         fileOS = fos
     }
 
@@ -113,14 +172,17 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
 
   protected def appendToDisk(entry: CommitLogEntry): Unit = {
     fileOS.write(serializer.serialize(entry))
-    fileOS.write(separator)
     fileOS.flush()
     log.debug("Entry {} appended successfully to the commit log file {}.", entry, file.getAbsoluteFile)
   }
 
   protected def checkAndUpdateRollingFile(current: File): Option[(File, FileOutputStream)] =
     if (current.length() >= maxSize) {
+
       val f = newFile(current)
+
+      oldFilesToCheck += current
+
       Some(f, newOutputStream(f))
     } else
       None
@@ -128,13 +190,18 @@ class RollingCommitLogFileWriter(db: String, namespace: String) extends CommitLo
   protected def newFile(current: File): File = newFile(file.getParent)
 
   protected def newFile(directory: String): File = {
-    val nextFile = nextFileName(db,
-                                namespace,
-                                fileNamePrefix = FileNamePrefix,
-                                fileNameSeparator = FileNameSeparator,
-                                fileNames = new File(directory).listFiles().map(_.getName))
+    val nextFile = nextFileName(db, namespace, metric, fileNames = new File(directory).listFiles().map(_.getName))
     new File(s"$directory/$nextFile")
   }
 
   protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file, true)
+
+  override def receive: Receive = super.receive orElse {
+    case ForceRolling =>
+      val f = newFile(file)
+      oldFilesToCheck += file
+      file = f
+      fileOS.close()
+      fileOS = newOutputStream(f)
+  }
 }

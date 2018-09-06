@@ -134,7 +134,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                              ts: Long,
                              metric: String,
                              nodeName: String,
-                             action: CommitLoggerAction,
+                             action: CommitLogAction,
                              location: Location): Future[CommitLogResponse] = {
     commitLogCoordinators.get(nodeName) match {
       case Some(commitLogCoordinator) =>

@@ -30,7 +30,7 @@ trait CommitLogSerializer {
     * @param entry byte representation
     * @return a [[CommitLogEntry]]
     */
-  def deserialize(entry: Array[Byte]): CommitLogEntry
+  def deserialize(entry: Array[Byte]): Option[CommitLogEntry]
 
   /**
     * Serializes a [[CommitLogEntry]] ADT

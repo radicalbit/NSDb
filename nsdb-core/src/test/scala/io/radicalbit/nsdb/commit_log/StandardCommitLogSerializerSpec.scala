@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLogBitEntry, DeleteEntry, ReceivedEntry}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
@@ -27,7 +27,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
   "A CommitLogEntry" when {
     val entryService = new StandardCommitLogSerializer
 
-    "has a single dimension" should {
+    "has got a single dimension" should {
       "be created correctly" in {
 
         val db        = "test-db"
@@ -42,12 +42,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
     }
 
-    "has few dimensions" should {
-      "be created correctly" in {
+    "has got few dimensions" should {
+      "be created correctly if ReceivedEntry" in {
 
         val db        = "test1-db"
         val namespace = "test1-namespace"
@@ -65,7 +65,70 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
+      }
+
+      "be created correctly if AccumulatedEntry" in {
+
+        val db        = "test1-db"
+        val namespace = "test1-namespace"
+        val ts        = 1500909299165L
+        val metric    = "test1-metric"
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val originalEntry =
+          AccumulatedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
+
+        val serByteArray = entryService.serialize(originalEntry)
+        val desEntry     = entryService.deserialize(serByteArray)
+
+        desEntry should be(Some(originalEntry))
+      }
+
+      "be created correctly if PersistedEntry" in {
+
+        val db        = "test1-db"
+        val namespace = "test1-namespace"
+        val ts        = 1500909299165L
+        val metric    = "test1-metric"
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val originalEntry =
+          PersistedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
+
+        val serByteArray = entryService.serialize(originalEntry)
+        val desEntry     = entryService.deserialize(serByteArray)
+
+        desEntry should be(Some(originalEntry))
+      }
+
+      "be created correctly if RejectedEntry" in {
+
+        val db        = "test1-db"
+        val namespace = "test1-namespace"
+        val ts        = 1500909299165L
+        val metric    = "test1-metric"
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val originalEntry =
+          RejectedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
+
+        val serByteArray = entryService.serialize(originalEntry)
+        val desEntry     = entryService.deserialize(serByteArray)
+
+        desEntry should be(Some(originalEntry))
       }
     }
     "for deletion by query" should {
@@ -81,7 +144,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with RangeExpression for Double" in {
         val db         = "test-db"
@@ -95,7 +158,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with RangeExpression for Integer" in {
         val db         = "test-db"
@@ -109,7 +172,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with ComparisonExpression for Integer" in {
         val db         = "test-db"
@@ -123,7 +186,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with ComparisonExpression for Long" in {
         val db         = "test-db"
@@ -137,7 +200,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with ComparisonExpression for Double" in {
         val db         = "test-db"
@@ -151,7 +214,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with ComparisonExpression for String" in {
         val db         = "test-db"
@@ -165,7 +228,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with EqualityExpression for String" in {
         val db         = "test-db"
@@ -179,7 +242,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with EqualityExpression for Integer" in {
         val db         = "test-db"
@@ -193,7 +256,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with EqualityExpression for Long" in {
         val db         = "test-db"
@@ -207,7 +270,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with EqualityExpression for Double" in {
         val db         = "test-db"
@@ -221,7 +284,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with LikeExpression for String" in {
         val db         = "test-db"
@@ -235,7 +298,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with NullableExpression" in {
         val db         = "test-db"
@@ -249,7 +312,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with UnaryLogicalExpression" in {
         val db        = "test-db"
@@ -264,7 +327,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
       "be created correctly with TupleLogicalExpression" in {
         val db        = "test-db"
@@ -281,7 +344,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val serByteArray = entryService.serialize(originalEntry)
         val desEntry     = entryService.deserialize(serByteArray)
 
-        desEntry should be(originalEntry)
+        desEntry should be(Some(originalEntry))
       }
     }
   }
