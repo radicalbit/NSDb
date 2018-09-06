@@ -125,6 +125,10 @@ object MetricPerformerActor {
 
   case class PerformShardWrites(opBufferMap: Map[String, ShardOperation])
 
+  /**
+    * This message is sent back to localWriteCoordinator in order to write on commit log related entries
+    * @param persistedBits [[Seq]] of [[PersistedBit]]
+    */
   case class PersistedBits(persistedBits: Seq[PersistedBit])
   case class PersistedBit(db: String,
                           namespace: String,

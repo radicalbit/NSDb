@@ -378,6 +378,33 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     }
   }
 
+  def writeOperation(locations: Seq[Location],
+                     db: String,
+                     namespace: String,
+                     metric: String,
+                     timestamp: Long,
+                     bit: Bit,
+                     schema: Schema): Future[WriteCoordinatorResponse] = {
+    val commitLogResponses: Future[Seq[CommitLogResponse]] =
+      Future
+        .sequence(locations.map { loc =>
+          writeCommitLog(db, namespace, timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
+        })
+    val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
+      .flatMap { results =>
+        handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) { succeedResponses =>
+          Future
+            .sequence(succeedResponses.map { commitLogSuccess =>
+              accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
+            })
+            .flatMap { results =>
+              handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+            }
+        }
+      }
+    accumulatedResponses
+  }
+
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
 
@@ -463,51 +490,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
-          //FIXME common code
-          val commitLogResponses: Future[Seq[CommitLogResponse]] =
-            Future
-              .sequence(consistentLocations.map { loc =>
-                writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
-              })
-          val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
-            .flatMap { results =>
-              handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) { succeedResponses =>
-                Future
-                  .sequence(succeedResponses.map { commitLogSuccess =>
-                    accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
-                  })
-                  .flatMap { results =>
-                    handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
-                  }
-              }
-            }
+
+          val accumulatedResponses = writeOperation(consistentLocations, db, namespace, metric, startTime, bit, schema)
 
           // Send write requests for eventual consistent location iff consistent locations had accumulated the data
           accumulatedResponses.flatMap {
             case _: InputMapped =>
-              //FIXME common code
-              val eventualCommitLogResponses: Future[Seq[CommitLogResponse]] =
-                Future
-                  .sequence(eventualLocations.map { loc =>
-                    writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
-                  })
-              val eventualAccumulatedResponses: Future[WriteCoordinatorResponse] = eventualCommitLogResponses
-                .flatMap { results =>
-                  handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) {
-                    succeedResponses =>
-                      Future
-                        .sequence(succeedResponses.map { commitLogSuccess =>
-                          accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
-                        })
-                        .flatMap { results =>
-                          handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
-                        }
-                  }
-                }
-              eventualAccumulatedResponses
+              writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema)
             case r: RecordRejected =>
               // It does nothing for responses not included in consistency level
-              log.error("Eventual writes are not performed due to error during ")
+              log.error("Eventual writes are not performed due to error during consistent write operations ")
               Future(r)
           }
 
