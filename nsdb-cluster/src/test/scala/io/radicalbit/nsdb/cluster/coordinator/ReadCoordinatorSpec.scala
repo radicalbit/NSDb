@@ -119,7 +119,9 @@ class ReadCoordinatorSpec
   val metadataCoordinator = system.actorOf(
     MetadataCoordinator.props(system.actorOf(Props[FakeMetadataCache]), probe.ref),
     "metadatacoordinator")
-  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "node1"))
+  val writeCoordinator =
+    system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)))
+  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "node1", writeCoordinator))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
                                                                   system.actorOf(Props.empty))

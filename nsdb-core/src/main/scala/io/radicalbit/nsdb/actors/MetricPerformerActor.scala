@@ -18,12 +18,15 @@ package io.radicalbit.nsdb.actors
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformShardWrites, PersistedBit, PersistedBits}
 import io.radicalbit.nsdb.index.AllFacetIndexes
 import org.apache.lucene.index.IndexWriter
+import akka.pattern.ask
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Location
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
@@ -35,7 +38,10 @@ import scala.util.{Failure, Success}
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricPerformerActor(val basePath: String, val db: String, val namespace: String)
+class MetricPerformerActor(val basePath: String,
+                           val db: String,
+                           val namespace: String,
+                           val localWriteCoordinator: ActorRef)
     extends Actor
     with MetricsActor
     with ActorLogging {
@@ -48,7 +54,7 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.location)
-      groupedByKey.foreach {
+      val persistedBits = groupedByKey.flatMap {
         case (key, ops) =>
           val index                        = getIndex(key)
           val facetIndexes                 = facetIndexesFor(key)
@@ -58,21 +64,31 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
           val facetsIndexWriter = facets.newIndexWriter
           val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
 
-          ops.foreach {
+          val performedBitOperations = ops.collect {
             case WriteShardOperation(_, _, bit) =>
               index.write(bit) match {
                 case Success(_) =>
                   facets.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
+                      val timestamp = System.currentTimeMillis()
+                      PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
                     case Failure(t) =>
+                      val timestamp = System.currentTimeMillis()
                       // rollback main index
                       // FIXME: we should manage here the possible delete failures
                       index.delete(bit)
                       log.error(t, "error during write on facet indexes")
+                      PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
                   }
 
-                case Failure(t) => log.error(t, "error during write on index")
+                case Failure(t) =>
+                  val timestamp = System.currentTimeMillis()
+                  log.error(t, "error during write on index")
+                  PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
               }
+          }.toSeq
+
+          ops.collect {
             case DeleteShardRecordOperation(_, _, bit) =>
               index.delete(bit) match {
                 case Success(_) =>
@@ -93,8 +109,15 @@ class MetricPerformerActor(val basePath: String, val db: String, val namespace: 
 
           facetsTaxoWriter.close()
           facetsIndexWriter.close()
-      }
+
+          performedBitOperations
+      }.toSeq
+
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
+      (localWriteCoordinator ? PersistedBits(persistedBits)).recover {
+        case _ => localWriteCoordinator ! PersistedBits(persistedBits)
+      }
+
   }
 }
 
@@ -102,6 +125,20 @@ object MetricPerformerActor {
 
   case class PerformShardWrites(opBufferMap: Map[String, ShardOperation])
 
-  def props(basePath: String, db: String, namespace: String): Props =
-    Props(new MetricPerformerActor(basePath, db, namespace))
+  /**
+    * This message is sent back to localWriteCoordinator in order to write on commit log related entries
+    * @param persistedBits [[Seq]] of [[PersistedBit]]
+    */
+  case class PersistedBits(persistedBits: Seq[PersistedBit])
+  case class PersistedBit(db: String,
+                          namespace: String,
+                          metric: String,
+                          timestamp: Long,
+                          bit: Bit,
+                          location: Location,
+                          successfully: Boolean)
+  case object PersistedBitsAck
+
+  def props(basePath: String, db: String, namespace: String, localWriteCoordinator: ActorRef): Props =
+    Props(new MetricPerformerActor(basePath, db, namespace, localWriteCoordinator))
 }

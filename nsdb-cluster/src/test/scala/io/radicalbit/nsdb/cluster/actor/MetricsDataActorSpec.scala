@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
@@ -45,7 +45,7 @@ class MetricsDataActorSpec()
   val db               = "db"
   val namespace        = "namespace"
   val namespace1       = "namespace1"
-  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "testNode"))
+  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "testNode", ActorRef.noSender))
 
   private val metric = "metricsDataActorMetric"
 

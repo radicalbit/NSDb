@@ -26,6 +26,8 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.actors.MetricPerformerActor
+import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
@@ -145,7 +147,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                                  action = action,
                                                  location)).mapTo[CommitLogResponse]
       case None =>
-        Future(WriteToCommitLogFailed(db, namespace, ts, metric, "Commit log not existing for requested node"))
+        Future(
+          WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeName "))
     }
   }
 
@@ -165,7 +168,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           op(schema)
         case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          Future(RecordRejected(db, namespace, metric, bit, errs))
+          Future(RecordRejected(db, namespace, metric, bit, Location("", "", 0, 0), errs, System.currentTimeMillis()))
       }
 
   /**
@@ -186,7 +189,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         op(locations)
       case _ =>
         log.error(s"no location found for bit $bit")
-        Future(RecordRejected(db, namespace, metric, bit, List(s"no location found for bit $bit")))
+        Future(
+          RecordRejected(db,
+                         namespace,
+                         metric,
+                         bit,
+                         Location("", "", 0, 0),
+                         List(s"no location found for bit $bit"),
+                         System.currentTimeMillis()))
     }
 
   /**
@@ -208,19 +218,50 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           case msg: RecordAdded    => msg
           case msg: RecordRejected => msg
           case _ =>
-            RecordRejected(db, namespace, metric, bit, List("unknown response from metrics Actor"))
+            RecordRejected(db,
+                           namespace,
+                           metric,
+                           bit,
+                           location,
+                           List("unknown response from metrics Actor"),
+                           System.currentTimeMillis())
         }
       case None =>
         log.error(s"no data actor for node ${location.node}")
-        Future(RecordRejected(db, namespace, metric, bit, List(s"no data actor for node ${location.node}")))
+        Future(
+          RecordRejected(db,
+                         namespace,
+                         metric,
+                         bit,
+                         location,
+                         List(s"no data actor for node ${location.node}"),
+                         System.currentTimeMillis()))
     }
 
+  /**
+    * Given a sequence of [[CommitLogResponse]] (may be successful or failed both) applies the passed function
+    * ,if the responses are all successful. Otherwise, it returns a message of failure [[RecordRejected]].
+    * The argument function maps incoming successful requests in a [[WriteCoordinatorResponse]]
+    * that can be [[RecordRejected]] in case of failure  or [[InputMapped]] in case of success after fn application.
+    *
+    * In case of commitLog failed responses it performs compensation for correctly written entities.
+    *
+    * @param responses [[Seq]] of commit log responses
+    * @param db database name
+    * @param namespace namespace name
+    * @param metric metric name
+    * @param bit [[Bit]] being written
+    * @param schema [[Bit]] schema
+    * @param fn function to be applied in case of successful responses
+    * @return a [[WriteCoordinatorResponse]]
+    */
   def handleCommitLogCoordinatorResponses(responses: Seq[CommitLogResponse],
                                           db: String,
                                           namespace: String,
                                           metric: String,
                                           bit: Bit,
-                                          schema: Schema): Future[WriteCoordinatorResponse] = {
+                                          schema: Schema)(
+      fn: List[WriteToCommitLogSucceeded] => Future[WriteCoordinatorResponse]): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
     val (succeedResponses: List[WriteToCommitLogSucceeded], failedResponses: List[WriteToCommitLogFailed]) =
       responses.foldRight(emptyLists) {
@@ -232,13 +273,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       }
 
     if (succeedResponses.size == responses.size) {
-      Future
-        .sequence(succeedResponses.map { commitLogSuccess =>
-          accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
-        })
-        .map { results =>
-          handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
-        }
+      fn(succeedResponses)
     } else {
       //Reverting successful writes committing Rejection Entry
       succeedResponses.foreach { response =>
@@ -251,11 +286,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                        response.location)
       }
       Future(
-        RecordRejected(db,
-                       namespace,
-                       metric,
-                       bit,
-                       List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}")))
+        RecordRejected(
+          db,
+          namespace,
+          metric,
+          bit,
+          Location(metric, "", 0, 0),
+          List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}"),
+          System.currentTimeMillis()
+        ))
     }
   }
 
@@ -264,7 +303,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  namespace: String,
                                  metric: String,
                                  bit: Bit,
-                                 schema: Schema): WriteCoordinatorResponse = {
+                                 schema: Schema): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
     val (succeedResponses: List[RecordAdded], failedResponses: List[RecordRejected]) =
       responses.foldRight(emptyLists) {
@@ -280,17 +319,90 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       publishers.foreach {
         case (_, publisherActor) => publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
       }
-      InputMapped(db, namespace, metric, bit)
+
+      val accumulationResult = Future
+        .sequence {
+          responses.map { accumulatorResponse =>
+            writeCommitLog(db,
+                           namespace,
+                           accumulatorResponse.timestamp,
+                           metric,
+                           accumulatorResponse.location.node,
+                           AccumulatedEntryAction(bit),
+                           accumulatorResponse.location)
+          }
+        }
+        .flatMap { responses =>
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(res =>
+            Future.successful(InputMapped(db, namespace, metric, bit)))
+        }
+
+      accumulationResult
     } else {
+      // case in which the accumulation on some node failed
+      // we need to delete the accumulated bits on the successful node commit in these nodes a RejectedEntry
       succeedResponses.foreach { response =>
         metricsDataActors.get(response.location.node) match {
           case Some(mda) => mda ! DeleteRecordFromShard(db, namespace, response.location, bit)
           case None      =>
         }
       }
+
+      val commitLogRejection = Future
+        .sequence {
+          responses.map { accumulatorResponse =>
+            writeCommitLog(db,
+                           namespace,
+                           accumulatorResponse.timestamp,
+                           metric,
+                           accumulatorResponse.location.node,
+                           RejectedEntryAction(bit),
+                           accumulatorResponse.location)
+          }
+        }
+        .flatMap { responses =>
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(
+            res =>
+              Future.successful(
+                RecordRejected(db,
+                               namespace,
+                               metric,
+                               bit,
+                               Location(metric, "", 0, 0),
+                               List(""),
+                               System.currentTimeMillis())))
+        }
+
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-      RecordRejected(db, namespace, metric, bit, List(""))
+      commitLogRejection
     }
+  }
+
+  def writeOperation(locations: Seq[Location],
+                     db: String,
+                     namespace: String,
+                     metric: String,
+                     timestamp: Long,
+                     bit: Bit,
+                     schema: Schema): Future[WriteCoordinatorResponse] = {
+    val commitLogResponses: Future[Seq[CommitLogResponse]] =
+      Future
+        .sequence(locations.map { loc =>
+          writeCommitLog(db, namespace, timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
+        })
+    val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
+      .flatMap { results =>
+        handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) { succeedResponses =>
+          Future
+            .sequence(succeedResponses.map { commitLogSuccess =>
+              accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
+            })
+            .flatMap { results =>
+              handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+            }
+        }
+      }
+    accumulatedResponses
   }
 
   override def preStart(): Unit = {
@@ -304,8 +416,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetPublishers)
-      log.debug("writecoordinator data actor : {}", metricsDataActors.size)
-      log.debug("writecoordinator commit log  actor : {}", commitLogCoordinators.size)
+      log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
+      log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
   }
 
@@ -378,31 +490,16 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
-          val commitLogResponses: Future[Seq[CommitLogResponse]] =
-            Future
-              .sequence(consistentLocations.map { loc =>
-                writeCommitLog(db, namespace, startTime, metric, loc.node, ReceivedEntryAction(bit), loc)
-              })
-          val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
-            .flatMap { results =>
-              handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema)
-            }
 
+          val accumulatedResponses = writeOperation(consistentLocations, db, namespace, metric, startTime, bit, schema)
+
+          // Send write requests for eventual consistent location iff consistent locations had accumulated the data
           accumulatedResponses.flatMap {
-            case _: RecordAdded =>
-              // Send write requests for eventual consistent location iff consistent locations had accumulated the data
-              Future
-                .sequence(eventualLocations.map { loc =>
-                  writeCommitLog(db, namespace, bit.timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
-                    .flatMap {
-                      case r: WriteToCommitLogSucceeded =>
-                        accumulateRecord(db, namespace, metric, bit, loc)
-                      case err: WriteToCommitLogFailed =>
-                        Future(RecordRejected(db, namespace, metric, bit, List(err.reason)))
-                    }
-                })
+            case _: InputMapped =>
+              writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema)
             case r: RecordRejected =>
               // It does nothing for responses not included in consistency level
+              log.error("Eventual writes are not performed due to error during consistent write operations ")
               Future(r)
           }
 
@@ -495,6 +592,38 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             context.system.terminate()
         }
         .pipeTo(sender())
+
+    case persistedBits: PersistedBits =>
+      // Handle successful events of Bit Persistence
+      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
+        case persistedBit if persistedBit.successfully => persistedBit
+      }
+
+      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
+        Future.sequence {
+          successfullyPersistedBits.map { persistedBit =>
+            writeCommitLog(
+              persistedBit.db,
+              persistedBit.namespace,
+              persistedBit.timestamp,
+              persistedBit.metric,
+              persistedBit.location.node,
+              PersistedEntryAction(persistedBit.bit),
+              persistedBit.location
+            ).collect {
+              case s: WriteToCommitLogSucceeded => s
+            }
+          }
+        }
+
+      val response = successfulCommitLogResponses.map { responses =>
+        if (responses.size == successfullyPersistedBits.size)
+          MetricPerformerActor.PersistedBitsAck
+        else
+          context.system.terminate()
+      }
+      response.pipeTo(sender())
+
     case Restore(path: String) =>
       log.info("restoring dump at path {}", path)
       val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"

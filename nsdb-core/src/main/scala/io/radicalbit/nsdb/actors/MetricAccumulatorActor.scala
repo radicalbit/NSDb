@@ -44,7 +44,11 @@ import scala.util.{Failure, Success}
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricAccumulatorActor(val basePath: String, val db: String, val namespace: String, val readerActor: ActorRef)
+class MetricAccumulatorActor(val basePath: String,
+                             val db: String,
+                             val namespace: String,
+                             val readerActor: ActorRef,
+                             val localWriteCoordinator: ActorRef)
     extends Actor
     with MetricsActor
     with ActorLogging {
@@ -92,8 +96,8 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
   override def preStart: Unit = {
-    performerActor =
-      context.actorOf(MetricPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
+    performerActor = context.actorOf(MetricPerformerActor.props(basePath, db, namespace, localWriteCoordinator),
+                                     s"shard-performer-service-$db-$namespace")
 
     context.system.scheduler.schedule(0.seconds, interval) {
       if (opBufferMap.nonEmpty && performingOps.isEmpty) {
@@ -170,7 +174,8 @@ class MetricAccumulatorActor(val basePath: String, val db: String, val namespace
   def accumulate: Receive = {
     case AddRecordToShard(_, ns, location, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, location, bit))
-      sender ! RecordAdded(db, ns, location.metric, bit, location)
+      val ts = System.currentTimeMillis()
+      sender ! RecordAdded(db, ns, location.metric, bit, location, ts)
     case DeleteRecordFromShard(_, ns, key, bit) =>
       opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
       sender ! RecordDeleted(db, ns, key.metric, bit)
@@ -203,6 +208,10 @@ object MetricAccumulatorActor {
 
   case class Refresh(writeIds: Seq[String], keys: Seq[Location])
 
-  def props(basePath: String, db: String, namespace: String, readerActor: ActorRef): Props =
-    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor))
+  def props(basePath: String,
+            db: String,
+            namespace: String,
+            readerActor: ActorRef,
+            localWriteCoordinator: ActorRef): Props =
+    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor, localWriteCoordinator))
 }

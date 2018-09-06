@@ -99,7 +99,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, nodeName)
+      .props(indexBasePath, nodeName, writeCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$nodeName"
