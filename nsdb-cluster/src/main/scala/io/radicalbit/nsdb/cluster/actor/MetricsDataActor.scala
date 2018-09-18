@@ -143,7 +143,8 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoo
         case Some(child) => child forward msg
         case None        => sender() ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)
       }
-    case AddRecordToLocation(db, namespace, bit, location) =>
+    case msg @ AddRecordToLocation(db, namespace, bit, location) =>
+      log.debug("received message {}", msg)
       getOrCreateChildren(db, namespace)._2
         .forward(AddRecordToShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
     case DeleteRecordFromLocation(db, namespace, bit, location) =>
