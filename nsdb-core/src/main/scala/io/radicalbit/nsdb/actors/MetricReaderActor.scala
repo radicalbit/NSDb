@@ -161,7 +161,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(actors.map {
-        case (_, actor) => actor ? ExecuteSelectStatement(statement, schema, actors.map(_._1))
+        case (_, actor) => (actor ? ExecuteSelectStatement(statement, schema, actors.map(_._1)))
+          .recoverWith{case t => Future(SelectStatementFailed(t.getMessage))}
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
@@ -282,10 +283,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
-          val filteredIndexes =
+          val filteredActors =
             actorsForLocations(locations)
 
-          val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, distinctField, schema) { values =>
+          val shardResults = gatherAndGroupShardResults(filteredActors, statement, distinctField, schema) { values =>
             Bit(
               timestamp = 0,
               value = 0,
