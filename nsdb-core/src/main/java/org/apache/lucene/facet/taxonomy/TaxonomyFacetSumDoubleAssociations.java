@@ -71,7 +71,7 @@ public class TaxonomyFacetSumDoubleAssociations extends DoubleTaxonomyFacets{
                                 ((bytes[offset + 2] & 0xFF) << 8) |
                                 (bytes[offset + 3] & 0xFF);
                         offset += 4;
-                        byte[] doubleBytes = Arrays.copyOfRange(bytes, 4, bytes.length);
+                        byte[] doubleBytes = Arrays.copyOfRange(bytes, offset, bytes.length);
 
                         offset += 8;
                         values[ord] += DoublePoint.decodeDimension(doubleBytes, 0);

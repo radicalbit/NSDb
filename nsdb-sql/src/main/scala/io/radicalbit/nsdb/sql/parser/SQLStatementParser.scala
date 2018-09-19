@@ -32,7 +32,7 @@ import scala.util.parsing.input.CharSequenceReader
   * Here is the (simplified) EBNF grammar supported by Nsdb Parser.
   * {{{
   *   S := InsertStatement | SelectStatement | DeleteStatement | DropStatement
-  *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "VAL" = digit
+  *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "tags" "(" (literal = literal)+ ")" "VAL" = digit
   *   DropStatement := "drop metric" literal
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
   *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" literal)? ("order by" literal ("desc")?)? (limit digit)?

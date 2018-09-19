@@ -135,7 +135,7 @@ FROM <metric_name>
 [GROUP BY <dimension_name>]
 ```
 If the query includes a `WHERE`  clause the `GROUP BY` clause must appear after the `WHERE` clause.
-> NOTE: `GROUP BY` clause accepts a **single** dimension/field on which apply the grouping
+> NOTE: `GROUP BY` clause accepts a **single** tag/field on which apply the grouping. It is not possible to use a dimension for grouping.
 
 When defining a `GROUP BY` clause **value functions** can be defined in `SELECT` clause.
 
@@ -214,9 +214,10 @@ By the way there are some small differences meant in time-series concept that in
 ### Simple Syntax
 
  ```sql
- INSERT INTO <metric_name> [TS=<timestamp_value>] DIM ( [<dimension_name> = <dimension_value>*] ) VAL = <value>
+ INSERT INTO <metric_name> [TS=<timestamp_value>] DIM ( [<dimension_name> = <dimension_value>*] ) TAGS ( [<tag_name> = <tag_value>*] ) VAL = <value>
  ```
- The above mentioned syntax inserts a single Bit whose dimensions tuples  `(name, value)` are declared after `DIM` clause. Value field is assigned using `VAL` clause , that accepts a numerical value.
+ The above mentioned syntax inserts a single Bit whose dimensions tuples  `(name, value)` are declared after `DIM` clause and tag tuples after `TAGS` clause.
+ Value field is assigned using `VAL` clause , that accepts a numerical value.
  Timestamp index definition is not mandatory, but it can be defined using `TS` clause.
 
  > NOTE: , if  `TS` clause's value is not defined, it is assigned the epoch-timestamp of the istant the insertion is performed .
