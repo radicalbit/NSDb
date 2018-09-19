@@ -51,7 +51,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.14"
+    lazy val version   = "2.5.16"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -264,7 +264,8 @@ object Dependencies {
     lazy val libraries = Seq(
       scala_logging.scala_logging,
       akka.actor,
-      akka_http.default
+      akka_http.default,
+      akka.stream
     )
   }
 

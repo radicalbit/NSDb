@@ -36,8 +36,8 @@ package object post_proc {
       chainedResults: Future[Either[SelectStatementFailed, Seq[Bit]]],
       statement: SelectSQLStatement,
       schema: Schema)(implicit ec: ExecutionContext): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
-    chainedResults.map(s =>
-      s.map { seq =>
+    chainedResults.map {
+      case Right(seq) =>
         val maybeSorted = if (statement.order.isDefined) {
           val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
           implicit val ord: Ordering[JSerializable] =
@@ -45,8 +45,9 @@ package object post_proc {
             else o
           seq.sortBy(_.fields(statement.order.get.dimension)._1)
         } else seq
-        if (statement.limit.isDefined) maybeSorted.take(statement.limit.get.value) else maybeSorted
-    })
+        if (statement.limit.isDefined) Right(maybeSorted.take(statement.limit.get.value)) else Right(maybeSorted)
+      case l @ Left(t) => l
+    }
   }
 
   /**
