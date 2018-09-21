@@ -34,8 +34,9 @@ object CommitLogFile {
       * @param serializer Serializer to use for deserialization purposes
       * @return the list of unbalanced entries, if exist. Empty list if the file is correctly balanced.
       */
-    def checkPendingEntries(implicit serializer: CommitLogSerializer): List[Int] = {
-      val pending: ListBuffer[Int] = ListBuffer.empty[Int]
+    def checkPendingEntries(implicit serializer: CommitLogSerializer): (List[Int], List[Int]) = {
+      val pending: ListBuffer[Int]       = ListBuffer.empty[Int]
+      val closedEntries: ListBuffer[Int] = ListBuffer.empty[Int]
 
       val contents    = new Array[Byte](5000)
       val inputStream = new FileInputStream(file)
@@ -47,14 +48,14 @@ object CommitLogFile {
         rawEntry match {
           case Some(e: ReceivedEntry)    => if (!pending.contains(e.id)) pending += e.id
           case Some(e: AccumulatedEntry) => if (!pending.contains(e.id)) pending += e.id
-          case Some(e: PersistedEntry)   => if (pending.contains(e.id)) pending -= e.id
-          case Some(e: RejectedEntry)    => if (pending.contains(e.id)) pending -= e.id
+          case Some(e: PersistedEntry)   => if (!pending.contains(e.id)) closedEntries += e.id
+          case Some(e: RejectedEntry)    => if (!pending.contains(e.id)) closedEntries += e.id
           case None                      =>
         }
         r = inputStream.read(contents)
       }
 
-      pending.toList
+      (pending.toList, closedEntries.toList)
     }
 
   }

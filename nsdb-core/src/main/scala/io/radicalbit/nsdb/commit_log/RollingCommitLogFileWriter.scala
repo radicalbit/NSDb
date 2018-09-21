@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.Props
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
+import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.util.Config._
 
 import scala.collection.mutable
@@ -47,7 +48,9 @@ object RollingCommitLogFileWriter {
 
     def generateNextId: Int = {
       fileNames
-        .collect { case name if name.startsWith(fileNamePrefix) => name.split(fileNameSeparator).toList.last.toInt }
+        .collect {
+          case name if name.startsWith(s"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric") =>
+            name.split(fileNameSeparator).toList.last.toInt }
         .sorted
         .reverse
         .headOption
@@ -74,6 +77,8 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   private val directory       = getString(CommitLogDirectoryConf)
   private val maxSize         = getLong(CommitLogMaxSizeConf)
 
+  private val childName = s"commit-log-checker-$db-$namespace-$metric"
+
   log.info("Initializing the commit log serializer {}...", serializerClass)
   override protected implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
@@ -82,11 +87,13 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   private var file: File               = _
   private var fileOS: FileOutputStream = _
 
-  private val oldFilesToCheck: ListBuffer[File]                   = ListBuffer.empty
-  private val pendingOutdatedEntries: mutable.Map[File, Seq[Int]] = mutable.Map.empty
-  private val pendingFinalizingEntries: ListBuffer[Int]           = ListBuffer.empty
+//  private val oldFilesToCheck: ListBuffer[File]                   = ListBuffer.empty
+//  private val pendingOutdatedEntries: mutable.Map[File, Seq[Int]] = mutable.Map.empty
+//  private val pendingFinalizingEntries: ListBuffer[Int]           = ListBuffer.empty
 
   override def preStart(): Unit = {
+
+    context.actorOf(RollingCommitLogFileChecker.props(db, namespace, metric), childName)
 
     new File(directory).mkdirs()
 
@@ -98,7 +105,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     val newFileName = existingFiles match {
       case fileNames if fileNames.nonEmpty =>
         val lastFile = fileNames.maxBy(s => s.split(fileNameSeparator)(4).toInt)
-        oldFilesToCheck ++= (fileNames - lastFile).map(name => new File(s"$directory/$name"))
+//        oldFilesToCheck ++= (fileNames - lastFile).map(name => new File(s"$directory/$name"))
         lastFile
       case fileNames => nextFileName(db, namespace, metric, fileNames.toSeq)
     }
@@ -118,43 +125,43 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
       * otherwise all the non balanced entries must be stored in an auxiliary memory queue, that will be popped every time a finalisation entry comes.
       * When the memory queue is balanced (there is only one placeholder for a given file) the given file can easily be removed as well.
       */
-    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-
-      import CommitLogFile._
-
-      oldFilesToCheck.foreach(file => {
-        val pendingEntries = file.checkPendingEntries
-        if (pendingEntries.isEmpty) {
-          file.delete()
-          oldFilesToCheck -= file
-        } else {
-          pendingOutdatedEntries += (file -> pendingEntries)
-        }
-        ()
-      })
-
-      val adjustedFiles = pendingOutdatedEntries.collect {
-        case (f: File, e: Seq[Int]) if e.forall(pendingFinalizingEntries.contains(_)) => f
-      }
-
-      adjustedFiles.foreach { f =>
-        f.delete()
-        oldFilesToCheck -= f
-        pendingOutdatedEntries -= f
-      }
-      pendingFinalizingEntries.clear()
-    }
+//    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+//
+//      import CommitLogFile._
+//
+//      oldFilesToCheck.foreach(file => {
+//        val pendingEntries = file.checkPendingEntries
+//        if (pendingEntries.isEmpty) {
+//          file.delete()
+//          oldFilesToCheck -= file
+//        } else {
+//          pendingOutdatedEntries += (file -> pendingEntries)
+//        }
+//        ()
+//      })
+//
+//      val adjustedFiles = pendingOutdatedEntries.collect {
+//        case (f: File, e: Seq[Int]) if e.forall(pendingFinalizingEntries.contains(_)) => f
+//      }
+//
+//      adjustedFiles.foreach { f =>
+//        f.delete()
+//        oldFilesToCheck -= f
+//        pendingOutdatedEntries -= f
+//      }
+//      pendingFinalizingEntries.clear()
+//    }
   }
 
   override protected def createEntry(entry: CommitLogEntry): Try[Unit] = {
     log.debug("Received the entry {}.", entry)
 
-    entry match {
-      case e: FinalizationEntry =>
-        pendingFinalizingEntries += e.id
-
-      case _ => //nothing to do here
-    }
+//    entry match {
+//      case e: FinalizationEntry =>
+//        pendingFinalizingEntries += e.id
+//
+//      case _ => //nothing to do here
+//    }
 
     val operation = Try(appendToDisk(entry))
 
@@ -181,7 +188,12 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
       val f = newFile(current)
 
-      oldFilesToCheck += current
+      context.child(childName).foreach{
+        log.debug(s"Sending commitlog check for actual file : ${f.getName}")
+        _ ! CheckFiles(f)
+      }
+
+//      oldFilesToCheck += current
 
       Some(f, newOutputStream(f))
     } else
@@ -199,7 +211,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   override def receive: Receive = super.receive orElse {
     case ForceRolling =>
       val f = newFile(file)
-      oldFilesToCheck += file
+//      oldFilesToCheck += file
       file = f
       fileOS.close()
       fileOS = newOutputStream(f)

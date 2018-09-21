@@ -594,6 +594,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         .pipeTo(sender())
 
     case persistedBits: PersistedBits =>
+      log.info(s"received persisted bits for [${persistedBits.persistedBits.size}] bits")
       // Handle successful events of Bit Persistence
       val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
         case persistedBit if persistedBit.successfully => persistedBit
