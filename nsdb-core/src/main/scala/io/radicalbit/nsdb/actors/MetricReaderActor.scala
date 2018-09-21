@@ -161,8 +161,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(actors.map {
-        case (_, actor) => (actor ? ExecuteSelectStatement(statement, schema, actors.map(_._1)))
-          .recoverWith{case t => Future(SelectStatementFailed(t.getMessage))}
+        case (_, actor) =>
+          (actor ? ExecuteSelectStatement(statement, schema, actors.map(_._1)))
+            .recoverWith { case t => Future(SelectStatementFailed(t.getMessage)) }
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }

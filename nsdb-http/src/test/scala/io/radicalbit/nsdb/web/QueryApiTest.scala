@@ -114,11 +114,11 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   val testRoutes = Route.seal(
-    emptyQueryApi.queryApi
+    emptyQueryApi.queryApi()(system.log)
   )
 
   val testSecuredRoutes = Route.seal(
-    secureQueryApi.queryApi
+    secureQueryApi.queryApi()(system.log)
   )
 
   "QueryApi" should "not allow get" in {

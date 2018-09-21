@@ -17,8 +17,8 @@
 package io.radicalbit.nsdb.web.routes
 
 import javax.ws.rs.Path
-
 import akka.actor.ActorRef
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
 import akka.http.scaladsl.server.Directives._
@@ -136,7 +136,7 @@ trait QueryApi {
       new ApiResponse(code = 500, message = "Internal server error"),
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
-  def queryApi: Route = {
+  def queryApi()(implicit logger: LoggingAdapter): Route = {
     pathPrefix("query") {
       post {
         entity(as[QueryBody]) { qb =>
@@ -171,9 +171,12 @@ trait QueryApi {
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(reason, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))
-                    case Success(_) =>
+                    case Success(r) =>
+                      logger.error("unknown response received {}", r)
                       complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    case Failure(ex) =>
+                      logger.error("", ex)
+                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
               }

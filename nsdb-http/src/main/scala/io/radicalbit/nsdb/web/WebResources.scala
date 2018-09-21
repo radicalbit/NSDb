@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.web
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
@@ -34,7 +35,7 @@ import scala.concurrent.Await
 import scala.util.{Failure, Success}
 
 /**
-  * Instantiate Nsdb Http Server exposing apis defined in [[ApiResources]]
+  * Instantiate NSDb Http Server exposing apis defined in [[ApiResources]]
   * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
   */
 trait WebResources extends StaticResources with WsResources with CorsSupport with SSLSupport { this: NsdbSecurity =>
@@ -48,7 +49,8 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
   implicit lazy val httpTimeout: Timeout =
     Timeout(config.getDuration("nsdb.http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  def initWebEndpoint(writeCoordinator: ActorRef, readCoordinator: ActorRef, publisher: ActorRef) =
+  def initWebEndpoint(writeCoordinator: ActorRef, readCoordinator: ActorRef, publisher: ActorRef)(
+      implicit logger: LoggingAdapter) =
     authProvider match {
       case Success(provider) =>
         val api: Route = wsResources(publisher, provider) ~ new ApiResources(
