@@ -66,38 +66,48 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
 
       import CommitLogFile._
 
-      val pendingOutdatedEntries: mutable.Map[File, ListBuffer[Int]] = mutable.Map.empty
+      val pendingOutdatedEntries: mutable.Map[File, (ListBuffer[Int], ListBuffer[Int])] = mutable.Map.empty
+      val filesToDelete : ListBuffer[File] = ListBuffer.empty
 
       existingOldFileNames.foreach(fileName => {
-        val processedFile                            = new File(s"$directory/$fileName")
+        val processedFile                   = new File(s"$directory/$fileName")
         val (pendingEntries, closedEntries) = processedFile.checkPendingEntries
 
-        pendingOutdatedEntries += (processedFile -> pendingEntries.to[ListBuffer])
+        pendingOutdatedEntries += (processedFile -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
 
-        closedEntries.foreach { closedEntry =>
-          pendingOutdatedEntries.foreach {
-            case (file, pending) =>
-              if (pending.toList.contains(closedEntry)){
-                log.debug(s"removing entry: $closedEntry in file ${file.getName} processing file: $fileName")
-                pending -= closedEntry
-              }
-              if (pending.isEmpty) {
-                pendingOutdatedEntries -= file
-                log.info(s"deleting file: ${file.getName}")
-                file.delete()
-              } else {
-                pendingOutdatedEntries(file) = pending
-              }
+        closedEntries.foreach {
+          closedEntry =>
+            pendingOutdatedEntries.foreach {
+              case (file, (pending, closed)) =>
+                if (pending.toList.contains(closedEntry)) {
+                  log.debug(s"removing entry: $closedEntry in file ${file.getName} processing file: $fileName")
+                  pendingOutdatedEntries(file)._1 -= closedEntry
+                  pendingOutdatedEntries(processedFile)._2 -= closedEntry
+                  pending -= closedEntry
+                }
+                if (pending.isEmpty && closed.isEmpty) {
+                  pendingOutdatedEntries -= file
+                  log.info(s"deleting file: ${file.getName}")
+                  filesToDelete += file
+//                  file.delete()
+                }
+//                else {
+//                  pendingOutdatedEntries(file) = (pending, closed)
+//                }
 
-              log.debug(s"pending entries for file: ${file.getName} are : ${pending.size}")
-          }
+                log.debug(s"pending entries for file: ${file.getName} are : ${pending.size}")
+            }
         }
 
-        if (pendingEntries.isEmpty) {
-          processedFile.delete()
-        }
+//        filesToDelete.foreach(file => file.delete() )
+
+
+//        if (pendingEntries.isEmpty) {
+//          processedFile.delete()
+//        }
 
       })
+//      filesToDelete.foreach(file => file.delete() )
     case msg =>
       log.error(s"Unexpected message: $msg")
   }

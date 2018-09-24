@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.actors
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.dispatch.ControlMessage
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformShardWrites, PersistedBit, PersistedBits}
@@ -129,7 +130,7 @@ object MetricPerformerActor {
     * This message is sent back to localWriteCoordinator in order to write on commit log related entries
     * @param persistedBits [[Seq]] of [[PersistedBit]]
     */
-  case class PersistedBits(persistedBits: Seq[PersistedBit])
+  case class PersistedBits(persistedBits: Seq[PersistedBit]) extends ControlMessage
   case class PersistedBit(db: String,
                           namespace: String,
                           metric: String,

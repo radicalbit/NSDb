@@ -593,37 +593,37 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
         .pipeTo(sender())
 
-    case persistedBits: PersistedBits =>
-      log.info(s"received persisted bits for [${persistedBits.persistedBits.size}] bits")
-      // Handle successful events of Bit Persistence
-      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
-        case persistedBit if persistedBit.successfully => persistedBit
-      }
-
-      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
-        Future.sequence {
-          successfullyPersistedBits.map { persistedBit =>
-            writeCommitLog(
-              persistedBit.db,
-              persistedBit.namespace,
-              persistedBit.timestamp,
-              persistedBit.metric,
-              persistedBit.location.node,
-              PersistedEntryAction(persistedBit.bit),
-              persistedBit.location
-            ).collect {
-              case s: WriteToCommitLogSucceeded => s
-            }
-          }
-        }
-
-      val response = successfulCommitLogResponses.map { responses =>
-        if (responses.size == successfullyPersistedBits.size)
-          MetricPerformerActor.PersistedBitsAck
-        else
-          context.system.terminate()
-      }
-      response.pipeTo(sender())
+//    case persistedBits: PersistedBits =>
+//      log.info(s"received persisted bits for [${persistedBits.persistedBits.size}] bits")
+//      // Handle successful events of Bit Persistence
+//      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
+//        case persistedBit if persistedBit.successfully => persistedBit
+//      }
+//
+//      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
+//        Future.sequence {
+//          successfullyPersistedBits.map { persistedBit =>
+//            writeCommitLog(
+//              persistedBit.db,
+//              persistedBit.namespace,
+//              persistedBit.timestamp,
+//              persistedBit.metric,
+//              persistedBit.location.node,
+//              PersistedEntryAction(persistedBit.bit),
+//              persistedBit.location
+//            ).collect {
+//              case s: WriteToCommitLogSucceeded => s
+//            }
+//          }
+//        }
+//
+//      val response = successfulCommitLogResponses.map { responses =>
+//        if (responses.size == successfullyPersistedBits.size)
+//          MetricPerformerActor.PersistedBitsAck
+//        else
+//          context.system.terminate()
+//      }
+//      response.pipeTo(sender())
 
     case Restore(path: String) =>
       log.info("restoring dump at path {}", path)

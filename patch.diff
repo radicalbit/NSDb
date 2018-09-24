@@ -1,0 +1,220 @@
+From 816691c302efcc26275ddc467fcde5112b330f11 Mon Sep 17 00:00:00 2001
+From: Saverio Veltri <saverio.veltri@radicalbit.io>
+Date: Thu, 20 Sep 2018 12:06:45 +0200
+Subject: [PATCH] improve commit log files cleanup attempt
+
+---
+ .../nsdb/cluster/actor/MetricsDataActor.scala |  4 +-
+ .../cluster/actor/NodeActorsGuardian.scala    |  5 +-
+ .../coordinator/CommitLogCoordinator.scala    | 56 +++++++++++++++++++
+ .../coordinator/WriteCoordinator.scala        | 31 ----------
+ .../nsdb/actors/MetricPerformerActor.scala    |  3 +-
+ .../radicalbit/nsdb/web/routes/QueryApi.scala |  2 +-
+ 6 files changed, 64 insertions(+), 37 deletions(-)
+
+diff --git a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/MetricsDataActor.scala b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/MetricsDataActor.scala
+index 2f50bf51..d39241ee 100644
+--- a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/MetricsDataActor.scala
++++ b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/MetricsDataActor.scala
+@@ -40,7 +40,7 @@ import scala.concurrent.Future
+   * @param basePath indexes' root path.
+   * @param nodeName String representation of the host and the port Actor is deployed at.
+   */
+-class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoordinator: ActorRef)
++class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLogCoordinator: ActorRef)
+     extends ActorPathLogging {
+ 
+   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
+@@ -65,7 +65,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoo
+         s"metric_reader_${db}_$namespace"
+       ))
+     val accumulator = accumulatorOpt.getOrElse(
+-      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localWriteCoordinator),
++      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localCommitLogCoordinator),
+                       s"metric_accumulator_${db}_$namespace"))
+     (reader, accumulator)
+   }
+diff --git a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/NodeActorsGuardian.scala b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/NodeActorsGuardian.scala
+index 68893d0e..cf8b1e59 100644
+--- a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/NodeActorsGuardian.scala
++++ b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/actor/NodeActorsGuardian.scala
+@@ -93,13 +93,14 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
+   private val commitLogCoordinator =
+     context.actorOf(
+       Props[CommitLogCoordinator]
+-        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
++        .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
++        .withDispatcher("akka.actor.control-aware-dispatcher"),
+       s"commitlog-coordinator_$nodeName"
+     )
+ 
+   private val metricsDataActor = context.actorOf(
+     MetricsDataActor
+-      .props(indexBasePath, nodeName, writeCoordinator)
++      .props(indexBasePath, nodeName, commitLogCoordinator)
+       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
+       .withDispatcher("akka.actor.control-aware-dispatcher"),
+     s"metrics-data-actor_$nodeName"
+diff --git a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/CommitLogCoordinator.scala b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/CommitLogCoordinator.scala
+index 8b0c6034..a08b3d51 100644
+--- a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/CommitLogCoordinator.scala
++++ b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/CommitLogCoordinator.scala
+@@ -16,13 +16,20 @@
+ 
+ package io.radicalbit.nsdb.cluster.coordinator
+ 
++import java.util.concurrent.TimeUnit
++
+ import akka.actor.ActorRef
++import io.radicalbit.nsdb.actors.MetricPerformerActor
++import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
+ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
+ import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
+ import io.radicalbit.nsdb.common.protocol.Coordinates
+ import io.radicalbit.nsdb.util.ActorPathLogging
+ 
+ import scala.collection.mutable
++import scala.concurrent.Future
++import akka.pattern.{ask, pipe}
++import akka.util.Timeout
+ 
+ /**
+   * Actor whose purpose is to handle writes on commit-log files delegating the action to writers implementing
+@@ -45,9 +52,58 @@ class CommitLogCoordinator extends ActorPathLogging {
+     )
+   }
+ 
++  implicit val timeout: Timeout = Timeout(
++    context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
++    TimeUnit.SECONDS)
++  import context.dispatcher
++
+   def receive: Receive = {
+     case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
+       getWriter(db, namespace, metric).forward(msg)
++
++    case persistedBits: PersistedBits =>
++      import context.dispatcher
++
++      // Handle successful events of Bit Persistence
++      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
++        case persistedBit if persistedBit.successfully => persistedBit
++      }
++
++      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
++        Future.sequence {
++          successfullyPersistedBits.map { persistedBit =>
++            (getWriter(persistedBit.db, persistedBit.namespace, persistedBit.metric) ?
++              WriteToCommitLog(persistedBit.db,
++                               persistedBit.namespace,
++                               persistedBit.metric,
++                               persistedBit.timestamp,
++                               PersistedEntryAction(persistedBit.bit),
++                               persistedBit.location)).collect {
++              case s: WriteToCommitLogSucceeded => s
++            }
++          }
++//            writeCommitLog(
++//              persistedBit.db,
++//              persistedBit.namespace,
++//              persistedBit.timestamp,
++//              persistedBit.metric,
++//              persistedBit.location.node,
++//              PersistedEntryAction(persistedBit.bit),
++//              persistedBit.location
++//            ).collect {
++//              case s: WriteToCommitLogSucceeded => s
++//            }
++        }
++//        }
++
++      val response = successfulCommitLogResponses.map { responses =>
++        if (responses.size == successfullyPersistedBits.size)
++          MetricPerformerActor.PersistedBitsAck
++        else
++          context.system.terminate()
++      }
++      response.pipeTo(sender())
++
+     case _ =>
+       log.error("UnexpectedMessage")
+   }
+diff --git a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/WriteCoordinator.scala b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/WriteCoordinator.scala
+index 5b0cfde1..e0e37935 100644
+--- a/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/WriteCoordinator.scala
++++ b/nsdb-cluster/src/main/scala/io/radicalbit/nsdb/cluster/coordinator/WriteCoordinator.scala
+@@ -593,37 +593,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
+         }
+         .pipeTo(sender())
+ 
+-    case persistedBits: PersistedBits =>
+-      // Handle successful events of Bit Persistence
+-      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
+-        case persistedBit if persistedBit.successfully => persistedBit
+-      }
+-
+-      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
+-        Future.sequence {
+-          successfullyPersistedBits.map { persistedBit =>
+-            writeCommitLog(
+-              persistedBit.db,
+-              persistedBit.namespace,
+-              persistedBit.timestamp,
+-              persistedBit.metric,
+-              persistedBit.location.node,
+-              PersistedEntryAction(persistedBit.bit),
+-              persistedBit.location
+-            ).collect {
+-              case s: WriteToCommitLogSucceeded => s
+-            }
+-          }
+-        }
+-
+-      val response = successfulCommitLogResponses.map { responses =>
+-        if (responses.size == successfullyPersistedBits.size)
+-          MetricPerformerActor.PersistedBitsAck
+-        else
+-          context.system.terminate()
+-      }
+-      response.pipeTo(sender())
+-
+     case Restore(path: String) =>
+       log.info("restoring dump at path {}", path)
+       val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"
+diff --git a/nsdb-core/src/main/scala/io/radicalbit/nsdb/actors/MetricPerformerActor.scala b/nsdb-core/src/main/scala/io/radicalbit/nsdb/actors/MetricPerformerActor.scala
+index 231120aa..7e9839c9 100644
+--- a/nsdb-core/src/main/scala/io/radicalbit/nsdb/actors/MetricPerformerActor.scala
++++ b/nsdb-core/src/main/scala/io/radicalbit/nsdb/actors/MetricPerformerActor.scala
+@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.actors
+ import java.util.concurrent.TimeUnit
+ 
+ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
++import akka.dispatch.ControlMessage
+ import akka.util.Timeout
+ import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
+ import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformShardWrites, PersistedBit, PersistedBits}
+@@ -129,7 +130,7 @@ object MetricPerformerActor {
+     * This message is sent back to localWriteCoordinator in order to write on commit log related entries
+     * @param persistedBits [[Seq]] of [[PersistedBit]]
+     */
+-  case class PersistedBits(persistedBits: Seq[PersistedBit])
++  case class PersistedBits(persistedBits: Seq[PersistedBit]) extends ControlMessage
+   case class PersistedBit(db: String,
+                           namespace: String,
+                           metric: String,
+diff --git a/nsdb-http/src/main/scala/io/radicalbit/nsdb/web/routes/QueryApi.scala b/nsdb-http/src/main/scala/io/radicalbit/nsdb/web/routes/QueryApi.scala
+index dc723007..fb33fbd6 100644
+--- a/nsdb-http/src/main/scala/io/radicalbit/nsdb/web/routes/QueryApi.scala
++++ b/nsdb-http/src/main/scala/io/radicalbit/nsdb/web/routes/QueryApi.scala
+@@ -172,7 +172,7 @@ trait QueryApi extends LazyLogging {
+                     case Success(SelectStatementFailed(reason, _)) =>
+                       complete(HttpResponse(InternalServerError, entity = reason))
+                     case Success(r) =>
+-                      logger.error("unknown response received {}",r)
++                      logger.error("unknown response received {}", r)
+                       complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                     case Failure(ex) =>
+                       logger.error("", ex)
+-- 
+2.17.1
+

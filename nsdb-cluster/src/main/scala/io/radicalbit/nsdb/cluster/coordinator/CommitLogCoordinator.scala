@@ -16,13 +16,20 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorRef
+import io.radicalbit.nsdb.actors.MetricPerformerActor
+import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
+import scala.concurrent.Future
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 
 /**
   * Actor whose purpose is to handle writes on commit-log files delegating the action to writers implementing
@@ -45,9 +52,58 @@ class CommitLogCoordinator extends ActorPathLogging {
     )
   }
 
+  implicit val timeout: Timeout = Timeout(
+    context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+  import context.dispatcher
+
   def receive: Receive = {
     case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
       getWriter(db, namespace, metric).forward(msg)
+
+    case persistedBits: PersistedBits =>
+      import context.dispatcher
+
+      // Handle successful events of Bit Persistence
+      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
+        case persistedBit if persistedBit.successfully => persistedBit
+      }
+
+      val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
+        Future.sequence {
+          successfullyPersistedBits.map { persistedBit =>
+            (getWriter(persistedBit.db, persistedBit.namespace, persistedBit.metric) ?
+              WriteToCommitLog(persistedBit.db,
+                               persistedBit.namespace,
+                               persistedBit.metric,
+                               persistedBit.timestamp,
+                               PersistedEntryAction(persistedBit.bit),
+                               persistedBit.location)).collect {
+              case s: WriteToCommitLogSucceeded => s
+            }
+          }
+//            writeCommitLog(
+//              persistedBit.db,
+//              persistedBit.namespace,
+//              persistedBit.timestamp,
+//              persistedBit.metric,
+//              persistedBit.location.node,
+//              PersistedEntryAction(persistedBit.bit),
+//              persistedBit.location
+//            ).collect {
+//              case s: WriteToCommitLogSucceeded => s
+//            }
+        }
+//        }
+
+      val response = successfulCommitLogResponses.map { responses =>
+        if (responses.size == successfullyPersistedBits.size)
+          MetricPerformerActor.PersistedBitsAck
+        else
+          context.system.terminate()
+      }
+      response.pipeTo(sender())
+
     case _ =>
       log.error("UnexpectedMessage")
   }

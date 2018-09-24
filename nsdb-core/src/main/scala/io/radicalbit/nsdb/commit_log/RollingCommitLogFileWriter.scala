@@ -49,8 +49,11 @@ object RollingCommitLogFileWriter {
     def generateNextId: Int = {
       fileNames
         .collect {
-          case name if name.startsWith(s"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric") =>
-            name.split(fileNameSeparator).toList.last.toInt }
+          case name
+              if name.startsWith(
+                s"$fileNamePrefix$fileNameSeparator$db$fileNameSeparator$namespace$fileNameSeparator$metric") =>
+            name.split(fileNameSeparator).toList.last.toInt
+        }
         .sorted
         .reverse
         .headOption
@@ -188,7 +191,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
       val f = newFile(current)
 
-      context.child(childName).foreach{
+      context.child(childName).foreach {
         log.debug(s"Sending commitlog check for actual file : ${f.getName}")
         _ ! CheckFiles(f)
       }

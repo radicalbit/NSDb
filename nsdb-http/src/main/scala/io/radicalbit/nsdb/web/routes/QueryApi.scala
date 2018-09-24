@@ -171,9 +171,12 @@ trait QueryApi {
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(reason, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))
-                    case Success(_) =>
+                    case Success(r) =>
+//                      logger.error("unknown response received {}", r)
                       complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    case Failure(ex) =>
+//                      logger.error("", ex)
+                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
               }
