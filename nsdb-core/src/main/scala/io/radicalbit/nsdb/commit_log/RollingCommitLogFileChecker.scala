@@ -52,7 +52,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
 
   override def receive: Receive = {
     case CheckFiles(actualFile) =>
-      log.debug(s"Received commitlog check for actual file : ${actualFile.getName}")
+      log.info(s"Received commitlog check for actual file : ${actualFile.getName}")
       val existingOldFileNames: List[String] = Option(Paths.get(directory).toFile.list())
         .map(_.toSet)
         .getOrElse(Set.empty)
@@ -62,7 +62,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
         .toList
         .sortBy(_.split(fileNameSeparator).toList.last.toInt)
 
-      log.debug(s"Old files to be checked: $existingOldFileNames")
+      log.info(s"Old files to be checked: $existingOldFileNames")
 
       import CommitLogFile._
 
