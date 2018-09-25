@@ -93,13 +93,14 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
   private val commitLogCoordinator =
     context.actorOf(
       Props[CommitLogCoordinator]
-        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
+        .withDispatcher("akka.actor.control-aware-dispatcher"),
       s"commitlog-coordinator_$nodeName"
     )
 
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, nodeName, writeCoordinator)
+      .props(indexBasePath, nodeName, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$nodeName"

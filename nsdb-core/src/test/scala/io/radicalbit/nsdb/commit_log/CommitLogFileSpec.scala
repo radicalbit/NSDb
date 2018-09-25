@@ -42,7 +42,8 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
 
       import CommitLogFile.CommitLogFile
 
-      file.checkPendingEntries.size shouldBe 0
+      file.checkPendingEntries._1.size shouldBe 3
+      file.checkPendingEntries._2.size shouldBe 3
 
     }
 
@@ -59,7 +60,8 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
 
       import CommitLogFile.CommitLogFile
 
-      file.checkPendingEntries shouldBe Seq(id1)
+      file.checkPendingEntries._1 shouldBe Seq(id0, id1, id2)
+      file.checkPendingEntries._2 shouldBe Seq(id0, id2)
     }
 
   }

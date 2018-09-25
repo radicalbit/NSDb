@@ -40,7 +40,7 @@ import scala.concurrent.Future
   * @param basePath indexes' root path.
   * @param nodeName String representation of the host and the port Actor is deployed at.
   */
-class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoordinator: ActorRef)
+class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLogCoordinator: ActorRef)
     extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
@@ -65,7 +65,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localWriteCoo
         s"metric_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
-      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localWriteCoordinator),
+      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localCommitLogCoordinator),
                       s"metric_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
