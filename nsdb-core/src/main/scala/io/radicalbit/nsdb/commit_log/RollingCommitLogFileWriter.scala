@@ -90,13 +90,9 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   private var file: File               = _
   private var fileOS: FileOutputStream = _
 
-//  private val oldFilesToCheck: ListBuffer[File]                   = ListBuffer.empty
-//  private val pendingOutdatedEntries: mutable.Map[File, Seq[Int]] = mutable.Map.empty
-//  private val pendingFinalizingEntries: ListBuffer[Int]           = ListBuffer.empty
-
   override def preStart(): Unit = {
 
-    context.actorOf(RollingCommitLogFileChecker.props(db, namespace, metric), childName)
+    val checker = context.actorOf(RollingCommitLogFileChecker.props(db, namespace, metric), childName)
 
     new File(directory).mkdirs()
 
@@ -108,7 +104,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     val newFileName = existingFiles match {
       case fileNames if fileNames.nonEmpty =>
         val lastFile = fileNames.maxBy(s => s.split(fileNameSeparator)(4).toInt)
-//        oldFilesToCheck ++= (fileNames - lastFile).map(name => new File(s"$directory/$name"))
         lastFile
       case fileNames => nextFileName(db, namespace, metric, fileNames.toSeq)
     }
@@ -116,56 +111,12 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     file = new File(s"$directory/$newFileName")
     fileOS = newOutputStream(file)
 
-    val interval = FiniteDuration(
-      context.system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
+    checker ! CheckFiles(file)
 
-    import context.dispatcher
-
-    /**
-      * Checks if the old commit log files can be safely deleted in order to preserve disk space.
-      * Basically, checks if a file is balanced (every entry is finalised), if this is positive, the file can be safely deleted,
-      * otherwise all the non balanced entries must be stored in an auxiliary memory queue, that will be popped every time a finalisation entry comes.
-      * When the memory queue is balanced (there is only one placeholder for a given file) the given file can easily be removed as well.
-      */
-//    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-//
-//      import CommitLogFile._
-//
-//      oldFilesToCheck.foreach(file => {
-//        val pendingEntries = file.checkPendingEntries
-//        if (pendingEntries.isEmpty) {
-//          file.delete()
-//          oldFilesToCheck -= file
-//        } else {
-//          pendingOutdatedEntries += (file -> pendingEntries)
-//        }
-//        ()
-//      })
-//
-//      val adjustedFiles = pendingOutdatedEntries.collect {
-//        case (f: File, e: Seq[Int]) if e.forall(pendingFinalizingEntries.contains(_)) => f
-//      }
-//
-//      adjustedFiles.foreach { f =>
-//        f.delete()
-//        oldFilesToCheck -= f
-//        pendingOutdatedEntries -= f
-//      }
-//      pendingFinalizingEntries.clear()
-//    }
   }
 
   override protected def createEntry(entry: CommitLogEntry): Try[Unit] = {
     log.debug("Received the entry {}.", entry)
-
-//    entry match {
-//      case e: FinalizationEntry =>
-//        pendingFinalizingEntries += e.id
-//
-//      case _ => //nothing to do here
-//    }
-
     val operation = Try(appendToDisk(entry))
 
     checkAndUpdateRollingFile(file).foreach {
@@ -196,8 +147,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
         _ ! CheckFiles(f)
       }
 
-//      oldFilesToCheck += current
-
       Some(f, newOutputStream(f))
     } else
       None
@@ -214,8 +163,11 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   override def receive: Receive = super.receive orElse {
     case ForceRolling =>
       val f = newFile(file)
-//      oldFilesToCheck += file
       file = f
+      context.child(childName).foreach {
+        log.debug(s"Sending commitlog check for actual file : ${f.getName}")
+        _ ! CheckFiles(f)
+      }
       fileOS.close()
       fileOS = newOutputStream(f)
   }

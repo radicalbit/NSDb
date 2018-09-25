@@ -68,14 +68,15 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
 
       import CommitLogFile._
 
-      val filesToDelete : ListBuffer[File] = ListBuffer.empty
+      val filesToDelete: ListBuffer[File] = ListBuffer.empty
 
       existingOldFileNames.foreach(fileName => {
         val processedFile                   = new File(s"$directory/$fileName")
         val (pendingEntries, closedEntries) = processedFile.checkPendingEntries
 
         pendingOutdatedEntries.get(processedFile) match {
-          case None => pendingOutdatedEntries += (processedFile -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
+          case None =>
+            pendingOutdatedEntries += (processedFile -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
           case Some(_) =>
         }
 
@@ -93,7 +94,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
             }
         }
       })
-      pendingOutdatedEntries.foreach{
+      pendingOutdatedEntries.foreach {
         case (file, (pending, _)) if pending.isEmpty =>
           log.debug(s"deleting file: ${file.getName}")
           pendingOutdatedEntries -= file
