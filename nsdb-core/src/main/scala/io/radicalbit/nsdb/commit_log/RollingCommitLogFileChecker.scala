@@ -46,13 +46,15 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
   implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
 
+  val pendingOutdatedEntries: mutable.Map[File, (ListBuffer[Int], ListBuffer[Int])] = mutable.Map.empty
+
   private def isOlder(fileName: String, actualFileName: String): Boolean = {
     fileName.split(fileNameSeparator).toList.last.toInt < actualFileName.split(fileNameSeparator).toList.last.toInt
   }
 
   override def receive: Receive = {
     case CheckFiles(actualFile) =>
-      log.info(s"Received commitlog check for actual file : ${actualFile.getName}")
+      log.debug(s"Received commitlog check for actual file : ${actualFile.getName}")
       val existingOldFileNames: List[String] = Option(Paths.get(directory).toFile.list())
         .map(_.toSet)
         .getOrElse(Set.empty)
@@ -62,18 +64,20 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
         .toList
         .sortBy(_.split(fileNameSeparator).toList.last.toInt)
 
-      log.info(s"Old files to be checked: $existingOldFileNames")
+      log.debug(s"Old files to be checked: $existingOldFileNames")
 
       import CommitLogFile._
 
-      val pendingOutdatedEntries: mutable.Map[File, (ListBuffer[Int], ListBuffer[Int])] = mutable.Map.empty
       val filesToDelete : ListBuffer[File] = ListBuffer.empty
 
       existingOldFileNames.foreach(fileName => {
         val processedFile                   = new File(s"$directory/$fileName")
         val (pendingEntries, closedEntries) = processedFile.checkPendingEntries
 
-        pendingOutdatedEntries += (processedFile -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
+        pendingOutdatedEntries.get(processedFile) match {
+          case None => pendingOutdatedEntries += (processedFile -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
+          case Some(_) =>
+        }
 
         closedEntries.foreach {
           closedEntry =>
@@ -85,29 +89,17 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
                   pendingOutdatedEntries(processedFile)._2 -= closedEntry
                   pending -= closedEntry
                 }
-                if (pending.isEmpty && closed.isEmpty) {
-                  pendingOutdatedEntries -= file
-                  log.info(s"deleting file: ${file.getName}")
-                  filesToDelete += file
-//                  file.delete()
-                }
-//                else {
-//                  pendingOutdatedEntries(file) = (pending, closed)
-//                }
-
                 log.debug(s"pending entries for file: ${file.getName} are : ${pending.size}")
             }
         }
-
-//        filesToDelete.foreach(file => file.delete() )
-
-
-//        if (pendingEntries.isEmpty) {
-//          processedFile.delete()
-//        }
-
       })
-//      filesToDelete.foreach(file => file.delete() )
+      pendingOutdatedEntries.foreach{
+        case (file, (pending, _)) if pending.isEmpty =>
+          log.debug(s"deleting file: ${file.getName}")
+          pendingOutdatedEntries -= file
+          file.delete()
+        case _ =>
+      }
     case msg =>
       log.error(s"Unexpected message: $msg")
   }
