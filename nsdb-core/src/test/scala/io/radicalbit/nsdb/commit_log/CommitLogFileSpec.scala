@@ -60,8 +60,8 @@ class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with B
 
       import CommitLogFile.CommitLogFile
 
-      file.checkPendingEntries._1 shouldBe Seq(id0,id1,id2)
-      file.checkPendingEntries._2 shouldBe Seq(id0,id2)
+      file.checkPendingEntries._1 shouldBe Seq(id0, id1, id2)
+      file.checkPendingEntries._2 shouldBe Seq(id0, id2)
     }
 
   }
