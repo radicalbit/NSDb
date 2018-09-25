@@ -46,7 +46,7 @@ class ParsedKcqlSpec extends FlatSpec with Matchers with OneInstancePerTest {
     ParsedKcql("INSERT INTO metric SELECT x AS db, y AS namespace, z AS value FROM topic WITHTIMESTAMP y",
                None,
                None,
-               None) shouldBe ParsedKcql("x", "y", "metric", None, Map("value" -> "z", "timestamp" -> "y"))
+               None) shouldBe ParsedKcql("x", "y", "metric", None, Some("y"), Some("z"), Map.empty, Map.empty)
   }
 
   "KcqlFields" should "accept kcqls without db and namespace mapping but with global configs instead" in {
@@ -55,7 +55,10 @@ class ParsedKcqlSpec extends FlatSpec with Matchers with OneInstancePerTest {
       "y",
       "metric",
       None,
-      Map("value" -> "z", "timestamp" -> "y"))
+      Some("y"),
+      Some("z"),
+      Map.empty,
+      Map.empty)
   }
 
   "KcqlFields" should "successfully convert queries with or without aliases" in {
@@ -65,27 +68,36 @@ class ParsedKcqlSpec extends FlatSpec with Matchers with OneInstancePerTest {
                                                                        "y",
                                                                        "metric",
                                                                        None,
-                                                                       Map("value" -> "z", "timestamp" -> "y"))
+                                                                       Some("y"),
+                                                                       Some("z"),
+                                                                       Map.empty,
+                                                                       Map.empty)
 
     val withDimensionNoAlias =
       "INSERT INTO metric SELECT x AS db, y AS namespace, z AS value, d FROM topic WITHTIMESTAMP t"
 
-    ParsedKcql(withDimensionNoAlias, None, None, None) shouldBe ParsedKcql(
-      "x",
-      "y",
-      "metric",
-      None,
-      Map("value" -> "z", "timestamp" -> "t", "d" -> "d"))
+    ParsedKcql(withDimensionNoAlias, None, None, None) shouldBe ParsedKcql("x",
+                                                                           "y",
+                                                                           "metric",
+                                                                           None,
+                                                                           Some("t"),
+                                                                           Some("z"),
+                                                                           Map.empty,
+                                                                           Map("d" -> "d"))
 
     val withDimensionAlias =
       "INSERT INTO metric SELECT x AS db, y AS namespace, z AS value, d as dimension FROM topic WITHTIMESTAMP y"
 
-    ParsedKcql(withDimensionAlias, None, None, None) shouldBe ParsedKcql(
-      "x",
-      "y",
-      "metric",
-      None,
-      Map("value" -> "z", "timestamp" -> "y", "dimension" -> "d"))
+    ParsedKcql(withDimensionAlias, None, None, None) shouldBe ParsedKcql("x",
+                                                                         "y",
+                                                                         "metric",
+                                                                         None,
+                                                                         Some("y"),
+                                                                         Some("z"),
+                                                                         Map.empty,
+                                                                         Map("dimension" -> "d"))
   }
+
+  "KcqlFields" should "successfully support tags" in {}
 
 }

@@ -301,13 +301,18 @@ class NsdbILoop(host: Option[String],
 
   private def processSQLStatementResponse(statementAttempt: Future[SQLStatementResult],
                                           print: SQLStatementResult => Try[String],
-                                          lineToRecord: String): Result =
+                                          lineToRecord: String): Result = {
+    val initialTimestamp = System.currentTimeMillis()
     Try(Await.result(statementAttempt, 30 seconds)) match {
       case Success(resp: SQLStatementFailed) =>
         echo(s"Statement failed because : ${resp.reason}")
         result(Some(lineToRecord))
       case Success(resp: SQLStatementExecuted) =>
-        echo(print(resp), lineToRecord)
+        echo(
+          print(resp),
+          lineToRecord,
+          Some(
+            FiniteDuration(System.currentTimeMillis() - initialTimestamp, java.util.concurrent.TimeUnit.MILLISECONDS)))
       case Success(_) =>
         echo(
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
@@ -318,12 +323,18 @@ class NsdbILoop(host: Option[String],
           "The NSDB cluster did not fulfill the request successfully. Please check the connection or run a lightweight query.")
         result(Some(lineToRecord))
     }
+  }
 
-  private def echo(out: Try[String], lineToRecord: String): Result = out match {
+  private def echo(out: Try[String], lineToRecord: String, duration: Option[Duration] = None): Result = out match {
     case Success(x) =>
       echo("\n")
       echo(x)
       echo("\n")
+      duration.foreach { d =>
+        echo("\n")
+        echo("\n")
+        echo(s"Executed in ${d.toSeconds.toString} seconds")
+      }
       result(Some(lineToRecord))
     case Failure(t) =>
       logger.error("Error in render", t)

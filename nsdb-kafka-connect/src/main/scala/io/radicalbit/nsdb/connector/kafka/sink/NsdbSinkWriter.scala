@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.connector.kafka.sink
 import com.datamountaineer.kcql.Kcql
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import io.radicalbit.nsdb.api.scala.{Bit, Db, NSDB}
-import io.radicalbit.nsdb.connector.kafka.sink.conf.Constants._
 import org.apache.kafka.connect.data.Schema.Type
 import org.apache.kafka.connect.data._
 import org.apache.kafka.connect.sink.SinkRecord
@@ -27,6 +26,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.util.Try
 
 /**
   * Handles writes to NSDb.
@@ -35,10 +35,14 @@ class NsdbSinkWriter(connection: NSDB,
                      kcqls: Map[String, Array[Kcql]],
                      globalDb: Option[String],
                      globalNamespace: Option[String],
-                     defaultValue: Option[String])
+                     defaultValueStr: Option[String])
     extends StrictLogging {
 
   logger.info("Initialising Nsdb writer")
+
+  import NsdbSinkWriter.validateDefaultValue
+
+  val defaultValue: Option[java.math.BigDecimal] = validateDefaultValue(defaultValueStr)
 
   /**
     * Write a list of SinkRecords to NSDb.
@@ -69,7 +73,7 @@ class NsdbSinkWriter(connection: NSDB,
                            kcqls: Array[Kcql],
                            globalDb: Option[String],
                            globalNamespace: Option[String],
-                           defaultValue: Option[String]): Unit = {
+                           defaultValue: Option[java.math.BigDecimal]): Unit = {
     logger.debug("Handling {} records for topic {}. Found also {} kcql queries.", records.size, topic, kcqls)
 
     import NsdbSinkWriter.{logger => _, _}
@@ -107,6 +111,16 @@ object NsdbSinkWriter {
   val defaultTimestampKeywords = Set("now", "now()", "sys_time", "sys_time()", "current_time", "current_time()")
 
   private def getFieldName(parent: Option[String], field: String) = parent.map(p => s"$p.$field").getOrElse(field)
+
+  /**
+    * this custom validation has put here because kafka connect does not allow to specify more than one type at once.
+    * Hence, a string type has been chosen and it is checked if it is a valid BigDecimal or not.
+    */
+  def validateDefaultValue(defaultValueStr: Option[String]): Option[java.math.BigDecimal] = {
+    require(Try(new java.math.BigDecimal(defaultValueStr.getOrElse("0"))).isSuccess,
+            s"value $defaultValueStr as default value is invalid, must be a number")
+    defaultValueStr.map(new java.math.BigDecimal(_))
+  }
 
   /**
     * Recursively build a Map to represent a field.
@@ -189,7 +203,7 @@ object NsdbSinkWriter {
   def parse(record: SinkRecord,
             globalDb: Option[String],
             globalNamespace: Option[String],
-            defaultValue: Option[String]): Map[String, Any] = {
+            defaultValue: Option[java.math.BigDecimal]): Map[String, Any] = {
     logger.debug("Parsing SinkRecord {}.", record)
 
     val schema = record.valueSchema
@@ -225,7 +239,6 @@ object NsdbSinkWriter {
 
     val dbField        = parsedKcql.dbField
     val namespaceField = parsedKcql.namespaceField
-    val aliasMap       = parsedKcql.aliasesMap
 
     require(valuesMap.get(dbField).isDefined && valuesMap(dbField).isInstanceOf[String],
             s"required field $dbField is missing from record or is invalid")
@@ -235,17 +248,16 @@ object NsdbSinkWriter {
     var bit: Bit =
       Db(valuesMap(dbField).toString).namespace(valuesMap(namespaceField).toString).metric(parsedKcql.metric)
 
-    val timestampField = aliasMap(Writer.TimestampFieldName)
-    val valueFieldOpt  = aliasMap.get(Writer.ValueFieldName)
-
-    valuesMap.get(timestampField) match {
-      case Some(t: Long)                                             => bit = bit.timestamp(t)
-      case Some(v)                                                   => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
-      case None if defaultTimestampKeywords.contains(timestampField) => bit = bit.timestamp(System.currentTimeMillis())
-      case None                                                      => sys.error(s"Timestamp is not defined in record and a valid default is not provided")
+    parsedKcql.timestampField.flatMap {
+      case f if defaultTimestampKeywords.contains(f) => Some(System.currentTimeMillis())
+      case f                                         => valuesMap.get(f)
+    } match {
+      case Some(t: Long) => bit = bit.timestamp(t)
+      case Some(v)       => sys.error(s"Type ${v.getClass} is not supported for timestamp field")
+      case None          => sys.error(s"Timestamp is not defined in record and a valid default is not provided")
     }
 
-    valueFieldOpt match {
+    parsedKcql.valueField match {
       case Some(valueField) =>
         valuesMap.get(valueField) match {
           case Some(v: Int)                  => bit = bit.value(v)
@@ -267,7 +279,7 @@ object NsdbSinkWriter {
         }
     }
 
-    (aliasMap - Writer.TimestampFieldName - Writer.ValueFieldName).foreach {
+    parsedKcql.dimensionAliasesMap.foreach {
       case (alias, name) =>
         valuesMap.get(name) match {
           case Some(v: Int)                  => bit = bit.dimension(alias, v)
@@ -281,6 +293,22 @@ object NsdbSinkWriter {
           case None => ()
         }
     }
+
+    parsedKcql.tagAliasesMap.foreach {
+      case (alias, name) =>
+        valuesMap.get(name) match {
+          case Some(v: Int)                  => bit = bit.tag(alias, v)
+          case Some(v: Long)                 => bit = bit.tag(alias, v)
+          case Some(v: Double)               => bit = bit.tag(alias, v)
+          case Some(v: Float)                => bit = bit.tag(alias, v)
+          case Some(v: String)               => bit = bit.tag(alias, v)
+          case Some(v: java.math.BigDecimal) => bit = bit.tag(alias, v)
+          case Some(unsupportedValue) =>
+            sys.error(s"Type ${Option(unsupportedValue).map(_.getClass)} is not supported for tags")
+          case None => ()
+        }
+    }
+
     bit
   }
 

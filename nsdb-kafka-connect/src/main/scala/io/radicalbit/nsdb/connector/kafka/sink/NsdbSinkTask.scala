@@ -53,7 +53,7 @@ class NsdbSinkTask extends SinkTask {
         kcqls = props.get(NsdbConfigs.NSDB_KCQL).split(";").map(Kcql.parse).groupBy(_.getSource),
         globalDb = Option(props.get(NsdbConfigs.NSDB_DB)),
         globalNamespace = Option(props.get(NsdbConfigs.NSDB_NAMESPACE)),
-        defaultValue = Option(props.get(NsdbConfigs.NSDB_DEFAULT_VALUE))
+        defaultValueStr = Option(props.get(NsdbConfigs.NSDB_DEFAULT_VALUE))
       ))
   }
 

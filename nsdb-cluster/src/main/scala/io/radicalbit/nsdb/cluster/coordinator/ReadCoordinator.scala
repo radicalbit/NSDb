@@ -136,8 +136,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                         schema: Schema,
                                         uniqueLocationsByNode: Map[String, Seq[Location]])(
       aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] =
-    gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq =>
-      seq.groupBy(_.tags(groupBy)).map(m => aggregationFunction(m._2)).toSeq)
+    gatherNodeResults(statement, schema, uniqueLocationsByNode) {
+      case seq if uniqueLocationsByNode.size > 1 =>
+        seq.groupBy(_.tags(groupBy)).map(m => aggregationFunction(m._2)).toSeq
+      case seq => seq
+    }
 
   /**
     * Initial state in which actor waits metadata warm-up completion.

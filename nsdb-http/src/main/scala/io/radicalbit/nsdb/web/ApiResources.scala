@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.ActorRef
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
@@ -89,7 +90,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 class ApiResources(val publisherActor: ActorRef,
                    val readCoordinator: ActorRef,
                    val writeCoordinator: ActorRef,
-                   val authenticationProvider: NSDBAuthProvider)(implicit val timeout: Timeout)
+                   val authenticationProvider: NSDBAuthProvider)(implicit val timeout: Timeout, logger: LoggingAdapter)
     extends CommandApi
     with QueryApi
     with DataApi {
