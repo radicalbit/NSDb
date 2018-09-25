@@ -20,7 +20,7 @@ import java.nio.file.Paths
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
+import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.commons.io.FileUtils
 import org.apache.lucene.index.IndexWriter
 
@@ -49,9 +50,9 @@ class MetricAccumulatorActor(val basePath: String,
                              val namespace: String,
                              val readerActor: ActorRef,
                              val localWriteCoordinator: ActorRef)
-    extends Actor
-    with MetricsActor
-    with ActorLogging {
+    extends ActorPathLogging
+    with MetricsActor {
+
   import scala.collection.mutable
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
@@ -172,7 +173,8 @@ class MetricAccumulatorActor(val basePath: String,
     *
     */
   def accumulate: Receive = {
-    case AddRecordToShard(_, ns, location, bit) =>
+    case msg @ AddRecordToShard(_, ns, location, bit) =>
+      log.debug("received message {}", msg)
       opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, location, bit))
       val ts = System.currentTimeMillis()
       sender ! RecordAdded(db, ns, location.metric, bit, location, ts)

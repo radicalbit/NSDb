@@ -22,17 +22,24 @@ import io.radicalbit.nsdb.connector.kafka.sink.conf.Constants._
 import scala.collection.JavaConverters._
 
 /**
-  * Parsed information from a kcql expression
-  * @param dbField nsdb db field to be fetched from topic data.
-  * @param namespaceField nsdb namespace field to be fetched from topic data.
-  * @param metric nsdb metric.
-  * @param aliasesMap nsdb aliases map (e.g. `alias -> field` means that `field` must be fetched from topic and saved as `alias` to nsdb.
+  * Parsed information from a kcql expression.
+  * For all the aliases maps `alias -> field` means that `field` must be fetched from topic and saved as `alias` to NSDb.
+  * @param dbField NSDb db field to be fetched from topic data.
+  * @param namespaceField NSDb namespace field to be fetched from topic data.
+  * @param metric NSDb metric.
+  * @param timestampField timestamp field if present (current timestamp is used otherwise).
+  * @param valueField value field if present (default value is used otherwise).
+  * @param tagAliasesMap NSDb tags aliases map.
+  * @param dimensionAliasesMap NSDb dimensions aliases map.
   */
 case class ParsedKcql(dbField: String,
                       namespaceField: String,
                       metric: String,
                       defaultValue: Option[java.math.BigDecimal],
-                      aliasesMap: Map[String, String])
+                      timestampField: Option[String],
+                      valueField: Option[String],
+                      tagAliasesMap: Map[String, String],
+                      dimensionAliasesMap: Map[String, String])
 
 object ParsedKcql {
 
@@ -48,7 +55,7 @@ object ParsedKcql {
   def apply(queryString: String,
             globalDb: Option[String],
             globalNamespace: Option[String],
-            defaultValue: Option[String]): ParsedKcql = {
+            defaultValue: Option[java.math.BigDecimal]): ParsedKcql = {
     this(Kcql.parse(queryString), globalDb, globalNamespace, defaultValue)
   }
 
@@ -65,7 +72,7 @@ object ParsedKcql {
   def apply(kcql: Kcql,
             globalDb: Option[String],
             globalNamespace: Option[String],
-            defaultValue: Option[String]): ParsedKcql = {
+            defaultValue: Option[java.math.BigDecimal]): ParsedKcql = {
 
     val aliasesMap = kcql.getFields.asScala.map(f => f.getAlias -> f.getName).toMap
 
@@ -73,21 +80,34 @@ object ParsedKcql {
     val namespace = aliasesMap.get(Parsed.NamespaceFieldName) orElse globalNamespace
     val metric    = kcql.getTarget
 
+    val tagAliases = Option(kcql.getTags)
+      .map(_.asScala)
+      .getOrElse(List.empty)
+      .map(e => e.getKey -> Option(e.getValue).getOrElse(e.getKey))
+      .toMap
+
     require(db.isDefined, "A global db configuration or a Db alias in Kcql must be defined")
     require(namespace.isDefined, "A global namespace configuration or a Namespace alias in Kcql must be defined")
-    require(kcql.getTimestamp != null && kcql.getTimestamp.nonEmpty)
     require(
-      aliasesMap.get("value").isDefined ||
-        (defaultValue.isDefined && defaultValue.get.matches("-?\\d+(\\.\\d+)?")),
-      "Value alias in kcql must be defined or a numeric defaultValue must be provided"
+      aliasesMap.get(Writer.ValueFieldName).isDefined || defaultValue.isDefined,
+      "Value alias in kcql must be defined"
     )
+
+    val allAliases = aliasesMap - Parsed.DbFieldName - Parsed.NamespaceFieldName - Writer.ValueFieldName
+
+    val (tags: Map[String, String], dimensions: Map[String, String]) = allAliases.partition {
+      case (k, v) => tagAliases.get(k).isDefined
+    }
 
     ParsedKcql(
       db.get,
       namespace.get,
       metric,
-      defaultValue.map(new java.math.BigDecimal(_)),
-      aliasesMap - Parsed.DbFieldName - Parsed.NamespaceFieldName + (Writer.TimestampFieldName -> kcql.getTimestamp)
+      defaultValue,
+      Option(kcql.getTimestamp),
+      aliasesMap.get(Writer.ValueFieldName),
+      tags,
+      dimensions
     )
   }
 }

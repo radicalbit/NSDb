@@ -18,15 +18,16 @@ package io.radicalbit.nsdb.actors
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
+import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformShardWrites, PersistedBit, PersistedBits}
-import io.radicalbit.nsdb.index.AllFacetIndexes
-import org.apache.lucene.index.IndexWriter
-import akka.pattern.ask
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.AllFacetIndexes
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.lucene.index.IndexWriter
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
@@ -42,9 +43,8 @@ class MetricPerformerActor(val basePath: String,
                            val db: String,
                            val namespace: String,
                            val localWriteCoordinator: ActorRef)
-    extends Actor
-    with MetricsActor
-    with ActorLogging {
+    extends ActorPathLogging
+    with MetricsActor {
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
@@ -66,6 +66,7 @@ class MetricPerformerActor(val basePath: String,
 
           val performedBitOperations = ops.collect {
             case WriteShardOperation(_, _, bit) =>
+              log.debug("performing write for bit {}", bit)
               index.write(bit) match {
                 case Success(_) =>
                   facets.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {

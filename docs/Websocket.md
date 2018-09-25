@@ -31,8 +31,7 @@ In order to subscribe a query, after connection is being opened, user has to sen
     "db": "[string]",
     "namespace": "[string]",
     "metric": "[string]",
-    "queryString" : "[string]",
-    "filters": "[optional array of Filter]"
+    "queryString" : "[string]"
 }
 ```
 
@@ -43,13 +42,7 @@ In order to subscribe a query, after connection is being opened, user has to sen
     "db": "db",
     "namespace": "namespace",
     "metric": "metric",
-    "queryString" : "select * from metric limit 1",
-    "filters": [{ "dimension": "dimName1",
-                  "value" : "value",
-                  "operator": "=" },
-                { "dimension": "dimName2",
-                  "value" : 1,
-                  "operator": ">=" }]
+    "queryString" : "select * from metric limit 1"
 }
 ```
 

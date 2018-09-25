@@ -34,7 +34,8 @@ The NSDb sink supports KCQL, [Kafka Connect Query Language](https://github.com/L
 
 The following capabilites can be achieved using KCQL:
 
-- Dimensions selection and mapping
+- Dimensions and tags selection and mapping
+- Tags selection among the mapping above
 - Value mapping
 - Timestamp Mapping
 - Target bit selection
@@ -47,8 +48,8 @@ INSERT INTO bitA SELECT x AS a, y AS value FROM topicA WITHTIMESTAMP z
 -- Select field x as dimension a, field z as dimension c, field y as value and the current time as the timestamp from topicB to bitB
 INSERT INTO bitB SELECT x AS a, y AS value, z as c FROM topicB WITHTIMESTAMP sys_time()
 
--- Select field d as the db, field n as the namespace, field x as dimension a, field z as dimension c, field y as value and the current time as the timestamp from topicB to bitB
-INSERT INTO bitC SELECT d as db, n as namespace, x AS a, y AS value, z as c FROM topicC WITHTIMESTAMP sys_time()
+-- Select field d as the db, field n as the namespace, field x as tag a, field z as tag b, field t as dimension c, field y as value and the current time as the timestamp from topicC to bitC
+INSERT INTO bitC SELECT d as db, n as namespace, x AS a, y AS value, z as b, t as c FROM topicC WITHTIMESTAMP sys_time() WITHTAG(a,b)
 ```
 
 ## example
@@ -60,6 +61,6 @@ echo '{"name":"manufacturing-nsdb-sink",
 "nsdb.kcql":
 "INSERT INTO bitA SELECT x AS a, y AS value FROM topicA WITHTIMESTAMP z;
  INSERT INTO bitB SELECT x AS a, y AS value, z as c FROM topicB WITHTIMESTAMP sys_time();
- INSERT INTO bitC SELECT d as db, n as namespace, x AS a, y AS value, z as c FROM topicC WITHTIMESTAMP sys_time()"
+ INSERT INTO bitC SELECT d as db, n as namespace, x AS a, y AS value, z as b, t as c FROM topicC WITHTIMESTAMP sys_time() WITHTAG(a,b)"
 }}' | curl -X POST -d @- http://kafkaconnecthost:8083/connectors --header "content-Type:application/json"
 ```

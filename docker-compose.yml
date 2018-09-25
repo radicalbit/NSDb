@@ -17,11 +17,11 @@ version: '3'
 services:
 
     nsdb:
-      image: tools.radicalbit.io/nsdb:0.6.0-SNAPSHOT
+      image: tools.radicalbit.io/nsdb:0.7.0-SNAPSHOT
       volumes:
         - ./nsdb-cluster/src/main/resources:/opt/nsdb-cluster/conf
-        - ./data:/opt/nsdb-cluster/data
-        - ./ext-lib:/opt/nsdb-cluster/ext-lib
+        - ./data:/opt/nsdb/data
+        - ./ext-lib:/opt/nsdb/ext-lib
         - ./certs:/opt/certs
       ports:
         - 9443:9443
