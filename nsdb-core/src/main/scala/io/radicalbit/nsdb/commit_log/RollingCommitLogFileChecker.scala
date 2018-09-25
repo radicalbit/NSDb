@@ -36,6 +36,13 @@ object RollingCommitLogFileChecker {
   case class CheckFiles(actualFile: File)
 }
 
+/**
+  * This Actor handles old commit log files deletion mechanism
+  *
+  * @param db database name
+  * @param namespace namespace name
+  * @param metric metric name
+  */
 class RollingCommitLogFileChecker(db: String, namespace: String, metric: String) extends ActorPathLogging {
 
   implicit val config: Config = context.system.settings.config
@@ -67,8 +74,6 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
       log.debug(s"Old files to be checked: $existingOldFileNames")
 
       import CommitLogFile._
-
-      val filesToDelete: ListBuffer[File] = ListBuffer.empty
 
       existingOldFileNames.foreach(fileName => {
         val processedFile                   = new File(s"$directory/$fileName")
