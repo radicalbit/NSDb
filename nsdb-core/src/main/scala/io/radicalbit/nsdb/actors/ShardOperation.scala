@@ -41,8 +41,19 @@ sealed trait ShardOperation {
     * operation key. @see ShardKey
     */
   val location: Location
+
+  /**
+    * Operation that needs to be applied if there is any error performing the parent one.
+    */
+  val compensation: Option[ShardOperation]
 }
 
-case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit)    extends ShardOperation
-case class DeleteShardQueryOperation(namespace: String, location: Location, query: Query) extends ShardOperation
-case class WriteShardOperation(namespace: String, location: Location, bit: Bit)           extends ShardOperation
+case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit) extends ShardOperation {
+  override val compensation: Option[ShardOperation] = None
+}
+case class DeleteShardQueryOperation(namespace: String, location: Location, query: Query) extends ShardOperation {
+  override val compensation: Option[ShardOperation] = None
+}
+case class WriteShardOperation(namespace: String, location: Location, bit: Bit) extends ShardOperation {
+  override val compensation: Option[ShardOperation] = Some(DeleteShardRecordOperation(namespace, location, bit))
+}

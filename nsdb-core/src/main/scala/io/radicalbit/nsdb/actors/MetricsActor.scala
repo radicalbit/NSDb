@@ -63,16 +63,16 @@ trait MetricsActor { this: Actor =>
 
   /**
     * Retrieves or creates an index for the given [[Location]]
-    * @param key the key containing the metric and the time interval to identify the index to retrieve or create
+    * @param loc the location containing the metric and the time interval to identify the index to retrieve or create
     * @return the index for the key
     */
-  protected def getIndex(key: Location): TimeSeriesIndex =
+  protected def getIndex(loc: Location): TimeSeriesIndex =
     shards.getOrElse(
-      key, {
+      loc, {
         val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${key.metric}_${key.from}_${key.to}"))
+          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${loc.metric}_${loc.from}_${loc.to}"))
         val newIndex = new TimeSeriesIndex(directory)
-        shards += (key -> newIndex)
+        shards += (loc -> newIndex)
         newIndex
       }
     )

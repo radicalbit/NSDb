@@ -53,13 +53,13 @@ class OrderedTaxonomyFacetCounts(
         case Type.LONG   => Ordering.by[LabelAndValue, Long](e => e.value.longValue())
         case Type.INT    => Ordering.by[LabelAndValue, Int](e => e.value.intValue())
         case Type.DOUBLE => Ordering.by[LabelAndValue, Double](e => e.value.doubleValue())
-
+        case _           => Ordering.by[LabelAndValue, String](e => e.label)
       }
       if (isReverse) ordering.reverse else ordering
     }
 
     facetResult.map { fr =>
       new FacetResult(fr.dim, fr.path, fr.value, fr.labelValues.sorted.take(topN), fr.childCount)
-    } getOrElse (new FacetResult(dim, path.toArray, 0, Array.empty, 0))
+    } getOrElse new FacetResult(dim, path.toArray, 0, Array.empty, 0)
   }
 }
