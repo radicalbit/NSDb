@@ -19,6 +19,8 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
+import akka.pattern.{ask, pipe}
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricPerformerActor
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -28,8 +30,6 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.collection.mutable
 import scala.concurrent.Future
-import akka.pattern.{ask, pipe}
-import akka.util.Timeout
 
 /**
   * Actor whose purpose is to handle writes on commit-log files delegating the action to writers implementing
@@ -55,7 +55,6 @@ class CommitLogCoordinator extends ActorPathLogging {
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
-  import context.dispatcher
 
   def receive: Receive = {
     case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
@@ -64,9 +63,7 @@ class CommitLogCoordinator extends ActorPathLogging {
     case persistedBits: PersistedBits =>
       import context.dispatcher
       // Handle successful events of Bit Persistence
-      val successfullyPersistedBits: Seq[MetricPerformerActor.PersistedBit] = persistedBits.persistedBits.collect {
-        case persistedBit if persistedBit.successfully => persistedBit
-      }
+      val successfullyPersistedBits = persistedBits.persistedBits
 
       val successfulCommitLogResponses: Future[Seq[WriteToCommitLogSucceeded]] =
         Future.sequence {

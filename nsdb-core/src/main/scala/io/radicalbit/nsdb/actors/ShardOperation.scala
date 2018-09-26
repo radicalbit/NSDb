@@ -43,14 +43,14 @@ sealed trait ShardOperation {
   val location: Location
 }
 
-case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit) extends ShardOperation
+case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit)    extends ShardOperation
 case class DeleteShardQueryOperation(namespace: String, location: Location, query: Query) extends ShardOperation
-case class WriteShardOperation(namespace: String, location: Location, bit: Bit) extends ShardOperation
+case class WriteShardOperation(namespace: String, location: Location, bit: Bit)           extends ShardOperation
 
 object ShardOperation {
 
   /**
-  * Gets the operation that needs to be applied if there is any error performing the input one.
+    * Gets the operation that needs to be applied if there is any error performing the input one.
     * @param action The input action.
     * @return
     */

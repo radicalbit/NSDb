@@ -191,6 +191,6 @@ object MetricPerformerActor {
   case class PersistedBit(db: String, namespace: String, metric: String, timestamp: Long, bit: Bit, location: Location)
   case object PersistedBitsAck
 
-  def props(basePath: String, db: String, namespace: String, localWriteCoordinator: ActorRef): Props =
-    Props(new MetricPerformerActor(basePath, db, namespace, localWriteCoordinator))
+  def props(basePath: String, db: String, namespace: String, localCommitLogCoordinator: ActorRef): Props =
+    Props(new MetricPerformerActor(basePath, db, namespace, localCommitLogCoordinator))
 }
