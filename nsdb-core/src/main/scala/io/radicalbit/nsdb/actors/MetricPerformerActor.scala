@@ -54,29 +54,29 @@ class MetricPerformerActor(val basePath: String,
 
   private val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
 
-  private val maxattempt = 10
+  private val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.location)
-      val persistedBits = groupedByKey.flatMap {
+
+      val performedBitOperations: ListBuffer[PersistedBit] = ListBuffer.empty
+
+      groupedByKey.foreach {
         case (loc, ops) =>
-          val index                        = getIndex(loc)
-          val facetIndexes                 = facetIndexesFor(loc)
-          implicit val writer: IndexWriter = index.getWriter
+          val index               = getIndex(loc)
+          val facetIndexes        = facetIndexesFor(loc)
+          val writer: IndexWriter = index.getWriter
 
-          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)
-          val facetsIndexWriter = facets.newIndexWriter
-          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+          val facetsIndexWriter = facetIndexes.newIndexWriter
+          val facetsTaxoWriter  = facetIndexes.newDirectoryTaxonomyWriter
 
-          val performedBitOperations: ListBuffer[PersistedBit] = ListBuffer.empty
-
-          ops.collect {
+          ops.foreach {
             case op @ WriteShardOperation(_, _, bit) =>
               log.debug("performing write for bit {}", bit)
-              index.write(bit) match {
+              index.write(bit)(writer) match {
                 case Success(_) =>
-                  facets.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
+                  facetIndexes.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
                       val timestamp = System.currentTimeMillis()
                       performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
@@ -89,13 +89,11 @@ class MetricPerformerActor(val basePath: String,
                   toRetryOperations += ((op, 0))
                   log.error(t, "error during write on index")
               }
-          }.toSeq
-
-          ops.collect {
+            //FIXME add compensation logic here as well
             case DeleteShardRecordOperation(_, _, bit) =>
-              index.delete(bit) match {
+              index.delete(bit)(writer) match {
                 case Success(_) =>
-                  Try(facetIndexes.delete(bit).map(_.get)) match {
+                  Try(facetIndexes.delete(bit)(facetsIndexWriter).map(_.get)) match {
                     case Success(_) =>
                     case Failure(t) =>
                   }
@@ -103,22 +101,22 @@ class MetricPerformerActor(val basePath: String,
                   log.error(t, s"error during delete of Bit: $bit")
               }
             case DeleteShardQueryOperation(_, _, q) =>
-              index.delete(q) match {
+              index.delete(q)(writer) match {
                 case Success(_) =>
-                  facetIndexes.delete(q)
+                  facetIndexes.delete(q)(facetsIndexWriter)
                 case Failure(t) =>
                   log.error(t, s"error during delete by query $q")
               }
           }
+
           writer.flush()
           writer.close()
 
           facetsTaxoWriter.close()
           facetsIndexWriter.close()
+      }
 
-          performedBitOperations
-      }.toSeq
-
+      val persistedBits = performedBitOperations
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
       (localWriteCoordinator ? PersistedBits(persistedBits)).recover {
         case _ => localWriteCoordinator ! PersistedBits(persistedBits)
@@ -130,12 +128,26 @@ class MetricPerformerActor(val basePath: String,
     case PerformRetry =>
       toRetryOperations.foreach {
         case e @ (op, attempt) =>
+          /**
+            * the operation has been retried too many times. It's time to mark the node as unavailable
+            */
+          if (attempt >= maxAttempts) {
+            //TODO blow everything up
+          }
+
           val loc                          = op.location
           val index                        = getIndex(loc)
           val facetIndexes                 = facetIndexesFor(loc)
           implicit val writer: IndexWriter = index.getWriter
 
-          op.compensation match {
+          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)
+          val facetsIndexWriter = facets.newIndexWriter
+          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+
+          /**
+            * compensate the failed action
+            */
+          ShardOperation.getCompensation(op) match {
             case Some(DeleteShardRecordOperation(_, _, bit)) =>
               Try(Seq(index.delete(bit), Try(facetIndexes.delete(bit).map(_.get))).map(_.get)) match {
                 case Success(_) =>
@@ -144,15 +156,24 @@ class MetricPerformerActor(val basePath: String,
                   log.error(t, s"error during delete of Bit: {}", bit)
                   toRetryOperations -= e
                   toRetryOperations += ((op, attempt + 1))
-
-                  if (attempt >= maxattempt) {
-                    //TODO blow everything up
-                  }
-
+              }
+            case Some(WriteShardOperation(_, _, bit)) =>
+              Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get)) match {
+                case Success(_) =>
+                  toRetryOperations -= e
+                case Failure(t) =>
+                  log.error(t, s"error during write of Bit: {}", bit)
+                  toRetryOperations -= e
+                  toRetryOperations += ((op, attempt + 1))
               }
             case _ => //do nothing for now
           }
+
+        //TODO replay the operation itself
+
       }
+      if (toRetryOperations.nonEmpty)
+        self ! PerformRetry
   }
 }
 
