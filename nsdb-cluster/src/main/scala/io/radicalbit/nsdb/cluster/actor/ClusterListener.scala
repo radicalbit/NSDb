@@ -36,7 +36,7 @@ import scala.concurrent.duration._
   * @param metadataCache the global metadata cache actor.
   * @param schemaCache the global schema cache actor.
   */
-class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Actor with ActorLogging {
+class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
   val cluster = Cluster(context.system)
 
@@ -65,9 +65,8 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
       val indexBasePath = config.getString("nsdb.index.base-path")
 
       val nodeActorsGuardian =
-        context.system.actorOf(
-          NodeActorsGuardian.props(metadataCache, schemaCache).withDeploy(Deploy(scope = RemoteScope(member.address))),
-          name = s"guardian_$nodeName")
+        context.system.actorOf(nodeActorsGuardianProps.withDeploy(Deploy(scope = RemoteScope(member.address))),
+                               name = s"guardian_$nodeName")
 
       (nodeActorsGuardian ? GetNodeChildActors)
         .map {
@@ -106,6 +105,6 @@ class ClusterListener(metadataCache: ActorRef, schemaCache: ActorRef) extends Ac
 
 object ClusterListener {
 
-  def props(metadataCache: ActorRef, schemaCache: ActorRef) =
-    Props(new ClusterListener(metadataCache, schemaCache))
+  def props(nodeActorsGuardianProps: Props) =
+    Props(new ClusterListener(nodeActorsGuardianProps))
 }

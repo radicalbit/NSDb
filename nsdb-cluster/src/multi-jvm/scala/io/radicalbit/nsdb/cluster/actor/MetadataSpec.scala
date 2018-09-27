@@ -97,7 +97,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   lazy val metadataCache = Await.result((guardian ? GetMetadataCache).mapTo[ActorRef], 5.seconds)
   lazy val schemaCache   = Await.result((guardian ? GetSchemaCache).mapTo[ActorRef], 5.seconds)
 
-  system.actorOf(ClusterListener.props(metadataCache, schemaCache), name = "clusterListener")
+  system.actorOf(ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)), name = "clusterListener")
 
   lazy val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
 
