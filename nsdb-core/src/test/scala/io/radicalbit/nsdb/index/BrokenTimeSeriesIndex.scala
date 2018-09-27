@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.common.exception
+package io.radicalbit.nsdb.index
+import io.radicalbit.nsdb.common.protocol.Bit
+import org.apache.lucene.index.IndexWriter
+import org.apache.lucene.store.BaseDirectory
 
-import scala.util.control.NoStackTrace
+import scala.util.{Failure, Try}
 
-/**
-  * Trait for Nsdb Exceptions. It extends [[NoStackTrace]] for efficiency purpose.
-  */
-sealed trait NsdbException extends RuntimeException with NoStackTrace
+class BrokenTimeSeriesIndex(override val directory: BaseDirectory) extends TimeSeriesIndex(directory) {
+  override def write(data: Bit)(implicit writer: IndexWriter): Try[Long] =
+    Failure(new RuntimeException("How could it be useful to test failures if it does not fail at all"))
 
-class InvalidStatementException(val message: String) extends NsdbException
-class TypeNotSupportedException(val message: String) extends NsdbException
-class NsdbSecurityException(val message: String)     extends NsdbException
-class TooManyRetriesException(val message: String)   extends NsdbException
+}

@@ -54,7 +54,7 @@ trait MetricsActor { this: Actor =>
   /**
     * all facet shard indexes for the given db and namespace grouped by [[Location]]
     */
-  protected val facetIndexShards: mutable.Map[Location, AllFacetIndexes] = mutable.Map.empty
+  private[actors] val facetIndexShards: mutable.Map[Location, AllFacetIndexes] = mutable.Map.empty
 
   protected def shardsForMetric(metric: String): mutable.Map[Location, TimeSeriesIndex] =
     shards.filter(_._1.metric == metric)
