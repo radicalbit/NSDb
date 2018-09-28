@@ -16,9 +16,17 @@
 
 package io.radicalbit.nsdb.minicluster
 
-class NsdbMiniClusterNode(val akkaRemotePort: Int,
-                          val httpPort: Int,
-                          val grpcPort: Int,
-                          val dataDir: String,
-                          val commitLogDir: String)
-    extends NsdbMiniClusterDefinition {}
+import akka.actor.{ActorRef, Props}
+import com.typesafe.scalalogging.LazyLogging
+import io.radicalbit.nsdb.cluster.{NSDBAActors, NSDBAkkaCluster}
+import io.radicalbit.nsdb.common.NsdbConfig
+
+/**
+  * Overrides node actor props in order to inject custom behaviours useful for test purpose.
+  */
+trait TestCluster extends NSDBAkkaCluster with NSDBAActors with NsdbConfig {
+  override def nodeActorGuardianProps(metadataCache: ActorRef, schemaCache: ActorRef): Props =
+    super.nodeActorGuardianProps(metadataCache, schemaCache)
+}
+
+trait NSDbMiniClusterDefinition extends TestCluster with NsdbMiniClusterConf with LazyLogging {}

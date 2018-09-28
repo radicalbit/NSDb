@@ -33,12 +33,12 @@ trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] def nodesNumber: Int
 
-  lazy val nodes: Set[NsdbMiniClusterNode] =
+  lazy val nodes: Set[NSDbMiniClusterNode] =
     (for {
       i <- 0 until nodesNumber
       _ = Thread.sleep(1000)
     } yield
-      new NsdbMiniClusterNode(
+      new NSDbMiniClusterNode(
         akkaRemotePort = startingAkkaRemotePort + i,
         httpPort = startingHttpPort + i,
         grpcPort = startingGrpcPort + i,

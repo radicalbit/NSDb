@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeoutException
 
-import akka.actor.SupervisorStrategy.Resume
+import akka.actor.SupervisorStrategy.{Resume, Stop}
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
@@ -28,6 +28,7 @@ import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
 /**
@@ -39,6 +40,10 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     case e: TimeoutException =>
       log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
+    case e: TooManyRetriesException =>
+      log.error(e, "Too many retries on the node")
+      context.system.terminate()
+      Stop
     case t =>
       log.error(t, "generic error occurred")
       super.supervisorStrategy.decider.apply(t)

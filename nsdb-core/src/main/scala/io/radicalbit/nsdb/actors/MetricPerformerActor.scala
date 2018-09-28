@@ -22,15 +22,17 @@ import akka.actor.{ActorRef, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformShardWrites, PersistedBit, PersistedBits}
+import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites, PersistedBit, PersistedBits}
+import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.AllFacetIndexes
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContextExecutor
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Actor responsible for performing write accumulated by [[MetricAccumulatorActor]] into shards indexes.
@@ -42,7 +44,7 @@ import scala.util.{Failure, Success}
 class MetricPerformerActor(val basePath: String,
                            val db: String,
                            val namespace: String,
-                           val localWriteCoordinator: ActorRef)
+                           val localCommitLogCoordinator: ActorRef)
     extends ActorPathLogging
     with MetricsActor {
 
@@ -51,78 +53,163 @@ class MetricPerformerActor(val basePath: String,
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
+  private val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
+
+  private val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
+
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.location)
-      val persistedBits = groupedByKey.flatMap {
-        case (key, ops) =>
-          val index                        = getIndex(key)
-          val facetIndexes                 = facetIndexesFor(key)
-          implicit val writer: IndexWriter = index.getWriter
 
-          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = key)
-          val facetsIndexWriter = facets.newIndexWriter
-          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+      val performedBitOperations: ListBuffer[PersistedBit] = ListBuffer.empty
 
-          val performedBitOperations = ops.collect {
-            case WriteShardOperation(_, _, bit) =>
+      groupedByKey.foreach {
+        case (loc, ops) =>
+          val index               = getIndex(loc)
+          val facetIndexes        = facetIndexesFor(loc)
+          val writer: IndexWriter = index.getWriter
+
+          val facetsIndexWriter = facetIndexes.newIndexWriter
+          val facetsTaxoWriter  = facetIndexes.newDirectoryTaxonomyWriter
+
+          ops.foreach {
+            case op @ WriteShardOperation(_, _, bit) =>
               log.debug("performing write for bit {}", bit)
-              index.write(bit) match {
+              index.write(bit)(writer) match {
                 case Success(_) =>
-                  facets.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
+                  facetIndexes.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
                       val timestamp = System.currentTimeMillis()
-                      PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
+                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
                     case Failure(t) =>
-                      val timestamp = System.currentTimeMillis()
-                      // rollback main index
-                      // FIXME: we should manage here the possible delete failures
-                      index.delete(bit)
+                      toRetryOperations += ((op, 0))
                       log.error(t, "error during write on facet indexes")
-                      PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
                   }
 
                 case Failure(t) =>
-                  val timestamp = System.currentTimeMillis()
+                  toRetryOperations += ((op, 0))
                   log.error(t, "error during write on index")
-                  PersistedBit(db, namespace, key.metric, timestamp, bit, key, true)
               }
-          }.toSeq
-
-          ops.collect {
-            case DeleteShardRecordOperation(_, _, bit) =>
-              index.delete(bit) match {
+            case op @ DeleteShardRecordOperation(_, _, bit) =>
+              index.delete(bit)(writer) match {
                 case Success(_) =>
-                  facetIndexes.delete(bit)
+                  Try(facetIndexes.delete(bit)(facetsIndexWriter).map(_.get)) match {
+                    case Success(_) =>
+                      val timestamp = System.currentTimeMillis()
+                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
+                    case Failure(t) =>
+                      toRetryOperations += ((op, 0))
+                      log.error(t, "error during write on facet indexes")
+                  }
                 case Failure(t) =>
+                  toRetryOperations += ((op, 0))
                   log.error(t, s"error during delete of Bit: $bit")
               }
+            //FIXME add compensation logic here as well
             case DeleteShardQueryOperation(_, _, q) =>
-              index.delete(q) match {
+              index.delete(q)(writer) match {
                 case Success(_) =>
-                  facetIndexes.delete(q)
+                  facetIndexes.delete(q)(facetsIndexWriter)
                 case Failure(t) =>
                   log.error(t, s"error during delete by query $q")
               }
           }
+
+          writer.flush()
+          writer.close()
+
+          facetsTaxoWriter.close()
+          facetsIndexWriter.close()
+      }
+
+      val persistedBits = performedBitOperations
+      context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
+      (localCommitLogCoordinator ? PersistedBits(persistedBits)).recover {
+        case _ => localCommitLogCoordinator ! PersistedBits(persistedBits)
+      }
+
+      if (toRetryOperations.nonEmpty)
+        self ! PerformRetry
+
+    case PerformRetry =>
+      toRetryOperations.foreach {
+        case e @ (op, attempt) =>
+          /**
+            * the operation has been retried too many times. It's time to mark the node as unavailable
+            */
+          if (attempt >= maxAttempts) {
+            throw new TooManyRetriesException(op.toString)
+          }
+
+          log.error("retrying operation {} attempt {} ", op, attempt)
+
+          val loc                          = op.location
+          val index                        = getIndex(loc)
+          val facetIndexes                 = facetIndexesFor(loc)
+          implicit val writer: IndexWriter = index.getWriter
+
+          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)
+          val facetsIndexWriter = facets.newIndexWriter
+          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+
+          /**
+            * compensate the failed action
+            */
+          val compensation = (ShardOperation.getCompensation(op) map {
+            case DeleteShardRecordOperation(_, _, bit) =>
+              Try((Seq(index.delete(bit)) ++ facetIndexes.delete(bit)).map(_.get))
+            case WriteShardOperation(_, _, bit) =>
+              Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get))
+            case _ => Success(Seq(0l)) //do nothing for now. Return Success
+          }).getOrElse(Success(Seq(0l)))
+
+          compensation match {
+            case Success(_) =>
+              //Replay the operation itself
+              op match {
+                case DeleteShardRecordOperation(_, _, bit) =>
+                  Try(Seq(index.delete(bit), Try(facetIndexes.delete(bit).map(_.get))).map(_.get)) match {
+                    case Success(_) =>
+                      toRetryOperations -= e
+                    case Failure(t) =>
+                      log.error(t, s"error during delete of Bit: {}", bit)
+                      toRetryOperations -= e
+                      toRetryOperations += ((op, attempt + 1))
+                  }
+                case WriteShardOperation(_, _, bit) =>
+                  Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get)) match {
+                    case Success(_) =>
+                      toRetryOperations -= e
+                    case Failure(t) =>
+                      log.error(t, s"error during write of Bit: {}", bit)
+                      toRetryOperations -= e
+                      toRetryOperations += ((op, attempt + 1))
+                  }
+                case _ => //do nothing for now
+              }
+
+            case Failure(t) =>
+              log.error(t, s"failure in compensation of op {}", op)
+              toRetryOperations -= e
+              toRetryOperations += ((op, attempt + 1))
+          }
+
           writer.flush()
           writer.close()
 
           facetsTaxoWriter.close()
           facetsIndexWriter.close()
 
-          performedBitOperations
-      }.toSeq
-
-      context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
-      (localWriteCoordinator ? PersistedBits(persistedBits)).recover {
-        case _ => localWriteCoordinator ! PersistedBits(persistedBits)
       }
 
+      if (toRetryOperations.nonEmpty)
+        self ! PerformRetry
   }
 }
 
 object MetricPerformerActor {
+
+  private case object PerformRetry
 
   case class PerformShardWrites(opBufferMap: Map[String, ShardOperation])
 
@@ -131,15 +218,9 @@ object MetricPerformerActor {
     * @param persistedBits [[Seq]] of [[PersistedBit]]
     */
   case class PersistedBits(persistedBits: Seq[PersistedBit])
-  case class PersistedBit(db: String,
-                          namespace: String,
-                          metric: String,
-                          timestamp: Long,
-                          bit: Bit,
-                          location: Location,
-                          successfully: Boolean)
+  case class PersistedBit(db: String, namespace: String, metric: String, timestamp: Long, bit: Bit, location: Location)
   case object PersistedBitsAck
 
-  def props(basePath: String, db: String, namespace: String, localWriteCoordinator: ActorRef): Props =
-    Props(new MetricPerformerActor(basePath, db, namespace, localWriteCoordinator))
+  def props(basePath: String, db: String, namespace: String, localCommitLogCoordinator: ActorRef): Props =
+    Props(new MetricPerformerActor(basePath, db, namespace, localCommitLogCoordinator))
 }

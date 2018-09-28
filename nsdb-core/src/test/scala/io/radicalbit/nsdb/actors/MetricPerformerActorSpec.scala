@@ -19,49 +19,84 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.SupervisorStrategy.Resume
+import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
-import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
+import org.apache.lucene.store.MMapDirectory
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
+
+class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
+
+  val exceptionsCaught: ListBuffer[TooManyRetriesException] = ListBuffer.empty
+
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
+    case e: TooManyRetriesException =>
+      log.error(e, "TooManyRetriesException {}", e.getMessage)
+      exceptionsCaught += e
+      Resume
+    case t =>
+      log.error(t, "generic exception")
+      super.supervisorStrategy.decider.apply(t)
+  }
+
+  override def receive: Receive = {
+    case msg => probe ! msg
+  }
+}
 
 class MetricPerformerActorSpec
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
     with FlatSpecLike
     with Matchers
-    with BeforeAndAfter {
+    with BeforeAndAfterAll {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
 
-  val basePath                   = "target/test_index"
-  val db                         = "db"
-  val namespace                  = "namespace"
-  val localWriteCoordinator      = TestProbe()
-  val localWriteCoordinatorActor = localWriteCoordinator.ref
-  val indexerPerformerActor =
-    TestActorRef[MetricPerformerActor](MetricPerformerActor.props(basePath, db, namespace, localWriteCoordinatorActor),
-                                       probeActor)
+  val basePath                  = "target/test_index"
+  val db                        = "db"
+  val namespace                 = "namespace"
+  val localCommitLogCoordinator = TestProbe()
 
-  before {
+  val testSupervisor                 = TestActorRef[TestSupervisorActor](Props(new TestSupervisorActor(probeActor)))
+  val localCommitLogCoordinatorActor = localCommitLogCoordinator.ref
+  val indexerPerformerActor =
+    TestActorRef[MetricPerformerActor](
+      MetricPerformerActor.props(basePath, db, namespace, localCommitLogCoordinatorActor),
+      testSupervisor,
+      "indexerPerformerActor")
+
+  val errorLocation = Location("IndexerPerformerActorMetric", "node1", 1, 1)
+  val bit           = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
+
+  override def beforeAll: Unit = {
     import scala.collection.JavaConverters._
     if (Paths.get(basePath, db).toFile.exists())
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
+
+    val directory =
+      new MMapDirectory(Paths
+        .get(basePath, db, namespace, "shards", s"${errorLocation.metric}_${errorLocation.from}_${errorLocation.to}"))
+
+    indexerPerformerActor.underlyingActor.shards += (errorLocation -> new BrokenTimeSeriesIndex(directory))
   }
 
   "ShardPerformerActor" should "write and delete properly" in within(5.seconds) {
 
-    val key = Location("IndexerPerformerActorMetric", "node1", 0, 0)
-
-    val bit = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
+    val loc = Location("IndexerPerformerActorMetric", "node1", 0, 0)
 
     val operations =
-      Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, key, bit))
+      Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, loc, bit))
 
     probe.send(indexerPerformerActor, PerformShardWrites(operations))
     awaitAssert {
@@ -69,9 +104,44 @@ class MetricPerformerActorSpec
     }
 
     awaitAssert {
-      val msg = localWriteCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
       msg.persistedBits.size shouldBe 1
     }
 
+  }
+
+  "ShardPerformerActor" should "retry in case of write error" in within(5.seconds) {
+
+    val writeOperation =
+      Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, errorLocation, bit))
+
+    probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
+    awaitAssert {
+      probe.expectMsgType[Refresh]
+    }
+
+    awaitAssert {
+      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+      msg.persistedBits.size shouldBe 0
+    }
+
+    testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 1
+  }
+
+  "ShardPerformerActor" should "retry in case of delete error" in within(5.seconds) {
+    val deleteOperation =
+      Map(UUID.randomUUID().toString -> DeleteShardRecordOperation(namespace, errorLocation, bit))
+
+    probe.send(indexerPerformerActor, PerformShardWrites(deleteOperation))
+    awaitAssert {
+      probe.expectMsgType[Refresh]
+    }
+
+    awaitAssert {
+      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+      msg.persistedBits.size shouldBe 0
+    }
+
+    testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 2
   }
 }

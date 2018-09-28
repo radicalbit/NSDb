@@ -46,7 +46,7 @@ package object post_proc {
           seq.sortBy(_.fields(statement.order.get.dimension)._1)
         } else seq
         if (statement.limit.isDefined) Right(maybeSorted.take(statement.limit.get.value)) else Right(maybeSorted)
-      case l @ Left(t) => l
+      case l @ Left(_) => l
     }
   }
 

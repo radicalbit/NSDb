@@ -49,7 +49,7 @@ class MetricAccumulatorActor(val basePath: String,
                              val db: String,
                              val namespace: String,
                              val readerActor: ActorRef,
-                             val localWriteCoordinator: ActorRef)
+                             val localCommitLogCoordinator: ActorRef)
     extends ActorPathLogging
     with MetricsActor {
 
@@ -97,7 +97,7 @@ class MetricAccumulatorActor(val basePath: String,
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
   override def preStart: Unit = {
-    performerActor = context.actorOf(MetricPerformerActor.props(basePath, db, namespace, localWriteCoordinator),
+    performerActor = context.actorOf(MetricPerformerActor.props(basePath, db, namespace, localCommitLogCoordinator),
                                      s"shard-performer-service-$db-$namespace")
 
     context.system.scheduler.schedule(0.seconds, interval) {
@@ -214,6 +214,6 @@ object MetricAccumulatorActor {
             db: String,
             namespace: String,
             readerActor: ActorRef,
-            localWriteCoordinator: ActorRef): Props =
-    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor, localWriteCoordinator))
+            localCommitLogCoordinator: ActorRef): Props =
+    Props(new MetricAccumulatorActor(basePath, db, namespace, readerActor, localCommitLogCoordinator))
 }

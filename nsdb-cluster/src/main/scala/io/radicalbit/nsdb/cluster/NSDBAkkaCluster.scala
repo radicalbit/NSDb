@@ -22,7 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.cluster.Cluster
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
-import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian}
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian, NodeActorsGuardian}
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.common.NsdbConfig
 
@@ -55,14 +55,22 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
     name = "databaseActorGuardian"
   )
 
+  /**
+    * Returns the node actor guardian actor props.
+    * @param metadataCache the global metadata cache.
+    * @param schemaCache the global schema cache.
+    */
+  def nodeActorGuardianProps(metadataCache: ActorRef, schemaCache: ActorRef): Props =
+    NodeActorsGuardian.props(metadataCache, schemaCache)
+
   Future
     .sequence(
       Seq((databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef],
           (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]))
     .onComplete {
-      case Success(m :: s :: Nil) =>
+      case Success(metadataCache :: schemaCache :: Nil) =>
         system.actorOf(
-          ClusterListener.props(m, s),
+          ClusterListener.props(nodeActorGuardianProps(metadataCache, schemaCache)),
           name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
         )
       case _ =>

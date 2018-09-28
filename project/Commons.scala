@@ -22,7 +22,7 @@ import sbtassembly.PathList
 
 object Commons {
 
-  val scalaVer = "2.12.4"
+  val scalaVer = "2.12.7"
 
   val settings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,

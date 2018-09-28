@@ -46,3 +46,22 @@ sealed trait ShardOperation {
 case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit)    extends ShardOperation
 case class DeleteShardQueryOperation(namespace: String, location: Location, query: Query) extends ShardOperation
 case class WriteShardOperation(namespace: String, location: Location, bit: Bit)           extends ShardOperation
+
+object ShardOperation {
+
+  /**
+    * Gets the operation that needs to be applied if there is any error performing the input one.
+    * @param action The input action.
+    * @return
+    */
+  def getCompensation(action: ShardOperation): Option[ShardOperation] = {
+    action match {
+      case DeleteShardRecordOperation(namespace, location, bit) =>
+        Some(WriteShardOperation(namespace, location, bit))
+      case DeleteShardQueryOperation(namespace, location, query) =>
+        None
+      case WriteShardOperation(namespace, location, bit) =>
+        Some(DeleteShardRecordOperation(namespace, location, bit))
+    }
+  }
+}

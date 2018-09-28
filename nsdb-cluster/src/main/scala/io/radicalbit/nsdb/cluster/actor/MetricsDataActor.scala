@@ -183,8 +183,8 @@ object MetricsDataActor {
                       enclosingConfig.getInt("upper-bound"))
   }
 
-  def props(basePath: String, nodeName: String, localWriteCoordinator: ActorRef): Props =
-    Props(new MetricsDataActor(basePath, nodeName, localWriteCoordinator))
+  def props(basePath: String, nodeName: String, localCommitLogCoordinator: ActorRef): Props =
+    Props(new MetricsDataActor(basePath, nodeName, localCommitLogCoordinator))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
