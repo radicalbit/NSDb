@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 
-import akka.actor.SupervisorStrategy.Stop
+import akka.actor.SupervisorStrategy.Resume
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
@@ -42,7 +42,7 @@ class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
     case e: TooManyRetriesException =>
       log.error(e, "TooManyRetriesException {}", e.getMessage)
       exceptionsCaught += e
-      Stop
+      Resume
     case t =>
       log.error(t, "generic exception")
       super.supervisorStrategy.decider.apply(t)
@@ -110,12 +110,12 @@ class MetricPerformerActorSpec
 
   }
 
-  "ShardPerformerActor" should "retry in case of error" in within(5.seconds) {
+  "ShardPerformerActor" should "retry in case of write error" in within(5.seconds) {
 
-    val operations =
+    val writeOperation =
       Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, errorLocation, bit))
 
-    probe.send(indexerPerformerActor, PerformShardWrites(operations))
+    probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
     awaitAssert {
       probe.expectMsgType[Refresh]
     }
@@ -126,5 +126,22 @@ class MetricPerformerActorSpec
     }
 
     testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 1
+  }
+
+  "ShardPerformerActor" should "retry in case of delete error" in within(5.seconds) {
+    val deleteOperation =
+      Map(UUID.randomUUID().toString -> DeleteShardRecordOperation(namespace, errorLocation, bit))
+
+    probe.send(indexerPerformerActor, PerformShardWrites(deleteOperation))
+    awaitAssert {
+      probe.expectMsgType[Refresh]
+    }
+
+    awaitAssert {
+      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+      msg.persistedBits.size shouldBe 0
+    }
+
+    testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 2
   }
 }

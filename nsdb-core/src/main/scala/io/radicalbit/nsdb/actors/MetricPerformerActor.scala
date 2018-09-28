@@ -90,17 +90,22 @@ class MetricPerformerActor(val basePath: String,
                   toRetryOperations += ((op, 0))
                   log.error(t, "error during write on index")
               }
-            //FIXME add compensation logic here as well
-            case DeleteShardRecordOperation(_, _, bit) =>
+            case op @ DeleteShardRecordOperation(_, _, bit) =>
               index.delete(bit)(writer) match {
                 case Success(_) =>
                   Try(facetIndexes.delete(bit)(facetsIndexWriter).map(_.get)) match {
                     case Success(_) =>
+                      val timestamp = System.currentTimeMillis()
+                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
                     case Failure(t) =>
+                      toRetryOperations += ((op, 0))
+                      log.error(t, "error during write on facet indexes")
                   }
                 case Failure(t) =>
+                  toRetryOperations += ((op, 0))
                   log.error(t, s"error during delete of Bit: $bit")
               }
+            //FIXME add compensation logic here as well
             case DeleteShardQueryOperation(_, _, q) =>
               index.delete(q)(writer) match {
                 case Success(_) =>
@@ -127,91 +132,78 @@ class MetricPerformerActor(val basePath: String,
         self ! PerformRetry
 
     case PerformRetry =>
-      import util.control.Breaks._
+      toRetryOperations.foreach {
+        case e @ (op, attempt) =>
+          /**
+            * the operation has been retried too many times. It's time to mark the node as unavailable
+            */
+          if (attempt >= maxAttempts) {
+            throw new TooManyRetriesException(op.toString)
+          }
 
-      breakable {
-        toRetryOperations.foreach {
-          case e @ (op, attempt) =>
-            /**
-              * the operation has been retried too many times. It's time to mark the node as unavailable
-              */
-            if (attempt >= maxAttempts) {
-              throw new TooManyRetriesException(op.toString)
-              break
-            }
+          log.error("retrying operation {} attempt {} ", op, attempt)
 
-            log.error("retrying operation {} attempt {} ", op, attempt)
+          val loc                          = op.location
+          val index                        = getIndex(loc)
+          val facetIndexes                 = facetIndexesFor(loc)
+          implicit val writer: IndexWriter = index.getWriter
 
-            val loc                          = op.location
-            val index                        = getIndex(loc)
-            val facetIndexes                 = facetIndexesFor(loc)
-            implicit val writer: IndexWriter = index.getWriter
+          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)
+          val facetsIndexWriter = facets.newIndexWriter
+          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
 
-            val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)
-            val facetsIndexWriter = facets.newIndexWriter
-            val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+          /**
+            * compensate the failed action
+            */
+          val compensation = (ShardOperation.getCompensation(op) map {
+            case DeleteShardRecordOperation(_, _, bit) =>
+              Try((Seq(index.delete(bit)) ++ facetIndexes.delete(bit)).map(_.get))
+            case WriteShardOperation(_, _, bit) =>
+              Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get))
+            case _ => Success(Seq(0l)) //do nothing for now. Return Success
+          }).getOrElse(Success(Seq(0l)))
 
-            /**
-              * compensate the failed action
-              */
-            ShardOperation.getCompensation(op) match {
-              case Some(DeleteShardRecordOperation(_, _, bit)) =>
-                Try(Seq(index.delete(bit), Try(facetIndexes.delete(bit).map(_.get))).map(_.get)) match {
-                  case Success(_) =>
-                    toRetryOperations -= e
-                  case Failure(t) =>
-                    log.error(t, s"error during delete of Bit: {}", bit)
-                    toRetryOperations -= e
-                    toRetryOperations += ((op, attempt + 1))
-                }
-              case Some(WriteShardOperation(_, _, bit)) =>
-                Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get)) match {
-                  case Success(_) =>
-                    toRetryOperations -= e
-                  case Failure(t) =>
-                    log.error(t, s"error during write of Bit: {}", bit)
-                    toRetryOperations -= e
-                    toRetryOperations += ((op, attempt + 1))
-                }
-              case _ => //do nothing for now
-            }
+          compensation match {
+            case Success(_) =>
+              //Replay the operation itself
+              op match {
+                case DeleteShardRecordOperation(_, _, bit) =>
+                  Try(Seq(index.delete(bit), Try(facetIndexes.delete(bit).map(_.get))).map(_.get)) match {
+                    case Success(_) =>
+                      toRetryOperations -= e
+                    case Failure(t) =>
+                      log.error(t, s"error during delete of Bit: {}", bit)
+                      toRetryOperations -= e
+                      toRetryOperations += ((op, attempt + 1))
+                  }
+                case WriteShardOperation(_, _, bit) =>
+                  Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get)) match {
+                    case Success(_) =>
+                      toRetryOperations -= e
+                    case Failure(t) =>
+                      log.error(t, s"error during write of Bit: {}", bit)
+                      toRetryOperations -= e
+                      toRetryOperations += ((op, attempt + 1))
+                  }
+                case _ => //do nothing for now
+              }
 
-            //TODO replay the operation itself
-            op match {
-              case DeleteShardRecordOperation(_, _, bit) =>
-                Try(Seq(index.delete(bit), Try(facetIndexes.delete(bit).map(_.get))).map(_.get)) match {
-                  case Success(_) =>
-                    toRetryOperations -= e
-                  case Failure(t) =>
-                    log.error(t, s"error during delete of Bit: {}", bit)
-                    toRetryOperations -= e
-                    toRetryOperations += ((op, attempt + 1))
-                }
-              case WriteShardOperation(_, _, bit) =>
-                Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get)) match {
-                  case Success(_) =>
-                    toRetryOperations -= e
-                  case Failure(t) =>
-                    log.error(t, s"error during write of Bit: {}", bit)
-                    toRetryOperations -= e
-                    toRetryOperations += ((op, attempt + 1))
-                }
-              case _ => //do nothing for now
-            }
+            case Failure(t) =>
+              log.error(t, s"failure in compensation of op {}", op)
+              toRetryOperations -= e
+              toRetryOperations += ((op, attempt + 1))
+          }
 
-            writer.flush()
-            writer.close()
+          writer.flush()
+          writer.close()
 
-            facetsTaxoWriter.close()
-            facetsIndexWriter.close()
-
-        }
-
-        if (toRetryOperations.nonEmpty)
-          self ! PerformRetry
+          facetsTaxoWriter.close()
+          facetsIndexWriter.close()
 
       }
 
+      if (toRetryOperations.nonEmpty)
+        self ! PerformRetry
   }
 }
 

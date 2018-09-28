@@ -22,7 +22,11 @@ import org.apache.lucene.store.BaseDirectory
 import scala.util.{Failure, Try}
 
 class BrokenTimeSeriesIndex(override val directory: BaseDirectory) extends TimeSeriesIndex(directory) {
-  override def write(data: Bit)(implicit writer: IndexWriter): Try[Long] =
-    Failure(new RuntimeException("How could it be useful to test failures if it does not fail at all"))
 
+  private val genericFailure = Failure(
+    new RuntimeException("How could it be useful to test failures if it does not fail at all"))
+
+  override def write(data: Bit)(implicit writer: IndexWriter): Try[Long] = genericFailure
+
+  override def delete(data: Bit)(implicit writer: IndexWriter): Try[Long] = genericFailure
 }

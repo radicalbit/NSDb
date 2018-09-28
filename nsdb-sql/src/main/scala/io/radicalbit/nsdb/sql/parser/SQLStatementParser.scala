@@ -28,7 +28,7 @@ import scala.util.parsing.input.CharSequenceReader
 /**
   * Parser combinator for sql statements.
   * It successfully validates and parses a subset of the Ansi Sql grammar.
-  * It mixs in [[PackratParsers]] which turns the parser into a look ahead parser which can handle left recursive grammars
+  * It mixes in [[PackratParsers]] which turns the parser into a look ahead parser which can handle left recursive grammars
   * Here is the (simplified) EBNF grammar supported by Nsdb Parser.
   * {{{
   *   S := InsertStatement | SelectStatement | DeleteStatement | DropStatement
