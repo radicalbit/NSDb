@@ -19,7 +19,7 @@ import sbt._
 object Dependencies {
 
   object scalaLang {
-    lazy val version   = "2.12.6"
+    lazy val version   = "2.12.7"
     lazy val namespace = "org.scala-lang"
     lazy val compiler  = namespace % "scala-compiler" % version
   }
