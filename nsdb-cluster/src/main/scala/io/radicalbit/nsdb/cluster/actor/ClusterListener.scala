@@ -33,8 +33,7 @@ import scala.concurrent.duration._
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
-  * @param metadataCache the global metadata cache actor.
-  * @param schemaCache the global schema cache actor.
+  * @param nodeActorsGuardianProps props of NodeActorGuardian actor.
   */
 class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
@@ -53,7 +52,10 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
   def receive: Receive = {
     case MemberUp(member)
-        if member.address.port.isDefined && member.address.port.get == config.getInt("akka.remote.netty.tcp.port") =>
+        if member.address.host.isDefined &&
+          member.address.host.get == config.getString("akka.remote.netty.tcp.hostname") &&
+          member.address.port.isDefined &&
+          member.address.port.get == config.getInt("akka.remote.netty.tcp.port") =>
       log.info("Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)

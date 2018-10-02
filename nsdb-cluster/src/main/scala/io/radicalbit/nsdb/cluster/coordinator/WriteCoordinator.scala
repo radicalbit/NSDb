@@ -26,8 +26,6 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.MetricPerformerActor
-import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
