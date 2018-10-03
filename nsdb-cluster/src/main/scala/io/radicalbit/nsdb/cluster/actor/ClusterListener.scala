@@ -43,6 +43,8 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
   private val config = context.system.settings.config
 
+  implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
+
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
@@ -61,8 +63,6 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
       val nodeName = createNodeName(member)
 
       implicit val timeout: Timeout = Timeout(5.seconds)
-
-      implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
       val indexBasePath = config.getString("nsdb.index.base-path")
 

@@ -16,17 +16,37 @@
 
 package io.radicalbit.nsdb.index
 
-import java.nio.file.Paths
-import java.util.UUID
-
-import io.radicalbit.nsdb.common.protocol.DimensionFieldType
+import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType}
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
-import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
 import org.apache.lucene.store.RAMDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
+import scala.util.Success
+
 class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+
+  "SchemaIndex" should "union schemas properly" in {
+
+    val schema1 = Schema(
+      s"metric",
+      Set(
+        SchemaField("field1", DimensionFieldType, BIGINT()),
+        SchemaField("field2", TagFieldType, VARCHAR()),
+        SchemaField(s"field3", DimensionFieldType, VARCHAR())
+      )
+    )
+
+    val schema2 = Schema(
+      s"metric",
+      Set(
+        SchemaField("field1", DimensionFieldType, BIGINT()),
+        SchemaField("field2", TagFieldType, VARCHAR()),
+      )
+    )
+
+    SchemaIndex.union(schema1, schema2) shouldBe Success(schema1)
+
+  }
 
   "SchemaIndex" should "write and read properly" in {
 

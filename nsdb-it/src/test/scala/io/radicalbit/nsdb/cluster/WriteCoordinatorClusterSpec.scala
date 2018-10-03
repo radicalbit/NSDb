@@ -31,7 +31,7 @@ import scala.concurrent.{Await, ExecutionContext}
 
 class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
-  override val nodesNumber: Int = 2
+  override val nodesNumber: Int = 3
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
@@ -82,7 +82,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
     assert(readRes.records.head.asBit == bit.asCommonBit)
   }
 
-  test("add record from second node") {
+  test("add record from last node") {
 
     val secondNode = minicluster.nodes.last
 

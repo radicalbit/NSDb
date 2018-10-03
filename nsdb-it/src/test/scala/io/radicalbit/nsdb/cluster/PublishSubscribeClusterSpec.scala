@@ -34,7 +34,7 @@ import scala.concurrent.{Await, ExecutionContext}
 
 class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
-  override val nodesNumber: Int = 2
+  override val nodesNumber: Int = 3
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
