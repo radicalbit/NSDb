@@ -23,13 +23,13 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordRejected, WarmUpCompleted}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
 import akka.pattern.ask
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -89,10 +89,10 @@ class WriteCoordinatorErrorsSpec
                                                                          schemaCoordinator,
                                                                          system.actorOf(Props.empty))
 
-  lazy val node1MetricsDataActor =
-    TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(successAccumulationProbe.ref))
-  lazy val node2MetricsDataActor =
-    TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(failureAccumulationProbe.ref))
+  lazy val node1MetricsDataActorWrites =
+    TestActorRef[MetricsDataActorReads](MockedMetricsDataActorWrites.props(successAccumulationProbe.ref))
+  lazy val node2MetricsDataActorWrites =
+    TestActorRef[MetricsDataActorReads](MockedMetricsDataActorWrites.props(failureAccumulationProbe.ref))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("dimension1" -> "dimension1"), Map("tag1" -> "tag1"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
@@ -105,8 +105,10 @@ class WriteCoordinatorErrorsSpec
                  10 seconds)
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(failingCommitLogCoordinator, node2), 10 seconds)
 
-    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(node1MetricsDataActor, node1), 10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(node2MetricsDataActor, node2), 10 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActorWrites(node1MetricsDataActorWrites, node1),
+                 10 seconds)
+    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActorWrites(node2MetricsDataActorWrites, node2),
+                 10 seconds)
 
     Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, node1), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, node2), 10 seconds)

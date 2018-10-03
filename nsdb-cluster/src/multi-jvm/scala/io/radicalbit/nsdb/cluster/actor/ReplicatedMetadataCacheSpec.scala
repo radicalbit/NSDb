@@ -10,6 +10,7 @@ import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 import org.json4s.DefaultFormats
@@ -103,9 +104,11 @@ class ReplicatedMetadataCacheSpec
 
     "replicate cached entry" in within(5.seconds) {
 
-      val metric    = "metric1"
-      val location1 = Location(metric, "node1", 0, 1)
-      val location2 = Location(metric, "node2", 0, 1)
+      val metric      = "metric1"
+      val coordinates = Coordinates("db", "namespace", "metric1")
+
+      val location1 = Location(coordinates, "node1", 0, 1)
+      val location2 = Location(coordinates, "node2", 0, 1)
 
       runOn(node1) {
         awaitAssert {
@@ -166,8 +169,9 @@ class ReplicatedMetadataCacheSpec
     }
 
     "replicate many cached entries" in within(5.seconds) {
-      val metric   = "metric2"
-      val location = Location(metric, "node1", _: Long, _: Long)
+      val metric      = "metric2"
+      val coordinates = Coordinates("db", "namespace", "metric2")
+      val location    = Location(coordinates, "node1", _: Long, _: Long)
 
       val metricInfoValue = MetricInfo(_: String, 100)
 
@@ -228,10 +232,11 @@ class ReplicatedMetadataCacheSpec
     }
 
     "replicate evicted entry" in within(5.seconds) {
-      val metric    = "metric3"
-      val key       = LocationCacheKey("db", "namespace", metric, 0, 1)
-      val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricLocationsCacheKey("db", "namespace", metric)
+      val metric      = "metric3"
+      val coordinates = Coordinates("db", "namespace", "metric3")
+      val key         = LocationCacheKey("db", "namespace", metric, 0, 1)
+      val location    = Location(coordinates, "node1", 0, 1)
+      val metricKey   = MetricLocationsCacheKey("db", "namespace", metric)
 
       runOn(node1) {
         replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location)
@@ -244,7 +249,7 @@ class ReplicatedMetadataCacheSpec
           expectMsg(LocationsCached("db", "namespace", metric, Seq(location)))
         }
 
-        replicatedCache ! EvictLocation("db", "namespace", Location(metric, "node1", 0, 1))
+        replicatedCache ! EvictLocation("db", "namespace", Location(coordinates, "node1", 0, 1))
         expectMsg(LocationEvicted("db", "namespace", metric, "node1", 0, 1))
       }
 
@@ -265,8 +270,9 @@ class ReplicatedMetadataCacheSpec
 
     "replicate updated cached entry" in within(5.seconds) {
       val metric          = "metric4"
-      val location        = Location(metric, "node1", 0, 1)
-      val updatedLocation = Location(metric, "node1", 0, 1)
+      val coordinates     = Coordinates("db", "namespace", "metric4")
+      val location        = Location(coordinates, "node1", 0, 1)
+      val updatedLocation = Location(coordinates, "node1", 0, 1)
 
       runOn(node1) {
         replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location)

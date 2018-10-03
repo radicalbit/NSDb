@@ -20,12 +20,13 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
-import akka.pattern.{ask, gracefulStop, pipe}
-import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
+import akka.pattern.{gracefulStop, pipe}
+import akka.routing.{Broadcast, DefaultResizer, Pool, RoundRobinPool}
 import akka.util.Timeout
 import com.typesafe.config.Config
+import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -40,8 +41,7 @@ import scala.concurrent.Future
   * @param basePath indexes' root path.
   * @param nodeName String representation of the host and the port Actor is deployed at.
   */
-class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLogCoordinator: ActorRef)
-    extends ActorPathLogging {
+class MetricsDataActorReads(val basePath: String, val nodeName: String) extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
@@ -52,11 +52,11 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
     * @param namespace namespace name
     * @return [[(ShardReaderActor, ShardAccumulatorActor)]] for selected database and namespace
     */
-  private def getOrCreateChildren(db: String, namespace: String): (ActorRef, ActorRef) = {
-    val readerOpt      = context.child(s"metric_reader_${db}_$namespace")
-    val accumulatorOpt = context.child(s"metric_accumulator_${db}_$namespace")
+  private def getOrCreateReader(db: String, namespace: String): ActorRef = {
+    val readerOpt = context.child(s"metric_reader_${db}_$namespace")
+//    val accumulatorOpt = context.child(s"metric_accumulator_${db}_$namespace")
 
-    val reader = readerOpt.getOrElse(
+    readerOpt.getOrElse(
       context.actorOf(
         readParallelism.pool.props(
           MetricReaderActor
@@ -64,14 +64,15 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
             .withDispatcher("akka.actor.control-aware-dispatcher")),
         s"metric_reader_${db}_$namespace"
       ))
-    val accumulator = accumulatorOpt.getOrElse(
-      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localCommitLogCoordinator),
-                      s"metric_accumulator_${db}_$namespace"))
-    (reader, accumulator)
+//    val accumulator = accumulatorOpt.getOrElse(
+//      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localCommitLogCoordinator),
+//                      s"metric_accumulator_${db}_$namespace"))
+//    (reader, accumulator)
+//    reader
   }
 
-  private def getChildren(db: String, namespace: String): (Option[ActorRef], Option[ActorRef]) =
-    (context.child(s"metric_reader_${db}_$namespace"), context.child(s"metric_accumulator_${db}_$namespace"))
+//  private def getChil(db: String, namespace: String): Option[ActorRef] =
+//    context.child(s"metric_reader_${db}_$namespace")
 
   /**
     * If exists, gets the reader for selected namespace and database.
@@ -100,7 +101,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
       })
       .foreach {
         case (db, namespace) =>
-          getOrCreateChildren(db, namespace)
+          getOrCreateReader(db, namespace)
       }
   }
 
@@ -120,19 +121,14 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
         case None        => sender() ! MetricsGot(db, namespace, Set.empty)
       }
     case DeleteNamespace(db, namespace) =>
-      val children = getChildren(db, namespace)
-      val f = children._2
-        .map(indexToRemove => indexToRemove ? DeleteAllMetrics(db, namespace))
-        .getOrElse(Future(AllMetricsDeleted(db, namespace)))
-      f.flatMap(_ => {
-          Future
-            .sequence(Seq(children._1.map(gracefulStop(_, timeout.duration)).getOrElse(Future(true)),
-                          children._2.map(gracefulStop(_, timeout.duration)).getOrElse(Future(true))))
-        })
+      val child = getReader(db, namespace)
+      child
+        .map(gracefulStop(_, timeout.duration))
+        .getOrElse(Future(true))
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
-    case msg @ DropMetric(db, namespace, _) =>
-      getOrCreateChildren(db, namespace)._2 forward msg
+//    case msg @ DropMetric(db, namespace, _) =>
+//      getOrCreateChildren(db, namespace)._2 forward msg
     case msg @ GetCount(db, namespace, metric) =>
       getReader(db, namespace) match {
         case Some(child) => child forward msg
@@ -143,24 +139,37 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
         case Some(child) => child forward msg
         case None        => sender() ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)
       }
-    case msg @ AddRecordToLocation(db, namespace, bit, location) =>
-      log.debug("received message {}", msg)
-      getOrCreateChildren(db, namespace)._2
-        .forward(AddRecordToShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
-    case DeleteRecordFromLocation(db, namespace, bit, location) =>
-      getOrCreateChildren(db, namespace)._2
-        .forward(
-          DeleteRecordFromShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
-    case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
-      getOrCreateChildren(statement.db, statement.namespace)._2.forward(
-        ExecuteDeleteStatementInShards(statement,
-                                       schema,
-                                       locations.map(l => Location(l.metric, nodeName, l.from, l.to))))
+
+    case msg @ Refresh(_, locations) =>
+      locations.groupBy(l => (l.coordinates.db, l.coordinates.namespace)).foreach {
+        case ((db, namespace), _) =>
+          getOrCreateReader(db, namespace) ! Broadcast(msg)
+      }
+//      opBufferMap --= writeIds
+//      performingOps = Map.empty
+//      keys.foreach { key =>
+//        getIndex(key).refresh()
+//        facetIndexesFor(key).refresh()
+//      }
+//      metricsReaderActor ! msg
+//    case msg @ AddRecordToLocation(db, namespace, bit, location) =>
+//      log.debug("received message {}", msg)
+//      getOrCreateReader(db, namespace)
+//        .forward(AddRecordToShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
+//    case DeleteRecordFromLocation(db, namespace, bit, location) =>
+//      getOrCreateChildren(db, namespace)._2
+//        .forward(
+//          DeleteRecordFromShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
+//    case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
+//      getOrCreateChildren(statement.db, statement.namespace)._2.forward(
+//        ExecuteDeleteStatementInShards(statement,
+//                                       schema,
+//                                       locations.map(l => Location(l.metric, nodeName, l.from, l.to))))
   }
 
 }
 
-object MetricsDataActor {
+object MetricsDataActorReads {
 
   /**
     * Case class to model reader router size.
@@ -183,8 +192,8 @@ object MetricsDataActor {
                       enclosingConfig.getInt("upper-bound"))
   }
 
-  def props(basePath: String, nodeName: String, localCommitLogCoordinator: ActorRef): Props =
-    Props(new MetricsDataActor(basePath, nodeName, localCommitLogCoordinator))
+  def props(basePath: String, nodeName: String): Props =
+    Props(new MetricsDataActorReads(basePath, nodeName))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)

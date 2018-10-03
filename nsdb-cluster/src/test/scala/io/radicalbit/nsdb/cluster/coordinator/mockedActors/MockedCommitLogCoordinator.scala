@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 import java.time.Duration
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
@@ -27,6 +27,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
   WriteToCommitLogFailed,
   WriteToCommitLogSucceeded
 }
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.DeleteRecordFromShard
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAdded, RecordRejected}
@@ -66,24 +67,26 @@ class MockedMetadataCoordinator extends Actor with ActorLogging {
     case GetLocations(db, namespace, metric) =>
       sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val locationNode1 = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
-      val locationNode2 = Location(metric, "node2", timestamp, timestamp + shardingInterval.toMillis)
+      val locationNode1 =
+        Location(Coordinates(db, namespace, metric), "node1", timestamp, timestamp + shardingInterval.toMillis)
+      val locationNode2 =
+        Location(Coordinates(db, namespace, metric), "node2", timestamp, timestamp + shardingInterval.toMillis)
 
       sender() ! LocationsGot(db, namespace, metric, Seq(locationNode1, locationNode2))
   }
 }
 
-class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {
+class MockedMetricsDataActorWrites(probe: ActorRef) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case msg @ AddRecordToLocation(db, namespace, bit, location) if location.node == "node1" =>
       probe ! msg
-      sender() ! RecordAdded(db, namespace, location.metric, bit, location, System.currentTimeMillis())
+      sender() ! RecordAdded(db, namespace, location.coordinates.metric, bit, location, System.currentTimeMillis())
     case msg @ AddRecordToLocation(db, namespace, bit, location) if location.node == "node2" =>
       probe ! msg
       sender() ! RecordRejected(db,
                                 namespace,
-                                location.metric,
+                                location.coordinates.metric,
                                 bit,
                                 location,
                                 List("errrrros"),
@@ -93,7 +96,7 @@ class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {
   }
 }
 
-object MockedMetricsDataActor {
+object MockedMetricsDataActorWrites {
   def props(probe: ActorRef): Props =
-    Props(new MockedMetricsDataActor(probe))
+    Props(new MockedMetricsDataActorWrites(probe))
 }

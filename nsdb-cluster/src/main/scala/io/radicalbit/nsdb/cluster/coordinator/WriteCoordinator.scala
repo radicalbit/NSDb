@@ -27,7 +27,7 @@ import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
@@ -41,7 +41,7 @@ import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{SchemaIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -166,7 +166,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           op(schema)
         case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          Future(RecordRejected(db, namespace, metric, bit, Location("", "", 0, 0), errs, System.currentTimeMillis()))
+          Future(
+            RecordRejected(db,
+                           namespace,
+                           metric,
+                           bit,
+                           Location(Coordinates("", "", ""), "", 0, 0),
+                           errs,
+                           System.currentTimeMillis()))
       }
 
   /**
@@ -192,7 +199,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                          namespace,
                          metric,
                          bit,
-                         Location("", "", 0, 0),
+                         Location(Coordinates("", "", ""), "", 0, 0),
                          List(s"no location found for bit $bit"),
                          System.currentTimeMillis()))
     }
@@ -289,7 +296,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           namespace,
           metric,
           bit,
-          Location(metric, "", 0, 0),
+          Location(Coordinates(db, namespace, metric), "", 0, 0),
           List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}"),
           System.currentTimeMillis()
         ))
@@ -366,7 +373,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                namespace,
                                metric,
                                bit,
-                               Location(metric, "", 0, 0),
+                               Location(Coordinates(db, namespace, metric), "", 0, 0),
                                List(""),
                                System.currentTimeMillis())))
         }
@@ -411,7 +418,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       TimeUnit.SECONDS)
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActorsWrites)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetPublishers)
       log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
@@ -428,7 +435,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     case WarmUpCompleted =>
       unstashAll()
       context.become(operative)
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+    case SubscribeMetricsDataActorWrites(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
         log.info(s"subscribed data actor for node $nodeName")
@@ -454,7 +461,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   }
 
   def operative: Receive = {
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+    case SubscribeMetricsDataActorWrites(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
         log.info(s"subscribed data actor for node $nodeName")
@@ -509,14 +516,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       }
     case msg @ DeleteNamespace(db, namespace) =>
       //FIXME add cluster aware deletion
-      writeCommitLog(db,
-                     namespace,
-                     System.currentTimeMillis(),
-                     "",
-                     commitLogCoordinators.keys.head,
-                     DeleteNamespaceAction,
-                     Location("", commitLogCoordinators.keys.head, 0, 0))
-        .flatMap {
+      writeCommitLog(
+        db,
+        namespace,
+        System.currentTimeMillis(),
+        "",
+        commitLogCoordinators.keys.head,
+        DeleteNamespaceAction,
+        Location(Coordinates("", "", ""), commitLogCoordinators.keys.head, 0, 0)
+      ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty) {
               (schemaCoordinator ? msg).map(_ => NamespaceDeleted(db, namespace))
@@ -536,7 +544,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         metric,
         commitLogCoordinators.keys.head,
         DeleteAction(statement),
-        Location(metric, commitLogCoordinators.keys.head, 0, 0)
+        Location(Coordinates(db, namespace, metric), commitLogCoordinators.keys.head, 0, 0)
       ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
@@ -575,7 +583,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         metric,
         commitLogCoordinators.keys.head,
         DeleteMetricAction,
-        Location(metric, commitLogCoordinators.keys.head, 0, 0)
+        Location(Coordinates(db, namespace, metric), commitLogCoordinators.keys.head, 0, 0)
       ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
@@ -631,7 +639,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
                 val cluster  = Cluster(context.system)
                 val nodeName = createNodeName(cluster.selfMember)
-                val loc      = Location(metric.getName, nodeName, currentTimestamp, upBound)
+                val loc = Location(Coordinates(db.getName, namespace.getName, metric.getName),
+                                   nodeName,
+                                   currentTimestamp,
+                                   upBound)
 
                 log.debug(s"restoring dump from metric ${metric.getName} and location $loc")
 

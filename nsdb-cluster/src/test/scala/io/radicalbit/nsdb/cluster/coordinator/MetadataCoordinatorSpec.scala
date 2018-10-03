@@ -26,6 +26,7 @@ import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 
@@ -83,7 +84,8 @@ class MetadataCoordinatorSpec
     }
 
     "add a Location" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 60000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_01", 0L, 60000L)))
       val locationAdded = awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -91,16 +93,18 @@ class MetadataCoordinatorSpec
       locationAdded.db shouldBe db
       locationAdded.namespace shouldBe namespace
       locationAdded.locations.size shouldBe 1
-      locationAdded.locations.head shouldBe Location(metric, "node_01", 0L, 60000L)
+      locationAdded.locations.head shouldBe Location(Coordinates(db, namespace, metric), "node_01", 0L, 60000L)
     }
 
     "retrieve a Location for a metric" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_01", 0L, 30000L)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_02", 0L, 30000L)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -112,35 +116,39 @@ class MetadataCoordinatorSpec
 
       retrievedLocations.locations.size shouldBe 2
       val loc = retrievedLocations.locations.head
-      loc.metric shouldBe metric
+      loc.coordinates.metric shouldBe metric
       loc.from shouldBe 0L
       loc.to shouldBe 30000L
       loc.node shouldBe "node_01"
 
       val loc2 = retrievedLocations.locations.last
-      loc2.metric shouldBe metric
+      loc2.coordinates.metric shouldBe metric
       loc2.from shouldBe 0L
       loc2.to shouldBe 30000L
       loc2.node shouldBe "node_02"
     }
 
     "retrieve Locations for a metric" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_01", 0L, 30000L)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_02", 0L, 30000L)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 30000L, 60000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_01", 30000L, 60000L)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 30000L, 60000L)))
+      probe.send(metadataCoordinator,
+                 AddLocation(db, namespace, Location(Coordinates(db, namespace, metric), "node_02", 30000L, 60000L)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -152,7 +160,7 @@ class MetadataCoordinatorSpec
 
       retrievedLocations.locations.size shouldBe 4
       val loc = retrievedLocations.locations
-      loc.map(_.metric) shouldBe Seq(metric, metric, metric, metric)
+      loc.map(_.coordinates.metric) shouldBe Seq(metric, metric, metric, metric)
       loc.map(_.node) shouldBe Seq("node_01", "node_02", "node_01", "node_02")
       loc.map(_.from) shouldBe Seq(0L, 0L, 30000L, 30000L)
       loc.map(_.to) shouldBe Seq(30000L, 30000L, 60000L, 60000L)

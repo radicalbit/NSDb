@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.index
 
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
@@ -33,19 +34,20 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val metadataIndex = new LocationIndex(directory)
 
     (0 to 100).foreach { i =>
-      val testData = Location(s"metric_$i", s"node_$i", 0, 0)
+      val testData = Location(Coordinates("db", "namespace", s"metric_$i"), s"node_$i", 0, 0)
       metadataIndex.write(testData)
     }
     writer.close()
 
-    val result = metadataIndex.query(metadataIndex._keyField, "metric_*", Seq.empty, 100)(identity)
+    (0 to 100).foreach { i =>
+    val result = metadataIndex.getLocationsForCoordinates(Coordinates("db", "namespace", s"metric_$i"))
+      result.size shouldBe 1
+    }
 
-    result.size shouldBe 100
-
-    val firstMetadata = metadataIndex.getLocationsForMetric("metric_0")
+    val firstMetadata = metadataIndex.getLocationsForCoordinates(Coordinates("db", "namespace", "metric_0"))
 
     firstMetadata shouldBe List(
-      Location(s"metric_0", s"node_0", 0, 0)
+      Location(Coordinates("db", "namespace", s"metric_0"), s"node_0", 0, 0)
     )
   }
 
@@ -58,7 +60,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val metadataIndex = new LocationIndex(directory)
 
     (1 to 10).foreach { i =>
-      val testData = Location(s"metric_0", s"node_0", i - 1, i)
+      val testData = Location(Coordinates("db", "namespace", s"metric_0"), s"node_0", i - 1, i)
       metadataIndex.write(testData)
     }
     writer.close()
@@ -66,19 +68,19 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val firstMetadata = metadataIndex.getLocationForMetricAtTime("metric_0", 1)
 
     firstMetadata shouldBe Some(
-      Location(s"metric_0", s"node_0", 0, 1)
+      Location(Coordinates("db", "namespace", s"metric_0"), s"node_0", 0, 1)
     )
 
     val intermediateMetadata = metadataIndex.getLocationForMetricAtTime("metric_0", 4)
 
     intermediateMetadata shouldBe Some(
-      Location(s"metric_0", s"node_0", 3, 4)
+      Location(Coordinates("db", "namespace", s"metric_0"), s"node_0", 3, 4)
     )
 
     val lastMetadata = metadataIndex.getLocationForMetricAtTime("metric_0", 10)
 
     lastMetadata shouldBe Some(
-      Location(s"metric_0", s"node_0", 9, 10)
+      Location(Coordinates("db", "namespace", s"metric_0"), s"node_0", 9, 10)
     )
   }
 

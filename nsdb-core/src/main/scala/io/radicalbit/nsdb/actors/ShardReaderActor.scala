@@ -45,7 +45,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   lazy val directory =
     new MMapDirectory(
-      Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}"))
+      Paths.get(basePath, db, namespace, "shards", s"${location.coordinates.metric}_${location.from}_${location.to}"))
 
   lazy val index = new TimeSeriesIndex(directory)
 

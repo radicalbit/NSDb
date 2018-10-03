@@ -15,12 +15,14 @@
  */
 
 package io.radicalbit.nsdb.model
+import io.radicalbit.nsdb.common.protocol.Coordinates
 
 /**
   * Metric shard location.
+  *
   * @param metric the metric.
   * @param node a string representation of a node, that is [hostname]_[port].
   * @param from shard interval lower bound.
   * @param to shard interval upper bound.
   */
-case class Location(metric: String, node: String, from: Long, to: Long)
+case class Location(coordinates: Coordinates, node: String, from: Long, to: Long)

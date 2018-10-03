@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema}
 
@@ -68,13 +68,15 @@ object MessageProtocol {
                                   schemaCoordinator: ActorRef,
                                   publisher: ActorRef)
 
-    case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
+    case class SubscribeMetricsDataActorReads(actor: ActorRef, nodeName: String)
+    case class SubscribeMetricsDataActorWrites(actor: ActorRef, nodeName: String)
     case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String)
     case class SubscribePublisher(actor: ActorRef, nodeName: String)
 
     case object GetConnectedDataNodes
 
-    case object GetMetricsDataActors
+    case object GetMetricsDataActorsReads
+    case object GetMetricsDataActorsWrites
     case object GetCommitLogCoordinators
     case object GetPublishers
   }
@@ -100,7 +102,7 @@ object MessageProtocol {
     case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
 
     sealed trait WriteCoordinatorResponse {
-      def location: Location = Location("", "", 0, 0)
+      def location: Location = Location(Coordinates("", "", ""), "", 0, 0)
       def timestamp: Long    = System.currentTimeMillis()
     }
 

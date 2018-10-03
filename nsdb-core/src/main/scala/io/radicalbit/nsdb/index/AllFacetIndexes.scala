@@ -35,11 +35,22 @@ class AllFacetIndexes(basePath: String, db: String, namespace: String, location:
 
   private val directory =
     new MMapDirectory(
-      Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}", "facet"))
+      Paths.get(basePath,
+                db,
+                namespace,
+                "shards",
+                s"${location.coordinates.metric}_${location.from}_${location.to}",
+                "facet"))
 
   private val taxoDirectory = new MMapDirectory(
     Paths
-      .get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}", "facet", "taxo"))
+      .get(basePath,
+           db,
+           namespace,
+           "shards",
+           s"${location.coordinates.metric}_${location.from}_${location.to}",
+           "facet",
+           "taxo"))
 
   val facetCountIndex = new FacetCountIndex(directory, taxoDirectory)
 

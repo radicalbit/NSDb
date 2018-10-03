@@ -25,7 +25,7 @@ import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.store.MMapDirectory
@@ -76,7 +76,7 @@ class MetricPerformerActorSpec
       testSupervisor,
       "indexerPerformerActor")
 
-  val errorLocation = Location("IndexerPerformerActorMetric", "node1", 1, 1)
+  val errorLocation = Location(Coordinates(db, namespace, "IndexerPerformerActorMetric"), "node1", 1, 1)
   val bit           = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
 
   override def beforeAll: Unit = {
@@ -85,15 +85,20 @@ class MetricPerformerActorSpec
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
 
     val directory =
-      new MMapDirectory(Paths
-        .get(basePath, db, namespace, "shards", s"${errorLocation.metric}_${errorLocation.from}_${errorLocation.to}"))
+      new MMapDirectory(
+        Paths
+          .get(basePath,
+               db,
+               namespace,
+               "shards",
+               s"${errorLocation.coordinates.metric}_${errorLocation.from}_${errorLocation.to}"))
 
     indexerPerformerActor.underlyingActor.shards += (errorLocation -> new BrokenTimeSeriesIndex(directory))
   }
 
   "ShardPerformerActor" should "write and delete properly" in within(5.seconds) {
 
-    val loc = Location("IndexerPerformerActorMetric", "node1", 0, 0)
+    val loc = Location(Coordinates(db, namespace, "IndexerPerformerActorMetric"), "node1", 0, 0)
 
     val operations =
       Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, loc, bit))

@@ -206,18 +206,18 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         }
         .pipeTo(sender)
 
-    case EvictLocation(db, namespace, Location(metric, node, from, to)) =>
-      val key         = LocationCacheKey(db, namespace, metric, from, to)
-      val keyWithNode = LocationWithNodeKey(db, namespace, metric, node, from, to)
+    case EvictLocation(db, namespace, Location(coordinates, node, from, to)) =>
+      val key         = LocationCacheKey(db, namespace, coordinates.metric, from, to)
+      val keyWithNode = LocationWithNodeKey(db, namespace, coordinates.metric, node, from, to)
       val metricKey   = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
       val f = for {
         loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ - keyWithNode))
-          .map(_ => LocationEvicted(db, namespace, metric, node, from, to))
+          .map(_ => LocationEvicted(db, namespace, coordinates.metric, node, from, to))
         _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(_ - keyWithNode))
           .map {
             case UpdateSuccess(_, _) =>
-              LocationEvicted(db, namespace, metric, node, from, to)
-            case _ => EvictLocationFailed(db, namespace, metric, from, to)
+              LocationEvicted(db, namespace, coordinates.metric, node, from, to)
+            case _ => EvictLocationFailed(db, namespace, coordinates.metric, from, to)
           }
       } yield loc
       f.pipeTo(sender)

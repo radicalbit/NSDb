@@ -103,12 +103,20 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
       s"commitlog-coordinator_$nodeName"
     )
 
-  private val metricsDataActor = context.actorOf(
-    MetricsDataActor
-      .props(indexBasePath, nodeName, commitLogCoordinator)
+  private val metricsDataActorReads = context.actorOf(
+    MetricsDataActorReads
+      .props(indexBasePath, nodeName)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
-    s"metrics-data-actor_$nodeName"
+    s"metrics-data-actor-reads_$nodeName"
+  )
+
+  private val metricsDataActorWrites = context.actorOf(
+    MetricsDataActorWrites
+      .props(indexBasePath, nodeName, commitLogCoordinator, metricsDataActorReads)
+      .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
+      .withDispatcher("akka.actor.control-aware-dispatcher"),
+    s"metrics-data-actor-writes_$nodeName"
   )
 
   def receive: Receive = {
@@ -118,9 +126,12 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
                                   readCoordinator,
                                   schemaCoordinator,
                                   publisherActor)
-    case GetMetricsDataActors =>
+    case GetMetricsDataActorsReads =>
       log.debug("gossiping metric data actors from node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActorReads(metricsDataActorReads, nodeName))
+    case GetMetricsDataActorsWrites =>
+      log.debug("gossiping metric data actors from node {}", nodeName)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActorWrites(metricsDataActorWrites, nodeName))
     case GetCommitLogCoordinators =>
       log.debug("gossiping commit logs for node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))

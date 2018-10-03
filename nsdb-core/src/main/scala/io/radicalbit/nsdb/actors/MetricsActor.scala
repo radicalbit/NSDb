@@ -57,9 +57,9 @@ trait MetricsActor { this: Actor =>
   private[actors] val facetIndexShards: mutable.Map[Location, AllFacetIndexes] = mutable.Map.empty
 
   protected def shardsForMetric(metric: String): mutable.Map[Location, TimeSeriesIndex] =
-    shards.filter(_._1.metric == metric)
+    shards.filter(_._1.coordinates.metric == metric)
   protected def facetsShardsFromMetric(metric: String): mutable.Map[Location, AllFacetIndexes] =
-    facetIndexShards.filter(_._1.metric == metric)
+    facetIndexShards.filter(_._1.coordinates.metric == metric)
 
   /**
     * Retrieves or creates an index for the given [[Location]]
@@ -70,7 +70,8 @@ trait MetricsActor { this: Actor =>
     shards.getOrElse(
       loc, {
         val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${loc.metric}_${loc.from}_${loc.to}"))
+          new MMapDirectory(
+            Paths.get(basePath, db, namespace, "shards", s"${loc.coordinates.metric}_${loc.from}_${loc.to}"))
         val newIndex = new TimeSeriesIndex(directory)
         shards += (loc -> newIndex)
         newIndex

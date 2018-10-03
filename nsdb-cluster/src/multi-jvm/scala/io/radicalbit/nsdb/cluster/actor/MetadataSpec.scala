@@ -12,6 +12,7 @@ import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -147,8 +148,11 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           5.seconds)
 
         awaitAssert {
-          metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))
-          expectMsg(LocationsAdded("db", "namespace", Seq(Location("metric", "node-1", 0, 1))))
+          metadataCoordinator ! AddLocation("db",
+                                            "namespace",
+                                            Location(Coordinates("db", "namespace", "metric"), "node-1", 0, 1))
+          expectMsg(
+            LocationsAdded("db", "namespace", Seq(Location(Coordinates("db", "namespace", "metric"), "node-1", 0, 1))))
         }
       }
 
@@ -162,7 +166,11 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
             5.seconds
           )
         metadataActor ! GetLocations("db", "namespace", "metric")
-        expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
+        expectMsg(
+          LocationsGot("db",
+                       "namespace",
+                       "metric",
+                       Seq(Location(Coordinates("db", "namespace", "metric"), "node-1", 0, 1))))
       }
 
       enterBarrier("after-add-locations")

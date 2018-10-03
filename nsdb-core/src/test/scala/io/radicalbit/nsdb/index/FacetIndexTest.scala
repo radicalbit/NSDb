@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.index
 
 import java.util.UUID
 
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
@@ -28,13 +28,15 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   val nodeName = "node1"
 
+  val coordinates = Coordinates("db", "namespace", UUID.randomUUID().toString)
+
   "FacetIndex" should "write and read properly on disk" in {
     val facetIndexes =
       new AllFacetIndexes(
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -81,7 +83,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -124,7 +126,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -166,7 +168,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -211,7 +213,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -276,7 +278,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -321,7 +323,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(coordinates = coordinates, node = nodeName, from = 0, to = Long.MaxValue)
       )
 
     implicit val writer     = facetIndexes.newIndexWriter

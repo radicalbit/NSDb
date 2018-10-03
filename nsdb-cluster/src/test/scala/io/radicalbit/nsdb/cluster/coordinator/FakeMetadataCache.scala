@@ -37,7 +37,7 @@ class FakeMetadataCache extends Actor {
       sender ! LocationCached(db, namespace, metric, from, to, value)
     case GetLocationsFromCache(db, namespace, metric) =>
       val key                 = MetricLocationsCacheKey(db, namespace, metric)
-      val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq.sortBy(_.from)
+      val locs: Seq[Location] = locations.values.filter(_.coordinates.metric == key.metric).toSeq.sortBy(_.from)
       sender ! LocationsCached(db, namespace, metric, locs)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))

@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.index
 
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.index.SimpleIndex
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
@@ -33,12 +34,15 @@ import scala.util.{Failure, Success, Try}
   * @param directory index bae directory.
   */
 class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[Location] {
-  override val _keyField: String = "_metric"
+  override val _keyField: String = "_coordinates"
+
+  private def getKeyField(coordinates: Coordinates) =
+    s"${coordinates.db}|${coordinates.namespace}|${coordinates.metric}"
 
   override def validateRecord(data: Location): Try[Seq[Field]] = {
     Success(
       Seq(
-        new StringField(_keyField, data.metric, Store.YES),
+        new StringField(_keyField, getKeyField(data.coordinates), Store.YES),
         new StringField("node", data.node, Store.YES),
         new LongPoint("from", data.from),
         new LongPoint("to", data.to),
@@ -63,17 +67,18 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
   }
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Location = {
-    val fields = document.getFields.asScala.map(f => f.name() -> f).toMap
+    val fields      = document.getFields.asScala.map(f => f.name() -> f).toMap
+    val coordinates = document.get(_keyField).split("|")
     Location(
-      document.get(_keyField),
+      Coordinates(coordinates(0), coordinates(1), coordinates(2)),
       document.get("node"),
       fields("from").numericValue().longValue(),
       fields("to").numericValue().longValue()
     )
   }
 
-  def getLocationsForMetric(metric: String): Seq[Location] = {
-    val queryTerm = new TermQuery(new Term(_keyField, metric))
+  def getLocationsForCoordinates(coordinates: Coordinates): Seq[Location] = {
+    val queryTerm = new TermQuery(new Term(_keyField, getKeyField(coordinates)))
 
     Try(query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)) match {
       case Success(metadataSeq) => metadataSeq
@@ -95,7 +100,7 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
   override def delete(data: Location)(implicit writer: IndexWriter): Try[Long] = {
     Try {
       val builder = new BooleanQuery.Builder()
-      builder.add(new TermQuery(new Term(_keyField, data.metric)), BooleanClause.Occur.MUST)
+      builder.add(new TermQuery(new Term(_keyField, getKeyField(data.coordinates))), BooleanClause.Occur.MUST)
       builder.add(new TermQuery(new Term("node", data.node)), BooleanClause.Occur.MUST)
       builder.add(LongPoint.newExactQuery("from", data.from), BooleanClause.Occur.MUST)
       builder.add(LongPoint.newExactQuery("to", data.to), BooleanClause.Occur.MUST)

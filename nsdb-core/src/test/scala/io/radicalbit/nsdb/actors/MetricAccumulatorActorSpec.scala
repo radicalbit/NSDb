@@ -23,7 +23,7 @@ import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates, DimensionFieldType, TagFieldType}
 import io.radicalbit.nsdb.index.VARCHAR
 import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -67,7 +67,7 @@ class MetricAccumulatorActorSpec()
   "MetricAccumulatorActor" should "write and delete properly" in {
 
     val bit      = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val location = Location("shardActorMetric", nodeName, 0, 100)
+    val location = Location(Coordinates(db, namespace, "shardActorMetric"), nodeName, 0, 100)
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit))
     awaitAssert {
@@ -106,8 +106,8 @@ class MetricAccumulatorActorSpec()
       Schema("",
              Set(SchemaField("dimension", DimensionFieldType, VARCHAR()), SchemaField("tag", TagFieldType, VARCHAR())))
 
-    val key  = Location("shardActorMetric", nodeName, 0, 100)
-    val key2 = Location("shardActorMetric", nodeName, 101, 200)
+    val key  = Location(Coordinates(db, namespace, "shardActorMetric"), nodeName, 0, 100)
+    val key2 = Location(Coordinates(db, namespace, "shardActorMetric"), nodeName, 101, 200)
 
     val bit11 = Bit(System.currentTimeMillis, 22.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val bit12 = Bit(System.currentTimeMillis, 30.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
@@ -138,18 +138,21 @@ class MetricAccumulatorActorSpec()
       expectedCount.count shouldBe 5
 
       metricAccumulatorActor.underlyingActor.shards.size shouldBe 2
-      metricAccumulatorActor.underlyingActor.shards.keys.toSeq.contains(Location("shardActorMetric", nodeName, 0, 100))
       metricAccumulatorActor.underlyingActor.shards.keys.toSeq
-        .contains(Location("shardActorMetric", nodeName, 101, 200))
+        .contains(Location(Coordinates("db", "namespace", "shardActorMetric"), nodeName, 0, 100))
+      metricAccumulatorActor.underlyingActor.shards.keys.toSeq
+        .contains(Location(Coordinates(db, namespace, "shardActorMetric"), nodeName, 101, 200))
 
-      val i1     = metricAccumulatorActor.underlyingActor.shards(Location("shardActorMetric", nodeName, 0, 100))
+      val i1 = metricAccumulatorActor.underlyingActor.shards(
+        Location(Coordinates(db, namespace, "shardActorMetric"), nodeName, 0, 100))
       val shard1 = i1.all(schema)
       shard1.size shouldBe 3
       shard1 should contain(bit11)
       shard1 should contain(bit12)
       shard1 should contain(bit13)
 
-      val i2     = metricAccumulatorActor.underlyingActor.shards(Location("shardActorMetric", nodeName, 101, 200))
+      val i2 = metricAccumulatorActor.underlyingActor.shards(
+        Location(Coordinates(db, namespace, "shardActorMetric"), nodeName, 101, 200))
       val shard2 = i2.all(schema)
       shard2.size shouldBe 2
       shard2 should contain(bit21)
@@ -162,8 +165,12 @@ class MetricAccumulatorActorSpec()
     val bit1 = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val bit2 = Bit(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
 
-    probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, Location("testMetric", nodeName, 0, 0), bit1))
-    probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, Location("testMetric", nodeName, 0, 0), bit2))
+    probe.send(
+      metricAccumulatorActor,
+      AddRecordToShard(db, namespace, Location(Coordinates(db, namespace, "testMetric"), nodeName, 0, 0), bit1))
+    probe.send(
+      metricAccumulatorActor,
+      AddRecordToShard(db, namespace, Location(Coordinates(db, namespace, "testMetric"), nodeName, 0, 0), bit2))
     probe.expectMsgType[RecordAdded]
     probe.expectMsgType[RecordAdded]
 

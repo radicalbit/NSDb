@@ -23,6 +23,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import org.scalatest._
 
@@ -51,11 +52,13 @@ class MetadataActorSpec
   lazy val namespace = "namespaceTest"
   lazy val metric    = "people"
 
+  val coordinates = Coordinates(db, namespace, metric)
+
   lazy val locations = Seq(
-    Location(metric, "node1", 0, 1),
-    Location(metric, "node1", 2, 3),
-    Location(metric, "node1", 4, 5),
-    Location(metric, "node1", 6, 8)
+    Location(coordinates, "node1", 0, 1),
+    Location(coordinates, "node1", 2, 3),
+    Location(coordinates, "node1", 4, 5),
+    Location(coordinates, "node1", 6, 8)
   )
 
   before {
@@ -95,7 +98,7 @@ class MetadataActorSpec
 
   "MetadataActor" should "add a new location" in {
 
-    val newLocation = Location(metric, "node2", 10, 11)
+    val newLocation = Location(coordinates, "node2", 10, 11)
     probe.send(metadataActor, AddLocation(db, namespace, newLocation))
 
     val added = probe.expectMsgType[LocationAdded]

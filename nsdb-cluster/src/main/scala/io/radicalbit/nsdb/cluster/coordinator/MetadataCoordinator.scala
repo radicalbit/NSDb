@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -102,10 +103,9 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) =
     Future
-      .sequence(
-        locations.map(location =>
-          (cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location))
-            .mapTo[AddLocationResponse]))
+      .sequence(locations.map(location =>
+        (cache ? PutLocationInCache(db, namespace, location.coordinates.metric, location.from, location.to, location))
+          .mapTo[AddLocationResponse]))
       .flatMap { responses =>
         val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =
           responses.foldRight((List.empty[LocationCached], List.empty[PutLocationInCacheFailed])) {
@@ -168,7 +168,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                       .take(replicationFactor)
                       .map(createNodeName)
 
-                    val locations = nodes.map(Location(metric, _, start, end)).toSeq
+                    val locations = nodes.map(Location(Coordinates(db, namespace, metric), _, start, end)).toSeq
 
                     performAddLocationIntoCache(db, namespace, locations).map {
                       case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
@@ -188,7 +188,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
                   .take(replicationFactor)
                   .map(createNodeName)
 
-                val locations = nodes.map(Location(metric, _, start, end)).toSeq
+                val locations = nodes.map(Location(Coordinates(db, namespace, metric), _, start, end)).toSeq
 
                 performAddLocationIntoCache(db, namespace, locations).map {
                   case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)

@@ -22,7 +22,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement.{Condition, DeleteSQLStatement, RangeExpression}
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -40,6 +40,8 @@ class CommitLogCoordinatorSpec
 
   private val conf = ConfigFactory.load()
 
+  val location = Location(Coordinates("db", "namsepace", "metric"), "", 1, 1)
+
   override def beforeAll = {
 
     val directory = new File(conf.getString("nsdb.commit-log.directory"))
@@ -51,6 +53,7 @@ class CommitLogCoordinatorSpec
   }
 
   "CommitLogCoordinator" should {
+
     "write a insert entry" in within(5.seconds) {
       val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
       awaitAssert {
@@ -59,7 +62,7 @@ class CommitLogCoordinatorSpec
                                                      "metric",
                                                      1L,
                                                      ReceivedEntryAction(bit),
-                                                     Location("metric", "", 1, 1))
+                                                     location)
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -72,7 +75,7 @@ class CommitLogCoordinatorSpec
                                                      "metric1",
                                                      1L,
                                                      RejectedEntryAction(bit),
-                                                     Location("metric", "", 1, 1))
+                                                     location)
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -85,29 +88,19 @@ class CommitLogCoordinatorSpec
                                                      "metric2",
                                                      1L,
                                                      DeleteAction(deleteStatement),
-                                                     Location("metric", "", 1, 1))
+                                                     location)
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
     "write a metric deletion" in within(5.seconds) {
       awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db3",
-                                                     "namespace3",
-                                                     "metric3",
-                                                     1L,
-                                                     DeleteMetricAction,
-                                                     Location("metric", "", 1, 1))
+        commitLogCoordinatorActor ! WriteToCommitLog("db3", "namespace3", "metric3", 1L, DeleteMetricAction, location)
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
     "write a namespace deletion" in within(5.seconds) {
       awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db4",
-                                                     "namespace4",
-                                                     "",
-                                                     1L,
-                                                     DeleteNamespaceAction,
-                                                     Location("metric", "", 1, 1))
+        commitLogCoordinatorActor ! WriteToCommitLog("db4", "namespace4", "", 1L, DeleteNamespaceAction, location)
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }

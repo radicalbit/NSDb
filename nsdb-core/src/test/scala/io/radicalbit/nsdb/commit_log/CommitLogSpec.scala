@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.commit_log
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 
 trait CommitLogSpec {
 
@@ -30,6 +30,8 @@ trait CommitLogSpec {
   val db        = "db"
   val namespace = "namespace"
   val metric    = "metric"
+
+  val coordinates = Coordinates(db, namespace, metric)
 
   val bit0 = dummyBit
   val bit1 = dummyBit.copy(timestamp = 1)

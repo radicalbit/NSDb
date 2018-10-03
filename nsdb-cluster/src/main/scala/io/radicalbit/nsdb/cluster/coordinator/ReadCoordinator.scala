@@ -77,7 +77,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       * scheduler that updates aggregated queries subscribers
       */
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
-      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActorsReads)
       log.debug("readcoordinator data actor : {}", metricsDataActors.size)
     }
   }
@@ -148,7 +148,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
   def warmUp: Receive = {
     case WarmUpCompleted =>
       context.become(operating)
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+    case SubscribeMetricsDataActorReads(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
         log.info(s"subscribed data actor for node $nodeName")
@@ -162,7 +162,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
   }
 
   def operating: Receive = {
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+    case SubscribeMetricsDataActorReads(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
         log.info(s"subscribed data actor for node $nodeName")

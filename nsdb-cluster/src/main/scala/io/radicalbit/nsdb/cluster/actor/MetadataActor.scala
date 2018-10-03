@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.index.{LocationIndex, MetricInfo, MetricInfoIndex}
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.MMapDirectory
@@ -82,7 +83,8 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
 
         val metricsMetadataWithShards = metricsWithShards.map { metric =>
           log.debug(s"db : ${db.getName}, namespace : ${namespace.getName}, metric: $metric }")
-          val locations  = getLocationIndex(db.getName, namespace.getName).getLocationsForMetric(metric)
+          val locations = getLocationIndex(db.getName, namespace.getName)
+            .getLocationsForCoordinates(Coordinates(db.getName, namespace.getName, metric))
           val metricInfo = metricInfos.get(metric)
           MetricMetadata(db.getName, namespace.getName, metric, metricInfo, locations)
         }
@@ -99,7 +101,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
   override def receive: Receive = {
 
     case GetLocations(db, namespace, metric) =>
-      val metadata = getLocationIndex(db, namespace).getLocationsForMetric(metric)
+      val metadata = getLocationIndex(db, namespace).getLocationsForCoordinates(Coordinates(db, namespace, metric))
       sender ! LocationsGot(db, namespace, metric, metadata)
 
     case AddLocation(db, namespace, metadata) =>

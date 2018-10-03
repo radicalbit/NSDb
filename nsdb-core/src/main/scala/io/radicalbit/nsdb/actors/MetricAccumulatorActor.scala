@@ -48,7 +48,7 @@ import scala.util.{Failure, Success}
 class MetricAccumulatorActor(val basePath: String,
                              val db: String,
                              val namespace: String,
-                             val readerActor: ActorRef,
+                             val metricsReaderActor: ActorRef,
                              val localCommitLogCoordinator: ActorRef)
     extends ActorPathLogging
     with MetricsActor {
@@ -156,7 +156,7 @@ class MetricAccumulatorActor(val basePath: String,
 
       deleteMetricData(metric)
 
-      readerActor ! Broadcast(msg)
+      metricsReaderActor ! Broadcast(msg)
       sender() ! MetricDropped(db, namespace, metric)
   }
 
@@ -177,10 +177,10 @@ class MetricAccumulatorActor(val basePath: String,
       log.debug("received message {}", msg)
       opBufferMap += (UUID.randomUUID().toString -> WriteShardOperation(ns, location, bit))
       val ts = System.currentTimeMillis()
-      sender ! RecordAdded(db, ns, location.metric, bit, location, ts)
-    case DeleteRecordFromShard(_, ns, key, bit) =>
-      opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
-      sender ! RecordDeleted(db, ns, key.metric, bit)
+      sender ! RecordAdded(db, ns, location.coordinates.metric, bit, location, ts)
+    case DeleteRecordFromShard(_, ns, location, bit) =>
+      opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, location, bit))
+      sender ! RecordDeleted(db, ns, location.coordinates.metric, bit)
     case ExecuteDeleteStatementInShards(statement, schema, keys) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
@@ -198,7 +198,7 @@ class MetricAccumulatorActor(val basePath: String,
         getIndex(key).refresh()
         facetIndexesFor(key).refresh()
       }
-      readerActor ! Broadcast(msg)
+      metricsReaderActor ! msg
   }
 
   override def receive: Receive = {

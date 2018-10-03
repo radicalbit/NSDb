@@ -25,7 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.{DeleteAll, RefreshShard}
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -78,7 +78,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     )
 
   private def actorName(location: Location) =
-    s"shard_reader_${location.node}_${location.metric}_${location.from}_${location.to}"
+    s"shard_reader_${location.node}_${location.coordinates.metric}_${location.from}_${location.to}"
 
   /**
     * Retrieve all the shard actors for a given metric.
@@ -86,7 +86,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @param metric The metric to filter shard actors
     * @return All the shard actors for a given metric.
     */
-  private def actorsForMetric(metric: String): mutable.Map[Location, ActorRef] = actors.filter(_._1.metric == metric)
+  private def actorsForMetric(metric: String): mutable.Map[Location, ActorRef] =
+    actors.filter(_._1.coordinates.metric == metric)
 
   /**
     * Filters all the shard actors of a metrics given a set of locations.
@@ -108,7 +109,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       .map(_.split("_"))
       .foreach {
         case Array(metric, from, to) =>
-          val key        = Location(metric, nodeName, from.toLong, to.toLong)
+          val key        = Location(Coordinates(db, namespace, metric), nodeName, from.toLong, to.toLong)
           val shardActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
           actors += (key -> shardActor)
       }
@@ -234,7 +235,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     */
   def readOps: Receive = {
     case GetMetrics(_, _) =>
-      sender() ! MetricsGot(db, namespace, actors.keys.map(_.metric).toSet)
+      sender() ! MetricsGot(db, namespace, actors.keys.map(_.coordinates.metric).toSet)
     case msg @ GetCount(_, ns, metric) =>
       Future
         .sequence(actorsForMetric(metric).map {
@@ -346,9 +347,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           actor ! DeleteAll
           actors -= key
       }
-    case Refresh(_, keys) =>
-      keys.foreach { key =>
-        getOrCreateActor(key) ! RefreshShard
+    case Refresh(_, locations) =>
+      locations.foreach { loc =>
+        getOrCreateActor(loc) ! RefreshShard
       }
   }
 

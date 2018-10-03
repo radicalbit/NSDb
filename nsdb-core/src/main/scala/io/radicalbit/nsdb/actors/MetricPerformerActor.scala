@@ -80,7 +80,12 @@ class MetricPerformerActor(val basePath: String,
                   facetIndexes.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
                       val timestamp = System.currentTimeMillis()
-                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
+                      performedBitOperations += PersistedBit(db,
+                                                             namespace,
+                                                             loc.coordinates.metric,
+                                                             timestamp,
+                                                             bit,
+                                                             loc)
                     case Failure(t) =>
                       toRetryOperations += ((op, 0))
                       log.error(t, "error during write on facet indexes")
@@ -96,7 +101,12 @@ class MetricPerformerActor(val basePath: String,
                   Try(facetIndexes.delete(bit)(facetsIndexWriter).map(_.get)) match {
                     case Success(_) =>
                       val timestamp = System.currentTimeMillis()
-                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
+                      performedBitOperations += PersistedBit(db,
+                                                             namespace,
+                                                             loc.coordinates.metric,
+                                                             timestamp,
+                                                             bit,
+                                                             loc)
                     case Failure(t) =>
                       toRetryOperations += ((op, 0))
                       log.error(t, "error during write on facet indexes")

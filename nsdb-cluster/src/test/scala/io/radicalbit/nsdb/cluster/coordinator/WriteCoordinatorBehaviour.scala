@@ -24,11 +24,11 @@ import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
+import io.radicalbit.nsdb.cluster.actor.{MetricsDataActorReads, MetricsDataActorWrites}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, WriteToCommitLogSucceeded}
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -66,7 +66,8 @@ class FakeMetadataCoordinator extends Actor with ActorLogging {
     case GetLocations(db, namespace, metric) =>
       sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val location = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
+      val location =
+        Location(Coordinates(db, namespace, metric), "node1", timestamp, timestamp + shardingInterval.toMillis)
       locations
         .get((namespace, metric))
         .fold {
@@ -111,8 +112,11 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
                                                                          schemaCoordinator,
                                                                          system.actorOf(Props.empty))
-  lazy val metricsDataActor =
-    TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "node1", writeCoordinatorActor))
+  lazy val metricsDataActorReads =
+    TestActorRef[MetricsDataActorReads](MetricsDataActorReads.props(basePath, "node1"))
+  lazy val metricsDataActorWrites =
+    TestActorRef[MetricsDataActorWrites](
+      MetricsDataActorWrites.props(basePath, "node1", writeCoordinatorActor, metricsDataActorReads))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
@@ -193,10 +197,11 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       expectNoMessage(interval)
 
-//      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
-      metricsDataActor.underlyingActor.context.children.map(_.path.name).exists(_.contains(namespace)) shouldBe false
+      metricsDataActorWrites.underlyingActor.context.children
+        .map(_.path.name)
+        .exists(_.contains(namespace)) shouldBe false
 
-      probe.send(metricsDataActor, GetNamespaces(db))
+      probe.send(metricsDataActorReads, GetNamespaces(db))
 
       val result = awaitAssert {
         probe.expectMsgType[NamespacesGot]
@@ -255,7 +260,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
       probe.send(schemaCoordinator, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
-      probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
+      probe.send(metricsDataActorReads, GetCount(db, namespace, "testMetric"))
 
       probe.expectMsgType[CountGot].count shouldBe 2
 
@@ -266,7 +271,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       expectNoMessage(interval)
 
-      probe.send(metricsDataActor, GetCount(db, namespace, "testMetric"))
+      probe.send(metricsDataActorReads, GetCount(db, namespace, "testMetric"))
       val result = awaitAssert {
         probe.expectMsgType[CountGot]
       }
