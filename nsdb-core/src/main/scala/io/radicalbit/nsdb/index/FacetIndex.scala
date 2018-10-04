@@ -32,8 +32,6 @@ import scala.util.{Failure, Success, Try}
 abstract class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     extends AbstractStructuredIndex {
 
-//  protected[this] lazy val taxoReader = new DirectoryTaxonomyReader(taxoDirectory)
-
   private lazy val searchTaxonomyManager: SearcherTaxonomyManager =
     new SearcherTaxonomyManager(directory, taxoDirectory, null)
 
@@ -54,10 +52,13 @@ abstract class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseD
     */
   override def getSearcher: IndexSearcher = searchTaxonomyManager.acquire().searcher
 
+  /**
+    * @return a taxonomy reader in sync with the index reader.
+    */
   def getTaxoReader: DirectoryTaxonomyReader = searchTaxonomyManager.acquire().taxonomyReader
 
   /**
-    * Refresh index content after a write operation.
+    * Refresh index and taxonomy after a write operation.
     */
   override def refresh(): Unit = searchTaxonomyManager.maybeRefresh()
 

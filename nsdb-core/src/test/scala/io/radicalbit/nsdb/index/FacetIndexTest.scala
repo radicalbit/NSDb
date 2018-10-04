@@ -61,8 +61,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-//    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
-
     assert(fieldName = "dimension", limit = 100, expectedCountSize = 0, expectedSizeDistinct = 0)
     assert(fieldName = "tag", limit = 100, expectedCountSize = 100, expectedSizeDistinct = 100)
 
@@ -102,8 +100,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
     taxoWriter.close()
     writer.close()
-
-//    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
 
     assert(fieldName = "dimension", limit = 100, expectedCountSize = 0)
     assert(fieldName = "name", limit = 100, expectedCountSize = 0)
@@ -146,8 +142,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
-
     val contentGroups =
       facetIndexes.facetCountIndex.result(LongPoint.newRangeQuery("timestamp", 0, 50),
                                           "tag",
@@ -189,8 +183,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
     taxoWriter.close()
     writer.close()
-
-    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
 
     facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 0
     facetIndexes.facetCountIndex
@@ -242,8 +234,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
     taxoWriter.close()
     writer.close()
-
-    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
@@ -306,8 +296,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    implicit val searcher = facetIndexes.facetSumIndex.getSearcher
-
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
     val res1 = facetIndexes.facetSumIndex
@@ -356,8 +344,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
     taxoWriter.close()
     writer.close()
-
-    implicit val searcher = facetIndexes.facetSumIndex.getSearcher
 
     val res = facetIndexes.facetSumIndex
       .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), Some(DECIMAL()))
