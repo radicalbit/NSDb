@@ -71,17 +71,18 @@ object AggregationMetric {
 
 class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
-  override val nodesNumber: Int = 2
+  override val nodesNumber: Int = 3
 
   val db        = "db"
   val namespace = "registry"
 
-  private lazy val firstNode = minicluster.nodes.head
-
-  private lazy val nsdb =
-    Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
-
   override def beforeAll(): Unit = {
+
+    val firstNode = minicluster.nodes.head
+
+    val nsdb =
+      Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+
     super.beforeAll()
 
     Await.result(nsdb.write(LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name))), 10.seconds)
@@ -98,471 +99,600 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   }
 
   test("receive a select projecting a wildcard with a limit") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select * from ${LongMetric.name} limit 2")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
 
-    assert(readRes.completedSuccessfully)
-    assert(readRes.records.size == 2)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select * from ${LongMetric.name} limit 2")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(readRes.completedSuccessfully)
+      assert(readRes.records.size == 2)
+    }
   }
 
   test("receive a select projecting a wildcard with a limit and a ordering when ordered by timestamp") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select * from ${LongMetric.name} order by timestamp desc limit 2")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
 
-    assert(readRes.completedSuccessfully)
-    assert(readRes.records.size == 2)
-    assert(readRes.records.map(_.asBit) == LongMetric.testRecords.reverse.take(2))
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select * from ${LongMetric.name} order by timestamp desc limit 2")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(readRes.completedSuccessfully)
+      assert(readRes.records.size == 2)
+      assert(readRes.records.map(_.asBit) == LongMetric.testRecords.reverse.take(2))
+    }
   }
 
   test("receive a select projecting a wildcard with a limit and a ordering when ordered by another dimension") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select * from ${LongMetric.name} order by name desc limit 3")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select * from ${LongMetric.name} order by name desc limit 3")
 
-    assert(readRes.completedSuccessfully)
-    assert(readRes.records.size == 3)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    val results = readRes.records.map(_.asBit)
-    results.foreach(r => assert(LongMetric.testRecords.take(3).contains(r)))
+      assert(readRes.completedSuccessfully)
+      assert(readRes.records.size == 3)
 
+      val results = readRes.records.map(_.asBit)
+      results.foreach(r => assert(LongMetric.testRecords.take(3).contains(r)))
+    }
   }
 
   test("receive a select over tags fields") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name}")
 
-    val names = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(names.count(_ == "Bill") == 1)
-    assert(names.count(_ == "Frank") == 1)
-    assert(names.count(_ == "Frankie") == 1)
-    assert(names.count(_ == "J") == 1)
-    assert(names.count(_ == "John") == 2)
+      val names = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+
+      assert(names.count(_ == "Bill") == 1)
+      assert(names.count(_ == "Frank") == 1)
+      assert(names.count(_ == "Frankie") == 1)
+      assert(names.count(_ == "J") == 1)
+      assert(names.count(_ == "John") == 2)
+    }
   }
 
   test("receive a select over dimensions fields") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select surname from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select surname from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 6)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 6)
 
-    val names = readRes.records.flatMap(_.dimensions.values.map(_.getStringValue))
-    assert(names.count(_ == "Doe") == 5)
-    assert(names.count(_ == "D") == 1)
-
+      val names = readRes.records.flatMap(_.dimensions.values.map(_.getStringValue))
+      assert(names.count(_ == "Doe") == 5)
+      assert(names.count(_ == "D") == 1)
+    }
   }
 
   test("receive a select over dimensions and tags fields") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name, surname from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name, surname from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.size == 6)
+      assert(readRes.records.size == 6)
 
-    val dimensions = readRes.records.flatMap(_.dimensions.values.map(_.getStringValue))
-    assert(dimensions.count(_ == "Doe") == 5)
+      val dimensions = readRes.records.flatMap(_.dimensions.values.map(_.getStringValue))
+      assert(dimensions.count(_ == "Doe") == 5)
 
-    val tags = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+      val tags = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
 
-    assert(tags.count(_ == "Bill") == 1)
-    assert(tags.count(_ == "Frank") == 1)
-    assert(tags.count(_ == "Frankie") == 1)
-    assert(tags.count(_ == "J") == 1)
-    assert(tags.count(_ == "John") == 2)
+      assert(tags.count(_ == "Bill") == 1)
+      assert(tags.count(_ == "Frank") == 1)
+      assert(tags.count(_ == "Frankie") == 1)
+      assert(tags.count(_ == "J") == 1)
+      assert(tags.count(_ == "John") == 2)
+    }
   }
 
   test("receive a select distinct over a single field") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select distinct name from ${LongMetric.name} limit 6")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select distinct name from ${LongMetric.name} limit 6")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    val names = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
+      val names = readRes.records.flatMap(_.tags.values.map(_.getStringValue))
 
-    assert(names.contains("Bill"))
-    assert(names.contains("Frank"))
-    assert(names.contains("Frankie"))
-    assert(names.contains("John"))
-    assert(names.contains("J"))
-    assert(names.size == 5)
+      assert(names.contains("Bill"))
+      assert(names.contains("Frank"))
+      assert(names.contains("Frankie"))
+      assert(names.contains("John"))
+      assert(names.contains("J"))
+      assert(names.size == 5)
+    }
   }
 
   test("execute successfully with limit over distinct values") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select distinct name from ${LongMetric.name} limit 2")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select distinct name from ${LongMetric.name} limit 2")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 2)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 2)
+    }
   }
 
   test("execute successfully with ascending order") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select distinct name from ${LongMetric.name} order by name limit 6")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select distinct name from ${LongMetric.name} order by name limit 6")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.size == 5)
+      assert(readRes.records.size == 5)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "J")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "John"))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "John"))
+        ))
+    }
   }
 
   test("execute successfully with descending order") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select distinct name from ${LongMetric.name} order by name desc limit 6")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select distinct name from ${LongMetric.name} order by name desc limit 6")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.size == 5)
+      assert(readRes.records.size == 5)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 0L, Map.empty, Map("name" -> "John")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "J")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
-        Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 0L, Map.empty, Map("name" -> "John")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
+        ))
+    }
   }
 
   test("fail if receive a  distinct select projecting a wildcard") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select distinct * from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select distinct * from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(!readRes.completedSuccessfully)
+      assert(!readRes.completedSuccessfully)
+    }
   }
 
   //the more i think about this feature, the more it seems unnecessary and misleading
   ignore("receive a select projecting a list of fields with mixed aggregated and simple") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(*), name from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(*), name from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
-        Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-        Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-        Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-        Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-        Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-        Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
-      ))
+      assert(
+        readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
+          Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+          Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+          Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+          Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+        ))
+    }
   }
 
   test("receive a select projecting a list of fields with only a count") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(*) from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(*) from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.size == 1)
+      assert(readRes.records.size == 1)
 
-    assert(readRes.records.head.asBit == Bit(0, 6L, Map.empty, Map("count(*)" -> 6)))
+      assert(readRes.records.head.asBit == Bit(0, 6L, Map.empty, Map("count(*)" -> 6)))
+    }
   }
 
   test("fail if receive a select projecting a list of fields when other aggregation than count is provided") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(*), surname, sum(creationDate) from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(*), surname, sum(creationDate) from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(!readRes.completedSuccessfully)
+      assert(!readRes.completedSuccessfully)
+    }
   }
 
   test("fail if receive a select distinct projecting a list of fields ") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select distinct name, surname from ${LongMetric.name}")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select distinct name, surname from ${LongMetric.name}")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(!readRes.completedSuccessfully)
+      assert(!readRes.completedSuccessfully)
+    }
   }
 
   test("receive a select containing a range selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where timestamp in (2,4) limit 4")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where timestamp in (2,4) limit 4")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.size == 2)
-
+      assert(readRes.records.size == 2)
+    }
   }
 
   test("receive a select containing a GTE selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where timestamp >= 10")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where timestamp >= 10")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 1)
-    assert(readRes.records.head.asBit == Bit(10, 1, Map.empty, Map("name" -> "Frankie")))
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 1)
+      assert(readRes.records.head.asBit == Bit(10, 1, Map.empty, Map("name" -> "Frankie")))
+    }
   }
 
   test("receive a select containing a GTE and a NOT selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where not timestamp >= 10")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where not timestamp >= 10")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 5)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 5)
+    }
   }
 
   test("receive a select containing a GT AND a LTE selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where timestamp > 2 and timestamp <= 4 limit 4")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where timestamp > 2 and timestamp <= 4 limit 4")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 1)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 1)
+    }
   }
 
   test("receive a select containing a GTE OR a LT selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where timestamp >= 2 or timestamp <= 4")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where timestamp >= 2 or timestamp <= 4")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 6)
-
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 6)
+    }
   }
 
   test("receive a select containing a = selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where timestamp = 2 ")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where timestamp = 2 ")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 1)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 1)
+    }
   }
 
   test("receive a select containing a GTE AND a = selection") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select name from ${LongMetric.name} where timestamp >= 2 and name = John")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select name from ${LongMetric.name} where timestamp >= 2 and name = John")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
-    assert(readRes.records.size == 1)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      assert(readRes.records.size == 1)
+    }
   }
 
   test("receive a select containing a GTE selection and a group by") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select sum(value) from ${LongMetric.name} where timestamp >= 2 group by name")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(value) from ${LongMetric.name} where timestamp >= 2 group by name")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.size == 5)
+      assert(readRes.records.size == 5)
+    }
   }
 
   test("fail if receive a select containing a GTE selection and a group by without any aggregation") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select creationDate from ${LongMetric.name} where timestamp => 2 group by name")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select creationDate from ${LongMetric.name} where timestamp => 2 group by name")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(!readRes.completedSuccessfully)
-
+      assert(!readRes.completedSuccessfully)
+    }
   }
 
   test("receive a select containing a non existing entity") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select creationDate from nonexisting where timestamp => 2 group by name")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select creationDate from nonexisting where timestamp => 2 group by name")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(!readRes.completedSuccessfully)
+      assert(!readRes.completedSuccessfully)
+    }
   }
 
   test("receive a group by statement with asc ordering over string dimension") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(value) from ${LongMetric.name} group by name order by name")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(value) from ${LongMetric.name} group by name order by name")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
-        Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
-        Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
-        Bit(0L, 1L, Map.empty, Map("name" -> "J")),
-        Bit(0L, 2L, Map.empty, Map("name" -> "John"))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 2L, Map.empty, Map("name" -> "John"))
+        ))
+    }
   }
 
   test("receive a group by statement with desc ordering over string dimension") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(value) from ${LongMetric.name} group by name order by name desc")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(value) from ${LongMetric.name} group by name order by name desc")
 
-    var readRes = Await.result(nsdb.execute(query), 10.seconds)
+      var readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 2, Map.empty, Map("name" -> "John")),
-        Bit(0L, 1, Map.empty, Map("name" -> "J")),
-        Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
-        Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
-        Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 2, Map.empty, Map("name" -> "John")),
+          Bit(0L, 1, Map.empty, Map("name" -> "J")),
+          Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
+        ))
 
-    val sumQuery = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select sum(value) from ${DoubleMetric.name} group by name order by name desc")
+      val sumQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(value) from ${DoubleMetric.name} group by name order by name desc")
 
-    readRes = Await.result(nsdb.execute(sumQuery), 10.seconds)
+      readRes = Await.result(nsdb.execute(sumQuery), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 3.0, Map.empty, Map("name" -> "John")),
-        Bit(0L, 1.5, Map.empty, Map("name" -> "Frankie")),
-        Bit(0L, 1.5, Map.empty, Map("name" -> "Frank")),
-        Bit(0L, 1.5, Map.empty, Map("name" -> "Bill"))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 3.0, Map.empty, Map("name" -> "John")),
+          Bit(0L, 1.5, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1.5, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1.5, Map.empty, Map("name" -> "Bill"))
+        ))
+    }
   }
 
   test("execute a group by select statement with desc ordering over numerical dimension") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select sum(value) from ${LongMetric.name} group by name order by value desc")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(value) from ${LongMetric.name} group by name order by value desc")
 
-    var readRes = Await.result(nsdb.execute(query), 10.seconds)
+      var readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(readRes.records.map(_.asBit.value.asInstanceOf[Long]) == Seq(2, 1, 1, 1, 1))
+      assert(readRes.records.map(_.asBit.value.asInstanceOf[Long]) == Seq(2, 1, 1, 1, 1))
 
-    val doubleQuery = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select sum(value) from ${DoubleMetric.name} group by name order by value desc")
+      val doubleQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(value) from ${DoubleMetric.name} group by name order by value desc")
 
-    readRes = Await.result(nsdb.execute(doubleQuery), 10.seconds)
+      readRes = Await.result(nsdb.execute(doubleQuery), 10.seconds)
 
-    assert(readRes.records.map(_.asBit.value.asInstanceOf[Double]) == Seq(3.0, 1.5, 1.5, 1.5))
+      assert(readRes.records.map(_.asBit.value.asInstanceOf[Double]) == Seq(3.0, 1.5, 1.5, 1.5))
+    }
   }
 
   test("receive a select containing a group by on long dimension with count aggregation") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(value) from ${AggregationMetric.name} group by age order by value")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(value) from ${AggregationMetric.name} group by age order by value")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) ==
-        Seq(Bit(0L, 1, Map.empty, Map("age" -> 20)), Bit(0L, 5, Map.empty, Map("age" -> 15))))
+      assert(
+        readRes.records.map(_.asBit) ==
+          Seq(Bit(0L, 1, Map.empty, Map("age" -> 20)), Bit(0L, 5, Map.empty, Map("age" -> 15))))
+    }
   }
 
   test("receive a select containing a group by on long dimension with sum aggregation") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select sum(value) from ${AggregationMetric.name} group by age order by age")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(value) from ${AggregationMetric.name} group by age order by age")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) ==
-        Seq(
-          Bit(0L, 6L, Map.empty, Map("age" -> 15L)),
-          Bit(0L, 2L, Map.empty, Map("age" -> 20L))
-        ))
+      assert(
+        readRes.records.map(_.asBit) ==
+          Seq(
+            Bit(0L, 6L, Map.empty, Map("age" -> 15L)),
+            Bit(0L, 2L, Map.empty, Map("age" -> 20L))
+          ))
+    }
   }
 
   test("receive a select containing a group by on double dimension with count aggregation") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select count(value) from ${AggregationMetric.name} group by height order by value desc")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(value) from ${AggregationMetric.name} group by height order by value desc")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 3, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 2, Map.empty, Map("height" -> 32.0)),
-        Bit(0L, 1, Map.empty, Map("height" -> 31.0))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 3, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 2, Map.empty, Map("height" -> 32.0)),
+          Bit(0L, 1, Map.empty, Map("height" -> 31.0))
+        ))
+    }
   }
 
   test("receive a select containing a group by on double dimension with sum aggregation") {
-    val query = nsdb
-      .db(db)
-      .namespace(namespace)
-      .query(s"select sum(value) from ${AggregationMetric.name} group by height order by height")
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(value) from ${AggregationMetric.name} group by height order by height")
 
-    val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-    assert(
-      readRes.records.map(_.asBit) == Seq(
-        Bit(0L, 5, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 1, Map.empty, Map("height" -> 31.0)),
-        Bit(0L, 2, Map.empty, Map("height" -> 32.0))
-      ))
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 5, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 2, Map.empty, Map("height" -> 32.0))
+        ))
+    }
   }
 }

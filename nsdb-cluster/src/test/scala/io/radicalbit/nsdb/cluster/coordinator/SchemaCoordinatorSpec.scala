@@ -210,7 +210,6 @@ class SchemaCoordinatorSpec
             "people",
             Set(
               SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("name", DimensionFieldType, VARCHAR()),
               SchemaField("country", TagFieldType, VARCHAR()),
               SchemaField("surname", DimensionFieldType, VARCHAR()),
               SchemaField("value", ValueFieldType, INT()),
@@ -257,7 +256,8 @@ class SchemaCoordinatorSpec
             "people",
             Set(
               SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("name", DimensionFieldType, VARCHAR()),
+              SchemaField("surname", DimensionFieldType, VARCHAR()),
+              SchemaField("city", TagFieldType, VARCHAR()),
               SchemaField("country", TagFieldType, VARCHAR()),
               SchemaField("value", ValueFieldType, INT()),
               SchemaField("timestamp", TimestampFieldType, BIGINT())
@@ -456,12 +456,12 @@ class SchemaCoordinatorSpec
           Schema(
             "people",
             Set(
-//      SchemaField("name",DimensionFieldType,VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-//      SchemaField("city", TagFieldType, VARCHAR()),
+              SchemaField("name", DimensionFieldType, VARCHAR()),
               SchemaField("country", TagFieldType, VARCHAR()),
+              SchemaField("surname", DimensionFieldType, VARCHAR()),
               SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT())
+              SchemaField("timestamp", TimestampFieldType, BIGINT()),
+              SchemaField("city", TagFieldType, VARCHAR())
             )
           )
         )
@@ -500,11 +500,11 @@ class SchemaCoordinatorSpec
             "people",
             Set(
               SchemaField("name", DimensionFieldType, VARCHAR()),
-//      SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("city", TagFieldType, VARCHAR()),
-//      SchemaField("country",TagFieldType,VARCHAR()),
+              SchemaField("country", TagFieldType, VARCHAR()),
+              SchemaField("surname", DimensionFieldType, VARCHAR()),
               SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT())
+              SchemaField("timestamp", TimestampFieldType, BIGINT()),
+              SchemaField("city", TagFieldType, VARCHAR())
             )
           )
         )

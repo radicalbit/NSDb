@@ -79,9 +79,10 @@ class FacetSumIndex(override val directory: BaseDirectory, override val taxoDire
       FacetsCollector.search(getSearcher, query, actualLimit, fc)
 
       val facetsFolder = valueIndexType match {
-        case Some(_: INT)     => new TaxonomyFacetSumIntAssociations(facetName(groupField), taxoReader, config, fc)
-        case Some(_: BIGINT)  => new TaxonomyFacetSumLongAssociations(facetName(groupField), taxoReader, config, fc)
-        case Some(_: DECIMAL) => new TaxonomyFacetSumDoubleAssociations(facetName(groupField), taxoReader, config, fc)
+        case Some(_: INT)    => new TaxonomyFacetSumIntAssociations(facetName(groupField), getTaxoReader, config, fc)
+        case Some(_: BIGINT) => new TaxonomyFacetSumLongAssociations(facetName(groupField), getTaxoReader, config, fc)
+        case Some(_: DECIMAL) =>
+          new TaxonomyFacetSumDoubleAssociations(facetName(groupField), getTaxoReader, config, fc)
       }
 
       Option(facetsFolder.getTopChildren(actualLimit, groupField))

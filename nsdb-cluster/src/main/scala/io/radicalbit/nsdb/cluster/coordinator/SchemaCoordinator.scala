@@ -73,8 +73,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           (schemaCache ? PutSchemaInCache(db, namespace, metric, unionSchema))
             .map {
               case SchemaCached(_, _, _, _) =>
-                mediator ! Publish(SCHEMA_TOPIC, UpdateSchema(db, namespace, metric, newSchema))
-                SchemaUpdated(db, namespace, metric, newSchema)
+                mediator ! Publish(SCHEMA_TOPIC, UpdateSchema(db, namespace, metric, unionSchema))
+                SchemaUpdated(db, namespace, metric, unionSchema)
               case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg"))
             }
         case Failure(t) =>

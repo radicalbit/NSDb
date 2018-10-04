@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 
-import akka.actor.{Actor, Props}
+import akka.actor.Props
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
@@ -27,6 +27,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatem
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
+import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.MMapDirectory
 
 import scala.util.{Failure, Success, Try}
@@ -40,7 +41,7 @@ import scala.util.{Failure, Success, Try}
   * @param location the shard location.
   */
 class ShardReaderActor(val basePath: String, val db: String, val namespace: String, val location: Location)
-    extends Actor {
+    extends ActorPathLogging {
 
   lazy val directory =
     new MMapDirectory(
@@ -59,7 +60,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+            case Failure(ex) =>
+              log.error(ex, "error occurred executing query {} in location {}", statement, location)
+              sender ! SelectStatementFailed(ex.getMessage)
           }
 
         case Success(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
@@ -68,6 +71,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) =>
+              log.error(ex, "error occurred executing query {} in location {}", statement, location)
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
@@ -78,7 +82,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                 .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+            case Failure(ex) =>
+              log.error(ex, "error occurred executing query {} in location {}", statement, location)
+              sender ! SelectStatementFailed(ex.getMessage)
           }
 
         case Success(ParsedAggregatedQuery(_, _, q, InternalSumAggregation(groupField, _), sort, limit)) =>
@@ -93,14 +99,18 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                         Some(schema.fieldsMap("value").indexType)))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+            case Failure(ex) =>
+              log.error(ex, "error occurred executing query {} in location {}", statement, location)
+              sender ! SelectStatementFailed(ex.getMessage)
           }
 
         case Success(ParsedAggregatedQuery(_, _, q, aggregationType, sort, limit)) =>
           sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")
 
-        case Success(_)  => sender ! SelectStatementFailed("Unsupported query type")
-        case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+        case Success(_) => sender ! SelectStatementFailed("Unsupported query type")
+        case Failure(ex) =>
+          log.error(ex, "error occurred executing query {} in location {}", statement, location)
+          sender ! SelectStatementFailed(ex.getMessage)
       }
     case RefreshShard =>
       index.refresh()
