@@ -61,7 +61,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
+//    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
 
     assert(fieldName = "dimension", limit = 100, expectedCountSize = 0, expectedSizeDistinct = 0)
     assert(fieldName = "tag", limit = 100, expectedCountSize = 100, expectedSizeDistinct = 100)
@@ -103,7 +103,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
+//    implicit val searcher = facetIndexes.facetCountIndex.getSearcher
 
     assert(fieldName = "dimension", limit = 100, expectedCountSize = 0)
     assert(fieldName = "name", limit = 100, expectedCountSize = 0)

@@ -22,6 +22,7 @@ import io.radicalbit.nsdb.model.TypedField
 import org.apache.lucene.document._
 import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
 import org.apache.lucene.facet._
+import org.apache.lucene.facet.taxonomy.SearcherTaxonomyManager
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
@@ -31,7 +32,10 @@ import scala.util.{Failure, Success, Try}
 abstract class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
     extends AbstractStructuredIndex {
 
-  protected[this] lazy val taxoReader = new DirectoryTaxonomyReader(taxoDirectory)
+//  protected[this] lazy val taxoReader = new DirectoryTaxonomyReader(taxoDirectory)
+
+  private lazy val searchTaxonomyManager: SearcherTaxonomyManager =
+    new SearcherTaxonomyManager(directory, taxoDirectory, null)
 
   def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): Try[Long]
 
@@ -46,7 +50,20 @@ abstract class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseD
                                      valueIndexType: Option[IndexType[_]] = None): Option[FacetResult]
 
   /**
+    * @return a lucene [[IndexSearcher]] to be used in search operations.
+    */
+  override def getSearcher: IndexSearcher = searchTaxonomyManager.acquire().searcher
+
+  def getTaxoReader: DirectoryTaxonomyReader = searchTaxonomyManager.acquire().taxonomyReader
+
+  /**
+    * Refresh index content after a write operation.
+    */
+  override def refresh(): Unit = searchTaxonomyManager.maybeRefresh()
+
+  /**
     * Gets results from a count query.
+    *
     * @param query query to be executed against the facet index.
     * @param groupField field in the group by clause.
     * @param sort optional lucene [[Sort]]

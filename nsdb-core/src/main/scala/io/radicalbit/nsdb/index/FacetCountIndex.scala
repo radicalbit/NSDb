@@ -47,7 +47,7 @@ class FacetCountIndex(override val directory: BaseDirectory, override val taxoDi
       new FacetField(f.name, path)
     }
 
-    Try(commonWrite(bit, _ => new FacetsConfig, facetWrite)).flatten
+    commonWrite(bit, _ => new FacetsConfig, facetWrite)
   }
 
   override protected[this] def internalResult(query: Query,
@@ -65,8 +65,8 @@ class FacetCountIndex(override val directory: BaseDirectory, override val taxoDi
       FacetsCollector.search(getSearcher, query, actualLimit, _, fc)
     }
 
-    val facetsFolder = sort.fold(new FastTaxonomyFacetCounts(facetName(groupField), taxoReader, c, fc))(s =>
-      new OrderedTaxonomyFacetCounts(facetName(groupField), taxoReader, c, fc, s))
+    val facetsFolder = sort.fold(new FastTaxonomyFacetCounts(facetName(groupField), getTaxoReader, c, fc))(s =>
+      new OrderedTaxonomyFacetCounts(facetName(groupField), getTaxoReader, c, fc, s))
 
     Option(facetsFolder.getTopChildren(actualLimit, groupField))
   }
