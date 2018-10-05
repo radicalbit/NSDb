@@ -2,6 +2,7 @@ import { Observable } from 'rxjs';
 import request from '../utils/request';
 
 const httpEndpoint = process.env.REACT_APP_NSDB_HTTP;
+const wsEndpoint = process.env.REACT_APP_NSDB_WS;
 
 export function fetchDatabases() {
   return request(`${httpEndpoint}/commands/dbs`, {
@@ -36,9 +37,8 @@ export function fetchHistoricalQuery(query) {
 }
 
 export function runRealtimeQuery(id) {
-  const url = window.location.href.replace('http', 'ws').replace('/ui/', '');
   return Observable.webSocket({
-    url: `${url}/ws-stream`,
+    url: `${wsEndpoint}/ws-stream`,
     openObserver: { next: () => console.log(`Opening socket for tab ${id}`) },
     closeObserver: { next: () => console.log(`Closing socket for tab ${id}`) },
     closingObserver: { next: () => console.log(`Closing socket for tab ${id}`) },

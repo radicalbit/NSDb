@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
@@ -31,7 +30,7 @@ import io.radicalbit.nsdb.ui.StaticResources
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -53,28 +52,43 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
       implicit logger: LoggingAdapter) =
     authProvider match {
       case Success(provider) =>
-        val api: Route = wsResources(publisher, provider) ~ new ApiResources(
-          publisher,
-          readCoordinator,
-          writeCoordinator,
-          provider).apiResources(config) ~ staticResources
+        val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
+                                                                             readCoordinator,
+                                                                             writeCoordinator,
+                                                                             provider).apiResources(config)
+
+        val httpExt = akka.http.scaladsl.Http()
 
         val http =
           if (isSSLEnabled) {
             val port = config.getInt("nsdb.http.https-port")
-            logger.info(s"Cluster started with https protocol on port $port")
-            Http().bindAndHandle(withCors(api),
-                                 config.getString("nsdb.http.interface"),
-                                 config.getInt("nsdb.http.https-port"),
-                                 connectionContext = serverContext)
+            logger.info(s"Cluster Apis started with https protocol on port $port")
+            httpExt.bindAndHandle(withCors(api),
+                                  config.getString("nsdb.http.interface"),
+                                  config.getInt("nsdb.http.https-port"),
+                                  connectionContext = serverContext)
           } else {
             val port = config.getInt("nsdb.http.port")
-            logger.info(s"Cluster started with http protocol on port $port")
-            Http().bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), port)
+            logger.info(s"Cluster Apis started with http protocol on port $port")
+            httpExt.bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), port)
+          }
+
+        val httpUI =
+          if (isSSLEnabled) {
+            val port = config.getInt("nsdb.ui.https-port")
+            logger.info(s"Cluster UI started with https protocol on port $port")
+            httpExt.bindAndHandle(withCors(staticResources),
+                                  config.getString("nsdb.ui.interface"),
+                                  config.getInt("nsdb.ui.https-port"),
+                                  connectionContext = serverContext)
+          } else {
+            val port = config.getInt("nsdb.ui.port")
+            logger.info(s"Cluster UI started with http protocol on port $port")
+            httpExt.bindAndHandle(withCors(staticResources), config.getString("nsdb.http.interface"), port)
           }
 
         scala.sys.addShutdownHook {
-          http.flatMap(_.unbind()).onComplete { _ =>
+          Future.sequence(Seq(http.flatMap(_.unbind()), httpUI.flatMap(_.unbind()))).onComplete { _ =>
             system.terminate()
           }
 
