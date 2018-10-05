@@ -40,7 +40,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     writer.close()
 
     (0 to 100).foreach { i =>
-    val result = metadataIndex.getLocationsForCoordinates(Coordinates("db", "namespace", s"metric_$i"))
+      val result = metadataIndex.getLocationsForCoordinates(Coordinates("db", "namespace", s"metric_$i"))
       result.size shouldBe 1
     }
 

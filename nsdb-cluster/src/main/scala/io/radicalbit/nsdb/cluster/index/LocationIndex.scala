@@ -68,7 +68,7 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
 
   override def toRecord(document: Document, fields: Seq[SimpleField]): Location = {
     val fields      = document.getFields.asScala.map(f => f.name() -> f).toMap
-    val coordinates = document.get(_keyField).split("|")
+    val coordinates = document.get(_keyField).split("\\|")
     Location(
       Coordinates(coordinates(0), coordinates(1), coordinates(2)),
       document.get("node"),

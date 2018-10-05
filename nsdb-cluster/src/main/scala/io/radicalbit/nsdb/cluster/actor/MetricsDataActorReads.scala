@@ -127,8 +127,14 @@ class MetricsDataActorReads(val basePath: String, val nodeName: String) extends 
         .getOrElse(Future(true))
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
-//    case msg @ DropMetric(db, namespace, _) =>
+    case DropMetric(db, namespace, metric) =>
 //      getOrCreateChildren(db, namespace)._2 forward msg
+      val child = getReader(db, namespace)
+      child
+        .map(gracefulStop(_, timeout.duration))
+        .getOrElse(Future(true))
+        .map(_ => MetricDropped(db, namespace, metric))
+        .pipeTo(sender())
     case msg @ GetCount(db, namespace, metric) =>
       getReader(db, namespace) match {
         case Some(child) => child forward msg

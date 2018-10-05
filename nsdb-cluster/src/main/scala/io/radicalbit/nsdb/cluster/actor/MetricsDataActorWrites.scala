@@ -134,7 +134,12 @@ class MetricsDataActorWrites(val basePath: String,
           .map(_ => NamespaceDeleted(db, namespace))
           .pipeTo(sender())
     case msg @ DropMetric(db, namespace, _) =>
-      getOrCreateAccumulator(db, namespace) forward msg
+      (getOrCreateAccumulator(db, namespace) ? msg)
+        .map { res =>
+          metricsReaderActor ! msg
+          res
+        }
+        .pipeTo(sender())
 //    case msg @ GetCount(db, namespace, metric) =>
 //      getReader(db, namespace) match {
 //        case Some(child) => child forward msg
