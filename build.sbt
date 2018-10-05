@@ -74,6 +74,28 @@ lazy val `nsdb-web-ui` = project
     },
     uiCopyTask := Def.taskDyn {
       if (buildUI.value) {
+
+        val clusterResourcesDir = file(".") / "nsdb-cluster" / "src" / "main" / "resources"
+
+        import com.typesafe.config.ConfigFactory
+        val clusterConfig = ConfigFactory.parseFile(clusterResourcesDir / "cluster.conf").resolve()
+        val sslEnabled    = ConfigFactory.parseFile(clusterResourcesDir / "https.conf").getBoolean("ssl.enabled")
+        val httpProtocol  = if (sslEnabled) "https" else "http"
+        val wsProtocol    = if (sslEnabled) "wss" else "ws"
+        val port =
+          if (sslEnabled) clusterConfig.getInt("nsdb.http.https-port") else clusterConfig.getInt("nsdb.http.port")
+
+        val configFile = baseDirectory.value / "app" / ".env.production.template"
+        val content = IO
+          .read(configFile)
+          .replace("{httpProtocol}", httpProtocol)
+          .replace("{wsProtocol}", wsProtocol)
+          .replace("{httpPort}", port.toString)
+          .replace("{wsPort}", port.toString)
+
+        val destFile = baseDirectory.value / "app" / ".env.production"
+        IO.write(destFile, content, append = false)
+
         val log = streams.value.log
         log.info("building ui")
         Def.task {
