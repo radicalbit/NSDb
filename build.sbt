@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import com.typesafe.config.ConfigFactory
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
@@ -73,15 +74,14 @@ lazy val `nsdb-web-ui` = project
       yarn.toTask(" setup").value
     },
     uiCopyTask := Def.taskDyn {
-      if (buildUI.value) {
+      val clusterResourcesDir = file(".") / "nsdb-cluster" / "src" / "main" / "resources"
+      val clusterConfig       = ConfigFactory.parseFile(clusterResourcesDir / "cluster.conf").resolve()
 
-        val clusterResourcesDir = file(".") / "nsdb-cluster" / "src" / "main" / "resources"
+      if (buildUI.value && clusterConfig.getBoolean("nsdb.ui.enabled")) {
 
-        import com.typesafe.config.ConfigFactory
-        val clusterConfig = ConfigFactory.parseFile(clusterResourcesDir / "cluster.conf").resolve()
-        val sslEnabled    = ConfigFactory.parseFile(clusterResourcesDir / "https.conf").getBoolean("ssl.enabled")
-        val httpProtocol  = if (sslEnabled) "https" else "http"
-        val wsProtocol    = if (sslEnabled) "wss" else "ws"
+        val sslEnabled   = ConfigFactory.parseFile(clusterResourcesDir / "https.conf").getBoolean("ssl.enabled")
+        val httpProtocol = if (sslEnabled) "https" else "http"
+        val wsProtocol   = if (sslEnabled) "wss" else "ws"
         val port =
           if (sslEnabled) clusterConfig.getInt("nsdb.http.https-port") else clusterConfig.getInt("nsdb.http.port")
 
