@@ -128,16 +128,16 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
                                   publisherActor)
     case GetMetricsDataActorsReads =>
       log.debug("gossiping metric data actors from node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActorReads(metricsDataActorReads, nodeName))
+      mediator ! Publish(READ_COORDINATORS_TOPIC, SubscribeMetricsDataActorReads(metricsDataActorReads, nodeName))
     case GetMetricsDataActorsWrites =>
       log.debug("gossiping metric data actors from node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActorWrites(metricsDataActorWrites, nodeName))
+      mediator ! Publish(WRITE_COORDINATORS_TOPIC, SubscribeMetricsDataActorWrites(metricsDataActorWrites, nodeName))
     case GetCommitLogCoordinators =>
       log.debug("gossiping commit logs for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
+      mediator ! Publish(WRITE_COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
     case GetPublishers =>
       log.debug("gossiping publishers for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))
+      mediator ! Publish(WRITE_COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))
   }
 }
 

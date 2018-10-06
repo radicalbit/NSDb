@@ -26,7 +26,7 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
+import io.radicalbit.nsdb.cluster.PubSubTopics.{WRITE_COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
@@ -411,7 +411,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   }
 
   override def preStart(): Unit = {
-    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+    mediator ! Subscribe(WRITE_COORDINATORS_TOPIC, self)
 
     val interval = FiniteDuration(
       context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),

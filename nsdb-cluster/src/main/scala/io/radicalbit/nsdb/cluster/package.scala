@@ -23,11 +23,12 @@ package object cluster {
     s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
 
   final object PubSubTopics {
-    final val WARMUP_TOPIC         = "warm-up-topic"
-    final val SCHEMA_TOPIC         = "schema"
-    final val METADATA_TOPIC       = "metadata"
-    final val COORDINATORS_TOPIC   = "coordinators"
-    final val NODE_GUARDIANS_TOPIC = "node-guardians"
+    final val WARMUP_TOPIC             = "warm-up-topic"
+    final val SCHEMA_TOPIC             = "schema"
+    final val METADATA_TOPIC           = "metadata"
+    final val READ_COORDINATORS_TOPIC  = "read_coordinators"
+    final val WRITE_COORDINATORS_TOPIC = "write_coordinators"
+    final val NODE_GUARDIANS_TOPIC     = "node-guardians"
   }
 
 }

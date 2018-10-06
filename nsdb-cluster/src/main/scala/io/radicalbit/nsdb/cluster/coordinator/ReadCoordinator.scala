@@ -67,7 +67,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
   override def preStart(): Unit = {
 
-    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+    mediator ! Subscribe(READ_COORDINATORS_TOPIC, self)
 
     val interval = FiniteDuration(
       context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
@@ -78,7 +78,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       */
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActorsReads)
-      log.debug("readcoordinator data actor : {}", metricsDataActors.size)
+      log.debug("read coordinator data actor : {}", metricsDataActors.size)
     }
   }
 
