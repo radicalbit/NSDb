@@ -22,8 +22,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.actor.{MetricsDataActorReads, MetricsDataActorWrites}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.{NodeReadsDataActor, NodeWritesDataActor}
+import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, WarmUpMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.common.protocol._
@@ -121,9 +121,9 @@ class ReadCoordinatorSpec
     "metadatacoordinator")
   val writeCoordinator =
     system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)))
-  val metricsDataActorReads = system.actorOf(MetricsDataActorReads.props(basePath, "node1"))
+  val metricsDataActorReads = system.actorOf(NodeReadsDataActor.props(basePath, "node1"))
   val metricsDataActorWrites =
-    system.actorOf(MetricsDataActorWrites.props(basePath, "node1", writeCoordinator, metricsDataActorReads))
+    system.actorOf(NodeWritesDataActor.props(basePath, "node1", writeCoordinator, metricsDataActorReads))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
                                                                   system.actorOf(Props.empty))

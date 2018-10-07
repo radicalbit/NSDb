@@ -27,7 +27,7 @@ import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{WRITE_COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.{
+import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }

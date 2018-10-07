@@ -24,7 +24,7 @@ import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
-import io.radicalbit.nsdb.cluster.actor.{MetricsDataActorReads, MetricsDataActorWrites}
+import io.radicalbit.nsdb.cluster.actor.{NodeReadsDataActor, NodeWritesDataActor}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, WriteToCommitLogSucceeded}
@@ -113,10 +113,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
                                                                          schemaCoordinator,
                                                                          system.actorOf(Props.empty))
   lazy val metricsDataActorReads =
-    TestActorRef[MetricsDataActorReads](MetricsDataActorReads.props(basePath, "node1"))
+    TestActorRef[NodeReadsDataActor](NodeReadsDataActor.props(basePath, "node1"))
   lazy val metricsDataActorWrites =
-    TestActorRef[MetricsDataActorWrites](
-      MetricsDataActorWrites.props(basePath, "node1", writeCoordinatorActor, metricsDataActorReads))
+    TestActorRef[NodeWritesDataActor](
+      NodeWritesDataActor.props(basePath, "node1", writeCoordinatorActor, metricsDataActorReads))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
   val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)

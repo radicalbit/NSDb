@@ -22,7 +22,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -32,7 +32,7 @@ import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class MetricsDataActorSpec()
+class NodeDataActorSpec()
     extends TestKit(ActorSystem("metricsDataActorSpec"))
     with ImplicitSender
     with FlatSpecLike
@@ -46,9 +46,9 @@ class MetricsDataActorSpec()
   val db                   = "db"
   val namespace            = "namespace"
   val namespace1           = "namespace1"
-  val metricsDataActorRead = system.actorOf(MetricsDataActorReads.props(basePath, "testNode"))
+  val metricsDataActorRead = system.actorOf(NodeReadsDataActor.props(basePath, "testNode"))
   val metricsDataActorWrite =
-    system.actorOf(MetricsDataActorWrites.props(basePath, "testNode", probeCoord.ref, metricsDataActorRead))
+    system.actorOf(NodeWritesDataActor.props(basePath, "testNode", probeCoord.ref, metricsDataActorRead))
 
   private val metric = "metricsDataActorMetric"
 
@@ -65,7 +65,7 @@ class MetricsDataActorSpec()
     Await.result(metricsDataActorWrite ? DeleteNamespace(db, namespace1), 10 seconds)
   }
 
-  "metricsDataActor" should "write and delete properly" in within(5.seconds) {
+  "nodeDataActor" should "write and delete properly" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 0.5, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
@@ -104,7 +104,7 @@ class MetricsDataActorSpec()
     expectedCountDeleted.count shouldBe 0
   }
 
-  "metricsDataActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
+  "nodeDataActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 24, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
@@ -135,7 +135,7 @@ class MetricsDataActorSpec()
 
   }
 
-  "metricsDataActor" should "delete a namespace" in within(5.seconds) {
+  "nodeDataActor" should "delete a namespace" in within(5.seconds) {
 
     val record = Bit(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 

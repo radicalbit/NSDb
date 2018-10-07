@@ -26,7 +26,7 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads._
+import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -37,11 +37,11 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import scala.concurrent.Future
 
 /**
-  * Actor responsible for dispatching read or write commands to the proper actor and index.
+  * Actor responsible for dispatching read commands to the proper actor and index.
   * @param basePath indexes' root path.
   * @param nodeName String representation of the host and the port Actor is deployed at.
   */
-class MetricsDataActorReads(val basePath: String, val nodeName: String) extends ActorPathLogging {
+class NodeReadsDataActor(val basePath: String, val nodeName: String) extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
@@ -145,7 +145,7 @@ class MetricsDataActorReads(val basePath: String, val nodeName: String) extends 
 
 }
 
-object MetricsDataActorReads {
+object NodeReadsDataActor {
 
   /**
     * Case class to model reader router size.
@@ -169,7 +169,7 @@ object MetricsDataActorReads {
   }
 
   def props(basePath: String, nodeName: String): Props =
-    Props(new MetricsDataActorReads(basePath, nodeName))
+    Props(new NodeReadsDataActor(basePath, nodeName))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)

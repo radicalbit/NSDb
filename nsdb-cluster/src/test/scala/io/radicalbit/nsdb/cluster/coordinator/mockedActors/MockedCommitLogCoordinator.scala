@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 import java.time.Duration
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{

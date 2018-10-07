@@ -104,19 +104,19 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     )
 
   private val metricsDataActorReads = context.actorOf(
-    MetricsDataActorReads
+    NodeReadsDataActor
       .props(indexBasePath, nodeName)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
-    s"metrics-data-actor-reads_$nodeName"
+    s"node-reads-data-actor_$nodeName"
   )
 
   private val metricsDataActorWrites = context.actorOf(
-    MetricsDataActorWrites
+    NodeWritesDataActor
       .props(indexBasePath, nodeName, commitLogCoordinator, metricsDataActorReads)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
-    s"metrics-data-actor-writes_$nodeName"
+    s"node-writes-data-actor_$nodeName"
   )
 
   def receive: Receive = {

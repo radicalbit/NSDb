@@ -23,7 +23,7 @@ import akka.actor.{ActorRef, Props}
 import akka.pattern.{ask, gracefulStop, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActorReads._
+import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -32,14 +32,14 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import scala.concurrent.Future
 
 /**
-  * Actor responsible for dispatching read or write commands to the proper actor and index.
+  * Actor responsible for dispatching write commands to the proper actor and index.
   * @param basePath indexes' root path.
   * @param nodeName String representation of the host and the port Actor is deployed at.
   */
-class MetricsDataActorWrites(val basePath: String,
-                             val nodeName: String,
-                             localCommitLogCoordinator: ActorRef,
-                             metricsReaderActor: ActorRef)
+class NodeWritesDataActor(val basePath: String,
+                          val nodeName: String,
+                          localCommitLogCoordinator: ActorRef,
+                          nodeReadsDataActor: ActorRef)
     extends ActorPathLogging {
 
   /**
@@ -54,7 +54,7 @@ class MetricsDataActorWrites(val basePath: String,
 
     accumulatorOpt.getOrElse(
       context.actorOf(
-        MetricAccumulatorActor.props(basePath, db, namespace, metricsReaderActor, localCommitLogCoordinator),
+        MetricAccumulatorActor.props(basePath, db, namespace, nodeReadsDataActor, localCommitLogCoordinator),
         s"metric_accumulator_${db}_$namespace"))
   }
 
@@ -89,14 +89,14 @@ class MetricsDataActorWrites(val basePath: String,
       else
         (accumulator.get ? DeleteAllMetrics(db, namespace))
           .flatMap(_ => {
-            Future.sequence(Seq(metricsReaderActor ? msg, gracefulStop(accumulator.get, timeout.duration)))
+            Future.sequence(Seq(nodeReadsDataActor ? msg, gracefulStop(accumulator.get, timeout.duration)))
           })
           .map(_ => NamespaceDeleted(db, namespace))
           .pipeTo(sender())
     case msg @ DropMetric(db, namespace, _) =>
       (getOrCreateAccumulator(db, namespace) ? msg)
         .map { res =>
-          metricsReaderActor ! msg
+          nodeReadsDataActor ! msg
           res
         }
         .pipeTo(sender())
@@ -121,10 +121,10 @@ class MetricsDataActorWrites(val basePath: String,
 
 }
 
-object MetricsDataActorWrites {
+object NodeWritesDataActor {
   def props(basePath: String,
             nodeName: String,
             localCommitLogCoordinator: ActorRef,
-            metricsReaderActor: ActorRef): Props =
-    Props(new MetricsDataActorWrites(basePath, nodeName, localCommitLogCoordinator, metricsReaderActor))
+            nodeReadsDataActor: ActorRef): Props =
+    Props(new NodeWritesDataActor(basePath, nodeName, localCommitLogCoordinator, nodeReadsDataActor))
 }
