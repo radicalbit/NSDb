@@ -54,7 +54,6 @@ class MetricsDataActorReads(val basePath: String, val nodeName: String) extends 
     */
   private def getOrCreateReader(db: String, namespace: String): ActorRef = {
     val readerOpt = context.child(s"metric_reader_${db}_$namespace")
-//    val accumulatorOpt = context.child(s"metric_accumulator_${db}_$namespace")
 
     readerOpt.getOrElse(
       context.actorOf(
@@ -64,15 +63,7 @@ class MetricsDataActorReads(val basePath: String, val nodeName: String) extends 
             .withDispatcher("akka.actor.control-aware-dispatcher")),
         s"metric_reader_${db}_$namespace"
       ))
-//    val accumulator = accumulatorOpt.getOrElse(
-//      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localCommitLogCoordinator),
-//                      s"metric_accumulator_${db}_$namespace"))
-//    (reader, accumulator)
-//    reader
   }
-
-//  private def getChil(db: String, namespace: String): Option[ActorRef] =
-//    context.child(s"metric_reader_${db}_$namespace")
 
   /**
     * If exists, gets the reader for selected namespace and database.
@@ -128,7 +119,6 @@ class MetricsDataActorReads(val basePath: String, val nodeName: String) extends 
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
     case DropMetric(db, namespace, metric) =>
-//      getOrCreateChildren(db, namespace)._2 forward msg
       val child = getReader(db, namespace)
       child
         .map(gracefulStop(_, timeout.duration))
@@ -151,26 +141,6 @@ class MetricsDataActorReads(val basePath: String, val nodeName: String) extends 
         case ((db, namespace), _) =>
           getOrCreateReader(db, namespace) ! Broadcast(msg)
       }
-//      opBufferMap --= writeIds
-//      performingOps = Map.empty
-//      keys.foreach { key =>
-//        getIndex(key).refresh()
-//        facetIndexesFor(key).refresh()
-//      }
-//      metricsReaderActor ! msg
-//    case msg @ AddRecordToLocation(db, namespace, bit, location) =>
-//      log.debug("received message {}", msg)
-//      getOrCreateReader(db, namespace)
-//        .forward(AddRecordToShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
-//    case DeleteRecordFromLocation(db, namespace, bit, location) =>
-//      getOrCreateChildren(db, namespace)._2
-//        .forward(
-//          DeleteRecordFromShard(db, namespace, Location(location.metric, nodeName, location.from, location.to), bit))
-//    case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
-//      getOrCreateChildren(statement.db, statement.namespace)._2.forward(
-//        ExecuteDeleteStatementInShards(statement,
-//                                       schema,
-//                                       locations.map(l => Location(l.metric, nodeName, l.from, l.to))))
   }
 
 }
