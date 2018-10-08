@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import com.typesafe.config.ConfigFactory
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
@@ -44,6 +45,8 @@ lazy val root = project
     `nsdb-web-ui`
   )
 
+lazy val buildUI = Def.settingKey[Boolean]("Whether to build UI")
+buildUI in Global := true
 lazy val uiCompileTask = taskKey[Unit]("build UI")
 lazy val uiCopyTask    = taskKey[Unit]("copy UI")
 lazy val packageDist   = taskKey[File]("create universal package and move it to package folder")
@@ -53,6 +56,7 @@ lazy val packageRpm    = taskKey[File]("create RPM package and move it to packag
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
+addCommandAlias("quickTest", ";set buildUI in Global := false; clean; test")
 
 lazy val `nsdb-web-ui` = project
   .settings(Commons.settings: _*)
@@ -69,17 +73,47 @@ lazy val `nsdb-web-ui` = project
       log.info("Starting build ui task")
       yarn.toTask(" setup").value
     },
-    uiCopyTask := {
-      val log = streams.value.log
-      uiCompileTask.value
-      val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
-      val from = baseDirectory.value / "app/build"
-      log.info("Deleting previous resources")
-      IO.delete(to)
-      log.info("Coping ui static resources")
-      IO.copyDirectory(from, to)
+    uiCopyTask := Def.taskDyn {
+      val clusterResourcesDir = file(".") / "nsdb-cluster" / "src" / "main" / "resources"
+      val clusterConfig       = ConfigFactory.parseFile(clusterResourcesDir / "cluster.conf").resolve()
 
-    },
+      if (buildUI.value && clusterConfig.getBoolean("nsdb.ui.enabled")) {
+
+        val sslEnabled   = ConfigFactory.parseFile(clusterResourcesDir / "https.conf").getBoolean("ssl.enabled")
+        val httpProtocol = if (sslEnabled) "https" else "http"
+        val wsProtocol   = if (sslEnabled) "wss" else "ws"
+        val port =
+          if (sslEnabled) clusterConfig.getInt("nsdb.http.https-port") else clusterConfig.getInt("nsdb.http.port")
+
+        val configFile = baseDirectory.value / "app" / ".env.production.template"
+        val content = IO
+          .read(configFile)
+          .replace("{httpProtocol}", httpProtocol)
+          .replace("{wsProtocol}", wsProtocol)
+          .replace("{httpPort}", port.toString)
+          .replace("{wsPort}", port.toString)
+
+        val destFile = baseDirectory.value / "app" / ".env.production"
+        IO.write(destFile, content, append = false)
+
+        val log = streams.value.log
+        log.info("building ui")
+        Def.task {
+          val log = streams.value.log
+          uiCompileTask.value
+          val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
+          val from = baseDirectory.value / "app/build"
+          log.info("Deleting previous resources")
+          IO.delete(to)
+          log.info("Coping ui static resources")
+          IO.copyDirectory(from, to)
+        }
+      } else {
+        val log = streams.value.log
+        log.info("skip building ui")
+        Def.task {}
+      }
+    }.value,
     (compile in Compile) := ((compile in Compile) dependsOn uiCopyTask).value
   )
 

@@ -40,7 +40,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
       s"metric",
       Set(
         SchemaField("field1", DimensionFieldType, BIGINT()),
-        SchemaField("field2", TagFieldType, VARCHAR()),
+        SchemaField("field2", TagFieldType, VARCHAR())
       )
     )
 

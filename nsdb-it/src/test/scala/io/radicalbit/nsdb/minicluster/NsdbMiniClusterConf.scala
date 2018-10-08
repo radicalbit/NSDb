@@ -24,6 +24,7 @@ trait NsdbMiniClusterConf extends NsdbConfig {
   def akkaRemotePort: Int
   def grpcPort: Int
   def httpPort: Int
+  def uiPort: Int
   def dataDir: String
   def commitLogDir: String
 
@@ -33,6 +34,7 @@ trait NsdbMiniClusterConf extends NsdbConfig {
       .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(akkaRemotePort))
       .withValue("nsdb.grpc.port", ConfigValueFactory.fromAnyRef(grpcPort))
       .withValue("nsdb.http.port", ConfigValueFactory.fromAnyRef(httpPort))
+      .withValue("nsdb.ui.port", ConfigValueFactory.fromAnyRef(uiPort))
       .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
       .withValue("nsdb.commit-log.directory", ConfigValueFactory.fromAnyRef(commitLogDir))
 }

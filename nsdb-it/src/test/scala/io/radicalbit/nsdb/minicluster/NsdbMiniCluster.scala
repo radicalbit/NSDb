@@ -27,6 +27,7 @@ trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] val startingAkkaRemotePort = 2552
   protected[this] val startingHttpPort       = 9010
+  protected[this] val startingUiPort         = 9020
   protected[this] val startingGrpcPort       = 7817
   protected[this] val rootFolder             = "target/minicluster"
   protected[this] val clFolder               = "target/commitLog"
@@ -41,6 +42,7 @@ trait NsdbMiniCluster extends LazyLogging {
       new NSDbMiniClusterNode(
         akkaRemotePort = startingAkkaRemotePort + i,
         httpPort = startingHttpPort + i,
+        uiPort = startingUiPort + i,
         grpcPort = startingGrpcPort + i,
         dataDir = s"$rootFolder/data${startingAkkaRemotePort + i}",
         commitLogDir = s"$clFolder$i"

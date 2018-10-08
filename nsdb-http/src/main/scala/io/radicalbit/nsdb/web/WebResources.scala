@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.web
 
 import java.util.concurrent.TimeUnit
 
+import akka.Done
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
@@ -31,7 +32,7 @@ import io.radicalbit.nsdb.ui.StaticResources
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -53,31 +54,59 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
       implicit logger: LoggingAdapter) =
     authProvider match {
       case Success(provider) =>
-        val api: Route = wsResources(publisher, provider) ~ new ApiResources(
-          publisher,
-          readCoordinator,
-          writeCoordinator,
-          provider).apiResources(config) ~ staticResources
+        val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
+                                                                             readCoordinator,
+                                                                             writeCoordinator,
+                                                                             provider).apiResources(config)
 
-        val http =
+        val httpExt = akka.http.scaladsl.Http()
+
+        val http: Future[Http.ServerBinding] =
           if (isSSLEnabled) {
             val port = config.getInt("nsdb.http.https-port")
-            logger.info(s"Cluster started with https protocol on port $port")
-            Http().bindAndHandle(withCors(api),
-                                 config.getString("nsdb.http.interface"),
-                                 config.getInt("nsdb.http.https-port"),
-                                 connectionContext = serverContext)
+            logger.info(s"Cluster Apis started with https protocol on port $port")
+            httpExt.bindAndHandle(withCors(api),
+                                  config.getString("nsdb.http.interface"),
+                                  config.getInt("nsdb.http.https-port"),
+                                  connectionContext = serverContext)
           } else {
             val port = config.getInt("nsdb.http.port")
-            logger.info(s"Cluster started with http protocol on port $port")
-            Http().bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), port)
+            logger.info(s"Cluster Apis started with http protocol on port $port")
+            httpExt.bindAndHandle(withCors(api), config.getString("nsdb.http.interface"), port)
+          }
+
+        val uiEnabled = config.getBoolean("nsdb.ui.enabled")
+
+        val httpUI =
+          if (uiEnabled) {
+            if (isSSLEnabled) {
+              val port = config.getInt("nsdb.ui.https-port")
+              logger.info(s"Cluster UI started with https protocol on port $port")
+              httpExt
+                .bindAndHandle(withCors(staticResources),
+                               config.getString("nsdb.ui.interface"),
+                               config.getInt("nsdb.ui.https-port"),
+                               connectionContext = serverContext)
+                .map(Some(_))
+            } else {
+              val port = config.getInt("nsdb.ui.port")
+              logger.info(s"Cluster UI started with http protocol on port $port")
+              httpExt
+                .bindAndHandle(withCors(staticResources), config.getString("nsdb.http.interface"), port)
+                .map(Some(_))
+            }
+          } else {
+            logger.info(s"UI is disabled")
+            Future(None)
           }
 
         scala.sys.addShutdownHook {
-          http.flatMap(_.unbind()).onComplete { _ =>
-            system.terminate()
-          }
-
+          Future
+            .sequence(
+              Seq(http.flatMap(_.unbind()), httpUI.flatMap(opt => opt.map(_.unbind()).getOrElse(Future(Done)))))
+            .onComplete { _ =>
+              system.terminate()
+            }
           Await.result(system.whenTerminated, 60 seconds)
         }
       case Failure(ex) =>
