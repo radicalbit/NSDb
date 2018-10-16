@@ -22,7 +22,7 @@ import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.actor.NodeWritesDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._

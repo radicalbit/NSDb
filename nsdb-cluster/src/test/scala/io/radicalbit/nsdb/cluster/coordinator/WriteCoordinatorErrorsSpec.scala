@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordRejected, WarmUpCompleted}
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
 import akka.pattern.ask
-import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.actor.NodeWritesDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit

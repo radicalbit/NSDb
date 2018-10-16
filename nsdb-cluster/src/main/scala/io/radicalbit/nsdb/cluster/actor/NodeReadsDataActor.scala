@@ -170,10 +170,4 @@ object NodeReadsDataActor {
 
   def props(basePath: String, nodeName: String): Props =
     Props(new NodeReadsDataActor(basePath, nodeName))
-
-  case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
-  case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
-  case class ExecuteDeleteStatementInternalInLocations(statement: DeleteSQLStatement,
-                                                       schema: Schema,
-                                                       locations: Seq[Location])
 }

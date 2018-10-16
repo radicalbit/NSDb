@@ -26,8 +26,8 @@ import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.PubSubTopics.{WRITE_COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.{
+import io.radicalbit.nsdb.cluster.PubSubTopics.{NODE_GUARDIANS_TOPIC, WRITE_COORDINATORS_TOPIC}
+import io.radicalbit.nsdb.cluster.actor.NodeWritesDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }

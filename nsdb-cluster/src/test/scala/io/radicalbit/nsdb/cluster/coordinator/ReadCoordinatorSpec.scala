@@ -22,8 +22,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.actor.NodeWritesDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.actor.{NodeReadsDataActor, NodeWritesDataActor}
-import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, WarmUpMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.common.protocol._

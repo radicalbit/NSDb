@@ -23,8 +23,10 @@ import akka.actor.{ActorRef, Props}
 import akka.pattern.{ask, gracefulStop, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor
-import io.radicalbit.nsdb.cluster.actor.NodeReadsDataActor._
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.cluster.actor.NodeWritesDataActor._
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -127,4 +129,10 @@ object NodeWritesDataActor {
             localCommitLogCoordinator: ActorRef,
             nodeReadsDataActor: ActorRef): Props =
     Props(new NodeWritesDataActor(basePath, nodeName, localCommitLogCoordinator, nodeReadsDataActor))
+
+  case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
+  case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
+  case class ExecuteDeleteStatementInternalInLocations(statement: DeleteSQLStatement,
+                                                       schema: Schema,
+                                                       locations: Seq[Location])
 }
