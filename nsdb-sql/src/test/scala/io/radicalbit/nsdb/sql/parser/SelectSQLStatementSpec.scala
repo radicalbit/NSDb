@@ -302,10 +302,11 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully using relative time" in {
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input =
-                                       "SELECT name FROM people WHERE timestamp > now - 2h AND timestamp = now + 4m")
+        val statement = parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "SELECT name FROM people WHERE timestamp < now + 30d and timestamp > now - 2h AND timestamp = now + 4m")
         statement.isSuccess shouldBe true
       }
     }
