@@ -116,7 +116,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   }
   private val stringValueWithWildcards = """(^[a-zA-Z_\$][a-zA-Z0-9_\-\$]*[a-zA-Z0-9\$])""".r
 
-  private val timeMeasure = ("h".ignoreCase | "m".ignoreCase | "s".ignoreCase).map(_.toUpperCase()) ^^ {
+  private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
+    .map(_.toUpperCase()) ^^ {
+    case "D" => 24 * 3600 * 1000
     case "H" => 3600 * 1000
     case "M" => 60 * 1000
     case "S" => 1000
