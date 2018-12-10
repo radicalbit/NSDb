@@ -692,7 +692,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(SqlSumAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-            groupBy = Some("name")
+            groupBy = Some(SimpleGroupByAggregation("name"))
           ),
           schema
         ) should be(
@@ -714,7 +714,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-            groupBy = Some("name")
+            groupBy = Some(SimpleGroupByAggregation("name"))
           ),
           schema
         ) should be(
@@ -739,7 +739,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
-            groupBy = Some("name"),
+            groupBy = Some(SimpleGroupByAggregation("name")),
             order = Some(DescOrderOperator(dimension = "value")),
             limit = Some(LimitOperator(5))
           ),
@@ -966,7 +966,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(SqlSumAggregation)))),
             condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
-            groupBy = Some("amount"),
+            groupBy = Some(SimpleGroupByAggregation("amount")),
             limit = Some(LimitOperator(5))
           ),
           schema
@@ -998,7 +998,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("amount", Some(SqlSumAggregation)))),
             condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
-            groupBy = Some("name"),
+            groupBy = Some(SimpleGroupByAggregation("name")),
             limit = Some(LimitOperator(5))
           ),
           schema

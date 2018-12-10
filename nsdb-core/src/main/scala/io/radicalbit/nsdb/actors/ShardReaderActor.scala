@@ -20,6 +20,8 @@ import java.nio.file.Paths
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.Location
@@ -113,7 +115,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
-
 
         case Success(ParsedAggregatedQuery(_, _, q, aggregationType, sort, limit)) =>
           sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")

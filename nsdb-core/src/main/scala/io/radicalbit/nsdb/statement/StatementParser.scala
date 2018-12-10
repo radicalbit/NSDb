@@ -162,7 +162,7 @@ object StatementParser {
         case (_, Failure(exception), _) => Failure(exception)
         // Trying to order by a dimension not in group by clause
         case (false, Success(Seq(Field(_, Some(_)))), Some(group))
-            if sortOpt.isDefined && !Seq("value", group).contains(sortOpt.get.getSort.head.getField) =>
+            if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
         // Match temporal count aggregation
         case (false,
@@ -190,15 +190,15 @@ object StatementParser {
               statement.namespace,
               statement.metric,
               exp.q,
-              aggregationType(groupField = group, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
+              aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
               sortOpt,
               limitOpt
             ))
         case (false, Success(Seq(Field(fieldName, Some(_)))), Some(group))
-            if schema.fields.map(_.name).contains(group) =>
+            if schema.fields.map(_.name).contains(group.dimension) =>
           Failure(new InvalidStatementException(StatementParserErrors.AGGREGATION_NOT_ON_VALUE))
         case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
-          Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(group)))
+          Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(group.dimension)))
         case (_, Success(List(Field(_, None))), Some(_)) =>
           Failure(new InvalidStatementException(StatementParserErrors.NO_AGGREGATION_GROUP_BY))
         case (_, Success(List(_)), Some(_)) =>

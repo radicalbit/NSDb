@@ -236,22 +236,24 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                 }
 
               case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get, schema, uniqueLocationsByNode) { values =>
-                  Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
+                gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
+                  values =>
+                    Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
                 }
 
               case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get, schema, uniqueLocationsByNode) { values =>
-                  val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-                  implicit val numeric: Numeric[JSerializable] = v.numeric
-                  aggregationType match {
-                    case InternalMaxAggregation(_, _) =>
-                      Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
-                    case InternalMinAggregation(_, _) =>
-                      Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
-                    case InternalSumAggregation(_, _) =>
-                      Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
-                  }
+                gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
+                  values =>
+                    val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
+                    implicit val numeric: Numeric[JSerializable] = v.numeric
+                    aggregationType match {
+                      case InternalMaxAggregation(_, _) =>
+                        Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
+                      case InternalMinAggregation(_, _) =>
+                        Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
+                      case InternalSumAggregation(_, _) =>
+                        Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
+                    }
                 }
               case Failure(ex) =>
                 Future(Left(SelectStatementFailed("Select Statement not valid")))
