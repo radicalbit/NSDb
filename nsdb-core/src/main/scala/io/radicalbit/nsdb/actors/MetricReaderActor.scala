@@ -137,7 +137,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   }
 
   private def gatherAndGroupTemporalShardResults(
-      actors: Seq[(ShardKey, ActorRef)],
+      actors: Seq[(Location, ActorRef)],
       statement: SelectSQLStatement,
       schema: Schema)(aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
 
@@ -310,10 +310,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val filteredIndexes =
             actorsForLocations(locations)
 
-          val shardResults = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
-            values =>
+          val shardResults =
+            gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get.dimension, schema) { values =>
               Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
-          }
+            }
 
           applyOrderingWithLimit(shardResults, statement, schema)
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
@@ -323,8 +323,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val filteredIndexes =
             actorsForLocations(locations)
 
-          val rawResult = gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get, schema) {
-            values =>
+          val rawResult =
+            gatherAndGroupShardResults(filteredIndexes, statement, statement.groupBy.get.dimension, schema) { values =>
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
               aggregationType match {
@@ -335,7 +335,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                 case InternalSumAggregation(_, _) =>
                   Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
               }
-          }
+            }
 
           applyOrderingWithLimit(rawResult, statement, schema)
             .map { resp =>
@@ -345,7 +345,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
         case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _)) =>
           val actors =
-            filterShardsThroughTime(statement.condition.map(_.expression), actorsForMetric(statement.metric))
+            actorsForLocations(locations)
 
           val shardResults = gatherAndGroupTemporalShardResults(actors, statement, schema) { values =>
             Bit(values.head.timestamp,
