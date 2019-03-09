@@ -877,8 +877,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new BooleanQuery.Builder()
                 .add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-                .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue),
-                     BooleanClause.Occur.MUST_NOT)
+                .add(DoublePoint.newRangeQuery("value", Double.MinValue, Double.MaxValue), BooleanClause.Occur.MUST_NOT)
                 .build(),
               false,
               5,

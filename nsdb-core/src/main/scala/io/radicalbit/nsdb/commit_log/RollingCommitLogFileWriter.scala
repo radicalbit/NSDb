@@ -44,7 +44,10 @@ object RollingCommitLogFileWriter {
   private[commit_log] val fileNameSeparator = "~"
   private[commit_log] val fileNamePrefix    = "nsdb"
 
-  private[commit_log] def nextFileName(db: String, namespace: String, metric: String, fileNames: Seq[String]): String = {
+  private[commit_log] def nextFileName(db: String,
+                                       namespace: String,
+                                       metric: String,
+                                       fileNames: Seq[String]): String = {
 
     def generateNextId: Int = {
       fileNames

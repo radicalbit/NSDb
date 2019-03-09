@@ -237,8 +237,7 @@ trait CommandApi {
                           write(
                             DescribeMetricResponse(
                               schema.fields
-                                .map(field =>
-                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
+                                .map(field => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
                             )
                           )
                         )

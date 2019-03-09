@@ -63,8 +63,7 @@ class CommandStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully specifying a namespace and a metric" in {
-        parser.parse(Some("registry"), "describe people") should be(
-          Success(DescribeMetric("db", "registry", "people")))
+        parser.parse(Some("registry"), "describe people") should be(Success(DescribeMetric("db", "registry", "people")))
       }
     }
   }

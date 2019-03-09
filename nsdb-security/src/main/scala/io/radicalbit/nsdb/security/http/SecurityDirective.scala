@@ -88,7 +88,8 @@ abstract class NSDBAuthProvider {
     * @param route the route to forward the request to.
     * @return the destination route or a 403 if authorization check fails.
     */
-  final def authorizeNamespace(ent: Namespace, header: Option[String], writePermission: Boolean)(route: Route): Route = {
+  final def authorizeNamespace(ent: Namespace, header: Option[String], writePermission: Boolean)(
+      route: Route): Route = {
     val check = checkNamespaceAuth(ent, header getOrElse "", writePermission)
     if (check.success) route
     else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.failReason}"))

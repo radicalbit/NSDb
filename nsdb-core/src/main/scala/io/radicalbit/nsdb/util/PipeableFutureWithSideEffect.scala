@@ -30,7 +30,8 @@ final class PipeableFutureWithSideEffect[T](val future: Future[T])(implicit exec
     }
   }
 
-  def pipeToWithEffect(recipient: ActorRef)(effect: T => Unit)(implicit sender: ActorRef = Actor.noSender): Future[T] = {
+  def pipeToWithEffect(recipient: ActorRef)(effect: T => Unit)(
+      implicit sender: ActorRef = Actor.noSender): Future[T] = {
     future andThen {
       case Success(r) ⇒
         effect(r)

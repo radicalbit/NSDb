@@ -337,10 +337,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
                 .map {
                   // SelectExecution Success
                   case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit]) =>
-                    log.debug("SQL statement succeeded on db {} with namespace {} and metric {}",
-                              db,
-                              namespace,
-                              metric)
+                    log.debug("SQL statement succeeded on db {} with namespace {} and metric {}", db, namespace, metric)
                     SQLStatementResponse(
                       db = db,
                       namespace = namespace,
