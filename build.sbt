@@ -18,6 +18,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
+import Path.relativeTo
 
 lazy val root = project
   .in(file("."))
@@ -157,20 +158,22 @@ lazy val `nsdb-cluster` = project
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(JavaServerAppPackaging, SbtNativePackager)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
+  .enablePlugins(MultiJvmPlugin)
+  .configs(MultiJvm)
   .settings(
     compile in MultiJvm := ((compile in MultiJvm) triggeredBy (compile in Test)).value,
-    executeTests in Test := {
-      val testResults      = (executeTests in Test).value
-      val multiNodeResults = (executeTests in MultiJvm).value
-      val overall =
-        if (testResults.overall.id < multiNodeResults.overall.id)
-          multiNodeResults.overall
-        else
-          testResults.overall
-      Tests.Output(overall,
-                   testResults.events ++ multiNodeResults.events,
-                   testResults.summaries ++ multiNodeResults.summaries)
-    }
+//    executeTests in Test := {
+//      val testResults      = (executeTests in Test).value
+//      val multiNodeResults = (executeTests in MultiJvm).value
+//      val overall =
+//        if (testResults.overall.id < multiNodeResults.overall.id)
+//          multiNodeResults.overall
+//        else
+//          testResults.overall
+//      Tests.Output(overall,
+//                   testResults.events ++ multiNodeResults.events,
+//                   testResults.summaries ++ multiNodeResults.summaries)
+//    }
   )
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
@@ -190,14 +193,14 @@ lazy val `nsdb-cluster` = project
       val confDir = baseDirectory.value / "src/main/resources"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
     },
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "../docker-scripts"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
     },
     version in Docker := version.value,
@@ -269,7 +272,7 @@ lazy val `nsdb-cluster` = project
       val confDir = baseDirectory.value / "src/main/resources"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"conf/$relativePath"
     },
     discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value,
@@ -348,7 +351,7 @@ lazy val `nsdb-flink-connector` = project
     },
     artifact in (Compile, assembly) := {
       val art = (artifact in (Compile, assembly)).value
-      art.copy(`classifier` = Some(""))
+      art.withClassifier(Some(""))
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
@@ -364,8 +367,8 @@ lazy val `nsdb-kafka-connect` = project
     // include Scala library in assembly
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = true),
     artifact in (Compile, assembly) := {
-      val art = (artifact in (Compile, assembly)).value
-      art.copy(`classifier` = Some(""))
+      val art: Artifact = (artifact in (Compile, assembly)).value
+      art.withClassifier(Some(""))
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
@@ -389,7 +392,7 @@ lazy val `nsdb-it` = (project in file("nsdb-it"))
   .dependsOn(`nsdb-cluster`)
   .dependsOn(`nsdb-scala-api`)
 
-onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value
+scalafmtOnCompile in ThisBuild := true
 
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
