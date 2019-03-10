@@ -51,7 +51,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.16"
+    lazy val version   = "2.5.21"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -74,13 +74,12 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.1.3"
+    lazy val version   = "10.1.4"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
                                                                                              "com.typesafe.akka",
                                                                                            name = "akka-actor"),
-    ExclusionRule(organization = "com.typesafe.akka", name = "akka-testkit"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
     lazy val default         = namespace %% "akka-http" % version
@@ -88,7 +87,6 @@ object Dependencies {
     lazy val akkaHttpJson4s  = "de.heikoseeberger" %% "akka-http-json4s" % "1.21.0"
     lazy val sprayJson       = "com.typesafe.akka" %% "akka-http-spray-json" % version
     lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http" % "0.14.0"
-    lazy val core            = Seq(core_http, default, testkit)
   }
 
   object akka_contrib {
@@ -116,7 +114,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "7.4.0"
+    lazy val version     = "7.7.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -143,10 +141,9 @@ object Dependencies {
   }
 
   object flink {
-    lazy val version        = "1.3.2"
+    lazy val version        = "1.7.0"
     lazy val namespace      = "org.apache.flink"
-    lazy val core           = namespace % "flink-core" % version
-    lazy val streamingScala = namespace % "flink-streaming-scala_2.11" % version
+    lazy val streamingScala = namespace %% "flink-streaming-scala" % version
   }
 
   object kafka {

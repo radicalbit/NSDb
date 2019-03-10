@@ -57,7 +57,7 @@ lazy val packageRpm    = taskKey[File]("create RPM package and move it to packag
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
-addCommandAlias("quickTest", ";set buildUI in Global := false; clean; test")
+addCommandAlias("quickTest", ";set buildUI in Global := false; test")
 
 lazy val `nsdb-web-ui` = project
   .settings(Commons.settings: _*)
