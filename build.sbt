@@ -162,18 +162,19 @@ lazy val `nsdb-cluster` = project
   .configs(MultiJvm)
   .settings(
     compile in MultiJvm := ((compile in MultiJvm) triggeredBy (compile in Test)).value,
-//    executeTests in Test := {
-//      val testResults      = (executeTests in Test).value
-//      val multiNodeResults = (executeTests in MultiJvm).value
-//      val overall =
-//        if (testResults.overall.id < multiNodeResults.overall.id)
-//          multiNodeResults.overall
-//        else
-//          testResults.overall
-//      Tests.Output(overall,
-//                   testResults.events ++ multiNodeResults.events,
-//                   testResults.summaries ++ multiNodeResults.summaries)
-//    }
+    executeTests in Test := {
+      import sbt.protocol.testing.TestResult.Failed
+      val testResults      = (executeTests in Test).value
+      val multiNodeResults = (executeTests in MultiJvm).value
+      val overall =
+        if (multiNodeResults.overall == Failed)
+          multiNodeResults.overall
+        else
+          testResults.overall
+      Tests.Output(overall,
+                   testResults.events ++ multiNodeResults.events,
+                   testResults.summaries ++ multiNodeResults.summaries)
+    }
   )
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
