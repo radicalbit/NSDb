@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.commit_log
 
 import java.io._
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 
 import akka.actor.Props
 import com.typesafe.config.Config
@@ -26,9 +25,6 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.util.Config._
 
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object RollingCommitLogFileWriter {

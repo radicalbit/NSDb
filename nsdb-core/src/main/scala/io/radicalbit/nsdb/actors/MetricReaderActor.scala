@@ -26,16 +26,15 @@ import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.{DeleteAll, RefreshShard}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, Expression, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
-import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
+import io.radicalbit.nsdb.statement.StatementParser
 import spire.implicits._
-import spire.math.Interval
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
@@ -112,17 +111,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val shardActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, key))
           actors += (key -> shardActor)
       }
-  }
-
-  private def filterShardsThroughTime[T](expression: Option[Expression], indexes: Map[Location, T]) = {
-    val intervals = TimeRangeExtractor.extractTimeRange(expression)
-    indexes.filter {
-      case (key, _) if intervals.nonEmpty =>
-        intervals
-          .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
-          .foldLeft(false)((x, y) => x || y)
-      case _ => true
-    }.toSeq
   }
 
   /**

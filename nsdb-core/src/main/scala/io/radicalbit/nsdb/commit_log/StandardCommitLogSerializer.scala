@@ -566,20 +566,20 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     // dimensions
     writeBuffer.putInt(dimensions.length)
     dimensions.foreach {
-      case (name, typ, value) =>
+      case (name, typ, dimensionValue) =>
         writeBuffer.write(name)
         writeBuffer.write(typ)
-        writeBuffer.putInt(value.length)
-        writeBuffer.put(value)
+        writeBuffer.putInt(dimensionValue.length)
+        writeBuffer.put(dimensionValue)
     }
     // tags
     writeBuffer.putInt(tags.length)
     tags.foreach {
-      case (name, typ, value) =>
+      case (name, typ, dimensionValue) =>
         writeBuffer.write(name)
         writeBuffer.write(typ)
-        writeBuffer.putInt(value.length)
-        writeBuffer.put(value)
+        writeBuffer.putInt(dimensionValue.length)
+        writeBuffer.put(dimensionValue)
     }
     writeBuffer.putInt(id)
 

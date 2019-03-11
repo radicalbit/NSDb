@@ -20,7 +20,7 @@ import io.radicalbit.nsdb.index.SimpleIndex
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
-import org.apache.lucene.index.{DirectoryReader, IndexWriter, Term}
+import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search._
 import org.apache.lucene.store.BaseDirectory
 

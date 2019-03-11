@@ -19,6 +19,7 @@ import sbt._
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.{MergeStrategy, assemblyMergeStrategy}
 import sbtassembly.PathList
+import scalafix.sbt.ScalafixPlugin.autoImport.scalafixSemanticdb
 
 object Commons {
 
@@ -26,6 +27,17 @@ object Commons {
 
   val settings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,
+    addCompilerPlugin(scalafixSemanticdb),
+    scalacOptions ++= Seq(
+      "-encoding", "utf8",
+      "-Yrangepos",
+      "-Ywarn-unused",
+      "-deprecation",
+      "-language:implicitConversions",
+      "-language:higherKinds",
+      "-language:existentials",
+      "-language:postfixOps"
+    ),
     organization := "io.radicalbit.nsdb",
     resolvers ++= Seq(
       Opts.resolver.mavenLocalFile,

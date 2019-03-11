@@ -82,11 +82,11 @@ object Dependencies {
                                                                                            name = "akka-actor"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
     ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
-    lazy val default         = namespace %% "akka-http" % version
-    lazy val testkit         = namespace %% "akka-http-testkit" % version % Test
-    lazy val akkaHttpJson4s  = "de.heikoseeberger" %% "akka-http-json4s" % "1.21.0"
-    lazy val sprayJson       = "com.typesafe.akka" %% "akka-http-spray-json" % version
-    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http" % "0.14.0"
+    lazy val default         = namespace                      %% "akka-http"            % version
+    lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
+    lazy val akkaHttpJson4s  = "de.heikoseeberger"            %% "akka-http-json4s"     % "1.21.0"
+    lazy val sprayJson       = "com.typesafe.akka"            %% "akka-http-spray-json" % version
+    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http"    % "0.14.0"
   }
 
   object akka_contrib {

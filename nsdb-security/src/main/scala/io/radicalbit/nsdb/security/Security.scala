@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.security
 
 import akka.event.LoggingAdapter
 import com.typesafe.config.Config
-import com.typesafe.scalalogging.Logger
 import io.radicalbit.nsdb.common.exception.NsdbSecurityException
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 

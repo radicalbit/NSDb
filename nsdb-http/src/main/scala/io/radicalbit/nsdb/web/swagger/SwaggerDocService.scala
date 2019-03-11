@@ -20,7 +20,7 @@ import java.nio.file.Paths
 
 import com.github.swagger.akka.SwaggerHttpService
 import com.github.swagger.akka.model.Info
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.web.routes.{CommandApi, DataApi, QueryApi}
 
 class SwaggerDocService extends SwaggerHttpService {

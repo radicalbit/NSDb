@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.model
 
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType}
+import io.radicalbit.nsdb.common.protocol.{Bit, FieldClassType}
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
 import scala.util.Try

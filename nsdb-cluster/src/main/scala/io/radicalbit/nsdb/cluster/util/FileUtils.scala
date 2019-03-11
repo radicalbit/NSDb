@@ -16,13 +16,10 @@
 
 package io.radicalbit.nsdb.cluster.util
 
-import java.io
 import java.io.{File, FileOutputStream, InputStream, OutputStream}
-import java.nio.file.Paths
 import java.util.zip.{ZipEntry, ZipFile}
 
 import scala.collection.JavaConverters._
-import scala.util.Try
 
 /**
   * Contains utility methods to handle files.
