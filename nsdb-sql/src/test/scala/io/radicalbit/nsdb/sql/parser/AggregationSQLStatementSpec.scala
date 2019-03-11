@@ -247,7 +247,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select with a temporal group by without measure in minutes" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people  group by interval m") should be(
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people group by interval m") should be(
           Success(
             SelectSQLStatement(
               db = "db",
@@ -266,7 +266,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
         parser.parse(
           db = "db",
           namespace = "registry",
-          input = "SELECT count(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2 Y") should be(
+          input = "SELECT count(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2 d") should be(
           Success(
             SelectSQLStatement(
               db = "db",
@@ -281,7 +281,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(62208000000L))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
             )
           ))
       }

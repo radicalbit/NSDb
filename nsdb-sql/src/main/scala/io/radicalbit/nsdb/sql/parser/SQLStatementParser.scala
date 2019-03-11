@@ -118,8 +118,6 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timeMeasure = ("y".ignoreCase | "m".ignoreCase | "d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
-    case "Y" => 3600 * 1000 * 24 * 30 * 12
-    case "M" => 3600 * 1000 * 24 * 30
     case "D" => 24 * 3600 * 1000
     case "H" => 3600 * 1000
     case "M" => 60 * 1000
