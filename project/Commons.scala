@@ -41,7 +41,7 @@ object Commons {
     organization := "io.radicalbit.nsdb",
     resolvers ++= Seq(
       Opts.resolver.mavenLocalFile,
-      "Radicalbit Repo" at "https://tools.radicalbit.io/artifactory/libs-release-local/",
+      "Radicalbit Public Releases" at "https://tools.radicalbit.io/artifactory/public-release/",
       Resolver.bintrayRepo("hseeberger", "maven"),
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven",
       Resolver.bintrayRepo("hseeberger", "maven")

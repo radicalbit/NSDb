@@ -147,9 +147,9 @@ object Dependencies {
   }
 
   object kafka {
-    private lazy val version   = "1.0.0"
+    private lazy val version   = "2.1.1"
     private lazy val namespace = "org.apache.kafka"
-    lazy val connect           = namespace % "connect-api" % version
+    lazy val connect           = namespace % "connect-api" % version excludeAll ExclusionRule(organization = "javax.ws.rs")
   }
 
   object kcql {
