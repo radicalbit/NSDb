@@ -128,7 +128,7 @@ trait Index[T] {
   }
 
   protected def executeQuery[B](searcher: IndexSearcher, query: Query, limit: Int, sort: Option[Sort])(
-    f: Document => B): Seq[B] = {
+      f: Document => B): Seq[B] = {
     val hits =
       sort.fold(searcher.search(query, limit).scoreDocs)(sort => searcher.search(query, limit, sort).scoreDocs)
     (0 until hits.length).map { i =>
@@ -140,7 +140,7 @@ trait Index[T] {
 
   protected def executeCountQuery[B](searcher: IndexSearcher, query: Query, limit: Int)(f: Document => B): Seq[B] = {
     val hits = searcher.search(query, limit).scoreDocs.length
-    val d = new Document()
+    val d    = new Document()
     d.add(new LongPoint(_keyField, 0))
     d.add(new IntPoint(_valueField, hits))
     d.add(new IntPoint(_countField, hits))

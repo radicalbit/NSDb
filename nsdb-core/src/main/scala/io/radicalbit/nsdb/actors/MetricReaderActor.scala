@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldTy
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema}
-import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
+import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser

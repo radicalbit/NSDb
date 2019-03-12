@@ -26,7 +26,6 @@ import spire.implicits._
 import spire.math.Interval
 
 import scala.annotation.tailrec
-import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -165,9 +164,8 @@ object StatementParser {
             if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
         // Match temporal count aggregation
-        case (false,
-              Success(Seq(Field(fieldName, Some(CountAggregation)))),
-              Some(TemporalGroupByAggregation(interval))) if fieldName == "value" || fieldName == "*" =>
+        case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
+            if fieldName == "value" || fieldName == "*" =>
           val now = System.currentTimeMillis()
 
           Success(

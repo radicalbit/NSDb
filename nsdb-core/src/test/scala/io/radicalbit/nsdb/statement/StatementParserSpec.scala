@@ -23,7 +23,6 @@ import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, LongPoint}
-import org.apache.lucene.facet.range.LongRange
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.scalatest.TryValues._
@@ -1041,8 +1040,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           5L,
           None,
           Some(
-            Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 100L))),
+            Condition(ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 100L))),
           200L)
 
         res.exists(r => r.max == 99 && r.min == 95) shouldBe true

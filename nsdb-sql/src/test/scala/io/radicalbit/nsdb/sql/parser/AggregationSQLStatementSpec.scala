@@ -229,9 +229,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select with a temporal group by with count aggregation in seconds" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT count(value) FROM people group by interval 3 s") should be(
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people group by interval 3 s") should be(
           Success(
             SelectSQLStatement(
               db = "db",
