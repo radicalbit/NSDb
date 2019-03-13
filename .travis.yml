@@ -6,6 +6,6 @@ scala:
 jdk:
 - oraclejdk8
 script:
-- sbt clean coverage test coverageReport coverageAggregate
+- sbt clean coverage +test coverageReport coverageAggregate
 after_success:
 - bash <(curl -s https://codecov.io/bash)
