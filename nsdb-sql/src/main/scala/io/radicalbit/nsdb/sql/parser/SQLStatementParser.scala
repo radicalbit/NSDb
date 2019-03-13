@@ -35,12 +35,13 @@ import scala.util.parsing.input.CharSequenceReader
   *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "tags" "(" (literal = literal)+ ")" "VAL" = digit
   *   DropStatement := "drop metric" literal
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
-  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" literal)? ("order by" literal ("desc")?)? (limit digit)?
+  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)?
   *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
   *   expression := expression "and" expression | expression "or" expression | "not" expression |
-  *                 literal "=" literal | literal compare literal | literal "like" literal |
+  *                 literal "=" literal | literal comparison literal | literal "like" literal |
   *                 literal "in" "(" digit "," digit ")" | literal "is" "not"? "null"
   *   comparison := "=" | ">" | "<" | ">=" | "<="
+  *   timeMeasure := "D" | "H" | "M" | "S"
   * }}}
   */
 final class SQLStatementParser extends RegexParsers with PackratParsers {
@@ -116,7 +117,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   }
   private val stringValueWithWildcards = """(^[a-zA-Z_\$][a-zA-Z0-9_\-\$]*[a-zA-Z0-9\$])""".r
 
-  private val timeMeasure = ("y".ignoreCase | "m".ignoreCase | "d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
+  private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
     case "D" => 24 * 3600 * 1000
     case "H" => 3600 * 1000
