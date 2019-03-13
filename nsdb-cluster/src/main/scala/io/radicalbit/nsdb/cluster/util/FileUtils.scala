@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.util
 
-import java.io.{File, FileOutputStream, InputStream, OutputStream}
+import java.io._
 import java.util.zip.{ZipEntry, ZipFile}
 
 import scala.collection.JavaConverters._
@@ -26,6 +26,10 @@ import scala.collection.JavaConverters._
   */
 object FileUtils {
 
+  private class DirectoryFilter extends FileFilter {
+    override def accept(pathname: File): Boolean = pathname.isDirectory
+  }
+
   private val BUFFER_SIZE = 4096
   private val buffer      = new Array[Byte](BUFFER_SIZE)
 
@@ -33,21 +37,21 @@ object FileUtils {
     * @param path a directory.
     * @return all the first level sub directories of the given directory.
     */
-  def getSubDirs(path: File): Array[File] = path.listFiles(_.isDirectory)
+  def getSubDirs(path: File): Array[File] = path.listFiles(new DirectoryFilter)
 
   /**
     * @param path a string path.
     * @return all the first level sub directories of the given directory.
     */
   def getSubDirs(path: String): List[File] =
-    Option(new File(path).listFiles(_.isDirectory)).map(_.toList).getOrElse(List.empty)
+    Option(new File(path).listFiles(new DirectoryFilter)).map(_.toList).getOrElse(List.empty)
 
   /**
     * Unzip a file into a target folder.
     * @param source the input zip path.
     * @param targetFolder the folder to unzip the input file into.
     */
-  def unzip(source: String, targetFolder: String) = {
+  def unzip(source: String, targetFolder: String): AnyVal = {
     if (new File(source).exists) {
       val zipFile = new ZipFile(source)
       unzipAllFile(zipFile, zipFile.entries.asScala.toList, new File(targetFolder))
@@ -84,7 +88,7 @@ object FileUtils {
 
     def bufferReader(fis: InputStream)(buffer: Array[Byte]) = (fis.read(buffer), buffer)
 
-    def writeToFile(reader: (Array[Byte]) => (Int, Array[Byte]), fos: OutputStream): Boolean = {
+    def writeToFile(reader: Array[Byte] => (Int, Array[Byte]), fos: OutputStream): Boolean = {
       val (length, data) = reader(buffer)
       if (length >= 0) {
         fos.write(data, 0, length)
