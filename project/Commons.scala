@@ -25,11 +25,12 @@ object Commons {
 
   val scalaVer = "2.12.7"
 
-  val settings: Seq[Def.Setting[_]] = Seq(
+  val nonCrossSettings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,
     addCompilerPlugin(scalafixSemanticdb),
     scalacOptions ++= Seq(
-      "-encoding", "utf8",
+      "-encoding",
+      "utf8",
       "-Yrangepos",
       "-Ywarn-unused",
       "-deprecation",
@@ -58,4 +59,6 @@ object Commons {
         oldStrategy(x)
     }
   )
+
+  val crossScalaVersionSettings = nonCrossSettings :+ (crossScalaVersions := Seq("2.11.11", "2.12.7"))
 }
