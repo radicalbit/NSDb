@@ -21,7 +21,9 @@ object Dependencies {
   object scalaLang {
     lazy val version   = "2.12.7"
     lazy val namespace = "org.scala-lang"
-    lazy val compiler  = namespace % "scala-compiler" % version
+    lazy val compiler = namespace % "scala-compiler" % version excludeAll (ExclusionRule(organization =
+                                                                                           "org.scala-lang.modules",
+                                                                                         name = "scala-xml_2.12"))
   }
 
   object scalaModules {
