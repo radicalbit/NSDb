@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.cluster.{Cluster, MemberStatus}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Events.RecordsPublished
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.minicluster.MiniClusterSpec

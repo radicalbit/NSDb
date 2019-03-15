@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.minicluster
 
 import java.io.File
+import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
@@ -25,12 +26,14 @@ import scala.concurrent.Await
 
 trait NsdbMiniCluster extends LazyLogging {
 
+  protected[this] val instanceId = { UUID.randomUUID }
+
   protected[this] val startingAkkaRemotePort = 2552
   protected[this] val startingHttpPort       = 9010
   protected[this] val startingUiPort         = 9020
   protected[this] val startingGrpcPort       = 7817
-  protected[this] val rootFolder             = "target/minicluster"
-  protected[this] val clFolder               = "target/commitLog"
+  protected[this] val rootFolder             = s"target/minicluster/$instanceId/"
+  protected[this] val clFolder               = s"target/commitLog/$instanceId"
 
   protected[this] def nodesNumber: Int
 
