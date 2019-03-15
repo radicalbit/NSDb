@@ -2,10 +2,10 @@ sudo: required
 dist: precise
 language: scala
 scala:
-- 2.12.12
+- 2.11.11
 jdk:
 - oraclejdk8
 script:
-- sbt clean coverage ++2.11.11 test coverageReport coverageAggregate
+- sbt -jvm-opts .jvmopts-travis clean coverage ++$TRAVIS_SCALA_VERSION test coverageReport coverageAggregate
 after_success:
 - bash <(curl -s https://codecov.io/bash)
