@@ -41,13 +41,13 @@ object Dependencies {
   }
 
   object cats {
-    lazy val version   = "0.9.0"
+    lazy val version   = "1.6.0"
     lazy val namespace = "org.typelevel"
-    lazy val cats      = namespace %% "cats" % version
+    lazy val cats_core      = namespace %% "cats-core" % version
   }
 
   object spire {
-    lazy val version   = "0.14.1"
+    lazy val version   = "0.16.2"
     lazy val namespace = "org.typelevel"
     lazy val spire     = namespace %% "spire" % version
   }
@@ -116,7 +116,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "7.7.0"
+    lazy val version     = "8.1.1"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -125,7 +125,7 @@ object Dependencies {
   }
 
   object scalatest {
-    lazy val version   = "3.0.5"
+    lazy val version   = "3.0.7"
     lazy val namespace = "org.scalatest"
     lazy val core      = namespace %% "scalatest" % version
   }
@@ -159,8 +159,6 @@ object Dependencies {
     private lazy val namespace = "com.datamountaineer"
     lazy val kcql              = namespace % "kcql" % version
   }
-
-  lazy val asm = "asm" % "asm" % "3.3.1" % Test //import to use ClosureCleaner in test
 
   object gRPC {
     lazy val version         = scalapb.compiler.Version.grpcJavaVersion
@@ -290,7 +288,7 @@ object Dependencies {
       scalaLang.compiler,
       scopt.scopt,
       asciitable.core,
-      cats.cats,
+      cats.cats_core,
       scala_logging.scala_logging,
       akka.slf4j,
       logback.logback,

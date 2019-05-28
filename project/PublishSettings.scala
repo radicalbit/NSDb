@@ -26,9 +26,9 @@ object PublishSettings {
     publishTo := version { v: String =>
       if (v.trim.endsWith("SNAPSHOT"))
         Some(
-          "Artifactory Realm" at "https://tools.radicalbit.io/artifactory/libs-snapshot-local;build.timestamp=" + new java.util.Date().getTime)
+          "Artifactory Realm" at "https://tools.radicalbit.io/artifactory/public-snapshot;build.timestamp=" + new java.util.Date().getTime)
       else
-        Some("Artifactory Realm" at "https://tools.radicalbit.io/artifactory/libs-release-local")
+        Some("Artifactory Realm" at "https://tools.radicalbit.io/artifactory/public-release/")
     }.value,
     credentials += Credentials(Path.userHome / ".artifactory" / ".credentials")
   )
