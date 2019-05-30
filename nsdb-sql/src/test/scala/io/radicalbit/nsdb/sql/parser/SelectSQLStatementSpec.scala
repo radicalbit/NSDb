@@ -107,9 +107,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully only with simple fields and distinct" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT DISTINCT name,surname,creationDate FROM people") should be(
+        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name,surname,creationDate FROM people") should be(
           Success(SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -120,9 +118,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully with mixed aggregated and simple" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT count(*),surname,sum(creationDate) FROM people") should be(
+        parser.parse(db = "db", namespace = "registry", input = "SELECT count(*),surname,sum(creationDate) FROM people") should be(
           Success(SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -207,9 +203,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
       "parse it successfully using relative time" in {
         val statement =
-          parser.parse(db = "db",
-                       namespace = "registry",
-                       input = "SELECT name FROM people WHERE timestamp = now - 10s")
+          parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = now - 10s")
         statement.isSuccess shouldBe true
       }
     }
@@ -293,8 +287,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 =
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2.4),
+              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2.4),
               operator = AndOperator,
               expression2 = EqualityExpression(dimension = "timestamp", value = 4L)
             )))
@@ -342,8 +335,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 =
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2.5),
+              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2.5),
               operator = AndOperator,
               expression2 =
                 ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4.01)

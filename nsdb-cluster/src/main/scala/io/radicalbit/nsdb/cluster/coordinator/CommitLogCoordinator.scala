@@ -24,7 +24,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricPerformerActor
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.commit_log.{CommitLogWriterActor, RollingCommitLogFileWriter}
+import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.util.ActorPathLogging
 

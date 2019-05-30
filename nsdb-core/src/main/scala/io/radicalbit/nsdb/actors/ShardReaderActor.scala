@@ -104,7 +104,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedAggregatedQuery(_, _, q, aggregationType, sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, _, q, aggregationType, _, _)) =>
           sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")
 
         case Success(_) => sender ! SelectStatementFailed("Unsupported query type")

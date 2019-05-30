@@ -104,9 +104,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val field = digits ^^ { e =>
     Field(e, None)
   }
-  private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ {
-    e =>
-      Field(e._2, Some(e._1))
+  private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ { e =>
+    Field(e._2, Some(e._1))
   }
   private val metric    = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val dimension = digits
@@ -132,7 +131,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val comparisonTerm = delta | floatValue | longValue
 
   private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
-    case d ~ f ~ fs =>
+    case _ ~ f ~ fs =>
       f match {
         case All      => AllFields
         case f: Field => ListFields(f +: fs)
@@ -187,8 +186,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   lazy val nullableExpression: PackratParser[Expression] =
     (dimension <~ Is) ~ (Not ?) ~ Null ^^ {
-      case dim ~ Some(not) ~ nullable => UnaryLogicalExpression(NullableExpression(dim), NotOperator)
-      case dim ~ None ~ nullable      => NullableExpression(dim)
+      case dim ~ Some(_) ~ _ => UnaryLogicalExpression(NullableExpression(dim), NotOperator)
+      case dim ~ None ~ _    => NullableExpression(dim)
     }
 
   lazy val comparisonExpression: PackratParser[ComparisonExpression[_]] =
@@ -211,7 +210,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private lazy val rangeExpression =
     (dimension <~ In) ~ (OpenRoundBracket ~> comparisonTerm) ~ (Comma ~> comparisonTerm <~ CloseRoundBracket) ^^ {
-      case (d ~ v1 ~ v2) => RangeExpression(dimension = d, value1 = v1, value2 = v2)
+      case d ~ v1 ~ v2 => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
 
   lazy val select
@@ -224,9 +223,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val groupBy: PackratParser[Option[String]] = (group ~> dimension) ?
 
   lazy val order: PackratParser[Option[OrderOperator]] = ((Order ~> dimension ~ (Desc ?)) ?) ^^ {
-    case Some(dim ~(Some(_))) => Some(DescOrderOperator(dim))
-    case Some(dim ~ None)     => Some(AscOrderOperator(dim))
-    case None                 => None
+    case Some(dim ~ Some(_)) => Some(DescOrderOperator(dim))
+    case Some(dim ~ None)    => Some(AscOrderOperator(dim))
+    case None                => None
   }
 
   lazy val limit: PackratParser[Option[LimitOperator]] = ((Limit ~> intValue) ?) ^^ (value =>

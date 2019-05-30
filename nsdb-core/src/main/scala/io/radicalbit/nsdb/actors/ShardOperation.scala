@@ -58,7 +58,7 @@ object ShardOperation {
     action match {
       case DeleteShardRecordOperation(namespace, location, bit) =>
         Some(WriteShardOperation(namespace, location, bit))
-      case DeleteShardQueryOperation(namespace, location, query) =>
+      case DeleteShardQueryOperation(_, _, _) =>
         None
       case WriteShardOperation(namespace, location, bit) =>
         Some(DeleteShardRecordOperation(namespace, location, bit))

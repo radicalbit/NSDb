@@ -102,8 +102,7 @@ trait WebResources extends StaticResources with WsResources with CorsSupport wit
 
         scala.sys.addShutdownHook {
           Future
-            .sequence(
-              Seq(http.flatMap(_.unbind()), httpUI.flatMap(opt => opt.map(_.unbind()).getOrElse(Future(Done)))))
+            .sequence(Seq(http.flatMap(_.unbind()), httpUI.flatMap(opt => opt.map(_.unbind()).getOrElse(Future(Done)))))
             .onComplete { _ =>
               system.terminate()
             }

@@ -23,7 +23,6 @@ import akka.cluster.Cluster
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian, NodeActorsGuardian}
-import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.common.NsdbConfig
 
 import scala.concurrent.{ExecutionContextExecutor, Future}

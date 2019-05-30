@@ -34,7 +34,6 @@ import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.ParsedSimpleQuery
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.search.IndexSearcher
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContextExecutor
@@ -164,7 +163,6 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               implicit val writer: IndexWriter   = temporaryIndex.getWriter
               temporaryIndex.write(record)
               writer.close()
-              implicit val searcher: IndexSearcher = temporaryIndex.getSearcher
               if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
                     .query(schema, parsedQuery.q, parsedQuery.fields, 1, None)(identity)
                     .lengthCompare(1) == 0)

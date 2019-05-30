@@ -23,7 +23,6 @@ import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.actor.SchemaActor
 import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.{DeleteNamespaceSchema, WarmUpSchemas}
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted

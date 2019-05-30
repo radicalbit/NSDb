@@ -23,11 +23,11 @@ object LicenseHeader {
   lazy val settings: Seq[Def.Setting[_]] = Seq(
     headerLicense := Some(HeaderLicense.ALv2("2018", "Radicalbit S.r.l.")),
     headerMappings := headerMappings.value ++ Map(
-      HeaderFileType.conf    -> HeaderCommentStyle.HashLineComment,
-      FileType("properties") -> HeaderCommentStyle.HashLineComment,
-      FileType("sbt")        -> HeaderCommentStyle.CStyleBlockComment,
-      HeaderFileType.java    -> HeaderCommentStyle.CStyleBlockComment,
-      HeaderFileType.scala   -> HeaderCommentStyle.CStyleBlockComment
+      HeaderFileType.conf    -> HeaderCommentStyle.hashLineComment,
+      FileType("properties") -> HeaderCommentStyle.hashLineComment,
+      FileType("sbt")        -> HeaderCommentStyle.cStyleBlockComment,
+      HeaderFileType.java    -> HeaderCommentStyle.cStyleBlockComment,
+      HeaderFileType.scala   -> HeaderCommentStyle.cStyleBlockComment
     )
   )
 }

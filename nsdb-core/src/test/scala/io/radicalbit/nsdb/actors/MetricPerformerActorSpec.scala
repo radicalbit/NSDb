@@ -85,8 +85,9 @@ class MetricPerformerActorSpec
       Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
 
     val directory =
-      new MMapDirectory(Paths
-        .get(basePath, db, namespace, "shards", s"${errorLocation.metric}_${errorLocation.from}_${errorLocation.to}"))
+      new MMapDirectory(
+        Paths
+          .get(basePath, db, namespace, "shards", s"${errorLocation.metric}_${errorLocation.from}_${errorLocation.to}"))
 
     indexerPerformerActor.underlyingActor.shards += (errorLocation -> new BrokenTimeSeriesIndex(directory))
   }

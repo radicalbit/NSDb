@@ -160,8 +160,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         distinct = false,
         fields = AllFields,
         condition = Some(
-          Condition(
-            ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+          Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
         limit = Some(LimitOperator(4))
       )
 

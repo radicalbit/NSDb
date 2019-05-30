@@ -299,12 +299,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
     val res1 = facetIndexes.facetSumIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 100),
-              "tag",
-              Some(descSort),
-              Some(100),
-              VARCHAR(),
-              Some(BIGINT()))
+      .result(LongPoint.newRangeQuery("timestamp", 0, 100), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
 
     res1.size shouldBe 1
     res1.head.value shouldBe 200

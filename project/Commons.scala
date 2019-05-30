@@ -19,17 +19,30 @@ import sbt._
 import sbtassembly.AssemblyKeys._
 import sbtassembly.AssemblyPlugin.autoImport.{MergeStrategy, assemblyMergeStrategy}
 import sbtassembly.PathList
+import scalafix.sbt.ScalafixPlugin.autoImport.scalafixSemanticdb
 
 object Commons {
 
   val scalaVer = "2.12.7"
 
-  val settings: Seq[Def.Setting[_]] = Seq(
+  val nonCrossSettings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,
+    addCompilerPlugin(scalafixSemanticdb),
+    scalacOptions ++= Seq(
+      "-encoding",
+      "utf8",
+      "-Yrangepos",
+      "-Ywarn-unused",
+      "-deprecation",
+      "-language:implicitConversions",
+      "-language:higherKinds",
+      "-language:existentials",
+      "-language:postfixOps"
+    ),
     organization := "io.radicalbit.nsdb",
     resolvers ++= Seq(
       Opts.resolver.mavenLocalFile,
-      "Radicalbit Repo" at "https://tools.radicalbit.io/artifactory/libs-release-local/",
+      "Radicalbit Public Releases" at "https://tools.radicalbit.io/artifactory/public-release/",
       Resolver.bintrayRepo("hseeberger", "maven"),
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven",
       Resolver.bintrayRepo("hseeberger", "maven")
@@ -46,4 +59,6 @@ object Commons {
         oldStrategy(x)
     }
   )
+
+  val crossScalaVersionSettings = nonCrossSettings :+ (crossScalaVersions := Seq("2.11.11", "2.12.7"))
 }

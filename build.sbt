@@ -18,12 +18,13 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
+import Path.relativeTo
 
 lazy val root = project
   .in(file("."))
   .settings(
+    crossScalaVersions := Nil,
     name := "nsdb",
-    crossScalaVersions := Seq("2.11.11", "2.12.7"),
     publish := {},
     publishLocal := {}
   )
@@ -56,10 +57,10 @@ lazy val packageRpm    = taskKey[File]("create RPM package and move it to packag
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
-addCommandAlias("quickTest", ";set buildUI in Global := false; clean; test")
+addCommandAlias("quickTest", ";set buildUI in Global := false; test")
 
 lazy val `nsdb-web-ui` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(FrontendPlugin)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
@@ -118,14 +119,14 @@ lazy val `nsdb-web-ui` = project
   )
 
 lazy val `nsdb-common` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Common.libraries)
 
 lazy val `nsdb-core` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
@@ -133,7 +134,7 @@ lazy val `nsdb-core` = project
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-http` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
@@ -141,7 +142,7 @@ lazy val `nsdb-http` = project
   .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`, `nsdb-web-ui`)
 
 lazy val `nsdb-rpc` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.RPC.libraries)
   .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
@@ -153,17 +154,20 @@ lazy val `nsdb-rpc` = project
   .dependsOn(`nsdb-common`, `nsdb-sql`)
 
 lazy val `nsdb-cluster` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(JavaServerAppPackaging, SbtNativePackager)
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
+  .enablePlugins(MultiJvmPlugin)
+  .configs(MultiJvm)
   .settings(
     compile in MultiJvm := ((compile in MultiJvm) triggeredBy (compile in Test)).value,
     executeTests in Test := {
+      import sbt.protocol.testing.TestResult.Failed
       val testResults      = (executeTests in Test).value
       val multiNodeResults = (executeTests in MultiJvm).value
       val overall =
-        if (testResults.overall.id < multiNodeResults.overall.id)
+        if (multiNodeResults.overall == Failed)
           multiNodeResults.overall
         else
           testResults.overall
@@ -190,14 +194,14 @@ lazy val `nsdb-cluster` = project
       val confDir = baseDirectory.value / "src/main/resources"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
     },
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "../docker-scripts"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
     },
     version in Docker := version.value,
@@ -269,7 +273,7 @@ lazy val `nsdb-cluster` = project
       val confDir = baseDirectory.value / "src/main/resources"
 
       for {
-        (file, relativePath) <- (confDir.*** --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
       } yield file -> s"conf/$relativePath"
     },
     discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value,
@@ -287,7 +291,7 @@ lazy val `nsdb-cluster` = project
   .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
 
 lazy val `nsdb-security` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Security.libraries)
   .enablePlugins(AutomateHeaderPlugin)
@@ -295,7 +299,7 @@ lazy val `nsdb-security` = project
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-sql` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
   .enablePlugins(AutomateHeaderPlugin)
@@ -303,7 +307,7 @@ lazy val `nsdb-sql` = project
   .dependsOn(`nsdb-common`)
 
 lazy val `nsdb-java-api` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.JavaAPI.libraries)
   .enablePlugins(AutomateHeaderPlugin)
@@ -311,7 +315,7 @@ lazy val `nsdb-java-api` = project
   .dependsOn(`nsdb-rpc`)
 
 lazy val `nsdb-scala-api` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.ScalaAPI.libraries)
   .enablePlugins(AutomateHeaderPlugin)
@@ -319,7 +323,7 @@ lazy val `nsdb-scala-api` = project
   .dependsOn(`nsdb-rpc`)
 
 lazy val `nsdb-cli` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
   .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
@@ -329,7 +333,8 @@ lazy val `nsdb-cli` = project
   .dependsOn(`nsdb-rpc`, `nsdb-sql`)
 
 lazy val `nsdb-flink-connector` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.nonCrossSettings: _*)
+  .settings(scalaVersion := "2.11.11")
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.FlinkConnector.libraries)
   .settings(
@@ -348,7 +353,7 @@ lazy val `nsdb-flink-connector` = project
     },
     artifact in (Compile, assembly) := {
       val art = (artifact in (Compile, assembly)).value
-      art.copy(`classifier` = Some(""))
+      art.withClassifier(Some(""))
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
@@ -357,15 +362,15 @@ lazy val `nsdb-flink-connector` = project
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-kafka-connect` = project
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.KafkaConnect.libraries)
   .settings(
     // include Scala library in assembly
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = true),
     artifact in (Compile, assembly) := {
-      val art = (artifact in (Compile, assembly)).value
-      art.copy(`classifier` = Some(""))
+      val art: Artifact = (artifact in (Compile, assembly)).value
+      art.withClassifier(Some(""))
     },
     addArtifact(artifact in (Compile, assembly), assembly)
   )
@@ -374,7 +379,7 @@ lazy val `nsdb-kafka-connect` = project
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(scalaVersion := "2.11.11")
   .settings(libraryDependencies ++= Dependencies.Performance.libraries)
@@ -383,13 +388,13 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .enablePlugins(GatlingPlugin)
 
 lazy val `nsdb-it` = (project in file("nsdb-it"))
-  .settings(Commons.settings: _*)
+  .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.It.libraries)
   .dependsOn(`nsdb-cluster`)
   .dependsOn(`nsdb-scala-api`)
 
-onLoad in Global := (Command.process("scalafmt", _: State)) compose (onLoad in Global).value
+scalafmtOnCompile in ThisBuild := true
 
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))

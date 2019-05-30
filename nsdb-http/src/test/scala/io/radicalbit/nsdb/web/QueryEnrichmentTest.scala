@@ -240,11 +240,8 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(
-              Condition(
-                TupledLogicalExpression(EqualityExpression("age", 1L),
-                                        AndOperator,
-                                        EqualityExpression("height", 100L)))),
+            Some(Condition(
+              TupledLogicalExpression(EqualityExpression("age", 1L), AndOperator, EqualityExpression("height", 100L)))),
             None,
             None,
             Some(LimitOperator(1))

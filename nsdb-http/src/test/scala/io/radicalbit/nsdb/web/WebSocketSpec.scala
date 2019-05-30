@@ -59,8 +59,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         isWebSocketUpgrade shouldEqual true
 
-        wsClient.sendMessage(
-          """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
+        wsClient.sendMessage("""{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
         wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
 
@@ -118,8 +117,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
       check {
         isWebSocketUpgrade shouldEqual true
 
-        wsClient.sendMessage(
-          """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
+        wsClient.sendMessage("""{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
         wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
 
@@ -170,8 +168,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
       check {
         isWebSocketUpgrade shouldEqual true
 
-        wsClient.sendMessage(
-          """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
+        wsClient.sendMessage("""{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
         wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
 
