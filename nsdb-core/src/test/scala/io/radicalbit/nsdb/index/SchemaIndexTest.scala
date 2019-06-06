@@ -16,14 +16,16 @@
 
 package io.radicalbit.nsdb.index
 
+import java.nio.file.Files
+import java.util.UUID
+
 import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType}
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
-import org.apache.lucene.store.RAMDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 import scala.util.Success
 
-class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
 
   "SchemaIndex" should "union schemas properly" in {
 
@@ -50,7 +52,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "SchemaIndex" should "write and read properly" in {
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val schemaIndex = new SchemaIndex(directory)
 
@@ -95,7 +97,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
       "metric_1",
       Set(SchemaField("field1", DimensionFieldType, INT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val schemaIndex = new SchemaIndex(directory)
 
@@ -120,7 +122,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "SchemaIndex" should "drop schema" in {
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val schemaIndex = new SchemaIndex(directory)
 

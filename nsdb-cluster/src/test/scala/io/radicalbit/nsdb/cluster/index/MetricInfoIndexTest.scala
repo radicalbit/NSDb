@@ -16,14 +16,17 @@
 
 package io.radicalbit.nsdb.cluster.index
 
-import org.apache.lucene.store.RAMDirectory
+import java.nio.file.Files
+import java.util.UUID
+
+import io.radicalbit.nsdb.index.DirectorySupport
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
-class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
 
   "MetricInfoIndex" should "write and read properly" in {
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val metricInfoIndex = new MetricInfoIndex(directory)
 
@@ -49,7 +52,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
   "MetricInfoIndex" should "write and delete properly" in {
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val metricInfoIndex = new MetricInfoIndex(directory)
 
