@@ -23,7 +23,7 @@ import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search._
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -32,7 +32,7 @@ import scala.util.{Failure, Success, Try}
   * Index for storing metric locations.
   * @param directory index bae directory.
   */
-class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[Location] {
+class LocationIndex(override val directory: Directory) extends SimpleIndex[Location] {
   override val _keyField: String = "_metric"
 
   override def validateRecord(data: Location): Try[Seq[Field]] = {

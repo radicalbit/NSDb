@@ -25,12 +25,11 @@ import io.radicalbit.nsdb.cluster.actor.SchemaActor.SchemaWarmUp
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.util.FileUtils
-import io.radicalbit.nsdb.index.SchemaIndex
+import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 
@@ -41,16 +40,19 @@ import scala.collection.mutable
   * @param basePath index base path.
   * @param schemaCoordinator [[ActorRef]] of local [[io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator]]
   */
-class SchemaActor(val basePath: String, schemaCoordinator: ActorRef) extends Actor with ActorLogging {
+class SchemaActor(val basePath: String, schemaCoordinator: ActorRef)
+    extends Actor
+    with ActorLogging
+    with DirectorySupport {
 
   lazy val schemaIndexes: mutable.Map[(String, String), SchemaIndex] = mutable.Map.empty
 
-  val remoteAddress = RemoteAddress(context.system)
+  private val remoteAddress = RemoteAddress(context.system)
 
   private def getOrCreateSchemaIndex(db: String, namespace: String): SchemaIndex =
     schemaIndexes.getOrElse(
       (db, namespace), {
-        val newIndex = new SchemaIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "schemas")))
+        val newIndex = new SchemaIndex(createHybridDirectory(Paths.get(basePath, db, namespace, "schemas")))
         schemaIndexes += ((db, namespace) -> newIndex)
         newIndex
       }

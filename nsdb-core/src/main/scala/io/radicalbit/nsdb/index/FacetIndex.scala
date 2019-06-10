@@ -20,17 +20,16 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.model.TypedField
 import org.apache.lucene.document._
-import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
 import org.apache.lucene.facet._
 import org.apache.lucene.facet.taxonomy.SearcherTaxonomyManager
+import org.apache.lucene.facet.taxonomy.directory.{DirectoryTaxonomyReader, DirectoryTaxonomyWriter}
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 import scala.util.{Failure, Success, Try}
 
-abstract class FacetIndex(val directory: BaseDirectory, val taxoDirectory: BaseDirectory)
-    extends AbstractStructuredIndex {
+abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory) extends AbstractStructuredIndex {
 
   private lazy val searchTaxonomyManager: SearcherTaxonomyManager =
     new SearcherTaxonomyManager(directory, taxoDirectory, null)

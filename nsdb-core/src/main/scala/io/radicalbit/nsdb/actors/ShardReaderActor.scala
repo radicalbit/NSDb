@@ -21,14 +21,14 @@ import java.nio.file.Paths
 import akka.actor.Props
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
-import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.lucene.store.MMapDirectory
+import org.apache.lucene.store.Directory
 
 import scala.util.{Failure, Success, Try}
 
@@ -41,10 +41,11 @@ import scala.util.{Failure, Success, Try}
   * @param location the shard location.
   */
 class ShardReaderActor(val basePath: String, val db: String, val namespace: String, val location: Location)
-    extends ActorPathLogging {
+    extends ActorPathLogging
+    with DirectorySupport {
 
-  lazy val directory =
-    new MMapDirectory(
+  lazy val directory: Directory =
+    createMmapDirectory(
       Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}"))
 
   lazy val index = new TimeSeriesIndex(directory)

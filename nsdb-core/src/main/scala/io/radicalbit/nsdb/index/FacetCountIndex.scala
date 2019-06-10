@@ -25,7 +25,7 @@ import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.facet.{FacetField, FacetResult, FacetsCollector, FacetsConfig}
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.{Query, Sort}
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 import scala.util.Try
 
@@ -35,7 +35,7 @@ import scala.util.Try
   * @param directory facet index base directory
   * @param taxoDirectory taxonomy base directory
   */
-class FacetCountIndex(override val directory: BaseDirectory, override val taxoDirectory: BaseDirectory)
+class FacetCountIndex(override val directory: Directory, override val taxoDirectory: Directory)
     extends FacetIndex(directory, taxoDirectory) {
 
   override protected[this] val facetNamePrefix = "facet_count_"

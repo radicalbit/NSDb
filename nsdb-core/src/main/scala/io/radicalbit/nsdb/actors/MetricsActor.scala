@@ -21,7 +21,6 @@ import java.nio.file.Paths
 import akka.actor.Actor
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.Location
-import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 
@@ -29,7 +28,7 @@ import scala.collection.mutable
   * Trait containing common operation to be executed on metrics indexes.
   * Mixed in by [[MetricAccumulatorActor]] and [[MetricPerformerActor]],
   */
-trait MetricsActor { this: Actor =>
+trait MetricsActor extends DirectorySupport { this: Actor =>
 
   /**
     * basePath shards indexes path.
@@ -70,7 +69,7 @@ trait MetricsActor { this: Actor =>
     shards.getOrElse(
       loc, {
         val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${loc.metric}_${loc.from}_${loc.to}"))
+          createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${loc.metric}_${loc.from}_${loc.to}"))
         val newIndex = new TimeSeriesIndex(directory)
         shards += (loc -> newIndex)
         newIndex

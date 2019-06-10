@@ -19,12 +19,12 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.Field
+import org.apache.lucene.facet._
 import org.apache.lucene.facet.taxonomy._
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.facet._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.{Query, Sort}
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 import scala.util.{Failure, Try}
 
@@ -34,7 +34,7 @@ import scala.util.{Failure, Try}
   * @param directory facet index base directory
   * @param taxoDirectory taxonomy base directory
   */
-class FacetSumIndex(override val directory: BaseDirectory, override val taxoDirectory: BaseDirectory)
+class FacetSumIndex(override val directory: Directory, override val taxoDirectory: Directory)
     extends FacetIndex(directory, taxoDirectory) {
 
   override protected[this] val facetNamePrefix = "facet_sum_"

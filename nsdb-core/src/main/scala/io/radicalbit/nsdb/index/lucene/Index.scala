@@ -20,7 +20,7 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
 import org.apache.lucene.search._
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 import org.apache.lucene.util.InfoStream
 
 import scala.util.{Success, Try}
@@ -30,7 +30,7 @@ trait Index[T] {
   /**
     * @return index base directory.
     */
-  def directory: BaseDirectory
+  def directory: Directory
 
   /**
     * @return index entry identifier.
