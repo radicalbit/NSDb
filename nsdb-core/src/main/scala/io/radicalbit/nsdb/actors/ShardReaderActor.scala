@@ -17,8 +17,9 @@
 package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
-import akka.actor.Props
+import akka.actor.{Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIndex}
@@ -30,6 +31,7 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
 
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -52,10 +54,18 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
 
+  lazy val passivateAfter = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
+    TimeUnit.NANOSECONDS)
+
+  context.setReceiveTimeout(passivateAfter)
+
   override def receive: Receive = {
     case GetCountWithLocations(_, _, metric, _) =>
-      val count = Try { index.getCount() }.recover { case _ => 0 }.getOrElse(0)
+      val count = Try { index.getCount }.recover { case _ => 0 }.getOrElse(0)
       sender ! CountGot(db, namespace, metric, count)
+    case ReceiveTimeout =>
+      context.stop(self)
     case ExecuteSelectStatement(statement, schema, _) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
@@ -117,6 +127,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     case RefreshShard =>
       index.refresh()
       facetIndexes.refresh()
+  }
+
+  override def postStop(): Unit = {
+    facetIndexes.close()
+    directory.close()
   }
 }
 
