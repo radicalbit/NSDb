@@ -192,6 +192,7 @@ class MetricAccumulatorActor(val basePath: String,
           sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
       }
     case msg @ Refresh(writeIds, keys) =>
+      garbageCollectIndexes()
       opBufferMap --= writeIds
       performingOps = Map.empty
       keys.foreach { key =>

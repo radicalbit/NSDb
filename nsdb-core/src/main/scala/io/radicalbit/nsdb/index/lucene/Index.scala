@@ -140,6 +140,10 @@ trait Index[T] {
   }
 
   def count(): Int = this.getSearcher.getIndexReader.numDocs()
+
+  def close(): Unit = {
+    directory.close()
+  }
 }
 
 object Index {
