@@ -633,10 +633,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         namespaces.foreach { namespace =>
           val metrics = FileUtils.getSubDirs(namespace)
           metrics.foreach { metric =>
-            val schemaIndex = new SchemaIndex(createHybridDirectory(Paths.get(metric.getAbsolutePath, "schemas")))
+            val schemaIndex = new SchemaIndex(createMmapDirectory(Paths.get(metric.getAbsolutePath, "schemas")))
             schemaIndex.getSchema(metric.getName).foreach { schema =>
               log.debug("restoring metric {}", metric.getName)
-              val metricsIndex = new TimeSeriesIndex(createHybridDirectory(metric.toPath))
+              val metricsIndex = new TimeSeriesIndex(createMmapDirectory(metric.toPath))
               val minTimestamp = metricsIndex
                 .query(schema,
                        new MatchAllDocsQuery(),
@@ -710,18 +710,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                       .foreach {
                         case SchemaGot(_, _, _, Some(schema)) =>
                           val schemasDir =
-                            createHybridDirectory(Paths.get(basePath, db, namespace, "schemas", metricName))
+                            createMmapDirectory(Paths.get(basePath, db, namespace, "schemas", metricName))
                           val schemaIndex  = new SchemaIndex(schemasDir)
                           val schemaWriter = schemaIndex.getWriter
                           schemaIndex.write(schema)(schemaWriter)
                           schemaWriter.close()
 
                           val dumpMetricIndex =
-                            new TimeSeriesIndex(createHybridDirectory(Paths.get(tmpPath, db, namespace, metricName)))
+                            new TimeSeriesIndex(createMmapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
                           dirNames.foreach { dirMetric =>
                             val shardWriter: IndexWriter = dumpMetricIndex.getWriter
                             val shardsDir =
-                              createHybridDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
+                              createMmapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
                             val shardIndex = new TimeSeriesIndex(shardsDir)
                             shardIndex.all(schema, bit => dumpMetricIndex.write(bit)(shardWriter))
                             shardWriter.close()

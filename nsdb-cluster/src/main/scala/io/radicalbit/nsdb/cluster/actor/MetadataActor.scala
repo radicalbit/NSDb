@@ -53,7 +53,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef)
   private def getLocationIndex(db: String, namespace: String): LocationIndex =
     locationIndexes.getOrElse(
       (db, namespace), {
-        val newIndex = new LocationIndex(createHybridDirectory(Paths.get(basePath, db, namespace, "metadata")))
+        val newIndex = new LocationIndex(createMmapDirectory(Paths.get(basePath, db, namespace, "metadata")))
         locationIndexes += ((db, namespace) -> newIndex)
         newIndex
       }
@@ -63,7 +63,7 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef)
     metricInfoIndexes.getOrElse(
       (db, namespace), {
         val newIndex =
-          new MetricInfoIndex(createHybridDirectory(Paths.get(basePath, db, namespace, "metadata", "info")))
+          new MetricInfoIndex(createMmapDirectory(Paths.get(basePath, db, namespace, "metadata", "info")))
         metricInfoIndexes += ((db, namespace) -> newIndex)
         newIndex
       }

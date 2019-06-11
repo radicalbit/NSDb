@@ -105,7 +105,8 @@ class WriteCoordinatorErrorsSpec
   lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
-  lazy val mockedMetadataCoordinator = system.actorOf(Props[MockedMetadataCoordinator])
+  lazy val mockedMetadataCoordinator =
+    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(mockedMetadataCoordinator,
                                                                          schemaCoordinator,
                                                                          system.actorOf(Props.empty))

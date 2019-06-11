@@ -52,7 +52,7 @@ class SchemaActor(val basePath: String, schemaCoordinator: ActorRef)
   private def getOrCreateSchemaIndex(db: String, namespace: String): SchemaIndex =
     schemaIndexes.getOrElse(
       (db, namespace), {
-        val newIndex = new SchemaIndex(createHybridDirectory(Paths.get(basePath, db, namespace, "schemas")))
+        val newIndex = new SchemaIndex(createMmapDirectory(Paths.get(basePath, db, namespace, "schemas")))
         schemaIndexes += ((db, namespace) -> newIndex)
         newIndex
       }

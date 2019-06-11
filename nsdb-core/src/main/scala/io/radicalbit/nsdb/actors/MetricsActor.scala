@@ -120,6 +120,7 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
           facetIndex.close()
         }
         facetIndexShards -= location
+        shardsAccess -= location
       case _ => // do nothing
     }
   }

@@ -17,16 +17,16 @@
 package io.radicalbit.nsdb.cluster.index
 
 import io.radicalbit.nsdb.index.SimpleIndex
+import io.radicalbit.nsdb.index.lucene.Index._
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search._
-import org.apache.lucene.store.{BaseDirectory, Directory}
+import org.apache.lucene.store.Directory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-import io.radicalbit.nsdb.index.lucene.Index._
 
 /**
   * Metric Info.
