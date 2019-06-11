@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Props, ReceiveTimeout}
+import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIndex}
@@ -65,7 +65,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       val count = Try { index.getCount }.recover { case _ => 0 }.getOrElse(0)
       sender ! CountGot(db, namespace, metric, count)
     case ReceiveTimeout =>
-      context.stop(self)
+      self ! PoisonPill
     case ExecuteSelectStatement(statement, schema, _) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
