@@ -31,11 +31,11 @@ object LongMetric {
 
   val testRecords: List[Bit] = List(
     Bit(1L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(2L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 1L, Map("surname"  -> "D"), Map("name"   -> "J")),
-    Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 1L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+    Bit(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit(4L, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
+    Bit(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
   )
 
 }
@@ -132,6 +132,27 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       assert(readRes.completedSuccessfully)
       assert(readRes.records.size == 2)
       assert(readRes.records.map(_.asBit) == LongMetric.testRecords.reverse.take(2))
+    }
+  }
+
+  test("execute it successfully when ordered by value") {
+    minicluster.nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select * from ${LongMetric.name} order by value desc limit 2")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(readRes.completedSuccessfully)
+      assert(readRes.records.size == 2)
+
+      val results = readRes.records.map(_.asBit)
+      results.foreach(r => assert(LongMetric.testRecords.takeRight(2).contains(r)))
+
     }
   }
 
@@ -417,7 +438,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
       assert(readRes.records.size == 1)
-      assert(readRes.records.head.asBit == Bit(10, 1, Map.empty, Map("name" -> "Frankie")))
+      assert(readRes.records.head.asBit == Bit(10, 6, Map.empty, Map("name" -> "Frankie")))
     }
   }
 
@@ -606,7 +627,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       var readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-      assert(readRes.records.map(_.asBit.value.asInstanceOf[Long]) == Seq(2, 1, 1, 1, 1))
+      assert(readRes.records.map(_.asBit.value.asInstanceOf[Long]) == Seq(6, 5, 4, 3, 3))
 
       val doubleQuery = nsdb
         .db(db)
