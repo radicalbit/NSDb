@@ -43,14 +43,14 @@ object LongMetric {
 
   val recordsShard1: Seq[Bit] = Seq(
     Bit(1L, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(2L, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 1L, Map("surname" -> "D"), Map("name"   -> "J"))
+    Bit(2L, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
+    Bit(4L, 3L, Map("surname" -> "D"), Map("name"   -> "J"))
   )
 
   val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 1L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+    Bit(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
   )
 
   val testRecords = recordsShard1 ++ recordsShard2
@@ -235,6 +235,29 @@ class ReadCoordinatorSpec
               fields = AllFields,
               limit = Some(LimitOperator(2)),
               order = Some(DescOrderOperator("timestamp"))
+            )
+          )
+        )
+
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.size shouldBe 2
+        expected.values shouldBe LongMetric.recordsShard2.tail.reverse
+      }
+
+      "execute it successfully when ordered by value" in within(5.seconds) {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = AllFields,
+              limit = Some(LimitOperator(2)),
+              order = Some(DescOrderOperator("value"))
             )
           )
         )
@@ -642,11 +665,11 @@ class ReadCoordinatorSpec
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
           Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-          Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-          Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-          Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+          Bit(2L, 2, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit(4L, 3, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+          Bit(6L, 4, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+          Bit(8L, 5, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+          Bit(10L, 6, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
         )
       }
 
@@ -763,7 +786,7 @@ class ReadCoordinatorSpec
         }
 
         expected.values.size shouldBe 1
-        expected.values.head shouldBe Bit(10, 1, Map.empty, Map("name" -> "Frankie"))
+        expected.values.head shouldBe Bit(10, 6, Map.empty, Map("name" -> "Frankie"))
       }
     }
 
@@ -1049,15 +1072,14 @@ class ReadCoordinatorSpec
         )
 
         awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-          expected.values shouldBe Seq(
-            Bit(0L, 2, Map.empty, Map("name" -> "John")),
-            Bit(0L, 1, Map.empty, Map("name" -> "J")),
-            Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
-            Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
-            Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
-          )
-        }
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values shouldBe Seq(
+          Bit(0L, 3, Map.empty, Map("name" -> "John")),
+          Bit(0L, 3, Map.empty, Map("name" -> "J")),
+          Bit(0L, 6, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 5, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 4, Map.empty, Map("name" -> "Bill"))
+        )
 
         probe.send(
           readCoordinatorActor,
@@ -1103,7 +1125,7 @@ class ReadCoordinatorSpec
 
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
-        }.values.map(_.value) shouldBe Seq(2, 1, 1, 1, 1)
+        }.values.map(_.value) shouldBe Seq(6, 5, 4, 3, 3)
 
         probe.send(
           readCoordinatorActor,
@@ -1145,7 +1167,7 @@ class ReadCoordinatorSpec
 
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
-        }.values.map(_.value) shouldBe Seq(1, 1)
+        }.values.map(_.value) shouldBe Seq(3, 3)
 
         probe.send(
           readCoordinatorActor,

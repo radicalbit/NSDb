@@ -25,7 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.{DeleteAll, RefreshShard}
 import io.radicalbit.nsdb.common.JSerializable
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -196,10 +196,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         val sorted =
           if (schemaField.fieldClassType == DimensionFieldType)
             seq.sortBy(_.dimensions(statement.order.get.dimension))
+          else if (schemaField.fieldClassType == ValueFieldType)
+            seq.sortBy(_.value)
           else
             seq.sortBy(_.tags(statement.order.get.dimension))
 
-        sorted.take(statement.limit.get.value)
+        statement.limit.map(l => sorted.take(l.value)).getOrElse(sorted)
       }
     }
   }
