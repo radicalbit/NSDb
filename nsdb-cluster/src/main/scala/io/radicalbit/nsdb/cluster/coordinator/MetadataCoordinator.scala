@@ -31,7 +31,8 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.GetDbs
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{DbsGot, WarmUpCompleted}
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.concurrent.Future
@@ -41,7 +42,7 @@ import scala.concurrent.Future
   * @param cache cluster aware metric's location cache
   */
 class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPathLogging with Stash {
-  val cluster = Cluster(context.system)
+  private val cluster = Cluster(context.system)
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS),
@@ -146,6 +147,11 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       }
 
   def operative: Receive = {
+    case GetDbs =>
+      (cache ? GetDbsFromCache)
+        .mapTo[DbsFromCacheGot]
+        .map(m => DbsGot(m.dbs))
+        .pipeTo(sender())
     case GetLocations(db, namespace, metric) =>
       (cache ? GetLocationsFromCache(db, namespace, metric))
         .mapTo[LocationsCached]

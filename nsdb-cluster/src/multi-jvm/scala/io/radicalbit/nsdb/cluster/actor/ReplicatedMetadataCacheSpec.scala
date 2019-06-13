@@ -144,7 +144,7 @@ class ReplicatedMetadataCacheSpec
           expectMsg(LocationsCached("db", "namespace", metric, Seq(location1, location2)))
         }
         awaitAssert{
-          replicatedCache ! GetDbsFromCache()
+          replicatedCache ! GetDbsFromCache
           expectMsg(DbsFromCacheGot(Set("db")))
         }
       }
@@ -185,7 +185,7 @@ class ReplicatedMetadataCacheSpec
           expectMsg(LocationsCached("db1", "namespace", metric, Seq(location2)))
         }
         awaitAssert{
-          replicatedCache ! GetDbsFromCache()
+          replicatedCache ! GetDbsFromCache
           expectMsg(DbsFromCacheGot(Set("db", "db1")))
         }
       }

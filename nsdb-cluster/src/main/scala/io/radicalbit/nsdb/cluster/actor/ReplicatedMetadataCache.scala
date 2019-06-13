@@ -22,6 +22,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.GetDbsFromCache
 import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.model.Location
 
@@ -80,7 +81,7 @@ object ReplicatedMetadataCache {
                                       value: Location)
   final case class GetLocationFromCache(db: String, namespace: String, metric: String, from: Long, to: Long)
   final case class GetLocationsFromCache(db: String, namespace: String, metric: String)
-  final case class GetDbsFromCache()
+  final case object GetDbsFromCache
   final case class GetNamespacesFromCache(db: String)
 
   sealed trait AddLocationResponse
@@ -239,11 +240,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val key = MetricInfoCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricInfoKey(key), ReadLocal, Some(MetricInfoRequest(key, sender())))
-
-    case GetDbsFromCache() =>
+    case GetDbsFromCache =>
       log.debug("searching for key {} in cache", dbsKey)
       replicator ! Get(dbsKey, ReadLocal, request = Some(DbsRequest(sender())))
-
     case g @ GetSuccess(LWWMapKey(_), Some(SingleLocationRequest(key, replyTo))) =>
       val values = g.dataValue.asInstanceOf[LWWMap[LocationWithNodeKey, Location]].entries.values.toList
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, values)
