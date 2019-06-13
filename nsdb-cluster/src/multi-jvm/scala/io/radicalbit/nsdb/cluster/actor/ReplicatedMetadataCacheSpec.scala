@@ -143,6 +143,10 @@ class ReplicatedMetadataCacheSpec
           replicatedCache ! GetLocationsFromCache("db", "namespace", metric)
           expectMsg(LocationsCached("db", "namespace", metric, Seq(location1, location2)))
         }
+        awaitAssert{
+          replicatedCache ! GetDbsFromCache()
+          expectMsg(DbsFromCacheGot(Set("db")))
+        }
       }
 
       enterBarrier("after-add-location")
@@ -163,6 +167,29 @@ class ReplicatedMetadataCacheSpec
         }
       }
       enterBarrier("after-add-metric-info")
+
+      runOn(node2) {
+        awaitAssert {
+          replicatedCache ! PutLocationInCache("db1", "namespace", metric, 0,1,location2)
+          expectMsg(LocationCached("db1", "namespace", metric, 0,1, location2))
+        }
+      }
+
+      runOn(node1) {
+        awaitAssert {
+          replicatedCache ! GetLocationFromCache("db1", "namespace", metric, 0, 1)
+          expectMsg(LocationsCached("db1", "namespace", metric, Seq(location2)))
+        }
+        awaitAssert {
+          replicatedCache ! GetLocationsFromCache("db1", "namespace", metric)
+          expectMsg(LocationsCached("db1", "namespace", metric, Seq(location2)))
+        }
+        awaitAssert{
+          replicatedCache ! GetDbsFromCache()
+          expectMsg(DbsFromCacheGot(Set("db", "db1")))
+        }
+      }
+      enterBarrier("after-add-location-for-another-db")
     }
 
     "replicate many cached entries" in within(5.seconds) {
@@ -197,7 +224,7 @@ class ReplicatedMetadataCacheSpec
           cached.value.size shouldBe 11
         }
       }
-      enterBarrier("after-build-add")
+      enterBarrier("after-bulk-add")
     }
 
     "do not allow insertion of an already present metric info" in within(5.seconds) {
