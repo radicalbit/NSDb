@@ -172,12 +172,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case GetDbs =>
       metadataCoordinator forward GetDbs
-    case msg @ GetNamespaces(db) =>
-      Future
-        .sequence(metricsDataActors.values.toSeq.map(actor => (actor ? msg).mapTo[NamespacesGot].map(_.namespaces)))
-        .map(_.flatten.toSet)
-        .map(namespaces => NamespacesGot(db, namespaces))
-        .pipeTo(sender)
+    case msg @ GetNamespaces(_) =>
+      metadataCoordinator forward msg
     case msg @ GetMetrics(db, namespace) =>
       Future
         .sequence(metricsDataActors.values.toSeq.map(actor => (actor ? msg).mapTo[MetricsGot].map(_.metrics)))

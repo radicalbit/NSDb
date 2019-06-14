@@ -30,15 +30,17 @@ class FakeMetadataCache extends Actor {
 
   val metricInfo: mutable.Map[MetricInfoCacheKey, MetricInfo] = mutable.Map.empty
 
-  val dbs: mutable.Set[String] = mutable.Set.empty
+  val dbsNamespaces: mutable.Set[(String, String)] = mutable.Set.empty
 
   def receive: Receive = {
     case GetDbsFromCache =>
-      sender ! DbsFromCacheGot(dbs.toSet)
+      sender ! DbsFromCacheGot(dbsNamespaces.map(_._1).toSet)
+    case GetNamespacesFromCache(db) =>
+      sender ! NamespacesFromCacheGot(db, dbsNamespaces.filter(_._1 == db).map(_._2).toSet)
     case PutLocationInCache(db, namespace, metric, from, to, value) =>
       val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
       locations.put(key, value)
-      dbs += db
+      dbsNamespaces += ((db, namespace))
       sender ! LocationCached(db, namespace, metric, from, to, value)
     case GetLocationsFromCache(db, namespace, metric) =>
       val key                 = MetricLocationsCacheKey(db, namespace, metric)
