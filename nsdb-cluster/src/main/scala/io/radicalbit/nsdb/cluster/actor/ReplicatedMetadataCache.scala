@@ -23,6 +23,7 @@ import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 
 import scala.concurrent.Future
@@ -72,6 +73,7 @@ object ReplicatedMetadataCache {
   private final case class MetricInfoRequest(key: MetricInfoCacheKey, replyTo: ActorRef)
   private final case class DbsRequest(replyTo: ActorRef)
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
+  private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
 
   final case class PutLocationInCache(db: String,
                                       namespace: String,
@@ -83,6 +85,7 @@ object ReplicatedMetadataCache {
   final case class GetLocationsFromCache(db: String, namespace: String, metric: String)
   final case object GetDbsFromCache
   final case class GetNamespacesFromCache(db: String)
+  final case class GetMetricsFromCache(db: String, namespace: String)
 
   sealed trait AddLocationResponse
 
@@ -114,6 +117,7 @@ object ReplicatedMetadataCache {
 
   final case class DbsFromCacheGot(dbs: Set[String])
   final case class NamespacesFromCacheGot(db: String, namespaces: Set[String])
+  final case class MetricsFromCacheGot(db: String, namespace: String, metrics: Set[String])
 }
 
 /**
@@ -158,7 +162,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   /**
     * Creates a [[ORSetKey]] for databases
     */
-  private val dbsKey: ORSetKey[(String, String)] = ORSetKey("dbs-namespaces-cache")
+  private val coordinatesKey: ORSetKey[Coordinates] = ORSetKey("coordinates-cache")
 
   private val writeDuration = 5.seconds
 
@@ -181,7 +185,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
           }
         _ <- replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
           _ :+ (keyWithNode -> value))
-        _ <- replicator ? Update(dbsKey, ORSet(), WriteLocal)(_ :+ (db, namespace))
+        _ <- replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(db, namespace, metric, value) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
@@ -241,11 +245,14 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricInfoKey(key), ReadLocal, Some(MetricInfoRequest(key, sender())))
     case GetDbsFromCache =>
-      log.debug("searching for key {} in cache", dbsKey)
-      replicator ! Get(dbsKey, ReadLocal, request = Some(DbsRequest(sender())))
+      log.debug("searching for key {} in cache", coordinatesKey)
+      replicator ! Get(coordinatesKey, ReadLocal, request = Some(DbsRequest(sender())))
     case GetNamespacesFromCache(db) =>
-      log.debug("searching for key {} in cache", dbsKey)
-      replicator ! Get(dbsKey, ReadLocal, request = Some(NamespaceRequest(db, sender())))
+      log.debug("searching for key {} in cache", coordinatesKey)
+      replicator ! Get(coordinatesKey, ReadLocal, request = Some(NamespaceRequest(db, sender())))
+    case GetMetricsFromCache(db, namespace) =>
+      log.debug("searching for key {} in cache", coordinatesKey)
+      replicator ! Get(coordinatesKey, ReadLocal, request = Some(MetricRequest(db, namespace, sender())))
     case g @ GetSuccess(LWWMapKey(_), Some(SingleLocationRequest(key, replyTo))) =>
       val values = g.dataValue.asInstanceOf[LWWMap[LocationWithNodeKey, Location]].entries.values.toList
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, values)
@@ -263,12 +270,19 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         .asInstanceOf[LWWMap[MetricInfoCacheKey, MetricInfo]]
         .get(key)
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, dataValue)
-    case g @ GetSuccess(`dbsKey`, Some(DbsRequest(replyTo))) =>
-      val elements = g.dataValue.asInstanceOf[ORSet[(String, String)]].elements.map(_._1)
+    case g @ GetSuccess(`coordinatesKey`, Some(DbsRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[Coordinates]].elements.map(_.db)
       replyTo ! DbsFromCacheGot(elements)
-    case g @ GetSuccess(`dbsKey`, Some(NamespaceRequest(db, replyTo))) =>
-      val elements = g.dataValue.asInstanceOf[ORSet[(String, String)]].elements.filter(_._1 == db).map(_._2)
+    case g @ GetSuccess(`coordinatesKey`, Some(NamespaceRequest(db, replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[Coordinates]].elements.filter(_.db == db).map(_.namespace)
       replyTo ! NamespacesFromCacheGot(db, elements)
+    case g @ GetSuccess(`coordinatesKey`, Some(MetricRequest(db, namespace, replyTo))) =>
+      val elements = g.dataValue
+        .asInstanceOf[ORSet[Coordinates]]
+        .elements
+        .filter(c => c.db == db && c.namespace == namespace)
+        .map(_.metric)
+      replyTo ! MetricsFromCacheGot(db, namespace, elements)
     case NotFound(_, Some(SingleLocationRequest(key, replyTo))) =>
       replyTo ! LocationFromCacheGot(key.db, key.namespace, key.metric, key.from, key.to, None)
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
@@ -277,6 +291,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
     case g @ NotFound(_, Some(DbsRequest(replyTo))) =>
       replyTo ! DbsFromCacheGot(Set.empty)
+    case g @ NotFound(_, Some(NamespaceRequest(db, replyTo))) =>
+      replyTo ! NamespacesFromCacheGot(db, Set.empty)
+    case g @ NotFound(_, Some(MetricRequest(db, namespace, replyTo))) =>
+      replyTo ! MetricsFromCacheGot(db, namespace, Set.empty)
     case msg: UpdateResponse[_] =>
       log.debug("received not handled update message {}", msg)
   }
