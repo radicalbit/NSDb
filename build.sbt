@@ -116,8 +116,8 @@ lazy val `nsdb-web-ui` = project
         log.info("skip building ui")
         Def.task {}
       }
-    }.value
-    //(compile in Compile) := ((compile in Compile) dependsOn uiCopyTask).value
+    }.value,
+    (compile in Compile) := ((compile in Compile) dependsOn uiCopyTask).value
   )
 
 lazy val `nsdb-common` = project
