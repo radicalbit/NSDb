@@ -217,8 +217,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
 
-    var groups = Map.empty[String, Int]
-
     (1 to 100).foreach { i =>
       val factor = i / 4
       val tag    = s"tag_$factor"
@@ -322,8 +320,6 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     implicit val writer     = facetIndexes.newIndexWriter
     implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
 
-    var groups = Map.empty[String, Int]
-
     (1 to 100).foreach { i =>
       val factor: Double = 1.2d
       val tag            = s"tag_${i / 10}"
@@ -343,13 +339,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     val res = facetIndexes.facetSumIndex
       .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), Some(DECIMAL()))
     res.size shouldBe 6
-    res.foreach {
-      case bit =>
-        bit.tags.headOption match {
-          case Some(("tag", "tag_0"))   => Math.abs(bit.value.asInstanceOf[Double] - 10.8d) should be < 1e-7
-          case Some(("tag", "tag_5"))   => Math.abs(bit.value.asInstanceOf[Double] - 1.2d) should be < 1e-7
-          case Some(("tag", v: String)) => Math.abs(bit.value.asInstanceOf[Double] - 12.0d) should be < 1e-7
-        }
+    res.foreach { bit =>
+      bit.tags.headOption match {
+        case Some(("tag", "tag_0"))   => Math.abs(bit.value.asInstanceOf[Double] - 10.8d) should be < 1e-7
+        case Some(("tag", "tag_5"))   => Math.abs(bit.value.asInstanceOf[Double] - 1.2d) should be < 1e-7
+        case Some(("tag", v: String)) => Math.abs(bit.value.asInstanceOf[Double] - 12.0d) should be < 1e-7
+      }
     }
   }
 }

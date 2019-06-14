@@ -134,7 +134,7 @@ class WriteCoordinatorErrorsSpec
 
       compensationMessage.action.shouldBe(RejectedEntryAction(record1))
 
-      val externalResponse = awaitAssert {
+      awaitAssert {
         callingProbe.expectMsgType[RecordRejected]
       }
     }
@@ -174,7 +174,7 @@ class WriteCoordinatorErrorsSpec
 
       rejectionRequestNode2.action.shouldBe(RejectedEntryAction(record2))
 
-      val externalResponse = awaitAssert {
+      awaitAssert {
         callingProbe.expectMsgType[RecordRejected]
       }
 
