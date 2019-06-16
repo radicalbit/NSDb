@@ -23,7 +23,7 @@ import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCount}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -52,9 +52,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
   lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
 
   override def receive: Receive = {
-    case GetCount(_, _, metric) => sender ! CountGot(db, namespace, metric, index.getCount())
-
-    case ExecuteSelectStatement(statement, schema, locations) =>
+    case GetCountWithLocations(_, _, metric, _) =>
+      val count = Try { index.getCount() }.recover { case _ => 0 }.getOrElse(0)
+      sender ! CountGot(db, namespace, metric, count)
+    case ExecuteSelectStatement(statement, schema, _) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
@@ -119,8 +120,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 }
 
 object ShardReaderActor {
-
-  case object DeleteAll
 
   case object RefreshShard
 

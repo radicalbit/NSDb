@@ -19,11 +19,11 @@ package io.radicalbit.nsdb.actors
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.ShardReaderActor.{DeleteAll, RefreshShard}
+import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
@@ -32,9 +32,8 @@ import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement.StatementParser
-import spire.implicits._
+import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
@@ -77,24 +76,16 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     )
 
   private def actorName(location: Location) =
-    s"shard_reader_${location.node}_${location.metric}_${location.from}_${location.to}"
+    s"shard_reader-${location.node}-${location.metric}-${location.from}-${location.to}"
 
   /**
-    * Retrieve all the shard actors for a given metric.
-    *
-    * @param metric The metric to filter shard actors
-    * @return All the shard actors for a given metric.
-    */
-  private def actorsForMetric(metric: String): mutable.Map[Location, ActorRef] = actors.filter(_._1.metric == metric)
-
-  /**
-    * Filters all the shard actors of a metrics given a set of locations.
+    * Retrieve all the shard actors of a metrics given a set of locations.
     *
     * @param locations locations to filter the shard actors with.
     * @return filtered map containing all the actors for the given locations.
     */
   private def actorsForLocations(locations: Seq[Location]): Seq[(Location, ActorRef)] =
-    actors.filterKeys(locations.toSet).toSeq
+    locations.map(location => (location, getOrCreateActor(location)))
 
   /**
     * Any existing shard is retrieved
@@ -223,15 +214,14 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   def readOps: Receive = {
     case GetMetrics(_, _) =>
       sender() ! MetricsGot(db, namespace, actors.keys.map(_.metric).toSet)
-    case msg @ GetCount(_, ns, metric) =>
+    case msg @ GetCountWithLocations(_, ns, metric, locations) =>
       Future
-        .sequence(actorsForMetric(metric).map {
+        .sequence(actorsForLocations(locations).map {
           case (_, actor) =>
             (actor ? msg).mapTo[CountGot].map(_.count)
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-
     case ExecuteSelectStatement(statement, schema, locations) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
@@ -328,11 +318,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
         case _           => sender ! SelectStatementFailed("Not a select statement.")
       }
-    case DropMetric(_, _, metric) =>
-      actorsForMetric(metric).foreach {
-        case (key, actor) =>
-          actor ! DeleteAll
-          actors -= key
+    case DropMetricWithLocations(_, _, _, locations) =>
+      actors.foreach {
+        case (loc, actor) if locations.contains(loc) =>
+          actor ! PoisonPill
+          actors -= loc
+        case _ => //do nothing
       }
     case Refresh(_, keys) =>
       keys.foreach { key =>

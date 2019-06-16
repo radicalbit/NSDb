@@ -497,7 +497,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
               writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema)
             case r: RecordRejected =>
               // It does nothing for responses not included in consistency level
-              log.error("Eventual writes are not performed due to error during consistent write operations ")
+              log.error(
+                s"Eventual writes are not performed due to error during consistent write operations ${r.reasons.mkString("")}")
               Future(r)
           }
 
@@ -567,30 +568,37 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
         .pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
-      //FIXME add cluster aware deletion
-      writeCommitLog(
-        db,
-        namespace,
-        System.currentTimeMillis(),
-        metric,
-        commitLogCoordinators.keys.head,
-        DeleteMetricAction,
-        Location(metric, commitLogCoordinators.keys.head, 0, 0)
-      ).flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
-            if (metricsDataActors.isEmpty)
-              Future(MetricDropped(db, namespace, metric))
-            else {
-              (schemaCoordinator ? DeleteSchema(db, namespace, metric))
-                .mapTo[SchemaDeleted]
-                .flatMap(_ => broadcastMessage(msg))
+      val chain = for {
+        locations <- (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations)
+        commitLogResponses <- Future.sequence {
+          locations
+            .collect {
+              case location if commitLogCoordinators.get(location.node).isDefined =>
+                (location, commitLogCoordinators(location.node))
             }
-          case WriteToCommitLogFailed(_, _, _, _, reason) =>
-            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-            context.system.terminate()
+            .map {
+              case (location, actor) =>
+                (actor ? WriteToCommitLog(db = db,
+                                          namespace = namespace,
+                                          metric = metric,
+                                          ts = System.currentTimeMillis(),
+                                          action = DeleteMetricAction,
+                                          location)).mapTo[CommitLogResponse]
+            }
         }
-        .pipeTo(sender())
-
+        _ <- {
+          val errors = commitLogResponses
+            .filter(_.isInstanceOf[WriteToCommitLogFailed])
+            .map(_.asInstanceOf[WriteToCommitLogFailed])
+          if (errors.nonEmpty) {
+            log.error(s"Failed to write to commit-log for: $msg with reason: ${errors.map(_.reason).mkString("")}")
+            context.system.terminate()
+          }
+          broadcastMessage(DropMetricWithLocations(db, namespace, metric, locations)).mapTo[MetricDropped]
+        }
+        _ <- (schemaCoordinator ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted]
+      } yield MetricDropped(db, namespace, metric)
+      chain.pipeTo(sender())
     case Restore(path: String) =>
       log.info("restoring dump at path {}", path)
       val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"

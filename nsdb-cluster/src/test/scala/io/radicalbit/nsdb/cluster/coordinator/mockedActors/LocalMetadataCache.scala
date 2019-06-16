@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.coordinator
+package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.coordinator.FakeMetadataCache.{DeleteAll, DeleteDone}
 import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 
 import scala.collection.mutable
 
-class FakeMetadataCache extends Actor {
+class LocalMetadataCache extends Actor {
+
+  import LocalMetadataCache.{DeleteAll, DeleteDone}
 
   val locations: mutable.Map[LocationWithNodeKey, Location] = mutable.Map.empty
 
@@ -70,8 +71,8 @@ class FakeMetadataCache extends Actor {
   }
 }
 
-object FakeMetadataCache {
-  def props: Props = Props(new FakeMetadataCache)
+object LocalMetadataCache {
+  def props: Props = Props(new LocalMetadataCache)
 
   case object DeleteAll
   case object DeleteDone

@@ -25,6 +25,7 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache
 import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
@@ -47,10 +48,10 @@ class MetadataCoordinatorSpec
     with BeforeAndAfterEach
     with BeforeAndAfterAll {
 
-  import FakeMetadataCache._
+  import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache._
 
   val probe               = TestProbe()
-  val metadataCache       = system.actorOf(FakeMetadataCache.props)
+  val metadataCache       = system.actorOf(LocalMetadataCache.props)
   val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache, probe.ref))
 
   val db        = "testDb"
