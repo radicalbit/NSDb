@@ -169,7 +169,6 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       expectNoMessage(interval)
 
-//      namespaceSchemaActor.underlyingActor.schemaActors.keys.size shouldBe 0
       metricsDataActor.underlyingActor.context.children.map(_.path.name).exists(_.contains(namespace)) shouldBe false
 
       probe.send(metricsDataActor, GetNamespaces(db))
@@ -247,6 +246,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       probe.send(fakeMetadataCoordinator, GetLocations(db, namespace, "testMetric"))
       val locationsAfterDrop = probe.expectMsgType[LocationsGot].locations
+      locationsAfterDrop.size shouldBe 0
 
       probe.send(metricsDataActor, GetCountWithLocations(db, namespace, "testMetric", locationsAfterDrop))
       val result = awaitAssert {

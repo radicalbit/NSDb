@@ -126,22 +126,28 @@ class MetadataCoordinatorSpec
     }
 
     "retrieve Locations for a metric" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
+
+      val loc11 = Location(metric, "node_01", 0L, 30000L)
+      val loc21 = Location(metric, "node_02", 0L, 30000L)
+      val loc12 = Location(metric, "node_01", 30000L, 60000L)
+      val loc22 = Location(metric, "node_02", 30000L, 60000L)
+
+      probe.send(metadataCoordinator, AddLocation(db, namespace, loc11))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
+      probe.send(metadataCoordinator, AddLocation(db, namespace, loc21))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 30000L, 60000L)))
+      probe.send(metadataCoordinator, AddLocation(db, namespace, loc12))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 30000L, 60000L)))
+      probe.send(metadataCoordinator, AddLocation(db, namespace, loc22))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -152,11 +158,12 @@ class MetadataCoordinatorSpec
       }
 
       retrievedLocations.locations.size shouldBe 4
-      val loc = retrievedLocations.locations
-      loc.map(_.metric) shouldBe Seq(metric, metric, metric, metric)
-      loc.map(_.node) shouldBe Seq("node_01", "node_02", "node_01", "node_02")
-      loc.map(_.from) shouldBe Seq(0L, 0L, 30000L, 30000L)
-      loc.map(_.to) shouldBe Seq(30000L, 30000L, 60000L, 60000L)
+      val locs = retrievedLocations.locations
+
+      locs should contain(loc11)
+      locs should contain(loc21)
+      locs should contain(loc12)
+      locs should contain(loc22)
     }
 
     "retrieve correct default write Location given a timestamp" in {

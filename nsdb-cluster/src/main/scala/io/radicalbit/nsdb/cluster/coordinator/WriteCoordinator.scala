@@ -596,6 +596,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           }
           broadcastMessage(DropMetricWithLocations(db, namespace, metric, locations)).mapTo[MetricDropped]
         }
+        _ <- metadataCoordinator ? DropMetric(db, namespace, metric)
         _ <- (schemaCoordinator ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted]
       } yield MetricDropped(db, namespace, metric)
       chain.pipeTo(sender())

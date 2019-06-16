@@ -43,18 +43,29 @@ class LocalMetadataCache extends Actor {
       sender ! MetricsFromCacheGot(db,
                                    namespace,
                                    coordinates.filter(c => c.db == db && c.namespace == namespace).map(_.metric).toSet)
+    case DropMetricFromCache(db, namespace, metric) =>
+      coordinates -= Coordinates(db, namespace, metric)
+      locations --= locations.collect {
+        case (key, _) if key.db == db && key.namespace == namespace && key.metric == metric => key
+      }
+      sender() ! MetricFromCacheDropped(db, namespace, metric)
+    case DropNamespaceFromCache(db, namespace) =>
+      coordinates --= coordinates.filter(c => c.db == db && c.namespace == namespace)
+      sender() ! NamespaceFromCacheDropped(db, namespace)
     case PutLocationInCache(db, namespace, metric, from, to, value) =>
       val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
       locations.put(key, value)
       coordinates += Coordinates(db, namespace, metric)
       sender ! LocationCached(db, namespace, metric, from, to, value)
     case GetLocationsFromCache(db, namespace, metric) =>
-      val key                 = MetricLocationsCacheKey(db, namespace, metric)
-      val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq.sortBy(_.from)
-      sender ! LocationsCached(db, namespace, metric, locs)
+      val locs = locations.collect {
+        case (k, v) if k.db == db && k.namespace == namespace && k.metric == metric => v
+      }
+      sender ! LocationsCached(db, namespace, metric, locs.toSeq)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
       metricInfo.keys.foreach(k => metricInfo.remove(k))
+      coordinates.clear()
       sender() ! DeleteDone
     case PutMetricInfoInCache(db, namespace, metric, value) =>
       val key = MetricInfoCacheKey(db, namespace, metric)

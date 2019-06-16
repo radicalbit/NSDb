@@ -118,6 +118,14 @@ object ReplicatedMetadataCache {
   final case class DbsFromCacheGot(dbs: Set[String])
   final case class NamespacesFromCacheGot(db: String, namespaces: Set[String])
   final case class MetricsFromCacheGot(db: String, namespace: String, metrics: Set[String])
+
+  final case class DropMetricFromCache(db: String, namespace: String, metric: String)
+  final case class DropNamespaceFromCache(db: String, namespace: String)
+
+  final case class MetricFromCacheDropped(db: String, namespace: String, metric: String)
+  final case class DropMetricFromCacheFailed(db: String, namespace: String, metric: String)
+  final case class NamespaceFromCacheDropped(db: String, namespace: String)
+  final case class DropNamespaceFromCacheFailed(db: String, namespace: String)
 }
 
 /**
@@ -220,10 +228,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val keyWithNode = LocationWithNodeKey(db, namespace, metric, node, from, to)
       val metricKey   = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
       val f = for {
-        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(
+        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteMajority(writeDuration))(
           _ remove (address, keyWithNode)))
           .map(_ => LocationEvicted(db, namespace, metric, node, from, to))
-        _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
+        _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteMajority(writeDuration))(
           _ remove (address, keyWithNode)))
           .map {
             case UpdateSuccess(_, _) =>
@@ -253,6 +261,51 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     case GetMetricsFromCache(db, namespace) =>
       log.debug("searching for key {} in cache", coordinatesKey)
       replicator ! Get(coordinatesKey, ReadLocal, request = Some(MetricRequest(db, namespace, sender())))
+    case DropMetricFromCache(db, namespace, metric) =>
+      (for {
+        locations <- (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.value)
+        dropLocationsResult <- Future.sequence {
+          locations.map(location => self ? EvictLocation(db, namespace, location))
+        }
+        dropCoordinates <- {
+          val errors = dropLocationsResult.collect { case res: EvictLocationFailed => res }
+          if (errors.isEmpty)
+            (replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ remove Coordinates(db, namespace, metric)))
+              .map {
+                case UpdateSuccess(_, _) =>
+                  MetricFromCacheDropped(db, namespace, metric)
+                case _ => DropMetricFromCacheFailed(db, namespace, metric)
+              } else Future(DropMetricFromCacheFailed(db, namespace, metric))
+        }
+      } yield dropCoordinates)
+        .pipeTo(sender())
+    case DropNamespaceFromCache(db, namespace) =>
+      (for {
+        coordinatesResponse <- replicator ? Get(coordinatesKey, ReadLocal)
+        coordinatesUpdate <- coordinatesResponse match {
+          case g @ GetSuccess(`coordinatesKey`, _) =>
+            Future
+              .sequence(
+                g.dataValue
+                  .asInstanceOf[ORSet[Coordinates]]
+                  .elements
+                  .filter(c => c.db == db && c.namespace == namespace)
+                  .map(location =>
+                    replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(
+                      _ remove Coordinates(db, namespace, location.metric))))
+              .map { responses =>
+                val errors = responses.collect {
+                  case res: UpdateFailure[_] => res
+                }
+                if (errors.isEmpty) NamespaceFromCacheDropped(db, namespace)
+                else DropNamespaceFromCacheFailed(db, namespace)
+              }
+          case NotFound(_, _) =>
+            Future(NamespaceFromCacheDropped(db, namespace))
+          case e =>
+            Future(DropNamespaceFromCacheFailed(db, namespace))
+        }
+      } yield coordinatesUpdate).pipeTo(sender())
     case g @ GetSuccess(LWWMapKey(_), Some(SingleLocationRequest(key, replyTo))) =>
       val values = g.dataValue.asInstanceOf[LWWMap[LocationWithNodeKey, Location]].entries.values.toList
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, values)

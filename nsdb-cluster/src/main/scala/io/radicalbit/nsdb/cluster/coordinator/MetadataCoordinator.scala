@@ -31,8 +31,8 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetDbs, GetMetrics, GetNamespaces}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{DbsGot, MetricsGot, NamespacesGot, WarmUpCompleted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
 
 import scala.concurrent.Future
@@ -161,6 +161,16 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? GetMetricsFromCache(db, namespace))
         .mapTo[MetricsFromCacheGot]
         .map(m => MetricsGot(db, namespace, m.metrics))
+        .pipeTo(sender())
+    case DropMetric(db, namespace, metric) =>
+      (cache ? DropMetricFromCache(db, namespace, metric))
+        .mapTo[MetricFromCacheDropped]
+        .map(_ => MetricDropped(db, namespace, metric))
+        .pipeTo(sender())
+    case DeleteNamespace(db, namespace) =>
+      (cache ? DropNamespaceFromCache(db, namespace))
+        .mapTo[NamespaceFromCacheDropped]
+        .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
     case GetLocations(db, namespace, metric) =>
       (cache ? GetLocationsFromCache(db, namespace, metric))
