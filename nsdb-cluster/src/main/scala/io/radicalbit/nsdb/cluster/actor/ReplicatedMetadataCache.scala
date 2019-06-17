@@ -293,8 +293,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         _ <- Future.sequence {
           locations.map(location => self ? EvictLocation(db, namespace, location))
         }
-        coordinatesUpdate <-
-        Future
+        coordinatesUpdate <- Future
           .sequence(metrics.metrics
             .map(location =>
               replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ remove Coordinates(db, namespace, location))))
