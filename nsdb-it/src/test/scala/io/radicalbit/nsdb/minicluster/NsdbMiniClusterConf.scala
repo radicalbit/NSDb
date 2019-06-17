@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.minicluster
 
+import java.time.Duration
+
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.common.NsdbConfig
 
@@ -27,6 +29,7 @@ trait NsdbMiniClusterConf extends NsdbConfig {
   def uiPort: Int
   def dataDir: String
   def commitLogDir: String
+  def passivateAfter: Duration
 
   override def config: Config =
     ConfigFactory
@@ -37,4 +40,5 @@ trait NsdbMiniClusterConf extends NsdbConfig {
       .withValue("nsdb.ui.port", ConfigValueFactory.fromAnyRef(uiPort))
       .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
       .withValue("nsdb.commit-log.directory", ConfigValueFactory.fromAnyRef(commitLogDir))
+      .withValue("nsdb.sharding.passivate-after", ConfigValueFactory.fromAnyRef(passivateAfter))
 }

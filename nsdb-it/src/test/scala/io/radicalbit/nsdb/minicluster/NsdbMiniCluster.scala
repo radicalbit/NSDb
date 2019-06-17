@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.minicluster
 
 import java.io.File
+import java.time.Duration
 import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
@@ -36,6 +37,7 @@ trait NsdbMiniCluster extends LazyLogging {
   protected[this] val clFolder               = s"target/commitLog/$instanceId"
 
   protected[this] def nodesNumber: Int
+  protected[this] def passivateAfter: Duration
 
   lazy val nodes: Set[NSDbMiniClusterNode] =
     (for {
@@ -48,7 +50,8 @@ trait NsdbMiniCluster extends LazyLogging {
         uiPort = startingUiPort + i,
         grpcPort = startingGrpcPort + i,
         dataDir = s"$rootFolder/data${startingAkkaRemotePort + i}",
-        commitLogDir = s"$clFolder$i"
+        commitLogDir = s"$clFolder$i",
+        passivateAfter = passivateAfter
       )).toSet
 
   def start(cleanup: Boolean = false): Unit = {

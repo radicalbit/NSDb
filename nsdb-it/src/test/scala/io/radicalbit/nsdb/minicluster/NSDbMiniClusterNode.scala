@@ -16,10 +16,13 @@
 
 package io.radicalbit.nsdb.minicluster
 
+import java.time.Duration
+
 class NSDbMiniClusterNode(val akkaRemotePort: Int,
                           val httpPort: Int,
                           val uiPort: Int,
                           val grpcPort: Int,
                           val dataDir: String,
-                          val commitLogDir: String)
+                          val commitLogDir: String,
+                          val passivateAfter: Duration = Duration.ofHours(1))
     extends NSDbMiniClusterDefinition {}

@@ -61,6 +61,7 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     locations.map(location => (location, getIndex(location)))
   protected def facetsShardsFromLocations(locations: Seq[Location]): Seq[(Location, AllFacetIndexes)] =
     locations.map(location => (location, facetIndexesFor(location)))
+
   /**
     * last access for a given [[Location]]
     */
