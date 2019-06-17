@@ -165,12 +165,18 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
     case DropMetric(db, namespace, metric) =>
       (cache ? DropMetricFromCache(db, namespace, metric))
         .mapTo[MetricFromCacheDropped]
-        .map(_ => MetricDropped(db, namespace, metric))
+        .map { _ =>
+          mediator ! Publish(METADATA_TOPIC, DeleteMetricMetadata(db, namespace, metric))
+          MetricDropped(db, namespace, metric)
+        }
         .pipeTo(sender())
     case DeleteNamespace(db, namespace) =>
       (cache ? DropNamespaceFromCache(db, namespace))
         .mapTo[NamespaceFromCacheDropped]
-        .map(_ => NamespaceDeleted(db, namespace))
+        .map { _ =>
+          mediator ! Publish(METADATA_TOPIC, DeleteNamespaceMetadata(db, namespace))
+          NamespaceDeleted(db, namespace)
+        }
         .pipeTo(sender())
     case GetLocations(db, namespace, metric) =>
       (cache ? GetLocationsFromCache(db, namespace, metric))
@@ -256,6 +262,10 @@ object MetadataCoordinator {
     case class AddLocation(db: String, namespace: String, location: Location)
     case class AddLocations(db: String, namespace: String, locations: Seq[Location])
     case class DeleteLocation(db: String, namespace: String, location: Location)
+    case class DeleteMetricMetadata(db: String,
+                                    namespace: String,
+                                    metric: String,
+                                    occurredOn: Long = System.currentTimeMillis)
     case class DeleteNamespaceMetadata(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
@@ -272,6 +282,7 @@ object MetadataCoordinator {
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
     case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
+    case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
     case class NamespaceMetadataDeleted(db: String, namespace: String, occurredOn: Long)
 
     case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])

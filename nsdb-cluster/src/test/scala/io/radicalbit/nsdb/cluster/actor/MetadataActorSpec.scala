@@ -50,18 +50,26 @@ class MetadataActorSpec
   lazy val db        = "db"
   lazy val namespace = "namespaceTest"
   lazy val metric    = "people"
+  lazy val metric2   = "animal"
 
-  lazy val locations = Seq(
+  lazy val locationsMetric = Seq(
     Location(metric, "node1", 0, 1),
     Location(metric, "node1", 2, 3),
     Location(metric, "node1", 4, 5),
     Location(metric, "node1", 6, 8)
   )
 
+  lazy val locationsMetric2 = Seq(
+    Location(metric2, "node1", 0, 1),
+    Location(metric2, "node1", 2, 3),
+    Location(metric2, "node1", 4, 5),
+    Location(metric2, "node1", 6, 8)
+  )
+
   before {
     implicit val timeout = Timeout(5 seconds)
     Await.result(metadataActor ? DeleteNamespaceMetadata(db, namespace), 5 seconds)
-    Await.result(metadataActor ? AddLocations(db, namespace, locations), 5 seconds)
+    Await.result(metadataActor ? AddLocations(db, namespace, locationsMetric ++ locationsMetric2), 5 seconds)
   }
 
   "MetadataActor" should "delete locations for a namespace" in {
@@ -90,7 +98,24 @@ class MetadataActorSpec
 
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
-    existingGot.locations shouldBe locations
+    existingGot.locations shouldBe locationsMetric
+  }
+
+  "MetadataActor" should "delete locations for metric" in {
+
+    probe.send(metadataActor, GetLocations(db, namespace, metric))
+
+    val existingGot = probe.expectMsgType[LocationsGot]
+    existingGot.metric shouldBe metric
+    existingGot.locations shouldBe locationsMetric
+
+    probe.send(metadataActor, DeleteMetricMetadata(db, namespace, metric))
+    probe.expectMsgType[MetricMetadataDeleted]
+
+    probe.send(metadataActor, GetLocations(db, namespace, metric))
+    val afterDeleteLocations = probe.expectMsgType[LocationsGot]
+    afterDeleteLocations.metric shouldBe metric
+    afterDeleteLocations.locations shouldBe Seq()
   }
 
   "MetadataActor" should "add a new location" in {
@@ -105,7 +130,7 @@ class MetadataActorSpec
 
     val existingGot = probe.expectMsgType[LocationsGot]
     existingGot.metric shouldBe metric
-    existingGot.locations shouldBe (locations :+ newLocation)
+    existingGot.locations shouldBe (locationsMetric :+ newLocation)
   }
 
   "MetadataActor" should "add a new metricInfo" in {

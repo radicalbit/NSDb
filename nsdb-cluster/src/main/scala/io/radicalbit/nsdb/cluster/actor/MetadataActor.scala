@@ -126,6 +126,20 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
       index.refresh()
       sender ! LocationDeleted(db, namespace, metadata)
 
+    case DeleteMetricMetadata(db, namespace, metric, occurredOn) =>
+      val index                        = getLocationIndex(db, namespace)
+      implicit val writer: IndexWriter = index.getWriter
+      index.deleteByMetric(metric)
+      writer.close()
+      index.refresh()
+
+      val metricInfoIndex  = getMetricInfoIndex(db, namespace)
+      val metricInfoWriter = metricInfoIndex.getWriter
+      metricInfoIndex.deleteByMetric(metric)(metricInfoWriter)
+      metricInfoWriter.close()
+      metricInfoIndex.refresh()
+
+      sender ! MetricMetadataDeleted(db, namespace, metric, occurredOn)
     case DeleteNamespaceMetadata(db, namespace, occurredOn) =>
       val locationIndex                    = getLocationIndex(db, namespace)
       val locationIndexwriter: IndexWriter = locationIndex.getWriter
