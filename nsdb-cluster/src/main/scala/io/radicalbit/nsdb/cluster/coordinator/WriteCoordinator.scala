@@ -474,8 +474,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       sender() ! PublisherSubscribed(actor, nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case MapInput(ts, db, namespace, metric, bit)
-        if ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
+    case MapInput(_, db, namespace, metric, _) if ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
       // Case covering request for a metric waiting for commit-log ack
       log.debug(s"Stashed message due to async ack from commit-log for metric $metric")
       stash()
@@ -509,25 +508,45 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
     case msg @ DeleteNamespace(db, namespace) =>
-      //FIXME add cluster aware deletion
-      writeCommitLog(db,
-                     namespace,
-                     System.currentTimeMillis(),
-                     "",
-                     commitLogCoordinators.keys.head,
-                     DeleteNamespaceAction,
-                     Location("", commitLogCoordinators.keys.head, 0, 0))
-        .flatMap {
-          case WriteToCommitLogSucceeded(_, _, _, _, _) =>
-            if (metricsDataActors.isEmpty) {
-              (schemaCoordinator ? msg).map(_ => NamespaceDeleted(db, namespace))
-            } else
-              (schemaCoordinator ? msg).flatMap(_ => broadcastMessage(msg))
-          case WriteToCommitLogFailed(_, _, _, _, reason) =>
-            log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
-            context.system.terminate()
+      val chain = for {
+        metrics <- (metadataCoordinator ? GetMetrics(db, namespace)).mapTo[MetricsGot].map(_.metrics)
+        locations <- Future
+          .sequence {
+            metrics.map(metric =>
+              (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations))
+          }
+          .map(_.flatten)
+        commitLogResponses <- Future.sequence {
+          locations
+            .collect {
+              case location if commitLogCoordinators.get(location.node).isDefined =>
+                (location, commitLogCoordinators(location.node))
+            }
+            .map {
+              case (location, actor) =>
+                (actor ? WriteToCommitLog(db = db,
+                                          namespace = namespace,
+                                          metric = location.metric,
+                                          ts = System.currentTimeMillis(),
+                                          action = DeleteNamespaceAction,
+                                          location)).mapTo[CommitLogResponse]
+            }
         }
-        .pipeTo(sender())
+        _ <- {
+          val errors = commitLogResponses
+            .filter(_.isInstanceOf[WriteToCommitLogFailed])
+            .map(_.asInstanceOf[WriteToCommitLogFailed])
+          if (errors.nonEmpty) {
+            log.error(s"Failed to write to commit-log for: $msg with reason: ${errors.map(_.reason).mkString("")}")
+            context.system.terminate()
+          }
+          broadcastMessage(msg)
+        }
+        _ <- metadataCoordinator ? msg
+        _ <- schemaCoordinator ? msg
+      } yield NamespaceDeleted(db, namespace)
+
+      chain.pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       //FIXME add cluster aware deletion
       writeCommitLog(
