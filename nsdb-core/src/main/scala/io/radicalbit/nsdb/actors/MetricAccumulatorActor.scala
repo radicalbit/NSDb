@@ -133,6 +133,8 @@ class MetricAccumulatorActor(val basePath: String,
           facetIndexShards -= k
       }
 
+      FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards").toFile)
+
       sender ! AllMetricsDeleted(db, ns)
     case msg @ DropMetricWithLocations(_, _, metric, locations) =>
       shardsFromLocations(locations).foreach {
