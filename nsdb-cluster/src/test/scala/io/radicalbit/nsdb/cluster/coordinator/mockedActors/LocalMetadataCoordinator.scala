@@ -24,12 +24,9 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-
-import scala.concurrent.Future
 
 class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
 
@@ -44,22 +41,6 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
   private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
-
-  /**
-    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
-    * @param db the db.
-    * @param namespace the namespace.
-    * @param metric the metric.
-    * @return the actual shard interval.
-    */
-  private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
-    (cache ? GetMetricInfoFromCache(db, namespace, metric))
-      .flatMap {
-        case MetricInfoCached(_, _, _, Some(metricInfo)) => Future(metricInfo.shardInterval)
-        case _ =>
-          (cache ? PutMetricInfoInCache(db, namespace, metric, MetricInfo(metric, defaultShardingInterval)))
-            .map(_ => defaultShardingInterval)
-      }
 
   def receive: Receive = {
     case GetDbs =>
