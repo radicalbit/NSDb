@@ -103,9 +103,11 @@ class ReplicatedMetadataCacheSpec
 
     "replicate cached entry" in within(5.seconds) {
 
-      val metric    = "metric1"
+      val metric    = "metric"
+      val metric1    = "metric1"
       val location1 = Location(metric, "node1", 0, 1)
       val location2 = Location(metric, "node2", 0, 1)
+      val location22 = Location("metric2", "node2", 0, 1)
 
       runOn(node1) {
         awaitAssert {
@@ -143,6 +145,10 @@ class ReplicatedMetadataCacheSpec
           replicatedCache ! GetLocationsFromCache("db", "namespace", metric)
           expectMsg(LocationsCached("db", "namespace", metric, Seq(location1, location2)))
         }
+        awaitAssert{
+          replicatedCache ! GetDbsFromCache
+          expectMsg(DbsFromCacheGot(Set("db")))
+        }
       }
 
       enterBarrier("after-add-location")
@@ -163,6 +169,45 @@ class ReplicatedMetadataCacheSpec
         }
       }
       enterBarrier("after-add-metric-info")
+
+      runOn(node2) {
+        awaitAssert {
+          replicatedCache ! PutLocationInCache("db1", "namespace1", metric1, 0,1,location22)
+          expectMsg(LocationCached("db1", "namespace1", metric1, 0,1, location22))
+        }
+      }
+
+        awaitAssert {
+          replicatedCache ! GetLocationFromCache("db", "namespace", metric, 0, 1)
+          expectMsg(LocationsCached("db", "namespace", metric, Seq(location1, location2)))
+        }
+        awaitAssert {
+          replicatedCache ! GetLocationsFromCache("db1", "namespace1", metric1)
+          expectMsg(LocationsCached("db1", "namespace1", metric1, Seq(location22)))
+        }
+        awaitAssert{
+          replicatedCache ! GetDbsFromCache
+          expectMsg(DbsFromCacheGot(Set("db", "db1")))
+
+          replicatedCache ! GetNamespacesFromCache("db")
+          expectMsg(NamespacesFromCacheGot("db", Set("namespace")))
+
+          replicatedCache ! GetNamespacesFromCache("db1")
+          expectMsg(NamespacesFromCacheGot("db1", Set("namespace1")))
+
+          replicatedCache ! GetMetricsFromCache("db", "namespace")
+          expectMsg(MetricsFromCacheGot("db", "namespace", Set(metric)))
+
+          replicatedCache ! GetMetricsFromCache("db1", "namespace1")
+          expectMsg(MetricsFromCacheGot("db1", "namespace1", Set(metric1)))
+
+          replicatedCache ! GetMetricsFromCache("db", "namespace1")
+          expectMsg(MetricsFromCacheGot("db", "namespace1", Set.empty))
+
+          replicatedCache ! GetMetricsFromCache("db1", "namespace")
+          expectMsg(MetricsFromCacheGot("db1", "namespace", Set.empty))
+        }
+      enterBarrier("after-check coordinates")
     }
 
     "replicate many cached entries" in within(5.seconds) {
@@ -197,11 +242,11 @@ class ReplicatedMetadataCacheSpec
           cached.value.size shouldBe 11
         }
       }
-      enterBarrier("after-build-add")
+      enterBarrier("after-bulk-add")
     }
 
     "do not allow insertion of an already present metric info" in within(5.seconds) {
-      val metric          = "metric"
+      val metric          = "metricInfo"
       val metricInfoKey   = MetricInfoCacheKey("db", "namespace", metric)
       val metricInfoValue = MetricInfo(metric, 100)
 

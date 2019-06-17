@@ -19,11 +19,11 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.cluster.Cluster
 import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 
 import scala.concurrent.Future
@@ -61,7 +61,7 @@ object ReplicatedMetadataCache {
   case class MetricLocationsCacheKey(db: String, namespace: String, metric: String)
 
   /**
-    * Cache key for the metric info
+    * Cache key for the metric info.
     * @param db metric db.
     * @param namespace metric name.
     * @param metric metric name.
@@ -71,6 +71,9 @@ object ReplicatedMetadataCache {
   private final case class SingleLocationRequest(key: LocationCacheKey, replyTo: ActorRef)
   private final case class MetricLocationsRequest(key: MetricLocationsCacheKey, replyTo: ActorRef)
   private final case class MetricInfoRequest(key: MetricInfoCacheKey, replyTo: ActorRef)
+  private final case class DbsRequest(replyTo: ActorRef)
+  private final case class NamespaceRequest(db: String, replyTo: ActorRef)
+  private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
 
   final case class PutLocationInCache(db: String,
                                       namespace: String,
@@ -80,6 +83,9 @@ object ReplicatedMetadataCache {
                                       value: Location)
   final case class GetLocationFromCache(db: String, namespace: String, metric: String, from: Long, to: Long)
   final case class GetLocationsFromCache(db: String, namespace: String, metric: String)
+  final case object GetDbsFromCache
+  final case class GetNamespacesFromCache(db: String)
+  final case class GetMetricsFromCache(db: String, namespace: String)
 
   sealed trait AddLocationResponse
 
@@ -109,6 +115,9 @@ object ReplicatedMetadataCache {
 
   final case class CacheError(error: String)
 
+  final case class DbsFromCacheGot(dbs: Set[String])
+  final case class NamespacesFromCacheGot(db: String, namespaces: Set[String])
+  final case class MetricsFromCacheGot(db: String, namespace: String, metrics: Set[String])
 }
 
 /**
@@ -119,9 +128,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   import ReplicatedMetadataCache._
   import akka.cluster.ddata.Replicator._
 
-  implicit val cluster: Cluster = Cluster(context.system)
-
   val replicator: ActorRef = DistributedData(context.system).replicator
+
+  implicit val address: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
   /**
     * convert a [[LocationCacheKey]] into an internal cache key
@@ -150,6 +159,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   private def metricInfoKey(metricInfoKey: MetricInfoCacheKey): LWWMapKey[MetricInfoCacheKey, MetricInfo] =
     LWWMapKey("metric-info-cache-" + math.abs(metricInfoKey.hashCode) % 100)
 
+  /**
+    * Creates a [[ORSetKey]] for databases
+    */
+  private val coordinatesKey: ORSetKey[Coordinates] = ORSetKey("coordinates-cache")
+
   private val writeDuration = 5.seconds
 
   implicit val timeout: Timeout = Timeout(
@@ -162,22 +176,17 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val key         = LocationCacheKey(db, namespace, metric, from, to)
       val keyWithNode = LocationWithNodeKey(db, namespace, metric, value.node, from, to)
       val metricKey   = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
-      val f = for {
-        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ + (keyWithNode -> value)))
+      (for {
+        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ :+ (keyWithNode -> value)))
           .map {
             case UpdateSuccess(_, _) =>
               LocationCached(db, namespace, metric, from, to, value)
             case _ => PutLocationInCacheFailed(db, namespace, metric, value)
           }
-        _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
-          _ + (keyWithNode -> value)))
-          .map {
-            case UpdateSuccess(_, _) =>
-              LocationsCached(db, namespace, metric, Seq(value))
-            case _ => PutLocationInCacheFailed(db, namespace, metric, value)
-          }
-      } yield loc
-      f.pipeTo(sender())
+        _ <- replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
+          _ :+ (keyWithNode -> value))
+        _ <- replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ :+ Coordinates(db, namespace, metric))
+      } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(db, namespace, metric, value) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
       (replicator ? Get(metricInfoKey(key), ReadLocal))
@@ -188,7 +197,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
               .get(key) match {
               case Some(metricInfo) => Future(MetricInfoAlreadyExisting(key, metricInfo))
               case None =>
-                (replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(_ + (key -> value)))
+                (replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value)))
                   .map {
                     case UpdateSuccess(_, _) =>
                       MetricInfoCached(db, namespace, metric, Some(value))
@@ -196,7 +205,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                   }
             }
           case NotFound(_, _) =>
-            (replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(_ + (key -> value)))
+            (replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value)))
               .map {
                 case UpdateSuccess(_, _) =>
                   MetricInfoCached(db, namespace, metric, Some(value))
@@ -211,9 +220,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val keyWithNode = LocationWithNodeKey(db, namespace, metric, node, from, to)
       val metricKey   = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
       val f = for {
-        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ - keyWithNode))
+        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(
+          _ remove (address, keyWithNode)))
           .map(_ => LocationEvicted(db, namespace, metric, node, from, to))
-        _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(_ - keyWithNode))
+        _ <- (replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
+          _ remove (address, keyWithNode)))
           .map {
             case UpdateSuccess(_, _) =>
               LocationEvicted(db, namespace, metric, node, from, to)
@@ -233,6 +244,15 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val key = MetricInfoCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricInfoKey(key), ReadLocal, Some(MetricInfoRequest(key, sender())))
+    case GetDbsFromCache =>
+      log.debug("searching for key {} in cache", coordinatesKey)
+      replicator ! Get(coordinatesKey, ReadLocal, request = Some(DbsRequest(sender())))
+    case GetNamespacesFromCache(db) =>
+      log.debug("searching for key {} in cache", coordinatesKey)
+      replicator ! Get(coordinatesKey, ReadLocal, request = Some(NamespaceRequest(db, sender())))
+    case GetMetricsFromCache(db, namespace) =>
+      log.debug("searching for key {} in cache", coordinatesKey)
+      replicator ! Get(coordinatesKey, ReadLocal, request = Some(MetricRequest(db, namespace, sender())))
     case g @ GetSuccess(LWWMapKey(_), Some(SingleLocationRequest(key, replyTo))) =>
       val values = g.dataValue.asInstanceOf[LWWMap[LocationWithNodeKey, Location]].entries.values.toList
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, values)
@@ -250,12 +270,31 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         .asInstanceOf[LWWMap[MetricInfoCacheKey, MetricInfo]]
         .get(key)
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, dataValue)
+    case g @ GetSuccess(`coordinatesKey`, Some(DbsRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[Coordinates]].elements.map(_.db)
+      replyTo ! DbsFromCacheGot(elements)
+    case g @ GetSuccess(`coordinatesKey`, Some(NamespaceRequest(db, replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[Coordinates]].elements.filter(_.db == db).map(_.namespace)
+      replyTo ! NamespacesFromCacheGot(db, elements)
+    case g @ GetSuccess(`coordinatesKey`, Some(MetricRequest(db, namespace, replyTo))) =>
+      val elements = g.dataValue
+        .asInstanceOf[ORSet[Coordinates]]
+        .elements
+        .filter(c => c.db == db && c.namespace == namespace)
+        .map(_.metric)
+      replyTo ! MetricsFromCacheGot(db, namespace, elements)
     case NotFound(_, Some(SingleLocationRequest(key, replyTo))) =>
       replyTo ! LocationFromCacheGot(key.db, key.namespace, key.metric, key.from, key.to, None)
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
+    case g @ NotFound(_, Some(DbsRequest(replyTo))) =>
+      replyTo ! DbsFromCacheGot(Set.empty)
+    case g @ NotFound(_, Some(NamespaceRequest(db, replyTo))) =>
+      replyTo ! NamespacesFromCacheGot(db, Set.empty)
+    case g @ NotFound(_, Some(MetricRequest(db, namespace, replyTo))) =>
+      replyTo ! MetricsFromCacheGot(db, namespace, Set.empty)
     case msg: UpdateResponse[_] =>
       log.debug("received not handled update message {}", msg)
   }

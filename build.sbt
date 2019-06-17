@@ -54,6 +54,8 @@ lazy val packageDist   = taskKey[File]("create universal package and move it to 
 lazy val packageDeb    = taskKey[File]("create debian package and move it to package folder")
 lazy val packageRpm    = taskKey[File]("create RPM package and move it to package folder")
 
+addCommandAlias("fix", "all compile:scalafix test:scalafix")
+addCommandAlias("fixCheck", "; compile:scalafix --check ; test:scalafix --check")
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")

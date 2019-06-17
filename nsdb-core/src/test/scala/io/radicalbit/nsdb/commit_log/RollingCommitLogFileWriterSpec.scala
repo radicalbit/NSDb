@@ -22,10 +22,10 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{CommitLogBitEntry, RejectedEntryAction, WriteToCommitLog}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
 import io.radicalbit.nsdb.model.Location
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{BeforeAndAfter, Matchers, WordSpecLike}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -81,7 +81,7 @@ class RollingCommitLogFileWriterSpec
         unbalancedFileOS.flush()
         unbalancedFileOS.close()
 
-        val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
+        system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
 
         Thread.sleep(interval.toMillis + 1000)
 
