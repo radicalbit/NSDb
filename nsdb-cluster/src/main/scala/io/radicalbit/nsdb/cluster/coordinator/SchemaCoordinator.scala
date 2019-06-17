@@ -170,7 +170,7 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
           case _ => SchemaDeleted(db, namespace, metric)
         }
         .pipeTo(sender)
-    case _ @DeleteNamespace(db, namespace) =>
+    case DeleteNamespace(db, namespace) =>
       (schemaCache ? DeleteNamespaceSchema(db, namespace))
         .map {
           case NamespaceSchemaDeleted(_, _) =>

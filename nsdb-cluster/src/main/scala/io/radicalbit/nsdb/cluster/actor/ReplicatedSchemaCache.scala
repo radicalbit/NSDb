@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.cluster.actor
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
-import akka.cluster.Cluster
 import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -31,6 +30,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
 import io.radicalbit.nsdb.util.ActorPathLogging
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 object ReplicatedSchemaCache {
@@ -55,9 +55,9 @@ class ReplicatedSchemaCache extends ActorPathLogging {
 
   import akka.cluster.ddata.Replicator._
 
-  implicit val cluster: Cluster = Cluster(context.system)
-
   val replicator: ActorRef = DistributedData(context.system).replicator
+
+  implicit val address: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
   /**
     * convert a db and a namespace into an internal cache key
@@ -78,7 +78,7 @@ class ReplicatedSchemaCache extends ActorPathLogging {
   def receive: Receive = {
     case PutSchemaInCache(db, namespace, metric, value) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ + (key -> value)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value)))
         .map {
           case UpdateSuccess(_, _) =>
             SchemaCached(db, namespace, metric, Some(value))
@@ -87,13 +87,19 @@ class ReplicatedSchemaCache extends ActorPathLogging {
         .pipeTo(sender())
     case EvictSchema(db, namespace, metric) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ - key))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ remove (address, key)))
         .map(_ => SchemaCached(db, namespace, metric, None))
         .pipeTo(sender)
     case DeleteNamespaceSchema(db, namespace) =>
-      replicator ! Delete(namespaceKey(db, namespace),
-                          WriteAll(writeDuration),
-                          Some(NamespaceRequest(db, namespace, sender())))
+      val chain = for {
+        schemas <- (replicator ? Get(namespaceKey(db, namespace), ReadLocal)).map {
+          case g @ GetSuccess(_, _) => g.dataValue.asInstanceOf[LWWMap[SchemaKey, Schema]].entries.keys.toSet
+          case NotFound             => Seq.empty[SchemaKey]
+        }
+        _ <- Future.sequence { schemas.map(schemaKey => self ? EvictSchema(db, namespace, schemaKey.metric)) }
+      } yield NamespaceSchemaDeleted(db, namespace)
+
+      chain.pipeTo(sender())
     case GetSchemaFromCache(db, namespace, metric) =>
       val key = SchemaKey(db, namespace, metric)
       replicator ! Get(namespaceKey(db, namespace), ReadLocal, Some(SchemaRequest(key, sender())))
@@ -106,13 +112,7 @@ class ReplicatedSchemaCache extends ActorPathLogging {
     case NotFound(_, Some(SchemaRequest(key, replyTo))) =>
       val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
       replyTo ! SchemaCached(db, namespace, metric, None)
-    //any request against a deleted cache entry will produce this message
-    case DataDeleted(_, Some(SchemaRequest(key, replyTo))) =>
-      val (db: String, namespace: String, metric: String) = SchemaKey.unapply(key).get
-      replyTo ! SchemaCached(db, namespace, metric, None)
-    case DeleteSuccess(_, Some(NamespaceRequest(db, namespace, replyTo))) =>
-      replyTo ! NamespaceSchemaDeleted(db, namespace)
     case msg =>
-      log.error("------------------received not handled update message {}", msg)
+      log.error("received not handled update message {}", msg)
   }
 }
