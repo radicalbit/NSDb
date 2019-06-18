@@ -24,12 +24,15 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
+import org.slf4j.LoggerFactory
 
 /**
   * Utility class to Serialize and Deserialize a CommitLogEntry.
   * Please note that this class is not intended to be thread safe.
   */
 class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
+
+  private val log = LoggerFactory.getLogger(classOf[StandardCommitLogSerializer])
 
   private val readByteBuffer = new ReadBuffer(5000)
   private val writeBuffer    = new WriteBuffer(5000)
@@ -397,6 +400,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
                         metric = metric,
                         timestamp = ts,
                         expression = createExpression(expressionClass)))
+        case c =>
+          log.warn("action {} is currently not supported", c)
+          None
       }
     } else None
   }

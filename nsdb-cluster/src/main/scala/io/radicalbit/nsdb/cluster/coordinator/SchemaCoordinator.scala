@@ -161,16 +161,17 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef, mediator: Actor
                               metric,
                               s"unexpected response from cache: expecting SchemaCached while got $e"))
         } pipeTo sender()
-    case DeleteSchema(db, namespace, metric) =>
+    case msg @ DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
-          case msg @ SchemaCached(`db`, `namespace`, `metric`, Some(_)) =>
+          case SchemaCached(`db`, `namespace`, `metric`, _) =>
             mediator ! Publish(SCHEMA_TOPIC, msg)
             SchemaDeleted(db, namespace, metric)
-          case _ => SchemaDeleted(db, namespace, metric)
+          case e =>
+            SchemaDeleted(db, namespace, metric)
         }
         .pipeTo(sender)
-    case _ @DeleteNamespace(db, namespace) =>
+    case DeleteNamespace(db, namespace) =>
       (schemaCache ? DeleteNamespaceSchema(db, namespace))
         .map {
           case NamespaceSchemaDeleted(_, _) =>

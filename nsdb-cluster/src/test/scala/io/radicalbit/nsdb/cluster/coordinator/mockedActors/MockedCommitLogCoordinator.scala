@@ -16,22 +16,15 @@
 
 package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
-import java.time.Duration
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
   WriteToCommitLog,
   WriteToCommitLogFailed,
   WriteToCommitLogSucceeded
 }
-import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.DeleteRecordFromShard
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAdded, RecordRejected}
-
-import scala.collection.mutable
 
 class MockedCommitLogCoordinator(probe: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = {
@@ -54,23 +47,6 @@ class MockedCommitLogCoordinator(probe: ActorRef) extends Actor with ActorLoggin
 case object MockedCommitLogCoordinator {
   def props(probe: ActorRef): Props =
     Props(new MockedCommitLogCoordinator(probe))
-}
-
-class MockedMetadataCoordinator extends Actor with ActorLogging {
-
-  lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
-
-  val locations: mutable.Map[(String, String), Seq[Location]] = mutable.Map.empty
-
-  override def receive: Receive = {
-    case GetLocations(db, namespace, metric) =>
-      sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
-    case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val locationNode1 = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
-      val locationNode2 = Location(metric, "node2", timestamp, timestamp + shardingInterval.toMillis)
-
-      sender() ! LocationsGot(db, namespace, metric, Seq(locationNode1, locationNode2))
-  }
 }
 
 class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {

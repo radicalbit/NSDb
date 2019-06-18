@@ -92,6 +92,14 @@ class LocationIndex(override val directory: BaseDirectory) extends SimpleIndex[L
     }
   }
 
+  def deleteByMetric(metric: String)(implicit writer: IndexWriter): Try[Long] = {
+    Try {
+      val result = writer.deleteDocuments(new TermQuery(new Term(_keyField, metric)))
+      writer.forceMergeDeletes(true)
+      result
+    }
+  }
+
   override def delete(data: Location)(implicit writer: IndexWriter): Try[Long] = {
     Try {
       val builder = new BooleanQuery.Builder()

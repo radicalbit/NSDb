@@ -23,7 +23,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.index.{IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
 import org.apache.lucene.search.Query
 import org.apache.lucene.store.MMapDirectory
 import org.apache.lucene.util.InfoStream
@@ -102,5 +102,12 @@ class AllFacetIndexes(basePath: String, db: String, namespace: String, location:
       res = index.deleteAll()
     } yield res
 
-  def refresh(): Unit = facetIndexes.foreach(_.refresh())
+  def refresh(): Try[Unit] = {
+    Try { facetIndexes.foreach(_.refresh()) }.recover { case _: IndexNotFoundException => () }
+  }
+
+  def close(): Unit = {
+    directory.close()
+    taxoDirectory.close()
+  }
 }

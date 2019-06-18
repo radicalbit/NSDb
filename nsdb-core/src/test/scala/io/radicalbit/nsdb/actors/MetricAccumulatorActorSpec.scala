@@ -51,17 +51,19 @@ class MetricAccumulatorActorSpec()
   val metric    = "shardActorMetric"
   val nodeName  = "node1"
 
-  val shardReaderActor =
+  val metricsReaderActor =
     system.actorOf(RoundRobinPool(1, None).props(MetricReaderActor.props(basePath, nodeName, db, namespace)))
 
   val metricAccumulatorActor =
     TestActorRef[MetricAccumulatorActor](
-      MetricAccumulatorActor.props(basePath, db, namespace, shardReaderActor, system.actorOf(Props.empty)),
+      MetricAccumulatorActor.props(basePath, db, namespace, metricsReaderActor, system.actorOf(Props.empty)),
       probeActor)
+
+  private val location = Location("testMetric", nodeName, 0, 0)
 
   before {
     implicit val timeout = Timeout(5 second)
-    Await.result(metricAccumulatorActor ? DropMetric(db, namespace, metric), 5 seconds)
+    Await.result(metricAccumulatorActor ? DropMetricWithLocations(db, namespace, metric, Seq(location)), 5 seconds)
   }
 
   "MetricAccumulatorActor" should "write and delete properly" in {
@@ -77,7 +79,7 @@ class MetricAccumulatorActorSpec()
     }
     expectNoMessage(interval)
 
-    probe.send(shardReaderActor, GetCount(db, namespace, "shardActorMetric"))
+    probe.send(metricsReaderActor, GetCountWithLocations(db, namespace, "shardActorMetric", Seq(location)))
     awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
       expectedCount.metric shouldBe metric
@@ -91,7 +93,7 @@ class MetricAccumulatorActorSpec()
     }
     expectNoMessage(interval)
 
-    probe.send(shardReaderActor, GetCount(db, namespace, "shardActorMetric"))
+    probe.send(metricsReaderActor, GetCountWithLocations(db, namespace, "shardActorMetric", Seq(location)))
     awaitAssert {
       val expectedCountDeleted = probe.expectMsgType[CountGot]
       expectedCountDeleted.metric shouldBe metric
@@ -130,7 +132,7 @@ class MetricAccumulatorActorSpec()
 
     expectNoMessage(interval)
 
-    probe.send(shardReaderActor, GetCount(db, namespace, "shardActorMetric"))
+    probe.send(metricsReaderActor, GetCountWithLocations(db, namespace, "shardActorMetric", Seq(key, key2)))
     awaitAssert {
       val expectedCount = probe.expectMsgType[CountGot]
 
@@ -162,26 +164,26 @@ class MetricAccumulatorActorSpec()
     val bit1 = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val bit2 = Bit(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
 
-    probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, Location("testMetric", nodeName, 0, 0), bit1))
-    probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, Location("testMetric", nodeName, 0, 0), bit2))
+    probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit1))
+    probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit2))
     probe.expectMsgType[RecordAdded]
     probe.expectMsgType[RecordAdded]
 
     expectNoMessage(interval)
 
-    probe.send(shardReaderActor, GetCount(db, namespace, "testMetric"))
+    probe.send(metricsReaderActor, GetCountWithLocations(db, namespace, "testMetric", Seq(location)))
     within(5 seconds) {
       probe.expectMsgType[CountGot].count shouldBe 2
     }
 
-    probe.send(metricAccumulatorActor, DropMetric(db, namespace, "testMetric"))
+    probe.send(metricAccumulatorActor, DropMetricWithLocations(db, namespace, "testMetric", Seq(location)))
     within(5 seconds) {
       probe.expectMsgType[MetricDropped]
     }
 
     expectNoMessage(interval)
 
-    probe.send(shardReaderActor, GetCount(db, namespace, "testMetric"))
+    probe.send(metricsReaderActor, GetCountWithLocations(db, namespace, "testMetric", Seq(location)))
     within(5 seconds) {
       probe.expectMsgType[CountGot].count shouldBe 0
     }

@@ -38,9 +38,9 @@ import scala.concurrent.Future
 /**
   * Actor responsible for dispatching read or write commands to the proper actor and index.
   * @param basePath indexes' root path.
-  * @param nodeName String representation of the host and the port Actor is deployed at.
+  * @param commitLogCoordinator Commit log coordinator reference.
   */
-class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLogCoordinator: ActorRef)
+class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoordinator: ActorRef)
     extends ActorPathLogging {
 
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
@@ -65,7 +65,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
         s"metric_reader_${db}_$namespace"
       ))
     val accumulator = accumulatorOpt.getOrElse(
-      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, localCommitLogCoordinator),
+      context.actorOf(MetricAccumulatorActor.props(basePath, db, namespace, reader, commitLogCoordinator),
                       s"metric_accumulator_${db}_$namespace"))
     (reader, accumulator)
   }
@@ -131,9 +131,9 @@ class MetricsDataActor(val basePath: String, val nodeName: String, localCommitLo
         })
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
-    case msg @ DropMetric(db, namespace, _) =>
+    case msg @ DropMetricWithLocations(db, namespace, _, _) =>
       getOrCreateChildren(db, namespace)._2 forward msg
-    case msg @ GetCount(db, namespace, metric) =>
+    case msg @ GetCountWithLocations(db, namespace, metric, _) =>
       getReader(db, namespace) match {
         case Some(child) => child forward msg
         case None        => sender() ! CountGot(db, namespace, metric, 0)
@@ -183,8 +183,8 @@ object MetricsDataActor {
                       enclosingConfig.getInt("upper-bound"))
   }
 
-  def props(basePath: String, nodeName: String, localCommitLogCoordinator: ActorRef): Props =
-    Props(new MetricsDataActor(basePath, nodeName, localCommitLogCoordinator))
+  def props(basePath: String, nodeName: String, commitLogCoordinator: ActorRef): Props =
+    Props(new MetricsDataActor(basePath, nodeName, commitLogCoordinator))
 
   case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)

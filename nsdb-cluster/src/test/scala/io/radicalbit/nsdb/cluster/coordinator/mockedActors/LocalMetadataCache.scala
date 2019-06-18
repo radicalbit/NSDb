@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.coordinator
+package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.coordinator.FakeMetadataCache.{DeleteAll, DeleteDone}
 import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 
 import scala.collection.mutable
 
-class FakeMetadataCache extends Actor {
+class LocalMetadataCache extends Actor {
+
+  import LocalMetadataCache.{DeleteAll, DeleteDone}
 
   val locations: mutable.Map[LocationWithNodeKey, Location] = mutable.Map.empty
 
@@ -42,18 +43,29 @@ class FakeMetadataCache extends Actor {
       sender ! MetricsFromCacheGot(db,
                                    namespace,
                                    coordinates.filter(c => c.db == db && c.namespace == namespace).map(_.metric).toSet)
+    case DropMetricFromCache(db, namespace, metric) =>
+      coordinates -= Coordinates(db, namespace, metric)
+      locations --= locations.collect {
+        case (key, _) if key.db == db && key.namespace == namespace && key.metric == metric => key
+      }
+      sender() ! MetricFromCacheDropped(db, namespace, metric)
+    case DropNamespaceFromCache(db, namespace) =>
+      coordinates --= coordinates.filter(c => c.db == db && c.namespace == namespace)
+      sender() ! NamespaceFromCacheDropped(db, namespace)
     case PutLocationInCache(db, namespace, metric, from, to, value) =>
       val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
       locations.put(key, value)
       coordinates += Coordinates(db, namespace, metric)
       sender ! LocationCached(db, namespace, metric, from, to, value)
     case GetLocationsFromCache(db, namespace, metric) =>
-      val key                 = MetricLocationsCacheKey(db, namespace, metric)
-      val locs: Seq[Location] = locations.values.filter(_.metric == key.metric).toSeq.sortBy(_.from)
-      sender ! LocationsCached(db, namespace, metric, locs)
+      val locs = locations.collect {
+        case (k, v) if k.db == db && k.namespace == namespace && k.metric == metric => v
+      }
+      sender ! LocationsCached(db, namespace, metric, locs.toSeq)
     case DeleteAll =>
       locations.keys.foreach(k => locations.remove(k))
       metricInfo.keys.foreach(k => metricInfo.remove(k))
+      coordinates.clear()
       sender() ! DeleteDone
     case PutMetricInfoInCache(db, namespace, metric, value) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
@@ -70,8 +82,8 @@ class FakeMetadataCache extends Actor {
   }
 }
 
-object FakeMetadataCache {
-  def props: Props = Props(new FakeMetadataCache)
+object LocalMetadataCache {
+  def props: Props = Props(new LocalMetadataCache)
 
   case object DeleteAll
   case object DeleteDone

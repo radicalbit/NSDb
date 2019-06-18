@@ -16,21 +16,21 @@
 
 package io.radicalbit.nsdb.web.routes
 
-import javax.ws.rs.Path
 import akka.actor.ActorRef
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.model.StatusCodes.{InternalServerError, NotFound}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.pattern.ask
+import akka.util.Timeout
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
 import io.swagger.annotations._
-import org.json4s.jackson.Serialization.write
-import akka.pattern.ask
-import akka.util.Timeout
+import javax.ws.rs.Path
 import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization.write
 
 import scala.util.{Failure, Success}
 

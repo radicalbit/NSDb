@@ -224,7 +224,7 @@ class ReplicatedSchemaCacheSpec
       enterBarrier("after-update")
     }
 
-    "delete a namespace" in within(5.seconds) {
+    "delete a namespace and allow to reinsert schemas" in within(5.seconds) {
       runOn(node1) {
         replicatedCache ! PutSchemaInCache(db, namespace, metric2, schema2)
         expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
@@ -256,24 +256,23 @@ class ReplicatedSchemaCacheSpec
 
       enterBarrier("after-namespace-deletion")
 
-      //TODO make it work
-//      runOn(node1) {
-//        replicatedCache ! PutSchemaInCache(db, namespace, metric2, schema2)
-//        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
-//
-//        replicatedCache ! PutSchemaInCache(db, namespace, metric3, schema3)
-//        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
-//      }
-//
-//      awaitAssert {
-//        replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
-//        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
-//
-//        replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
-//        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
-//      }
+      runOn(node1) {
+        replicatedCache ! PutSchemaInCache(db, namespace, metric2, schema2)
+        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
 
-//      enterBarrier("after-reinsertion")
+        replicatedCache ! PutSchemaInCache(db, namespace, metric3, schema3)
+        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
+      }
+
+      awaitAssert {
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric2)
+        expectMsg(SchemaCached(db, namespace, metric2, Some(schema2)))
+
+        replicatedCache ! GetSchemaFromCache(db, namespace, metric3)
+        expectMsg(SchemaCached(db, namespace, metric3, Some(schema3)))
+      }
+
+      enterBarrier("after-reinsertion")
     }
   }
 

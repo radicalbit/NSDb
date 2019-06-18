@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, WarmUpMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
@@ -117,11 +118,12 @@ class ReadCoordinatorSpec
     SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)),
     "schemacoordinator")
   val metadataCoordinator = system.actorOf(
-    MetadataCoordinator.props(system.actorOf(Props[FakeMetadataCache]), probe.ref),
+    MetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache]), probe.ref),
     "metadatacoordinator")
   val writeCoordinator =
     system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)))
-  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "node1", writeCoordinator))
+  val metricsDataActor =
+    system.actorOf(MetricsDataActor.props(basePath, "node1", writeCoordinator))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
                                                                   system.actorOf(Props.empty))
@@ -142,7 +144,12 @@ class ReadCoordinatorSpec
     val location2 = Location(_: String, "node1", 6, 10)
 
     //long metric
-    Await.result(metricsDataActor ? DropMetric(db, namespace, LongMetric.name), 10 seconds)
+    Await.result(
+      metricsDataActor ? DropMetricWithLocations(db,
+                                                 namespace,
+                                                 LongMetric.name,
+                                                 Seq(location1(LongMetric.name), location2(LongMetric.name))),
+      10 seconds)
 
     Await.result(
       schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
@@ -158,7 +165,12 @@ class ReadCoordinatorSpec
     })
 
     //double metric
-    Await.result(metricsDataActor ? DropMetric(db, namespace, DoubleMetric.name), 10 seconds)
+    Await.result(
+      metricsDataActor ? DropMetricWithLocations(db,
+                                                 namespace,
+                                                 DoubleMetric.name,
+                                                 Seq(location1(DoubleMetric.name), location2(DoubleMetric.name))),
+      10 seconds)
 
     Await.result(
       schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
@@ -174,7 +186,14 @@ class ReadCoordinatorSpec
     })
 
     //aggregation metric
-    Await.result(metricsDataActor ? DropMetric(db, namespace, AggregationMetric.name), 10 seconds)
+    Await.result(
+      metricsDataActor ? DropMetricWithLocations(db,
+                                                 namespace,
+                                                 AggregationMetric.name,
+                                                 Seq(location1(AggregationMetric.name),
+                                                     location2(AggregationMetric.name))),
+      10 seconds
+    )
 
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
                                                             namespace,

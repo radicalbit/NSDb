@@ -56,10 +56,10 @@ trait MetricsActor { this: Actor =>
     */
   private[actors] val facetIndexShards: mutable.Map[Location, AllFacetIndexes] = mutable.Map.empty
 
-  protected def shardsForMetric(metric: String): mutable.Map[Location, TimeSeriesIndex] =
-    shards.filter(_._1.metric == metric)
-  protected def facetsShardsFromMetric(metric: String): mutable.Map[Location, AllFacetIndexes] =
-    facetIndexShards.filter(_._1.metric == metric)
+  protected def shardsFromLocations(locations: Seq[Location]): Seq[(Location, TimeSeriesIndex)] =
+    locations.map(location => (location, getIndex(location)))
+  protected def facetsShardsFromLocations(locations: Seq[Location]): Seq[(Location, AllFacetIndexes)] =
+    locations.map(location => (location, facetIndexesFor(location)))
 
   /**
     * Retrieves or creates an index for the given [[Location]]

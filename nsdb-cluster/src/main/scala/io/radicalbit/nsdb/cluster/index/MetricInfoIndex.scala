@@ -94,4 +94,14 @@ class MetricInfoIndex(override val directory: BaseDirectory) extends SimpleIndex
       result
     }
   }
+
+  def deleteByMetric(metric: String)(implicit writer: IndexWriter): Try[Long] = {
+    Try {
+      val queryTerm = new TermQuery(new Term(_keyField, metric))
+
+      val result = writer.deleteDocuments(queryTerm)
+      writer.forceMergeDeletes(true)
+      result
+    }
+  }
 }

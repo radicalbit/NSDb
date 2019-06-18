@@ -23,6 +23,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -39,13 +40,18 @@ class MetricsDataActorSpec()
     with Matchers
     with BeforeAndAfter {
 
-  val probe            = TestProbe()
-  val probeActor       = probe.ref
-  val basePath         = "target/test_index/metricsDataActorSpec"
-  val db               = "db"
-  val namespace        = "namespace"
-  val namespace1       = "namespace1"
-  val metricsDataActor = system.actorOf(MetricsDataActor.props(basePath, "testNode", ActorRef.noSender))
+  val probe      = TestProbe()
+  val probeActor = probe.ref
+  val basePath   = "target/test_index/metricsDataActorSpec"
+  val db         = "db"
+  val namespace  = "namespace"
+  val namespace1 = "namespace1"
+
+  val fakeMetadataCoordinator =
+    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(LocalMetadataCache.props)))
+
+  val metricsDataActor =
+    system.actorOf(MetricsDataActor.props(basePath, "testNode", ActorRef.noSender))
 
   private val metric = "metricsDataActorMetric"
 
@@ -76,7 +82,7 @@ class MetricsDataActorSpec()
 
     expectNoMessage(interval)
 
-    probe.send(metricsDataActor, GetCount(db, namespace, metric))
+    probe.send(metricsDataActor, GetCountWithLocations(db, namespace, metric, Seq(location(metric))))
 
     val expectedCount = awaitAssert {
       probe.expectMsgType[CountGot]
@@ -92,7 +98,7 @@ class MetricsDataActorSpec()
 
     expectNoMessage(interval)
 
-    probe.send(metricsDataActor, GetCount(db, namespace, metric))
+    probe.send(metricsDataActor, GetCountWithLocations(db, namespace, metric, Seq(location(metric))))
 
     val expectedCountDeleted = awaitAssert { probe.expectMsgType[CountGot] }
     expectedCountDeleted.metric shouldBe metric
@@ -111,7 +117,7 @@ class MetricsDataActorSpec()
 
     expectNoMessage(interval)
 
-    probe.send(metricsDataActor, GetCount(db, namespace, metric))
+    probe.send(metricsDataActor, GetCountWithLocations(db, namespace, metric, Seq(location(metric + "2"))))
 
     val expectedCount = awaitAssert {
       probe.expectMsgType[CountGot]
@@ -119,7 +125,7 @@ class MetricsDataActorSpec()
     expectedCount.metric shouldBe metric
     expectedCount.count shouldBe 0
 
-    probe.send(metricsDataActor, GetCount(db, namespace1, metric + "2"))
+    probe.send(metricsDataActor, GetCountWithLocations(db, namespace1, metric + "2", Seq(location(metric + "2"))))
 
     val expectedCount2 = awaitAssert {
       probe.expectMsgType[CountGot]
@@ -141,7 +147,7 @@ class MetricsDataActorSpec()
 
     expectNoMessage(interval)
 
-    probe.send(metricsDataActor, GetCount(db, namespace1, metric + "2"))
+    probe.send(metricsDataActor, GetCountWithLocations(db, namespace1, metric + "2", Seq(location(metric + "2"))))
 
     val expectedCount2 = awaitAssert {
       probe.expectMsgType[CountGot]

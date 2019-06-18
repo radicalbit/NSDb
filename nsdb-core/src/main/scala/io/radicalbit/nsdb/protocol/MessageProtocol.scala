@@ -49,6 +49,7 @@ object MessageProtocol {
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
     case class ExecuteDeleteStatementInShards(statement: DeleteSQLStatement, schema: Schema, keys: Seq[Location])
     case class DropMetric(db: String, namespace: String, metric: String)
+    case class DropMetricWithLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class DeleteNamespace(db: String, namespace: String)
 
     case class UpdateSchemaFromRecord(db: String, namespace: String, metric: String, record: Bit)
@@ -56,7 +57,7 @@ object MessageProtocol {
     case class DeleteSchema(db: String, namespace: String, metric: String)
     case class DeleteAllSchemas(db: String, namespace: String)
 
-    case class GetCount(db: String, namespace: String, metric: String)
+    case class GetCountWithLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class AddRecordToShard(db: String, namespace: String, location: Location, bit: Bit)
     case class DeleteRecordFromShard(db: String, namespace: String, shardKey: Location, bit: Bit)
     case class DeleteAllMetrics(db: String, namespace: String)

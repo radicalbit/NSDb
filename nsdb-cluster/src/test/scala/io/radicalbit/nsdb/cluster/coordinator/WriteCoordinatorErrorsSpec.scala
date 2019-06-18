@@ -18,24 +18,45 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordRejected, WarmUpCompleted}
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
-import akka.pattern.ask
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordRejected, WarmUpCompleted}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
 
+import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
+
+class MockedMetadataCoordinator extends Actor with ActorLogging {
+
+  lazy val shardingInterval = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
+  val locations: mutable.Map[(String, String), Seq[Location]] = mutable.Map.empty
+
+  override def receive: Receive = {
+    case GetLocations(db, namespace, metric) =>
+      sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
+    case GetWriteLocations(db, namespace, metric, timestamp) =>
+      val locationNode1 = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
+      val locationNode2 = Location(metric, "node2", timestamp, timestamp + shardingInterval.toMillis)
+
+      sender() ! LocationsGot(db, namespace, metric, Seq(locationNode1, locationNode2))
+  }
+}
 
 class WriteCoordinatorErrorsSpec
     extends TestKit(
