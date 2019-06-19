@@ -17,19 +17,20 @@
 package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
 import akka.actor.Actor
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.Location
-import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * Trait containing common operation to be executed on metrics indexes.
   * Mixed in by [[MetricAccumulatorActor]] and [[MetricPerformerActor]],
   */
-trait MetricsActor { this: Actor =>
+trait MetricsActor extends DirectorySupport { this: Actor =>
 
   /**
     * basePath shards indexes path.
@@ -62,32 +63,66 @@ trait MetricsActor { this: Actor =>
     locations.map(location => (location, facetIndexesFor(location)))
 
   /**
-    * Retrieves or creates an index for the given [[Location]]
-    * @param loc the location containing the metric and the time interval to identify the index to retrieve or create
-    * @return the index for the key
+    * last access for a given [[Location]]
     */
-  protected def getIndex(loc: Location): TimeSeriesIndex =
+  private[actors] val shardsAccess: mutable.Map[Location, Long] = mutable.Map.empty
+
+  lazy val passivateAfter = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
+    TimeUnit.NANOSECONDS)
+
+  /**
+    * Retrieves or creates an index for the given [[Location]]
+    * @param location the location containing the metric and the time interval to identify the index to retrieve or create
+    * @return the index for the given location
+    */
+  protected def getIndex(location: Location): TimeSeriesIndex = {
+    shardsAccess += (location -> System.currentTimeMillis())
     shards.getOrElse(
-      loc, {
+      location, {
         val directory =
-          new MMapDirectory(Paths.get(basePath, db, namespace, "shards", s"${loc.metric}_${loc.from}_${loc.to}"))
+          createMmapDirectory(
+            Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}"))
         val newIndex = new TimeSeriesIndex(directory)
-        shards += (loc -> newIndex)
+        shards += (location -> newIndex)
         newIndex
       }
     )
+  }
 
   /**
     * Retrieves or creates a facet index for the given [[Location]]
-    * @param key the key containing the metric and the time interval to identify the index to retrieve or create
-    * @return the facet index for the key
+    * @param location the key containing the metric and the time interval to identify the index to retrieve or create
+    * @return the facet index for the given location
     */
-  protected def facetIndexesFor(key: Location): AllFacetIndexes =
+  protected def facetIndexesFor(location: Location): AllFacetIndexes = {
+    shardsAccess += (location -> System.currentTimeMillis())
     facetIndexShards.getOrElse(
-      key, {
-        val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = key)
-        facetIndexShards += (key -> facetIndexes)
+      location, {
+        val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
+        facetIndexShards += (location -> facetIndexes)
         facetIndexes
       }
     )
+  }
+
+  /**
+    * Convenience method to clean up indexes not being used for a configured amount of time
+    */
+  protected def garbageCollectIndexes(): Unit = {
+    val now = System.currentTimeMillis()
+    shardsAccess.foreach {
+      case (location, lastAccess) if FiniteDuration(now - lastAccess, TimeUnit.MILLISECONDS) > passivateAfter =>
+        shards.get(location).foreach { timeSeriesIndex =>
+          timeSeriesIndex.close()
+        }
+        shards -= location
+        facetIndexShards.get(location).foreach { facetIndex =>
+          facetIndex.close()
+        }
+        facetIndexShards -= location
+        shardsAccess -= location
+      case _ => // do nothing
+    }
+  }
 }

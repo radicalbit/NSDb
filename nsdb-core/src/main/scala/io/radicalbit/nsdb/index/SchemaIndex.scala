@@ -23,7 +23,7 @@ import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document.{Document, Field, StringField}
 import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search.TermQuery
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -32,7 +32,7 @@ import scala.util.{Failure, Success, Try}
   * Index for entry of class [[Schema]].
   * @param directory index base directory.
   */
-class SchemaIndex(override val directory: BaseDirectory) extends SimpleIndex[Schema] {
+class SchemaIndex(override val directory: Directory) extends SimpleIndex[Schema] {
 
   import SchemaIndex._
 

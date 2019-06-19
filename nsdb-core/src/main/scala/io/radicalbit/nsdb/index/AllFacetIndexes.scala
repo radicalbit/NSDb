@@ -25,19 +25,20 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
 import org.apache.lucene.search.Query
-import org.apache.lucene.store.MMapDirectory
 import org.apache.lucene.util.InfoStream
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-class AllFacetIndexes(basePath: String, db: String, namespace: String, location: Location) extends LazyLogging {
+class AllFacetIndexes(basePath: String, db: String, namespace: String, location: Location)
+    extends LazyLogging
+    with DirectorySupport {
 
   private val directory =
-    new MMapDirectory(
+    createMmapDirectory(
       Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}", "facet"))
 
-  private val taxoDirectory = new MMapDirectory(
+  private val taxoDirectory = createMmapDirectory(
     Paths
       .get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}", "facet", "taxo"))
 

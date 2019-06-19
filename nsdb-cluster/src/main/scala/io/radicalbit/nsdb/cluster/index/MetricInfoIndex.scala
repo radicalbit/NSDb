@@ -17,16 +17,16 @@
 package io.radicalbit.nsdb.cluster.index
 
 import io.radicalbit.nsdb.index.SimpleIndex
+import io.radicalbit.nsdb.index.lucene.Index._
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.index.{IndexWriter, Term}
 import org.apache.lucene.search._
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-import io.radicalbit.nsdb.index.lucene.Index._
 
 /**
   * Metric Info.
@@ -39,7 +39,7 @@ case class MetricInfo(metric: String, shardInterval: Long)
   * Index for storing metric info (shard interval).
   * @param directory index bae directory.
   */
-class MetricInfoIndex(override val directory: BaseDirectory) extends SimpleIndex[MetricInfo] {
+class MetricInfoIndex(override val directory: Directory) extends SimpleIndex[MetricInfo] {
   override val _keyField: String = "_metric"
 
   override def validateRecord(data: MetricInfo): Try[Seq[Field]] = {

@@ -26,9 +26,9 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.RemoteAddress
 import io.radicalbit.nsdb.cluster.index.{LocationIndex, MetricInfo, MetricInfoIndex}
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.store.MMapDirectory
 
 import scala.collection.mutable
 
@@ -38,19 +38,22 @@ import scala.collection.mutable
   *
   * @param basePath index base path.
   */
-class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends Actor with ActorLogging {
+class MetadataActor(val basePath: String, metadataCoordinator: ActorRef)
+    extends Actor
+    with ActorLogging
+    with DirectorySupport {
 
   lazy val locationIndexes: mutable.Map[(String, String), LocationIndex]     = mutable.Map.empty
   lazy val metricInfoIndexes: mutable.Map[(String, String), MetricInfoIndex] = mutable.Map.empty
 
-  lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
+  private lazy val metadataTopic = context.system.settings.config.getString("nsdb.cluster.pub-sub.metadata-topic")
 
-  val remoteAddress = RemoteAddress(context.system)
+  private val remoteAddress = RemoteAddress(context.system)
 
   private def getLocationIndex(db: String, namespace: String): LocationIndex =
     locationIndexes.getOrElse(
       (db, namespace), {
-        val newIndex = new LocationIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "metadata")))
+        val newIndex = new LocationIndex(createMmapDirectory(Paths.get(basePath, db, namespace, "metadata")))
         locationIndexes += ((db, namespace) -> newIndex)
         newIndex
       }
@@ -59,7 +62,8 @@ class MetadataActor(val basePath: String, metadataCoordinator: ActorRef) extends
   private def getMetricInfoIndex(db: String, namespace: String): MetricInfoIndex =
     metricInfoIndexes.getOrElse(
       (db, namespace), {
-        val newIndex = new MetricInfoIndex(new MMapDirectory(Paths.get(basePath, db, namespace, "metadata", "info")))
+        val newIndex =
+          new MetricInfoIndex(createMmapDirectory(Paths.get(basePath, db, namespace, "metadata", "info")))
         metricInfoIndexes += ((db, namespace) -> newIndex)
         newIndex
       }

@@ -88,7 +88,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
         closedEntries.foreach {
           closedEntry =>
             pendingOutdatedEntries.foreach {
-              case (file, (pending, closed)) =>
+              case (file, (pending, _)) =>
                 if (pending.toList.contains(closedEntry)) {
                   log.debug(s"removing entry: $closedEntry in file ${file.getName} processing file: $fileName")
                   pendingOutdatedEntries(file)._1 -= closedEntry

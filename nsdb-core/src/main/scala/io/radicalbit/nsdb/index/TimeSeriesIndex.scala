@@ -16,11 +16,11 @@
 
 package io.radicalbit.nsdb.index
 
-import org.apache.lucene.store.BaseDirectory
+import org.apache.lucene.store.Directory
 
 /**
   * Concrete implementation of [[AbstractStructuredIndex]] which stores file on disk.
   *
   * @param directory index directory
   */
-class TimeSeriesIndex(override val directory: BaseDirectory) extends AbstractStructuredIndex
+class TimeSeriesIndex(override val directory: Directory) extends AbstractStructuredIndex

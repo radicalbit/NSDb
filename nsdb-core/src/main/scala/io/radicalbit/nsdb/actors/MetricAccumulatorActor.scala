@@ -198,6 +198,7 @@ class MetricAccumulatorActor(val basePath: String,
         getIndex(key).refresh()
         facetIndexesFor(key).refresh()
       }
+      garbageCollectIndexes()
       readerActor ! Broadcast(msg)
   }
 

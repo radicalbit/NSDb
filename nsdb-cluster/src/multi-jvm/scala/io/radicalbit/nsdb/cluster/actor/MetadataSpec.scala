@@ -42,6 +42,7 @@ object MetadataSpec extends MultiNodeConfig {
     |
     |  sharding {
     |    interval = 1d
+    |    passivate-after = 1h
     |  }
     |
     |  read {

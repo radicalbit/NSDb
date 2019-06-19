@@ -16,17 +16,20 @@
 
 package io.radicalbit.nsdb.cluster.index
 
+import java.nio.file.Files
+import java.util.UUID
+
+import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.apache.lucene.store.RAMDirectory
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
-class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
 
   "LocationsIndex" should "write and read properly" in {
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -51,7 +54,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   "LocationsIndex" should "get a single location for a metric" in {
 
-    lazy val directory = new RAMDirectory()
+    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 

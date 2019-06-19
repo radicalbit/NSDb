@@ -43,7 +43,7 @@ import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.index.{SchemaIndex, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -83,6 +83,7 @@ object WriteCoordinator {
   */
 class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
+    with DirectorySupport
     with NsdbPerfLogger
     with Stash {
 
@@ -632,10 +633,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         namespaces.foreach { namespace =>
           val metrics = FileUtils.getSubDirs(namespace)
           metrics.foreach { metric =>
-            val schemaIndex = new SchemaIndex(new MMapDirectory(Paths.get(metric.getAbsolutePath, "schemas")))
+            val schemaIndex = new SchemaIndex(createMmapDirectory(Paths.get(metric.getAbsolutePath, "schemas")))
             schemaIndex.getSchema(metric.getName).foreach { schema =>
               log.debug("restoring metric {}", metric.getName)
-              val metricsIndex = new TimeSeriesIndex(new MMapDirectory(metric.toPath))
+              val metricsIndex = new TimeSeriesIndex(createMmapDirectory(metric.toPath))
               val minTimestamp = metricsIndex
                 .query(schema,
                        new MatchAllDocsQuery(),
@@ -709,18 +710,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                       .foreach {
                         case SchemaGot(_, _, _, Some(schema)) =>
                           val schemasDir =
-                            new MMapDirectory(Paths.get(basePath, db, namespace, "schemas", metricName))
+                            createMmapDirectory(Paths.get(basePath, db, namespace, "schemas", metricName))
                           val schemaIndex  = new SchemaIndex(schemasDir)
                           val schemaWriter = schemaIndex.getWriter
                           schemaIndex.write(schema)(schemaWriter)
                           schemaWriter.close()
 
                           val dumpMetricIndex =
-                            new TimeSeriesIndex(new MMapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
+                            new TimeSeriesIndex(createMmapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
                           dirNames.foreach { dirMetric =>
                             val shardWriter: IndexWriter = dumpMetricIndex.getWriter
                             val shardsDir =
-                              new MMapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
+                              createMmapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
                             val shardIndex = new TimeSeriesIndex(shardsDir)
                             shardIndex.all(schema, bit => dumpMetricIndex.write(bit)(shardWriter))
                             shardWriter.close()

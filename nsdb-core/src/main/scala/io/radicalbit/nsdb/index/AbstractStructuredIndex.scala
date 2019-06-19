@@ -67,18 +67,15 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
 
     def extractFields(schema: Schema, document: Document, fields: Seq[SimpleField], fieldClassType: FieldClassType) = {
       document.getFields.asScala
-        .filterNot {
-          case f =>
-            schema.fields
-              .filter(fieldSchema => fieldSchema.name == f.name && fieldSchema.fieldClassType == fieldClassType)
-              .headOption
-              .map { _ =>
-                f.name() == _keyField || f.name() == _valueField || f.name() == _countField || (fields.nonEmpty &&
-                !fields.exists {
-                  case sf => (sf.name == f.name() || sf.name.trim == "*") && !sf.count
-                })
-              }
-              .getOrElse(true)
+        .filterNot { f =>
+          schema.fields
+            .find(fieldSchema => fieldSchema.name == f.name && fieldSchema.fieldClassType == fieldClassType)
+            .forall { _ =>
+              f.name() == _keyField || f.name() == _valueField || f.name() == _countField || (fields.nonEmpty &&
+              !fields.exists { sf =>
+                (sf.name == f.name() || sf.name.trim == "*") && !sf.count
+              })
+            }
         }
         .map {
           case f if f.numericValue() != null => f.name() -> f.numericValue()
@@ -181,7 +178,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * Executes a simple count [[Query]] using the given schema.
     * @return the query results as a list of entries.
     */
-  def getCount(): Int =
+  def getCount: Int =
     executeCountQuery(this.getSearcher, new MatchAllDocsQuery(), Int.MaxValue) { doc =>
       doc.getField(_countField).numericValue().intValue()
     }.headOption.getOrElse(0)

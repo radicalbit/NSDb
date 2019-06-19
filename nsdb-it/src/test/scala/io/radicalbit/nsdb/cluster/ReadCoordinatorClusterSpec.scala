@@ -91,7 +91,6 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
                  10.seconds)
 
     waitIndexing()
-    waitIndexing()
   }
 
   override def afterAll(): Unit = {

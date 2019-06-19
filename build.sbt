@@ -310,6 +310,8 @@ lazy val `nsdb-sql` = project
 
 lazy val `nsdb-java-api` = project
   .settings(Commons.crossScalaVersionSettings: _*)
+  .settings(scalaVersion := "2.11.11")
+  .settings(crossPaths := false)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.JavaAPI.libraries)
   .enablePlugins(AutomateHeaderPlugin)
@@ -364,7 +366,9 @@ lazy val `nsdb-flink-connector` = project
   .dependsOn(`nsdb-scala-api`)
 
 lazy val `nsdb-kafka-connect` = project
-  .settings(Commons.crossScalaVersionSettings: _*)
+  .settings(Commons.nonCrossSettings: _*)
+  .settings(scalaVersion := "2.11.11")
+  .settings(crossPaths := false)
   .settings(PublishSettings.settings: _*)
   .settings(libraryDependencies ++= Dependencies.KafkaConnect.libraries)
   .settings(

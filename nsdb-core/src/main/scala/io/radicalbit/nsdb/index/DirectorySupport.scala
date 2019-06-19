@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.minicluster
+package io.radicalbit.nsdb.index
 
-import java.time.Duration
+import java.nio.file.Path
 
-class MiniClusterStarter(override val nodesNumber: Int, override val passivateAfter: Duration = Duration.ofHours(1))
-    extends NsdbMiniCluster
+import org.apache.lucene.store.MMapDirectory
 
-object MiniClusterStarter extends App with NsdbMiniCluster {
-  override protected[this] def nodesNumber              = 2
-  override protected[this] def passivateAfter: Duration = Duration.ofHours(1)
+/**
+  * Trait containing common Lucene [[org.apache.lucene.store.Directory]] custom factory methods.
+  */
+trait DirectorySupport {
 
-  start()
+  def createMmapDirectory(path: Path): MMapDirectory = new MMapDirectory(path)
+
 }
