@@ -37,7 +37,7 @@ import scala.concurrent.duration._
   */
 class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
-  val cluster = Cluster(context.system)
+  private val cluster = Cluster(context.system)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -64,34 +64,13 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
       implicit val timeout: Timeout = Timeout(5.seconds)
 
-      val indexBasePath = config.getString("nsdb.index.base-path")
-
       val nodeActorsGuardian =
         context.system.actorOf(nodeActorsGuardianProps.withDeploy(Deploy(scope = RemoteScope(member.address))),
                                name = s"guardian_$nodeName")
 
       (nodeActorsGuardian ? GetNodeChildActors)
         .map {
-          case NodeChildActorsGot(metadataCoordinator,
-                                  writeCoordinator,
-                                  readCoordinator,
-                                  schemaCoordinator,
-                                  publisherActor: ActorRef) =>
-//            mediator ! Subscribe(WARMUP_TOPIC, readCoordinator)
-//            mediator ! Subscribe(WARMUP_TOPIC, writeCoordinator)
-
-//            val metadataActor = context.system.actorOf(MetadataActor
-//                                                         .props(indexBasePath, metadataCoordinator)
-//                                                         .withDeploy(Deploy(scope = RemoteScope(member.address))),
-//                                                       name = s"metadata_$nodeName")
-//            val schemaActor = context.system.actorOf(SchemaActor
-//                                                       .props(indexBasePath, schemaCoordinator)
-//                                                       .withDeploy(Deploy(scope = RemoteScope(member.address))),
-//                                                     name = s"schema-actor_$nodeName")
-//
-//            mediator ! Subscribe(METADATA_TOPIC, metadataActor)
-//            mediator ! Subscribe(SCHEMA_TOPIC, schemaActor)
-
+          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
             new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)

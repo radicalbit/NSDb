@@ -66,7 +66,6 @@ object MessageProtocol {
     case class NodeChildActorsGot(metadataCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   readCoordinator: ActorRef,
-                                  schemaCoordinator: ActorRef,
                                   publisher: ActorRef)
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
