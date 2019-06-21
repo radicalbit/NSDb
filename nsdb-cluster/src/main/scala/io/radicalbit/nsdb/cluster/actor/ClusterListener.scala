@@ -77,24 +77,24 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
                                   readCoordinator,
                                   schemaCoordinator,
                                   publisherActor: ActorRef) =>
-            mediator ! Subscribe(WARMUP_TOPIC, readCoordinator)
-            mediator ! Subscribe(WARMUP_TOPIC, writeCoordinator)
+//            mediator ! Subscribe(WARMUP_TOPIC, readCoordinator)
+//            mediator ! Subscribe(WARMUP_TOPIC, writeCoordinator)
 
-            val metadataActor = context.system.actorOf(MetadataActor
-                                                         .props(indexBasePath, metadataCoordinator)
-                                                         .withDeploy(Deploy(scope = RemoteScope(member.address))),
-                                                       name = s"metadata_$nodeName")
-            val schemaActor = context.system.actorOf(SchemaActor
-                                                       .props(indexBasePath, schemaCoordinator)
-                                                       .withDeploy(Deploy(scope = RemoteScope(member.address))),
-                                                     name = s"schema-actor_$nodeName")
-
-            mediator ! Subscribe(METADATA_TOPIC, metadataActor)
-            mediator ! Subscribe(SCHEMA_TOPIC, schemaActor)
+//            val metadataActor = context.system.actorOf(MetadataActor
+//                                                         .props(indexBasePath, metadataCoordinator)
+//                                                         .withDeploy(Deploy(scope = RemoteScope(member.address))),
+//                                                       name = s"metadata_$nodeName")
+//            val schemaActor = context.system.actorOf(SchemaActor
+//                                                       .props(indexBasePath, schemaCoordinator)
+//                                                       .withDeploy(Deploy(scope = RemoteScope(member.address))),
+//                                                     name = s"schema-actor_$nodeName")
+//
+//            mediator ! Subscribe(METADATA_TOPIC, metadataActor)
+//            mediator ! Subscribe(SCHEMA_TOPIC, schemaActor)
 
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
-            new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataActor, publisherActor)(context.system)
+            new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
           case _ =>
         }
     case UnreachableMember(member) =>

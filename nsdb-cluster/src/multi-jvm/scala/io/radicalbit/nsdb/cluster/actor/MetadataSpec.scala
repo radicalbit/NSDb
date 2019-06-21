@@ -121,19 +121,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val nNodes = cluster.state.members.count(_.status == MemberStatus.Up)
       nNodes shouldBe 2
 
-      awaitAssert {
-        Await
-          .ready(
-            system
-              .actorSelection(s"/user/metadata_$nodeName")
-              .resolveOne(5.seconds),
-            5.seconds
-          )
-          .value
-          .get
-          .isSuccess shouldBe true
-      }
-
       enterBarrier("joined")
     }
 
@@ -153,19 +140,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         }
       }
 
-      awaitAssert {
-        val metadataActor =
-          Await.result(
-            system
-              .actorSelection(
-                s"/user/metadata_${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}")
-              .resolveOne(5.seconds),
-            5.seconds
-          )
-        metadataActor ! GetLocations("db", "namespace", "metric")
-        expectMsg(LocationsGot("db", "namespace", "metric", Seq(Location("metric", "node-1", 0, 1))))
-      }
-
       enterBarrier("after-add-locations")
     }
 
@@ -183,14 +157,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           metadataCoordinator ! PutMetricInfo("db", "namespace", metricInfo)
           expectMsg(MetricInfoPut("db", "namespace", metricInfo))
         }
-      }
-
-      awaitAssert {
-        val metadataActor =
-          system.actorSelection(
-            s"user/metadata_${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}")
-        metadataActor ! GetMetricInfo("db", "namespace", "metric")
-        expectMsg(MetricInfoGot("db", "namespace", Some(metricInfo)))
       }
 
       enterBarrier("after-add-metrics-info")

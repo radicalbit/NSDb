@@ -85,7 +85,7 @@ object MessageProtocol {
     */
   object Events {
 
-    case object WarmUpCompleted
+//    case object WarmUpCompleted
 
     sealed trait ErrorCode
     case class MetricNotFound(metric: String) extends ErrorCode

@@ -21,9 +21,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.WarmUpCompleted
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -52,8 +50,8 @@ class WriteCoordinatorSpec
   implicit val timeout = Timeout(10 seconds)
 
   override def beforeAll: Unit = {
-    writeCoordinatorActor ! WarmUpCompleted
-    schemaCoordinator ! WarmUpSchemas(List.empty)
+//    writeCoordinatorActor ! WarmUpCompleted
+//    schemaCoordinator ! WarmUpSchemas(List.empty)
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "localhost"), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, "localhost"), 10 seconds)

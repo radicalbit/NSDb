@@ -419,41 +419,39 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     }
   }
 
-  override def receive: Receive = warmUp
+//  /**
+//    * Initial state in which actor waits metadata warm-up completion.
+//    */
+//  def warmUp: Receive = {
+//    case WarmUpCompleted =>
+//      unstashAll()
+//      context.become(operative)
+//    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+//      if (!metricsDataActors.get(nodeName).contains(actor)) {
+//        metricsDataActors += (nodeName -> actor)
+//        log.info(s"subscribed data actor for node $nodeName")
+//      }
+//      sender() ! MetricsDataActorSubscribed(actor, nodeName)
+//    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
+//      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
+//        commitLogCoordinators += (nodeName -> actor)
+//        log.info(s"subscribed commit log actor for node $nodeName")
+//      }
+//      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
+//    case SubscribePublisher(actor: ActorRef, nodeName) =>
+//      if (!publishers.get(nodeName).contains(actor)) {
+//        publishers += (nodeName -> actor)
+//        log.info(s"subscribed publisher actor for node $nodeName")
+//      }
+//      sender() ! PublisherSubscribed(actor, nodeName)
+//    case GetConnectedDataNodes =>
+//      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
+//    case msg =>
+//      stash()
+//      log.error(s"Received and stashed message $msg during warmUp")
+//  }
 
-  /**
-    * Initial state in which actor waits metadata warm-up completion.
-    */
-  def warmUp: Receive = {
-    case WarmUpCompleted =>
-      unstashAll()
-      context.become(operative)
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      if (!metricsDataActors.get(nodeName).contains(actor)) {
-        metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
-      }
-      sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
-      }
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
-    case SubscribePublisher(actor: ActorRef, nodeName) =>
-      if (!publishers.get(nodeName).contains(actor)) {
-        publishers += (nodeName -> actor)
-        log.info(s"subscribed publisher actor for node $nodeName")
-      }
-      sender() ! PublisherSubscribed(actor, nodeName)
-    case GetConnectedDataNodes =>
-      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case msg =>
-      stash()
-      log.error(s"Received and stashed message $msg during warmUp")
-  }
-
-  def operative: Receive = {
+  override def receive: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)

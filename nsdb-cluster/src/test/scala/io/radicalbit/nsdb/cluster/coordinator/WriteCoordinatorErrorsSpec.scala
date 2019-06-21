@@ -28,13 +28,12 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordRejected, WarmUpCompleted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.RecordRejected
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.collection.mutable
@@ -100,8 +99,7 @@ class WriteCoordinatorErrorsSpec
   lazy val failingCommitLogCoordinator: TestActorRef[MockedCommitLogCoordinator] =
     TestActorRef[MockedCommitLogCoordinator](MockedCommitLogCoordinator.props(failureCommitLogProbe.ref))
   lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](
-      SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
+    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache])))
   lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
@@ -119,8 +117,8 @@ class WriteCoordinatorErrorsSpec
   val record2 = Bit(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
 
   override def beforeAll: Unit = {
-    writeCoordinatorActor ! WarmUpCompleted
-    schemaCoordinator ! WarmUpSchemas(List.empty)
+//    writeCoordinatorActor ! WarmUpCompleted
+//    schemaCoordinator ! WarmUpSchemas(List.empty)
 
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(successfulCommitLogCoordinator, node1),
                  10 seconds)

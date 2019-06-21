@@ -19,12 +19,9 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.actor.MetadataActor.MetricMetadata
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -55,9 +52,9 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
 
-  override def receive: Receive = warmUp
+  override def receive: Receive = operative //warmUp
 
-  def warmUp: Receive = {
+  /*def warmUp: Receive = {
     case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
       log.info(s"Received location warm-up message: $msg ")
       Future
@@ -84,18 +81,18 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             context.system.terminate()
         }
         .foreach { _ =>
-          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
+//          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
           unstashAll()
           context.become(operative)
         }
     case _: WarmUpMetadata =>
-      mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
+//      mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
       unstashAll()
       context.become(operative)
     case msg =>
       stash()
       log.error(s"Received and stashed message $msg during warmUp")
-  }
+  }*/
 
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
@@ -118,7 +115,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
           }
 
         if (successResponses.size == responses.size) {
-          successResponses.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
+//          successResponses.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
           Future(LocationsAdded(db, namespace, successResponses.map(_.value)))
         } else {
           Future
@@ -166,7 +163,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? DropMetricFromCache(db, namespace, metric))
         .mapTo[MetricFromCacheDropped]
         .map { _ =>
-          mediator ! Publish(METADATA_TOPIC, DeleteMetricMetadata(db, namespace, metric))
+//          mediator ! Publish(METADATA_TOPIC, DeleteMetricMetadata(db, namespace, metric))
           MetricDropped(db, namespace, metric)
         }
         .pipeTo(sender())
@@ -174,7 +171,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? DropNamespaceFromCache(db, namespace))
         .mapTo[NamespaceFromCacheDropped]
         .map { _ =>
-          mediator ! Publish(METADATA_TOPIC, DeleteNamespaceMetadata(db, namespace))
+//          mediator ! Publish(METADATA_TOPIC, DeleteNamespaceMetadata(db, namespace))
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
@@ -242,7 +239,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
-            mediator ! Publish(METADATA_TOPIC, msg)
+//            mediator ! Publish(METADATA_TOPIC, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
@@ -256,7 +253,7 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class WarmUpMetadata(metricLocations: Seq[MetricMetadata])
+//    case class WarmUpMetadata(metricLocations: Seq[MetricMetadata])
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)

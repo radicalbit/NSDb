@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.ActorSystem
 import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
@@ -62,9 +61,9 @@ class MetadataCoordinatorSpec
     val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
 
-    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
-    probe.expectMsgType[Publish]
-    probe.expectNoMessage(1 second)
+//    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
+//    probe.expectMsgType[Publish]
+//    probe.expectNoMessage(1 second)
   }
 
   override def beforeEach: Unit = {
