@@ -43,7 +43,6 @@ lazy val root = project
     `nsdb-kafka-connect`,
     `nsdb-perf`,
     `nsdb-it`,
-    `nsdb-web-ui`
   )
 
 lazy val buildUI = Def.settingKey[Boolean]("Whether to build UI")
@@ -60,65 +59,6 @@ addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
 addCommandAlias("quickTest", ";set buildUI in Global := false; test")
-
-lazy val `nsdb-web-ui` = project
-  .settings(Commons.crossScalaVersionSettings: _*)
-  .settings(PublishSettings.dontPublish: _*)
-  .enablePlugins(FrontendPlugin)
-  .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .settings(
-    nodePackageManager := sbtfrontend.NodePackageManager.Yarn,
-    FrontendKeys.nodeInstallDirectory := (baseDirectory.value / "app/.frontend"),
-    FrontendKeys.nodeWorkingDirectory := (baseDirectory.value / "app"),
-    FrontendKeys.nodeVersion := "v8.11.1",
-    uiCompileTask := {
-      val log = streams.value.log
-      log.info("Starting build ui task")
-      yarn.toTask(" setup").value
-    },
-    uiCopyTask := Def.taskDyn {
-      val clusterResourcesDir = file(".") / "nsdb-cluster" / "src" / "main" / "resources"
-      val clusterConfig       = ConfigFactory.parseFile(clusterResourcesDir / "cluster.conf").resolve()
-
-      if (buildUI.value && clusterConfig.getBoolean("nsdb.ui.enabled")) {
-
-        val sslEnabled   = ConfigFactory.parseFile(clusterResourcesDir / "https.conf").getBoolean("ssl.enabled")
-        val httpProtocol = if (sslEnabled) "https" else "http"
-        val wsProtocol   = if (sslEnabled) "wss" else "ws"
-        val port =
-          if (sslEnabled) clusterConfig.getInt("nsdb.http.https-port") else clusterConfig.getInt("nsdb.http.port")
-
-        val configFile = baseDirectory.value / "app" / ".env.production.template"
-        val content = IO
-          .read(configFile)
-          .replace("{httpProtocol}", httpProtocol)
-          .replace("{wsProtocol}", wsProtocol)
-          .replace("{httpPort}", port.toString)
-          .replace("{wsPort}", port.toString)
-
-        val destFile = baseDirectory.value / "app" / ".env.production"
-        IO.write(destFile, content, append = false)
-
-        val log = streams.value.log
-        log.info("building ui")
-        Def.task {
-          val log = streams.value.log
-          uiCompileTask.value
-          val to   = (target in Compile).value / s"scala-${scalaVersion.value.split("\\.").take(2).mkString(".")}" / "classes" / "ui"
-          val from = baseDirectory.value / "app/build"
-          log.info("Deleting previous resources")
-          IO.delete(to)
-          log.info("Coping ui static resources")
-          IO.copyDirectory(from, to)
-        }
-      } else {
-        val log = streams.value.log
-        log.info("skip building ui")
-        Def.task {}
-      }
-    }.value,
-    (compile in Compile) := ((compile in Compile) dependsOn uiCopyTask).value
-  )
 
 lazy val `nsdb-common` = project
   .settings(Commons.crossScalaVersionSettings: _*)
@@ -141,7 +81,7 @@ lazy val `nsdb-http` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`, `nsdb-web-ui`)
+  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
 
 lazy val `nsdb-rpc` = project
   .settings(Commons.crossScalaVersionSettings: _*)
