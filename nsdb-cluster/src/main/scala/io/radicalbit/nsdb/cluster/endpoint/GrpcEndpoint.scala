@@ -42,16 +42,14 @@ import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
 import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
+import io.radicalbit.nsdb.rpc.migration.MigrationGrpc.Migration
+import io.radicalbit.nsdb.rpc.migration.{MigrateRequest, MigrateResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseCommand.MetricSchemaRetrieved.MetricField.{FieldClassType => GrpcFieldClassType}
-import io.radicalbit.nsdb.rpc.responseCommand.{
-  Namespaces,
-  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
-  MetricsGot => GrpcMetricsGot
-}
+import io.radicalbit.nsdb.rpc.responseCommand.{Namespaces, MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
@@ -89,6 +87,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
   override protected[this] def health: Health = GrpcEndpointServiceHealth
 
   override protected[this] def dump: Dump = GrpcEndpointServiceDump
+
+  override protected[this] def migration: Migration = MigrationServiceDump
 
   override protected[this] val port: Int = system.settings.config.getInt("nsdb.grpc.port")
 
@@ -470,4 +470,22 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       }
     }
   }
+
+  protected[this] object MigrationServiceDump extends Migration {
+    override def migrate(request: MigrateRequest): Future[MigrateResponse] = {
+      (writeCoordinator ? Migrate(
+        request.sourcePath,
+        coordinates = request.coordinates.map(grpcCoordinates =>
+          Coordinates(grpcCoordinates.db, grpcCoordinates.namespace, grpcCoordinates.metric))
+      )).map {
+        case MigrationStarted(path, _) => MigrateResponse(startedSuccessfully = true, path)
+        case msg =>
+          log.error("got {} from migration request", msg)
+          MigrateResponse(startedSuccessfully = false,
+                          errorMsg = s"unknown response from write coordinator $msg",
+                          sourcePath = request.sourcePath)
+      }
+    }
+  }
+
 }

@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema}
 
@@ -77,14 +77,14 @@ object MessageProtocol {
     case object GetMetricsDataActors
     case object GetCommitLogCoordinators
     case object GetPublishers
+
+    case class Migrate(inputPath: String, coordinates: Seq[Coordinates])
   }
 
   /**
     * events received from nsdb actors.
     */
   object Events {
-
-//    case object WarmUpCompleted
 
     sealed trait ErrorCode
     case class MetricNotFound(metric: String) extends ErrorCode
@@ -141,6 +141,8 @@ object MessageProtocol {
     case class PublisherSubscribed(actor: ActorRef, nodeName: String)
 
     case class ConnectedDataNodesGot(nodes: Seq[String])
+
+    case class MigrationStarted(inputPath: String, coordinates: Seq[Coordinates])
   }
 
 }

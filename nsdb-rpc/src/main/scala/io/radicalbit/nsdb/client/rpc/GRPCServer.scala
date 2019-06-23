@@ -23,6 +23,8 @@ import io.radicalbit.nsdb.rpc.health.HealthGrpc
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
+import io.radicalbit.nsdb.rpc.migration.MigrationGrpc
+import io.radicalbit.nsdb.rpc.migration.MigrationGrpc.Migration
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
@@ -52,6 +54,8 @@ trait GRPCServer {
 
   protected[this] def parserSQL: SQLStatementParser
 
+  protected[this] def migration: Migration
+
   sys.addShutdownHook {
     System.err.println("Shutting down gRPC server since JVM is shutting down")
     stop()
@@ -65,6 +69,7 @@ trait GRPCServer {
     .addService(InitMetricGrpc.bindService(initMetricService, executionContextExecutor))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
     .addService(DumpGrpc.bindService(dump, executionContextExecutor))
+    .addService(MigrationGrpc.bindService(migration, executionContextExecutor))
     .build
 
   def start(): Try[Server] = Try(server.start())

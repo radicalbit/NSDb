@@ -52,7 +52,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
 
-  override def receive: Receive = operative //warmUp
+//  override def receive: Receive = operative //warmUp
 
   /*def warmUp: Receive = {
     case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
@@ -115,7 +115,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
           }
 
         if (successResponses.size == responses.size) {
-//          successResponses.foreach(l => mediator ! Publish(METADATA_TOPIC, AddLocation(db, namespace, l.value)))
           Future(LocationsAdded(db, namespace, successResponses.map(_.value)))
         } else {
           Future
@@ -143,7 +142,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
             .map(_ => defaultShardingInterval)
       }
 
-  def operative: Receive = {
+  override def receive: Receive = {
     case GetDbs =>
       (cache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
@@ -163,7 +162,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? DropMetricFromCache(db, namespace, metric))
         .mapTo[MetricFromCacheDropped]
         .map { _ =>
-//          mediator ! Publish(METADATA_TOPIC, DeleteMetricMetadata(db, namespace, metric))
           MetricDropped(db, namespace, metric)
         }
         .pipeTo(sender())
@@ -171,7 +169,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
       (cache ? DropNamespaceFromCache(db, namespace))
         .mapTo[NamespaceFromCacheDropped]
         .map { _ =>
-//          mediator ! Publish(METADATA_TOPIC, DeleteNamespaceMetadata(db, namespace))
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())

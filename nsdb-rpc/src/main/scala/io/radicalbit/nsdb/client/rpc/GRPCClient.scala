@@ -20,6 +20,7 @@ import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
+import io.radicalbit.nsdb.rpc.migration.{MigrateRequest, MigrateResponse, MigrationGrpc}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -40,12 +41,13 @@ class GRPCClient(host: String, port: Int) {
 
   private val log = LoggerFactory.getLogger(classOf[GRPCClient])
 
-  private val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext(true).build
+  private val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
   private val stubHealth              = HealthGrpc.stub(channel)
   private val stubDump                = DumpGrpc.stub(channel)
   private val stubSql                 = NSDBServiceSQLGrpc.stub(channel)
   private val stubCommand             = NSDBServiceCommandGrpc.stub(channel)
   private val stubInit                = InitMetricGrpc.stub(channel)
+  private val stubMigration           = MigrationGrpc.stub(channel)
 
   def checkConnection(): Future[HealthCheckResponse] = {
     log.debug("checking connection")
@@ -90,5 +92,10 @@ class GRPCClient(host: String, port: Int) {
   def describeMetrics(request: DescribeMetric): Future[MetricSchemaRetrieved] = {
     log.debug("Preparing of command describe metric for namespace: {} ", request.namespace)
     stubCommand.describeMetric(request)
+  }
+
+  def migrate(request: MigrateRequest): Future[MigrateResponse] = {
+    log.debug("Preparing of command migrate with request {}", request)
+    stubMigration.migrate(request)
   }
 }

@@ -41,7 +41,7 @@ import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -72,7 +72,6 @@ object WriteCoordinator {
   case class DumpCreated(inputPath: String)
 
   case class AckPendingMetric(db: String, namespace: String, metric: String)
-
 }
 
 /**
@@ -303,7 +302,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  bit: Bit,
                                  schema: Schema): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
-    val (succeedResponses: List[RecordAdded], failedResponses: List[RecordRejected]) =
+    val (succeedResponses: List[RecordAdded], _: List[RecordRejected]) =
       responses.foldRight(emptyLists) {
         case (res, (successes, failures)) =>
           res match {
@@ -331,7 +330,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           }
         }
         .flatMap { responses =>
-          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(res =>
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(_ =>
             Future.successful(InputMapped(db, namespace, metric, bit)))
         }
 
@@ -735,6 +734,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       ApacheFileUtils.deleteDirectory(Paths.get(tmpPath).toFile)
       log.info(s"Dump with identifier $dumpIdentifier completed")
 
-    case msg => log.info(s"Receive Unhandled message $msg")
+    case Migrate(basePath, coordinates) =>
+      log.info("starting migrate at path for coordinates {}", basePath, coordinates)
+
+
+    case msg                            => log.info(s"Receive Unhandled message $msg")
   }
 }
