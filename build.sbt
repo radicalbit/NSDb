@@ -42,13 +42,9 @@ lazy val root = project
     `nsdb-flink-connector`,
     `nsdb-kafka-connect`,
     `nsdb-perf`,
-    `nsdb-it`,
+    `nsdb-it`
   )
 
-lazy val buildUI = Def.settingKey[Boolean]("Whether to build UI")
-buildUI in Global := true
-lazy val uiCompileTask = taskKey[Unit]("build UI")
-lazy val uiCopyTask    = taskKey[Unit]("copy UI")
 lazy val packageDist   = taskKey[File]("create universal package and move it to package folder")
 lazy val packageDeb    = taskKey[File]("create debian package and move it to package folder")
 lazy val packageRpm    = taskKey[File]("create RPM package and move it to package folder")
@@ -58,7 +54,6 @@ addCommandAlias("fixCheck", "; compile:scalafix --check ; test:scalafix --check"
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
-addCommandAlias("quickTest", ";set buildUI in Global := false; test")
 
 lazy val `nsdb-common` = project
   .settings(Commons.crossScalaVersionSettings: _*)
