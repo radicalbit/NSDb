@@ -37,6 +37,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   GetWriteLocations
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.SchemaMigrated
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
@@ -52,7 +53,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import org.apache.commons.io.{FileUtils => ApacheFileUtils}
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.index.IndexWriter
+import org.apache.lucene.index.{IndexUpgrader, IndexWriter}
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.zeroturnaround.zip.ZipUtil
 
@@ -160,10 +161,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] =
     (schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
-        case SchemaUpdated(_, _, _, schema) =>
+        case Right(SchemaUpdated(_, _, _, schema)) =>
           log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
           op(schema)
-        case UpdateSchemaFailed(_, _, _, errs) =>
+        case Left(UpdateSchemaFailed(_, _, _, errs)) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
           Future(RecordRejected(db, namespace, metric, bit, Location("", "", 0, 0), errs, System.currentTimeMillis()))
       }
@@ -734,10 +735,49 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       ApacheFileUtils.deleteDirectory(Paths.get(tmpPath).toFile)
       log.info(s"Dump with identifier $dumpIdentifier completed")
 
-    case Migrate(basePath, coordinates) =>
-      log.info("starting migrate at path for coordinates {}", basePath, coordinates)
+    case msg @ Migrate(inputPath, coordinates) =>
+      log.info("starting migrate at path for coordinates {}", inputPath, coordinates)
 
+      sender ! MigrationStarted(inputPath, coordinates)
 
-    case msg                            => log.info(s"Receive Unhandled message $msg")
+      for {
+        _              <- metadataCoordinator ? msg
+        schemaMigrated <- (schemaCoordinator ? msg).mapTo[SchemaMigrated]
+        accumulated <- {
+
+          val schemaMap = schemaMigrated.schemas.toMap
+
+          Future.sequence(
+            FileUtils
+              .getSubDirs(inputPath)
+              .flatMap { db =>
+                FileUtils.getSubDirs(db).toList.collect {
+                  case namespace if coordinates.exists(c => c.db == db.getName && c.namespace == namespace.getName) =>
+                    FileUtils.getSubDirs(Paths.get(namespace.getAbsolutePath, "shards")).flatMap {
+                      shard =>
+                        val metric   = shard.getName.split("_").headOption
+                        val shardDir = createMmapDirectory(Paths.get(shard.getAbsolutePath))
+                        new IndexUpgrader(shardDir).upgrade()
+
+                        val shardIndex = new TimeSeriesIndex(shardDir)
+
+                        val schemaOpt =
+                          metric.flatMap(m => schemaMap.get(Coordinates(db.getName, namespace.getName, m)))
+
+                        schemaOpt
+                          .map(s => shardIndex.all(s, b => (s.metric, b)))
+                          .getOrElse(Seq.empty)
+                          .map {
+                            case (metric, bit) =>
+                              self ? MapInput(bit.timestamp, db.getName, namespace.getName, metric, bit)
+                          }
+                    }
+                }
+              }
+              .flatten)
+        }
+      } yield accumulated
+
+    case msg => log.info(s"Receive Unhandled message $msg")
   }
 }

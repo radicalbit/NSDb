@@ -49,7 +49,11 @@ import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowN
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseCommand.MetricSchemaRetrieved.MetricField.{FieldClassType => GrpcFieldClassType}
-import io.radicalbit.nsdb.rpc.responseCommand.{Namespaces, MetricSchemaRetrieved => GrpcMetricSchemaRetrieved, MetricsGot => GrpcMetricsGot}
+import io.radicalbit.nsdb.rpc.responseCommand.{
+  Namespaces,
+  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  MetricsGot => GrpcMetricsGot
+}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL

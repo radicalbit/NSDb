@@ -16,18 +16,26 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props, Stash}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
-import io.radicalbit.nsdb.index.SchemaIndex
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.{
+  NamespaceSchemaDeleted,
+  SchemaMigrated,
+  SchemaMigrationFailed
+}
+import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.lucene.index.IndexUpgrader
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
@@ -38,7 +46,10 @@ import scala.util.{Failure, Success}
   *
   * @param basePath indexes' base path.
   */
-class SchemaCoordinator(basePath: String, schemaCache: ActorRef) extends ActorPathLogging with Stash {
+class SchemaCoordinator(basePath: String, schemaCache: ActorRef)
+    extends ActorPathLogging
+    with Stash
+    with DirectorySupport {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
@@ -56,61 +67,22 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef) extends ActorPa
                                    namespace: String,
                                    metric: String,
                                    oldSchema: Schema,
-                                   newSchema: Schema) =
+                                   newSchema: Schema): Future[Either[UpdateSchemaFailed, SchemaUpdated]] =
     if (oldSchema == newSchema) {
-      Future(SchemaUpdated(db, namespace, metric, newSchema))
+      Future(Right(SchemaUpdated(db, namespace, metric, newSchema)))
     } else
       SchemaIndex.union(oldSchema, newSchema) match {
         case Success(unionSchema) =>
           (schemaCache ? PutSchemaInCache(db, namespace, metric, unionSchema))
             .map {
               case SchemaCached(_, _, _, _) =>
-//                mediator ! Publish(SCHEMA_TOPIC, UpdateSchema(db, namespace, metric, unionSchema))
-                SchemaUpdated(db, namespace, metric, unionSchema)
-              case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg"))
+                Right(SchemaUpdated(db, namespace, metric, unionSchema))
+              case msg =>
+                Left(UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg")))
             }
         case Failure(t) =>
-          Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
+          Future(Left(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))))
       }
-
-//  /**
-//    * During warm-up operations, schemas are read from local indexes by the local [[SchemaActor]] and
-//    * are loaded in memory distributed cache [[io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache]]
-//    * When warm-up is completed the actor become operative.
-//    *
-//    */
-//  def warmUp: Receive = {
-//    case WarmUpSchemas(schemasInfo) =>
-//      log.info("SchemaCoordinator performing warm-up at {}/{}", RemoteAddress(context.system).address, self.path.name)
-//      schemasInfo.foreach { schemaInfo =>
-//        val db                   = schemaInfo.db
-//        val namespace            = schemaInfo.namespace
-//        val schemas: Seq[Schema] = schemaInfo.metricsSchemas
-//        schemas.foreach { schema =>
-//          (schemaCache ? GetSchemaFromCache(db, namespace, schema.metric))
-//            .flatMap {
-//              case SchemaCached(_, _, _, Some(oldSchema)) =>
-//                checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema)
-//              case SchemaCached(_, _, _, None) =>
-//                (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
-//                  .map {
-//                    case SchemaCached(_, _, _, _) =>
-//                      SchemaUpdated(db, namespace, schema.metric, schema)
-//                    case msg =>
-//                      UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache $msg"))
-//                  }
-//              case _ =>
-//                Future(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache")))
-//            }
-//        }
-//      }
-//      unstashAll()
-//      context.become(operative)
-//
-//    case msg =>
-//      stash()
-//      log.error(s"Received and stashed message $msg during warmUp")
-//  }
 
   override def receive: Receive = {
     case GetSchema(db, namespace, metric) =>
@@ -137,26 +109,25 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef) extends ActorPa
                 (schemaCache ? PutSchemaInCache(db, namespace, metric, newSchema))
                   .map {
                     case SchemaCached(_, _, _, _) =>
-//                      mediator ! Publish(SCHEMA_TOPIC, UpdateSchema(db, namespace, metric, newSchema))
-                      SchemaUpdated(db, namespace, metric, newSchema)
+                      Right(SchemaUpdated(db, namespace, metric, newSchema))
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
               case (Failure(t), _) =>
-                Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
+                Future(Left(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))))
             }
           case e =>
             log.error("unexpected response from cache: expecting SchemaCached while got {}", e)
             Future(
-              GetSchemaFailed(db,
-                              namespace,
-                              metric,
-                              s"unexpected response from cache: expecting SchemaCached while got $e"))
+              Left(
+                GetSchemaFailed(db,
+                                namespace,
+                                metric,
+                                s"unexpected response from cache: expecting SchemaCached while got $e")))
         } pipeTo sender()
-    case msg @ DeleteSchema(db, namespace, metric) =>
+    case DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
           case SchemaCached(`db`, `namespace`, `metric`, _) =>
-//            mediator ! Publish(SCHEMA_TOPIC, msg)
             SchemaDeleted(db, namespace, metric)
           case e =>
             SchemaDeleted(db, namespace, metric)
@@ -166,12 +137,64 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef) extends ActorPa
       (schemaCache ? DeleteNamespaceSchema(db, namespace))
         .map {
           case NamespaceSchemaDeleted(_, _) =>
-//            mediator ! Publish(SCHEMA_TOPIC, DeleteNamespace(db, namespace))
             NamespaceDeleted(db, namespace)
           //FIXME:  always positive response
           case _ => NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
+    case Migrate(inputPath, coordinates) =>
+      log.info("migrating schemas for {} {}", inputPath, coordinates)
+      val allSchemas = FileUtils.getSubDirs(inputPath).flatMap { db =>
+        FileUtils.getSubDirs(db).toList.collect {
+          case namespace if coordinates.exists(c => c.db == db.getName && c.namespace == namespace.getName) =>
+            val schemaIndexDir = createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "schemas"))
+            new IndexUpgrader(schemaIndexDir).upgrade()
+            val schemaIndex = new SchemaIndex(schemaIndexDir)
+            val schemas     = schemaIndex.all
+            schemaIndex.close()
+            (db.getName, namespace.getName, schemas)
+        }
+      }
+
+      import cats.instances.either._
+      import cats.instances.list._
+      import cats.syntax.traverse._
+
+      Future
+        .sequence(allSchemas.map {
+          case (db, namespace, schemas) =>
+            Future.sequence(schemas.map {
+              schema =>
+                (schemaCache ? GetSchemaFromCache(db, namespace, schema.metric))
+                  .flatMap {
+                    case SchemaCached(_, _, _, Some(oldSchema)) =>
+                      checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema)
+                    case SchemaCached(_, _, _, None) =>
+                      (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
+                        .map {
+                          case SchemaCached(_, _, _, _) =>
+                            Right(SchemaUpdated(db, namespace, schema.metric, schema))
+                          case msg =>
+                            Left(
+                              UpdateSchemaFailed(db,
+                                                 namespace,
+                                                 schema.metric,
+                                                 List(s"Unknown response from cache $msg")))
+                        }
+                    case _ =>
+                      Future(
+                        Left(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache"))))
+                  }
+            })
+        })
+        .map(_.flatten.sequence)
+        .map {
+          case Right(seq) => SchemaMigrated(seq.map(e => (Coordinates(e.db, e.namespace, e.metric), e.schema)))
+          case Left(UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])) =>
+            SchemaMigrationFailed(db, namespace, metric, errors)
+        }
+        .pipeTo(sender())
+
   }
 }
 
@@ -182,6 +205,8 @@ object SchemaCoordinator {
 
   object events {
     case class NamespaceSchemaDeleted(db: String, namespace: String)
+    case class SchemaMigrated(schemas: Seq[(Coordinates, Schema)])
+    case class SchemaMigrationFailed(db: String, namespace: String, metric: String, errors: List[String])
   }
 
   object commands {

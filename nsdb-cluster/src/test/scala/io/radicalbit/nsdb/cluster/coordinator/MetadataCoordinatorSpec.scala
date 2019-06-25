@@ -161,18 +161,18 @@ class MetadataCoordinatorSpec
 
     "retrieve correct default write Location given a timestamp" in {
 
-       awaitAssert {
-         probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
-         val locationGot = probe.expectMsgType[LocationsGot]
-         locationGot.db shouldBe db
-         locationGot.namespace shouldBe namespace
-         locationGot.metric shouldBe metric
+      awaitAssert {
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
+        val locationGot = probe.expectMsgType[LocationsGot]
+        locationGot.db shouldBe db
+        locationGot.namespace shouldBe namespace
+        locationGot.metric shouldBe metric
 
-         locationGot.locations.size shouldBe 1
-         locationGot.locations.head.from shouldBe 0L
-         locationGot.locations.head.to shouldBe 60000L
+        locationGot.locations.size shouldBe 1
+        locationGot.locations.head.from shouldBe 0L
+        locationGot.locations.head.to shouldBe 60000L
       }
-      
+
       awaitAssert {
         probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001))
         val locationGot_2 = probe.expectMsgType[LocationsGot]
@@ -187,7 +187,7 @@ class MetadataCoordinatorSpec
 
       awaitAssert {
         probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002))
-        val locationGot_3 =   probe.expectMsgType[LocationsGot]
+        val locationGot_3 = probe.expectMsgType[LocationsGot]
         locationGot_3.db shouldBe db
         locationGot_3.namespace shouldBe namespace
         locationGot_3.metric shouldBe metric

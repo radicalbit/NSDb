@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
@@ -26,11 +27,16 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.cluster.index.{LocationIndex, MetricInfo, MetricInfoIndex}
+import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.lucene.index.IndexUpgrader
+import org.apache.lucene.store.Directory
 
 import scala.concurrent.Future
 
@@ -38,7 +44,10 @@ import scala.concurrent.Future
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPathLogging with Stash {
+class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
+    extends ActorPathLogging
+    with Stash
+    with DirectorySupport {
   private val cluster = Cluster(context.system)
 
   implicit val timeout: Timeout = Timeout(
@@ -51,8 +60,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
 
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
-
-//  override def receive: Receive = operative //warmUp
 
   /*def warmUp: Receive = {
     case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
@@ -232,25 +239,97 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef) extends ActorPath
           case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, value)
         }
         .pipeTo(sender)
-    case msg @ PutMetricInfo(db, namespace, metricInfo) =>
+    case PutMetricInfo(db, namespace, metricInfo) =>
       (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
-//            mediator ! Publish(METADATA_TOPIC, msg)
             MetricInfoPut(db, namespace, metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
             MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
           case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
+    case Migrate(inputPath, coordinates) =>
+      val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
+        FileUtils.getSubDirs(db).toList.flatMap { namespace =>
+          val metricInfoDirectory =
+            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata"))
+          new IndexUpgrader(metricInfoDirectory).upgrade()
+
+          val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
+          val metricInfos = metricInfoIndex.all
+            .map(e => Coordinates(db.getName, namespace.getName, e.metric) -> e)
+            .filter { case (coord, _) => coordinates.contains(coord) }
+
+          metricInfoIndex.close()
+
+          metricInfos
+        }
+      }
+
+      Future
+        .sequence(allMetadata.map {
+          case (Coordinates(db, namespace, _), metricInfo) =>
+            (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
+              .mapTo[MetricInfoCached]
+        })
+        .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
+        .pipeTo(sender())
+
+    /*def warmUp: Receive = {
+    case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
+      log.info(s"Received location warm-up message: $msg ")
+      Future
+        .sequence(metricsMetadata.map { metadata =>
+          Future
+            .sequence(metadata.locations.map { location =>
+              (cache ? PutLocationInCache(metadata.db,
+                                          metadata.namespace,
+                                          metadata.metric,
+                                          location.from,
+                                          location.to,
+                                          location))
+                .mapTo[LocationCached]
+            })
+            .flatMap { _ =>
+              metadata.info.map(metricInfo =>
+                (cache ? PutMetricInfoInCache(metadata.db, metadata.namespace, metricInfo.metric, metricInfo))
+                  .mapTo[MetricInfoCached]) getOrElse Future(MetricInfoGot(metadata.db, metadata.namespace, None))
+            }
+        })
+        .recover {
+          case t =>
+            log.error(t, "error during warm up")
+            context.system.terminate()
+        }
+        .foreach { _ =>
+//          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
+          unstashAll()
+          context.become(operative)
+        }
+    case _: WarmUpMetadata =>
+//      mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
+      unstashAll()
+      context.become(operative)
+    case msg =>
+      stash()
+      log.error(s"Received and stashed message $msg during warmUp")
+  }*/
+
+//      metadataCoordinator ! WarmUpMetadata(allMetadata)
+
+//      log.info("metadata actor started at {}/{}", remoteAddress.address, self.path.name)
   }
+
+  private def getLocationIndex(directory: Directory): LocationIndex = new LocationIndex(directory)
+
+  private def getMetricInfoIndex(directory: Directory): MetricInfoIndex = new MetricInfoIndex(directory)
 }
 
 object MetadataCoordinator {
 
   object commands {
 
-//    case class WarmUpMetadata(metricLocations: Seq[MetricMetadata])
     case class GetLocations(db: String, namespace: String, metric: String)
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)
@@ -282,6 +361,8 @@ object MetadataCoordinator {
     case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])
     case class MetricInfoPut(db: String, namespace: String, metricInfo: MetricInfo)
     case class MetricInfoFailed(db: String, namespace: String, metricInfo: MetricInfo, message: String)
+
+    case class MetricInfosMigrated(infos: Seq[MetricInfo])
   }
 
   def props(cache: ActorRef, mediator: ActorRef): Props = Props(new MetadataCoordinator(cache, mediator))

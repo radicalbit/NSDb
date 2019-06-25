@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.cluster.util
 
 import java.io._
+import java.nio.file.Path
 import java.util.zip.{ZipEntry, ZipFile}
 
 import scala.collection.JavaConverters._
@@ -38,6 +39,12 @@ object FileUtils {
     * @return all the first level sub directories of the given directory.
     */
   def getSubDirs(path: File): Array[File] = path.listFiles(new DirectoryFilter)
+
+  /**
+    * @param path a directory.
+    * @return all the first level sub directories of the given directory.
+    */
+  def getSubDirs(path: Path): Array[File] = path.toFile.listFiles(new DirectoryFilter)
 
   /**
     * @param path a string path.

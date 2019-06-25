@@ -50,8 +50,6 @@ class WriteCoordinatorSpec
   implicit val timeout = Timeout(10 seconds)
 
   override def beforeAll: Unit = {
-//    writeCoordinatorActor ! WarmUpCompleted
-//    schemaCoordinator ! WarmUpSchemas(List.empty)
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "localhost"), 10 seconds)
     Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, "localhost"), 10 seconds)
