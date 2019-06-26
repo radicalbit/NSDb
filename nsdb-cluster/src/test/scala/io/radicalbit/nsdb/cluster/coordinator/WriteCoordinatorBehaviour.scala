@@ -171,7 +171,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
       metricsDataActor.underlyingActor.context.children.map(_.path.name).exists(_.contains(namespace)) shouldBe false
 
-      probe.send(metricsDataActor, GetNamespaces(db))
+      probe.send(fakeMetadataCoordinator, GetNamespaces(db))
 
       val result = awaitAssert {
         probe.expectMsgType[NamespacesGot]

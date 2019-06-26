@@ -220,8 +220,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     *
     * - [[Terminated]] received when a child has been stopped
     *
-    * - [[GetMetrics]] retrieve and return all the metrics.
-    *
     * - [[ExecuteSelectStatement]] execute a given sql statement.
     */
   def readOps: Receive = {
@@ -230,8 +228,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         log.debug("removing not used actor for location", location)
         actors -= location
       }
-    case GetMetrics(_, _) =>
-      sender() ! MetricsGot(db, namespace, actors.keys.map(_.metric).toSet)
     case msg @ GetCountWithLocations(_, ns, metric, locations) =>
       Future
         .sequence(actorsForLocations(locations).map {

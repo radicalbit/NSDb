@@ -105,20 +105,6 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
   }
 
   override def receive: Receive = {
-    case GetDbs =>
-      val dbs = context.children.collect { case c if c.path.name.split("_").length == 4 => c.path.name.split("_")(2) }
-      sender() ! DbsGot(dbs.toSet)
-    case GetNamespaces(db) =>
-      val namespaces = context.children.collect {
-        case a if a.path.name.startsWith("metric_reader") && a.path.name.split("_")(2) == db =>
-          a.path.name.split("_")(3)
-      }.toSet
-      sender() ! NamespacesGot(db, namespaces)
-    case msg @ GetMetrics(db, namespace) =>
-      getReader(db, namespace) match {
-        case Some(child) => child forward msg
-        case None        => sender() ! MetricsGot(db, namespace, Set.empty)
-      }
     case DeleteNamespace(db, namespace) =>
       val children = getChildren(db, namespace)
       val f = children._2

@@ -17,16 +17,15 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{ActorSystem, Props}
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocation, WarmUpMetadata}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
-import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
@@ -100,8 +99,6 @@ class ReadCoordinatorSpec
         "ReadCoordinatorSpec",
         ConfigFactory
           .load()
-          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2553))
-          .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
       ))
     with ImplicitSender
@@ -117,9 +114,8 @@ class ReadCoordinatorSpec
   val schemaCoordinator = system.actorOf(
     SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)),
     "schemacoordinator")
-  val metadataCoordinator = system.actorOf(
-    MetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache]), probe.ref),
-    "metadatacoordinator")
+  val metadataCoordinator =
+    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadatacoordinator")
   val writeCoordinator =
     system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)))
   val metricsDataActor =
@@ -131,9 +127,6 @@ class ReadCoordinatorSpec
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5.second)
-
-    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
-    probe.expectMsgType[Publish]
 
     schemaCoordinator ! WarmUpSchemas(List.empty)
     readCoordinatorActor ! WarmUpCompleted

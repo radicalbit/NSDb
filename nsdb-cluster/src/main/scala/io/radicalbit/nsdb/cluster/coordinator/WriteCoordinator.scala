@@ -54,7 +54,6 @@ import org.apache.commons.io.{FileUtils => ApacheFileUtils}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.apache.lucene.store.MMapDirectory
 import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
