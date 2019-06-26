@@ -36,19 +36,7 @@ object NsdbMigrate extends App {
     } text "the remote port"
     opt[String]("path").required() action { (x, c) =>
       c.copy(sourcePath = x)
-    } text "path of the source directories"
-    opt[Seq[String]]("coordinates")
-      .required()
-      .action({ (x, c) =>
-        c.copy(targets = x)
-      })
-      .validate(
-        x =>
-          if (x.forall(dbNamespace => dbNamespace.contains(".") && dbNamespace.split("\\.").length == 3))
-            success
-          else
-            failure("invalid entry tuple"))
-      .text("list of database.namespace.metric tuple")
+    } text "path of the source directory"
   }
 
   parser.parse(args, Params(None, None, "", Seq("db.namespace.metric"))) foreach { params =>

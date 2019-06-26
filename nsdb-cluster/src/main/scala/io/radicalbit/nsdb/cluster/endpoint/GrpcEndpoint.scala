@@ -182,7 +182,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
         request: ShowMetrics
     ): Future[GrpcMetricsGot] = {
       log.debug("Received command ShowMetrics for namespace {}", request.namespace)
-      (readCoordinator ? GetMetrics(request.db, request.namespace)).map {
+      (metadataCoordinator ? GetMetrics(request.db, request.namespace)).map {
         case MetricsGot(db, namespace, metrics) =>
           GrpcMetricsGot(db, namespace, metrics.toList, completedSuccessfully = true)
         case _ =>
@@ -243,7 +243,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
         request: ShowNamespaces
     ): Future[Namespaces] = {
       log.debug("Received command ShowNamespaces for db: {}", request.db)
-      (readCoordinator ? GetNamespaces(db = request.db))
+      (metadataCoordinator ? GetNamespaces(db = request.db))
         .map {
           case NamespacesGot(db, namespaces) =>
             Namespaces(db = db, namespaces = namespaces.toSeq, completedSuccessfully = true)

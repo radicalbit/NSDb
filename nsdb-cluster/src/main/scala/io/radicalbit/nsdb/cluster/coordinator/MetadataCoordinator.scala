@@ -35,10 +35,11 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.lucene.index.IndexUpgrader
+import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
 
 import scala.concurrent.Future
+import scala.util.Try
 
 /**
   * Actor that handles metadata (i.e. write location for metrics)
@@ -213,8 +214,13 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
         FileUtils.getSubDirs(db).toList.flatMap { namespace =>
           val metricInfoDirectory =
-            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata"))
-          new IndexUpgrader(metricInfoDirectory).upgrade()
+            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata", "info"))
+
+          Try {
+            new IndexUpgrader(metricInfoDirectory).upgrade()
+          }.recover {
+            case _: IndexNotFoundException => //do nothing
+          }
 
           val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
           val metricInfos = metricInfoIndex.all
