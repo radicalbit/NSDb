@@ -153,7 +153,7 @@ lazy val `nsdb-rpc` = project
   ))
   .settings(LicenseHeader.settings: _*)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`nsdb-common`, `nsdb-sql`)
+  .dependsOn(`nsdb-sql`)
 
 lazy val `nsdb-cluster` = project
   .settings(Commons.crossScalaVersionSettings: _*)

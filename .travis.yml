@@ -21,4 +21,5 @@ after_success:
     test "${TRAVIS_PULL_REQUEST}" = 'false' &&
     test "${TRAVIS_REPO_SLUG}" = 'maocorte/NSDb' &&
     test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8' &&
-    sbt 'set credentials += Credentials("Artifactory Realm", "tools.radicalbit.io", System.getenv("REPO_USER"), System.getenv("REPO_PASS"))' +publish
+    sh "$TRAVIS_BUILD_DIR/travis-credentials.sh" &&
+    sbt +publish
