@@ -23,8 +23,6 @@ package object cluster {
     s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
 
   final object PubSubTopics {
-//    final val SCHEMA_TOPIC         = "schema"
-//    final val METADATA_TOPIC       = "metadata"
     final val COORDINATORS_TOPIC   = "coordinators"
     final val NODE_GUARDIANS_TOPIC = "node-guardians"
   }
