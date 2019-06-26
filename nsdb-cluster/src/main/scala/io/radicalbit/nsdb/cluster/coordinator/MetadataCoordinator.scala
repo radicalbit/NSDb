@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.index.{LocationIndex, MetricInfo, MetricInfoIndex}
+import io.radicalbit.nsdb.cluster.index.{MetricInfo, MetricInfoIndex}
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.index.DirectorySupport
@@ -60,46 +60,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
 
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
-
-  /*def warmUp: Receive = {
-    case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
-      log.info(s"Received location warm-up message: $msg ")
-      Future
-        .sequence(metricsMetadata.map { metadata =>
-          Future
-            .sequence(metadata.locations.map { location =>
-              (cache ? PutLocationInCache(metadata.db,
-                                          metadata.namespace,
-                                          metadata.metric,
-                                          location.from,
-                                          location.to,
-                                          location))
-                .mapTo[LocationCached]
-            })
-            .flatMap { _ =>
-              metadata.info.map(metricInfo =>
-                (cache ? PutMetricInfoInCache(metadata.db, metadata.namespace, metricInfo.metric, metricInfo))
-                  .mapTo[MetricInfoCached]) getOrElse Future(MetricInfoGot(metadata.db, metadata.namespace, None))
-            }
-        })
-        .recover {
-          case t =>
-            log.error(t, "error during warm up")
-            context.system.terminate()
-        }
-        .foreach { _ =>
-//          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
-          unstashAll()
-          context.become(operative)
-        }
-    case _: WarmUpMetadata =>
-//      mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
-      unstashAll()
-      context.become(operative)
-    case msg =>
-      stash()
-      log.error(s"Received and stashed message $msg during warmUp")
-  }*/
 
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
@@ -249,7 +209,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
           case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
-    case Migrate(inputPath, coordinates) =>
+    case Migrate(inputPath) =>
       val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
         FileUtils.getSubDirs(db).toList.flatMap { namespace =>
           val metricInfoDirectory =
@@ -259,7 +219,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
           val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
           val metricInfos = metricInfoIndex.all
             .map(e => Coordinates(db.getName, namespace.getName, e.metric) -> e)
-            .filter { case (coord, _) => coordinates.contains(coord) }
 
           metricInfoIndex.close()
 
@@ -276,52 +235,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
         .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
         .pipeTo(sender())
 
-    /*def warmUp: Receive = {
-    case msg @ WarmUpMetadata(metricsMetadata) if metricsMetadata.nonEmpty =>
-      log.info(s"Received location warm-up message: $msg ")
-      Future
-        .sequence(metricsMetadata.map { metadata =>
-          Future
-            .sequence(metadata.locations.map { location =>
-              (cache ? PutLocationInCache(metadata.db,
-                                          metadata.namespace,
-                                          metadata.metric,
-                                          location.from,
-                                          location.to,
-                                          location))
-                .mapTo[LocationCached]
-            })
-            .flatMap { _ =>
-              metadata.info.map(metricInfo =>
-                (cache ? PutMetricInfoInCache(metadata.db, metadata.namespace, metricInfo.metric, metricInfo))
-                  .mapTo[MetricInfoCached]) getOrElse Future(MetricInfoGot(metadata.db, metadata.namespace, None))
-            }
-        })
-        .recover {
-          case t =>
-            log.error(t, "error during warm up")
-            context.system.terminate()
-        }
-        .foreach { _ =>
-//          mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
-          unstashAll()
-          context.become(operative)
-        }
-    case _: WarmUpMetadata =>
-//      mediator ! Publish(WARMUP_TOPIC, WarmUpCompleted)
-      unstashAll()
-      context.become(operative)
-    case msg =>
-      stash()
-      log.error(s"Received and stashed message $msg during warmUp")
-  }*/
-
-//      metadataCoordinator ! WarmUpMetadata(allMetadata)
-
-//      log.info("metadata actor started at {}/{}", remoteAddress.address, self.path.name)
   }
-
-  private def getLocationIndex(directory: Directory): LocationIndex = new LocationIndex(directory)
 
   private def getMetricInfoIndex(directory: Directory): MetricInfoIndex = new MetricInfoIndex(directory)
 }

@@ -419,38 +419,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     }
   }
 
-//  /**
-//    * Initial state in which actor waits metadata warm-up completion.
-//    */
-//  def warmUp: Receive = {
-//    case WarmUpCompleted =>
-//      unstashAll()
-//      context.become(operative)
-//    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-//      if (!metricsDataActors.get(nodeName).contains(actor)) {
-//        metricsDataActors += (nodeName -> actor)
-//        log.info(s"subscribed data actor for node $nodeName")
-//      }
-//      sender() ! MetricsDataActorSubscribed(actor, nodeName)
-//    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-//      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-//        commitLogCoordinators += (nodeName -> actor)
-//        log.info(s"subscribed commit log actor for node $nodeName")
-//      }
-//      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
-//    case SubscribePublisher(actor: ActorRef, nodeName) =>
-//      if (!publishers.get(nodeName).contains(actor)) {
-//        publishers += (nodeName -> actor)
-//        log.info(s"subscribed publisher actor for node $nodeName")
-//      }
-//      sender() ! PublisherSubscribed(actor, nodeName)
-//    case GetConnectedDataNodes =>
-//      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-//    case msg =>
-//      stash()
-//      log.error(s"Received and stashed message $msg during warmUp")
-//  }
-
   override def receive: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
@@ -735,10 +703,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       ApacheFileUtils.deleteDirectory(Paths.get(tmpPath).toFile)
       log.info(s"Dump with identifier $dumpIdentifier completed")
 
-    case msg @ Migrate(inputPath, coordinates) =>
-      log.info("starting migrate at path for coordinates {}", inputPath, coordinates)
+    case msg @ Migrate(inputPath) =>
+      log.info("starting migrate at path {}", inputPath)
 
-      sender ! MigrationStarted(inputPath, coordinates)
+      sender ! MigrationStarted(inputPath)
 
       for {
         _              <- metadataCoordinator ? msg
@@ -751,8 +719,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             FileUtils
               .getSubDirs(inputPath)
               .flatMap { db =>
-                FileUtils.getSubDirs(db).toList.collect {
-                  case namespace if coordinates.exists(c => c.db == db.getName && c.namespace == namespace.getName) =>
+                FileUtils.getSubDirs(db).toList.map {
+                  namespace =>
                     FileUtils.getSubDirs(Paths.get(namespace.getAbsolutePath, "shards")).flatMap {
                       shard =>
                         val metric   = shard.getName.split("_").headOption

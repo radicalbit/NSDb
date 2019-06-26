@@ -142,17 +142,16 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef)
           case _ => NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
-    case Migrate(inputPath, coordinates) =>
-      log.info("migrating schemas for {} {}", inputPath, coordinates)
+    case Migrate(inputPath) =>
+      log.info("migrating schemas for {}", inputPath)
       val allSchemas = FileUtils.getSubDirs(inputPath).flatMap { db =>
-        FileUtils.getSubDirs(db).toList.collect {
-          case namespace if coordinates.exists(c => c.db == db.getName && c.namespace == namespace.getName) =>
-            val schemaIndexDir = createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "schemas"))
-            new IndexUpgrader(schemaIndexDir).upgrade()
-            val schemaIndex = new SchemaIndex(schemaIndexDir)
-            val schemas     = schemaIndex.all
-            schemaIndex.close()
-            (db.getName, namespace.getName, schemas)
+        FileUtils.getSubDirs(db).toList.map { namespace =>
+          val schemaIndexDir = createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "schemas"))
+          new IndexUpgrader(schemaIndexDir).upgrade()
+          val schemaIndex = new SchemaIndex(schemaIndexDir)
+          val schemas     = schemaIndex.all
+          schemaIndex.close()
+          (db.getName, namespace.getName, schemas)
         }
       }
 

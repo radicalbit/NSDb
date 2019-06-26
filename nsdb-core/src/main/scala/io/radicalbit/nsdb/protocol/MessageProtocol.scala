@@ -78,7 +78,7 @@ object MessageProtocol {
     case object GetCommitLogCoordinators
     case object GetPublishers
 
-    case class Migrate(inputPath: String, coordinates: Seq[Coordinates])
+    case class Migrate(inputPath: String)
   }
 
   /**
@@ -142,7 +142,7 @@ object MessageProtocol {
 
     case class ConnectedDataNodesGot(nodes: Seq[String])
 
-    case class MigrationStarted(inputPath: String, coordinates: Seq[Coordinates])
+    case class MigrationStarted(inputPath: String)
   }
 
 }

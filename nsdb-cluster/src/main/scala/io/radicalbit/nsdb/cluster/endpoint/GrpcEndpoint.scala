@@ -478,11 +478,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
   protected[this] object MigrationServiceDump extends Migration {
     override def migrate(request: MigrateRequest): Future[MigrateResponse] = {
       (writeCoordinator ? Migrate(
-        request.sourcePath,
-        coordinates = request.coordinates.map(grpcCoordinates =>
-          Coordinates(grpcCoordinates.db, grpcCoordinates.namespace, grpcCoordinates.metric))
+        request.sourcePath
       )).map {
-        case MigrationStarted(path, _) => MigrateResponse(startedSuccessfully = true, path)
+        case MigrationStarted(path) => MigrateResponse(startedSuccessfully = true, path)
         case msg =>
           log.error("got {} from migration request", msg)
           MigrateResponse(startedSuccessfully = false,

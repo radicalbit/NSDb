@@ -140,25 +140,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       case seq => seq
     }
 
-//  /**
-//    * Initial state in which actor waits metadata warm-up completion.
-//    */
-//  def warmUp: Receive = {
-//    case WarmUpCompleted =>
-//      context.become(operating)
-//    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-//      if (!metricsDataActors.get(nodeName).contains(actor)) {
-//        metricsDataActors += (nodeName -> actor)
-//        log.info(s"subscribed data actor for node $nodeName")
-//      }
-//      sender() ! MetricsDataActorSubscribed(actor, nodeName)
-//    case GetConnectedDataNodes =>
-//      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-//    case msq =>
-//      // Requests received during warm-up are ignored, this results in a timeout
-//      log.error(s"Received ignored message $msq during warmUp")
-//  }
-
   override def receive: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {

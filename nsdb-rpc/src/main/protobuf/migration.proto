@@ -18,16 +18,8 @@ syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
 
-message Coordinates {
-    string db = 1;
-    string namespace = 2;
-    string metric = 3;
-}
-
 message MigrateRequest {
   string sourcePath = 1;
-  repeated Coordinates coordinates = 2;
-
 }
 
 message MigrateResponse {

@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.cli
 
 import io.radicalbit.nsdb.client.rpc.GRPCClient
-import io.radicalbit.nsdb.rpc.migration.{Coordinates, MigrateRequest, MigrateResponse}
+import io.radicalbit.nsdb.rpc.migration.{MigrateRequest, MigrateResponse}
 
 import scala.concurrent.Await
 import scala.util.{Failure, Success}
@@ -36,8 +36,8 @@ object NsdbMigrate extends App {
     } text "the remote port"
     opt[String]("path").required() action { (x, c) =>
       c.copy(sourcePath = x)
-    } text "path of the file save dump zip"
-    opt[Seq[String]]("inputs")
+    } text "path of the source directories"
+    opt[Seq[String]]("coordinates")
       .required()
       .action({ (x, c) =>
         c.copy(targets = x)
@@ -54,17 +54,12 @@ object NsdbMigrate extends App {
   parser.parse(args, Params(None, None, "", Seq("db.namespace.metric"))) foreach { params =>
     import scala.concurrent.duration._
 
-    val coordinates = params.targets.map { string =>
-      string.split("\\.").toList match {
-        case db :: namespace :: metric :: Nil => Coordinates(db, namespace, metric)
-      }
-    }
     val clientGrpc = new GRPCClient(host = params.host.getOrElse("127.0.0.1"), port = params.port.getOrElse(7817))
 
     Await.ready(clientGrpc.checkConnection(), 5.seconds).value.get match {
       case Success(_) =>
         val response: MigrateResponse =
-          Await.result(clientGrpc.migrate(MigrateRequest(params.sourcePath, coordinates)), 10.seconds)
+          Await.result(clientGrpc.migrate(MigrateRequest(params.sourcePath)), 10.seconds)
         if (response.startedSuccessfully) println("Migration process started successfully")
         else sys.error(response.errorMsg)
       case Failure(_) => sys.error(s"instance is not available at the moment.")
