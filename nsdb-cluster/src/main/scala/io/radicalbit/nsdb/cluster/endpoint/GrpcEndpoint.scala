@@ -42,6 +42,8 @@ import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
 import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
+import io.radicalbit.nsdb.rpc.migration.MigrationGrpc.Migration
+import io.radicalbit.nsdb.rpc.migration.{MigrateRequest, MigrateResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -89,6 +91,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
   override protected[this] def health: Health = GrpcEndpointServiceHealth
 
   override protected[this] def dump: Dump = GrpcEndpointServiceDump
+
+  override protected[this] def migration: Migration = MigrationServiceDump
 
   override protected[this] val port: Int = system.settings.config.getInt("nsdb.grpc.port")
 
@@ -178,7 +182,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
         request: ShowMetrics
     ): Future[GrpcMetricsGot] = {
       log.debug("Received command ShowMetrics for namespace {}", request.namespace)
-      (readCoordinator ? GetMetrics(request.db, request.namespace)).map {
+      (metadataCoordinator ? GetMetrics(request.db, request.namespace)).map {
         case MetricsGot(db, namespace, metrics) =>
           GrpcMetricsGot(db, namespace, metrics.toList, completedSuccessfully = true)
         case _ =>
@@ -239,7 +243,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
         request: ShowNamespaces
     ): Future[Namespaces] = {
       log.debug("Received command ShowNamespaces for db: {}", request.db)
-      (readCoordinator ? GetNamespaces(db = request.db))
+      (metadataCoordinator ? GetNamespaces(db = request.db))
         .map {
           case NamespacesGot(db, namespaces) =>
             Namespaces(db = db, namespaces = namespaces.toSeq, completedSuccessfully = true)
@@ -470,4 +474,20 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       }
     }
   }
+
+  protected[this] object MigrationServiceDump extends Migration {
+    override def migrate(request: MigrateRequest): Future[MigrateResponse] = {
+      (writeCoordinator ? Migrate(
+        request.sourcePath
+      )).map {
+        case MigrationStarted(path) => MigrateResponse(startedSuccessfully = true, path)
+        case msg =>
+          log.error("got {} from migration request", msg)
+          MigrateResponse(startedSuccessfully = false,
+                          errorMsg = s"unknown response from write coordinator $msg",
+                          sourcePath = request.sourcePath)
+      }
+    }
+  }
+
 }

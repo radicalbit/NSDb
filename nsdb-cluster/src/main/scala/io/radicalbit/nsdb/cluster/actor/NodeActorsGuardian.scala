@@ -61,7 +61,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
-      .props(indexBasePath, schemaCache, mediator)
+      .props(indexBasePath, schemaCache)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
     s"schema-coordinator_$nodeName"
   )
@@ -113,11 +113,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   def receive: Receive = {
     case GetNodeChildActors =>
-      sender ! NodeChildActorsGot(metadataCoordinator,
-                                  writeCoordinator,
-                                  readCoordinator,
-                                  schemaCoordinator,
-                                  publisherActor)
+      sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
     case GetMetricsDataActors =>
       log.debug("gossiping metric data actors from node {}", nodeName)
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))

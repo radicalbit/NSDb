@@ -63,8 +63,8 @@ class LocalMetadataCache extends Actor {
       }
       sender ! LocationsCached(db, namespace, metric, locs.toSeq)
     case DeleteAll =>
-      locations.keys.foreach(k => locations.remove(k))
-      metricInfo.keys.foreach(k => metricInfo.remove(k))
+      locations.clear()
+      metricInfo.clear()
       coordinates.clear()
       sender() ! DeleteDone
     case PutMetricInfoInCache(db, namespace, metric, value) =>

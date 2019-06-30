@@ -17,11 +17,9 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{ActorSystem, Props}
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
@@ -38,16 +36,14 @@ class SchemaCoordinatorSpec
     with FlatSpecLike
     with Matchers
     with OneInstancePerTest
-    with BeforeAndAfter {
+    with BeforeAndAfter
+    with EitherValues {
 
-  val mediatorProbe = TestProbe()
-  val probe         = TestProbe()
+  val probe = TestProbe()
   val schemaCoordinator =
     system.actorOf(
       SchemaCoordinator
-        .props("target/test_index/NamespaceSchemaCoordinatorSpec",
-               system.actorOf(Props[FakeSchemaCache]),
-               mediatorProbe.ref))
+        .props("target/test_index/NamespaceSchemaCoordinatorSpec", system.actorOf(Props[FakeSchemaCache])))
 
   val db         = "db"
   val namespace  = "namespace"
@@ -69,16 +65,10 @@ class SchemaCoordinatorSpec
   before {
     implicit val timeout = Timeout(10 seconds)
 
-    schemaCoordinator ! WarmUpSchemas(List.empty)
     Await.result(schemaCoordinator ? DeleteNamespace(db, namespace), 10 seconds)
     Await.result(schemaCoordinator ? DeleteNamespace(db, namespace1), 10 seconds)
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, "people", nameRecord), 10 seconds)
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace1, "people", surnameRecord), 10 seconds)
-
-    mediatorProbe.expectMsgType[Publish]
-    mediatorProbe.expectMsgType[Publish]
-    mediatorProbe.expectMsgType[Publish]
-    mediatorProbe.expectMsgType[Publish]
 
   }
 
@@ -108,7 +98,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsgType[UpdateSchemaFailed]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'left
 
     probe.expectNoMessage(1 second)
 
@@ -124,30 +114,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "people",
-          Schema(
-            "people",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-              SchemaField("city", TagFieldType, VARCHAR())
-            )
-          )
-        ),
-        false
-      ))
-
-    val schema = probe.expectMsgType[SchemaUpdated].schema
+    val schema = probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]].right.value.schema
     schema.fields.exists(_.name == "timestamp") shouldBe true
     schema.fields.exists(_.name == "value") shouldBe true
 
@@ -172,20 +139,7 @@ class SchemaCoordinatorSpec
     probe.send(schemaCoordinator,
                UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty, Map.empty)))
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "noDimensions",
-          Schema("noDimensions",
-                 Set(SchemaField("timestamp", TimestampFieldType, BIGINT()),
-                     SchemaField("value", ValueFieldType, DECIMAL())))
-        )
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
   }
 
   "schemaCoordinator" should "return the same schema for a new schema included in the old one" in {
@@ -198,29 +152,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "people",
-          Schema(
-            "people",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-              SchemaField("city", TagFieldType, VARCHAR())
-            )
-          )
-        ),
-        false
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
@@ -244,28 +176,7 @@ class SchemaCoordinatorSpec
       schemaCoordinator,
       UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map("country" -> "italy"))))
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "people",
-          Schema(
-            "people",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("city", TagFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT())
-            )
-          )
-        )
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
@@ -287,29 +198,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "people",
-          Schema(
-            "people",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("city", TagFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT())
-            )
-          )
-        )
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
@@ -338,28 +227,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "offices",
-          Schema(
-            "offices",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("city", TagFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT())
-            )
-          )
-        )
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "offices"))
 
@@ -445,28 +313,7 @@ class SchemaCoordinatorSpec
   "schemaCoordinator" should "update schemas in case of success in different namespaces" in {
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace, "people", surnameRecord))
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace,
-          "people",
-          Schema(
-            "people",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-              SchemaField("city", TagFieldType, VARCHAR())
-            )
-          )
-        )
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
     probe.send(schemaCoordinator, GetSchema(db, namespace, "people"))
 
@@ -488,28 +335,7 @@ class SchemaCoordinatorSpec
 
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace1, "people", nameRecord))
 
-    mediatorProbe.expectMsg(
-      Publish(
-        "schema",
-        UpdateSchema(
-          db,
-          namespace1,
-          "people",
-          Schema(
-            "people",
-            Set(
-              SchemaField("name", DimensionFieldType, VARCHAR()),
-              SchemaField("country", TagFieldType, VARCHAR()),
-              SchemaField("surname", DimensionFieldType, VARCHAR()),
-              SchemaField("value", ValueFieldType, INT()),
-              SchemaField("timestamp", TimestampFieldType, BIGINT()),
-              SchemaField("city", TagFieldType, VARCHAR())
-            )
-          )
-        )
-      ))
-
-    probe.expectMsgType[SchemaUpdated]
+    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
     probe.send(schemaCoordinator, GetSchema(db, namespace, "people"))
 

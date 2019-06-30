@@ -24,7 +24,6 @@ import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.WarmUpSchemas
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
@@ -111,9 +110,8 @@ class ReadCoordinatorSpec
   val basePath  = "target/test_index/ReadCoordinatorShardSpec"
   val db        = "db"
   val namespace = "registry"
-  val schemaCoordinator = system.actorOf(
-    SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)),
-    "schemacoordinator")
+  val schemaCoordinator =
+    system.actorOf(SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
   val metadataCoordinator =
     system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadatacoordinator")
   val writeCoordinator =
@@ -127,9 +125,6 @@ class ReadCoordinatorSpec
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5.second)
-
-    schemaCoordinator ! WarmUpSchemas(List.empty)
-    readCoordinatorActor ! WarmUpCompleted
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 

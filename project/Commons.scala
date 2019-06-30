@@ -37,7 +37,8 @@ object Commons {
       "-language:implicitConversions",
       "-language:higherKinds",
       "-language:existentials",
-      "-language:postfixOps"
+      "-language:postfixOps",
+      "-Ypartial-unification"
     ),
     organization := "io.radicalbit.nsdb",
     resolvers ++= Seq(

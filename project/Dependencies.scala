@@ -122,6 +122,7 @@ object Dependencies {
     lazy val queryParser = namespace % "lucene-queryparser" % version
     lazy val grouping    = namespace % "lucene-grouping" % version
     lazy val facet       = namespace % "lucene-facet" % version
+    lazy val backwardCodecs = namespace % "lucene-backward-codecs" % version
   }
 
   object scalatest {
@@ -219,6 +220,7 @@ object Dependencies {
       lucene.queryParser,
       lucene.grouping,
       lucene.facet,
+      lucene.backwardCodecs,
       scalatest.core % Test,
       akka.testkit   % Test,
       commonsIo.commonsIo,

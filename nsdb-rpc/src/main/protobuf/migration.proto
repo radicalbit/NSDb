@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Radicalbit S.r.l.
+ * Copyright 2019 Radicalbit S.r.l.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb
-import akka.cluster.Member
+syntax = "proto3";
 
-package object cluster {
+package io.radicalbit.nsdb.rpc;
 
-  def createNodeName(member: Member) =
-    s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
-
-  final object PubSubTopics {
-    final val COORDINATORS_TOPIC   = "coordinators"
-    final val NODE_GUARDIANS_TOPIC = "node-guardians"
-  }
-
+message MigrateRequest {
+  string sourcePath = 1;
 }
+
+message MigrateResponse {
+  bool startedSuccessfully = 1;
+  string errorMsg = 2;
+  string sourcePath = 3;
+}
+
+
+service Migration {
+  rpc Migrate(MigrateRequest) returns (MigrateResponse);
+}
+

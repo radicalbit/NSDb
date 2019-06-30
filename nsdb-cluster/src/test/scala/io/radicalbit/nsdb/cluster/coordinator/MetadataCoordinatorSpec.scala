@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.ActorSystem
 import akka.cluster.Cluster
-import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
@@ -61,10 +60,6 @@ class MetadataCoordinatorSpec
   override def beforeAll = {
     val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
-
-    probe.send(metadataCoordinator, WarmUpMetadata(List.empty))
-    probe.expectMsgType[Publish]
-    probe.expectNoMessage(1 second)
   }
 
   override def beforeEach: Unit = {
@@ -73,14 +68,12 @@ class MetadataCoordinatorSpec
   }
 
   "MetadataCoordinator" should {
-    "start in warm-up and then change state" in {
+    "add location for a metric" in {
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
-      val cachedLocation: LocationsGot = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+      awaitAssert {
+        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+        probe.expectMsgType[LocationsGot].locations shouldBe empty
       }
-
-      cachedLocation.locations.size shouldBe 0
     }
 
     "add a Location" in {
@@ -168,44 +161,41 @@ class MetadataCoordinatorSpec
 
     "retrieve correct default write Location given a timestamp" in {
 
-      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
-      val locationGot = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+      awaitAssert {
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
+        val locationGot = probe.expectMsgType[LocationsGot]
+        locationGot.db shouldBe db
+        locationGot.namespace shouldBe namespace
+        locationGot.metric shouldBe metric
+
+        locationGot.locations.size shouldBe 1
+        locationGot.locations.head.from shouldBe 0L
+        locationGot.locations.head.to shouldBe 60000L
       }
 
-      locationGot.db shouldBe db
-      locationGot.namespace shouldBe namespace
-      locationGot.metric shouldBe metric
+      awaitAssert {
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001))
+        val locationGot_2 = probe.expectMsgType[LocationsGot]
+        locationGot_2.db shouldBe db
+        locationGot_2.namespace shouldBe namespace
+        locationGot_2.metric shouldBe metric
 
-      locationGot.locations.size shouldBe 1
-      locationGot.locations.head.from shouldBe 0L
-      locationGot.locations.head.to shouldBe 60000L
-
-      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001))
-      val locationGot_2 = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        locationGot_2.locations.size shouldBe 1
+        locationGot_2.locations.head.from shouldBe 60000L
+        locationGot_2.locations.head.to shouldBe 120000L
       }
 
-      locationGot_2.db shouldBe db
-      locationGot_2.namespace shouldBe namespace
-      locationGot_2.metric shouldBe metric
+      awaitAssert {
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002))
+        val locationGot_3 = probe.expectMsgType[LocationsGot]
+        locationGot_3.db shouldBe db
+        locationGot_3.namespace shouldBe namespace
+        locationGot_3.metric shouldBe metric
 
-      locationGot_2.locations.size shouldBe 1
-      locationGot_2.locations.head.from shouldBe 60000L
-      locationGot_2.locations.head.to shouldBe 120000L
-
-      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002))
-      val locationGot_3 = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        locationGot_3.locations.size shouldBe 1
+        locationGot_3.locations.head.from shouldBe 60000L
+        locationGot_3.locations.head.to shouldBe 120000L
       }
-
-      locationGot_3.db shouldBe db
-      locationGot_3.namespace shouldBe namespace
-      locationGot_3.metric shouldBe metric
-
-      locationGot_3.locations.size shouldBe 1
-      locationGot_3.locations.head.from shouldBe 60000L
-      locationGot_3.locations.head.to shouldBe 120000L
 
     }
 

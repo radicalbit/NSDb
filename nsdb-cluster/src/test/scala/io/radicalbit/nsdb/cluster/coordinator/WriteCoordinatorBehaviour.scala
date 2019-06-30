@@ -38,7 +38,7 @@ import scala.concurrent.duration._
 
 class TestSubscriber extends Actor {
   var receivedMessages = 0
-  def receive = {
+  def receive: Receive = {
     case RecordsPublished(_, _, _) =>
       receivedMessages += 1
   }
@@ -78,8 +78,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
   lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
   lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](
-      SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache]), system.actorOf(Props.empty)))
+    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache])))
   lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))

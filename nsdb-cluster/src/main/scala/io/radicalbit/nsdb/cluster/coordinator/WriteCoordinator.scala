@@ -37,11 +37,12 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   GetWriteLocations
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.SchemaMigrated
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.{Location, Schema}
@@ -52,7 +53,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import org.apache.commons.io.{FileUtils => ApacheFileUtils}
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.index.IndexWriter
+import org.apache.lucene.index.{IndexUpgrader, IndexWriter}
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
 import org.zeroturnaround.zip.ZipUtil
 
@@ -72,7 +73,6 @@ object WriteCoordinator {
   case class DumpCreated(inputPath: String)
 
   case class AckPendingMetric(db: String, namespace: String, metric: String)
-
 }
 
 /**
@@ -161,10 +161,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] =
     (schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
-        case SchemaUpdated(_, _, _, schema) =>
+        case Right(SchemaUpdated(_, _, _, schema)) =>
           log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
           op(schema)
-        case UpdateSchemaFailed(_, _, _, errs) =>
+        case Left(UpdateSchemaFailed(_, _, _, errs)) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
           Future(RecordRejected(db, namespace, metric, bit, Location("", "", 0, 0), errs, System.currentTimeMillis()))
       }
@@ -303,7 +303,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  bit: Bit,
                                  schema: Schema): Future[WriteCoordinatorResponse] = {
     val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
-    val (succeedResponses: List[RecordAdded], failedResponses: List[RecordRejected]) =
+    val (succeedResponses: List[RecordAdded], _: List[RecordRejected]) =
       responses.foldRight(emptyLists) {
         case (res, (successes, failures)) =>
           res match {
@@ -331,7 +331,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           }
         }
         .flatMap { responses =>
-          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(res =>
+          handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(_ =>
             Future.successful(InputMapped(db, namespace, metric, bit)))
         }
 
@@ -419,41 +419,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     }
   }
 
-  override def receive: Receive = warmUp
-
-  /**
-    * Initial state in which actor waits metadata warm-up completion.
-    */
-  def warmUp: Receive = {
-    case WarmUpCompleted =>
-      unstashAll()
-      context.become(operative)
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      if (!metricsDataActors.get(nodeName).contains(actor)) {
-        metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
-      }
-      sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
-      }
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
-    case SubscribePublisher(actor: ActorRef, nodeName) =>
-      if (!publishers.get(nodeName).contains(actor)) {
-        publishers += (nodeName -> actor)
-        log.info(s"subscribed publisher actor for node $nodeName")
-      }
-      sender() ! PublisherSubscribed(actor, nodeName)
-    case GetConnectedDataNodes =>
-      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case msg =>
-      stash()
-      log.error(s"Received and stashed message $msg during warmUp")
-  }
-
-  def operative: Receive = {
+  override def receive: Receive = {
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
       if (!metricsDataActors.get(nodeName).contains(actor)) {
         metricsDataActors += (nodeName -> actor)
@@ -736,6 +702,49 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       ZipUtil.pack(Paths.get(tmpPath).toFile, new File(s"$destPath/$dumpIdentifier.zip"))
       ApacheFileUtils.deleteDirectory(Paths.get(tmpPath).toFile)
       log.info(s"Dump with identifier $dumpIdentifier completed")
+
+    case msg @ Migrate(inputPath) =>
+      log.info("starting migrate at path {}", inputPath)
+
+      sender ! MigrationStarted(inputPath)
+
+      for {
+        _              <- metadataCoordinator ? msg
+        schemaMigrated <- (schemaCoordinator ? msg).mapTo[SchemaMigrated]
+        accumulated <- {
+
+          val schemaMap = schemaMigrated.schemas.toMap
+
+          Future.sequence(
+            FileUtils
+              .getSubDirs(inputPath)
+              .flatMap { db =>
+                FileUtils.getSubDirs(db).toList.map {
+                  namespace =>
+                    FileUtils.getSubDirs(Paths.get(namespace.getAbsolutePath, "shards")).flatMap {
+                      shard =>
+                        val metric   = shard.getName.split("_").headOption
+                        val shardDir = createMmapDirectory(Paths.get(shard.getAbsolutePath))
+                        new IndexUpgrader(shardDir).upgrade()
+
+                        val shardIndex = new TimeSeriesIndex(shardDir)
+
+                        val schemaOpt =
+                          metric.flatMap(m => schemaMap.get(Coordinates(db.getName, namespace.getName, m)))
+
+                        schemaOpt
+                          .map(s => shardIndex.all(s, b => (s.metric, b)))
+                          .getOrElse(Seq.empty)
+                          .map {
+                            case (metric, bit) =>
+                              self ? MapInput(bit.timestamp, db.getName, namespace.getName, metric, bit)
+                          }
+                    }
+                }
+              }
+              .flatten)
+        }
+      } yield accumulated
 
     case msg => log.info(s"Receive Unhandled message $msg")
   }
