@@ -35,9 +35,6 @@ hs_err_pid*
 dist/*
 **/target
 
-# ui specific
-**/.frontend
-
 lib_managed/
 src_managed/
 project/boot/
@@ -53,7 +50,6 @@ mainRunner
 # IntelliJ specific
 .idea
 *.sc
-nsdb-kafka-connect/full-stack
 
 # docker-compose example not traced volumes
 data

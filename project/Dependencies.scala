@@ -143,24 +143,6 @@ object Dependencies {
     lazy val junitInterface = namespace % "junit-interface" % version
   }
 
-  object flink {
-    lazy val version        = "1.6.2"
-    lazy val namespace      = "org.apache.flink"
-    lazy val streamingScala = namespace %% "flink-streaming-scala" % version
-  }
-
-  object kafka {
-    private lazy val version   = "1.1.1"
-    private lazy val namespace = "org.apache.kafka"
-    lazy val connect           = namespace % "connect-api" % version excludeAll ExclusionRule(organization = "javax.ws.rs")
-  }
-
-  object kcql {
-    private lazy val version   = "2.8"
-    private lazy val namespace = "com.datamountaineer"
-    lazy val kcql              = namespace % "kcql" % version
-  }
-
   object gRPC {
     lazy val version         = scalapb.compiler.Version.grpcJavaVersion
     lazy val namespace       = "io.grpc"
@@ -294,20 +276,6 @@ object Dependencies {
       scala_logging.scala_logging,
       akka.slf4j,
       logback.logback,
-      scalatest.core % Test
-    )
-  }
-
-  object FlinkConnector {
-    lazy val libraries = Seq(
-      flink.streamingScala % Provided
-    )
-  }
-
-  object KafkaConnect {
-    lazy val libraries = Seq(
-      kafka.connect % Provided,
-      kcql.kcql,
       scalatest.core % Test
     )
   }

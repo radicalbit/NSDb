@@ -39,8 +39,6 @@ lazy val root = project
     `nsdb-scala-api`,
     `nsdb-sql`,
     `nsdb-cli`,
-    `nsdb-flink-connector`,
-    `nsdb-kafka-connect`,
     `nsdb-perf`,
     `nsdb-it`
   )
@@ -269,55 +267,7 @@ lazy val `nsdb-cli` = project
   .settings(assemblyJarName in assembly := "nsdb-cli.jar")
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
-  .dependsOn(`nsdb-rpc`, `nsdb-sql`)
-
-lazy val `nsdb-flink-connector` = project
-  .settings(Commons.nonCrossSettings: _*)
-  .settings(scalaVersion := "2.11.11")
-  .settings(PublishSettings.settings: _*)
-  .settings(libraryDependencies ++= Dependencies.FlinkConnector.libraries)
-  .settings(
-    // exclude Scala library from assembly
-    assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
-    assemblyShadeRules in assembly := Seq(
-      ShadeRule.rename("com.google.**"         -> "io.radicalbit.nsdb.shaded.com.google.@1").inAll,
-      ShadeRule.rename("org.apache.commons.**" -> "io.radicalbit.nsdb.shaded.org.apache.commons.@1").inAll,
-      ShadeRule.rename("io.netty.**"           -> "io.radicalbit.nsdb.shaded.io.netty.@1").inAll
-    ),
-    assemblyMergeStrategy in assembly := {
-      case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.filterDistinctLines
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
-    artifact in (Compile, assembly) := {
-      val art = (artifact in (Compile, assembly)).value
-      art.withClassifier(Some(""))
-    },
-    addArtifact(artifact in (Compile, assembly), assembly)
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-  .settings(LicenseHeader.settings: _*)
-  .dependsOn(`nsdb-scala-api`)
-
-lazy val `nsdb-kafka-connect` = project
-  .settings(Commons.nonCrossSettings: _*)
-  .settings(scalaVersion := "2.11.11")
-  .settings(crossPaths := false)
-  .settings(PublishSettings.settings: _*)
-  .settings(libraryDependencies ++= Dependencies.KafkaConnect.libraries)
-  .settings(
-    // include Scala library in assembly
-    assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = true),
-    artifact in (Compile, assembly) := {
-      val art: Artifact = (artifact in (Compile, assembly)).value
-      art.withClassifier(Some(""))
-    },
-    addArtifact(artifact in (Compile, assembly), assembly)
-  )
-  .enablePlugins(AutomateHeaderPlugin)
-  .settings(LicenseHeader.settings: _*)
-  .dependsOn(`nsdb-scala-api`)
+  .dependsOn(`nsdb-rpc`)
 
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .settings(Commons.crossScalaVersionSettings: _*)
