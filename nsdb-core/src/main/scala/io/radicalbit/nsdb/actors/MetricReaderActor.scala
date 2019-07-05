@@ -225,7 +225,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                                metric: String,
                                rawResp: Either[SelectStatementFailed, Seq[Bit]]) =
     rawResp match {
-      case Right(seq) => SelectStatementExecuted(db, namespace, metric, seq)
+      case Right(seq) =>
+        SelectStatementExecuted(db, namespace, metric, seq)
       case Left(err)  => err
     }
 
@@ -387,7 +388,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     */
   private def retrieveField(values: Seq[Bit],
                             field: String,
-                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
     values.headOption
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
       .getOrElse(Map.empty[String, JSerializable])
@@ -403,7 +404,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     */
   private def retrieveCount(values: Seq[Bit],
                             count: Int,
-                            extract: (Bit) => Map[String, JSerializable]): Map[String, JSerializable] =
+                            extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
     values.headOption
       .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
       .getOrElse(Map.empty[String, JSerializable])

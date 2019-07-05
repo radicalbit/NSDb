@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIn
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
@@ -119,6 +119,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           }
 
         case Success(ParsedTemporalAggregatedQuery(_, _, q, ranges, _, _)) =>
+//          val ranges = TimeRangeExtractor.computeRanges()
           handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
             facetResult =>
               facetResult.labelValues.toSeq
@@ -126,7 +127,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                   val boundaries = lv.label.split("-").map(_.toLong).toSeq
                   Bit(boundaries.head,
                       lv.value.longValue(),
-                      Map[String, JSerializable](("lowerBound", boundaries.head), ("upperBound", boundaries.tail.head)),
+                      Map[String, JSerializable](("lowerBound", boundaries.head), ("upperBound", boundaries.last)),
                       Map.empty)
                 }
           })) match {
