@@ -116,37 +116,4 @@ object TimeRangeExtractor {
     }
   }
 
-  /**
-    * Temporal buckets are computed as done in shards definition. So, given the time origin time buckets are computed
-    * starting from actual timestamp going backward until limit is reached.
-    *
-    * @param rangeLength The range length in milliseconds.
-    * @param whereCondition The where condition used to filter time ranges.
-    * @param limit the maximum time ranges allowed.
-    * @param now the current timestamp.
-    * @return A sequence of [[TimeRange]] for the given input params.
-    */
-  def computeRanges(rangeLength: Long,
-                    whereCondition: Option[Condition],
-                    limit: Option[LimitOperator],
-                    now: Long): Seq[TimeRange] = {
-
-    val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
-
-    val numberOfBuckets = limit.map(_.value).getOrElse(maxBuckets)
-
-    timeIntervals match {
-      case Nil =>
-        val upperBound = now
-        val lowerBound = upperBound - numberOfBuckets * rangeLength
-        computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
-      case _ =>
-        timeIntervals.flatMap { i =>
-          val upperBound = i.top(1).getOrElse(now)
-          val lowerBound = i.bottom(1).getOrElse(0L)
-          computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
-        }
-    }
-  }
-
 }

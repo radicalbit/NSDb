@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIn
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
@@ -68,7 +68,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       sender ! CountGot(db, namespace, metric, count)
     case ReceiveTimeout =>
       self ! PoisonPill
-    case ExecuteSelectStatement(statement, schema, _, ranges) =>
+    case ExecuteSelectStatement(statement, schema, _, _) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
@@ -118,7 +118,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, interval, _, _, _)) =>
+          val ranges =
+            TimeRangeExtractor.computeRanges(interval, statement.condition, location, System.currentTimeMillis())
+
           handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
             facetResult =>
               facetResult.labelValues.toSeq

@@ -107,13 +107,14 @@ object StatementParser {
         // Match temporal count aggregation
         case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
             if fieldName == "value" || fieldName == "*" =>
-          val ranges = TimeRangeExtractor.computeRanges(interval, statement.condition, statement.limit, occurredOn)
+//          val ranges = TimeRangeExtractor.computeRanges(interval, statement.condition, statement.limit, occurredOn)
           Success(
             ParsedTemporalAggregatedQuery(
               statement.namespace,
               statement.metric,
               exp.q,
-              ranges,
+              interval,
+              statement.condition,
               sortOpt,
               limitOpt
             )
@@ -245,7 +246,9 @@ object StatementParser {
   case class ParsedTemporalAggregatedQuery(namespace: String,
                                            metric: String,
                                            q: Query,
-                                           ranges: Seq[TimeRange],
+//                                           ranges: Seq[TimeRange],
+                                           rangeLength: Long,
+                                           condition: Option[Condition],
                                            sort: Option[Sort] = None,
                                            limit: Option[Int] = None)
       extends ParsedQuery

@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
-import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -100,16 +100,12 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     */
   private def gatherNodeResults(statement: SelectSQLStatement,
                                 schema: Schema,
-                                uniqueLocationsByNode: Map[String, Seq[Location]],
-                                timeRanges: Seq[TimeRange] = Seq.empty)(
+                                uniqueLocationsByNode: Map[String, Seq[Location]])(
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(metricsDataActors.map {
         case (nodeName, actor) =>
-          actor ? ExecuteSelectStatement(statement,
-                                         schema,
-                                         uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
-                                         timeRanges)
+          actor ? ExecuteSelectStatement(statement, schema, uniqueLocationsByNode.getOrElse(nodeName, Seq.empty))
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
@@ -227,8 +223,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                           Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
                       }
                   }
-                case Success(ParsedTemporalAggregatedQuery(_, _, _, timeRanges, _, _)) =>
-                  gatherNodeResults(statement, schema, uniqueLocationsByNode, timeRanges) { e =>
+                case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _)) =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode) { e =>
                     e.sortBy(_.timestamp)
                   }
                 case Failure(_) =>

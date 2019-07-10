@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -343,7 +343,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
             .pipeTo(sender)
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, _, interval, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 
