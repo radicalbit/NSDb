@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.TimeRange
+import io.radicalbit.nsdb.model.{Location, TimeRange}
 import org.scalatest.{Matchers, WordSpec}
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
@@ -27,16 +27,14 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
 
   "A TimeRangeExtractor" when {
 
-    "receive a simple expression that does not invole the timestamp" should {
+    "receive a simple expression that does not involve the timestamp" should {
       "parse it successfully" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             RangeExpression(dimension = "other", value1 = 2L, value2 = 4L)
           )) shouldBe List.empty
       }
-    }
 
-    "receive a tupled expression that does not invole the timestamp" should {
       "parse it successfully with and operator" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
@@ -60,8 +58,8 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive an expression containing a range selection" should {
-      "parse it successfully" in {
+    "receive a simple expression that does involve the timestamp" should {
+      "parse it successfully in case of a tange selection" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)
@@ -69,20 +67,16 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           Interval.closed(2L, 4L)
         )
       }
-    }
 
-    "receive an expression containing a GTE selection" should {
-      "parse it successfully" in {
+      "parse it successfully in case of a GTE selection" in {
         TimeRangeExtractor.extractTimeRange(
           Some(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))
         ) shouldBe List(
           Interval.fromBounds(Closed(10L), Unbound())
         )
       }
-    }
 
-    "receive an expression containing a GT AND a LTE selection" should {
-      "parse it successfully" in {
+      "parse it successfully in case of a GT AND a LTE selection" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             TupledLogicalExpression(
@@ -95,10 +89,8 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           Interval.openLower(2, 4)
         )
       }
-    }
 
-    "receive an expression containing a NOT condition" should {
-      "parse it successfully" in {
+      "parse it successfully of a NOT condition" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             UnaryLogicalExpression(
@@ -120,10 +112,8 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           Interval.fromBounds(Open(4), Unbound())
         )
       }
-    }
 
-    "receive an expression containing a GTE OR a LT selection" should {
-      "parse it successfully" in {
+      "parse it successfully in case of a GTE OR a LT selection" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             UnaryLogicalExpression(
@@ -169,31 +159,35 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
       }
     }
 
-    "executing computeRangeForInterval " should {
+    "executing computeRangesForLocation " should {
       "return a seq of ranges" in {
-        val res = TimeRangeExtractor.computeRangeForInterval(10L, 0L, 5L, Seq.empty)
+        val res = TimeRangeExtractor.computeRangesForLocation(5L, None, Location("whatever", "whatever", 0L, 10L))
         res shouldBe Seq(TimeRange(5, 10, true, false), TimeRange(0, 5, true, false))
       }
-    }
 
-    "executing computeRanges " should {
+      "return a seq of ranges in case range length is not a divisor of the location length" in {
+        val res = TimeRangeExtractor.computeRangesForLocation(3L, None, Location("whatever", "whatever", 0L, 10L))
+        res shouldBe Seq(TimeRange(7, 10, true, false),
+                         TimeRange(4, 7, true, false),
+                         TimeRange(1, 4, true, false),
+                         TimeRange(0, 1, true, false))
+      }
+
       "return a seq of ranges for a RangeExpression" in {
-        val res = TimeRangeExtractor.computeRanges(
+        val res = TimeRangeExtractor.computeRangesForLocation(
           5L,
-          Some(Condition(RangeExpression(dimension = "timestamp", value1 = 0L, value2 = 10L))),
-          None,
-          100L)
-        res shouldBe Seq(TimeRange(5, 10, true, false), TimeRange(0, 5, true, false))
+          Some(Condition(RangeExpression(dimension = "timestamp", value1 = 0L, value2 = 5L))),
+          Location("whatever", "whatever", 0L, 10L))
+        res shouldBe Seq(TimeRange(0, 5, true, false))
       }
 
       "return a seq of ranges for a left bounded interval(>=) lower than now " in {
-        val res = TimeRangeExtractor.computeRanges(
+        val res = TimeRangeExtractor.computeRangesForLocation(
           5L,
           Some(
             Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
-          None,
-          100L)
+              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 50L))),
+          Location("whatever", "whatever", 0L, 100L))
 
         res shouldBe Seq(
           TimeRange(95, 100, true, false),
@@ -208,43 +202,41 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           TimeRange(50, 55, true, false)
         )
       }
+
       "return a seq of ranges for a right bounded interval(<=) lower than now " in {
-        val res = TimeRangeExtractor.computeRanges(
+        val res = TimeRangeExtractor.computeRangesForLocation(
           5L,
           Some(
-            Condition(ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 100L))),
-          None,
-          200L)
+            Condition(ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 50L))),
+          Location("whatever", "whatever", 0L, 100L))
 
         res shouldBe Seq(
-          TimeRange(95, 100, true, false),
-          TimeRange(90, 95, true, false),
-          TimeRange(85, 90, true, false),
-          TimeRange(80, 85, true, false),
-          TimeRange(75, 80, true, false),
-          TimeRange(70, 75, true, false),
-          TimeRange(65, 70, true, false),
-          TimeRange(60, 65, true, false),
-          TimeRange(55, 60, true, false),
-          TimeRange(50, 55, true, false)
+          TimeRange(45, 50, true, false),
+          TimeRange(40, 45, true, false),
+          TimeRange(35, 40, true, false),
+          TimeRange(30, 35, true, false),
+          TimeRange(25, 30, true, false),
+          TimeRange(20, 25, true, false),
+          TimeRange(15, 20, true, false),
+          TimeRange(10, 15, true, false),
+          TimeRange(5, 10, true, false),
+          TimeRange(0, 5, true, false)
         )
       }
+
       "return a seq of ranges for both right and left bounded interval( >= && <=) " in {
-        val res = TimeRangeExtractor.computeRanges(
+        val res = TimeRangeExtractor.computeRangesForLocation(
           5L,
           Some(
             Condition(TupledLogicalExpression(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 70L),
               AndOperator,
-              ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 100L)
+              ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 90L)
             ))),
-          None,
-          200L
+          Location("whatever", "whatever", 0L, 100L)
         )
 
         res shouldBe Seq(
-          TimeRange(95, 100, true, false),
-          TimeRange(90, 95, true, false),
           TimeRange(85, 90, true, false),
           TimeRange(80, 85, true, false),
           TimeRange(75, 80, true, false),
@@ -253,28 +245,25 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
       }
 
       "return a seq of ranges for both right and left bounded interval( > && <) " in {
-        val res = TimeRangeExtractor.computeRanges(
+        val res = TimeRangeExtractor.computeRangesForLocation(
           5L,
           Some(
             Condition(TupledLogicalExpression(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 70L),
               AndOperator,
-              ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 100L)
+              ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 90L)
             ))),
-          None,
-          200L
+          Location("whatever", "whatever", 0L, 100L)
         )
 
         res shouldBe Seq(
-          TimeRange(94, 99, true, false),
-          TimeRange(89, 94, true, false),
           TimeRange(84, 89, true, false),
           TimeRange(79, 84, true, false),
           TimeRange(74, 79, true, false),
-          TimeRange(69, 74, true, false)
+          TimeRange(71, 74, true, false)
         )
       }
     }
-
   }
+
 }

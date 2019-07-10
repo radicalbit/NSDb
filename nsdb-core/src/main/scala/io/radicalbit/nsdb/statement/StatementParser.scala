@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.statement
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField, TimeRange}
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.apache.lucene.search._
 
 import scala.util.{Failure, Success, Try}
@@ -63,9 +63,7 @@ object StatementParser {
     * @param schema metric's schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
-  def parseStatement(statement: SelectSQLStatement,
-                     schema: Schema,
-                     occurredOn: Long = System.currentTimeMillis()): Try[ParsedQuery] = {
+  def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
       schema.fieldsMap.get(order.dimension) match {
         case Some(SchemaField(_, _, VARCHAR())) =>
@@ -246,7 +244,6 @@ object StatementParser {
   case class ParsedTemporalAggregatedQuery(namespace: String,
                                            metric: String,
                                            q: Query,
-//                                           ranges: Seq[TimeRange],
                                            rangeLength: Long,
                                            condition: Option[Condition],
                                            sort: Option[Sort] = None,

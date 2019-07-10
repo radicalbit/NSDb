@@ -29,9 +29,6 @@ import scala.annotation.tailrec
   */
 object TimeRangeExtractor {
 
-  /** This value define the max number of temporal buckets computed foreach interval defined by where conditions */
-  final val maxBuckets = 10
-
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {
       case Some(EqualityExpression("timestamp", value: Long)) => List(Interval.point(value))
@@ -64,24 +61,26 @@ object TimeRangeExtractor {
     *
     * @param upperInterval interval upper bound, it's the previous one lower bound
     * @param lowerInterval interval lower bound, this value remained fixed during recursion
-    * @param bucketSize range duration expressed in millis
+    * @param rangeLength range duration expressed in millis
     * @param acc result accumulator
     * @return
     */
   @tailrec
-  def computeRangeForInterval(upperInterval: Long,
-                              lowerInterval: Long,
-                              bucketSize: Long,
-                              acc: Seq[TimeRange]): Seq[TimeRange] = {
-    val upperBound = (upperInterval.toDouble / bucketSize * bucketSize).toLong
-    val lowerBound = upperBound - bucketSize
-    if (lowerBound > lowerInterval && acc.size < maxBuckets - 1) {
-      computeRangeForInterval(lowerBound,
-                              lowerInterval,
-                              bucketSize,
-                              acc :+ TimeRange(lowerBound, upperBound, lowerInclusive = true, upperInclusive = false))
-    } else
-      acc :+ TimeRange(lowerBound, upperBound, lowerInclusive = true, upperInclusive = false)
+  private def computeRangeForInterval(upperInterval: Long,
+                                      lowerInterval: Long,
+                                      rangeLength: Long,
+                                      acc: Seq[TimeRange]): Seq[TimeRange] = {
+
+    val lowerBound = upperInterval - rangeLength
+
+    if (lowerBound <= lowerInterval)
+      acc :+ TimeRange(lowerInterval, upperInterval, lowerInclusive = true, upperInclusive = false)
+    else
+      computeRangeForInterval(
+        lowerBound,
+        lowerInterval,
+        rangeLength,
+        acc :+ TimeRange(lowerBound, upperInterval, lowerInclusive = true, upperInclusive = false))
   }
 
   /**
@@ -89,15 +88,12 @@ object TimeRangeExtractor {
     * starting from actual timestamp going backward until limit is reached.
     *
     * @param rangeLength The range length in milliseconds.
-    * @param whereCondition The where condition used to filter time ranges.
     * @param location The location used to filter time ranges.
-    * @param now the current timestamp.
     * @return A sequence of [[TimeRange]] for the given input params.
     */
-  def computeRanges(rangeLength: Long,
-                    whereCondition: Option[Condition],
-                    location: Location,
-                    now: Long): Seq[TimeRange] = {
+  def computeRangesForLocation(rangeLength: Long,
+                               whereCondition: Option[Condition],
+                               location: Location): Seq[TimeRange] = {
 
     val locationAsInterval                 = Interval.fromBounds(Closed(location.from), Closed(location.to))
     val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
@@ -115,5 +111,4 @@ object TimeRangeExtractor {
         }
     }
   }
-
 }

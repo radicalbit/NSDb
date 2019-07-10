@@ -158,8 +158,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     case msg: GetSchema =>
       schemaCoordinator forward msg
     case ExecuteStatement(statement) =>
+      val startTime = System.currentTimeMillis()
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
-      val occurredOn = System.currentTimeMillis()
       Future
         .sequence(Seq(
           schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
@@ -173,7 +173,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
               filteredLocations.groupBy(l => (l.from, l.to)).map(_._2.head).toSeq.groupBy(_.node)
 
             val result: Future[Either[SelectStatementFailed, Seq[Bit]]] =
-              StatementParser.parseStatement(statement, schema, occurredOn) match {
+              StatementParser.parseStatement(statement, schema) match {
                 //pure count(*) query
                 case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                     if fields.lengthCompare(1) == 0 && fields.head.count =>
@@ -249,7 +249,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         }
         .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)
-            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - occurredOn)
+            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
         }
   }
 }

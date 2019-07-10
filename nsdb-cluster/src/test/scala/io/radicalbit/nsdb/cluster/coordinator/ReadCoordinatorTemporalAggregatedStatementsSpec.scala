@@ -25,7 +25,6 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.scalactic.TolerantNumerics
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -34,18 +33,18 @@ object TemporalDoubleMetric {
 
   val name = "temporalDoubleMetric"
 
-  def recordsShard1(currentTime: Long): Seq[Bit] = Seq(
-    Bit(currentTime, 1.5, Map("surname"         -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime - 30000, 1.5, Map("surname" -> "Doe"), Map("name" -> "John"))
+  val recordsShard1: Seq[Bit] = Seq(
+    Bit(120000, 1.5, Map("surname" -> "Doe"), Map("name" -> "John")),
+    Bit(90000, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John"))
   )
 
-  def recordsShard2(currentTime: Long): Seq[Bit] = Seq(
-    Bit(currentTime - 60000, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime - 90000, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime - 120000, 1.5, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+  val recordsShard2: Seq[Bit] = Seq(
+    Bit(60000, 1.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+    Bit(30000, 1.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+    Bit(0, 1.5, Map("surname"     -> "Doe"), Map("name" -> "Frankie"))
   )
 
-  def testRecords(currentTime: Long): Seq[Bit] = recordsShard1(currentTime) ++ recordsShard2(currentTime)
+  val testRecords: Seq[Bit] = recordsShard1 ++ recordsShard2
 
 }
 
@@ -53,24 +52,22 @@ object TemporalLongMetric {
 
   val name = "temporalLongMetric"
 
-  def recordsShard1(currentTime: Long): Seq[Bit] = Seq(
-    Bit(currentTime, 2L, Map("surname"         -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-    Bit(currentTime - 30000, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
+  val recordsShard1: Seq[Bit] = Seq(
+    Bit(150000L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
+    Bit(120000L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
   )
 
-  def recordsShard2(currentTime: Long): Seq[Bit] = Seq(
-    Bit(currentTime - 60000, 1L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(currentTime - 90000, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(currentTime - 120000, 1L, Map("surname" -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(currentTime - 150000, 1L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+  val recordsShard2: Seq[Bit] = Seq(
+    Bit(90000L, 1L, Map("surname" -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(60000L, 1L, Map("surname" -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+    Bit(30000L, 1L, Map("surname" -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+    Bit(0L, 1L, Map("surname"     -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
   )
 
-  def testRecords(currentTime: Long): Seq[Bit] = recordsShard1(currentTime) ++ recordsShard2(currentTime)
+  val testRecords: Seq[Bit] = recordsShard1 ++ recordsShard2
 }
 
 class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordinatorSpec {
-
-  val startTime = System.currentTimeMillis()
 
   override def beforeAll = {
     import scala.concurrent.duration._
@@ -78,8 +75,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 
-    val location1 = Location(_: String, "node1", startTime - 40000, startTime)
-    val location2 = Location(_: String, "node1", startTime - 150000, startTime - 40000)
+    val location1 = Location(_: String, "node1", 100000, 150000)
+    val location2 = Location(_: String, "node1", 0, 90000)
 
     //long metric
     Await.result(
@@ -92,19 +89,17 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
                                                             namespace,
                                                             TemporalLongMetric.name,
-                                                            TemporalLongMetric.testRecords(startTime).head),
+                                                            TemporalLongMetric.testRecords.head),
                  10 seconds)
 
     Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(TemporalLongMetric.name)), 10 seconds)
-    TemporalLongMetric
-      .recordsShard1(startTime)
+    TemporalLongMetric.recordsShard1
       .foreach(r => {
         Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(TemporalLongMetric.name)),
                      10 seconds)
       })
     Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(TemporalLongMetric.name)), 10 seconds)
-    TemporalLongMetric
-      .recordsShard2(startTime)
+    TemporalLongMetric.recordsShard2
       .foreach(r => {
         Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(TemporalLongMetric.name)),
                      10 seconds)
@@ -130,24 +125,24 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)))),
                 groupBy = Some(TemporalGroupByAggregation(30000))
-              ) //, startTime
+              )
             )
           )
 
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 10
+        println(expected.values)
 
-        implicit val longEq = TolerantNumerics.tolerantLongEquality(System.currentTimeMillis - startTime)
+        expected.values.size shouldBe 5
 
-        (0 to 9).foreach { i =>
-          assert(expected.values(i).timestamp === startTime - (10 - i) * 30000)
-          expected.values(i).dimensions("lowerBound") === startTime - (10 - i) * 30000
-          expected.values(i).dimensions("upperBound") === startTime - (9 - i) * 30000
-        }
-
-        expected.values.map(_.value) shouldBe Seq(0, 0, 0, 0, 1, 1, 1, 1, 1, 1)
+        expected.values shouldBe Seq(
+          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
+          Bit(30000, 1, Map("lowerBound"  -> 30000, "upperBound"  -> 60000), Map()),
+          Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
+          Bit(100000, 0, Map("lowerBound" -> 100000, "upperBound" -> 120000), Map()),
+          Bit(120000, 1, Map("lowerBound" -> 120000, "upperBound" -> 150000), Map())
+        )
 
       }
 
@@ -171,17 +166,14 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 10
+        expected.values.size shouldBe 3
 
-        implicit val longEq = TolerantNumerics.tolerantLongEquality(System.currentTimeMillis - startTime)
+        expected.values shouldBe Seq(
+          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
+          Bit(30000, 2, Map("lowerBound"  -> 30000, "upperBound"  -> 90000), Map()),
+          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 150000), Map())
+        )
 
-        (0 to 9).foreach { i =>
-          assert(expected.values(i).timestamp === startTime - (10 - i) * 60000)
-          expected.values(i).dimensions("lowerBound") === startTime - (10 - i) * 60000
-          expected.values(i).dimensions("upperBound") === startTime - (9 - i) * 60000
-        }
-
-        expected.values.map(_.value) shouldBe Seq(0, 0, 0, 0, 0, 0, 0, 2, 2, 2)
       }
 
     }
@@ -202,8 +194,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
-                                                 value = startTime - 60000))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                                                 value = 60000L))),
+                groupBy = Some(TemporalGroupByAggregation(30000L))
               )
             )
           )
@@ -213,18 +205,14 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
         expected.values.size shouldBe 3
 
-        implicit val longEq = TolerantNumerics.tolerantLongEquality(System.currentTimeMillis - startTime)
-
-        (0 to 2).foreach { i =>
-          assert(expected.values(i).timestamp === startTime - (3 - i) * 30000)
-          expected.values(i).dimensions("lowerBound") === startTime - (3 - i) * 30000
-          expected.values(i).dimensions("upperBound") === startTime - (2 - i) * 30000
-        }
-
-        expected.values.map(_.value) shouldBe Seq(1, 1, 1)
+        expected.values shouldBe Seq(
+          Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
+          Bit(90000, 0, Map("lowerBound"  -> 90000, "upperBound"  -> 120000), Map()),
+          Bit(120000, 1, Map("lowerBound" -> 120000, "upperBound" -> 150000), Map())
+        )
       }
 
-      /*"execute it successfully in case of LT" in within(5.seconds) {
+      "execute it successfully in case of LT" in within(5.seconds) {
         val expected = awaitAssert {
 
           probe.send(
@@ -236,11 +224,9 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(CountAggregation)))),
-                condition = Some(
-                  Condition(ComparisonExpression(dimension = "timestamp",
-                                                 comparison = LessThanOperator,
-                                                 value = startTime - 60000))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                condition = Some(Condition(
+                  ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 60000L))),
+                groupBy = Some(TemporalGroupByAggregation(30000L))
               )
             )
           )
@@ -248,20 +234,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 10
+        expected.values.size shouldBe 2
 
-        implicit val longEq = TolerantNumerics.tolerantLongEquality(System.currentTimeMillis - startTime)
-
-        println(expected.values)
-
-        (0 to 2).foreach { i =>
-          assert(expected.values(i).timestamp === startTime - (3 - i) * 30000)
-          expected.values(i).dimensions("lowerBound") === startTime - (3 - i) * 30000
-          expected.values(i).dimensions("upperBound") === startTime - (2 - i) * 30000
-        }
-
-        expected.values.map(_.value) shouldBe Seq(1, 1, 1)
-      }*/
+        expected.values shouldBe Seq(
+          Bit(0, 1, Map("lowerBound"     -> 0, "upperBound"     -> 29999), Map()),
+          Bit(29999, 1, Map("lowerBound" -> 29999, "upperBound" -> 59999), Map())
+        )
+      }
     }
   }
 }

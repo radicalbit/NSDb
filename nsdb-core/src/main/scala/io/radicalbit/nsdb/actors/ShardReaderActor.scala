@@ -118,9 +118,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, interval, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, interval, condition, _, _)) =>
           val ranges =
-            TimeRangeExtractor.computeRanges(interval, statement.condition, location, System.currentTimeMillis())
+            TimeRangeExtractor.computeRangesForLocation(interval, condition, location)
+
+          index.query(schema, q, Seq.empty, 10, None)(identity)
 
           handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
             facetResult =>
