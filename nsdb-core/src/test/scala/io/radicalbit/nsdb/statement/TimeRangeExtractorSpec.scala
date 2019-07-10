@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.model.TimeRange
 import org.scalatest.{Matchers, WordSpec}
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
@@ -171,9 +172,7 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
     "executing computeRangeForInterval " should {
       "return a seq of ranges" in {
         val res = TimeRangeExtractor.computeRangeForInterval(10L, 0L, 5L, Seq.empty)
-        res.size shouldBe 2
-        res.map(_.label).contains("5-10") shouldBe true
-        res.map(_.label).contains("0-5") shouldBe true
+        res shouldBe Seq(TimeRange(5, 10, true, false), TimeRange(0, 5, true, false))
       }
     }
 
@@ -181,73 +180,99 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
       "return a seq of ranges for a RangeExpression" in {
         val res = TimeRangeExtractor.computeRanges(
           5L,
-          None,
           Some(Condition(RangeExpression(dimension = "timestamp", value1 = 0L, value2 = 10L))),
+          None,
           100L)
-        res.size shouldBe 2
-        res.map(_.label) shouldBe Seq("5-10", "0-5")
+        res shouldBe Seq(TimeRange(5, 10, true, false), TimeRange(0, 5, true, false))
       }
 
       "return a seq of ranges for a left bounded interval(>=) lower than now " in {
         val res = TimeRangeExtractor.computeRanges(
           5L,
-          None,
           Some(
             Condition(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+          None,
           100L)
-        res.map(_.label) shouldBe Seq("95-100",
-                                      "90-95",
-                                      "85-90",
-                                      "80-85",
-                                      "75-80",
-                                      "70-75",
-                                      "65-70",
-                                      "60-65",
-                                      "55-60",
-                                      "50-55")
+
+        res shouldBe Seq(
+          TimeRange(95, 100, true, false),
+          TimeRange(90, 95, true, false),
+          TimeRange(85, 90, true, false),
+          TimeRange(80, 85, true, false),
+          TimeRange(75, 80, true, false),
+          TimeRange(70, 75, true, false),
+          TimeRange(65, 70, true, false),
+          TimeRange(60, 65, true, false),
+          TimeRange(55, 60, true, false),
+          TimeRange(50, 55, true, false)
+        )
       }
       "return a seq of ranges for a right bounded interval(<=) lower than now " in {
         val res = TimeRangeExtractor.computeRanges(
           5L,
-          None,
           Some(
             Condition(ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 100L))),
+          None,
           200L)
 
-        res.exists(r => r.max == 99 && r.min == 95) shouldBe true
-        res.size shouldBe 10
+        res shouldBe Seq(
+          TimeRange(95, 100, true, false),
+          TimeRange(90, 95, true, false),
+          TimeRange(85, 90, true, false),
+          TimeRange(80, 85, true, false),
+          TimeRange(75, 80, true, false),
+          TimeRange(70, 75, true, false),
+          TimeRange(65, 70, true, false),
+          TimeRange(60, 65, true, false),
+          TimeRange(55, 60, true, false),
+          TimeRange(50, 55, true, false)
+        )
       }
       "return a seq of ranges for both right and left bounded interval( >= && <=) " in {
         val res = TimeRangeExtractor.computeRanges(
           5L,
-          None,
           Some(
             Condition(TupledLogicalExpression(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 70L),
               AndOperator,
               ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 100L)
             ))),
+          None,
           200L
         )
 
-        res.map(_.label) shouldBe Seq("95-100", "90-95", "85-90", "80-85", "75-80", "70-75")
+        res shouldBe Seq(
+          TimeRange(95, 100, true, false),
+          TimeRange(90, 95, true, false),
+          TimeRange(85, 90, true, false),
+          TimeRange(80, 85, true, false),
+          TimeRange(75, 80, true, false),
+          TimeRange(70, 75, true, false)
+        )
       }
 
       "return a seq of ranges for both right and left bounded interval( > && <) " in {
         val res = TimeRangeExtractor.computeRanges(
           5L,
-          None,
           Some(
             Condition(TupledLogicalExpression(
               ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 70L),
               AndOperator,
               ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 100L)
             ))),
+          None,
           200L
         )
 
-        res.map(_.label) shouldBe Seq("94-99", "89-94", "84-89", "79-84", "74-79", "69-74")
+        res shouldBe Seq(
+          TimeRange(94, 99, true, false),
+          TimeRange(89, 94, true, false),
+          TimeRange(84, 89, true, false),
+          TimeRange(79, 84, true, false),
+          TimeRange(74, 79, true, false),
+          TimeRange(69, 74, true, false)
+        )
       }
     }
 

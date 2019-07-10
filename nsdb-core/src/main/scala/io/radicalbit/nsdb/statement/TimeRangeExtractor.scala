@@ -17,9 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.statement.StatementParser.NBuckets
-import org.apache.lucene.facet.range.LongRange
+import io.radicalbit.nsdb.model.{Location, TimeRange}
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
@@ -30,6 +28,9 @@ import scala.annotation.tailrec
   * Provides a utility method to retrieve a list of [[Interval]] from a given [[Expression]]. That interval list will be used to identify shards to execute query against.
   */
 object TimeRangeExtractor {
+
+  /** This value define the max number of temporal buckets computed foreach interval defined by where conditions */
+  final val maxBuckets = 10
 
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {
@@ -71,29 +72,32 @@ object TimeRangeExtractor {
   def computeRangeForInterval(upperInterval: Long,
                               lowerInterval: Long,
                               bucketSize: Long,
-                              acc: Seq[LongRange]): Seq[LongRange] = {
+                              acc: Seq[TimeRange]): Seq[TimeRange] = {
     val upperBound = (upperInterval.toDouble / bucketSize * bucketSize).toLong
     val lowerBound = upperBound - bucketSize
-    if (lowerBound > lowerInterval && acc.size < NBuckets - 1) {
+    if (lowerBound > lowerInterval && acc.size < maxBuckets - 1) {
       computeRangeForInterval(lowerBound,
                               lowerInterval,
                               bucketSize,
-                              acc :+ new LongRange(s"$lowerBound-$upperBound", lowerBound, true, upperBound, false))
+                              acc :+ TimeRange(lowerBound, upperBound, lowerInclusive = true, upperInclusive = false))
     } else
-      acc :+ new LongRange(s"$lowerBound-$upperBound", lowerBound, true, upperBound, false)
+      acc :+ TimeRange(lowerBound, upperBound, lowerInclusive = true, upperInclusive = false)
   }
 
   /**
     * Temporal buckets are computed as done in shards definition. So, given the time origin time buckets are computed
     * starting from actual timestamp going backward until limit is reached.
     *
-    * @param rangeInterval
-    * @return
+    * @param rangeLength The range length in milliseconds.
+    * @param whereCondition The where condition used to filter time ranges.
+    * @param location The location used to filter time ranges.
+    * @param now the current timestamp.
+    * @return A sequence of [[TimeRange]] for the given input params.
     */
-  def computeRanges(rangeInterval: Long,
+  def computeRanges(rangeLength: Long,
                     whereCondition: Option[Condition],
                     location: Location,
-                    now: Long): Seq[LongRange] = {
+                    now: Long): Seq[TimeRange] = {
 
     val locationAsInterval                 = Interval.fromBounds(Closed(location.from), Closed(location.to))
     val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
@@ -102,12 +106,12 @@ object TimeRangeExtractor {
       case Nil =>
         val upperBound = location.to
         val lowerBound = location.from
-        computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
+        computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
       case _ =>
         timeIntervals.filter(interval => interval.intersects(locationAsInterval)).flatMap { i =>
-          val lowerBound = i.bottom(1).getOrElse(location.from)
           val upperBound = i.top(1).getOrElse(location.to)
-          computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
+          val lowerBound = i.bottom(1).getOrElse(location.from)
+          computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
         }
     }
   }
@@ -116,27 +120,31 @@ object TimeRangeExtractor {
     * Temporal buckets are computed as done in shards definition. So, given the time origin time buckets are computed
     * starting from actual timestamp going backward until limit is reached.
     *
-    * @param rangeInterval
-    * @param limit
-    * @return
+    * @param rangeLength The range length in milliseconds.
+    * @param whereCondition The where condition used to filter time ranges.
+    * @param limit the maximum time ranges allowed.
+    * @param now the current timestamp.
+    * @return A sequence of [[TimeRange]] for the given input params.
     */
-  def computeRanges(rangeInterval: Long,
-                    limit: Option[Int],
+  def computeRanges(rangeLength: Long,
                     whereCondition: Option[Condition],
-                    now: Long): Seq[LongRange] = {
+                    limit: Option[LimitOperator],
+                    now: Long): Seq[TimeRange] = {
 
     val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
+
+    val numberOfBuckets = limit.map(_.value).getOrElse(maxBuckets)
 
     timeIntervals match {
       case Nil =>
         val upperBound = now
-        val lowerBound = upperBound - NBuckets * rangeInterval
-        computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
+        val lowerBound = upperBound - numberOfBuckets * rangeLength
+        computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
       case _ =>
         timeIntervals.flatMap { i =>
-          val lowerBound = i.bottom(1).getOrElse(0L)
           val upperBound = i.top(1).getOrElse(now)
-          computeRangeForInterval(upperBound, lowerBound, rangeInterval, Seq.empty)
+          val lowerBound = i.bottom(1).getOrElse(0L)
+          computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
         }
     }
   }

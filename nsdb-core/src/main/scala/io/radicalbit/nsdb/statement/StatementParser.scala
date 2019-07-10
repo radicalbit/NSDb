@@ -19,8 +19,7 @@ package io.radicalbit.nsdb.statement
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
-import org.apache.lucene.facet.range.LongRange
+import io.radicalbit.nsdb.model.{Schema, SchemaField, TimeRange}
 import org.apache.lucene.search._
 
 import scala.util.{Failure, Success, Try}
@@ -29,9 +28,6 @@ import scala.util.{Failure, Success, Try}
   * This class exposes method for parsing from a [[io.radicalbit.nsdb.common.statement.SQLStatement]] into a [[io.radicalbit.nsdb.statement.StatementParser.ParsedQuery]].
   */
 object StatementParser {
-
-  /** This value define the max number of temporal buckets computed foreach interval defined by where conditions */
-  final val NBuckets = 10
 
   /**
     * Parses a [[DeleteSQLStatement]] into a [[ParsedQuery]].
@@ -67,7 +63,9 @@ object StatementParser {
     * @param schema metric's schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
-  def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
+  def parseStatement(statement: SelectSQLStatement,
+                     schema: Schema,
+                     occurredOn: Long = System.currentTimeMillis()): Try[ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
       schema.fieldsMap.get(order.dimension) match {
         case Some(SchemaField(_, _, VARCHAR())) =>
@@ -109,9 +107,7 @@ object StatementParser {
         // Match temporal count aggregation
         case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
             if fieldName == "value" || fieldName == "*" =>
-          val now = System.currentTimeMillis()
-
-          val ranges = TimeRangeExtractor.computeRanges(interval, limitOpt, statement.condition, now)
+          val ranges = TimeRangeExtractor.computeRanges(interval, statement.condition, statement.limit, occurredOn)
           Success(
             ParsedTemporalAggregatedQuery(
               statement.namespace,
@@ -249,7 +245,7 @@ object StatementParser {
   case class ParsedTemporalAggregatedQuery(namespace: String,
                                            metric: String,
                                            q: Query,
-                                           ranges: Seq[LongRange],
+                                           ranges: Seq[TimeRange],
                                            sort: Option[Sort] = None,
                                            limit: Option[Int] = None)
       extends ParsedQuery

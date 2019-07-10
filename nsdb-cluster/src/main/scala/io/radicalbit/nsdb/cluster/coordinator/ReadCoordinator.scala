@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
-import io.radicalbit.nsdb.model.{Location, Schema}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -100,12 +100,16 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     */
   private def gatherNodeResults(statement: SelectSQLStatement,
                                 schema: Schema,
-                                uniqueLocationsByNode: Map[String, Seq[Location]])(
+                                uniqueLocationsByNode: Map[String, Seq[Location]],
+                                timeRanges: Seq[TimeRange] = Seq.empty)(
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(metricsDataActors.map {
         case (nodeName, actor) =>
-          actor ? ExecuteSelectStatement(statement, schema, uniqueLocationsByNode.getOrElse(nodeName, Seq.empty))
+          actor ? ExecuteSelectStatement(statement,
+                                         schema,
+                                         uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
+                                         timeRanges)
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
@@ -157,8 +161,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       metadataCoordinator forward msg
     case msg: GetSchema =>
       schemaCoordinator forward msg
-    case ExecuteStatement(statement) =>
-      val startTime = System.currentTimeMillis()
+    case ExecuteStatement(statement, occurredOn) =>
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
       Future
         .sequence(Seq(
@@ -173,7 +176,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
               filteredLocations.groupBy(l => (l.from, l.to)).map(_._2.head).toSeq.groupBy(_.node)
 
             val result: Future[Either[SelectStatementFailed, Seq[Bit]]] =
-              StatementParser.parseStatement(statement, schema) match {
+              StatementParser.parseStatement(statement, schema, occurredOn) match {
                 //pure count(*) query
                 case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                     if fields.lengthCompare(1) == 0 && fields.head.count =>
@@ -223,8 +226,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                           Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
                       }
                   }
-                case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _)) =>
-                  gatherNodeResults(statement, schema, uniqueLocationsByNode)(identity)
+                case Success(ParsedTemporalAggregatedQuery(_, _, _, timeRanges, _, _)) =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode, timeRanges) { e =>
+                    e.sortBy(_.timestamp)
+                  }
                 case Failure(_) =>
                   Future(Left(SelectStatementFailed("Select Statement not valid")))
                 case _ =>
@@ -247,7 +252,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         }
         .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)
-            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
+            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - occurredOn)
         }
   }
 }
