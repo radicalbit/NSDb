@@ -161,8 +161,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       metadataCoordinator forward msg
     case msg: GetSchema =>
       schemaCoordinator forward msg
-    case ExecuteStatement(statement, occurredOn) =>
+    case ExecuteStatement(statement) =>
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
+      val occurredOn = System.currentTimeMillis()
       Future
         .sequence(Seq(
           schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),

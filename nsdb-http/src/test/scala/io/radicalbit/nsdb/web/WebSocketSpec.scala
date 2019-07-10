@@ -33,7 +33,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_, _) =>
+    case ExecuteStatement(_) =>
       sender() ! SelectStatementExecuted(db = "db", namespace = "registry", metric = "people", values = Seq.empty)
   }
 }

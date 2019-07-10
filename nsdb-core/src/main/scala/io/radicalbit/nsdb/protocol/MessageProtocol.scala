@@ -40,7 +40,7 @@ object MessageProtocol {
     case class GetSchemaFromCache(db: String, namespace: String, metric: String)
     case class EvictSchema(db: String, namespace: String, metric: String)
 
-    case class ExecuteStatement(selectStatement: SelectSQLStatement, occurredOn: Long = System.currentTimeMillis())
+    case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       locations: Seq[Location],
