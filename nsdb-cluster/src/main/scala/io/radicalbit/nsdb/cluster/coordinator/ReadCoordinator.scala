@@ -188,7 +188,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                           tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
                   })
 
-                case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
+                case Success(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
                   gatherNodeResults(statement, schema, uniqueLocationsByNode)(identity)
 
                 case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
