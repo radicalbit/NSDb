@@ -74,13 +74,13 @@ object TimeRangeExtractor {
     val lowerBound = upperInterval - rangeLength
 
     if (lowerBound <= lowerInterval)
-      acc :+ TimeRange(lowerInterval, upperInterval, lowerInclusive = true, upperInclusive = false)
+      acc :+ TimeRange(lowerInterval, upperInterval, lowerInclusive = true, upperInclusive = true)
     else
       computeRangeForInterval(
         lowerBound,
         lowerInterval,
         rangeLength,
-        acc :+ TimeRange(lowerBound, upperInterval, lowerInclusive = true, upperInclusive = false))
+        acc :+ TimeRange(lowerBound, upperInterval, lowerInclusive = false, upperInclusive = true))
   }
 
   /**
@@ -98,9 +98,11 @@ object TimeRangeExtractor {
     val locationAsInterval                 = Interval.fromBounds(Closed(location.from), Closed(location.to))
     val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
 
+    val now = System.currentTimeMillis()
+
     timeIntervals match {
       case Nil =>
-        val upperBound = location.to
+        val upperBound = if (location.to > now) now else location.to
         val lowerBound = location.from
         computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
       case _ =>

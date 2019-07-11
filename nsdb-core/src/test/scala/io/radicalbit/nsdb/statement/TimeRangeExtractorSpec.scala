@@ -59,7 +59,7 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
     }
 
     "receive a simple expression that does involve the timestamp" should {
-      "parse it successfully in case of a tange selection" in {
+      "parse it successfully in case of a range selection" in {
         TimeRangeExtractor.extractTimeRange(
           Some(
             RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)
@@ -162,15 +162,20 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
     "executing computeRangesForLocation " should {
       "return a seq of ranges" in {
         val res = TimeRangeExtractor.computeRangesForLocation(5L, None, Location("whatever", "whatever", 0L, 10L))
-        res shouldBe Seq(TimeRange(5, 10, true, false), TimeRange(0, 5, true, false))
+        res shouldBe Seq(TimeRange(5, 10, false, true), TimeRange(0, 5, true, true))
       }
 
       "return a seq of ranges in case range length is not a divisor of the location length" in {
         val res = TimeRangeExtractor.computeRangesForLocation(3L, None, Location("whatever", "whatever", 0L, 10L))
-        res shouldBe Seq(TimeRange(7, 10, true, false),
-                         TimeRange(4, 7, true, false),
-                         TimeRange(1, 4, true, false),
-                         TimeRange(0, 1, true, false))
+        res shouldBe Seq(TimeRange(7, 10, false, true),
+                         TimeRange(4, 7, false, true),
+                         TimeRange(1, 4, false, true),
+                         TimeRange(0, 1, true, true))
+      }
+
+      "return a single range in case range length is greater than the location" in {
+        val res = TimeRangeExtractor.computeRangesForLocation(30L, None, Location("whatever", "whatever", 0L, 10L))
+        res shouldBe Seq(TimeRange(0, 10, true, true))
       }
 
       "return a seq of ranges for a RangeExpression" in {
@@ -178,7 +183,7 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           5L,
           Some(Condition(RangeExpression(dimension = "timestamp", value1 = 0L, value2 = 5L))),
           Location("whatever", "whatever", 0L, 10L))
-        res shouldBe Seq(TimeRange(0, 5, true, false))
+        res shouldBe Seq(TimeRange(0, 5, true, true))
       }
 
       "return a seq of ranges for a left bounded interval(>=) lower than now " in {
@@ -190,16 +195,16 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           Location("whatever", "whatever", 0L, 100L))
 
         res shouldBe Seq(
-          TimeRange(95, 100, true, false),
-          TimeRange(90, 95, true, false),
-          TimeRange(85, 90, true, false),
-          TimeRange(80, 85, true, false),
-          TimeRange(75, 80, true, false),
-          TimeRange(70, 75, true, false),
-          TimeRange(65, 70, true, false),
-          TimeRange(60, 65, true, false),
-          TimeRange(55, 60, true, false),
-          TimeRange(50, 55, true, false)
+          TimeRange(95, 100, false, true),
+          TimeRange(90, 95, false, true),
+          TimeRange(85, 90, false, true),
+          TimeRange(80, 85, false, true),
+          TimeRange(75, 80, false, true),
+          TimeRange(70, 75, false, true),
+          TimeRange(65, 70, false, true),
+          TimeRange(60, 65, false, true),
+          TimeRange(55, 60, false, true),
+          TimeRange(50, 55, true, true)
         )
       }
 
@@ -211,16 +216,16 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           Location("whatever", "whatever", 0L, 100L))
 
         res shouldBe Seq(
-          TimeRange(45, 50, true, false),
-          TimeRange(40, 45, true, false),
-          TimeRange(35, 40, true, false),
-          TimeRange(30, 35, true, false),
-          TimeRange(25, 30, true, false),
-          TimeRange(20, 25, true, false),
-          TimeRange(15, 20, true, false),
-          TimeRange(10, 15, true, false),
-          TimeRange(5, 10, true, false),
-          TimeRange(0, 5, true, false)
+          TimeRange(45, 50, false, true),
+          TimeRange(40, 45, false, true),
+          TimeRange(35, 40, false, true),
+          TimeRange(30, 35, false, true),
+          TimeRange(25, 30, false, true),
+          TimeRange(20, 25, false, true),
+          TimeRange(15, 20, false, true),
+          TimeRange(10, 15, false, true),
+          TimeRange(5, 10, false, true),
+          TimeRange(0, 5, true, true)
         )
       }
 
@@ -237,10 +242,10 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
         )
 
         res shouldBe Seq(
-          TimeRange(85, 90, true, false),
-          TimeRange(80, 85, true, false),
-          TimeRange(75, 80, true, false),
-          TimeRange(70, 75, true, false)
+          TimeRange(85, 90, false, true),
+          TimeRange(80, 85, false, true),
+          TimeRange(75, 80, false, true),
+          TimeRange(70, 75, true, true)
         )
       }
 
@@ -257,10 +262,10 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
         )
 
         res shouldBe Seq(
-          TimeRange(84, 89, true, false),
-          TimeRange(79, 84, true, false),
-          TimeRange(74, 79, true, false),
-          TimeRange(71, 74, true, false)
+          TimeRange(84, 89, false, true),
+          TimeRange(79, 84, false, true),
+          TimeRange(74, 79, false, true),
+          TimeRange(71, 74, true, true)
         )
       }
     }

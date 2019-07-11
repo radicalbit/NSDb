@@ -259,8 +259,8 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a select with a temporal group by, filtered by time with measure in years" should {
-      "parse it successfully" in {
+    "receive a select with a temporal group by, filtered by time with measure" should {
+      "parse it successfully if the interval contains a space" in {
         parser.parse(
           db = "db",
           namespace = "registry",
@@ -279,6 +279,54 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+            )
+          ))
+      }
+
+      "parse it successfully if the interval does not contain any space" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input = "SELECT count(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2d") should be(
+          Success(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression[Long](dimension = "timestamp", comparison = GreaterThanOperator, value = 1),
+                expression2 =
+                  ComparisonExpression[Long](dimension = "timestamp", comparison = LessThanOperator, value = 100),
+                operator = AndOperator
+              ))),
+              fields = ListFields(List(Field("*", Some(CountAggregation)))),
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+            )
+          ))
+      }
+
+      "parse it successfully if an aggregation different from count is provided " in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input = "SELECT sum(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2d") should be(
+          Success(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression[Long](dimension = "timestamp", comparison = GreaterThanOperator, value = 1),
+                expression2 =
+                  ComparisonExpression[Long](dimension = "timestamp", comparison = LessThanOperator, value = 100),
+                operator = AndOperator
+              ))),
+              fields = ListFields(List(Field("*", Some(SumAggregation)))),
               groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
             )
           ))

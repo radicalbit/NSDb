@@ -132,15 +132,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        println(expected.values)
-
         expected.values.size shouldBe 5
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
+          Bit(0, 2, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
           Bit(30000, 1, Map("lowerBound"  -> 30000, "upperBound"  -> 60000), Map()),
           Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
-          Bit(100000, 0, Map("lowerBound" -> 100000, "upperBound" -> 120000), Map()),
+          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 120000), Map()),
           Bit(120000, 1, Map("lowerBound" -> 120000, "upperBound" -> 150000), Map())
         )
 
@@ -169,9 +167,9 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 3
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
+          Bit(0, 2, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
           Bit(30000, 2, Map("lowerBound"  -> 30000, "upperBound"  -> 90000), Map()),
-          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 150000), Map())
+          Bit(100000, 2, Map("lowerBound" -> 100000, "upperBound" -> 150000), Map())
         )
 
       }
@@ -206,8 +204,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 3
 
         expected.values shouldBe Seq(
-          Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
-          Bit(90000, 0, Map("lowerBound"  -> 90000, "upperBound"  -> 120000), Map()),
+          Bit(60000, 2, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
+          Bit(90000, 1, Map("lowerBound"  -> 90000, "upperBound"  -> 120000), Map()),
           Bit(120000, 1, Map("lowerBound" -> 120000, "upperBound" -> 150000), Map())
         )
       }

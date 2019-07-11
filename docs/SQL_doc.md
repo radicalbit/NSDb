@@ -9,7 +9,7 @@ Similarly to SQL databases, NSDb allows 3 main DML statements:
 - `INSERT` Statements - used to insert data
 - `DELETE` Statements - used to delete data
 
-Unlike standard SQL, NSDb does not support `UPDATE` statement. The main reason of this is the database time series nature itself; it's extremely unlikely that a time series record has to be updated at a later time.
+Unlike standard SQL, NSDb does not support `UPDATE` statement. The main reason of this is its time series nature itself; it's extremely unlikely that a time series record has to be updated at a later time.
 
 >NOTE: NSDb SQL parser is case-insensitive, so SQL keywords can be both lower-case and upper-case. In this documentation all code example are uppercase for clarity purpose.
 
@@ -20,11 +20,11 @@ The `SELECT` statement queries bits from a specific metric.
 ### Simple Syntax
 
 ```sql
-SELECT <dimension_name> [,<dimension_name>, ... ]
+SELECT <dimension_name> [,<dimension_name>, <tag_name>, ... ]
 FROM <metric_name>
 [ WHERE <expression> ]
-[ GROUP BY <dimension_name> ]
-[ ORDER BY <dimension_name> [DESC] ]
+[ GROUP BY <tag_name> | <time_range> ]
+[ ORDER BY <dimension_name> | <tag_name> [DESC] ]
 [ LIMIT v ]
 ```
 
@@ -110,6 +110,7 @@ Since NSDb is a time-series database, specific operators handling `timestamp` fi
 In addition, time operators are implemented allowing users to express time-dependent expression in a friendly manner.
 Ad hoc operator `NOW` is available to express the actual timestamp in milliseconds.
 Simple arithmetic operations can be applied on this value:
+- `NOW +|- <X>d ` returns the actual timestamp plus|minus  `X` days
 - `NOW +|- <X>h ` returns the actual timestamp plus|minus  `X` hours
 - `NOW +|- <X>m ` returns the actual timestamp plus|minus  `X` minutes
 - `NOW +|- <X>s ` returns the actual timestamp plus|minus  `X` seconds
@@ -132,7 +133,7 @@ The `GROUP BY ` clause groups query result using a specified dimension.
 SELECT <dimension_name>[,<dimension_name>, [...]]
 FROM <metric_name>
 [WHERE <expression>]
-[GROUP BY <dimension_name>]
+[GROUP BY <tag_name> | INTERVAL <time_range>]
 ```
 If the query includes a `WHERE`  clause the `GROUP BY` clause must appear after the `WHERE` clause.
 > NOTE: `GROUP BY` clause accepts a **single** tag/field on which apply the grouping. It is not possible to use a dimension for grouping.
@@ -153,6 +154,21 @@ SELECT MAX(value) FROM metric GROUP BY dimension_name
 - `SUM` retrieve value sum for each group.
 ```sql
 SELECT SUM(value) FROM metric GROUP BY dimension_name
+```
+
+#### Interval Group By
+Another peculiarity of a time series database is to allow grouping by time intervals.
+NSDb supports `COUNT` aggregations over time interval grouped buckets.
+A time range can be specified as follows
+- `<X>d ` `X` days
+- `<X>h ` `X` hours
+- `<X>m ` `X` minutes
+- `<X>s ` `X` seconds
+```sql
+SELECT COUNT(*) FROM metric GROUP BY INTERVAL 2d
+SELECT COUNT(*) FROM metric GROUP BY INTERVAL 2h
+SELECT COUNT(*) FROM metric GROUP BY INTERVAL 2m
+SELECT COUNT(*) FROM metric GROUP BY INTERVAL 2s
 ```
 
 ### ORDER BY clause
@@ -190,7 +206,7 @@ FROM <metric_name>
 [LIMIT n]
 ```
 
-Using `limit` clause in combination with `order` can be very useful to retrieve oldest or yougest records of a time series.
+Using `limit` clause in combination with `order` can be very useful to retrieve oldest or youngest records of a time series.
 
 For example, the query below returns the 10 youngest records
 
