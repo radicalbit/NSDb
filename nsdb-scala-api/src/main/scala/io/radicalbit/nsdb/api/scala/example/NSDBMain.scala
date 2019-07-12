@@ -78,6 +78,7 @@ object NSDBInitRead extends App {
     .namespace("registry")
     .metric("people")
     .shardInterval("2d")
+    .retention("1d")
 
   val readRes: Future[InitMetricResponse] = nsdb.init(init)
 

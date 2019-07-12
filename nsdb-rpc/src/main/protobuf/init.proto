@@ -23,6 +23,7 @@ message InitMetricRequest {
   string namespace = 2;
   string metric = 3;
   string shardInterval = 4;
+  string retention = 5;
 }
 
 message InitMetricResponse {

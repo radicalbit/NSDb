@@ -114,12 +114,17 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
       ))
 
   /**
-    * Init a bit by providing all the auxiliary information inside the [[BitInfo]]
-    * @param bitInfo the [[BitInfo]] to be written.
+    * Init a bit by providing all the auxiliary information inside the [[MetricInfo]]
+    * @param metricInfo the [[MetricInfo]] to be written.
     * @return a Future of the result of the operation. See [[InitMetricResponse]]
     */
-  def init(bitInfo: BitInfo): Future[InitMetricResponse] =
-    client.initMetric(InitMetricRequest(bitInfo.db, bitInfo.namespace, bitInfo.metric, bitInfo.shardInterval))
+  def init(metricInfo: MetricInfo): Future[InitMetricResponse] =
+    client.initMetric(
+      InitMetricRequest(metricInfo.db,
+                        metricInfo.namespace,
+                        metricInfo.metric,
+                        metricInfo.shardInterval.getOrElse(""),
+                        metricInfo.retention.getOrElse("")))
 
   /**
     * Writes a list of bits into NSdb using the current openend connection.
@@ -206,11 +211,18 @@ case class Bit protected (db: String,
                           tags: ListBuffer[TagAPI] = ListBuffer.empty[TagAPI]) {
 
   /**
-    * Builds a [[BitInfo]] from an existing bit
+    * Builds [[MetricInfo]] from an existing bit providing a shard interval
     * @param interval the shard interval expressed in the Duration pattern (2d, 1h ecc.)
-    * @return the resulting [[BitInfo]]
+    * @return the resulting [[MetricInfo]]
     */
-  def shardInterval(interval: String): BitInfo = BitInfo(db, namespace, metric, interval)
+  def shardInterval(interval: String): MetricInfo = MetricInfo(db, namespace, metric, Some(interval), None)
+
+  /**
+    * Builds [[MetricInfo]] from an existing bit providing a retention
+    * @param retention the metric duration expressed in the Duration pattern (2d, 1h ecc.)
+    * @return the resulting [[MetricInfo]]
+    */
+  def retention(retention: String): MetricInfo = MetricInfo(db, namespace, metric, None, Some(retention))
 
   /**
     * Adds a Long value to the bit.
@@ -368,4 +380,24 @@ case class Bit protected (db: String,
   def timestamp(v: Long): Bit = copy(timestamp = Some(v))
 }
 
-case class BitInfo protected (db: String, namespace: String, metric: String, shardInterval: String)
+case class MetricInfo protected (db: String,
+                                 namespace: String,
+                                 metric: String,
+                                 shardInterval: Option[String],
+                                 retention: Option[String]) {
+
+  /**
+    * Adds a Long timestamp to the bit.
+    * @param v the timestamp.
+    * @return a new instance with `v` as a timestamp.
+    */
+  def shardInterval(v: String): MetricInfo = copy(shardInterval = Some(v))
+
+  /**
+    * Adds a Long timestamp to the bit.
+    * @param v the timestamp.
+    * @return a new instance with `v` as a timestamp.
+    */
+  def retention(v: String): MetricInfo = copy(retention = Some(v))
+
+}
