@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.cluster.index
 import java.nio.file.Files
 import java.util.UUID
 
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.index.DirectorySupport
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 

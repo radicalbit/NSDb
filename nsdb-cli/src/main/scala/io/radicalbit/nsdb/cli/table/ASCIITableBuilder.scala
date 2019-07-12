@@ -121,7 +121,7 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
     commandResult match {
       case res: NamespaceMetricsListRetrieved =>
         Try(render(List("Metric Name"), res.metrics.map(m => List(m))))
-      case res: MetricSchemaRetrieved =>
+      case res: DescribeMetricResponse =>
         Try(
           render(List("Field Name", "Type", "Field Class Type"),
                  res.fields.map(x =>

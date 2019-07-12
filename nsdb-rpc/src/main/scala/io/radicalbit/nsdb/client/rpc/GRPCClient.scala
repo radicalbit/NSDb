@@ -25,7 +25,7 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.{MetricSchemaRetrieved, MetricsGot, Namespaces}
+import io.radicalbit.nsdb.rpc.responseCommand.{DescribeMetricResponse, MetricsGot, Namespaces}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
 import org.slf4j.LoggerFactory
@@ -89,7 +89,7 @@ class GRPCClient(host: String, port: Int) {
     stubCommand.showMetrics(request)
   }
 
-  def describeMetrics(request: DescribeMetric): Future[MetricSchemaRetrieved] = {
+  def describeMetrics(request: DescribeMetric): Future[DescribeMetricResponse] = {
     log.debug("Preparing of command describe metric for namespace: {} ", request.namespace)
     stubCommand.describeMetric(request)
   }

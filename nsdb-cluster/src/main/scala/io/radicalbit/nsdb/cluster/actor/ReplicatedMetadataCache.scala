@@ -22,7 +22,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.ddata._
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 

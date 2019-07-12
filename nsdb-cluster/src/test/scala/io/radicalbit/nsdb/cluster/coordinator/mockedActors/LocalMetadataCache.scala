@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 
