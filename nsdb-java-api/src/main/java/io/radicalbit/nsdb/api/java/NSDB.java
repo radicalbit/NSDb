@@ -22,6 +22,7 @@ import io.radicalbit.nsdb.rpc.common.Tag;
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse;
 import io.radicalbit.nsdb.rpc.init.InitMetricRequest;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
+import io.radicalbit.nsdb.rpc.requestCommand.DescribeMetric;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
 
 import java.util.HashMap;
@@ -448,6 +449,11 @@ public class NSDB {
     public CompletableFuture<InitMetricResult> initMetric(MetricInfo metricInfo) {
         return toJava(client.initMetric(
                 new InitMetricRequest(metricInfo.db, metricInfo.namespace, metricInfo.metric, metricInfo.shardInterval, metricInfo.retention))).toCompletableFuture().thenApply(InitMetricResult::new);
+    }
+
+    public CompletableFuture<DescribeMetricResult> describe(Bit bit) {
+        return toJava(client.describeMetric(
+                new DescribeMetric(bit.db, bit.namespace, bit.metric))).toCompletableFuture().thenApply(DescribeMetricResult::new);
     }
 
 

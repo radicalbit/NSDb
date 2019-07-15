@@ -89,7 +89,7 @@ class GRPCClient(host: String, port: Int) {
     stubCommand.showMetrics(request)
   }
 
-  def describeMetrics(request: DescribeMetric): Future[DescribeMetricResponse] = {
+  def describeMetric(request: DescribeMetric): Future[DescribeMetricResponse] = {
     log.debug("Preparing of command describe metric for namespace: {} ", request.namespace)
     stubCommand.describeMetric(request)
   }

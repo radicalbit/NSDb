@@ -279,7 +279,7 @@ class NsdbILoop(host: Option[String],
     case DescribeMetric(_, namespace, metric) =>
       processCommandResponse[CommandStatementExecuted](
         clientGrpc
-          .describeMetrics(GrpcDescribeMetric(db, namespace, metric))
+          .describeMetric(GrpcDescribeMetric(db, namespace, metric))
           .map(toInternalCommandResponse[GrpcDescribeMetricResponse]),
         tableBuilder.tableFor,
         lineToRecord

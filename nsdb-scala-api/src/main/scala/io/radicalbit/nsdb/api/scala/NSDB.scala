@@ -20,7 +20,6 @@ import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
-import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -49,6 +48,9 @@ object NSDB {
     val connection = new NSDB(host = host, port = port)
     connection.check.map(_ => connection)
   }
+
+  implicit def NSDBToNSDBMetricInfo(str: NSDB): NSDBMetricInfo = new NSDBMetricInfo(str)
+  implicit def NSDBToNSDBDescribeInfo(str: NSDB): NSDBDescribe = new NSDBDescribe(str)
 }
 
 /**
@@ -82,12 +84,11 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   /**
     * Inner Grpc client.
     */
-  private val client = new GRPCClient(host = host, port = port)
+  protected[scala] val client = new GRPCClient(host = host, port = port)
 
   /**
     * Defines the db used to build the bit or the query.
     * @param name the db name
-    * @return
     */
   def db(name: String): Db = Db(name)
 
@@ -112,19 +113,6 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         dimensions = bit.dimensions.toMap,
         tags = bit.tags.toMap
       ))
-
-  /**
-    * Init a bit by providing all the auxiliary information inside the [[MetricInfo]]
-    * @param metricInfo the [[MetricInfo]] to be written.
-    * @return a Future of the result of the operation. See [[InitMetricResponse]]
-    */
-  def init(metricInfo: MetricInfo): Future[InitMetricResponse] =
-    client.initMetric(
-      InitMetricRequest(metricInfo.db,
-                        metricInfo.namespace,
-                        metricInfo.metric,
-                        metricInfo.shardInterval.getOrElse(""),
-                        metricInfo.retention.getOrElse("")))
 
   /**
     * Writes a list of bits into NSdb using the current openend connection.
@@ -378,26 +366,4 @@ case class Bit protected (db: String,
     * @return a new instance with `v` as a timestamp.
     */
   def timestamp(v: Long): Bit = copy(timestamp = Some(v))
-}
-
-case class MetricInfo protected (db: String,
-                                 namespace: String,
-                                 metric: String,
-                                 shardInterval: Option[String],
-                                 retention: Option[String]) {
-
-  /**
-    * Adds a Long timestamp to the bit.
-    * @param v the timestamp.
-    * @return a new instance with `v` as a timestamp.
-    */
-  def shardInterval(v: String): MetricInfo = copy(shardInterval = Some(v))
-
-  /**
-    * Adds a Long timestamp to the bit.
-    * @param v the timestamp.
-    * @return a new instance with `v` as a timestamp.
-    */
-  def retention(v: String): MetricInfo = copy(retention = Some(v))
-
 }
