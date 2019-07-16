@@ -107,11 +107,11 @@ object ReplicatedMetadataCache {
   final case class LocationEvicted(db: String, namespace: String, metric: String, node: String, from: Long, to: Long)
   final case class EvictLocationFailed(db: String, namespace: String, metric: String, from: Long, to: Long)
 
-  final case class PutMetricInfoInCache(db: String, namespace: String, metric: String, value: MetricInfo)
+  final case class PutMetricInfoInCache(metricInfo: MetricInfo)
   final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo)
 
   final case class MetricInfoCached(db: String, namespace: String, metric: String, value: Option[MetricInfo])
-  final case class AllMetricInfoGot(metricInfo: Set[(Coordinates, MetricInfo)])
+  final case class AllMetricInfoGot(metricInfo: Set[MetricInfo])
 
   final case class GetMetricInfoFromCache(db: String, namespace: String, metric: String)
   final case object GetAllMetricInfo
@@ -173,7 +173,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   /**
     * Creates a [[ORSetKey]] for all metric infos
     */
-  private val allMetricInfoKey: ORSetKey[(Coordinates, MetricInfo)] = ORSetKey("all-metric-info-cache")
+  private val allMetricInfoKey: ORSetKey[MetricInfo] = ORSetKey("all-metric-info-cache")
 
   /**
     * Creates a [[ORSetKey]] for databases
@@ -203,7 +203,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
           _ :+ (keyWithNode -> value))
         _ <- replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
-    case PutMetricInfoInCache(db, namespace, metric, value) =>
+    case PutMetricInfoInCache(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
       (replicator ? Get(metricInfoKey(key), ReadLocal))
         .flatMap {
@@ -215,25 +215,25 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                 Future(MetricInfoAlreadyExisting(key, metricInfo))
               case None =>
                 (for {
-                  _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(
-                    _ :+ (Coordinates(db, namespace, metric), value))
-                  res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value))
+                  _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
+                  res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
+                    _ :+ (key -> metricInfo))
                 } yield res)
                   .map {
                     case UpdateSuccess(_, _) =>
-                      MetricInfoCached(db, namespace, metric, Some(value))
+                      MetricInfoCached(db, namespace, metric, Some(metricInfo))
                     case _ => MetricInfoCached(db, namespace, metric, None)
                   }
             }
           case NotFound(_, _) =>
             (for {
-              _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(
-                _ :+ (Coordinates(db, namespace, metric), value))
-              res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value))
+              _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
+              res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
+                _ :+ (key -> metricInfo))
             } yield res)
               .map {
                 case UpdateSuccess(_, _) =>
-                  MetricInfoCached(db, namespace, metric, Some(value))
+                  MetricInfoCached(db, namespace, metric, Some(metricInfo))
                 case _ => MetricInfoCached(db, namespace, metric, None)
               }
           case e => Future(CacheError(s"cannot retrieve metric info for key $key, got $e"))
@@ -343,7 +343,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         .get(key)
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, dataValue)
     case g @ GetSuccess(_, Some(AllMetricInfoRequest(replyTo))) =>
-      val elements = g.dataValue.asInstanceOf[ORSet[(Coordinates, MetricInfo)]].elements
+      val elements = g.dataValue.asInstanceOf[ORSet[MetricInfo]].elements
       replyTo ! AllMetricInfoGot(elements)
     case g @ GetSuccess(_, Some(DbsRequest(replyTo))) =>
       val elements = g.dataValue.asInstanceOf[ORSet[Coordinates]].elements.map(_.db)

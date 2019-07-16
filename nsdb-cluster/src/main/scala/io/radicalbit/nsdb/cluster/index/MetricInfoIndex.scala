@@ -60,6 +60,8 @@ class MetricInfoIndex(override val directory: Directory) extends SimpleIndex[Met
   override def toRecord(document: Document, fields: Seq[SimpleField]): MetricInfo = {
     val fields = document.getFields.asScala.map(f => f.name() -> f).toMap
     MetricInfo(
+      "notPresent",
+      "notPresent",
       document.get(_keyField),
       fields("shardInterval").numericValue().longValue()
     )

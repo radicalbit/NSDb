@@ -201,9 +201,9 @@ class MetadataCoordinatorSpec
 
     "retrieve correct write Location for a initialized metric with a different shard interval" in {
 
-      val metricInfo = MetricInfo(metric, 100)
+      val metricInfo = MetricInfo(db, namespace, metric, 100)
 
-      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      probe.send(metadataCoordinator, PutMetricInfo(metricInfo))
       awaitAssert {
         probe.expectMsgType[MetricInfoPut]
       }.metricInfo shouldBe metricInfo
@@ -255,14 +255,14 @@ class MetadataCoordinatorSpec
 
     "retrieve metric infos" in {
 
-      val metricInfo = MetricInfo(metric, 100)
+      val metricInfo = MetricInfo(db, namespace, metric, 100)
 
       probe.send(metadataCoordinator, GetMetricInfo(db, namespace, metric))
       awaitAssert {
         probe.expectMsgType[MetricInfoGot]
       }.metricInfo.isEmpty shouldBe true
 
-      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      probe.send(metadataCoordinator, PutMetricInfo(metricInfo))
       awaitAssert {
         probe.expectMsgType[MetricInfoPut]
       }.metricInfo shouldBe metricInfo
@@ -275,9 +275,9 @@ class MetadataCoordinatorSpec
 
     "not allow to insert a metric info already inserted" in {
 
-      val metricInfo = MetricInfo(metric, 100)
+      val metricInfo = MetricInfo(db, namespace, metric, 100)
 
-      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      probe.send(metadataCoordinator, PutMetricInfo(metricInfo))
       awaitAssert {
         probe.expectMsgType[MetricInfoPut]
       }.metricInfo shouldBe metricInfo
@@ -287,7 +287,7 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[MetricInfoGot]
       }.metricInfo shouldBe Some(metricInfo)
 
-      probe.send(metadataCoordinator, PutMetricInfo(db, namespace, metricInfo))
+      probe.send(metadataCoordinator, PutMetricInfo(metricInfo))
       awaitAssert {
         probe.expectMsgType[MetricInfoFailed]
       }

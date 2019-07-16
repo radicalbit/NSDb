@@ -151,11 +151,11 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
       Try { Duration(request.shardInterval).toMillis } match {
         case Success(interval) =>
-          (metadataCoordinator ? PutMetricInfo(request.db, request.namespace, MetricInfo(request.metric, interval)))
+          (metadataCoordinator ? PutMetricInfo(MetricInfo(request.db, request.namespace, request.metric, interval)))
             .map {
-              case MetricInfoPut(_, _, _) =>
+              case MetricInfoPut(_) =>
                 InitMetricResponse(request.db, request.namespace, request.metric, completedSuccessfully = true)
-              case MetricInfoFailed(_, _, _, message) =>
+              case MetricInfoFailed(_, message) =>
                 InitMetricResponse(request.db,
                                    request.namespace,
                                    request.metric,
@@ -230,7 +230,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
             metadataCoordinator ? GetMetricInfo(db = request.db, namespace = request.namespace, metric = request.metric)
           ))
         .map {
-          case SchemaGot(db, namespace, metric, schema) :: MetricInfoGot(_, _, metricInfoOpt) :: Nil =>
+          case SchemaGot(db, namespace, metric, schema) :: MetricInfoGot(_, _, _, metricInfoOpt) :: Nil =>
             GrpcDescribeMetricResponse(
               db,
               namespace,

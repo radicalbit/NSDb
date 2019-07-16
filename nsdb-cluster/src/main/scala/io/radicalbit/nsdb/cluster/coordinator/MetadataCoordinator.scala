@@ -107,7 +107,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       .flatMap {
         case MetricInfoCached(_, _, _, Some(metricInfo)) => Future(metricInfo.shardInterval)
         case _ =>
-          (cache ? PutMetricInfoInCache(db, namespace, metric, MetricInfo(metric, defaultShardingInterval)))
+          (cache ? PutMetricInfoInCache(MetricInfo(db, namespace, metric, defaultShardingInterval)))
             .map(_ => defaultShardingInterval)
       }
 
@@ -198,17 +198,17 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
-          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, value)
+          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, metric, value)
         }
         .pipeTo(sender)
-    case PutMetricInfo(db, namespace, metricInfo) =>
-      (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
+    case PutMetricInfo(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
+      (cache ? PutMetricInfoInCache(metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
-            MetricInfoPut(db, namespace, metricInfo)
+            MetricInfoPut(metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
-            MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
-          case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
+            MetricInfoFailed(metricInfo, "metric info already exist")
+          case e => MetricInfoFailed(metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
     case Migrate(inputPath) =>
@@ -236,7 +236,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       Future
         .sequence(allMetadata.map {
           case (Coordinates(db, namespace, _), metricInfo) =>
-            (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
+            (cache ? PutMetricInfoInCache(metricInfo))
               .mapTo[MetricInfoCached]
         })
         .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
@@ -263,7 +263,7 @@ object MetadataCoordinator {
     case class DeleteNamespaceMetadata(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
-    case class PutMetricInfo(db: String, namespace: String, metricInfo: MetricInfo)
+    case class PutMetricInfo(metricInfo: MetricInfo)
   }
 
   object events {
@@ -279,9 +279,9 @@ object MetadataCoordinator {
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
     case class NamespaceMetadataDeleted(db: String, namespace: String, occurredOn: Long)
 
-    case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])
-    case class MetricInfoPut(db: String, namespace: String, metricInfo: MetricInfo)
-    case class MetricInfoFailed(db: String, namespace: String, metricInfo: MetricInfo, message: String)
+    case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
+    case class MetricInfoPut(metricInfo: MetricInfo)
+    case class MetricInfoFailed(metricInfo: MetricInfo, message: String)
 
     case class MetricInfosMigrated(infos: Seq[MetricInfo])
   }

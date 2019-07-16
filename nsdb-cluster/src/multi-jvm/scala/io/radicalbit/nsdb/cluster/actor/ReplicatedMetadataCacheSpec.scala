@@ -151,11 +151,11 @@ class ReplicatedMetadataCacheSpec
 
       enterBarrier("after-add-location")
 
-      val metricInfoValue = MetricInfo(metric, 100)
+      val metricInfoValue = MetricInfo("db", "namespace",metric, 100)
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", metric, metricInfoValue)
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue)
           expectMsg(MetricInfoCached("db", "namespace", metric, Some(metricInfoValue)))
         }
       }
@@ -168,7 +168,7 @@ class ReplicatedMetadataCacheSpec
 
         awaitAssert {
           replicatedCache ! GetAllMetricInfo
-          expectMsg(AllMetricInfoGot(Set((Coordinates("db", "namespace", metric), metricInfoValue))))
+          expectMsg(AllMetricInfoGot(Set(metricInfoValue)))
         }
       }
       enterBarrier("after-add-metric-info")
@@ -328,14 +328,14 @@ class ReplicatedMetadataCacheSpec
       val metric   = "metric2"
       val location = Location(metric, "node1", _: Long, _: Long)
 
-      val metricInfoValue = MetricInfo(_: String, 100)
+      val metricInfoValue = MetricInfo("db", "namespace", _: String, 100)
 
       runOn(node1) {
         for (i ← 10 to 20) {
           replicatedCache ! PutLocationInCache("db", "namespace", metric, i - 1, i, location(i - 1, i))
           expectMsg(LocationCached("db", "namespace", metric, i - 1, i, location(i - 1, i)))
 
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", s"metric_$i", metricInfoValue(s"metric_$i"))
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue(s"metric_$i"))
           expectMsg(MetricInfoCached("db", "namespace", s"metric_$i", Some(metricInfoValue(s"metric_$i"))))
         }
       }
@@ -362,11 +362,11 @@ class ReplicatedMetadataCacheSpec
     "do not allow insertion of an already present metric info" in within(5.seconds) {
       val metric          = "metricInfo"
       val metricInfoKey   = MetricInfoCacheKey("db", "namespace", metric)
-      val metricInfoValue = MetricInfo(metric, 100)
+      val metricInfoValue = MetricInfo("db", "namespace",metric, 100)
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", metric, metricInfoValue)
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue)
           expectMsg(MetricInfoCached("db", "namespace", metric, Some(metricInfoValue)))
         }
       }
@@ -380,7 +380,7 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", metric, metricInfoValue)
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue)
           expectMsg(MetricInfoAlreadyExisting(metricInfoKey, metricInfoValue))
         }
       }

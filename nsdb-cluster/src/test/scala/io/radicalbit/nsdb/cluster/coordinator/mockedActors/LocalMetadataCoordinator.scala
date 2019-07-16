@@ -95,17 +95,17 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
-          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, value)
+          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, metric, value)
         }
         .pipeTo(sender)
-    case PutMetricInfo(db, namespace, metricInfo) =>
-      (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
+    case PutMetricInfo(metricInfo) =>
+      (cache ? PutMetricInfoInCache(metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
-            MetricInfoPut(db, namespace, metricInfo)
+            MetricInfoPut(metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
-            MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
-          case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
+            MetricInfoFailed(metricInfo, "metric info already exist")
+          case e => MetricInfoFailed(metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
   }

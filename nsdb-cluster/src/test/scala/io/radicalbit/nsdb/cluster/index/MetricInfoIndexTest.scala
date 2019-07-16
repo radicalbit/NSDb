@@ -34,7 +34,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val writer = metricInfoIndex.getWriter
 
     (0 to 100).foreach { i =>
-      val testData = MetricInfo(s"metric_$i", i)
+      val testData = MetricInfo("db", "namespace", s"metric_$i", i)
       metricInfoIndex.write(testData)(writer)
     }
     writer.close()
@@ -47,7 +47,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val firstMetricInfo = metricInfoIndex.getMetricInfo("metric_0")
 
     firstMetricInfo shouldBe Some(
-      MetricInfo(s"metric_0", 0)
+      MetricInfo("notPresent", "notPresent", s"metric_0", 0)
     )
   }
 
@@ -60,13 +60,13 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     val writer = metricInfoIndex.getWriter
 
     (0 to 100).foreach { i =>
-      val testData = MetricInfo(s"metric_$i", i)
+      val testData = MetricInfo("db", "namespace", s"metric_$i", i)
       metricInfoIndex.write(testData)(writer)
     }
     writer.close()
     metricInfoIndex.refresh()
 
-    val firstExpected = MetricInfo(s"metric_0", 0)
+    val firstExpected = MetricInfo("notPresent", "notPresent", s"metric_0", 0)
     metricInfoIndex.getMetricInfo("metric_0") shouldBe Some(
       firstExpected
     )

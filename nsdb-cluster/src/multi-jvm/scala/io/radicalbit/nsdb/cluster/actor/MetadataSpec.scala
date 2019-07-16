@@ -145,7 +145,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
     "add metric info from different nodes" in within(10.seconds) {
 
-      val metricInfo = MetricInfo("metric", 100, 30)
+      val metricInfo = MetricInfo("db", "namespace","metric", 100, 30)
 
       runOn(node1) {
         val selfMember = cluster.selfMember
@@ -154,8 +154,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
 
         awaitAssert {
-          metadataCoordinator ! PutMetricInfo("db", "namespace", metricInfo)
-          expectMsg(MetricInfoPut("db", "namespace", metricInfo))
+          metadataCoordinator ! PutMetricInfo(metricInfo)
+          expectMsg(MetricInfoPut(metricInfo))
         }
       }
 
