@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
+import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -66,7 +66,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @param location The shard key to identify the actor.
     * @return The existing or the created shard actor.
     */
-  private def getOrCreateActor(location: Location) =
+  private def getOrCreateShardReaderActor(location: Location): ActorRef =
     actors.getOrElse(
       location, {
         val shardActor = context.actorOf(ShardReaderActor.props(basePath, db, namespace, location), actorName(location))
@@ -75,6 +75,14 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         shardActor
       }
     )
+
+  /**
+    * Gets if exists the actor for a given shard key.
+    *
+    * @param location The shard key to identify the actor.
+    * @return The existing shard actor, None if it does not exist.
+    */
+  private def getShardReaderActor(location: Location): Option[ActorRef] = actors.get(location)
 
   private def actorName(location: Location) =
     s"shard_reader-${location.node}-${location.metric}-${location.from}-${location.to}"
@@ -92,7 +100,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @return filtered map containing all the actors for the given locations.
     */
   private def actorsForLocations(locations: Seq[Location]): Seq[(Location, ActorRef)] =
-    locations.map(location => (location, getOrCreateActor(location)))
+    locations.map(location => (location, getOrCreateShardReaderActor(location)))
 
   /**
     * Any existing shard is retrieved
@@ -370,7 +378,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       }
     case Refresh(_, keys) =>
       keys.foreach { key =>
-        getOrCreateActor(key) ! RefreshShard
+        getShardReaderActor(key).foreach(_ ! RefreshShard)
       }
   }
 

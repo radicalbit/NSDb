@@ -12,7 +12,6 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
-import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
 
@@ -70,12 +69,10 @@ class ReplicatedMetadataCacheSpec
 
   import ReplicatedMetadataCacheSpec._
 
-  implicit val formats = DefaultFormats
+  override def initialParticipants: Int = roles.size
 
-  override def initialParticipants = roles.size
-
-  val cluster         = Cluster(system)
-  val replicatedCache = system.actorOf(Props[ReplicatedMetadataCache])
+  private val cluster         = Cluster(system)
+  private val replicatedCache = system.actorOf(Props[ReplicatedMetadataCache])
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
@@ -385,9 +382,7 @@ class ReplicatedMetadataCacheSpec
 
     "replicate evicted entry" in within(5.seconds) {
       val metric    = "metric3"
-      val key       = LocationCacheKey("db", "namespace", metric, 0, 1)
       val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricLocationsCacheKey("db", "namespace", metric)
 
       runOn(node1) {
         replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location)
