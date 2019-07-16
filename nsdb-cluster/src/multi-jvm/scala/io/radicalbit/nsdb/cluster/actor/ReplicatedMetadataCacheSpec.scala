@@ -10,6 +10,7 @@ import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -163,6 +164,11 @@ class ReplicatedMetadataCacheSpec
         awaitAssert {
           replicatedCache ! GetMetricInfoFromCache("db", "namespace", metric)
           expectMsg(MetricInfoCached("db", "namespace", metric, Some(metricInfoValue)))
+        }
+
+        awaitAssert {
+          replicatedCache ! GetAllMetricInfo
+          expectMsg(AllMetricInfoGot(Set((Coordinates("db", "namespace", metric), metricInfoValue))))
         }
       }
       enterBarrier("after-add-metric-info")
