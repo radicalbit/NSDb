@@ -122,8 +122,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           val ranges =
             TimeRangeExtractor.computeRangesForLocation(interval, condition, location)
 
-          index.query(schema, q, Seq.empty, 10, None)(identity)
-
           handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
             facetResult =>
               facetResult.labelValues.toSeq

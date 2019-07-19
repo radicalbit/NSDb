@@ -16,6 +16,9 @@
 
 package io.radicalbit.nsdb.cli.table
 
+import java.time.{Instant, LocalDateTime}
+import java.util.TimeZone
+
 import cats.implicits._
 import com.typesafe.scalalogging.LazyLogging
 import de.vandermeer.asciitable.{AsciiTable, CWC_LongestWord}
@@ -71,7 +74,10 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
             val fieldsMap    = (x.dimensions ++ x.tags).map { case (k, v)                 => (k, Some(v.toString)) }
             val mergedFields = allFields.combine(fieldsMap).toList.sortBy { case (col, _) => col }
             // prepending timestamp and value
-            x.timestamp.toString +: x.value.toString +: mergedFields.map {
+
+            LocalDateTime
+              .ofInstant(Instant.ofEpochMilli(x.timestamp), TimeZone.getTimeZone("UTC").toZoneId)
+              .toString +: x.value.toString +: mergedFields.map {
               case (_, value) => value getOrElse ""
             }
           }
