@@ -26,7 +26,6 @@ import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.EvictLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -72,7 +71,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
 
   lazy val retentionCheck = FiniteDuration(
-    context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
+    context.system.settings.config.getDuration("nsdb.retention.check.interval").toNanos,
     TimeUnit.NANOSECONDS)
 
   private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
@@ -162,14 +161,15 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
             .map {
 
               case _ @LocationsCached(_, _, _, locations) =>
-                val (locationsToFullyEvict, locationToPartiallyEvict) =
+                val (locationsToFullyEvict, _) =
                   TimeRangeExtractor.getLocationsToEvict(locations, threshold)
 
-                val x = Future.sequence(locationsToFullyEvict.map { location =>
-                  (cache ? EvictLocation(db, namespace, location)).mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                val evictResponses = Future.sequence(locationsToFullyEvict.map { location =>
+                  (cache ? EvictLocation(db, namespace, location))
+                    .mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                    .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
                 })
-
-                val filteredResponses = x.map { responses =>
+                evictResponses.map { responses =>
                   val errors: ListBuffer[EvictLocationFailed] = ListBuffer.empty
                   val successes: ListBuffer[LocationEvicted]  = ListBuffer.empty
 
@@ -178,23 +178,6 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
                     case Left(response)  => errors += response
                   }
                   (errors.toList, successes.toList)
-                }
-
-                filteredResponses.map {
-                  case (Nil, responses) =>
-                    responses.groupBy(_.location.node).map {
-                      case (node, list) =>
-                        metricsDataActors.getOrElse(node, {
-                          log.error("could not find data actor for node", node)
-                          context.system.terminate()
-                          ActorRef.noSender
-                        })
-//                    nodeActor ? EvictLocations(list.map(_.))
-                    }
-
-                  case (errors, _) =>
-                    log.error("error in eviting locations", errors)
-                    context.system.terminate()
                 }
             }
       }

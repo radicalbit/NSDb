@@ -39,6 +39,7 @@ object MetadataSpec extends MultiNodeConfig {
     |  publisher.timeout = 10 seconds
     |  publisher.scheduler.interval = 5 seconds
     |  write.scheduler.interval = 15 seconds
+    |  retention.check.interval = 1 seconds
     |
     |  sharding {
     |    interval = 1d

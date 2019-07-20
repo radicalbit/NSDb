@@ -292,6 +292,56 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[MetricInfoFailed]
       }
     }
+
+    "evict outdated locations from cache" in {
+
+      val metricInfo = MetricInfo(db, namespace, metric, 100, 5000)
+
+      probe.send(metadataCoordinator, PutMetricInfo(metricInfo))
+      awaitAssert {
+        probe.expectMsgType[MetricInfoPut]
+      }.metricInfo shouldBe metricInfo
+
+      val now = System.currentTimeMillis()
+
+      val locations = Seq(
+        Location(metric, "node_01", 0L, 30000L),
+        Location(metric, "node_02", 0L, 30000L),
+        Location(metric, "node_02", 30000L, 60000L),
+        Location(metric, "node_01", now - 5000, now - 2000),
+        Location(metric, "node_01", now - 1000, now)
+      )
+
+      locations.foreach { loc =>
+        probe.send(metadataCoordinator, AddLocation(db, namespace, loc))
+        awaitAssert {
+          probe.expectMsgType[LocationsAdded]
+        }
+      }
+
+      awaitAssert {
+        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+        val locationsGot = probe.expectMsgType[LocationsGot]
+        locationsGot.locations.sortBy(_.from) shouldBe locations
+      }
+
+      Thread.sleep(2000)
+
+      awaitAssert {
+        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+        val locationsGot = probe.expectMsgType[LocationsGot]
+        locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(2)
+      }
+
+      Thread.sleep(3000)
+
+      awaitAssert {
+        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+        val locationsGot = probe.expectMsgType[LocationsGot]
+        locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(1)
+      }
+    }
+
   }
 
 }
