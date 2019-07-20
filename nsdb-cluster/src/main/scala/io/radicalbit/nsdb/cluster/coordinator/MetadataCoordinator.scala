@@ -20,9 +20,13 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
+import akka.cluster.client.ClusterClient.Publish
+import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.EvictLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -35,11 +39,15 @@ import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.statement.TimeRangeExtractor
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
@@ -62,6 +70,14 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
 
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
+
+  lazy val retentionCheck = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
+    TimeUnit.NANOSECONDS)
+
+  private val metricsDataActors: mutable.Map[String, ActorRef] = mutable.Map.empty
+
+  context.setReceiveTimeout(retentionCheck)
 
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
@@ -96,7 +112,8 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       }
 
   /**
-    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
+    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned,
+    * otherwise the default interval (gather from the global conf file) will be used
     * @param db the db.
     * @param namespace the namespace.
     * @param metric the metric.
@@ -111,7 +128,82 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
             .map(_ => defaultShardingInterval)
       }
 
+  override def preStart(): Unit = {
+    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      log.debug("MetadataCoordinator data actor : {}", metricsDataActors.size)
+    }
+  }
+
   override def receive: Receive = {
+    case ReceiveTimeout =>
+      (cache ? GetAllMetricInfo)
+        .mapTo[AllMetricInfoGot]
+        .map {
+          case AllMetricInfoGot(infos) =>
+            CheckForRetention(infos.collect {
+              case i if i.retention > 0 => i
+            })
+        }
+        .pipeTo(self)
+    case CheckForRetention(metricInfoes) =>
+      metricInfoes.foreach {
+        case MetricInfo(db, namespace, metric, _, retention) =>
+          val threshold = System.currentTimeMillis() - retention
+
+          (cache ? GetLocationsFromCache(db, namespace, metric))
+            .mapTo[LocationsCached]
+            .map {
+
+              case _ @LocationsCached(_, _, _, locations) =>
+                val (locationsToFullyEvict, locationToPartiallyEvict) =
+                  TimeRangeExtractor.getLocationsToEvict(locations, threshold)
+
+                val x = Future.sequence(locationsToFullyEvict.map { location =>
+                  (cache ? EvictLocation(db, namespace, location)).mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                })
+
+                val filteredResponses = x.map { responses =>
+                  val errors: ListBuffer[EvictLocationFailed] = ListBuffer.empty
+                  val successes: ListBuffer[LocationEvicted]  = ListBuffer.empty
+
+                  responses.map {
+                    case Right(response) => successes += response
+                    case Left(response)  => errors += response
+                  }
+                  (errors.toList, successes.toList)
+                }
+
+                filteredResponses.map {
+                  case (Nil, responses) =>
+                    responses.groupBy(_.location.node).map {
+                      case (node, list) =>
+                        metricsDataActors.getOrElse(node, {
+                          log.error("could not find data actor for node", node)
+                          context.system.terminate()
+                          ActorRef.noSender
+                        })
+//                    nodeActor ? EvictLocations(list.map(_.))
+                    }
+
+                  case (errors, _) =>
+                    log.error("error in eviting locations", errors)
+                    context.system.terminate()
+                }
+            }
+      }
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      if (!metricsDataActors.get(nodeName).contains(actor)) {
+        metricsDataActors += (nodeName -> actor)
+        log.info(s"subscribed data actor for node $nodeName")
+      }
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
     case GetDbs =>
       (cache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
@@ -264,6 +356,8 @@ object MetadataCoordinator {
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(metricInfo: MetricInfo)
+
+    case class CheckForRetention(metricInfo: Set[MetricInfo])
   }
 
   object events {

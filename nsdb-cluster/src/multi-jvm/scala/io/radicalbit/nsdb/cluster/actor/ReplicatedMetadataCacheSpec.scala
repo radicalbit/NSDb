@@ -10,7 +10,6 @@ import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -402,7 +401,7 @@ class ReplicatedMetadataCacheSpec
         }
 
         replicatedCache ! EvictLocation("db", "namespace", Location(metric, "node1", 0, 1))
-        expectMsg(LocationEvicted("db", "namespace", metric, "node1", 0, 1))
+        expectMsg(Right(LocationEvicted("db", "namespace", Location(metric, "node1", 0, 1))))
       }
 
       runOn(node1) {
