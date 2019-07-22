@@ -20,11 +20,11 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
-import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
+import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.PubSubTopics.COORDINATORS_TOPIC
+import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -42,6 +42,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -71,6 +72,9 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
   lazy val retentionCheck = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.retention.check.interval").toNanos,
     TimeUnit.NANOSECONDS)
+
+  private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
+  private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
 
   context.setReceiveTimeout(retentionCheck)
 
@@ -130,6 +134,12 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
       TimeUnit.SECONDS)
 
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, GetCommitLogCoordinators)
+      log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
+      log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
+    }
   }
 
   override def receive: Receive = {
@@ -173,6 +183,18 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
                 }
             }
       }
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
+      if (!metricsDataActors.get(nodeName).contains(actor)) {
+        metricsDataActors += (nodeName -> actor)
+        log.info(s"subscribed data actor for node $nodeName")
+      }
+      sender() ! MetricsDataActorSubscribed(actor, nodeName)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
+      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
+        commitLogCoordinators += (nodeName -> actor)
+        log.info(s"subscribed commit log actor for node $nodeName")
+      }
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetDbs =>
       (cache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
