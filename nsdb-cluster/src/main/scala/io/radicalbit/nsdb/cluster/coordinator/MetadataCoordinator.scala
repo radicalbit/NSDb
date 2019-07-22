@@ -125,6 +125,11 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
 
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
   }
 
   override def receive: Receive = {
