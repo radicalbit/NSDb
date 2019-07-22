@@ -68,8 +68,11 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val metadataCoordinator =
     context.actorOf(
-      MetadataCoordinator.props(metadataCache, mediator).withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-      name = s"metadata-coordinator_$nodeName")
+      MetadataCoordinator
+        .props(metadataCache, schemaCoordinator, mediator)
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      name = s"metadata-coordinator_$nodeName"
+    )
 
   private val readCoordinator =
     context.actorOf(

@@ -51,7 +51,7 @@ class MetadataCoordinatorSpec
 
   val probe               = TestProbe()
   val metadataCache       = system.actorOf(LocalMetadataCache.props)
-  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache, probe.ref))
+  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache, probe.ref, probe.ref))
 
   val db        = "testDb"
   val namespace = "testNamespace"

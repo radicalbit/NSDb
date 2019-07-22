@@ -25,14 +25,17 @@ import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -52,7 +55,7 @@ import scala.util.Try
   * Actor that handles metadata (i.e. write location for metrics)
   * @param cache cluster aware metric's location cache
   */
-class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
+class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
     with Stash
     with DirectorySupport {
@@ -142,6 +145,90 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
     }
   }
 
+  /**
+    * Writes the evict (delete) operation into commit log.
+    * @param db the db to be written.
+    * @param namespace the namespace to be written.
+    *                  @param ts the time instant of the commit log operation
+    * @param location the location to be evicted.
+    * @return the result of the operation.
+    */
+  private def evictFromLocationCommitLogAck(db: String,
+                                            namespace: String,
+                                            ts: Long,
+                                            location: Location,
+                                            statement: DeleteSQLStatement): Future[CommitLogResponse] = {
+    commitLogCoordinators.get(location.node) match {
+      case Some(commitLogCoordinator) =>
+        (commitLogCoordinator ? WriteToCommitLog(
+          db = db,
+          namespace = namespace,
+          metric = location.metric,
+          ts = ts,
+          action = DeleteAction(statement),
+          location
+        )).mapTo[CommitLogResponse]
+      case None =>
+        //in case there is not a commit log for that node, we give back a success.
+        //the location will be processed afterwards until a commit log for the node will be available again
+        Future(WriteToCommitLogSucceeded(db, namespace, ts, location.metric, location))
+    }
+  }
+
+  /**
+  * Generates a delete statement given a threshold. The delete statement involves records older than the threshold.
+    * e.g. delete from "metric" where timestamp < threshold
+    */
+  private def deleteStatement(db: String, namespace: String, metric: String, threshold: Long) =
+    DeleteSQLStatement(
+      db = db,
+      namespace = namespace,
+      metric = metric,
+      condition =
+        Condition(ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = threshold))
+    )
+
+  /**
+  * Performs a partial eviction in a location by executing a [[DeleteSQLStatement]].
+    * @param statement the delete statement.
+    * @param location the location to be partially evicted.
+    * @return the result of the delete operation.
+    */
+  private def partiallyEvictPerform(
+      statement: DeleteSQLStatement,
+      location: Location): Future[Either[DeleteStatementFailed, DeleteStatementExecuted]] = {
+
+    (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+      .flatMap {
+        case SchemaGot(_, _, _, Some(schema)) =>
+          metricsDataActors.get(location.node) match {
+            case Some(dataActor) =>
+              (dataActor ? ExecuteDeleteStatementInternalInLocations(statement, schema, Seq(location))).map {
+                case msg: DeleteStatementExecuted => Right(msg)
+                case msg: DeleteStatementFailed   => Left(msg)
+                case msg =>
+                  Left(
+                    DeleteStatementFailed(statement.db,
+                                          statement.namespace,
+                                          statement.metric,
+                                          s"unknown response from server $msg"))
+              }
+            case None =>
+              //in case there is not a data actor for that node, we give back a success.
+              //the location will be processed afterwards until a commit log for the node will be available again
+              Future(Right(DeleteStatementExecuted(statement.db, statement.namespace, statement.metric)))
+          }
+        case _ =>
+          Future(
+            Left(
+              DeleteStatementFailed(statement.db,
+                                    statement.namespace,
+                                    statement.metric,
+                                    s"No schema found for metric ${statement.metric}")))
+      }
+
+  }
+
   override def receive: Receive = {
     case ReceiveTimeout =>
       (cache ? GetAllMetricInfo)
@@ -163,23 +250,61 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
             .map {
 
               case _ @LocationsCached(_, _, _, locations) =>
-                val (locationsToFullyEvict, _) =
+                val (locationsToFullyEvict, locationsToPartiallyEvict) =
                   TimeRangeExtractor.getLocationsToEvict(locations, threshold)
 
-                val evictResponses = Future.sequence(locationsToFullyEvict.map { location =>
-                  (cache ? EvictLocation(db, namespace, location))
-                    .mapTo[Either[EvictLocationFailed, LocationEvicted]]
-                    .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
-                })
-                evictResponses.map { responses =>
-                  val errors: ListBuffer[EvictLocationFailed] = ListBuffer.empty
-                  val successes: ListBuffer[LocationEvicted]  = ListBuffer.empty
+                val cacheResponses = Future
+                  .sequence(locationsToFullyEvict.map { location =>
+                    (cache ? EvictLocation(db, namespace, location))
+                      .mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                      .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
+                  })
+                  .map { responses =>
+                    val errors: ListBuffer[EvictLocationFailed] = ListBuffer.empty
+                    val successes: ListBuffer[LocationEvicted]  = ListBuffer.empty
 
-                  responses.map {
-                    case Right(response) => successes += response
-                    case Left(response)  => errors += response
+                    responses.map {
+                      case Right(response) => successes += response
+                      case Left(response)  => errors += response
+                    }
+
+                    if (errors.nonEmpty) {
+                      log.error("errors during delete locations from cache {}", errors)
+                      context.system.terminate()
+                    }
+                    successes.toList
                   }
-                  (errors.toList, successes.toList)
+
+                val commitLogResponses = cacheResponses.flatMap { _ =>
+                  Future
+                    .sequence(
+                      locationsToPartiallyEvict.map(
+                        location =>
+                          evictFromLocationCommitLogAck(db,
+                                                        namespace,
+                                                        System.currentTimeMillis(),
+                                                        location,
+                                                        deleteStatement(db, namespace, location.metric, threshold))))
+                    .map { responses =>
+                      val errors: ListBuffer[WriteToCommitLogFailed]       = ListBuffer.empty
+                      val successes: ListBuffer[WriteToCommitLogSucceeded] = ListBuffer.empty
+
+                      responses.map {
+                        case response: WriteToCommitLogSucceeded => successes += response
+                        case response: WriteToCommitLogFailed    => errors += response
+                      }
+
+                      if (errors.nonEmpty) {
+                        log.error("errors during delete locations from cache {}", errors)
+                        context.system.terminate()
+                      }
+                      successes.toList
+                    }
+                }
+
+                commitLogResponses.flatMap { _ =>
+                  Future.sequence(locationsToPartiallyEvict.map(location =>
+                    partiallyEvictPerform(deleteStatement(db, namespace, location.metric, threshold), location)))
                 }
             }
       }
@@ -284,7 +409,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
           case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, metric, value)
         }
         .pipeTo(sender)
-    case PutMetricInfo(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
+    case PutMetricInfo(metricInfo: MetricInfo) =>
       (cache ? PutMetricInfoInCache(metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
@@ -318,7 +443,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
 
       Future
         .sequence(allMetadata.map {
-          case (Coordinates(db, namespace, _), metricInfo) =>
+          case (Coordinates(_, _, _), metricInfo) =>
             (cache ? PutMetricInfoInCache(metricInfo))
               .mapTo[MetricInfoCached]
         })
@@ -371,5 +496,6 @@ object MetadataCoordinator {
     case class MetricInfosMigrated(infos: Seq[MetricInfo])
   }
 
-  def props(cache: ActorRef, mediator: ActorRef): Props = Props(new MetadataCoordinator(cache, mediator))
+  def props(cache: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
+    Props(new MetadataCoordinator(cache, schemaCoordinator, mediator))
 }
