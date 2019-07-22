@@ -21,12 +21,14 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
+import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIndex}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
@@ -66,7 +68,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       sender ! CountGot(db, namespace, metric, count)
     case ReceiveTimeout =>
       self ! PoisonPill
-    case ExecuteSelectStatement(statement, schema, _) =>
+    case ExecuteSelectStatement(statement, schema, _, _) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
@@ -114,6 +116,26 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Failure(ex) =>
               log.error(ex, "error occurred executing query {} in location {}", statement, location)
               sender ! SelectStatementFailed(ex.getMessage)
+          }
+
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, interval, condition, _, _)) =>
+          val ranges =
+            TimeRangeExtractor.computeRangesForLocation(interval, condition, location)
+
+          handleNoIndexResults(Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", ranges) {
+            facetResult =>
+              facetResult.labelValues.toSeq
+                .map { lv =>
+                  val boundaries = lv.label.split("-").map(_.toLong).toSeq
+                  Bit(boundaries.head,
+                      lv.value.longValue(),
+                      Map[String, JSerializable](("lowerBound", boundaries.head), ("upperBound", boundaries.last)),
+                      Map.empty)
+                }
+          })) match {
+            case Success(bits) =>
+              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
 
         case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>

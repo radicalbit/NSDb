@@ -35,12 +35,13 @@ import scala.util.parsing.input.CharSequenceReader
   *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "tags" "(" (literal = literal)+ ")" "VAL" = digit
   *   DropStatement := "drop metric" literal
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
-  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" literal)? ("order by" literal ("desc")?)? (limit digit)?
+  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)?
   *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
   *   expression := expression "and" expression | expression "or" expression | "not" expression |
-  *                 literal "=" literal | literal compare literal | literal "like" literal |
+  *                 literal "=" literal | literal comparison literal | literal "like" literal |
   *                 literal "in" "(" digit "," digit ")" | literal "is" "not"? "null"
   *   comparison := "=" | ">" | "<" | ">=" | "<="
+  *   timeMeasure := "D" | "H" | "M" | "S"
   * }}}
   */
 final class SQLStatementParser extends RegexParsers with PackratParsers {
@@ -93,6 +94,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val group             = "GROUP BY" ignoreCase
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
+  private val temporalInterval  = "INTERVAL" ignoreCase
 
   private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
   private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9]*)""".r
@@ -220,7 +222,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   lazy val where: PackratParser[Expression] = Where ~> expression
 
-  lazy val groupBy: PackratParser[Option[String]] = (group ~> dimension) ?
+  lazy val groupBy
+    : PackratParser[Option[GroupByAggregation]] = ((group ~> ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?) ~ (dimension ?)) ?) ^^ {
+    case Some(None ~ Some(dim)) => Some(SimpleGroupByAggregation(dim))
+    case Some(Some(i) ~ None)   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
+    case None                   => None
+  }
 
   lazy val order: PackratParser[Option[OrderOperator]] = ((Order ~> dimension ~ (Desc ?)) ?) ^^ {
     case Some(dim ~ Some(_)) => Some(DescOrderOperator(dim))

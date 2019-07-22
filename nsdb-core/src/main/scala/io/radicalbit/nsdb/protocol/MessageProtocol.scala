@@ -18,9 +18,9 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
-import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
-import io.radicalbit.nsdb.model.{Location, Schema}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 
 /**
   * common messages exchanged among all the nsdb actors.
@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.model.{Location, Schema}
 object MessageProtocol {
 
   /**
-    * commands executed among nsdb actors.
+    * commands executed among NSDb actors.
     */
   object Commands {
     case object GetDbs                                   extends ControlMessage
@@ -41,7 +41,10 @@ object MessageProtocol {
     case class EvictSchema(db: String, namespace: String, metric: String)
 
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
-    case class ExecuteSelectStatement(selectStatement: SelectSQLStatement, schema: Schema, locations: Seq[Location])
+    case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
+                                      schema: Schema,
+                                      locations: Seq[Location],
+                                      ranges: Seq[TimeRange] = Seq.empty)
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
     case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)

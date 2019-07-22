@@ -124,7 +124,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
         case Some(child) => child forward msg
         case None        => sender() ! CountGot(db, namespace, metric, 0)
       }
-    case msg @ ExecuteSelectStatement(statement, _, _) =>
+    case msg @ ExecuteSelectStatement(statement, _, _, _) =>
       getReader(statement.db, statement.namespace) match {
         case Some(child) => child forward msg
         case None        => sender() ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, Seq.empty)

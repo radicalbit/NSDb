@@ -16,8 +16,12 @@
 
 package io.radicalbit.nsdb.index.lucene
 
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.TimeRange
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
+import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts}
+import org.apache.lucene.facet.{FacetResult, FacetsCollector}
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
 import org.apache.lucene.search._
 import org.apache.lucene.store.Directory
@@ -69,6 +73,7 @@ trait Index[T] {
 
   /**
     * Validates a record before write it.
+    *
     * @param data the record to be validated.
     * @return a sequence of lucene [[Field]] that can be safely written in the index.
     */
@@ -77,7 +82,8 @@ trait Index[T] {
   /**
     * Writes an entry into the index.
     * This method MUST NOT commit the writer.
-    * @param data the entry to be written
+    *
+    * @param data   the entry to be written
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level write operation return value.
     */
@@ -85,7 +91,8 @@ trait Index[T] {
 
   /**
     * Deletes an entry from the index.
-    * @param data the entry to be deleted.
+    *
+    * @param data   the entry to be deleted.
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level delete operation return value.
     */
@@ -93,7 +100,8 @@ trait Index[T] {
 
   /**
     * Deletes entries that fulfill the given query.
-    * @param query the query to select the entries to be deleted.
+    *
+    * @param query  the query to select the entries to be deleted.
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level delete operation return value.
     */
@@ -107,6 +115,7 @@ trait Index[T] {
 
   /**
     * Deletes all entries from the index.
+    *
     * @param writer a lucene [[IndexWriter]] to handle the write operation.
     * @return the lucene low level delete operation return value.
     */
@@ -143,6 +152,20 @@ trait Index[T] {
 
   def close(): Unit = {
     directory.close()
+  }
+
+  def executeCountLongRangeFacet(
+      searcher: IndexSearcher,
+      query: Query,
+      fieldName: String,
+      ranges: Seq[TimeRange]
+  )(f: FacetResult => Seq[Bit]): Seq[Bit] = {
+    val luceneRanges = ranges.map(r =>
+      new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
+    val fc = new FacetsCollector
+    FacetsCollector.search(searcher, query, 0, fc)
+    val facets: LongRangeFacetCounts = new LongRangeFacetCounts(fieldName, fc, luceneRanges: _*)
+    f(facets.getTopChildren(0, fieldName))
   }
 }
 

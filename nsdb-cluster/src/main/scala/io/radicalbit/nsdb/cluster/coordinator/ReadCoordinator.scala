@@ -172,61 +172,68 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
             val uniqueLocationsByNode =
               filteredLocations.groupBy(l => (l.from, l.to)).map(_._2.head).toSeq.groupBy(_.node)
 
-            val x = StatementParser.parseStatement(statement, schema) match {
-              //pure count(*) query
-              case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
-                  if fields.lengthCompare(1) == 0 && fields.head.count =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
-                  val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
-                  val count       = if (recordCount <= limit) recordCount else limit
+            val result: Future[Either[SelectStatementFailed, Seq[Bit]]] =
+              StatementParser.parseStatement(statement, schema) match {
+                //pure count(*) query
+                case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
+                    if fields.lengthCompare(1) == 0 && fields.head.count =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
+                    val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
+                    val count       = if (recordCount <= limit) recordCount else limit
 
-                  Seq(
-                    Bit(timestamp = 0,
-                        value = count,
-                        dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                        tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
-                })
+                    Seq(
+                      Bit(timestamp = 0,
+                          value = count,
+                          dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
+                          tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
+                  })
 
-              case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode)(identity)
+                case Success(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode)(identity)
 
-              case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
-                val distinctField = fields.head.name
+                case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+                  val distinctField = fields.head.name
 
-                gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { values =>
-                  Bit(
-                    timestamp = 0,
-                    value = 0,
-                    dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
-                    tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
-                  )
-                }
-
-              case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get, schema, uniqueLocationsByNode) { values =>
-                  Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
-                }
-
-              case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get, schema, uniqueLocationsByNode) { values =>
-                  val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
-                  implicit val numeric: Numeric[JSerializable] = v.numeric
-                  aggregationType match {
-                    case InternalMaxAggregation(_, _) =>
-                      Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
-                    case InternalMinAggregation(_, _) =>
-                      Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
-                    case InternalSumAggregation(_, _) =>
-                      Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
+                  gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { values =>
+                    Bit(
+                      timestamp = 0,
+                      value = 0,
+                      dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
+                      tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
+                    )
                   }
-                }
-              case Failure(ex) =>
-                Future(Left(SelectStatementFailed("Select Statement not valid")))
-              case _ =>
-                Future(Left(SelectStatementFailed("Not a select statement.")))
-            }
 
-            applyOrderingWithLimit(x, statement, schema).map {
+                case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
+                  gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
+                    values =>
+                      Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
+                  }
+
+                case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+                  gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
+                    values =>
+                      val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
+                      implicit val numeric: Numeric[JSerializable] = v.numeric
+                      aggregationType match {
+                        case InternalMaxAggregation(_, _) =>
+                          Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
+                        case InternalMinAggregation(_, _) =>
+                          Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
+                        case InternalSumAggregation(_, _) =>
+                          Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
+                      }
+                  }
+                case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _)) =>
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode) { e =>
+                    e.sortBy(_.timestamp)
+                  }
+                case Failure(_) =>
+                  Future(Left(SelectStatementFailed("Select Statement not valid")))
+                case _ =>
+                  Future(Left(SelectStatementFailed("Not a select statement.")))
+              }
+
+            applyOrderingWithLimit(result, statement, schema).map {
               case Right(results) =>
                 SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results)
               case Left(failed) => failed

@@ -147,6 +147,24 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
   */
 case class LimitOperator(value: Int)
 
+sealed trait GroupByAggregation {
+  def dimension: String
+}
+
+/**
+  * Class that represent a simple Group By clause.
+  * @param dimension the dimension to apply the aggregation to
+  */
+case class SimpleGroupByAggregation(dimension: String) extends GroupByAggregation
+
+/**
+  * Temporal aggregation.
+  * @param interval The time aggregation interval in Milliseconds.
+  */
+case class TemporalGroupByAggregation(interval: Long) extends GroupByAggregation {
+  override val dimension: String = "timestamp"
+}
+
 /**
   * Generic Sql statement.
   * Possible subclasses are: [[SelectSQLStatement]], [[InsertSQLStatement]] or [[DeleteSQLStatement]].
@@ -175,7 +193,7 @@ case class SelectSQLStatement(override val db: String,
                               distinct: Boolean,
                               fields: SelectedFields,
                               condition: Option[Condition] = None,
-                              groupBy: Option[String] = None,
+                              groupBy: Option[GroupByAggregation] = None,
                               order: Option[OrderOperator] = None,
                               limit: Option[LimitOperator] = None)
     extends SQLStatement

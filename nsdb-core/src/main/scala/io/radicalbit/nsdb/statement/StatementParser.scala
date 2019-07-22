@@ -44,15 +44,15 @@ object StatementParser {
   /**
     * Retrieves internal [[InternalAggregationType]] based on provided into the query.
     * @param groupField group by field.
-    * @param aggregateField filed to apply the aggregation to.
+    * @param aggregateField field to apply the aggregation to.
     * @param agg aggregation clause in query (min, max, sum, count).
     * @return an instance of [[InternalAggregationType]] based on the given parameters.
     */
   private def aggregationType(groupField: String, aggregateField: String, agg: Aggregation): InternalAggregationType = {
     agg match {
-      case CountAggregation => new InternalCountAggregation(groupField, aggregateField)
-      case MaxAggregation   => new InternalMaxAggregation(groupField, aggregateField)
-      case MinAggregation   => new InternalMinAggregation(groupField, aggregateField)
+      case CountAggregation => InternalCountAggregation(groupField, aggregateField)
+      case MaxAggregation   => InternalMaxAggregation(groupField, aggregateField)
+      case MinAggregation   => InternalMinAggregation(groupField, aggregateField)
       case SumAggregation   => InternalSumAggregation(groupField, aggregateField)
     }
   }
@@ -98,25 +98,44 @@ object StatementParser {
     expParsed.flatMap(exp =>
       (distinctValue, fieldList, statement.groupBy) match {
         case (_, Failure(exception), _) => Failure(exception)
+        // Trying to order by a dimension not in group by clause
         case (false, Success(Seq(Field(_, Some(_)))), Some(group))
-            if sortOpt.isDefined && !Seq("value", group).contains(sortOpt.get.getSort.head.getField) =>
+            if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group))
-            if schema.fields.map(_.name).contains(group) && (fieldName == "value" || fieldName == "*") =>
+        // Match temporal count aggregation
+        case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
+            if fieldName == "value" || fieldName == "*" =>
+//          val ranges = TimeRangeExtractor.computeRanges(interval, statement.condition, statement.limit, occurredOn)
+          Success(
+            ParsedTemporalAggregatedQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              interval,
+              statement.condition,
+              sortOpt,
+              limitOpt
+            )
+          )
+        // not yet supported aggregations different from count
+        case (false, Success(Seq(Field(_, Some(_)))), Some(TemporalGroupByAggregation(_))) =>
+          Failure(new InvalidStatementException(StatementParserErrors.NOT_SUPPORTED_AGGREGATION_IN_TEMPORAL_GROUP_BY))
+        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
+            if schema.fields.map(_.name).contains(group.dimension) && (fieldName == "value" || fieldName == "*") =>
           Success(
             ParsedAggregatedQuery(
               statement.namespace,
               statement.metric,
               exp.q,
-              aggregationType(groupField = group, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
+              aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
               sortOpt,
               limitOpt
             ))
-        case (false, Success(Seq(Field(fieldName, Some(_)))), Some(group))
-            if schema.fields.map(_.name).contains(group) =>
+        case (false, Success(Seq(Field(_, Some(_)))), Some(group))
+            if schema.fields.map(_.name).contains(group.dimension) =>
           Failure(new InvalidStatementException(StatementParserErrors.AGGREGATION_NOT_ON_VALUE))
         case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
-          Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(group)))
+          Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(group.dimension)))
         case (_, Success(List(Field(_, None))), Some(_)) =>
           Failure(new InvalidStatementException(StatementParserErrors.NO_AGGREGATION_GROUP_BY))
         case (_, Success(List(_)), Some(_)) =>
@@ -132,9 +151,9 @@ object StatementParser {
               statement.namespace,
               statement.metric,
               exp.q,
-              false,
+              distinct = false,
               limitOpt.getOrElse(Integer.MAX_VALUE),
-              List(SimpleField(name, true)),
+              List(SimpleField(name, count = true)),
               sortOpt
             )
           )
@@ -155,7 +174,7 @@ object StatementParser {
             ParsedSimpleQuery(statement.namespace,
                               statement.metric,
                               exp.q,
-                              false,
+                              distinct = false,
                               limitOpt getOrElse Int.MaxValue,
                               List(),
                               sortOpt))
@@ -220,6 +239,15 @@ object StatementParser {
                                    aggregationType: InternalAggregationType,
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
+      extends ParsedQuery
+
+  case class ParsedTemporalAggregatedQuery(namespace: String,
+                                           metric: String,
+                                           q: Query,
+                                           rangeLength: Long,
+                                           condition: Option[Condition],
+                                           sort: Option[Sort] = None,
+                                           limit: Option[Int] = None)
       extends ParsedQuery
 
   /**

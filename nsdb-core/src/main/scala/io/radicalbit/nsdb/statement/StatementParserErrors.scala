@@ -27,6 +27,8 @@ object StatementParserErrors {
     "cannot execute a groupField by query performing an aggregation on dimension different from value"
   lazy val SORT_DIMENSION_NOT_IN_GROUP =
     "cannot sort groupField by query result by a dimension not in groupField"
+  lazy val NOT_SUPPORTED_AGGREGATION_IN_TEMPORAL_GROUP_BY =
+    "not supported aggregation function for temporal grouping query"
   def notExistingDimension(dim: String)       = s"dimension $dim does not exist"
   def notExistingDimensions(dim: Seq[String]) = s"dimensions [$dim] does not exist"
   def uncompatibleOperator(operator: String, dimTypeAllowed: String) =

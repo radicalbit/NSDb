@@ -17,14 +17,18 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.model.{Location, TimeRange}
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
+
+import scala.annotation.tailrec
 
 /**
   * Provides a utility method to retrieve a list of [[Interval]] from a given [[Expression]]. That interval list will be used to identify shards to execute query against.
   */
 object TimeRangeExtractor {
+
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {
       case Some(EqualityExpression("timestamp", value: Long)) => List(Interval.point(value))
@@ -49,6 +53,60 @@ object TimeRangeExtractor {
               List((extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))).reduce(_ union _))
           }
       case _ => List.empty
+    }
+  }
+
+  /**
+    * Recursive method used to compute ranges for a temporal interval defined in where condition
+    *
+    * @param upperInterval interval upper bound, it's the previous one lower bound
+    * @param lowerInterval interval lower bound, this value remained fixed during recursion
+    * @param rangeLength range duration expressed in millis
+    * @param acc result accumulator
+    * @return
+    */
+  @tailrec
+  private def computeRangeForInterval(upperInterval: Long,
+                                      lowerInterval: Long,
+                                      rangeLength: Long,
+                                      acc: Seq[TimeRange]): Seq[TimeRange] = {
+
+    val lowerBound = upperInterval - rangeLength
+
+    if (lowerBound <= lowerInterval)
+      acc :+ TimeRange(lowerInterval, upperInterval, lowerInclusive = true, upperInclusive = true)
+    else
+      computeRangeForInterval(
+        lowerBound,
+        lowerInterval,
+        rangeLength,
+        acc :+ TimeRange(lowerBound, upperInterval, lowerInclusive = false, upperInclusive = true))
+  }
+
+  /**
+    * Temporal buckets are computed as done in shards definition. So, given the time origin time buckets are computed
+    * starting from actual timestamp going backward until limit is reached.
+    *
+    * @param rangeLength The range length in milliseconds.
+    * @param location The location used to filter time ranges.
+    * @return A sequence of [[TimeRange]] for the given input params.
+    */
+  def computeRangesForLocation(rangeLength: Long,
+                               whereCondition: Option[Condition],
+                               location: Location): Seq[TimeRange] = {
+
+    val locationAsInterval                 = Interval.fromBounds(Closed(location.from), Closed(location.to))
+    val timeIntervals: Seq[Interval[Long]] = TimeRangeExtractor.extractTimeRange(whereCondition.map(_.expression))
+
+    timeIntervals match {
+      case Nil =>
+        computeRangeForInterval(location.to, location.from, rangeLength, Seq.empty)
+      case _ =>
+        timeIntervals.filter(interval => interval.intersects(locationAsInterval)).flatMap { i =>
+          val upperBound = i.top(1).getOrElse(location.to)
+          val lowerBound = i.bottom(1).getOrElse(location.from)
+          computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
+        }
     }
   }
 }
