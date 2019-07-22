@@ -99,7 +99,7 @@ class WriteCoordinatorErrorsSpec
   lazy val failingCommitLogCoordinator: TestActorRef[MockedCommitLogCoordinator] =
     TestActorRef[MockedCommitLogCoordinator](MockedCommitLogCoordinator.props(failureCommitLogProbe.ref))
   lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache])))
+    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
   lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))

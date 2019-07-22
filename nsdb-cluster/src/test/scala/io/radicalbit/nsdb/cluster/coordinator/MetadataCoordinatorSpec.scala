@@ -16,17 +16,24 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
 import akka.cluster.Cluster
 import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
 import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
+  SubscribeCommitLogCoordinator,
+  SubscribeMetricsDataActor,
+  UpdateSchemaFromRecord
+}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.Await
@@ -49,17 +56,29 @@ class MetadataCoordinatorSpec
 
   import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache._
 
-  val probe               = TestProbe()
-  val metadataCache       = system.actorOf(LocalMetadataCache.props)
-  val metadataCoordinator = system.actorOf(MetadataCoordinator.props(metadataCache, probe.ref, probe.ref))
+  val probe                = TestProbe()
+  val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
+  val schemaCoordinator =
+    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
+  val metricsDataActorProbe = TestProbe()
+  val metadataCache         = system.actorOf(LocalMetadataCache.props)
+  val metadataCoordinator   = system.actorOf(MetadataCoordinator.props(metadataCache, schemaCoordinator, probe.ref))
 
   val db        = "testDb"
   val namespace = "testNamespace"
   val metric    = "testMetric"
 
+  implicit val timeout = Timeout(10 seconds)
+
   override def beforeAll = {
     val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
+
+    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, "localhost"), 10 seconds)
+
+    val nameRecord = Bit(0, 1, Map("name" -> "name"), Map("city" -> "milano"))
+    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, nameRecord), 10 seconds)
   }
 
   override def beforeEach: Unit = {
@@ -305,11 +324,10 @@ class MetadataCoordinatorSpec
       val now = System.currentTimeMillis()
 
       val locations = Seq(
-        Location(metric, "node_01", 0L, 30000L),
-        Location(metric, "node_02", 0L, 30000L),
-        Location(metric, "node_02", 30000L, 60000L),
-        Location(metric, "node_01", now - 5000, now - 2000),
-        Location(metric, "node_01", now - 1000, now)
+        Location(metric, "localhost", 0L, 30000L),
+        Location(metric, "localhost", 30000L, 60000L),
+        Location(metric, "localhost", now - 5000, now - 2000),
+        Location(metric, "localhost", now - 1000, now)
       )
 
       locations.foreach { loc =>
@@ -331,6 +349,9 @@ class MetadataCoordinatorSpec
         probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
         val locationsGot = probe.expectMsgType[LocationsGot]
         locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(2)
+
+        val deleteCommand = metricsDataActorProbe.expectMsgType[ExecuteDeleteStatementInternalInLocations]
+        deleteCommand.locations shouldBe Seq(locations.takeRight(2).head)
       }
 
       Thread.sleep(3000)
@@ -339,6 +360,9 @@ class MetadataCoordinatorSpec
         probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
         val locationsGot = probe.expectMsgType[LocationsGot]
         locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(1)
+
+        val deleteCommand = metricsDataActorProbe.expectMsgType[ExecuteDeleteStatementInternalInLocations]
+        deleteCommand.locations shouldBe locations.takeRight(1)
       }
     }
 

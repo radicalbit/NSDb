@@ -43,7 +43,7 @@ class SchemaCoordinatorSpec
   val schemaCoordinator =
     system.actorOf(
       SchemaCoordinator
-        .props("target/test_index/NamespaceSchemaCoordinatorSpec", system.actorOf(Props[FakeSchemaCache])))
+        .props(system.actorOf(Props[FakeSchemaCache])))
 
   val db         = "db"
   val namespace  = "namespace"

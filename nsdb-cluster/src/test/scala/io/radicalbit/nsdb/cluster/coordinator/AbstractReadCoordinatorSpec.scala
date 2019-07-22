@@ -110,7 +110,7 @@ abstract class AbstractReadCoordinatorSpec
   val db        = "db"
   val namespace = "registry"
   val schemaCoordinator =
-    system.actorOf(SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
+    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
   val metadataCoordinator =
     system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadatacoordinator")
   val writeCoordinator =
@@ -124,9 +124,6 @@ abstract class AbstractReadCoordinatorSpec
   override def beforeAll = {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5.second)
-
-//    schemaCoordinator ! WarmUpSchemas(List.empty)
-//    readCoordinatorActor ! WarmUpCompleted
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 

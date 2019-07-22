@@ -61,7 +61,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
-      .props(indexBasePath, schemaCache)
+      .props(schemaCache)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
     s"schema-coordinator_$nodeName"
   )

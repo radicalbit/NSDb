@@ -27,6 +27,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
@@ -176,20 +177,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
   }
 
   /**
-  * Generates a delete statement given a threshold. The delete statement involves records older than the threshold.
-    * e.g. delete from "metric" where timestamp < threshold
-    */
-  private def deleteStatement(db: String, namespace: String, metric: String, threshold: Long) =
-    DeleteSQLStatement(
-      db = db,
-      namespace = namespace,
-      metric = metric,
-      condition =
-        Condition(ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = threshold))
-    )
-
-  /**
-  * Performs a partial eviction in a location by executing a [[DeleteSQLStatement]].
+    * Performs a partial eviction in a location by executing a [[DeleteSQLStatement]].
     * @param statement the delete statement.
     * @param location the location to be partially evicted.
     * @return the result of the delete operation.
@@ -280,11 +268,12 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                     .sequence(
                       locationsToPartiallyEvict.map(
                         location =>
-                          evictFromLocationCommitLogAck(db,
-                                                        namespace,
-                                                        System.currentTimeMillis(),
-                                                        location,
-                                                        deleteStatement(db, namespace, location.metric, threshold))))
+                          evictFromLocationCommitLogAck(
+                            db,
+                            namespace,
+                            System.currentTimeMillis(),
+                            location,
+                            deleteStatementFromThreshold(db, namespace, location.metric, threshold))))
                     .map { responses =>
                       val errors: ListBuffer[WriteToCommitLogFailed]       = ListBuffer.empty
                       val successes: ListBuffer[WriteToCommitLogSucceeded] = ListBuffer.empty
@@ -303,8 +292,11 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                 }
 
                 commitLogResponses.flatMap { _ =>
-                  Future.sequence(locationsToPartiallyEvict.map(location =>
-                    partiallyEvictPerform(deleteStatement(db, namespace, location.metric, threshold), location)))
+                  Future.sequence(
+                    locationsToPartiallyEvict.map(location =>
+                      partiallyEvictPerform(deleteStatementFromThreshold(db, namespace, location.metric, threshold),
+                                            location))
+                  )
                 }
             }
       }
@@ -456,6 +448,19 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
 }
 
 object MetadataCoordinator {
+
+  /**
+    * Generates a delete statement given a threshold. The delete statement involves records older than the threshold.
+    * e.g. delete from "metric" where timestamp < threshold
+    */
+  def deleteStatementFromThreshold(db: String, namespace: String, metric: String, threshold: Long) =
+    DeleteSQLStatement(
+      db = db,
+      namespace = namespace,
+      metric = metric,
+      condition =
+        Condition(ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = threshold))
+    )
 
   object commands {
 
