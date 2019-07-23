@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.index
 
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.index.SimpleIndex
 import io.radicalbit.nsdb.index.lucene.Index._
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
@@ -27,13 +28,6 @@ import org.apache.lucene.store.Directory
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-
-/**
-  * Metric Info.
-  * @param metric the metric.
-  * @param shardInterval shard interval for the metric in milliseconds
-  */
-case class MetricInfo(metric: String, shardInterval: Long)
 
 /**
   * Index for storing metric info (shard interval).
@@ -74,8 +68,6 @@ class MetricInfoIndex(override val directory: Directory) extends SimpleIndex[Met
   def getMetricInfo(metric: String): Option[MetricInfo] = {
     val results = handleNoIndexResults(Try {
       val queryTerm = new TermQuery(new Term(_keyField, metric))
-
-      implicit val searcher: IndexSearcher = getSearcher
 
       query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)
     })

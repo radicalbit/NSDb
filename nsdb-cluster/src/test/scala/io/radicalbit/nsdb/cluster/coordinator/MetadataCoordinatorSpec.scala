@@ -25,7 +25,7 @@ import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache
-import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 

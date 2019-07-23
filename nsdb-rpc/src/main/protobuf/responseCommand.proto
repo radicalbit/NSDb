@@ -26,7 +26,7 @@ message MetricsGot{
     string errors = 5;
 }
 
-message MetricSchemaRetrieved{
+message DescribeMetricResponse{
     message MetricField{
         string name = 1;
         enum FieldClassType {
@@ -38,12 +38,17 @@ message MetricSchemaRetrieved{
         FieldClassType fieldClassType = 2;
         string indexType = 3;
     }
+    message MetricInfo{
+     int64 shardInterval = 1;
+     int64 retention = 2;
+    }
     string db = 1;
     string namespace = 2;
     string metric = 3;
     repeated MetricField fields = 4;
-    bool completedSuccessfully = 5;
-    string errors = 6;
+    MetricInfo metricInfo = 5;
+    bool completedSuccessfully = 6;
+    string errors = 7;
 }
 
 message Namespaces{

@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.common.protocol
 
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.statement.{CommandStatement, SQLStatement}
 
 /**
@@ -64,7 +65,8 @@ case class SQLStatementExecuted(db: String, namespace: String, metric: String, r
 case class SQLStatementFailed(db: String, namespace: String, metric: String, reason: String) extends SQLStatementResult
 
 /**
-  * Describes a metric field. See [[MetricSchemaRetrieved]].
+  * Describes a metric field. See [[DescribeMetricResponse]].
+  *
   * @param name field name.
   * @param `type` field type (e.g. VARCHAR, INT, BIGINT, ecc.).
   */
@@ -76,14 +78,18 @@ case class MetricField(name: String, fieldClassType: FieldClassType, `type`: Str
   *
   * - [[NamespaceMetricsListRetrieved]] for show metrics command.
   *
-  * - [[MetricSchemaRetrieved]] for describe metric command.
+  * - [[DescribeMetricResponse]] for describe metric command.
   *
   * - [[NamespacesListRetrieved]] for show namespaces command.
   */
 sealed trait CommandStatementExecuted extends EndpointOutputProtocol
 case class NamespaceMetricsListRetrieved(db: String, namespace: String, metrics: List[String])
     extends CommandStatementExecuted
-case class MetricSchemaRetrieved(db: String, namespace: String, metric: String, fields: List[MetricField])
+case class DescribeMetricResponse(db: String,
+                                  namespace: String,
+                                  metric: String,
+                                  fields: List[MetricField],
+                                  metricInfo: Option[MetricInfo])
     extends CommandStatementExecuted
 case class NamespacesListRetrieved(db: String, namespaces: Seq[String]) extends CommandStatementExecuted
 

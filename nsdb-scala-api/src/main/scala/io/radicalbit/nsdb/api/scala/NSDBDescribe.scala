@@ -14,27 +14,21 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
+package io.radicalbit.nsdb.api.scala
 
-package io.radicalbit.nsdb.rpc;
+import io.radicalbit.nsdb.rpc.requestCommand.DescribeMetric
+import io.radicalbit.nsdb.rpc.responseCommand.DescribeMetricResponse
 
-message InitMetricRequest {
-  string db = 1;
-  string namespace = 2;
-  string metric = 3;
-  string shardInterval = 4;
-  string retention = 5;
+import scala.concurrent.Future
+
+/**
+  * Auxiliary class to add the describe API
+  * @param nsdb the api object representing the nsdb connection.
+  */
+class NSDBDescribe(nsdb: NSDB) {
+
+  def describe(bit: Bit): Future[DescribeMetricResponse] = {
+    nsdb.client.describeMetric(DescribeMetric(bit.db, bit.namespace, bit.metric))
+  }
+
 }
-
-message InitMetricResponse {
-  string db = 1;
-  string namespace = 2;
-  string metric = 3;
-  bool completedSuccessfully = 4;
-  string errorMsg = 5;
-}
-
-service InitMetric {
-  rpc InitMetric(InitMetricRequest) returns (InitMetricResponse);
-}
-

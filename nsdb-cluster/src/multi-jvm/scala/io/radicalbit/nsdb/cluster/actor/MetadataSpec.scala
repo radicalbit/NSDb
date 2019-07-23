@@ -11,7 +11,7 @@ import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.index.MetricInfo
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -145,7 +145,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
     "add metric info from different nodes" in within(10.seconds) {
 
-      val metricInfo = MetricInfo("metric", 100)
+      val metricInfo = MetricInfo("metric", 100, 30)
 
       runOn(node1) {
         val selfMember = cluster.selfMember

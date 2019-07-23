@@ -13,8 +13,13 @@ In both cases, communication to NSDb cluster is handled using a gRPC Client inst
 
 ## Init API
 Before writing into a metric, NSDb provides an api that makes possible to set some metric parameter in order to optimize write or read performance.
-The Init api allows the user to set a custom shard interval for a metric. If this api is not called, the default shard interval will be used for the metric.
-The shard interval is expressed using the [Java Duration](https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html) convention (23 seconds, 23 s, 24h etc).
+The Init api allows the user to set the following custom parameters for a metric
+
+- shard interval: the time interval that determines the shard duration.
+- retention: the time interval in which data are kept into the indices.
+
+If this api is not called, the default shard interval and an infinite retention will be used for the metric.
+The shard interval and the retention are expressed using the [Java Duration](https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html) convention (e.g. 23 seconds, 23 s, 24h etc).
 This operation is allowed only before the first bit is written. Otherwise an error message will be returned  
 
 **Example**
@@ -24,12 +29,14 @@ public class NSDBInitMetric {
     public static void main(String[] args) throws Exception {
         NSDB nsdb = NSDB.connect("127.0.0.1", 7817).get();
 
-        NSDB.BitInfo bitInfo = nsdb.db("root")
+        NSDB.BitInfo metricInfo = nsdb.db("root")
                 .namespace("registry")
-                .bit("people").shardInterval("2d");
+                .bit("people")
+                .shardInterval("2d")
+                .retention("2d");
 
 
-        InitMetricResult result = nsdb.initMetric(bitInfo).get();
+        InitMetricResult result = nsdb.initMetric(metricInfo).get();
         System.out.println("IsSuccessful = " + result.isCompletedSuccessfully());
         System.out.println("errors = " + result.getErrorMsg());
     }

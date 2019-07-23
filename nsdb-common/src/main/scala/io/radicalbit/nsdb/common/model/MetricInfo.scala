@@ -14,27 +14,13 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
+package io.radicalbit.nsdb.common.model
 
-package io.radicalbit.nsdb.rpc;
-
-message InitMetricRequest {
-  string db = 1;
-  string namespace = 2;
-  string metric = 3;
-  string shardInterval = 4;
-  string retention = 5;
-}
-
-message InitMetricResponse {
-  string db = 1;
-  string namespace = 2;
-  string metric = 3;
-  bool completedSuccessfully = 4;
-  string errorMsg = 5;
-}
-
-service InitMetric {
-  rpc InitMetric(InitMetricRequest) returns (InitMetricResponse);
-}
-
+/**
+  * Metric Info.
+  *
+  * @param metric        the metric.
+  * @param shardInterval shard interval for the metric in milliseconds.
+  * @param retention     period in which data is stored for the metric, 0 means infinite.
+  */
+case class MetricInfo(metric: String, shardInterval: Long, retention: Long = 0)

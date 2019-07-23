@@ -22,6 +22,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
@@ -34,7 +35,7 @@ import io.radicalbit.nsdb.rpc.requestCommand.{
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.responseCommand.{
   Namespaces,
-  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  DescribeMetricResponse => GrpcDescribeMetricResponse,
   MetricsGot => GrpcMetricsGot
 }
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
@@ -167,8 +168,8 @@ class NsdbILoop(host: Option[String],
           ))
     }
 
-  private def fieldClassTypeFor(field: GrpcMetricSchemaRetrieved.MetricField): FieldClassType = {
-    import GrpcMetricSchemaRetrieved.MetricField.FieldClassType._
+  private def fieldClassTypeFor(field: GrpcDescribeMetricResponse.MetricField): FieldClassType = {
+    import GrpcDescribeMetricResponse.MetricField.FieldClassType._
 
     field.fieldClassType match {
       case DIMENSION => DimensionFieldType
@@ -182,7 +183,7 @@ class NsdbILoop(host: Option[String],
     * Manages server responses from [[CommandStatement]] client requests
     * Transform gRPC protocol depending messages into client managed ones.
     *
-    * @param gRpcResponse server response oneOf [[GrpcMetricsGot]], [[GrpcMetricSchemaRetrieved]],
+    * @param gRpcResponse server response oneOf [[GrpcMetricsGot]], [[GrpcDescribeMetricResponse]],
     * @tparam T type parameter of gRpcResponse
     * @return internal representation on gRPC response
     */
@@ -190,19 +191,21 @@ class NsdbILoop(host: Option[String],
     gRpcResponse match {
       case r: GrpcMetricsGot if r.completedSuccessfully =>
         NamespaceMetricsListRetrieved(r.db, r.namespace, r.metrics.toList)
-      case r: GrpcMetricSchemaRetrieved if r.completedSuccessfully =>
-        MetricSchemaRetrieved(
+      case r: GrpcDescribeMetricResponse if r.completedSuccessfully =>
+        DescribeMetricResponse(
           r.db,
           r.namespace,
           r.metric,
-          r.fields.map(field => MetricField(field.name, fieldClassTypeFor(field), field.indexType)).toList)
+          r.fields.map(field => MetricField(field.name, fieldClassTypeFor(field), field.indexType)).toList,
+          metricInfo = r.metricInfo.map(mi => MetricInfo(r.metric, mi.shardInterval, mi.retention))
+        )
       case r: Namespaces if r.completedSuccessfully =>
         NamespacesListRetrieved(r.db, r.namespaces)
       case r: Namespaces =>
         CommandStatementExecutedWithFailure(r.errors)
       case r: GrpcMetricsGot =>
         CommandStatementExecutedWithFailure(r.errors)
-      case r: GrpcMetricSchemaRetrieved =>
+      case r: GrpcDescribeMetricResponse =>
         CommandStatementExecutedWithFailure(r.errors)
     }
 
@@ -276,8 +279,8 @@ class NsdbILoop(host: Option[String],
     case DescribeMetric(_, namespace, metric) =>
       processCommandResponse[CommandStatementExecuted](
         clientGrpc
-          .describeMetrics(GrpcDescribeMetric(db, namespace, metric))
-          .map(toInternalCommandResponse[GrpcMetricSchemaRetrieved]),
+          .describeMetric(GrpcDescribeMetric(db, namespace, metric))
+          .map(toInternalCommandResponse[GrpcDescribeMetricResponse]),
         tableBuilder.tableFor,
         lineToRecord
       )

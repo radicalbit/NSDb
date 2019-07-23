@@ -23,12 +23,16 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetMetricInfo, PutMetricInfo}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
+  MetricInfoFailed,
+  MetricInfoGot,
+  MetricInfoPut
+}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
-import io.radicalbit.nsdb.cluster.index.MetricInfo
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
@@ -48,10 +52,10 @@ import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
-import io.radicalbit.nsdb.rpc.responseCommand.MetricSchemaRetrieved.MetricField.{FieldClassType => GrpcFieldClassType}
+import io.radicalbit.nsdb.rpc.responseCommand.DescribeMetricResponse.MetricField.{FieldClassType => GrpcFieldClassType}
 import io.radicalbit.nsdb.rpc.responseCommand.{
   Namespaces,
-  MetricSchemaRetrieved => GrpcMetricSchemaRetrieved,
+  DescribeMetricResponse => GrpcDescribeMetricResponse,
   MetricsGot => GrpcMetricsGot
 }
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
@@ -59,6 +63,7 @@ import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
+import io.radicalbit.nsdb.rpc.responseCommand.DescribeMetricResponse.{MetricInfo => GrpcMetricInfo}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
@@ -194,7 +199,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       }
     }
 
-    override def describeMetric(request: DescribeMetric): Future[GrpcMetricSchemaRetrieved] = {
+    override def describeMetric(request: DescribeMetric): Future[GrpcDescribeMetricResponse] = {
 
       def extractField(schema: Option[Schema]): Set[MetricField] =
         schema
@@ -218,24 +223,30 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       //TODO: add failure handling
       log.debug("Received command DescribeMetric for metric {}", request.metric)
 
-      (readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric))
+      Future
+        .sequence(
+          Seq(
+            readCoordinator ? GetSchema(db = request.db, namespace = request.namespace, metric = request.metric),
+            metadataCoordinator ? GetMetricInfo(db = request.db, namespace = request.namespace, metric = request.metric)
+          ))
         .map {
-          case SchemaGot(db, namespace, metric, schema) =>
-            GrpcMetricSchemaRetrieved(
+          case SchemaGot(db, namespace, metric, schema) :: MetricInfoGot(_, _, metricInfoOpt) :: Nil =>
+            GrpcDescribeMetricResponse(
               db,
               namespace,
               metric,
               extractField(schema)
-                .map(f => GrpcMetricSchemaRetrieved.MetricField(f.name, extractFieldClassType(f), f.`type`))
+                .map(f => GrpcDescribeMetricResponse.MetricField(f.name, extractFieldClassType(f), f.`type`))
                 .toSeq,
+              metricInfoOpt.map(mi => GrpcMetricInfo(mi.shardInterval, mi.retention)),
               completedSuccessfully = true
             )
           case _ =>
-            GrpcMetricSchemaRetrieved(request.db,
-                                      request.namespace,
-                                      request.metric,
-                                      completedSuccessfully = false,
-                                      errors = "unknown message received from server")
+            GrpcDescribeMetricResponse(request.db,
+                                       request.namespace,
+                                       request.metric,
+                                       completedSuccessfully = false,
+                                       errors = "unknown message received from server")
         }
     }
 

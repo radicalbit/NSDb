@@ -20,7 +20,6 @@ import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
-import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -49,6 +48,9 @@ object NSDB {
     val connection = new NSDB(host = host, port = port)
     connection.check.map(_ => connection)
   }
+
+  implicit def NSDBToNSDBMetricInfo(str: NSDB): NSDBMetricInfo = new NSDBMetricInfo(str)
+  implicit def NSDBToNSDBDescribeInfo(str: NSDB): NSDBDescribe = new NSDBDescribe(str)
 }
 
 /**
@@ -82,12 +84,11 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   /**
     * Inner Grpc client.
     */
-  private val client = new GRPCClient(host = host, port = port)
+  protected[scala] val client = new GRPCClient(host = host, port = port)
 
   /**
     * Defines the db used to build the bit or the query.
     * @param name the db name
-    * @return
     */
   def db(name: String): Db = Db(name)
 
@@ -112,14 +113,6 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
         dimensions = bit.dimensions.toMap,
         tags = bit.tags.toMap
       ))
-
-  /**
-    * Init a bit by providing all the auxiliary information inside the [[BitInfo]]
-    * @param bitInfo the [[BitInfo]] to be written.
-    * @return a Future of the result of the operation. See [[InitMetricResponse]]
-    */
-  def init(bitInfo: BitInfo): Future[InitMetricResponse] =
-    client.initMetric(InitMetricRequest(bitInfo.db, bitInfo.namespace, bitInfo.metric, bitInfo.shardInterval))
 
   /**
     * Writes a list of bits into NSdb using the current openend connection.
@@ -206,11 +199,18 @@ case class Bit protected (db: String,
                           tags: ListBuffer[TagAPI] = ListBuffer.empty[TagAPI]) {
 
   /**
-    * Builds a [[BitInfo]] from an existing bit
+    * Builds [[MetricInfo]] from an existing bit providing a shard interval
     * @param interval the shard interval expressed in the Duration pattern (2d, 1h ecc.)
-    * @return the resulting [[BitInfo]]
+    * @return the resulting [[MetricInfo]]
     */
-  def shardInterval(interval: String): BitInfo = BitInfo(db, namespace, metric, interval)
+  def shardInterval(interval: String): MetricInfo = MetricInfo(db, namespace, metric, Some(interval), None)
+
+  /**
+    * Builds [[MetricInfo]] from an existing bit providing a retention
+    * @param retention the metric duration expressed in the Duration pattern (2d, 1h ecc.)
+    * @return the resulting [[MetricInfo]]
+    */
+  def retention(retention: String): MetricInfo = MetricInfo(db, namespace, metric, None, Some(retention))
 
   /**
     * Adds a Long value to the bit.
@@ -367,5 +367,3 @@ case class Bit protected (db: String,
     */
   def timestamp(v: Long): Bit = copy(timestamp = Some(v))
 }
-
-case class BitInfo protected (db: String, namespace: String, metric: String, shardInterval: String)

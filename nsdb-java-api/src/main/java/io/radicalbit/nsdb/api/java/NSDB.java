@@ -21,8 +21,8 @@ import io.radicalbit.nsdb.rpc.common.Dimension;
 import io.radicalbit.nsdb.rpc.common.Tag;
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse;
 import io.radicalbit.nsdb.rpc.init.InitMetricRequest;
-import io.radicalbit.nsdb.rpc.init.InitMetricResponse;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
+import io.radicalbit.nsdb.rpc.requestCommand.DescribeMetric;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
 
 import java.util.HashMap;
@@ -321,28 +321,58 @@ public class NSDB {
         }
 
         /**
-         * Builds a BitInfo from a Bit by specifying the shardinterval
+         * Builds a MetricInfo from a Bit by specifying the shardinterval
          * @param interval shard interval according to the Duration semantic (1d, 2h, 1m etc.)
-         * @return the BitInfo with the given shard interval
+         * @return the MetricInfo with the given shard interval
          */
-        public BitInfo shardInterval(String interval) {
-            return new BitInfo(db, namespace, metric, interval);
+        public MetricInfo shardInterval(String interval) {
+            return new MetricInfo(db, namespace, metric, interval, "");
+        }
+
+        /**
+         * Builds a MetricInfo from a Bit by specifying the retention
+         * @param retention metric retention according to the Duration semantic (1d, 2h, 1m etc.)
+         * @return the MetricInfo with the given shard interval
+         */
+        public MetricInfo retention(String retention) {
+            return new MetricInfo(db, namespace, metric, "", retention);
         }
 
     }
 
-    public static class BitInfo {
+    public static class MetricInfo {
 
         private String db;
         private String namespace;
         private String metric;
         private String shardInterval;
+        private String retention;
 
-        private BitInfo(String db, String namespace, String metric, String shardInterval) {
+        private MetricInfo(String db, String namespace, String metric, String shardInterval, String retention) {
             this.db = db;
             this.namespace = namespace;
             this.metric = metric;
             this.shardInterval = shardInterval;
+        }
+
+        /**
+         * Adds a shard interval the existing instance.
+         * @param interval shard interval according to the Duration semantic (1d, 2h, 1m etc.)
+         * @return the MetricInfo with the given shard interval
+         */
+        public MetricInfo shardInterval(String interval) {
+            this.shardInterval = interval;
+            return this;
+        }
+
+        /**
+         * Adds a retention to the existing instance.
+         * @param retention metric retention according to the Duration semantic (1d, 2h, 1m etc.)
+         * @return the MetricInfo with the given shard interval
+         */
+        public MetricInfo retention(String retention) {
+            this.retention = retention;
+            return this;
         }
 
     }
@@ -416,9 +446,14 @@ public class NSDB {
     }
 
 
-    public CompletableFuture<InitMetricResult> initMetric(BitInfo bitInfo) {
+    public CompletableFuture<InitMetricResult> initMetric(MetricInfo metricInfo) {
         return toJava(client.initMetric(
-                new InitMetricRequest(bitInfo.db, bitInfo.namespace, bitInfo.metric, bitInfo.shardInterval))).toCompletableFuture().thenApply(InitMetricResult::new);
+                new InitMetricRequest(metricInfo.db, metricInfo.namespace, metricInfo.metric, metricInfo.shardInterval, metricInfo.retention))).toCompletableFuture().thenApply(InitMetricResult::new);
+    }
+
+    public CompletableFuture<DescribeMetricResult> describe(Bit bit) {
+        return toJava(client.describeMetric(
+                new DescribeMetric(bit.db, bit.namespace, bit.metric))).toCompletableFuture().thenApply(DescribeMetricResult::new);
     }
 
 

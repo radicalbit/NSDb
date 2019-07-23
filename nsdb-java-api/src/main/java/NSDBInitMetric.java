@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import io.radicalbit.nsdb.api.java.DescribeMetricResult;
 import io.radicalbit.nsdb.api.java.InitMetricResult;
 import io.radicalbit.nsdb.api.java.NSDB;
 
@@ -25,13 +26,22 @@ public class NSDBInitMetric {
     public static void main(String[] args) throws Exception {
         NSDB nsdb = NSDB.connect("127.0.0.1", 7817).get();
 
-        NSDB.BitInfo bitInfo = nsdb.db("root")
+        NSDB.MetricInfo metricInfo = nsdb.db("root")
                 .namespace("registry")
-                .bit("people").shardInterval("2d");
+                .bit("people")
+                .shardInterval("2d")
+                .retention("1d");
 
 
-        InitMetricResult result = nsdb.initMetric(bitInfo).get();
+        InitMetricResult result = nsdb.initMetric(metricInfo).get();
         System.out.println("IsSuccessful = " + result.isCompletedSuccessfully());
         System.out.println("errors = " + result.getErrorMsg());
+
+        NSDB.Bit bit = nsdb.db("root")
+                .namespace("registry")
+                .bit("people");
+
+        DescribeMetricResult describeMetricResult = nsdb.describe(bit).get();
+        System.out.println("describeMetricResult = " + describeMetricResult);
     }
 }
