@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
@@ -28,7 +28,6 @@ import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, 
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -110,13 +109,11 @@ abstract class AbstractReadCoordinatorSpec
   val db        = "db"
   val namespace = "registry"
   val schemaCoordinator =
-    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
+    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schema-coordinator")
   val metadataCoordinator =
-    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadatacoordinator")
-  val writeCoordinator =
-    system.actorOf(WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)))
+    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadata-coordinator")
   val metricsDataActor =
-    system.actorOf(MetricsDataActor.props(basePath, "node1", writeCoordinator))
+    system.actorOf(MetricsDataActor.props(basePath, "node1", Actor.noSender))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
                                                                   system.actorOf(Props.empty))
