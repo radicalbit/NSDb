@@ -24,7 +24,7 @@ trait WriteInterval { this: TestKit =>
 
   import scala.concurrent.duration._
 
-  lazy val interval = FiniteDuration(
+  lazy val indexingInterval = FiniteDuration(
     system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS) + 1.second
 

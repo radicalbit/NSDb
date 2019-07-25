@@ -105,7 +105,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                      10 seconds)
       })
 
-    expectNoMessage(interval)
+    expectNoMessage(indexingInterval)
   }
 
   "ReadCoordinator" when {

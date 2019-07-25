@@ -166,8 +166,8 @@ class ReplicatedMetadataCacheSpec
         }
 
         awaitAssert {
-          replicatedCache ! GetAllMetricInfo
-          expectMsg(AllMetricInfoGot(Set(metricInfoValue)))
+          replicatedCache ! GetAllMetricInfoWithRetention
+          expectMsg(AllMetricInfoWithRetentionGot(Set()))
         }
       }
       enterBarrier("after-add-metric-info")

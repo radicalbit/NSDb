@@ -27,8 +27,8 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
@@ -58,7 +58,6 @@ import scala.util.Try
   */
 class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
-    with Stash
     with DirectorySupport {
   private val cluster = Cluster(context.system)
 
@@ -73,14 +72,12 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
 
-  lazy val retentionCheck = FiniteDuration(
+  lazy val retentionCheckInterval = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.retention.check.interval").toNanos,
     TimeUnit.NANOSECONDS)
 
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
-
-  context.setReceiveTimeout(retentionCheck)
 
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
@@ -126,9 +123,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
     (cache ? GetMetricInfoFromCache(db, namespace, metric))
       .flatMap {
         case MetricInfoCached(_, _, _, Some(metricInfo)) => Future(metricInfo.shardInterval)
-        case _ =>
-          (cache ? PutMetricInfoInCache(MetricInfo(db, namespace, metric, defaultShardingInterval)))
-            .map(_ => defaultShardingInterval)
+        case _                                           => Future(defaultShardingInterval)
       }
 
   override def preStart(): Unit = {
@@ -144,6 +139,11 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
       log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
       log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
+
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval) {
+      cache ! GetAllMetricInfoWithRetention
+    }
+
   }
 
   /**
@@ -218,17 +218,8 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
   }
 
   override def receive: Receive = {
-    case ReceiveTimeout =>
-      (cache ? GetAllMetricInfo)
-        .mapTo[AllMetricInfoGot]
-        .map {
-          case AllMetricInfoGot(infos) =>
-            CheckForRetention(infos.collect {
-              case i if i.retention > 0 => i
-            })
-        }
-        .pipeTo(self)
-    case CheckForRetention(metricInfoes) =>
+    case AllMetricInfoWithRetentionGot(metricInfoes) =>
+      log.debug(s"check for retention for {}", metricInfoes)
       metricInfoes.foreach {
         case MetricInfo(db, namespace, metric, _, retention) =>
           val threshold = System.currentTimeMillis() - retention
@@ -263,7 +254,8 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                     successes.toList
                   }
 
-                val commitLogResponses = cacheResponses.flatMap { _ =>
+                val commitLogResponses = cacheResponses.flatMap { res =>
+                  log.debug("evicted locations {}", res.map(_.location))
                   Future
                     .sequence(
                       locationsToPartiallyEvict.map(
@@ -477,8 +469,6 @@ object MetadataCoordinator {
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(metricInfo: MetricInfo)
-
-    case class CheckForRetention(metricInfo: Set[MetricInfo])
   }
 
   object events {

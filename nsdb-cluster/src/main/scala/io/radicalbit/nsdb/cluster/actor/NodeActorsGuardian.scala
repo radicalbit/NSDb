@@ -70,6 +70,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
     context.actorOf(
       MetadataCoordinator
         .props(metadataCache, schemaCoordinator, mediator)
+        .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       name = s"metadata-coordinator_$nodeName"
     )

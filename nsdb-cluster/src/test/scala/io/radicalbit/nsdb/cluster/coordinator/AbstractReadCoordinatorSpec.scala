@@ -196,7 +196,7 @@ abstract class AbstractReadCoordinatorSpec
                    10 seconds)
     })
 
-    expectNoMessage(interval)
-    expectNoMessage(interval)
+    expectNoMessage(indexingInterval)
+    expectNoMessage(indexingInterval)
   }
 }
