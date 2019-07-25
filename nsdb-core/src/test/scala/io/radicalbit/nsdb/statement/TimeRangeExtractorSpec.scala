@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Location, TimeRange}
 import org.scalatest.{Matchers, WordSpec}
@@ -268,6 +269,26 @@ class TimeRangeExtractorSpec extends WordSpec with Matchers {
           TimeRange(71, 74, true, true)
         )
       }
+    }
+
+    "executing getLocationsToEvict" should {
+
+      "filter locations given a threshold" in {
+        val locationSequence = Seq(
+          Location("metric", "node", 0, 5),
+          Location("metric", "node", 6, 10),
+          Location("metric", "node", 11, 15),
+          Location("metric", "node", 16, 20),
+          Location("metric", "node", 21, 25)
+        )
+
+        TimeRangeExtractor.getLocationsToEvict(locationSequence, 15) shouldBe (
+          Seq(Location("metric", "node", 0, 5), Location("metric", "node", 6, 10)),
+          Seq(Location("metric", "node", 11, 15))
+        )
+
+      }
+
     }
   }
 

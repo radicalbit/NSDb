@@ -197,7 +197,7 @@ class NsdbILoop(host: Option[String],
           r.namespace,
           r.metric,
           r.fields.map(field => MetricField(field.name, fieldClassTypeFor(field), field.indexType)).toList,
-          metricInfo = r.metricInfo.map(mi => MetricInfo(r.metric, mi.shardInterval, mi.retention))
+          metricInfo = r.metricInfo.map(mi => MetricInfo(r.db, r.namespace, r.metric, mi.shardInterval, mi.retention))
         )
       case r: Namespaces if r.completedSuccessfully =>
         NamespacesListRetrieved(r.db, r.namespaces)

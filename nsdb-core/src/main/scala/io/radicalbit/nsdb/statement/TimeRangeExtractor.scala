@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Location, TimeRange}
 import spire.implicits._
@@ -108,5 +109,20 @@ object TimeRangeExtractor {
           computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
         }
     }
+  }
+
+  /**
+    * Filters a sequence of [[Location]] given a threshold.
+    * Locations that are older that the threshold are returned.
+    * @param locations the location with coordinates to evict.
+    * @param threshold the lowest timestamp to keep.
+    * @return the location that must be completely evicted, and the locations that must be partially evicted.
+    */
+  def getLocationsToEvict(locations: Seq[Location], threshold: Long): (Seq[Location], Seq[Location]) = {
+    (locations.filter { l =>
+      l.to < threshold
+    }, locations.filter { l =>
+      l.from <= threshold && l.to >= threshold
+    })
   }
 }

@@ -19,8 +19,10 @@ package io.radicalbit.nsdb.common.model
 /**
   * Metric Info.
   *
+  * @param db the db.
+  * @param namespace the namespace.
   * @param metric        the metric.
   * @param shardInterval shard interval for the metric in milliseconds.
   * @param retention     period in which data is stored for the metric, 0 means infinite.
   */
-case class MetricInfo(metric: String, shardInterval: Long, retention: Long = 0)
+case class MetricInfo(db: String, namespace: String, metric: String, shardInterval: Long, retention: Long = 0)

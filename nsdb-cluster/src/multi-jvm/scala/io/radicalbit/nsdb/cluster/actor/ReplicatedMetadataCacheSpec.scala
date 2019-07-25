@@ -12,7 +12,6 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.rtsae.STMultiNodeSpec
-import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
 
@@ -70,12 +69,10 @@ class ReplicatedMetadataCacheSpec
 
   import ReplicatedMetadataCacheSpec._
 
-  implicit val formats = DefaultFormats
+  override def initialParticipants: Int = roles.size
 
-  override def initialParticipants = roles.size
-
-  val cluster         = Cluster(system)
-  val replicatedCache = system.actorOf(Props[ReplicatedMetadataCache])
+  private val cluster         = Cluster(system)
+  private val replicatedCache = system.actorOf(Props[ReplicatedMetadataCache])
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
@@ -153,11 +150,11 @@ class ReplicatedMetadataCacheSpec
 
       enterBarrier("after-add-location")
 
-      val metricInfoValue = MetricInfo(metric, 100)
+      val metricInfoValue = MetricInfo("db", "namespace",metric, 100)
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", metric, metricInfoValue)
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue)
           expectMsg(MetricInfoCached("db", "namespace", metric, Some(metricInfoValue)))
         }
       }
@@ -166,6 +163,11 @@ class ReplicatedMetadataCacheSpec
         awaitAssert {
           replicatedCache ! GetMetricInfoFromCache("db", "namespace", metric)
           expectMsg(MetricInfoCached("db", "namespace", metric, Some(metricInfoValue)))
+        }
+
+        awaitAssert {
+          replicatedCache ! GetAllMetricInfo
+          expectMsg(AllMetricInfoGot(Set(metricInfoValue)))
         }
       }
       enterBarrier("after-add-metric-info")
@@ -325,14 +327,14 @@ class ReplicatedMetadataCacheSpec
       val metric   = "metric2"
       val location = Location(metric, "node1", _: Long, _: Long)
 
-      val metricInfoValue = MetricInfo(_: String, 100)
+      val metricInfoValue = MetricInfo("db", "namespace", _: String, 100)
 
       runOn(node1) {
         for (i ← 10 to 20) {
           replicatedCache ! PutLocationInCache("db", "namespace", metric, i - 1, i, location(i - 1, i))
           expectMsg(LocationCached("db", "namespace", metric, i - 1, i, location(i - 1, i)))
 
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", s"metric_$i", metricInfoValue(s"metric_$i"))
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue(s"metric_$i"))
           expectMsg(MetricInfoCached("db", "namespace", s"metric_$i", Some(metricInfoValue(s"metric_$i"))))
         }
       }
@@ -359,11 +361,11 @@ class ReplicatedMetadataCacheSpec
     "do not allow insertion of an already present metric info" in within(5.seconds) {
       val metric          = "metricInfo"
       val metricInfoKey   = MetricInfoCacheKey("db", "namespace", metric)
-      val metricInfoValue = MetricInfo(metric, 100)
+      val metricInfoValue = MetricInfo("db", "namespace",metric, 100)
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", metric, metricInfoValue)
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue)
           expectMsg(MetricInfoCached("db", "namespace", metric, Some(metricInfoValue)))
         }
       }
@@ -377,7 +379,7 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutMetricInfoInCache("db", "namespace", metric, metricInfoValue)
+          replicatedCache ! PutMetricInfoInCache(metricInfoValue)
           expectMsg(MetricInfoAlreadyExisting(metricInfoKey, metricInfoValue))
         }
       }
@@ -385,9 +387,7 @@ class ReplicatedMetadataCacheSpec
 
     "replicate evicted entry" in within(5.seconds) {
       val metric    = "metric3"
-      val key       = LocationCacheKey("db", "namespace", metric, 0, 1)
       val location  = Location(metric, "node1", 0, 1)
-      val metricKey = MetricLocationsCacheKey("db", "namespace", metric)
 
       runOn(node1) {
         replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location)
@@ -401,7 +401,7 @@ class ReplicatedMetadataCacheSpec
         }
 
         replicatedCache ! EvictLocation("db", "namespace", Location(metric, "node1", 0, 1))
-        expectMsg(LocationEvicted("db", "namespace", metric, "node1", 0, 1))
+        expectMsg(Right(LocationEvicted("db", "namespace", Location(metric, "node1", 0, 1))))
       }
 
       runOn(node1) {

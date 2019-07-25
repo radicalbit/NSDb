@@ -20,9 +20,11 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
+import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.PubSubTopics.COORDINATORS_TOPIC
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -35,11 +37,14 @@ import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.statement.TimeRangeExtractor
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
@@ -62,6 +67,12 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
 
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
+
+  lazy val retentionCheck = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.retention.check.interval").toNanos,
+    TimeUnit.NANOSECONDS)
+
+  context.setReceiveTimeout(retentionCheck)
 
   private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
@@ -96,7 +107,8 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       }
 
   /**
-    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned, otherwise the default interval (gather from the global conf file) will be used
+    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned,
+    * otherwise the default interval (gather from the global conf file) will be used
     * @param db the db.
     * @param namespace the namespace.
     * @param metric the metric.
@@ -107,11 +119,55 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       .flatMap {
         case MetricInfoCached(_, _, _, Some(metricInfo)) => Future(metricInfo.shardInterval)
         case _ =>
-          (cache ? PutMetricInfoInCache(db, namespace, metric, MetricInfo(metric, defaultShardingInterval)))
+          (cache ? PutMetricInfoInCache(MetricInfo(db, namespace, metric, defaultShardingInterval)))
             .map(_ => defaultShardingInterval)
       }
 
+  override def preStart(): Unit = {
+    mediator ! Subscribe(COORDINATORS_TOPIC, self)
+  }
+
   override def receive: Receive = {
+    case ReceiveTimeout =>
+      (cache ? GetAllMetricInfo)
+        .mapTo[AllMetricInfoGot]
+        .map {
+          case AllMetricInfoGot(infos) =>
+            CheckForRetention(infos.collect {
+              case i if i.retention > 0 => i
+            })
+        }
+        .pipeTo(self)
+    case CheckForRetention(metricInfoes) =>
+      metricInfoes.foreach {
+        case MetricInfo(db, namespace, metric, _, retention) =>
+          val threshold = System.currentTimeMillis() - retention
+
+          (cache ? GetLocationsFromCache(db, namespace, metric))
+            .mapTo[LocationsCached]
+            .map {
+
+              case _ @LocationsCached(_, _, _, locations) =>
+                val (locationsToFullyEvict, _) =
+                  TimeRangeExtractor.getLocationsToEvict(locations, threshold)
+
+                val evictResponses = Future.sequence(locationsToFullyEvict.map { location =>
+                  (cache ? EvictLocation(db, namespace, location))
+                    .mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                    .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
+                })
+                evictResponses.map { responses =>
+                  val errors: ListBuffer[EvictLocationFailed] = ListBuffer.empty
+                  val successes: ListBuffer[LocationEvicted]  = ListBuffer.empty
+
+                  responses.map {
+                    case Right(response) => successes += response
+                    case Left(response)  => errors += response
+                  }
+                  (errors.toList, successes.toList)
+                }
+            }
+      }
     case GetDbs =>
       (cache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
@@ -198,17 +254,17 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
-          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, value)
+          case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, metric, value)
         }
         .pipeTo(sender)
-    case PutMetricInfo(db, namespace, metricInfo) =>
-      (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
+    case PutMetricInfo(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
+      (cache ? PutMetricInfoInCache(metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
-            MetricInfoPut(db, namespace, metricInfo)
+            MetricInfoPut(metricInfo)
           case MetricInfoAlreadyExisting(_, _) =>
-            MetricInfoFailed(db, namespace, metricInfo, "metric info already exist")
-          case e => MetricInfoFailed(db, namespace, metricInfo, s"Unknown response from cache $e")
+            MetricInfoFailed(metricInfo, "metric info already exist")
+          case e => MetricInfoFailed(metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
     case Migrate(inputPath) =>
@@ -236,7 +292,7 @@ class MetadataCoordinator(cache: ActorRef, mediator: ActorRef)
       Future
         .sequence(allMetadata.map {
           case (Coordinates(db, namespace, _), metricInfo) =>
-            (cache ? PutMetricInfoInCache(db, namespace, metricInfo.metric, metricInfo))
+            (cache ? PutMetricInfoInCache(metricInfo))
               .mapTo[MetricInfoCached]
         })
         .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
@@ -263,7 +319,9 @@ object MetadataCoordinator {
     case class DeleteNamespaceMetadata(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
-    case class PutMetricInfo(db: String, namespace: String, metricInfo: MetricInfo)
+    case class PutMetricInfo(metricInfo: MetricInfo)
+
+    case class CheckForRetention(metricInfo: Set[MetricInfo])
   }
 
   object events {
@@ -279,9 +337,9 @@ object MetadataCoordinator {
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
     case class NamespaceMetadataDeleted(db: String, namespace: String, occurredOn: Long)
 
-    case class MetricInfoGot(db: String, namespace: String, metricInfo: Option[MetricInfo])
-    case class MetricInfoPut(db: String, namespace: String, metricInfo: MetricInfo)
-    case class MetricInfoFailed(db: String, namespace: String, metricInfo: MetricInfo, message: String)
+    case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
+    case class MetricInfoPut(metricInfo: MetricInfo)
+    case class MetricInfoFailed(metricInfo: MetricInfo, message: String)
 
     case class MetricInfosMigrated(infos: Seq[MetricInfo])
   }
