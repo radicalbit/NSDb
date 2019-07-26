@@ -57,10 +57,10 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     */
   private[actors] val facetIndexShards: mutable.Map[Location, AllFacetIndexes] = mutable.Map.empty
 
-  protected def shardsFromLocations(locations: Seq[Location]): Seq[(Location, TimeSeriesIndex)] =
+  protected def shardsFromLocations(locations: Seq[Location]): Seq[(Location, Option[TimeSeriesIndex])] =
     locations.map(location => (location, getIndex(location)))
-  protected def facetsShardsFromLocations(locations: Seq[Location]): Seq[(Location, AllFacetIndexes)] =
-    locations.map(location => (location, facetIndexesFor(location)))
+  protected def facetsShardsFromLocations(locations: Seq[Location]): Seq[(Location, Option[AllFacetIndexes])] =
+    locations.map(location => (location, getfacetIndexesFor(location)))
 
   /**
     * last access for a given [[Location]]
@@ -72,11 +72,22 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     TimeUnit.NANOSECONDS)
 
   /**
+    * Retrieves if exists an index for the given [[Location]]
+    * @param location the location containing the metric and the time interval to identify the index to retrieve or create
+    * @return the index for the given location
+    */
+  protected def getIndex(location: Location): Option[TimeSeriesIndex] =
+    shards.get(location).map { i =>
+      shardsAccess += (location -> System.currentTimeMillis())
+      i
+    }
+
+  /**
     * Retrieves or creates an index for the given [[Location]]
     * @param location the location containing the metric and the time interval to identify the index to retrieve or create
     * @return the index for the given location
     */
-  protected def getIndex(location: Location): TimeSeriesIndex = {
+  protected def getOrCreateIndex(location: Location): TimeSeriesIndex = {
     shardsAccess += (location -> System.currentTimeMillis())
     shards.getOrElse(
       location, {
@@ -91,11 +102,22 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
   }
 
   /**
+    * Retrieves if exists a facet index for the given [[Location]]
+    * @param location the key containing the metric and the time interval to identify the index to retrieve or create
+    * @return the facet index for the given location
+    */
+  protected def getfacetIndexesFor(location: Location): Option[AllFacetIndexes] =
+    facetIndexShards.get(location).map { i =>
+      shardsAccess += (location -> System.currentTimeMillis())
+      i
+    }
+
+  /**
     * Retrieves or creates a facet index for the given [[Location]]
     * @param location the key containing the metric and the time interval to identify the index to retrieve or create
     * @return the facet index for the given location
     */
-  protected def facetIndexesFor(location: Location): AllFacetIndexes = {
+  protected def getOrCreatefacetIndexesFor(location: Location): AllFacetIndexes = {
     shardsAccess += (location -> System.currentTimeMillis())
     facetIndexShards.getOrElse(
       location, {

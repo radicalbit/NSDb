@@ -369,12 +369,23 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
         case _           => sender ! SelectStatementFailed("Not a select statement.")
       }
+    case DeleteAllMetrics(_, _) =>
+      actors.foreach {
+        case (loc, actor) =>
+          actor ! PoisonPill
+          actors -= loc
+      }
     case DropMetricWithLocations(_, _, _, locations) =>
       actors.foreach {
         case (loc, actor) if locations.contains(loc) =>
           actor ! PoisonPill
           actors -= loc
         case _ => //do nothing
+      }
+    case EvictShard(_, _, location) =>
+      actors.get(location).foreach { actor =>
+        actor ! PoisonPill
+        actors -= location
       }
     case Refresh(_, keys) =>
       keys.foreach { key =>

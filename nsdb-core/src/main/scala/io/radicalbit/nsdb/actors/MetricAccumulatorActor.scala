@@ -36,7 +36,7 @@ import org.apache.lucene.index.IndexWriter
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Actor responsible for accumulating write and delete operations which will be performed by [[MetricPerformerActor]].
@@ -93,6 +93,12 @@ class MetricAccumulatorActor(val basePath: String,
     )
   }
 
+  private def deleteLocation(location: Location): Unit = {
+    val path = Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}")
+    if (path.toFile.exists())
+      FileUtils.deleteDirectory(path.toFile)
+  }
+
   /**
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
@@ -115,9 +121,11 @@ class MetricAccumulatorActor(val basePath: String,
     *
     * - [[DropMetric]] drop a given metric.
     *
+    * - [[EvictShard]] delete a shard.
+    *
     */
   def ddlOps: Receive = {
-    case DeleteAllMetrics(_, ns) =>
+    case msg @ DeleteAllMetrics(_, ns) =>
       shards.foreach {
         case (_, index) =>
           implicit val writer: IndexWriter = index.getWriter
@@ -135,29 +143,46 @@ class MetricAccumulatorActor(val basePath: String,
 
       FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards").toFile)
 
+      readerActor ! Broadcast(msg)
       sender ! AllMetricsDeleted(db, ns)
     case msg @ DropMetricWithLocations(_, _, metric, locations) =>
       shardsFromLocations(locations).foreach {
-        case (key, index) =>
+        case (key, Some(index)) =>
           implicit val writer: IndexWriter = index.getWriter
           index.deleteAll()
           writer.close()
           index.refresh()
           shards -= key
+        case _ => //do nothing
       }
       facetsShardsFromLocations(locations).foreach {
-        case (key, indexes) =>
+        case (key, Some(indexes)) =>
           implicit val writer: IndexWriter = indexes.newIndexWriter
           indexes.deleteAll()
           writer.close()
           indexes.refresh()
           facetIndexShards -= key
+        case _ => //do nothing
       }
 
       deleteMetricData(metric)
 
       readerActor ! Broadcast(msg)
       sender() ! MetricDropped(db, namespace, metric)
+    case msg @ EvictShard(_, _, location) =>
+      Try {
+        shards -= location
+        facetIndexShards -= location
+
+        deleteLocation(location)
+      } match {
+        case Success(_) =>
+          readerActor ! Broadcast(msg)
+          sender() ! ShardEvicted(db, namespace, location)
+        case Failure(ex) =>
+          sender() ! EvictedShardFailed(db, namespace, location, ex.getMessage)
+      }
+
   }
 
   /**
@@ -195,8 +220,8 @@ class MetricAccumulatorActor(val basePath: String,
       opBufferMap --= writeIds
       performingOps = Map.empty
       keys.foreach { key =>
-        getIndex(key).refresh()
-        facetIndexesFor(key).refresh()
+        getOrCreateIndex(key).refresh()
+        getOrCreatefacetIndexesFor(key).refresh()
       }
       garbageCollectIndexes()
       readerActor ! Broadcast(msg)
@@ -209,7 +234,7 @@ class MetricAccumulatorActor(val basePath: String,
 
 object MetricAccumulatorActor {
 
-  case class Refresh(writeIds: Seq[String], keys: Seq[Location])
+  case class Refresh(writeIds: Seq[String], locations: Seq[Location])
 
   def props(basePath: String,
             db: String,

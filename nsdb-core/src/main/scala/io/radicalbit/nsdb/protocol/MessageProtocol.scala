@@ -51,6 +51,8 @@ object MessageProtocol {
     case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
     case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
     case class ExecuteDeleteStatementInShards(statement: DeleteSQLStatement, schema: Schema, keys: Seq[Location])
+    case class EvictShard(db: String, namespace: String, location: Location)
+
     case class DropMetric(db: String, namespace: String, metric: String)
     case class DropMetricWithLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
     case class DeleteNamespace(db: String, namespace: String)
@@ -138,6 +140,8 @@ object MessageProtocol {
     case class CountGot(db: String, namespace: String, metric: String, count: Int)
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
     case class AllMetricsDeleted(db: String, namespace: String)
+    case class ShardEvicted(db: String, namespace: String, location: Location)
+    case class EvictedShardFailed(db: String, namespace: String, location: Location, reason: String)
 
     case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String)
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
