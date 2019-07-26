@@ -46,11 +46,13 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
   lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
-    * Gets or creates reader child actor of class [[io.radicalbit.nsdb.actors.MetricReaderActor]] to handle read requests
+    * Gets or creates:
+    * - reader child actor of class [[MetricReaderActor]] to handle read requests
+    * - accumulator child actor of class [[MetricAccumulatorActor]] to handle write requests
     *
     * @param db database name
     * @param namespace namespace name
-    * @return [[(ShardReaderActor, ShardAccumulatorActor)]] for selected database and namespace
+    * @return ([[MetricReaderActor]], [[MetricAccumulatorActor]]) for selected database and namespace
     */
   private def getOrCreateChildren(db: String, namespace: String): (ActorRef, ActorRef) = {
     val readerOpt      = context.child(s"metric_reader_${db}_$namespace")
@@ -70,6 +72,15 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
     (reader, accumulator)
   }
 
+  /**
+    * Gets it exists:
+    * - reader child actor of class [[MetricReaderActor]] to handle read requests
+    * - accumulator child actor of class [[MetricAccumulatorActor]] to handle write requests
+    *
+    * @param db database name
+    * @param namespace namespace name
+    * @return (Option[[MetricReaderActor]], Option[[MetricAccumulatorActor]]) for selected database and namespace
+    */
   private def getChildren(db: String, namespace: String): (Option[ActorRef], Option[ActorRef]) =
     (context.child(s"metric_reader_${db}_$namespace"), context.child(s"metric_accumulator_${db}_$namespace"))
 
@@ -118,6 +129,8 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
     case msg @ DropMetricWithLocations(db, namespace, _, _) =>
+      getOrCreateChildren(db, namespace)._2 forward msg
+    case msg @ EvictShard(db, namespace, _) =>
       getOrCreateChildren(db, namespace)._2 forward msg
     case msg @ GetCountWithLocations(db, namespace, metric, _) =>
       getReader(db, namespace) match {

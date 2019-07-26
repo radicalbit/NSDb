@@ -25,7 +25,6 @@ import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
-import io.radicalbit.nsdb.common.statement.{AscOrderOperator, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.index.VARCHAR
 import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -45,8 +44,9 @@ class MetricAccumulatorActorSpec()
   val probe      = TestProbe()
   val probeActor = probe.ref
 
-  val indexingInterval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-                                TimeUnit.SECONDS) + 1.second
+  val indexingInterval = FiniteDuration(
+    system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS) + 1.second
   val basePath  = "target/test_index"
   val db        = "db_shard"
   val namespace = "namespace"
@@ -61,29 +61,14 @@ class MetricAccumulatorActorSpec()
       MetricAccumulatorActor.props(basePath, db, namespace, metricsReaderActor, system.actorOf(Props.empty)),
       probeActor)
 
-
   val schema =
     Schema("",
-      Set(SchemaField("dimension", DimensionFieldType, VARCHAR()), SchemaField("tag", TagFieldType, VARCHAR())))
+           Set(SchemaField("dimension", DimensionFieldType, VARCHAR()), SchemaField("tag", TagFieldType, VARCHAR())))
 
   private val location = Location("testMetric", nodeName, 0, 0)
 
-
-  private def selectAllOrderByTimestamp(metric: String) = ExecuteStatement(
-    SelectSQLStatement(
-      db = db,
-      namespace = namespace,
-      metric = metric,
-      distinct = false,
-      fields = ListFields(List.empty),
-      condition = None,
-      groupBy = None,
-      order = Some(AscOrderOperator("timestamp"))
-    )
-  )
-
   private def checkExistance(location: Location): Boolean =
-  Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}").toFile.exists()
+    Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}").toFile.exists()
 
   before {
     implicit val timeout = Timeout(5 second)
