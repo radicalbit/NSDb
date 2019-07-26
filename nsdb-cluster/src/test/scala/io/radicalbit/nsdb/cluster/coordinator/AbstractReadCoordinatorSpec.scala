@@ -94,7 +94,7 @@ abstract class AbstractReadCoordinatorSpec
         "ReadCoordinatorSpec",
         ConfigFactory
           .load()
-          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2553))
+          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2653))
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("local"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
       ))

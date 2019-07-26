@@ -47,9 +47,9 @@ class RetentionSpec
         "RetentionSpec",
         ConfigFactory
           .load()
-          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2554))
+          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2654))
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
-          .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5ms"))
+          .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
           .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("1s"))
           .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("2s"))
       ))
@@ -80,15 +80,15 @@ class RetentionSpec
   )
 
   def currentRecords(currentTime: Long, retention: Long): Seq[Bit] = Seq(
-    Bit(currentTime + retention - 30000, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime + retention - 15000, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime + retention - 7000, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
-    Bit(currentTime + retention - 5000, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime + retention - 2000, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime + retention - 1000, 6L, Map("surname"  -> "Doe"), Map("name" -> "Frankie")),
-    Bit(currentTime + retention - 500, 7L, Map("surname"   -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime + retention - 10, 8L, Map("surname"    -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime + retention + 10000, 9L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+    Bit(currentTime + retention - 3000, 1L, Map("surname"      -> "Doe"), Map("name" -> "John")),
+    Bit(currentTime + retention - 1500, 2L, Map("surname"      -> "Doe"), Map("name" -> "John")),
+    Bit(currentTime + (retention * 2) - 700, 3L, Map("surname" -> "D"), Map("name"   -> "J")),
+    Bit(currentTime + (retention * 2) - 500, 4L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+    Bit(currentTime + (retention * 3) - 200, 5L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+    Bit(currentTime + (retention * 3) - 100, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
+    Bit(currentTime + (retention * 3) - 50, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit(currentTime + (retention * 4) - 10, 8L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit(currentTime + (retention * 5) + 10, 9L, Map("surname"  -> "Doe"), Map("name" -> "Frankie"))
   )
 
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
@@ -178,7 +178,9 @@ class RetentionSpec
 
       "delete outdated records" in {
 
-        val retentionMetricInfo = MetricInfo(db, namespace, metricWithRetention, 5000, 5000)
+        val retention = 2000
+
+        val retentionMetricInfo = MetricInfo(db, namespace, metricWithRetention, 5000, retention)
 
         probe.send(metadataCoordinator, PutMetricInfo(retentionMetricInfo))
 
@@ -193,7 +195,7 @@ class RetentionSpec
 
         val currentTime = System.currentTimeMillis()
 
-        val recordsToTest = currentRecords(currentTime, 5000)
+        val recordsToTest = currentRecords(currentTime, retention)
 
         recordsToTest.foreach { r =>
           probe.send(writeCoordinator, MapInput(r.timestamp, db, namespace, metricWithRetention, r))
