@@ -33,6 +33,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
@@ -47,7 +48,6 @@ import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
@@ -91,13 +91,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
             .mapTo[AddLocationResponse]))
       .flatMap { responses =>
         val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =
-          responses.foldRight((List.empty[LocationCached], List.empty[PutLocationInCacheFailed])) {
-            case (f, (successAcc, errorAcc)) =>
-              f match {
-                case success: LocationCached         => (success :: successAcc, errorAcc)
-                case error: PutLocationInCacheFailed => (successAcc, error :: errorAcc)
-              }
-          }
+          partitionResponses[LocationCached, PutLocationInCacheFailed](responses)
 
         if (successResponses.size == responses.size) {
           Future(LocationsAdded(db, namespace, successResponses.map(_.value)))
@@ -248,7 +242,8 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
 
   /**
     * Performs a partial eviction in a location by executing a [[DeleteSQLStatement]].
-//    * @param statement the delete statement.
+    * @param db the location db.
+    * @param namespace the location namespace.
     * @param location the location to be partially evicted.
     * @return the result of the delete operation.
     */
@@ -281,7 +276,6 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
           (cache ? GetLocationsFromCache(db, namespace, metric))
             .mapTo[LocationsCached]
             .map {
-
               case _ @LocationsCached(_, _, _, locations) =>
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
                   TimeRangeExtractor.getLocationsToEvict(locations, threshold)
@@ -293,19 +287,10 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                       .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
                   })
                   .map { responses =>
-                    val errors: ListBuffer[EvictLocationFailed] = ListBuffer.empty
-                    val successes: ListBuffer[LocationEvicted]  = ListBuffer.empty
-
-                    responses.map {
-                      case Right(response) => successes += response
-                      case Left(response)  => errors += response
-                    }
-
-                    if (errors.nonEmpty) {
+                    manageErrors(responses) { errors =>
                       log.error("errors during delete locations from cache {}", errors)
                       context.system.terminate()
                     }
-                    successes.toList
                   }
 
                 val cacheResponsesAckedInCommitLog = cacheResponses.flatMap { locationEvictedFromCache =>
@@ -313,21 +298,11 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                     .sequence(locationEvictedFromCache.map(locationEvicted =>
                       shardEvictCommitLogAck(db, namespace, System.currentTimeMillis(), locationEvicted.location)))
                     .map { responses =>
-                      val errors: ListBuffer[WriteToCommitLogFailed]       = ListBuffer.empty
-                      val successes: ListBuffer[WriteToCommitLogSucceeded] = ListBuffer.empty
-
-                      responses.map {
-                        case response: WriteToCommitLogSucceeded => successes += response
-                        case response: WriteToCommitLogFailed    => errors += response
-                      }
-
-                      if (errors.nonEmpty) {
+                      manageErrors[WriteToCommitLogSucceeded, WriteToCommitLogFailed](responses) { errors =>
                         log.error("errors during delete locations from cache {}", errors)
                         context.system.terminate()
                       }
-                      successes.toList
                     }
-
                   Future(locationEvictedFromCache)
                 }
 
@@ -344,19 +319,10 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                             location,
                             deleteStatementFromThreshold(db, namespace, location.metric, threshold))))
                     .map { responses =>
-                      val errors: ListBuffer[WriteToCommitLogFailed]       = ListBuffer.empty
-                      val successes: ListBuffer[WriteToCommitLogSucceeded] = ListBuffer.empty
-
-                      responses.map {
-                        case response: WriteToCommitLogSucceeded => successes += response
-                        case response: WriteToCommitLogFailed    => errors += response
-                      }
-
-                      if (errors.nonEmpty) {
+                      manageErrors[WriteToCommitLogSucceeded, WriteToCommitLogFailed](responses) { errors =>
                         log.error("errors during delete locations from cache {}", errors)
                         context.system.terminate()
                       }
-                      successes.toList
                     }
                 }
 
