@@ -92,8 +92,7 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     shards.getOrElse(
       location, {
         val directory =
-          createMmapDirectory(
-            Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}"))
+          createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
         val newIndex = new TimeSeriesIndex(directory)
         shards += (location -> newIndex)
         newIndex

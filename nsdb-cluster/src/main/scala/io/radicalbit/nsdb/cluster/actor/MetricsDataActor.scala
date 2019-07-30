@@ -26,12 +26,14 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
+import io.radicalbit.nsdb.cluster.util.{FileUtils => NSDbFileUtils}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.commons.io.FileUtils
 
 import scala.concurrent.Future
 
@@ -101,20 +103,6 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
 
   import context.dispatcher
 
-  override def preStart(): Unit = {
-    Option(Paths.get(basePath).toFile.list())
-      .map(_.toSet)
-      .getOrElse(Set.empty)
-      .filter(f => Paths.get(basePath, f).toFile.isDirectory)
-      .flatMap(db => {
-        Paths.get(basePath, db).toFile.list().map(namespace => (db, namespace))
-      })
-      .foreach {
-        case (db, namespace) =>
-          getOrCreateChildren(db, namespace)
-      }
-  }
-
   override def receive: Receive = {
     case DeleteNamespace(db, namespace) =>
       val children = getChildren(db, namespace)
@@ -132,6 +120,24 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
       getOrCreateChildren(db, namespace)._2 forward msg
     case msg @ EvictShard(db, namespace, _) =>
       getOrCreateChildren(db, namespace)._2 forward msg
+    case CheckForOutDatedShards(db, namespace, locations) =>
+      val locationGrouped = locations.groupBy(_.metric)
+
+      val shardPath = Option(Paths.get(basePath, db, namespace, "shards"))
+
+      locationGrouped.foreach {
+        case (metric, locations) =>
+          val locationShardsName = locations.map(_.shardName)
+
+          val outdatedSeq = NSDbFileUtils
+            .getMetricshards(shardPath, metric)
+            .toSeq
+            .filterNot(f => locationShardsName.contains(f.getName))
+          outdatedSeq.foreach { outdated =>
+            FileUtils.deleteDirectory(outdated)
+          }
+      }
+
     case msg @ GetCountWithLocations(db, namespace, metric, _) =>
       getReader(db, namespace) match {
         case Some(child) => child forward msg

@@ -68,7 +68,7 @@ class MetricAccumulatorActorSpec()
   private val location = Location("testMetric", nodeName, 0, 0)
 
   private def checkExistance(location: Location): Boolean =
-    Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}").toFile.exists()
+    Paths.get(basePath, db, namespace, "shards", s"${location.shardName}").toFile.exists()
 
   before {
     implicit val timeout = Timeout(5 second)

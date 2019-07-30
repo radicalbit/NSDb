@@ -102,7 +102,6 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
               Future(AddLocationsFailed(db, namespace, errorResponses.map(_.location)))
             }
         }
-
       }
 
   /**
@@ -116,8 +115,9 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
   private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
     (cache ? GetMetricInfoFromCache(db, namespace, metric))
       .flatMap {
-        case MetricInfoCached(_, _, _, Some(metricInfo)) => Future(metricInfo.shardInterval)
-        case _                                           => Future(defaultShardingInterval)
+        case MetricInfoCached(_, _, _, Some(MetricInfo(_, _, _, shardInterval, _))) if shardInterval > 0 =>
+          Future(shardInterval)
+        case _ => Future(defaultShardingInterval)
       }
 
   override def preStart(): Unit = {
@@ -138,6 +138,9 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
       cache ! GetAllMetricInfoWithRetention
     }
 
+    context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval * 10) {
+      self ! CheckOutdatedLocations
+    }
   }
 
   /**
@@ -267,6 +270,27 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
   }
 
   override def receive: Receive = {
+    case CheckOutdatedLocations =>
+      (cache ? GetAllMetricInfoWithRetention).mapTo[AllMetricInfoWithRetentionGot].foreach {
+        case AllMetricInfoWithRetentionGot(metricInfos) =>
+          metricInfos.foreach {
+            case MetricInfo(db, namespace, metric, _, _) =>
+              (cache ? GetLocationsFromCache(db, namespace, metric))
+                .mapTo[LocationsCached]
+                .foreach {
+                  case LocationsCached(db, namespace, _, locations) =>
+                    //check for outdated locations still written on disk
+                    locations.groupBy(_.node).foreach {
+                      case (node, locations) =>
+                        metricsDataActors.get(node) match {
+                          case Some(metricDataActor) =>
+                            metricDataActor ! CheckForOutDatedShards(db, namespace, locations)
+                          case None => log.debug("no metrics data actor found for node {}", node)
+                        }
+                    }
+                }
+          }
+      }
     case AllMetricInfoWithRetentionGot(metricInfoes) =>
       log.debug(s"check for retention for {}", metricInfoes)
       metricInfoes.foreach {
@@ -276,7 +300,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
           (cache ? GetLocationsFromCache(db, namespace, metric))
             .mapTo[LocationsCached]
             .map {
-              case _ @LocationsCached(_, _, _, locations) =>
+              case LocationsCached(_, _, _, locations) =>
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
                   TimeRangeExtractor.getLocationsToEvict(locations, threshold)
 
@@ -337,6 +361,16 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                     locationsToFullyEvict.map(location => fullyEvictPerform(db, namespace, location))
                   )
                 }
+
+              //check for outdated locations still written on disk
+              /*locations.groupBy(_.node).foreach {
+                  case (node, locations) =>
+                    metricsDataActors.get(node) match {
+                      case Some(metricDataActor) =>
+                        metricDataActor ! CheckForOutDatedShards(db, namespace, locations)
+                      case None => log.debug("no metrics data actor found for node {}", node)
+                    }
+                }*/
             }
       }
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
@@ -516,6 +550,8 @@ object MetadataCoordinator {
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(metricInfo: MetricInfo)
+
+    case object CheckOutdatedLocations
   }
 
   object events {

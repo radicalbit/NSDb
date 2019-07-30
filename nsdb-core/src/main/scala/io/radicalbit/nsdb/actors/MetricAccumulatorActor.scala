@@ -94,7 +94,7 @@ class MetricAccumulatorActor(val basePath: String,
   }
 
   private def deleteLocation(location: Location): Unit = {
-    val path = Paths.get(basePath, db, namespace, "shards", s"${location.metric}_${location.from}_${location.to}")
+    val path = Paths.get(basePath, db, namespace, "shards", s"${location.shardName}")
     if (path.toFile.exists())
       FileUtils.deleteDirectory(path.toFile)
   }

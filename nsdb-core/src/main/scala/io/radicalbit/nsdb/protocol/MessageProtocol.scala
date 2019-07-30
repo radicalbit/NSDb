@@ -142,6 +142,7 @@ object MessageProtocol {
     case class AllMetricsDeleted(db: String, namespace: String)
     case class ShardEvicted(db: String, namespace: String, location: Location)
     case class EvictedShardFailed(db: String, namespace: String, location: Location, reason: String)
+    case class CheckForOutDatedShards(db: String, namespace: String, location: Seq[Location])
 
     case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String)
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
