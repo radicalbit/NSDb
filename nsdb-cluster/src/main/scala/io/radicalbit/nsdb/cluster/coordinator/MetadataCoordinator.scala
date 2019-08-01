@@ -361,16 +361,6 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                     locationsToFullyEvict.map(location => fullyEvictPerform(db, namespace, location))
                   )
                 }
-
-              //check for outdated locations still written on disk
-              /*locations.groupBy(_.node).foreach {
-                  case (node, locations) =>
-                    metricsDataActors.get(node) match {
-                      case Some(metricDataActor) =>
-                        metricDataActor ! CheckForOutDatedShards(db, namespace, locations)
-                      case None => log.debug("no metrics data actor found for node {}", node)
-                    }
-                }*/
             }
       }
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>

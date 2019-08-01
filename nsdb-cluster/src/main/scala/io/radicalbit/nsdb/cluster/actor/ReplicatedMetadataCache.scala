@@ -172,9 +172,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     LWWMapKey("metric-info-cache-" + math.abs(metricInfoKey.hashCode) % 100)
 
   /**
-    * Creates a [[ORSetKey]] for all metric infos with retention
+    * Creates a [[ORSetKey]] for all metric infos
     */
-  private val allMetricInfoWithRetentionKey: ORSetKey[MetricInfo] = ORSetKey("all-metric-info-cache")
+  private val allMetricInfoKey: ORSetKey[MetricInfo] = ORSetKey("all-metric-info-cache")
 
   /**
     * Creates a [[ORSetKey]] for databases
@@ -216,8 +216,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                 Future(MetricInfoAlreadyExisting(key, metricInfo))
               case None =>
                 (for {
-                  _ <- replicator ? Update(allMetricInfoWithRetentionKey, ORSet(), WriteAll(writeDuration))(
-                    _ :+ metricInfo)
+                  _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
                   res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
                     _ :+ (key -> metricInfo))
                 } yield res)
@@ -229,7 +228,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
             }
           case NotFound(_, _) =>
             (for {
-              _ <- replicator ? Update(allMetricInfoWithRetentionKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
+              _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
               res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
                 _ :+ (key -> metricInfo))
             } yield res)
@@ -267,10 +266,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricLocationsKey(key), ReadLocal, Some(MetricLocationsRequest(key, sender())))
     case GetAllMetricInfoWithRetention =>
-      log.debug("searching for key {} in cache", allMetricInfoWithRetentionKey)
-      replicator ! Get(allMetricInfoWithRetentionKey,
-                       ReadLocal,
-                       request = Some(AllMetricInfoWithRetentionRequest(sender())))
+      log.debug("searching for key {} in cache", allMetricInfoKey)
+      replicator ! Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoWithRetentionRequest(sender())))
     case GetMetricInfoFromCache(db, namespace, metric) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
@@ -289,6 +286,19 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         locations <- (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.value)
         dropLocationsResult <- Future.sequence {
           locations.map(location => self ? EvictLocation(db, namespace, location))
+        }
+        metricInfo <- (self ? GetMetricInfoFromCache(db, namespace, metric)).mapTo[MetricInfoCached]
+        dropAllMetricInfo <- metricInfo.value
+          .map(info =>
+            (replicator ? Update(allMetricInfoKey, ORSet(), WriteLocal)(_ remove info)).mapTo[UpdateSuccess[_]])
+          .getOrElse(Future(UpdateSuccess(allMetricInfoKey, None)))
+        dropMetricInfo <- {
+          val key = MetricInfoCacheKey(db, namespace, metric)
+          metricInfo.value
+            .map(info =>
+              (replicator ? Update(metricInfoKey(key), LWWMap(), WriteLocal)(_ remove (address, key)))
+                .mapTo[UpdateSuccess[_]])
+            .getOrElse(Future(UpdateSuccess(metricInfoKey(key), None)))
         }
         dropCoordinates <- {
           val errors = dropLocationsResult.collect { case res: EvictLocationFailed => res }

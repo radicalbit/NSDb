@@ -235,6 +235,9 @@ class ReplicatedMetadataCacheSpec
 
         replicatedCache ! GetLocationsFromCache("db1", "namespace1", "metric2")
         expectMsg(LocationsCached("db1", "namespace1", "metric2", Seq()))
+
+        replicatedCache ! GetMetricInfoFromCache("db1", "namespace1", "metric2")
+        expectMsg(MetricInfoCached("db1", "namespace1", "metric2", None))
       }
 
       enterBarrier("after-drop metrics")
