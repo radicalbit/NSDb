@@ -536,7 +536,6 @@ object MetadataCoordinator {
                                     namespace: String,
                                     metric: String,
                                     occurredOn: Long = System.currentTimeMillis)
-    case class DeleteNamespaceMetadata(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(metricInfo: MetricInfo)
@@ -555,7 +554,6 @@ object MetadataCoordinator {
     case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
-    case class NamespaceMetadataDeleted(db: String, namespace: String, occurredOn: Long)
 
     case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
     case class MetricInfoPut(metricInfo: MetricInfo)
