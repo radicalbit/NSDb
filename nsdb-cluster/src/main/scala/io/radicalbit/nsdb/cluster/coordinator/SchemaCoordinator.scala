@@ -44,12 +44,8 @@ import scala.util.{Failure, Success}
   * Actor responsible for dispatching read and write schema operations to che proper schema actor.
   * It performs write/update/deletion in distributed cache
   *
-  * @param basePath indexes' base path.
   */
-class SchemaCoordinator(basePath: String, schemaCache: ActorRef)
-    extends ActorPathLogging
-    with Stash
-    with DirectorySupport {
+class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Stash with DirectorySupport {
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.namespace-schema.timeout", TimeUnit.SECONDS),
@@ -199,8 +195,8 @@ class SchemaCoordinator(basePath: String, schemaCache: ActorRef)
 
 object SchemaCoordinator {
 
-  def props(basePath: String, schemaCache: ActorRef): Props =
-    Props(new SchemaCoordinator(basePath, schemaCache))
+  def props(schemaCache: ActorRef): Props =
+    Props(new SchemaCoordinator(schemaCache))
 
   object events {
     case class NamespaceSchemaDeleted(db: String, namespace: String)

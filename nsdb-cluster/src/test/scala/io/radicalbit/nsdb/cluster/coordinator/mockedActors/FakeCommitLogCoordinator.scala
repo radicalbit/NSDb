@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.coordinator
+package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
-import java.util.concurrent.TimeUnit
+import akka.actor.{Actor, ActorLogging}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, WriteToCommitLogSucceeded}
 
-import akka.testkit.TestKit
-
-trait WriteInterval { this: TestKit =>
-
-  import scala.concurrent.duration._
-
-  lazy val indexingInterval = FiniteDuration(
-    system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
-    TimeUnit.SECONDS) + 1.second
-
+class FakeCommitLogCoordinator extends Actor with ActorLogging {
+  override def receive: Receive = {
+    case WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
+      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+    case _ =>
+      log.error("UnexpectedMessage")
+  }
 }

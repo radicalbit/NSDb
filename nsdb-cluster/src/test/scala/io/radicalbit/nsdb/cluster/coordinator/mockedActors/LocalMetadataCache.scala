@@ -16,12 +16,16 @@
 
 package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
+import java.util.concurrent.ConcurrentHashMap
+
 import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.model.Location
+import org.slf4j.LoggerFactory
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 class LocalMetadataCache extends Actor {
@@ -30,7 +34,7 @@ class LocalMetadataCache extends Actor {
 
   val locations: mutable.Map[LocationWithNodeKey, Location] = mutable.Map.empty
 
-  val metricInfo: mutable.Map[MetricInfoCacheKey, MetricInfo] = mutable.Map.empty
+  val metricInfo: ConcurrentHashMap[MetricInfoCacheKey, MetricInfo] = new ConcurrentHashMap
 
   val coordinates: mutable.Set[Coordinates] = mutable.Set.empty
 
@@ -69,7 +73,7 @@ class LocalMetadataCache extends Actor {
       sender() ! DeleteDone
     case PutMetricInfoInCache(info @ MetricInfo(db, namespace, metric, _, _)) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
-      metricInfo.get(key) match {
+      Option(metricInfo.get(key)) match {
         case Some(v) =>
           sender ! MetricInfoAlreadyExisting(key, v)
         case None =>
@@ -81,9 +85,9 @@ class LocalMetadataCache extends Actor {
       sender ! Right(LocationEvicted(db, namespace, location))
     case GetMetricInfoFromCache(db, namespace, metric) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
-      sender ! MetricInfoCached(db, namespace, metric, metricInfo.get(key))
-    case GetAllMetricInfo =>
-      sender() ! AllMetricInfoGot(metricInfo.values.toSet)
+      sender ! MetricInfoCached(db, namespace, metric, Option(metricInfo.get(key)))
+    case GetAllMetricInfoWithRetention =>
+      sender() ! AllMetricInfoWithRetentionGot(metricInfo.values().asScala.toSet.filter(_.retention > 0))
   }
 }
 

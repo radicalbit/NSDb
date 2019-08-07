@@ -61,15 +61,19 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
-      .props(indexBasePath, schemaCache)
+      .props(schemaCache)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
     s"schema-coordinator_$nodeName"
   )
 
   private val metadataCoordinator =
     context.actorOf(
-      MetadataCoordinator.props(metadataCache, mediator).withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-      name = s"metadata-coordinator_$nodeName")
+      MetadataCoordinator
+        .props(metadataCache, schemaCoordinator, mediator)
+        .withDispatcher("akka.actor.control-aware-dispatcher")
+        .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+      name = s"metadata-coordinator_$nodeName"
+    )
 
   private val readCoordinator =
     context.actorOf(

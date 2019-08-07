@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
@@ -26,8 +26,11 @@ import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, Subscr
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, WriteToCommitLogSucceeded}
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
+  FakeCommitLogCoordinator,
+  LocalMetadataCache,
+  LocalMetadataCoordinator
+}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -54,15 +57,6 @@ class FakeReadCoordinatorActor extends Actor {
   }
 }
 
-class FakeCommitLogCoordinator extends Actor with ActorLogging {
-  override def receive: Receive = {
-    case WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
-      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
-    case _ =>
-      log.error("UnexpectedMessage")
-  }
-}
-
 trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =>
 
   val probe = TestProbe()
@@ -78,7 +72,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
 
   lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
   lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(basePath, system.actorOf(Props[FakeSchemaCache])))
+    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
   lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))

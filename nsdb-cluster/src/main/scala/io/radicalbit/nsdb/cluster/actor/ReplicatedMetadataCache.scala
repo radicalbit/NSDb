@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.ddata._
+import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -71,7 +72,7 @@ object ReplicatedMetadataCache {
   private final case class SingleLocationRequest(key: LocationCacheKey, replyTo: ActorRef)
   private final case class MetricLocationsRequest(key: MetricLocationsCacheKey, replyTo: ActorRef)
   private final case class MetricInfoRequest(key: MetricInfoCacheKey, replyTo: ActorRef)
-  private final case class AllMetricInfoRequest(replyTo: ActorRef)
+  private final case class AllMetricInfoWithRetentionRequest(replyTo: ActorRef)
   private final case class DbsRequest(replyTo: ActorRef)
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
@@ -111,10 +112,10 @@ object ReplicatedMetadataCache {
   final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo)
 
   final case class MetricInfoCached(db: String, namespace: String, metric: String, value: Option[MetricInfo])
-  final case class AllMetricInfoGot(metricInfo: Set[MetricInfo])
+  final case class AllMetricInfoWithRetentionGot(metricInfo: Set[MetricInfo]) extends ControlMessage
 
   final case class GetMetricInfoFromCache(db: String, namespace: String, metric: String)
-  final case object GetAllMetricInfo
+  final case object GetAllMetricInfoWithRetention
 
   final case class CacheError(error: String)
 
@@ -171,9 +172,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     LWWMapKey("metric-info-cache-" + math.abs(metricInfoKey.hashCode) % 100)
 
   /**
-    * Creates a [[ORSetKey]] for all metric infos
+    * Creates a [[ORSetKey]] for all metric infos with retention
     */
-  private val allMetricInfoKey: ORSetKey[MetricInfo] = ORSetKey("all-metric-info-cache")
+  private val allMetricInfoWithRetentionKey: ORSetKey[MetricInfo] = ORSetKey("all-metric-info-cache")
 
   /**
     * Creates a [[ORSetKey]] for databases
@@ -215,7 +216,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                 Future(MetricInfoAlreadyExisting(key, metricInfo))
               case None =>
                 (for {
-                  _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
+                  _ <- replicator ? Update(allMetricInfoWithRetentionKey, ORSet(), WriteAll(writeDuration))(
+                    _ :+ metricInfo)
                   res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
                     _ :+ (key -> metricInfo))
                 } yield res)
@@ -227,7 +229,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
             }
           case NotFound(_, _) =>
             (for {
-              _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
+              _ <- replicator ? Update(allMetricInfoWithRetentionKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
               res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
                 _ :+ (key -> metricInfo))
             } yield res)
@@ -264,9 +266,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val key = MetricLocationsCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
       replicator ! Get(metricLocationsKey(key), ReadLocal, Some(MetricLocationsRequest(key, sender())))
-    case GetAllMetricInfo =>
-      log.debug("searching for key {} in cache", allMetricInfoKey)
-      replicator ! Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoRequest(sender())))
+    case GetAllMetricInfoWithRetention =>
+      log.debug("searching for key {} in cache", allMetricInfoWithRetentionKey)
+      replicator ! Get(allMetricInfoWithRetentionKey,
+                       ReadLocal,
+                       request = Some(AllMetricInfoWithRetentionRequest(sender())))
     case GetMetricInfoFromCache(db, namespace, metric) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
@@ -341,9 +345,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         .asInstanceOf[LWWMap[MetricInfoCacheKey, MetricInfo]]
         .get(key)
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, dataValue)
-    case g @ GetSuccess(_, Some(AllMetricInfoRequest(replyTo))) =>
-      val elements = g.dataValue.asInstanceOf[ORSet[MetricInfo]].elements
-      replyTo ! AllMetricInfoGot(elements)
+    case g @ GetSuccess(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[MetricInfo]].elements.filter(_.retention > 0)
+      replyTo ! AllMetricInfoWithRetentionGot(elements)
     case g @ GetSuccess(_, Some(DbsRequest(replyTo))) =>
       val elements = g.dataValue.asInstanceOf[ORSet[Coordinates]].elements.map(_.db)
       replyTo ! DbsFromCacheGot(elements)
@@ -363,8 +367,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
-    case NotFound(_, Some(AllMetricInfoRequest(replyTo))) =>
-      replyTo ! AllMetricInfoGot(Set.empty)
+    case NotFound(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>
+      replyTo ! AllMetricInfoWithRetentionGot(Set.empty)
     case g @ NotFound(_, Some(DbsRequest(replyTo))) =>
       replyTo ! DbsFromCacheGot(Set.empty)
     case g @ NotFound(_, Some(NamespaceRequest(db, replyTo))) =>
