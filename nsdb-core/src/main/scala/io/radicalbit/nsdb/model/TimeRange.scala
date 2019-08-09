@@ -16,11 +16,23 @@
 
 package io.radicalbit.nsdb.model
 
+import spire.implicits._
+import spire.math.Interval
+import spire.math.interval.{Closed, Open}
+
 /**
   * Class that models a range between 2 time instants.
+  *
   * @param lowerBound The range's lower bound.
   * @param upperBound The ranges' upper bound.
   * @param lowerInclusive True if the lower bound is inclusive.
   * @param upperInclusive True if the upper bound is inclusive.
   */
-case class TimeRange(lowerBound: Long, upperBound: Long, lowerInclusive: Boolean, upperInclusive: Boolean)
+case class TimeRange(lowerBound: Long, upperBound: Long, lowerInclusive: Boolean, upperInclusive: Boolean) {
+
+  def interval: Interval[Long] =
+    Interval.fromBounds(if (lowerInclusive) Closed(lowerBound) else Open(lowerBound),
+                        if (upperInclusive) Closed(upperBound) else Open(upperBound))
+
+  def intersect(location: Location): Boolean = this.interval.intersects(location.interval)
+}

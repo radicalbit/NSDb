@@ -16,8 +16,13 @@
 
 package io.radicalbit.nsdb.model
 
+import spire.implicits._
+import spire.math.Interval
+import spire.math.interval.Closed
+
 /**
   * Metric shard location.
+  *
   * @param metric the metric.
   * @param node a string representation of a node, that is [hostname]_[port].
   * @param from shard interval lower bound.
@@ -25,4 +30,6 @@ package io.radicalbit.nsdb.model
   */
 case class Location(metric: String, node: String, from: Long, to: Long) {
   def shardName = s"${metric}_${from}_$to"
+
+  def interval: Interval[Long] = Interval.fromBounds(Closed(from), Closed(to))
 }

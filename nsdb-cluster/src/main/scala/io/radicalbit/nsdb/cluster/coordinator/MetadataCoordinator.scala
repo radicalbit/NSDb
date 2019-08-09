@@ -42,7 +42,7 @@ import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.TimeRangeExtractor
+import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
@@ -302,7 +302,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
             .map {
               case LocationsCached(_, _, _, locations) =>
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
-                  TimeRangeExtractor.getLocationsToEvict(locations, threshold)
+                  TimeRangeManager.getLocationsToEvict(locations, threshold)
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
