@@ -274,6 +274,38 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
         )
       }
+
+      "execute it successfully in case of a where condition" in within(5.seconds) {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                condition = Some(
+                  Condition(ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterOrEqualToOperator,
+                                                 value = 60000L))),
+                groupBy = Some(TemporalGroupByAggregation(100000L))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 2
+
+        expected.values shouldBe Seq(
+          Bit(60000, 2, Map("lowerBound" -> 60000, "upperBound" -> 90000), Map()),
+          Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
+        )
+      }
     }
   }
 }
