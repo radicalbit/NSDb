@@ -1000,9 +1000,52 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(5))
           ),
           schema
-        ) shouldBe a[Failure[InvalidStatementException]]
+        ) shouldBe a[Failure[_]]
       }
 
+    }
+
+    "receive a temporal group by" should {
+      "parse it when count aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(CountAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1,
+              None
+            ))
+        )
+      }
+
+      "fail when other aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) shouldBe a[Failure[_]]
+      }
     }
   }
 }

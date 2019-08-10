@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.21"
+    lazy val version   = "2.5.24"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -115,7 +115,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.1.1"
+    lazy val version     = "8.2.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
