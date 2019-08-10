@@ -700,7 +700,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumAggregation("name", "value")
+              new InternalSumSimpleAggregation("name", "value")
             ))
         )
       }
@@ -722,7 +722,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumAggregation("name", "value")
+              new InternalSumSimpleAggregation("name", "value")
             ))
         )
       }
@@ -749,7 +749,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new InternalMaxAggregation("name", "value"),
+              new InternalMaxSimpleAggregation("name", "value"),
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
@@ -978,7 +978,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
                      BooleanClause.Occur.MUST_NOT)
                 .build(),
-              new InternalSumAggregation("amount", "value"),
+              new InternalSumSimpleAggregation("amount", "value"),
               None,
               Some(5)
             ))
@@ -1026,6 +1026,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1,
+              InternalCountTemporalAggregation,
               None
             ))
         )

@@ -300,7 +300,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
+        case Success(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
@@ -322,11 +322,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
               aggregationType match {
-                case InternalMaxAggregation(_, _) =>
+                case InternalMaxSimpleAggregation(_, _) =>
                   Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
-                case InternalMinAggregation(_, _) =>
+                case InternalMinSimpleAggregation(_, _) =>
                   Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
-                case InternalSumAggregation(_, _) =>
+                case InternalSumSimpleAggregation(_, _) =>
                   Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
               }
             }
@@ -337,7 +337,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
             .pipeTo(sender)
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 

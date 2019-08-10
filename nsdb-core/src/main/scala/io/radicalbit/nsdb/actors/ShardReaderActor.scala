@@ -88,7 +88,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedAggregatedQuery(_, _, q, InternalCountAggregation(groupField, _), sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), sort, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetCountIndex
@@ -100,7 +100,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedAggregatedQuery(_, _, q, InternalSumAggregation(groupField, _), sort, limit)) =>
+        case Success(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), sort, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetSumIndex
@@ -117,7 +117,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, _, _, _, _)) =>
           val overlappingRanges = globalRanges.filter(_.intersect(location))
 
           handleNoIndexResults(

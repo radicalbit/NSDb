@@ -207,7 +207,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                     )
                   }
 
-                case Success(ParsedAggregatedQuery(_, _, _, InternalCountAggregation(_, _), _, _)) =>
+                case Success(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
                   gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
                     values =>
                       Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
@@ -219,15 +219,15 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
                       implicit val numeric: Numeric[JSerializable] = v.numeric
                       aggregationType match {
-                        case InternalMaxAggregation(_, _) =>
+                        case InternalMaxSimpleAggregation(_, _) =>
                           Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
-                        case InternalMinAggregation(_, _) =>
+                        case InternalMinSimpleAggregation(_, _) =>
                           Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
-                        case InternalSumAggregation(_, _) =>
+                        case InternalSumSimpleAggregation(_, _) =>
                           Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
                       }
                   }
-                case Success(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, condition, _, _)) =>
+                case Success(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, _, condition, _, _)) =>
                   val sortedLocations = filteredLocations.sortBy(_.from)
 
                   val globalRanges: Seq[TimeRange] =
