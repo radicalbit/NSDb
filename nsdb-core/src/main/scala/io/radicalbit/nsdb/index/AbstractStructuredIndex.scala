@@ -19,17 +19,10 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, TagFieldType}
 import io.radicalbit.nsdb.index.lucene.Index
-import io.radicalbit.nsdb.model.{Schema, TimeRange}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import io.radicalbit.nsdb.statement.{
-  InternalCountTemporalAggregation,
-  InternalSumTemporalAggregation,
-  InternalTemporalAggregationType
-}
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
-import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts, LongRangeFacetLongSum}
-import org.apache.lucene.facet.{FacetResult, Facets, FacetsCollector}
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query, Sort}
@@ -189,25 +182,5 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     executeCountQuery(this.getSearcher, new MatchAllDocsQuery(), Int.MaxValue) { doc =>
       doc.getField(_countField).numericValue().intValue()
     }.headOption.getOrElse(0)
-
-  def executeLongRangeFacet(
-      searcher: IndexSearcher,
-      query: Query,
-      aggregationType: InternalTemporalAggregationType,
-      rangeFieldName: String,
-      valueFieldName: String,
-      ranges: Seq[TimeRange]
-  )(f: FacetResult => Seq[Bit]): Seq[Bit] = {
-    val luceneRanges = ranges.map(r =>
-      new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
-    val fc = new FacetsCollector
-    FacetsCollector.search(searcher, query, 0, fc)
-    val facets: Facets = aggregationType match {
-      case InternalCountTemporalAggregation => new LongRangeFacetCounts(rangeFieldName, fc, luceneRanges: _*)
-      case InternalSumTemporalAggregation =>
-        new LongRangeFacetLongSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
-    }
-    f(facets.getTopChildren(0, rangeFieldName))
-  }
 
 }

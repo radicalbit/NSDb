@@ -24,11 +24,11 @@ import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
-import io.radicalbit.nsdb.index.{AllFacetIndexes, DirectorySupport, TimeSeriesIndex}
+import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
-import io.radicalbit.nsdb.statement.StatementParser
+import io.radicalbit.nsdb.statement.{InternalCountTemporalAggregation, StatementParser}
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
@@ -120,24 +120,34 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Success(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val overlappingRanges = globalRanges.filter(_.intersect(location))
 
+          val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
+
           handleNoIndexResults(
             Try(
-              index
-                .executeLongRangeFacet(index.getSearcher, q, aggregationType, "timestamp", "value", overlappingRanges) {
-                  facetResult =>
-                    facetResult.labelValues.toSeq
-                      .map { lv =>
-                        val boundaries = lv.label.split("-").map(_.toLong).toSeq
-                        Bit(
-                          boundaries.head,
-                          lv.value.longValue(),
-                          Map[String, JSerializable](
-                            ("lowerBound", boundaries.head),
-                            ("upperBound", boundaries(1))
-                          ),
-                          Map.empty
-                        )
-                      }
+              facetIndexes.facetRangeIndex
+                .executeRangeFacet(index.getSearcher,
+                                   q,
+                                   aggregationType,
+                                   "timestamp",
+                                   "value",
+                                   Some(valueFieldType),
+                                   overlappingRanges) { facetResult =>
+                  facetResult.labelValues.toSeq
+                    .map { lv =>
+                      val boundaries = lv.label.split("-").map(_.toLong).toSeq
+                      Bit(
+                        boundaries.head,
+                        if (valueFieldType
+                              .isInstanceOf[DECIMAL] && !(aggregationType == InternalCountTemporalAggregation))
+                          lv.value.doubleValue()
+                        else lv.value.longValue(),
+                        Map[String, JSerializable](
+                          ("lowerBound", boundaries.head),
+                          ("upperBound", boundaries(1))
+                        ),
+                        Map.empty
+                      )
+                    }
                 })) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)

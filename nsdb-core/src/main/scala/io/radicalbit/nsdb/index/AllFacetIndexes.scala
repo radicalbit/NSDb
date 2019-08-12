@@ -45,6 +45,8 @@ class AllFacetIndexes(basePath: String, db: String, namespace: String, location:
 
   val facetSumIndex = new FacetSumIndex(directory, taxoDirectory)
 
+  val facetRangeIndex = new FacetRangeIndex
+
   private val facetIndexes: Set[FacetIndex] = Set(facetCountIndex, facetSumIndex)
 
   /**
