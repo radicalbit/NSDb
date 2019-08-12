@@ -20,6 +20,7 @@ import java.io._
 import java.nio.file.Path
 import java.util.zip.{ZipEntry, ZipFile}
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 /**
@@ -29,6 +30,10 @@ object FileUtils {
 
   private class DirectoryFilter extends FileFilter {
     override def accept(pathname: File): Boolean = pathname.isDirectory
+  }
+
+  private class MetricShardsFilter(metric: String) extends FileFilter {
+    override def accept(pathname: File): Boolean = pathname.isDirectory && pathname.getName.startsWith(metric)
   }
 
   private val BUFFER_SIZE = 4096
@@ -54,6 +59,15 @@ object FileUtils {
     Option(new File(path).listFiles(new DirectoryFilter)).map(_.toList).getOrElse(List.empty)
 
   /**
+    * Retrieve all the shards folder inside a base path for a metric.
+    * @param basePath base path for the shards.
+    * @param metric the shards metric.
+    * @return all the shard folders for the given metric.
+    */
+  def getMetricshards(basePath: Option[Path], metric: String): Array[File] =
+    basePath.map(_.toFile.listFiles(new MetricShardsFilter(metric))).getOrElse(Array.empty)
+
+  /**
     * Unzip a file into a target folder.
     * @param source the input zip path.
     * @param targetFolder the folder to unzip the input file into.
@@ -67,10 +81,12 @@ object FileUtils {
 
   /**
     * unzip all the entries of a zip file into a target folder.
+    *
     * @param zipFile the input zip file.
     * @param entries the entries to be extracted.
     * @param targetFolder the folder to unzip the input file into.
     */
+  @tailrec
   private def unzipAllFile(zipFile: ZipFile, entries: Seq[ZipEntry], targetFolder: File): Boolean = {
     entries match {
       case entry :: tailEntries =>
@@ -95,6 +111,7 @@ object FileUtils {
 
     def bufferReader(fis: InputStream)(buffer: Array[Byte]) = (fis.read(buffer), buffer)
 
+    @tailrec
     def writeToFile(reader: Array[Byte] => (Int, Array[Byte]), fos: OutputStream): Boolean = {
       val (length, data) = reader(buffer)
       if (length >= 0) {
@@ -105,7 +122,7 @@ object FileUtils {
     }
 
     try {
-      writeToFile(bufferReader(fis) _, fos)
+      writeToFile(bufferReader(fis), fos)
     } finally {
       fis.close()
       fos.close()

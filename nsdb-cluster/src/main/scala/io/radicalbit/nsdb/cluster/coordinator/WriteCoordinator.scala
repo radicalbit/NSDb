@@ -40,6 +40,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.Locatio
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.SchemaMigrated
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
@@ -260,15 +261,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                           bit: Bit,
                                           schema: Schema)(
       fn: List[WriteToCommitLogSucceeded] => Future[WriteCoordinatorResponse]): Future[WriteCoordinatorResponse] = {
-    val emptyLists: (List[WriteToCommitLogSucceeded], List[WriteToCommitLogFailed]) = (Nil, Nil)
     val (succeedResponses: List[WriteToCommitLogSucceeded], failedResponses: List[WriteToCommitLogFailed]) =
-      responses.foldRight(emptyLists) {
-        case (res, (successes, failures)) =>
-          res match {
-            case s: WriteToCommitLogSucceeded => (s :: successes, failures)
-            case f: WriteToCommitLogFailed    => (successes, f :: failures)
-          }
-      }
+      partitionResponses[WriteToCommitLogSucceeded, WriteToCommitLogFailed](responses)
 
     if (succeedResponses.size == responses.size) {
       fn(succeedResponses)
@@ -302,15 +296,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  metric: String,
                                  bit: Bit,
                                  schema: Schema): Future[WriteCoordinatorResponse] = {
-    val emptyLists: (List[RecordAdded], List[RecordRejected]) = (Nil, Nil)
     val (succeedResponses: List[RecordAdded], _: List[RecordRejected]) =
-      responses.foldRight(emptyLists) {
-        case (res, (successes, failures)) =>
-          res match {
-            case s: RecordAdded    => (s :: successes, failures)
-            case f: RecordRejected => (successes, f :: failures)
-          }
-      }
+      partitionResponses[RecordAdded, RecordRejected](responses)
+
     if (succeedResponses.size == responses.size) {
       unstashAll()
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
@@ -499,9 +487,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             }
         }
         _ <- {
-          val errors = commitLogResponses
-            .filter(_.isInstanceOf[WriteToCommitLogFailed])
-            .map(_.asInstanceOf[WriteToCommitLogFailed])
+          val (_, errors) = partitionResponses[WriteToCommitLogSucceeded, WriteToCommitLogFailed](commitLogResponses)
           if (errors.nonEmpty) {
             log.error(s"Failed to write to commit-log for: $msg with reason: ${errors.map(_.reason).mkString("")}")
             context.system.terminate()
@@ -572,9 +558,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             }
         }
         _ <- {
-          val errors = commitLogResponses
-            .filter(_.isInstanceOf[WriteToCommitLogFailed])
-            .map(_.asInstanceOf[WriteToCommitLogFailed])
+          val (_, errors) = partitionResponses[WriteToCommitLogSucceeded, WriteToCommitLogFailed](commitLogResponses)
           if (errors.nonEmpty) {
             log.error(s"Failed to write to commit-log for: $msg with reason: ${errors.map(_.reason).mkString("")}")
             context.system.terminate()

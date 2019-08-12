@@ -32,10 +32,15 @@ object CommitLogWriterActor {
     def bit: Bit
   }
 
+  sealed trait LocationEntryAction extends CommitLogAction {
+    def location: Location
+  }
+
   case class ReceivedEntryAction(bit: Bit)                        extends BitEntryAction
   case class AccumulatedEntryAction(bit: Bit)                     extends BitEntryAction
   case class PersistedEntryAction(bit: Bit)                       extends BitEntryAction
   case class RejectedEntryAction(bit: Bit)                        extends BitEntryAction
+  case class EvictShardAction(location: Location)                 extends LocationEntryAction
   case class DeleteAction(deleteSQLStatement: DeleteSQLStatement) extends CommitLogAction
   case object DeleteNamespaceAction                               extends CommitLogAction
   case object DeleteMetricAction                                  extends CommitLogAction

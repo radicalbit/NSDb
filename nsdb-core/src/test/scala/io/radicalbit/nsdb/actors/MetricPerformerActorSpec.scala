@@ -87,7 +87,7 @@ class MetricPerformerActorSpec
     val directory =
       new MMapDirectory(
         Paths
-          .get(basePath, db, namespace, "shards", s"${errorLocation.metric}_${errorLocation.from}_${errorLocation.to}"))
+          .get(basePath, db, namespace, "shards", s"${errorLocation.shardName}"))
 
     indexerPerformerActor.underlyingActor.shards += (errorLocation -> new BrokenTimeSeriesIndex(directory))
   }

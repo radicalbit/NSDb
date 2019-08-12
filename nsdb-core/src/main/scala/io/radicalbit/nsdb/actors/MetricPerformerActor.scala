@@ -65,8 +65,8 @@ class MetricPerformerActor(val basePath: String,
 
       groupedByKey.foreach {
         case (loc, ops) =>
-          val index               = getIndex(loc)
-          val facetIndexes        = facetIndexesFor(loc)
+          val index               = getOrCreateIndex(loc)
+          val facetIndexes        = getOrCreatefacetIndexesFor(loc)
           val writer: IndexWriter = index.getWriter
 
           val facetsIndexWriter = facetIndexes.newIndexWriter
@@ -146,8 +146,8 @@ class MetricPerformerActor(val basePath: String,
           log.error("retrying operation {} attempt {} ", op, attempt)
 
           val loc                          = op.location
-          val index                        = getIndex(loc)
-          val facetIndexes                 = facetIndexesFor(loc)
+          val index                        = getOrCreateIndex(loc)
+          val facetIndexes                 = getOrCreatefacetIndexesFor(loc)
           implicit val writer: IndexWriter = index.getWriter
 
           val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)

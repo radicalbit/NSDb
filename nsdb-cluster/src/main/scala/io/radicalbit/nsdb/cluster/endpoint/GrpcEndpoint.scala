@@ -149,9 +149,10 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
   protected[this] object InitMetricService extends InitMetric {
     override def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
 
-      Try { Duration(request.shardInterval).toMillis } match {
-        case Success(interval) =>
-          (metadataCoordinator ? PutMetricInfo(MetricInfo(request.db, request.namespace, request.metric, interval)))
+      Try { (Duration(request.shardInterval).toMillis, Duration(request.retention).toMillis) } match {
+        case Success((interval, retention)) =>
+          (metadataCoordinator ? PutMetricInfo(
+            MetricInfo(request.db, request.namespace, request.metric, interval, retention)))
             .map {
               case MetricInfoPut(_) =>
                 InitMetricResponse(request.db, request.namespace, request.metric, completedSuccessfully = true)

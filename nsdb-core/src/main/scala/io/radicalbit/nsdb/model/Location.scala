@@ -23,4 +23,6 @@ package io.radicalbit.nsdb.model
   * @param from shard interval lower bound.
   * @param to shard interval upper bound.
   */
-case class Location(metric: String, node: String, from: Long, to: Long)
+case class Location(metric: String, node: String, from: Long, to: Long) {
+  def shardName = s"${metric}_${from}_$to"
+}
