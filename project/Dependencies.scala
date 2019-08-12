@@ -41,7 +41,7 @@ object Dependencies {
   }
 
   object cats {
-    lazy val version   = "1.6.0"
+    lazy val version   = "1.6.1"
     lazy val namespace = "org.typelevel"
     lazy val cats_core      = namespace %% "cats-core" % version
   }

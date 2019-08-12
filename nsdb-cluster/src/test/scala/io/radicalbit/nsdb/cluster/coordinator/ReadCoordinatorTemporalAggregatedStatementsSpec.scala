@@ -110,7 +110,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
   "ReadCoordinator" when {
 
-    "receive a select containing a temporal group by" should {
+    "receive a select containing a temporal group by with count aggregation" should {
       "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
@@ -178,7 +178,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
     }
 
-    "receive a select containing a timestamp where condition and a temporal group by" should {
+    "receive a select containing a timestamp where condition and a temporal group by with count aggregation" should {
       "execute it successfully in case of GTE" in within(5.seconds) {
         val expected = awaitAssert {
 
@@ -245,7 +245,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
       }
     }
 
-    "receive a select containing a temporal group by with an interval higher than the shard interval" should {
+    "receive a select containing a temporal group with count aggregation by with an interval higher than the shard interval" should {
       "execute it successfully" in within(5.seconds) {
         val expected = awaitAssert {
 
@@ -306,6 +306,74 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
         )
       }
+    }
+
+    "receive a select containing a temporal group by with sum aggregation" should {
+      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(SumAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 7
+
+        expected.values shouldBe Seq(
+          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit(10000, 1, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit(40000, 1, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit(100000, 2, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+        )
+
+      }
+
+      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(60000))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 4
+
+        expected.values shouldBe Seq(
+          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit(10000, 2, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit(70000, 3, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+        )
+      }
+
     }
   }
 }

@@ -125,7 +125,7 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
         .map {
           case SchemaCached(`db`, `namespace`, `metric`, _) =>
             SchemaDeleted(db, namespace, metric)
-          case e =>
+          case _ =>
             SchemaDeleted(db, namespace, metric)
         }
         .pipeTo(sender)

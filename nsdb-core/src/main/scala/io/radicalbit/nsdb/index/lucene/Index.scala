@@ -153,20 +153,6 @@ trait Index[T] {
   def close(): Unit = {
     directory.close()
   }
-
-  def executeCountLongRangeFacet(
-      searcher: IndexSearcher,
-      query: Query,
-      fieldName: String,
-      ranges: Seq[TimeRange]
-  )(f: FacetResult => Seq[Bit]): Seq[Bit] = {
-    val luceneRanges = ranges.map(r =>
-      new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
-    val fc = new FacetsCollector
-    FacetsCollector.search(searcher, query, 0, fc)
-    val facets: LongRangeFacetCounts = new LongRangeFacetCounts(fieldName, fc, luceneRanges: _*)
-    f(facets.getTopChildren(0, fieldName))
-  }
 }
 
 object Index {

@@ -117,25 +117,28 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, _, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val overlappingRanges = globalRanges.filter(_.intersect(location))
 
           handleNoIndexResults(
-            Try(index.executeCountLongRangeFacet(index.getSearcher, q, "timestamp", overlappingRanges) { facetResult =>
-              facetResult.labelValues.toSeq
-                .map { lv =>
-                  val boundaries = lv.label.split("-").map(_.toLong).toSeq
-                  Bit(
-                    boundaries.head,
-                    lv.value.longValue(),
-                    Map[String, JSerializable](
-                      ("lowerBound", boundaries.head),
-                      ("upperBound", boundaries(1))
-                    ),
-                    Map.empty
-                  )
-                }
-            })) match {
+            Try(
+              index
+                .executeLongRangeFacet(index.getSearcher, q, aggregationType, "timestamp", "value", overlappingRanges) {
+                  facetResult =>
+                    facetResult.labelValues.toSeq
+                      .map { lv =>
+                        val boundaries = lv.label.split("-").map(_.toLong).toSeq
+                        Bit(
+                          boundaries.head,
+                          lv.value.longValue(),
+                          Map[String, JSerializable](
+                            ("lowerBound", boundaries.head),
+                            ("upperBound", boundaries(1))
+                          ),
+                          Map.empty
+                        )
+                      }
+                })) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)

@@ -1032,7 +1032,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
 
-      "fail when other aggregation is provided" in {
+      "parse it when sum aggregation is provided" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -1040,6 +1040,46 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1,
+              InternalSumTemporalAggregation,
+              None
+            ))
+        )
+      }
+
+      "fail when other aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) shouldBe a[Failure[_]]
+
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MaxAggregation)))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1)),
             limit = None

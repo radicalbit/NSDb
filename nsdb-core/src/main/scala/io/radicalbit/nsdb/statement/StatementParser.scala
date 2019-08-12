@@ -120,6 +120,20 @@ object StatementParser {
               limitOpt
             )
           )
+        case (false, Success(Seq(Field(fieldName, Some(SumAggregation)))), Some(TemporalGroupByAggregation(interval)))
+            if fieldName == "value" || fieldName == "*" =>
+          Success(
+            ParsedTemporalAggregatedQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              interval,
+              InternalSumTemporalAggregation,
+              statement.condition,
+              sortOpt,
+              limitOpt
+            )
+          )
         // not yet supported aggregations different from count
         case (false, Success(Seq(Field(_, Some(_)))), Some(TemporalGroupByAggregation(_))) =>
           Failure(new InvalidStatementException(StatementParserErrors.NOT_SUPPORTED_AGGREGATION_IN_TEMPORAL_GROUP_BY))
