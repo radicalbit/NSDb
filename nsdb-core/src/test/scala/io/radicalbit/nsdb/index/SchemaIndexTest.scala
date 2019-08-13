@@ -46,7 +46,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
       )
     )
 
-    SchemaIndex.union(schema1, schema2) shouldBe Success(schema1)
+    Schema.union(schema1, schema2) shouldBe Success(schema1)
 
   }
 

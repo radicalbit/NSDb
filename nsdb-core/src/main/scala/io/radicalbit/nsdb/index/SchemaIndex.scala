@@ -100,30 +100,6 @@ class SchemaIndex(override val directory: Directory) extends SimpleIndex[Schema]
 
 object SchemaIndex {
 
-  /**
-    * Assemblies, if possible, the union schema from 2 given schemas.
-    * Given 2 schemas, they are compatible if fields present in both of them are of the same types.
-    * The union schema is a schema with the union of the dimension sets.
-    * @param firstSchema the first schema.
-    * @param secondSchema the second schema.
-    * @return the union schema.
-    */
-  def union(firstSchema: Schema, secondSchema: Schema): Try[Schema] = {
-    val oldFields = firstSchema.fields.map(e => e.name -> e).toMap
-
-    val notCompatibleFields = secondSchema.fields.collect {
-      case field if oldFields.get(field.name).isDefined && oldFields(field.name).indexType != field.indexType =>
-        s"mismatch type for field ${field.name} : new type ${field.indexType} is incompatible with old type"
-    }
-
-    if (notCompatibleFields.nonEmpty)
-      Failure(new RuntimeException(notCompatibleFields.mkString(",")))
-    else {
-      val schema = Schema(secondSchema.metric, firstSchema.fields ++ secondSchema.fields)
-      Success(schema)
-    }
-  }
-
   def stringFieldValue(sf: SchemaField): String = s"${sf.fieldClassType}-${sf.indexType.getClass.getCanonicalName}"
 
   def fieldValue(fieldSchemaType: String): (FieldClassType, IndexType[_]) = {

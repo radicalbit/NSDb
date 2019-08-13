@@ -67,7 +67,7 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
     if (oldSchema == newSchema) {
       Future(Right(SchemaUpdated(db, namespace, metric, newSchema)))
     } else
-      SchemaIndex.union(oldSchema, newSchema) match {
+      Schema.union(oldSchema, newSchema) match {
         case Success(unionSchema) =>
           (schemaCache ? PutSchemaInCache(db, namespace, metric, unionSchema))
             .map {
