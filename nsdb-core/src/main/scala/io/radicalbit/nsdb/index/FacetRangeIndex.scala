@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.FacetRangeIndex.FacetRangeResult
 import io.radicalbit.nsdb.model.TimeRange
 import io.radicalbit.nsdb.statement.{
   InternalCountTemporalAggregation,
@@ -24,7 +25,7 @@ import io.radicalbit.nsdb.statement.{
   InternalTemporalAggregationType
 }
 import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts, LongRangeFacetDoubleSum, LongRangeFacetLongSum}
-import org.apache.lucene.facet.{FacetResult, Facets, FacetsCollector}
+import org.apache.lucene.facet.{Facets, FacetsCollector}
 import org.apache.lucene.search.{IndexSearcher, Query}
 
 /**
@@ -38,7 +39,7 @@ class FacetRangeIndex {
                         rangeFieldName: String,
                         valueFieldName: String,
                         valueFieldType: Option[IndexType[_]],
-                        ranges: Seq[TimeRange])(f: FacetResult => Seq[Bit]): Seq[Bit] = {
+                        ranges: Seq[TimeRange])(postProcFun: Seq[FacetRangeResult] => Seq[Bit]): Seq[Bit] = {
     val luceneRanges = ranges.map(r =>
       new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
     val fc = new FacetsCollector
@@ -50,7 +51,16 @@ class FacetRangeIndex {
       case (InternalSumTemporalAggregation, _) =>
         new LongRangeFacetLongSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
     }
-    f(facets.getTopChildren(0, rangeFieldName))
+    postProcFun {
+      facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.map { lv =>
+        val structuredLabel = lv.label.split("-").map(_.toLong)
+        FacetRangeResult(structuredLabel(0), structuredLabel(1), lv.value)
+      }
+    }
   }
 
+}
+
+object FacetRangeIndex {
+  case class FacetRangeResult(lowerBound: Long, upperBound: Long, value: Number)
 }

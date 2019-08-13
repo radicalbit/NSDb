@@ -49,7 +49,7 @@ public class LongRangeFacetDoubleSum extends RangeFacetCounts {
     sum(LongValuesSource.fromLongField(rangeField), DoubleValuesSource.fromDoubleField(valueField), hits.getMatchingDocs());
   }
 
-  private void sum(LongValuesSource valueSource, DoubleValuesSource testValueSource, List<MatchingDocs> matchingDocs) throws IOException {
+  private void sum(LongValuesSource rangeSource, DoubleValuesSource valueSource, List<MatchingDocs> matchingDocs) throws IOException {
 
     LongRange[] ranges = (LongRange[]) this.ranges;
 
@@ -57,9 +57,9 @@ public class LongRangeFacetDoubleSum extends RangeFacetCounts {
 
     int missingCount = 0;
     for (MatchingDocs hits : matchingDocs) {
-      LongValues fv = valueSource.getValues(hits.context, null);
+      LongValues fv = rangeSource.getValues(hits.context, null);
 
-      DoubleValues values = testValueSource.getValues(hits.context, null);
+      DoubleValues values = valueSource.getValues(hits.context, null);
       
       totCount += hits.totalHits;
       final DocIdSetIterator fastMatchDocs;

@@ -41,9 +41,10 @@ public class LongRangeFacetLongSum extends RangeFacetCounts {
   public LongRangeFacetLongSum(String rangeField, String valueField, FacetsCollector hits, LongRange... ranges) throws IOException {
     super(rangeField, ranges, null);
     sum(LongValuesSource.fromLongField(rangeField), LongValuesSource.fromLongField(valueField), hits.getMatchingDocs());
+    LongRangeLongSummation counter = new LongRangeLongSummation(ranges);
   }
 
-  private void sum(LongValuesSource valueSource, LongValuesSource testValueSource, List<MatchingDocs> matchingDocs) throws IOException {
+  private void sum(LongValuesSource rangeSource, LongValuesSource valueSource, List<MatchingDocs> matchingDocs) throws IOException {
 
     LongRange[] ranges = (LongRange[]) this.ranges;
 
@@ -51,9 +52,9 @@ public class LongRangeFacetLongSum extends RangeFacetCounts {
 
     int missingCount = 0;
     for (MatchingDocs hits : matchingDocs) {
-      LongValues fv = valueSource.getValues(hits.context, null);
+      LongValues fv = rangeSource.getValues(hits.context, null);
 
-      LongValues values = testValueSource.getValues(hits.context, null);
+      LongValues values = valueSource.getValues(hits.context, null);
       
       totCount += hits.totalHits;
       final DocIdSetIterator fastMatchDocs;

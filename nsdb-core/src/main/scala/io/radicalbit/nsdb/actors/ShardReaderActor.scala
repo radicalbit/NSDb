@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
-import io.radicalbit.nsdb.statement.{InternalCountTemporalAggregation, StatementParser}
+import io.radicalbit.nsdb.statement.{InternalCountTemporalAggregation, InternalSumTemporalAggregation, StatementParser}
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
@@ -117,33 +117,56 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
-          val overlappingRanges = globalRanges.filter(_.intersect(location))
-
-          val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
-
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetRangeIndex
                 .executeRangeFacet(index.getSearcher,
                                    q,
-                                   aggregationType,
+                                   InternalCountTemporalAggregation,
+                                   "timestamp",
+                                   "value",
+                                   None,
+                                   globalRanges.filter(_.intersect(location))) { facetResultSeq =>
+                  facetResultSeq
+                    .map { facetResult =>
+                      Bit(
+                        facetResult.lowerBound,
+                        facetResult.value.longValue(),
+                        Map[String, JSerializable](
+                          ("lowerBound", facetResult.lowerBound),
+                          ("upperBound", facetResult.upperBound)
+                        ),
+                        Map.empty
+                      )
+                    }
+                })) match {
+            case Success(bits) =>
+              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+          }
+        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
+          val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
+          handleNoIndexResults(
+            Try(
+              facetIndexes.facetRangeIndex
+                .executeRangeFacet(index.getSearcher,
+                                   q,
+                                   InternalSumTemporalAggregation,
                                    "timestamp",
                                    "value",
                                    Some(valueFieldType),
-                                   overlappingRanges) { facetResult =>
-                  facetResult.labelValues.toSeq
-                    .map { lv =>
-                      val boundaries = lv.label.split("-").map(_.toLong).toSeq
+                                   globalRanges.filter(_.intersect(location))) { facetResultSeq =>
+                  facetResultSeq
+                    .map { facetResult =>
                       Bit(
-                        boundaries.head,
-                        if (valueFieldType
-                              .isInstanceOf[DECIMAL] && !(aggregationType == InternalCountTemporalAggregation))
-                          lv.value.doubleValue()
-                        else lv.value.longValue(),
+                        facetResult.lowerBound,
+                        if (valueFieldType.isInstanceOf[DECIMAL])
+                          facetResult.value.doubleValue()
+                        else facetResult.value.longValue(),
                         Map[String, JSerializable](
-                          ("lowerBound", boundaries.head),
-                          ("upperBound", boundaries(1))
+                          ("lowerBound", facetResult.lowerBound),
+                          ("upperBound", facetResult.upperBound)
                         ),
                         Map.empty
                       )
