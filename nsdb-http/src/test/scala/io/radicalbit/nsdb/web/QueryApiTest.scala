@@ -48,7 +48,7 @@ object QueryApiTest {
           if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
         StatementParser.parseStatement(
           statement,
-          Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
+          Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
           case scala.util.Success(_) =>
             val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
             sender ! SelectStatementExecuted(statement.db,
@@ -60,7 +60,7 @@ object QueryApiTest {
       case ExecuteStatement(statement) =>
         StatementParser.parseStatement(
           statement,
-          Schema("metric", bits.head).getOrElse(Schema("metric", Set.empty[SchemaField]))) match {
+          Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
           case scala.util.Success(_) =>
             sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
           case Failure(_) => sender ! SelectStatementFailed("statement not valid")

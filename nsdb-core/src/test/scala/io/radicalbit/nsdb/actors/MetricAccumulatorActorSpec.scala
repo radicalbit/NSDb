@@ -63,7 +63,8 @@ class MetricAccumulatorActorSpec()
 
   val schema =
     Schema("",
-           Set(SchemaField("dimension", DimensionFieldType, VARCHAR()), SchemaField("tag", TagFieldType, VARCHAR())))
+           Map("dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
+               "tag"       -> SchemaField("tag", TagFieldType, VARCHAR())))
 
   private val location = Location("testMetric", nodeName, 0, 0)
 

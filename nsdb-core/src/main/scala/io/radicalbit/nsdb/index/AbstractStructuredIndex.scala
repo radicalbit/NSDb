@@ -50,9 +50,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     }
   }
 
-  override def validateRecord(bit: Bit): Try[Seq[Field]] =
+  override def validateRecord(bit: Bit): Try[Iterable[Field]] =
     validateSchemaTypeSupport(bit)
-      .map(se => se.flatMap(elem => elem.indexType.indexField(elem.name, elem.value)))
+      .map(se => se.flatMap { case (_, elem) => elem.indexType.indexField(elem.name, elem.value) })
 
   override def delete(data: Bit)(implicit writer: IndexWriter): Try[Long] = {
     Try {
@@ -68,8 +68,10 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     def extractFields(schema: Schema, document: Document, fields: Seq[SimpleField], fieldClassType: FieldClassType) = {
       document.getFields.asScala
         .filterNot { f =>
-          schema.fields
-            .find(fieldSchema => fieldSchema.name == f.name && fieldSchema.fieldClassType == fieldClassType)
+          schema.fieldsMap
+            .find {
+              case (_, fieldSchema) => fieldSchema.name == f.name && fieldSchema.fieldClassType == fieldClassType
+            }
             .forall { _ =>
               f.name() == _keyField || f.name() == _valueField || f.name() == _countField || (fields.nonEmpty &&
               !fields.exists { sf =>

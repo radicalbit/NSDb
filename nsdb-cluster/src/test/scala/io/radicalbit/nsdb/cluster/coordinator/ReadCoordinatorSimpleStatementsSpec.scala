@@ -164,7 +164,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           expected.metric shouldBe LongMetric.name
           expected.schema shouldBe defined
 
-          expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
+          expected.schema.get.fieldsMap.values.toSeq.sortBy(_.name) shouldBe
             Seq(
               SchemaField("name", TagFieldType, VARCHAR()),
               SchemaField("surname", DimensionFieldType, VARCHAR()),
@@ -181,7 +181,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           expected.metric shouldBe DoubleMetric.name
           expected.schema shouldBe defined
 
-          expected.schema.get.fields.toSeq.sortBy(_.name) shouldBe
+          expected.schema.get.fieldsMap.values.toSeq.sortBy(_.name) shouldBe
             Seq(
               SchemaField("name", TagFieldType, VARCHAR()),
               SchemaField("surname", DimensionFieldType, VARCHAR()),

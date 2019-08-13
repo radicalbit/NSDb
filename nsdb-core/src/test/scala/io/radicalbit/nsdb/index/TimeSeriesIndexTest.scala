@@ -29,9 +29,9 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
-  private val schema = Schema(
-    "",
-    Set(SchemaField("dimension", DimensionFieldType, VARCHAR()), SchemaField("tag", TagFieldType, VARCHAR())))
+  private val schema = Schema("",
+                              Map("dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
+                                  "tag"       -> SchemaField("tag", TagFieldType, VARCHAR())))
 
   "TimeSeriesIndex" should "write and read properly on disk" in {
 

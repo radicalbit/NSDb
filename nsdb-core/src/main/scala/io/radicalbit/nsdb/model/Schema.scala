@@ -50,18 +50,15 @@ case class SchemaField(name: String, fieldClassType: FieldClassType, indexType: 
 /**
   * Schema for metrics.
   * @param metric the metric.
-  * @param fields a set of [[SchemaField]]
+  * @param fieldsMap a map of [[SchemaField]] keyed by field name
   */
-case class Schema(metric: String, fields: Set[SchemaField]) {
+case class Schema(metric: String, fieldsMap: Map[String, SchemaField]) {
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]
-      (otherSchema.metric == this.metric) && (otherSchema.fields.size == this.fields.size) && (otherSchema.fields == this.fields)
+      (otherSchema.metric == this.metric) && (otherSchema.fieldsMap.size == this.fieldsMap.size) && (otherSchema.fieldsMap == this.fieldsMap)
     } else false
   }
-
-  def fieldsMap: Map[String, SchemaField] =
-    fields.map(f => f.name -> f).toMap
 }
 
 object Schema extends TypeSupport {
@@ -73,8 +70,11 @@ object Schema extends TypeSupport {
     * @return the resulting [[Schema]]. If bit contains invalid fields the result will be a [[scala.util.Failure]]
     */
   def apply(metric: String, bit: Bit): Try[Schema] = {
-    validateSchemaTypeSupport(bit).map((fields: Seq[TypedField]) =>
-      Schema(metric, fields.map(field => SchemaField(field.name, field.fieldClassType, field.indexType)).toSet))
+    validateSchemaTypeSupport(bit).map(
+      fieldsMap =>
+        Schema(
+          metric,
+          fieldsMap.mapValues(field => SchemaField(field.name, field.fieldClassType, field.indexType)).map(identity)))
   }
 
   /**
@@ -86,17 +86,18 @@ object Schema extends TypeSupport {
     * @return the union schema.
     */
   def union(firstSchema: Schema, secondSchema: Schema): Try[Schema] = {
-    val oldFields = firstSchema.fields.map(e => e.name -> e).toMap
-
-    val notCompatibleFields = secondSchema.fields.collect {
-      case field if oldFields.get(field.name).isDefined && oldFields(field.name).indexType != field.indexType =>
+    val notCompatibleFields = secondSchema.fieldsMap.collect {
+      case (name, field)
+          if firstSchema.fieldsMap
+            .get(name)
+            .isDefined && firstSchema.fieldsMap(field.name).indexType != field.indexType =>
         s"mismatch type for field ${field.name} : new type ${field.indexType} is incompatible with old type"
     }
 
     if (notCompatibleFields.nonEmpty)
       Failure(new RuntimeException(notCompatibleFields.mkString(",")))
     else {
-      val schema = Schema(secondSchema.metric, firstSchema.fields ++ secondSchema.fields)
+      val schema = Schema(secondSchema.metric, firstSchema.fieldsMap ++ secondSchema.fieldsMap)
       Success(schema)
     }
   }

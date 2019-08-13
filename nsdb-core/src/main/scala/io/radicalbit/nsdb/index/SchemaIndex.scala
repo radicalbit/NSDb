@@ -38,13 +38,13 @@ class SchemaIndex(override val directory: Directory) extends SimpleIndex[Schema]
 
   override val _keyField: String = "metric"
 
-  override def validateRecord(data: Schema): Try[Seq[Field]] = {
+  override def validateRecord(data: Schema): Try[Seq[Field]] =
     Success(
       Seq(
         new StringField(_keyField, data.metric, Store.YES)
       ) ++
-        data.fields.map(e => new StringField(e.name, stringFieldValue(e), Store.YES)))
-  }
+        data.fieldsMap.map { case (_, e) => new StringField(e.name, stringFieldValue(e), Store.YES) }
+    )
 
   override def write(data: Schema)(implicit writer: IndexWriter): Try[Long] = {
     val doc = new Document
@@ -64,8 +64,8 @@ class SchemaIndex(override val directory: Directory) extends SimpleIndex[Schema]
       document.get(_keyField),
       fields.map { f =>
         val (fieldType, indexType) = fieldValue(f.stringValue)
-        SchemaField(f.name(), fieldType, indexType)
-      }.toSet
+        f.name() -> SchemaField(f.name(), fieldType, indexType)
+      }.toMap
     )
   }
 

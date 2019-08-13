@@ -46,15 +46,19 @@ object CommandApiTest {
     val schemas = Map(
       "metric1" -> Schema(
         "metric1",
-        Set(SchemaField("dim1", DimensionFieldType, VARCHAR()),
-            SchemaField("dim2", DimensionFieldType, INT()),
-            SchemaField("dim3", DimensionFieldType, BIGINT()))
+        Map(
+          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
+          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
+          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
+        )
       ),
       "metric2" -> Schema(
         "metric2",
-        Set(SchemaField("dim1", DimensionFieldType, VARCHAR()),
-            SchemaField("dim2", DimensionFieldType, INT()),
-            SchemaField("dim3", DimensionFieldType, BIGINT()))
+        Map(
+          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
+          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
+          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
+        )
       )
     )
   }
@@ -131,8 +135,9 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
       val entity = entityAs[String]
       entity shouldBe write(
         DescribeMetricResponse(
-          schemas("metric1").fields
-            .map(field => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
+          schemas("metric1").fieldsMap.map {
+            case (_, field) => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+          }.toSet
         ))
     }
   }

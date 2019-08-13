@@ -31,18 +31,18 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
 
     val schema1 = Schema(
       s"metric",
-      Set(
-        SchemaField("field1", DimensionFieldType, BIGINT()),
-        SchemaField("field2", TagFieldType, VARCHAR()),
-        SchemaField(s"field3", DimensionFieldType, VARCHAR())
+      Map(
+        "field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
+        "field2" -> SchemaField("field2", TagFieldType, VARCHAR()),
+        "field3" -> SchemaField("field3", DimensionFieldType, VARCHAR())
       )
     )
 
     val schema2 = Schema(
       s"metric",
-      Set(
-        SchemaField("field1", DimensionFieldType, BIGINT()),
-        SchemaField("field2", TagFieldType, VARCHAR())
+      Map(
+        "field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
+        "field2" -> SchemaField("field2", TagFieldType, VARCHAR())
       )
     )
 
@@ -61,10 +61,10 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
     (0 to 100).foreach { i =>
       val testData = Schema(
         s"metric_$i",
-        Set(
-          SchemaField("field1", DimensionFieldType, BIGINT()),
-          SchemaField("field2", DimensionFieldType, VARCHAR()),
-          SchemaField(s"field$i", DimensionFieldType, VARCHAR())
+        Map(
+          "field1"   -> SchemaField("field1", DimensionFieldType, BIGINT()),
+          "field2"   -> SchemaField("field2", DimensionFieldType, VARCHAR()),
+          s"field$i" -> SchemaField(s"field$i", DimensionFieldType, VARCHAR())
         )
       )
       schemaIndex.write(testData)
@@ -80,10 +80,10 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
     firstSchema shouldBe Some(
       Schema(
         s"metric_0",
-        Set(
-          SchemaField("field1", DimensionFieldType, BIGINT()),
-          SchemaField("field2", DimensionFieldType, VARCHAR()),
-          SchemaField(s"field0", DimensionFieldType, VARCHAR())
+        Map(
+          "field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
+          "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()),
+          "field0" -> SchemaField("field0", DimensionFieldType, VARCHAR())
         )
       ))
   }
@@ -92,10 +92,14 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
 
     val testData = Schema(
       "metric_1",
-      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
+      Map("field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
+          "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()))
+    )
     val testData2 = Schema(
       "metric_1",
-      Set(SchemaField("field1", DimensionFieldType, INT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
+      Map("field1" -> SchemaField("field1", DimensionFieldType, INT()),
+          "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()))
+    )
 
     lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
@@ -130,12 +134,16 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
 
     val testData = Schema(
       s"metric_2",
-      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
+      Map("field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
+          "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()))
+    )
     schemaIndex.write(testData)
 
     val testDataBis = Schema(
       s"metric_3",
-      Set(SchemaField("field1", DimensionFieldType, BIGINT()), SchemaField("field2", DimensionFieldType, VARCHAR())))
+      Map("field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
+          "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()))
+    )
     schemaIndex.write(testDataBis)
     writer.close()
 

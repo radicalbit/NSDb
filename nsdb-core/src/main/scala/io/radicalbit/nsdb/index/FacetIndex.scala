@@ -27,6 +27,7 @@ import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
 import org.apache.lucene.store.Directory
 
+import scala.collection.immutable
 import scala.util.{Failure, Success, Try}
 
 abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory) extends AbstractStructuredIndex {
@@ -78,12 +79,12 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
              groupFieldIndexType: IndexType[_],
              valueIndexType: Option[IndexType[_]]): Seq[Bit]
 
-  override def validateRecord(bit: Bit): Try[Seq[Field]] =
+  override def validateRecord(bit: Bit): Try[immutable.Iterable[Field]] =
     validateSchemaTypeSupport(bit)
       .map(
         se =>
           se.collect {
-              case t: TypedField if t.fieldClassType != DimensionFieldType => t
+              case (_, t) if t.fieldClassType != DimensionFieldType => t
             }
             .flatMap(elem => elem.indexType.facetField(elem.name, elem.value)))
 
@@ -98,7 +99,7 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
     allFields match {
       case Success(fields) =>
         val doc = new Document
-        val c   = facetConfig(fields)
+        val c   = facetConfig(fields.toSeq)
 
         fields
           .filterNot(f => f.name() == "value")

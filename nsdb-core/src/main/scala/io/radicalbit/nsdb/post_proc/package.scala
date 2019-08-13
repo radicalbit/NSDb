@@ -43,13 +43,13 @@ package object post_proc {
             val sortedResults = seq.sortBy(_.timestamp)
             statement.limit.map(_.value).map(v => Right(sortedResults.takeRight(v))) getOrElse Right(sortedResults)
           case _ =>
-            val sortedResults = if (statement.order.isDefined) {
-              val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+            val sortedResults = statement.order.map { order =>
+              val o = schema.fieldsMap(order.dimension).indexType.ord
               implicit val ord: Ordering[JSerializable] =
                 if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
                 else o
               seq.sortBy(_.fields(statement.order.get.dimension)._1)
-            } else seq
+            } getOrElse seq
             statement.limit.map(_.value).map(v => Right(sortedResults.take(v))) getOrElse Right(sortedResults)
         }
       case l @ Left(_) => l

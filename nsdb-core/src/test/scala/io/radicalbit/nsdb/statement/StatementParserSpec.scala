@@ -34,16 +34,16 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   val schema = Schema(
     "people",
-    Set(
-      SchemaField("timestamp", TimestampFieldType, BIGINT()),
-      SchemaField("value", ValueFieldType, DECIMAL()),
-      SchemaField("name", DimensionFieldType, VARCHAR()),
-      SchemaField("surname", DimensionFieldType, VARCHAR()),
-      SchemaField("amount", DimensionFieldType, DECIMAL()),
-      SchemaField("creationDate", DimensionFieldType, BIGINT()),
-      SchemaField("city", TagFieldType, VARCHAR()),
-      SchemaField("country", TagFieldType, VARCHAR()),
-      SchemaField("age", TagFieldType, INT())
+    Map(
+      "timestamp"    -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+      "value"        -> SchemaField("value", ValueFieldType, DECIMAL()),
+      "name"         -> SchemaField("name", DimensionFieldType, VARCHAR()),
+      "surname"      -> SchemaField("surname", DimensionFieldType, VARCHAR()),
+      "amount"       -> SchemaField("amount", DimensionFieldType, DECIMAL()),
+      "creationDate" -> SchemaField("creationDate", DimensionFieldType, BIGINT()),
+      "city"         -> SchemaField("city", TagFieldType, VARCHAR()),
+      "country"      -> SchemaField("country", TagFieldType, VARCHAR()),
+      "age"          -> SchemaField("age", TagFieldType, INT())
     )
   )
 

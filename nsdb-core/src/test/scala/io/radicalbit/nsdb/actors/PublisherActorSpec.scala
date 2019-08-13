@@ -66,9 +66,9 @@ class PublisherActorSpec
   val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"), Map.empty)
   val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"), Map.empty)
 
-  val schema = Schema(
-    "people",
-    Set(SchemaField("timestamp", DimensionFieldType, BIGINT()), SchemaField("name", DimensionFieldType, VARCHAR())))
+  val schema = Schema("people",
+                      Map("timestamp" -> SchemaField("timestamp", DimensionFieldType, BIGINT()),
+                          "name"      -> SchemaField("name", DimensionFieldType, VARCHAR())))
 
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))

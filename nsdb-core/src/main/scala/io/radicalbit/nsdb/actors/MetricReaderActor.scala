@@ -195,7 +195,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     } else {
 
       gatherShardResults(actors, msg) { seq =>
-        val schemaField = msg.schema.fields.find(_.name == statement.order.get.dimension).get
+        val schemaField = msg.schema.fieldsMap(statement.order.get.dimension)
         val o           = schemaField.indexType.ord
         implicit val ord: Ordering[JSerializable] =
           if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse else o
@@ -244,7 +244,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, ranges) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
@@ -319,7 +319,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
           val rawResult =
             gatherAndGroupShardResults(filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
-              val v                                        = schema.fields.find(_.name == "value").get.indexType.asInstanceOf[NumericType[_, _]]
+              val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
               aggregationType match {
                 case InternalMaxSimpleAggregation(_, _) =>
