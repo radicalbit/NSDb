@@ -302,12 +302,17 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                     implicit val numeric: Numeric[JSerializable] = v.numeric
                     res
                       .groupBy(_.timestamp)
-                      .mapValues(
-                        v =>
-                          if (aggregationType == InternalMaxTemporalAggregation)
-                            Bit(v.head.timestamp, v.map(_.value).max, v.head.dimensions, v.head.tags)
-                          else
-                            Bit(v.head.timestamp, v.map(_.value).min, v.head.dimensions, v.head.tags))
+                      .mapValues(v =>
+                        if (aggregationType == InternalMaxTemporalAggregation)
+                          Bit(v.head.timestamp, v.map(_.value).max, v.head.dimensions, v.head.tags)
+                        else {
+                          val nonZeroValues: Seq[JSerializable] =
+                            v.collect { case x if x.value != numeric.zero => x.value }
+                          Bit(v.head.timestamp,
+                              if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min,
+                              v.head.dimensions,
+                              v.head.tags)
+                      })
                       .values
                       .toSeq
                       .sortBy(_.timestamp)
