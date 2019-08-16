@@ -28,31 +28,31 @@ import org.apache.lucene.search.*;
 import java.io.IOException;
 import java.util.List;
 
-/** {@link Facets} implementation that computes sum for
- *  dynamic double ranges from a provided {@link DoubleValuesSource}.  Use
+/** {@link Facets} implementation that computes long min or max for
+ *  dynamic long ranges from a provided {@link LongValuesSource}.  Use
  *  this for dimensions that change in real-time (e.g. a
  *  relative time based dimension like "Past day", "Past 2
  *  days", etc.) or that change for each request (e.g. 
  *  distance from the user's location, "&lt; 1 km", "&lt; 2 km",
  *  etc.).
  */
-public class LongRangeFacetDoubleSum extends RangeFacetCounts {
+public class LongRangeFacetDoubleMinMax extends RangeFacetCounts {
 
-  private final double[] summations;
+  private final double[] minMaxs;
 
   /** Create {@code LongRangeFacetCounts}, using {@link
    *  LongValuesSource} from the specified rangeField. */
-  public LongRangeFacetDoubleSum(String rangeField, String valueField, FacetsCollector hits, LongRange... ranges) throws IOException {
+  public LongRangeFacetDoubleMinMax(String rangeField, String valueField, boolean checkMin, FacetsCollector hits, LongRange... ranges) throws IOException {
     super(rangeField, ranges, null);
-    summations = new double[ranges.length];
-    sum(LongValuesSource.fromLongField(rangeField), DoubleValuesSource.fromDoubleField(valueField), hits.getMatchingDocs());
+    minMaxs = new double[ranges.length];
+    minMax(LongValuesSource.fromLongField(rangeField), DoubleValuesSource.fromDoubleField(valueField), hits.getMatchingDocs(),checkMin);
   }
 
-  private void sum(LongValuesSource rangeSource, DoubleValuesSource valueSource, List<MatchingDocs> matchingDocs) throws IOException {
+  private void minMax(LongValuesSource rangeSource, DoubleValuesSource valueSource, List<MatchingDocs> matchingDocs,boolean checkMin) throws IOException {
 
     LongRange[] ranges = (LongRange[]) this.ranges;
 
-    LongRangeDoubleSummation counter = new LongRangeDoubleSummation(ranges);
+    LongRangeDoubleMinMax counter = new LongRangeDoubleMinMax(ranges,checkMin);
 
     int missingCount = 0;
     for (MatchingDocs hits : matchingDocs) {
@@ -100,7 +100,7 @@ public class LongRangeFacetDoubleSum extends RangeFacetCounts {
       }
     }
     
-    int x = counter.fillSummations(summations);
+    int x = counter.fillCounts(minMaxs);
 
     missingCount += x;
 
@@ -117,7 +117,7 @@ public class LongRangeFacetDoubleSum extends RangeFacetCounts {
     }
     LabelAndValue[] labelValues = new LabelAndValue[counts.length];
     for(int i=0;i<counts.length;i++) {
-      labelValues[i] = new LabelAndValue(ranges[i].label, summations[i]);
+      labelValues[i] = new LabelAndValue(ranges[i].label, (minMaxs[i] == Double.MAX_VALUE || minMaxs[i] == Double.MIN_VALUE)? 0:minMaxs[i]);
     }
     return new FacetResult(dim, path, totCount, labelValues, labelValues.length);
   }
