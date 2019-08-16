@@ -19,12 +19,8 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.FacetRangeIndex.FacetRangeResult
 import io.radicalbit.nsdb.model.TimeRange
-import io.radicalbit.nsdb.statement.{
-  InternalCountTemporalAggregation,
-  InternalSumTemporalAggregation,
-  InternalTemporalAggregationType
-}
-import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts, LongRangeFacetDoubleSum, LongRangeFacetLongSum}
+import io.radicalbit.nsdb.statement._
+import org.apache.lucene.facet.range._
 import org.apache.lucene.facet.{Facets, FacetsCollector}
 import org.apache.lucene.search.{IndexSearcher, Query}
 
@@ -35,7 +31,7 @@ class FacetRangeIndex {
 
   def executeRangeFacet(searcher: IndexSearcher,
                         query: Query,
-                        aggregationType: InternalTemporalAggregationType,
+                        aggregationType: InternalTemporalAggregation,
                         rangeFieldName: String,
                         valueFieldName: String,
                         valueFieldType: Option[IndexType[_]],
@@ -50,6 +46,14 @@ class FacetRangeIndex {
         new LongRangeFacetDoubleSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
       case (InternalSumTemporalAggregation, _) =>
         new LongRangeFacetLongSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
+      case (InternalMaxTemporalAggregation, Some(_: DECIMAL)) =>
+        new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
+      case (InternalMaxTemporalAggregation, _) =>
+        new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
+      case (InternalMinTemporalAggregation, Some(_: DECIMAL)) =>
+        new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
+      case (InternalMinTemporalAggregation, _) =>
+        new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
     }
     postProcFun {
       facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.map { lv =>
