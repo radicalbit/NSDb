@@ -16,13 +16,9 @@
 
 package io.radicalbit.nsdb.index.lucene
 
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.TimeRange
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
-import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts}
-import org.apache.lucene.facet.{FacetResult, FacetsCollector}
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.document._
+import org.apache.lucene.index._
 import org.apache.lucene.search._
 import org.apache.lucene.store.Directory
 import org.apache.lucene.util.InfoStream

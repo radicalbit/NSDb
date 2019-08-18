@@ -106,9 +106,6 @@ public abstract class LongRangeSummation {
         for(int i=0;i<boundaries.length;i++) {
             boundaries[i] = elementaryIntervals.get(i).end;
         }
-
-//        leafCounts = new double[boundaries.length];
-
     }
 
     private static LongRangeNode split(int start, int end, List<InclusiveRange> elementaryIntervals) {
@@ -137,83 +134,6 @@ public abstract class LongRangeSummation {
         @Override
         public String toString() {
             return start + " to " + end;
-        }
-    }
-
-    /** Holds one node of the segment tree. */
-    public static final class LongRangeNode {
-        final LongRangeNode left;
-        final LongRangeNode right;
-
-        // Our range, inclusive:
-        final long start;
-        final long end;
-
-        // If we are a leaf, the index into elementary ranges that
-        // we point to:
-        final int leafIndex;
-
-        // Which range indices to output when a query goes
-        // through this node:
-        List<Integer> outputs;
-
-        LongRangeNode(long start, long end, LongRangeNode left, LongRangeNode right, int leafIndex) {
-            this.start = start;
-            this.end = end;
-            this.left = left;
-            this.right = right;
-            this.leafIndex = leafIndex;
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            toString(sb, 0);
-            return sb.toString();
-        }
-
-        static void indent(StringBuilder sb, int depth) {
-            for(int i=0;i<depth;i++) {
-                sb.append("  ");
-            }
-        }
-
-        /** Recursively assigns range outputs to each node. */
-        void addOutputs(int index, LongRange range) {
-            if (start >= range.min && end <= range.max) {
-                // Our range is fully included in the incoming
-                // range; add to our output list:
-                if (outputs == null) {
-                    outputs = new ArrayList<>();
-                }
-                outputs.add(index);
-            } else if (left != null) {
-                assert right != null;
-                // Recurse:
-                left.addOutputs(index, range);
-                right.addOutputs(index, range);
-            }
-        }
-
-        void toString(StringBuilder sb, int depth) {
-            indent(sb, depth);
-            if (left == null) {
-                assert right == null;
-                sb.append("leaf: ").append(start).append(" to ").append(end);
-            } else {
-                sb.append("node: ").append(start).append(" to ").append(end);
-            }
-            if (outputs != null) {
-                sb.append(" outputs=");
-                sb.append(outputs);
-            }
-            sb.append('\n');
-
-            if (left != null) {
-                assert right != null;
-                left.toString(sb, depth+1);
-                right.toString(sb, depth+1);
-            }
         }
     }
 }
