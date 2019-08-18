@@ -115,7 +115,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case string: String        => string
     case strings: List[String] => strings.mkString(" ")
   }
-  private val stringValueWithWildcards = """(^[a-zA-Z_\$][a-zA-Z0-9_\-\$]*[a-zA-Z0-9\$])""".r
+  private val stringValueWithWildcards = """(^[a-zA-Z_$][a-zA-Z0-9_\-$]*[a-zA-Z0-9$])""".r
 
   private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
@@ -223,23 +223,20 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val where: PackratParser[Expression] = Where ~> expression
 
   lazy val groupBy
-    : PackratParser[Option[GroupByAggregation]] = ((group ~> ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?) ~ (dimension ?)) ?) ^^ {
-    case Some(None ~ Some(dim)) => Some(SimpleGroupByAggregation(dim))
-    case Some(Some(i) ~ None)   => Some(TemporalGroupByAggregation(i._1.getOrElse(1) * i._2))
-    case None                   => None
+    : PackratParser[GroupByAggregation] = (group ~> ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?) ~ (dimension ?)) ^^ {
+    case None ~ Some(dim) => SimpleGroupByAggregation(dim)
+    case Some(i) ~ None   => TemporalGroupByAggregation(i._1.getOrElse(1) * i._2)
   }
 
-  lazy val order: PackratParser[Option[OrderOperator]] = ((Order ~> dimension ~ (Desc ?)) ?) ^^ {
-    case Some(dim ~ Some(_)) => Some(DescOrderOperator(dim))
-    case Some(dim ~ None)    => Some(AscOrderOperator(dim))
-    case None                => None
+  lazy val order: PackratParser[OrderOperator] = (Order ~> dimension ~ (Desc ?)) ^^ {
+    case dim ~ Some(_) => DescOrderOperator(dim)
+    case dim ~ None    => AscOrderOperator(dim)
   }
 
-  lazy val limit: PackratParser[Option[LimitOperator]] = ((Limit ~> intValue) ?) ^^ (value =>
-    value.map(x => LimitOperator(x)))
+  lazy val limit: PackratParser[LimitOperator] = (Limit ~> intValue) ^^ (value => LimitOperator(value))
 
   private def selectQuery(db: String, namespace: String) =
-    select ~ from ~ (where ?) ~ groupBy ~ order ~ limit <~ ";" ^^ {
+    select ~ from ~ (where ?) ~ (groupBy ?) ~ (order ?) ~ (limit ?) <~ ";" ^^ {
       case d ~ fs ~ met ~ cond ~ gr ~ ord ~ lim =>
         SelectSQLStatement(db = db,
                            namespace = namespace,
