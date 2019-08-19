@@ -190,26 +190,28 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
           )))
       }
 
-      "receive a select containing a condition of not nullable" in {
-        parser.parse(
-          db = "db",
-          namespace = "registry",
-          input =
-            "select * from AreaOccupancy where (name=MeetingArea) and (name is not null) order by timestamp desc limit 1") shouldBe
-          Success(
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "AreaOccupancy",
-              distinct = false,
-              fields = AllFields,
-              condition = Some(
-                Condition(TupledLogicalExpression(EqualityExpression("name", "MeetingArea"),
-                                                  AndOperator,
-                                                  UnaryLogicalExpression(NullableExpression("name"), NotOperator)))),
-              order = Some(DescOrderOperator(dimension = "timestamp")),
-              limit = Some(LimitOperator(1))
-            ))
+      "parse it successfully if not is applied both to the whole chain and to an inner condition" in {
+        parser.parse(db = "db",
+                     namespace = "registry",
+                     input = "SELECT name FROM people WHERE NOT (timestamp >= 2 OR NOT timestamp < 4)") should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(UnaryLogicalExpression(
+              expression = TupledLogicalExpression(
+                expression1 =
+                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                operator = OrOperator,
+                expression2 = UnaryLogicalExpression(
+                  ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L),
+                  operator = NotOperator)
+              ),
+              operator = NotOperator
+            )))
+          )))
       }
     }
 
@@ -263,6 +265,28 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
           )))
       }
 
+      "receive a select containing a condition of not nullable" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "select * from AreaOccupancy where (name=MeetingArea) and (name is not null) order by timestamp desc limit 1") shouldBe
+          Success(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "AreaOccupancy",
+              distinct = false,
+              fields = AllFields,
+              condition = Some(
+                Condition(TupledLogicalExpression(EqualityExpression("name", "MeetingArea"),
+                                                  AndOperator,
+                                                  UnaryLogicalExpression(NullableExpression("name"), NotOperator)))),
+              order = Some(DescOrderOperator(dimension = "timestamp")),
+              limit = Some(LimitOperator(1))
+            ))
+      }
+
       "receive a select containing two conditions of not nullable" in {
         parser.parse(
           db = "db",
@@ -292,6 +316,37 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
               order = Some(DescOrderOperator(dimension = "timestamp")),
               limit = Some(LimitOperator(1))
             ))
+      }
+    }
+
+    "receive a complex select containing inner parenthesis" should {
+      "parse it correctly" in {
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input =
+            "SELECT name FROM people WHERE ((name like $an$ and surname = pippo) and timestamp IN (2,4)) and code is not null  ORDER BY name DESC LIMIT 5"
+        ) should be(
+          Success(SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(TupledLogicalExpression(
+              expression1 = TupledLogicalExpression(
+                expression1 = TupledLogicalExpression(expression1 = LikeExpression("name", "$an$"),
+                                                      operator = AndOperator,
+                                                      expression2 = EqualityExpression("surname", "pippo")),
+                operator = AndOperator,
+                expression2 = RangeExpression("timestamp", 2, 4)
+              ),
+              expression2 = UnaryLogicalExpression(NullableExpression("code"), NotOperator),
+              operator = AndOperator
+            ))),
+            order = Some(DescOrderOperator(dimension = "name")),
+            limit = Some(LimitOperator(5))
+          )))
       }
     }
   }
