@@ -25,7 +25,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
 
-  "A parser instance" when {
+  "A SQL parser instance" when {
 
     "receive a select with a group by and one aggregation" should {
       "parse it successfully" in {

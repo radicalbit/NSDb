@@ -49,12 +49,12 @@ class CommandStatementParser(db: String) extends RegexParsers {
   private val namespace = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val metric    = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
 
-  private def showNamespaces = Show ~ Namespaces ^^ {
-    case _ => ShowNamespaces
+  private def showNamespaces = Show ~ Namespaces ^^ { _ =>
+    ShowNamespaces
   }
 
-  private def useNamespace = Use ~> namespace ^^ {
-    case ns => UseNamespace(ns)
+  private def useNamespace = Use ~> namespace ^^ { ns =>
+    UseNamespace(ns)
   }
 
   private def showMetrics(namespace: Option[String]) = Show ~ Metrics ^^ {

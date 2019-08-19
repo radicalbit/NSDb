@@ -25,7 +25,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
 
-  "A parser instance" when {
+  "A SQL parser instance" when {
 
     "receive a select projecting a wildcard" should {
       "parse it successfully" in {

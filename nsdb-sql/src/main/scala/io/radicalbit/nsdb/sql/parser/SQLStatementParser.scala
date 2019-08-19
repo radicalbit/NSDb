@@ -37,7 +37,7 @@ import scala.util.parsing.input.CharSequenceReader
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
   *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)?
   *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
-  *   expression := expression "and" expression | expression "or" expression | "not" expression |
+  *   expression := expression "and" expression | expression "or" expression | "not" expression | "(" expression ")"
   *                 literal "=" literal | literal comparison literal | literal "like" literal |
   *                 literal "in" "(" digit "," digit ")" | literal "is" "not"? "null"
   *   comparison := "=" | ">" | "<" | ">=" | "<="
@@ -154,7 +154,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
-    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression
+    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression | bracketedExpression
+
+  private lazy val bracketedExpression: PackratParser[Expression] = OpenRoundBracket ~> expression <~ CloseRoundBracket
 
   private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 
