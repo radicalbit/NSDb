@@ -75,7 +75,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 
-    val location1 = Location(_: String, "node1", 100000, 150000)
+    val location1 = Location(_: String, "node1", 100000, 190000)
     val location2 = Location(_: String, "node1", 0, 90000)
 
     //long metric
@@ -132,14 +132,16 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 5
+        expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 2, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
-          Bit(30000, 1, Map("lowerBound"  -> 30000, "upperBound"  -> 60000), Map()),
-          Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
-          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 120000), Map()),
-          Bit(120000, 1, Map("lowerBound" -> 120000, "upperBound" -> 150000), Map())
+          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit(10000, 1, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit(40000, 1, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -164,14 +166,14 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 3
+        expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 2, Map("lowerBound"      -> 0, "upperBound"      -> 30000), Map()),
-          Bit(30000, 2, Map("lowerBound"  -> 30000, "upperBound"  -> 90000), Map()),
-          Bit(100000, 2, Map("lowerBound" -> 100000, "upperBound" -> 150000), Map())
+          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit(10000, 2, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit(70000, 2, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
-
       }
 
     }
@@ -201,12 +203,14 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 3
+        expected.values.size shouldBe 5
 
         expected.values shouldBe Seq(
-          Bit(60000, 2, Map("lowerBound"  -> 60000, "upperBound"  -> 90000), Map()),
-          Bit(90000, 1, Map("lowerBound"  -> 90000, "upperBound"  -> 120000), Map()),
-          Bit(120000, 1, Map("lowerBound" -> 120000, "upperBound" -> 150000), Map())
+          Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 70000), Map()),
+          Bit(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -237,6 +241,69 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values shouldBe Seq(
           Bit(0, 1, Map("lowerBound"     -> 0, "upperBound"     -> 29999), Map()),
           Bit(29999, 1, Map("lowerBound" -> 29999, "upperBound" -> 59999), Map())
+        )
+      }
+    }
+
+    "receive a select containing a temporal group by with an interval higher than the shard interval" should {
+      "execute it successfully" in within(5.seconds) {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                condition = None,
+                groupBy = Some(TemporalGroupByAggregation(100000L))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 2
+
+        expected.values shouldBe Seq(
+          Bit(0, 4, Map("lowerBound"     -> 0, "upperBound"     -> 90000), Map()),
+          Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
+        )
+      }
+
+      "execute it successfully in case of a where condition" in within(5.seconds) {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                condition = Some(
+                  Condition(ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterOrEqualToOperator,
+                                                 value = 60000L))),
+                groupBy = Some(TemporalGroupByAggregation(100000L))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 2
+
+        expected.values shouldBe Seq(
+          Bit(60000, 2, Map("lowerBound" -> 60000, "upperBound" -> 90000), Map()),
+          Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
         )
       }
     }

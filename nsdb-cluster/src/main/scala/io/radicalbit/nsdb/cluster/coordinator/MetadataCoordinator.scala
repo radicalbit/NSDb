@@ -42,7 +42,7 @@ import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.TimeRangeExtractor
+import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
 import org.apache.lucene.store.Directory
@@ -302,7 +302,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
             .map {
               case LocationsCached(_, _, _, locations) =>
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
-                  TimeRangeExtractor.getLocationsToEvict(locations, threshold)
+                  TimeRangeManager.getLocationsToEvict(locations, threshold)
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
@@ -361,16 +361,6 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
                     locationsToFullyEvict.map(location => fullyEvictPerform(db, namespace, location))
                   )
                 }
-
-              //check for outdated locations still written on disk
-              /*locations.groupBy(_.node).foreach {
-                  case (node, locations) =>
-                    metricsDataActors.get(node) match {
-                      case Some(metricDataActor) =>
-                        metricDataActor ! CheckForOutDatedShards(db, namespace, locations)
-                      case None => log.debug("no metrics data actor found for node {}", node)
-                    }
-                }*/
             }
       }
     case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
@@ -546,7 +536,6 @@ object MetadataCoordinator {
                                     namespace: String,
                                     metric: String,
                                     occurredOn: Long = System.currentTimeMillis)
-    case class DeleteNamespaceMetadata(db: String, namespace: String, occurredOn: Long = System.currentTimeMillis)
 
     case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(metricInfo: MetricInfo)
@@ -565,7 +554,6 @@ object MetadataCoordinator {
     case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
     case class LocationDeleted(db: String, namespace: String, location: Location)
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
-    case class NamespaceMetadataDeleted(db: String, namespace: String, occurredOn: Long)
 
     case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
     case class MetricInfoPut(metricInfo: MetricInfo)

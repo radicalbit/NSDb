@@ -30,12 +30,12 @@ import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
-import io.radicalbit.nsdb.model.{Location, Schema}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
-import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeExtractor}
+import io.radicalbit.nsdb.statement.{StatementParser, TimeRangeManager}
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import spire.implicits._
@@ -81,7 +81,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
   }
 
   private def filterLocationsThroughTime(expression: Option[Expression], locations: Seq[Location]): Seq[Location] = {
-    val intervals = TimeRangeExtractor.extractTimeRange(expression)
+    val intervals = TimeRangeManager.extractTimeRange(expression)
     locations.filter {
       case key if intervals.nonEmpty =>
         intervals
@@ -100,12 +100,16 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     */
   private def gatherNodeResults(statement: SelectSQLStatement,
                                 schema: Schema,
-                                uniqueLocationsByNode: Map[String, Seq[Location]])(
+                                uniqueLocationsByNode: Map[String, Seq[Location]],
+                                ranges: Seq[TimeRange] = Seq.empty)(
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(metricsDataActors.map {
         case (nodeName, actor) =>
-          actor ? ExecuteSelectStatement(statement, schema, uniqueLocationsByNode.getOrElse(nodeName, Seq.empty))
+          actor ? ExecuteSelectStatement(statement,
+                                         schema,
+                                         uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
+                                         ranges)
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
@@ -223,9 +227,23 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                           Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
                       }
                   }
-                case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _)) =>
-                  gatherNodeResults(statement, schema, uniqueLocationsByNode) { e =>
-                    e.sortBy(_.timestamp)
+                case Success(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, condition, _, _)) =>
+                  val sortedLocations = filteredLocations.sortBy(_.from)
+
+                  val globalRanges: Seq[TimeRange] =
+                    TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
+                                                                          sortedLocations.head.from,
+                                                                          rangeLength,
+                                                                          condition)
+
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
+                    res
+                      .groupBy(_.timestamp)
+                      .mapValues(v =>
+                        Bit(v.head.timestamp, v.map(_.value.asInstanceOf[Long]).sum, v.head.dimensions, v.head.tags))
+                      .values
+                      .toSeq
+                      .sortBy(_.timestamp)
                   }
                 case Failure(_) =>
                   Future(Left(SelectStatementFailed("Select Statement not valid")))

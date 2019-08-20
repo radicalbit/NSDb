@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.DescOrderOperator
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
@@ -143,20 +143,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     }
   }
 
-  private def gatherAndGroupTemporalShardResults(actors: Seq[(Location, ActorRef)],
-                                                 statement: SelectSQLStatement,
-                                                 msg: ExecuteSelectStatement)(
-      aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
-
-    gatherShardResults(actors, msg) { seq =>
-      seq
-        .groupBy(_.timestamp)
-        .mapValues(aggregationFunction)
-        .values
-        .toSeq
-    }
-  }
-
   /**
     * Gathers results from every shard actor and elaborate them.
     *
@@ -166,7 +152,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @return the processed results.
     */
   private def gatherShardResults(actors: Seq[(Location, ActorRef)], msg: ExecuteSelectStatement)(
-      postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+      postProcFun: Seq[Bit] => Seq[Bit] = identity): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(actors.map {
         case (_, actor) =>
@@ -258,7 +244,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, ranges) =>
       StatementParser.parseStatement(statement, schema) match {
         case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
@@ -351,16 +337,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
             .pipeTo(sender)
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, _, interval, _, _, _)) =>
+        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 
-          val shardResults = gatherAndGroupTemporalShardResults(actors, statement, msg) { values =>
-            Bit(values.head.timestamp,
-                values.map(_.value.asInstanceOf[Long]).sum,
-                values.head.dimensions,
-                values.head.tags)
-          }
+          val shardResults = gatherShardResults(actors, msg)()
 
           applyOrderingWithLimit(shardResults, statement, schema)
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
