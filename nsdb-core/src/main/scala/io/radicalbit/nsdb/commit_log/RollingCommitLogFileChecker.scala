@@ -53,7 +53,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
   implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
 
-  val pendingOutdatedEntries: mutable.Map[File, (ListBuffer[Int], ListBuffer[Int])] = mutable.Map.empty
+  val pendingOutdatedEntries: mutable.Map[String, (ListBuffer[Int], ListBuffer[Int])] = mutable.Map.empty
 
   private def isOlder(fileName: String, actualFileName: String): Boolean = {
     fileName.split(fileNameSeparator).toList.last.toInt < actualFileName.split(fileNameSeparator).toList.last.toInt
@@ -79,9 +79,9 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
         val processedFile                   = new File(s"$directory/$fileName")
         val (pendingEntries, closedEntries) = processedFile.checkPendingEntries
 
-        pendingOutdatedEntries.get(processedFile) match {
+        pendingOutdatedEntries.get(fileName) match {
           case None =>
-            pendingOutdatedEntries += (processedFile -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
+            pendingOutdatedEntries += (fileName -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
           case Some(_) =>
         }
 
@@ -90,20 +90,20 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
             pendingOutdatedEntries.foreach {
               case (file, (pending, _)) =>
                 if (pending.toList.contains(closedEntry)) {
-                  log.debug(s"removing entry: $closedEntry in file ${file.getName} processing file: $fileName")
-                  pendingOutdatedEntries(file)._1 -= closedEntry
-                  pendingOutdatedEntries(processedFile)._2 -= closedEntry
+                  log.debug(s"removing entry: $closedEntry in file $fileName processing file: $fileName")
+                  pendingOutdatedEntries(fileName)._1 -= closedEntry
+                  pendingOutdatedEntries(fileName)._2 -= closedEntry
                   pending -= closedEntry
                 }
-                log.debug(s"pending entries for file: ${file.getName} are : ${pending.size}")
+                log.debug(s"pending entries for file: $fileName are : ${pending.size}")
             }
         }
       })
       pendingOutdatedEntries.foreach {
-        case (file, (pending, _)) if pending.isEmpty =>
-          log.debug(s"deleting file: ${file.getName}")
-          pendingOutdatedEntries -= file
-          file.delete()
+        case (fileName, (pending, _)) if pending.isEmpty =>
+          log.debug(s"deleting file: $fileName")
+          pendingOutdatedEntries -= fileName
+          new File(s"$directory/$fileName").delete()
         case _ =>
       }
     case msg =>

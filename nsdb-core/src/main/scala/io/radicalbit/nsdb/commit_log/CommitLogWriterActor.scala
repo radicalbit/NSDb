@@ -171,7 +171,7 @@ trait CommitLogWriterActor extends ActorPathLogging {
 
   def receive: Receive = {
 
-    case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: ReceivedEntryAction, location) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: ReceivedEntryAction, location) =>
       createEntry(
         ReceivedEntry(db,
                       namespace,
@@ -184,7 +184,7 @@ trait CommitLogWriterActor extends ActorPathLogging {
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
 
-    case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: AccumulatedEntryAction, location) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: AccumulatedEntryAction, location) =>
       createEntry(
         AccumulatedEntry(db,
                          namespace,
@@ -196,7 +196,7 @@ trait CommitLogWriterActor extends ActorPathLogging {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: PersistedEntryAction, location) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: PersistedEntryAction, location) =>
       createEntry(
         PersistedEntry(db,
                        namespace,
@@ -208,7 +208,7 @@ trait CommitLogWriterActor extends ActorPathLogging {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case _ @WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: RejectedEntryAction, location) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, bitEntryAction: RejectedEntryAction, location) =>
       createEntry(
         RejectedEntry(db,
                       namespace,
@@ -231,13 +231,13 @@ trait CommitLogWriterActor extends ActorPathLogging {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case _ @WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction, location) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction, location) =>
       createEntry(DeleteMetricEntry(db, namespace, metric, timestamp)) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case _ @WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction, location) =>
+    case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction, location) =>
       createEntry(DeleteNamespaceEntry(db, namespace, timestamp)) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, "", location)
         case Failure(ex) =>

@@ -55,6 +55,7 @@ object CommitLogFile {
         r = inputStream.read(contents)
       }
 
+      inputStream.close()
       (pending.toList, closedEntries.toList)
     }
 

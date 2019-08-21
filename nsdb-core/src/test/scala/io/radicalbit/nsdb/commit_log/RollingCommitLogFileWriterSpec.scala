@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.commit_log
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
@@ -26,8 +25,6 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, 
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfter, Matchers, WordSpecLike}
-
-import scala.concurrent.duration.FiniteDuration
 
 class RollingCommitLogFileWriterSpec
     extends TestKit(ActorSystem("radicaldb-test"))
@@ -39,10 +36,6 @@ class RollingCommitLogFileWriterSpec
 
   private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
   private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
-
-  private val interval = FiniteDuration(
-    system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),
-    TimeUnit.SECONDS)
 
   before {
     new File(directory).mkdirs()
@@ -83,15 +76,14 @@ class RollingCommitLogFileWriterSpec
 
         system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
 
-        Thread.sleep(interval.toMillis + 1000)
+        awaitAssert {
+          val existingFiles = Option(Paths.get(directory).toFile.list())
+            .map(_.toSet)
+            .getOrElse(Set.empty)
 
-        val existingFiles = Option(Paths.get(directory).toFile.list())
-          .map(_.toSet)
-          .getOrElse(Set.empty)
-
-        existingFiles.size shouldBe 1
-        existingFiles shouldBe Set(secondFileName)
-
+          existingFiles.size shouldBe 1
+          existingFiles shouldBe Set(secondFileName)
+        }
       }
 
       "check and delete old files when they are not balanced" in {
@@ -110,20 +102,18 @@ class RollingCommitLogFileWriterSpec
 
         val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
 
-        Thread.sleep(interval.toMillis + 1000)
-
         rolling ! WriteToCommitLog(db, namespace, metric, 1, RejectedEntryAction(bit1), Location(metric, "node", 0, 0))
 
         rolling ! ForceRolling
 
-        Thread.sleep(interval.toMillis + 1000)
+        awaitAssert {
+          val existingFiles = Option(Paths.get(directory).toFile.list())
+            .map(_.toSet)
+            .getOrElse(Set.empty)
 
-        val existingFiles = Option(Paths.get(directory).toFile.list())
-          .map(_.toSet)
-          .getOrElse(Set.empty)
-
-        existingFiles.size shouldBe 1
-        new File(s"$directory/${existingFiles.head}").length() shouldBe 0
+          existingFiles.size shouldBe 1
+          new File(s"$directory/${existingFiles.head}").length() shouldBe 0
+        }
       }
     }
   }
