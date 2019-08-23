@@ -106,7 +106,7 @@ object StatementParser {
             if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
           Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
         // Match temporal count aggregation
-        case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
+        case (false, Success(Seq(Field(fieldName, Some(aggregation)))), Some(TemporalGroupByAggregation(interval)))
             if fieldName == "value" || fieldName == "*" =>
           Success(
             ParsedTemporalAggregatedQuery(
@@ -114,29 +114,12 @@ object StatementParser {
               statement.metric,
               exp.q,
               interval,
-              InternalCountTemporalAggregation,
+              InternalTemporalAggregation(aggregation),
               statement.condition,
               sortOpt,
               limitOpt
             )
           )
-        case (false, Success(Seq(Field(fieldName, Some(SumAggregation)))), Some(TemporalGroupByAggregation(interval)))
-            if fieldName == "value" || fieldName == "*" =>
-          Success(
-            ParsedTemporalAggregatedQuery(
-              statement.namespace,
-              statement.metric,
-              exp.q,
-              interval,
-              InternalSumTemporalAggregation,
-              statement.condition,
-              sortOpt,
-              limitOpt
-            )
-          )
-        // not yet supported aggregations different from count
-        case (false, Success(Seq(Field(_, Some(_)))), Some(TemporalGroupByAggregation(_))) =>
-          Failure(new InvalidStatementException(StatementParserErrors.NOT_SUPPORTED_AGGREGATION_IN_TEMPORAL_GROUP_BY))
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
             if schema.fields.map(_.name).contains(group.dimension) && (fieldName == "value" || fieldName == "*") =>
           Success(
@@ -263,7 +246,7 @@ object StatementParser {
                                            metric: String,
                                            q: Query,
                                            rangeLength: Long,
-                                           aggregationType: InternalTemporalAggregationType,
+                                           aggregationType: InternalTemporalAggregation,
                                            condition: Option[Condition],
                                            sort: Option[Sort] = None,
                                            limit: Option[Int] = None)
@@ -294,7 +277,19 @@ object StatementParser {
       extends InternalSimpleAggregationType
 }
 
-sealed trait InternalTemporalAggregationType
+sealed trait InternalTemporalAggregation
 
-case object InternalCountTemporalAggregation extends InternalTemporalAggregationType
-case object InternalSumTemporalAggregation   extends InternalTemporalAggregationType
+object InternalTemporalAggregation {
+  def apply(aggregation: Aggregation): InternalTemporalAggregation =
+    aggregation match {
+      case CountAggregation => InternalCountTemporalAggregation
+      case MaxAggregation   => InternalMaxTemporalAggregation
+      case MinAggregation   => InternalMinTemporalAggregation
+      case SumAggregation   => InternalSumTemporalAggregation
+    }
+}
+
+case object InternalCountTemporalAggregation extends InternalTemporalAggregation
+case object InternalSumTemporalAggregation   extends InternalTemporalAggregation
+case object InternalMaxTemporalAggregation   extends InternalTemporalAggregation
+case object InternalMinTemporalAggregation   extends InternalTemporalAggregation

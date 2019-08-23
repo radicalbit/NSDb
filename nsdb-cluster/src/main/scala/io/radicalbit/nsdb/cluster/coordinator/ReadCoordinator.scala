@@ -35,12 +35,7 @@ import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
-import io.radicalbit.nsdb.statement.{
-  InternalCountTemporalAggregation,
-  InternalSumTemporalAggregation,
-  StatementParser,
-  TimeRangeManager
-}
+import io.radicalbit.nsdb.statement._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import spire.implicits._
@@ -256,7 +251,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                         Bit(v.head.timestamp, v.map(_.value.asInstanceOf[Long]).sum, v.head.dimensions, v.head.tags))
                       .values
                       .toSeq
-                      .sortBy(_.timestamp)
                   }
                 case Success(
                     ParsedTemporalAggregatedQuery(_,
@@ -283,7 +277,42 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       .mapValues(v => Bit(v.head.timestamp, v.map(_.value).sum, v.head.dimensions, v.head.tags))
                       .values
                       .toSeq
-                      .sortBy(_.timestamp)
+                  }
+                case Success(
+                    ParsedTemporalAggregatedQuery(_,
+                                                  _,
+                                                  _,
+                                                  rangeLength,
+                                                  aggregationType, //min or max
+                                                  condition,
+                                                  _,
+                                                  _)) =>
+                  val sortedLocations = filteredLocations.sortBy(_.from)
+
+                  val globalRanges: Seq[TimeRange] =
+                    TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
+                                                                          sortedLocations.head.from,
+                                                                          rangeLength,
+                                                                          condition)
+
+                  gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
+                    val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
+                    implicit val numeric: Numeric[JSerializable] = v.numeric
+                    res
+                      .groupBy(_.timestamp)
+                      .mapValues(v =>
+                        if (aggregationType == InternalMaxTemporalAggregation)
+                          Bit(v.head.timestamp, v.map(_.value).max, v.head.dimensions, v.head.tags)
+                        else {
+                          val nonZeroValues: Seq[JSerializable] =
+                            v.collect { case x if x.value != numeric.zero => x.value }
+                          Bit(v.head.timestamp,
+                              if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min,
+                              v.head.dimensions,
+                              v.head.tags)
+                      })
+                      .values
+                      .toSeq
                   }
                 case Failure(_) =>
                   Future(Left(SelectStatementFailed("Select Statement not valid")))

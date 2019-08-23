@@ -1058,7 +1058,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
 
-      "fail when other aggregation is provided" in {
+      "parse it when min or max aggregation is provided" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -1071,7 +1071,16 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = None
           ),
           schema
-        ) shouldBe a[Failure[_]]
+        ) shouldBe
+          Success(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1,
+              InternalMinTemporalAggregation,
+              None
+            ))
 
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -1085,7 +1094,15 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = None
           ),
           schema
-        ) shouldBe a[Failure[_]]
+        ) shouldBe Success(
+          ParsedTemporalAggregatedQuery(
+            "registry",
+            "people",
+            new MatchAllDocsQuery(),
+            1,
+            InternalMaxTemporalAggregation,
+            None
+          ))
       }
     }
   }

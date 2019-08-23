@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement, TemporalGroupByAggregation}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementFailed
 
@@ -27,10 +27,10 @@ package object post_proc {
 
   /**
     * Applies, if needed, ordering and limiting to a sequence of chained partial results.
-    * @param chainedResults sequence of chained results.
+    * @param chainedResults sequence of chained partial results.
     * @param statement the initial sql statement.
     * @param schema metric's schema.
-    * @return a single result obtained from the manipulation of the partials.
+    * @return the final result obtained from the manipulation of the partials.
     */
   def applyOrderingWithLimit(
       chainedResults: Future[Either[SelectStatementFailed, Seq[Bit]]],
@@ -38,14 +38,20 @@ package object post_proc {
       schema: Schema)(implicit ec: ExecutionContext): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     chainedResults.map {
       case Right(seq) =>
-        val maybeSorted = if (statement.order.isDefined) {
-          val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
-          implicit val ord: Ordering[JSerializable] =
-            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
-            else o
-          seq.sortBy(_.fields(statement.order.get.dimension)._1)
-        } else seq
-        if (statement.limit.isDefined) Right(maybeSorted.take(statement.limit.get.value)) else Right(maybeSorted)
+        statement.groupBy match {
+          case Some(TemporalGroupByAggregation(_)) =>
+            val sortedResults = seq.sortBy(_.timestamp)
+            statement.limit.map(_.value).map(v => Right(sortedResults.takeRight(v))) getOrElse Right(sortedResults)
+          case _ =>
+            val sortedResults = if (statement.order.isDefined) {
+              val o = schema.fields.find(_.name == statement.order.get.dimension).get.indexType.ord
+              implicit val ord: Ordering[JSerializable] =
+                if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
+                else o
+              seq.sortBy(_.fields(statement.order.get.dimension)._1)
+            } else seq
+            statement.limit.map(_.value).map(v => Right(sortedResults.take(v))) getOrElse Right(sortedResults)
+        }
       case l @ Left(_) => l
     }
   }

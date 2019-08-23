@@ -16,26 +16,37 @@
 
 package org.apache.lucene.facet.range;
 
+import java.util.Arrays;
+
 /** Performs the summation of the quantity for each range was seen;
  *  per-hit it's just a binary search ({@link #add})
  *  against the elementary intervals, and in the end we
  *  rollup back to the original ranges. */
 
-final class LongRangeLongSummation extends LongRangeSummation{
+final class LongRangeDoubleMinMax extends LongRangeSummation{
 
-  private final long[] leafCounts;
+  private final boolean checkMin;
+  private final double[] leafCounts;
 
   // Used during rollup
   private int leafUpto;
   private int missingCount;
 
-  public LongRangeLongSummation(LongRange[] ranges) {
+  public LongRangeDoubleMinMax(LongRange[] ranges, boolean checkMin) {
     super(ranges);
-    leafCounts = new long[boundaries.length];
-
+    this.checkMin = checkMin;
+    this.leafCounts = new double[boundaries.length];
+    if (checkMin) Arrays.fill(this.leafCounts, Double.MAX_VALUE); else Arrays.fill(this.leafCounts, Double.MIN_VALUE);
   }
 
-  public void add(long v, long q) {
+  private double updateLeaf(double oldValue, double newValue) {
+    if (checkMin)
+      if (newValue < oldValue) return newValue; else return oldValue;
+      else
+    if (newValue > oldValue) return newValue; else return oldValue;
+  }
+
+  public void add(long v, double q) {
     // Binary search to find matched elementary range; we
     // are guaranteed to find a match because the last
     // boundary is Long.MAX_VALUE:
@@ -46,7 +57,7 @@ final class LongRangeLongSummation extends LongRangeSummation{
       int mid = (lo + hi) >>> 1;
       if (v <= boundaries[mid]) {
         if (mid == 0) {
-          leafCounts[0]+=q;
+          leafCounts[0] = updateLeaf(leafCounts[0],q);
           return;
         } else {
           hi = mid - 1;
@@ -54,7 +65,7 @@ final class LongRangeLongSummation extends LongRangeSummation{
       } else if (v > boundaries[mid+1]) {
         lo = mid + 1;
       } else {
-        leafCounts[mid+1]+=q;
+        leafCounts[mid+1] = updateLeaf(leafCounts[mid+1], q);
         return;
       }
     }
@@ -63,36 +74,36 @@ final class LongRangeLongSummation extends LongRangeSummation{
   /** Fills counts corresponding to the original input
    *  ranges, returning the missing count (how many hits
    *  didn't match any ranges). */
-  public int fillCounts(long[] counts) {
+  public int fillCounts(double[] minMaxs) {
     //System.out.println("  rollup");
     missingCount = 0;
     leafUpto = 0;
-    rollup(root, counts, false);
+    rollup(root, minMaxs, false);
     return missingCount;
   }
 
-  private long rollup(LongRangeNode node, long[] counts, boolean sawOutputs) {
-    long sum;
+  private double rollup(LongRangeNode node, double[] minMaxs, boolean sawOutputs) {
+    double result;
     sawOutputs |= node.outputs != null;
     if (node.left != null) {
-      sum = rollup(node.left, counts, sawOutputs);
-      sum += rollup(node.right, counts, sawOutputs);
+      result = rollup(node.left, minMaxs, sawOutputs);
+      result += rollup(node.right, minMaxs, sawOutputs);
     } else {
       // Leaf:
-      sum = leafCounts[leafUpto];
+      result = leafCounts[leafUpto];
       leafUpto++;
       if (!sawOutputs) {
         // This is a missing count (no output ranges were
         // seen "above" us):
-        missingCount += sum;
+        missingCount += result;
       }
     }
     if (node.outputs != null) {
       for(int rangeIndex : node.outputs) {
-        counts[rangeIndex] += sum;
+        minMaxs[rangeIndex] += result;
       }
     }
-    return sum;
+    return result;
   }
 
 }

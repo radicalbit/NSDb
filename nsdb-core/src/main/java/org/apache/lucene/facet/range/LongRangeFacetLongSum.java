@@ -16,9 +16,11 @@
 
 package org.apache.lucene.facet.range;
 
+import org.apache.lucene.facet.FacetResult;
 import org.apache.lucene.facet.Facets;
 import org.apache.lucene.facet.FacetsCollector;
 import org.apache.lucene.facet.FacetsCollector.MatchingDocs;
+import org.apache.lucene.facet.LabelAndValue;
 import org.apache.lucene.index.IndexReaderContext;
 import org.apache.lucene.index.ReaderUtil;
 import org.apache.lucene.search.*;
@@ -36,12 +38,14 @@ import java.util.List;
  */
 public class LongRangeFacetLongSum extends RangeFacetCounts {
 
+  private final long[] summations;
+
   /** Create {@code LongRangeFacetCounts}, using {@link
    *  LongValuesSource} from the specified rangeField. */
   public LongRangeFacetLongSum(String rangeField, String valueField, FacetsCollector hits, LongRange... ranges) throws IOException {
     super(rangeField, ranges, null);
+    summations = new long[ranges.length];
     sum(LongValuesSource.fromLongField(rangeField), LongValuesSource.fromLongField(valueField), hits.getMatchingDocs());
-    LongRangeLongSummation counter = new LongRangeLongSummation(ranges);
   }
 
   private void sum(LongValuesSource rangeSource, LongValuesSource valueSource, List<MatchingDocs> matchingDocs) throws IOException {
@@ -96,10 +100,25 @@ public class LongRangeFacetLongSum extends RangeFacetCounts {
       }
     }
     
-    int x = counter.fillCounts(counts);
+    int x = counter.fillCounts(summations);
 
     missingCount += x;
 
     totCount -= missingCount;
+  }
+
+  @Override
+  public FacetResult getTopChildren(int topN, String dim, String... path) {
+    if (!dim.equals(field)) {
+      throw new IllegalArgumentException("invalid dim \"" + dim + "\"; should be \"" + field + "\"");
+    }
+    if (path.length != 0) {
+      throw new IllegalArgumentException("path.length should be 0");
+    }
+    LabelAndValue[] labelValues = new LabelAndValue[counts.length];
+    for(int i=0;i<counts.length;i++) {
+      labelValues[i] = new LabelAndValue(ranges[i].label, summations[i]);
+    }
+    return new FacetResult(dim, path, totCount, labelValues, labelValues.length);
   }
 }
