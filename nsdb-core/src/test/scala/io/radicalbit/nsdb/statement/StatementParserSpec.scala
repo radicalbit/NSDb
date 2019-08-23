@@ -700,7 +700,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumAggregation("name", "value")
+              new InternalSumSimpleAggregation("name", "value")
             ))
         )
       }
@@ -722,7 +722,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumAggregation("name", "value")
+              new InternalSumSimpleAggregation("name", "value")
             ))
         )
       }
@@ -749,7 +749,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new InternalMaxAggregation("name", "value"),
+              new InternalMaxSimpleAggregation("name", "value"),
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
@@ -978,7 +978,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
                      BooleanClause.Occur.MUST_NOT)
                 .build(),
-              new InternalSumAggregation("amount", "value"),
+              new InternalSumSimpleAggregation("amount", "value"),
               None,
               Some(5)
             ))
@@ -1000,9 +1000,93 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(5))
           ),
           schema
-        ) shouldBe a[Failure[InvalidStatementException]]
+        ) shouldBe a[Failure[_]]
       }
 
+    }
+
+    "receive a temporal group by" should {
+      "parse it when count aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(CountAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1,
+              InternalCountTemporalAggregation,
+              None
+            ))
+        )
+      }
+
+      "parse it when sum aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Success(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1,
+              InternalSumTemporalAggregation,
+              None
+            ))
+        )
+      }
+
+      "fail when other aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) shouldBe a[Failure[_]]
+
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MaxAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1)),
+            limit = None
+          ),
+          schema
+        ) shouldBe a[Failure[_]]
+      }
     }
   }
 }

@@ -42,18 +42,21 @@ object StatementParser {
   }
 
   /**
-    * Retrieves internal [[InternalAggregationType]] based on provided into the query.
+    * Retrieves internal [[InternalSimpleAggregationType]] based on provided into the query.
+    *
     * @param groupField group by field.
     * @param aggregateField field to apply the aggregation to.
     * @param agg aggregation clause in query (min, max, sum, count).
-    * @return an instance of [[InternalAggregationType]] based on the given parameters.
+    * @return an instance of [[InternalSimpleAggregationType]] based on the given parameters.
     */
-  private def aggregationType(groupField: String, aggregateField: String, agg: Aggregation): InternalAggregationType = {
+  private def aggregationType(groupField: String,
+                              aggregateField: String,
+                              agg: Aggregation): InternalSimpleAggregationType = {
     agg match {
-      case CountAggregation => InternalCountAggregation(groupField, aggregateField)
-      case MaxAggregation   => InternalMaxAggregation(groupField, aggregateField)
-      case MinAggregation   => InternalMinAggregation(groupField, aggregateField)
-      case SumAggregation   => InternalSumAggregation(groupField, aggregateField)
+      case CountAggregation => InternalCountSimpleAggregation(groupField, aggregateField)
+      case MaxAggregation   => InternalMaxSimpleAggregation(groupField, aggregateField)
+      case MinAggregation   => InternalMinSimpleAggregation(groupField, aggregateField)
+      case SumAggregation   => InternalSumSimpleAggregation(groupField, aggregateField)
     }
   }
 
@@ -105,13 +108,27 @@ object StatementParser {
         // Match temporal count aggregation
         case (false, Success(Seq(Field(fieldName, Some(CountAggregation)))), Some(TemporalGroupByAggregation(interval)))
             if fieldName == "value" || fieldName == "*" =>
-//          val ranges = TimeRangeExtractor.computeRanges(interval, statement.condition, statement.limit, occurredOn)
           Success(
             ParsedTemporalAggregatedQuery(
               statement.namespace,
               statement.metric,
               exp.q,
               interval,
+              InternalCountTemporalAggregation,
+              statement.condition,
+              sortOpt,
+              limitOpt
+            )
+          )
+        case (false, Success(Seq(Field(fieldName, Some(SumAggregation)))), Some(TemporalGroupByAggregation(interval)))
+            if fieldName == "value" || fieldName == "*" =>
+          Success(
+            ParsedTemporalAggregatedQuery(
+              statement.namespace,
+              statement.metric,
+              exp.q,
+              interval,
+              InternalSumTemporalAggregation,
               statement.condition,
               sortOpt,
               limitOpt
@@ -226,17 +243,18 @@ object StatementParser {
 
   /**
     * Internal query with aggregations
-    * @param namespace query namespace.
-    * @param metric query metric.
-    * @param q lucene's [[Query]]
-    * @param aggregationType lucene [[InternalAggregationType]] that must be used to collect and aggregate query's results.
-    * @param sort lucene [[Sort]] clause. None if no sort has been supplied.
-    * @param limit groups limit.
+    *
+    * @param namespace       query namespace.
+    * @param metric          query metric.
+    * @param q               lucene's [[Query]]
+    * @param aggregationType lucene [[InternalSimpleAggregationType]] that must be used to collect and aggregate query's results.
+    * @param sort            lucene [[Sort]] clause. None if no sort has been supplied.
+    * @param limit           groups limit.
     */
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   aggregationType: InternalAggregationType,
+                                   aggregationType: InternalSimpleAggregationType,
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
       extends ParsedQuery
@@ -245,6 +263,7 @@ object StatementParser {
                                            metric: String,
                                            q: Query,
                                            rangeLength: Long,
+                                           aggregationType: InternalTemporalAggregationType,
                                            condition: Option[Condition],
                                            sort: Option[Sort] = None,
                                            limit: Option[Int] = None)
@@ -258,19 +277,24 @@ object StatementParser {
     */
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
 
-  sealed trait InternalAggregationType {
+  sealed trait InternalSimpleAggregationType {
 
     def groupField: String
 
     def aggregateField: String
   }
 
-  case class InternalCountAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalAggregationType
-  case class InternalMaxAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalAggregationType
-  case class InternalMinAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalAggregationType
-  case class InternalSumAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalAggregationType
+  case class InternalCountSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
+  case class InternalMaxSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
+  case class InternalMinSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
+  case class InternalSumSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
 }
+
+sealed trait InternalTemporalAggregationType
+
+case object InternalCountTemporalAggregation extends InternalTemporalAggregationType
+case object InternalSumTemporalAggregation   extends InternalTemporalAggregationType

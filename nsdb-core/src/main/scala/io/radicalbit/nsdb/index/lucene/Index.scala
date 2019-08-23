@@ -16,13 +16,9 @@
 
 package io.radicalbit.nsdb.index.lucene
 
-import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.TimeRange
 import org.apache.lucene.analysis.standard.StandardAnalyzer
-import org.apache.lucene.document.{Document, Field, IntPoint, LongPoint}
-import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts}
-import org.apache.lucene.facet.{FacetResult, FacetsCollector}
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.document._
+import org.apache.lucene.index._
 import org.apache.lucene.search._
 import org.apache.lucene.store.Directory
 import org.apache.lucene.util.InfoStream
@@ -152,20 +148,6 @@ trait Index[T] {
 
   def close(): Unit = {
     directory.close()
-  }
-
-  def executeCountLongRangeFacet(
-      searcher: IndexSearcher,
-      query: Query,
-      fieldName: String,
-      ranges: Seq[TimeRange]
-  )(f: FacetResult => Seq[Bit]): Seq[Bit] = {
-    val luceneRanges = ranges.map(r =>
-      new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
-    val fc = new FacetsCollector
-    FacetsCollector.search(searcher, query, 0, fc)
-    val facets: LongRangeFacetCounts = new LongRangeFacetCounts(fieldName, fc, luceneRanges: _*)
-    f(facets.getTopChildren(0, fieldName))
   }
 }
 

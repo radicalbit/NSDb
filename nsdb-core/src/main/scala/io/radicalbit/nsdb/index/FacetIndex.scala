@@ -140,4 +140,5 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
           Bit(timestamp = 0, value = 0, dimensions = Map.empty[String, JSerializable], tags = Map(field -> lv.label)))
         .toSeq)
   }
+
 }

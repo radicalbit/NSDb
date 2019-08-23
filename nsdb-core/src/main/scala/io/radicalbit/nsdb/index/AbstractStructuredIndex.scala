@@ -182,4 +182,5 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     executeCountQuery(this.getSearcher, new MatchAllDocsQuery(), Int.MaxValue) { doc =>
       doc.getField(_countField).numericValue().intValue()
     }.headOption.getOrElse(0)
+
 }
