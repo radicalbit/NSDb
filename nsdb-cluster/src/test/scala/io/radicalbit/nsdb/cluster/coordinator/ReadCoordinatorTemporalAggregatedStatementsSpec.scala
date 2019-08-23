@@ -177,6 +177,36 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
+      "execute it successfully with limit" in within(5.seconds) {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000)),
+                limit = Some(LimitOperator(2))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 2
+
+        expected.values shouldBe Seq(
+          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+        )
+      }
+
       "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
         val expected = awaitAssert {
 

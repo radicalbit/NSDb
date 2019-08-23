@@ -251,7 +251,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                         Bit(v.head.timestamp, v.map(_.value.asInstanceOf[Long]).sum, v.head.dimensions, v.head.tags))
                       .values
                       .toSeq
-                      .sortBy(_.timestamp)
                   }
                 case Success(
                     ParsedTemporalAggregatedQuery(_,
@@ -278,7 +277,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       .mapValues(v => Bit(v.head.timestamp, v.map(_.value).sum, v.head.dimensions, v.head.tags))
                       .values
                       .toSeq
-                      .sortBy(_.timestamp)
                   }
                 case Success(
                     ParsedTemporalAggregatedQuery(_,
@@ -315,7 +313,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       })
                       .values
                       .toSeq
-                      .sortBy(_.timestamp)
                   }
                 case Failure(_) =>
                   Future(Left(SelectStatementFailed("Select Statement not valid")))
