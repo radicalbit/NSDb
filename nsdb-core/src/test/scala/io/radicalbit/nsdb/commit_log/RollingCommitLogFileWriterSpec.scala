@@ -18,13 +18,16 @@ package io.radicalbit.nsdb.commit_log
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfter, Matchers, WordSpecLike}
+
+import scala.concurrent.duration.FiniteDuration
 
 class RollingCommitLogFileWriterSpec
     extends TestKit(ActorSystem("radicaldb-test"))
@@ -36,6 +39,9 @@ class RollingCommitLogFileWriterSpec
 
   private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
   private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
+
+  lazy val passivateAfter =
+    FiniteDuration(system.settings.config.getDuration("nsdb.commit-log.passivate-after").toNanos, TimeUnit.NANOSECONDS)
 
   before {
     new File(directory).mkdirs()
@@ -114,6 +120,14 @@ class RollingCommitLogFileWriterSpec
           existingFiles.size shouldBe 1
           new File(s"$directory/${existingFiles.head}").length() shouldBe 0
         }
+      }
+
+      "passivate itself after a period of inactivity" in {
+        val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
+
+        val probe = TestProbe()
+        probe.watch(rolling)
+        probe.expectTerminated(rolling, passivateAfter)
       }
     }
   }
