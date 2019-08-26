@@ -25,7 +25,7 @@ class CommandStatementSpec extends WordSpec with Matchers {
 
   private val parser = new CommandStatementParser("db")
 
-  "A parser instance" when {
+  "A Command parser instance" when {
 
     "receive the request to show the namespaces" should {
       "parse it successfully" in {

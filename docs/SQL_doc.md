@@ -75,7 +75,7 @@ The `WHERE` clause allows to define a boolean condition, based on which data are
 ```sql
 SELECT <dimension_name>[,<dimension_name>, [...]]
 FROM <metric_name>
-WHERE <expression> [(AND|OR) <expression> [...]]
+WHERE [NOT] <expression> [(AND|OR) <expression> [...]]
 ```
 The WHERE clause supports comparisons against VARCHAR, INT, DECIMAL, BIGINT dimensions datatypes.
 
@@ -99,6 +99,25 @@ Supported string operators:
 ```sql
 SELECT dimension FROM metric WHERE string_dimension = myStringValue AND another_string_dimension LIKE startWith$
 ```
+
+#### Logical operators
+Where conditions can be chained using the logical AND and OR operators. A single condition can be negated using the NOT logical operator.
+By default, both AND and OR operators are right associative; in order to overcome this behaviour, round brackets can be used to set a custom associativity.
+The NOT operator si applied to the immediately following condition; round brackets can be also used in this case to apply that operator to a chain of conditions. 
+Examples:
+```sql
+SELECT dimension FROM metric WHERE string_dimension = myStringValue AND another_string_dimension LIKE startWith$ OR a_further_dimension >= 0  
+-- is translated into
+SELECT dimension FROM metric WHERE string_dimension = myStringValue AND (another_string_dimension LIKE startWith$ OR a_further_dimension >= 0)
+```
+
+```sql
+-- NOT is applied only to the like condition
+SELECT dimension FROM metric WHERE string_dimension = myStringValue AND NOT another_string_dimension LIKE startWith$ OR a_further_dimension >= 0
+-- NOT is applied to the whole chain of operators
+SELECT dimension FROM metric WHERE NOT (string_dimension = myStringValue AND another_string_dimension LIKE startWith$ OR a_further_dimension >= 0)
+```
+
 #### LIKE operator
 The `LIKE` operator is used to express `WHERE` conditions in which user have to match part of the complete string value.
 Accordingly to common databases standard the character `$` is used as placeholder.

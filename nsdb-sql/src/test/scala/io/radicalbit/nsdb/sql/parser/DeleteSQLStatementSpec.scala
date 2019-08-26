@@ -25,7 +25,7 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
 
-  "A parser instance" when {
+  "A SQL parser instance" when {
 
     "receive a delete without a where condition" should {
       "fail" in {

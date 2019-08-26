@@ -25,7 +25,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
 
-  "A parser instance for insert statements" when {
+  "A SQL parser instance for insert statements" when {
 
     "receive an insert with a single dimension without tags" should {
       "parse it successfully" in {
