@@ -73,7 +73,7 @@ trait Index[T] {
     * @param data the record to be validated.
     * @return a sequence of lucene [[Field]] that can be safely written in the index.
     */
-  def validateRecord(data: T): Try[Seq[Field]]
+  def validateRecord(data: T): Try[Iterable[Field]]
 
   /**
     * Writes an entry into the index.

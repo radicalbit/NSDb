@@ -202,15 +202,15 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
     override def describeMetric(request: DescribeMetric): Future[GrpcDescribeMetricResponse] = {
 
-      def extractField(schema: Option[Schema]): Set[MetricField] =
+      def extractField(schema: Option[Schema]): Iterable[MetricField] =
         schema
-          .map(
-            _.fields.map(
-              field =>
-                MetricField(name = field.name,
-                            fieldClassType = field.fieldClassType,
-                            `type` = field.indexType.getClass.getSimpleName)))
-          .getOrElse(Set.empty[MetricField])
+          .map(_.fieldsMap.map {
+            case (_, field) =>
+              MetricField(name = field.name,
+                          fieldClassType = field.fieldClassType,
+                          `type` = field.indexType.getClass.getSimpleName)
+          })
+          .getOrElse(Iterable.empty[MetricField])
 
       def extractFieldClassType(f: MetricField): GrpcFieldClassType = {
         f.fieldClassType match {

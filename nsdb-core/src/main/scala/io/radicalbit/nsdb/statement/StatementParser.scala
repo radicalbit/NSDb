@@ -85,7 +85,7 @@ object StatementParser {
     val fieldList = statement.fields match {
       case AllFields => Success(List.empty)
       case ListFields(list) =>
-        val metricDimensions     = schema.fields.map(_.name)
+        val metricDimensions     = schema.fieldsMap.values.map(_.name).toSeq
         val projectionDimensions = list.map(_.name).filterNot(_ == "*")
         val diff                 = projectionDimensions.filterNot(metricDimensions.contains)
         if (diff.isEmpty)
@@ -121,7 +121,7 @@ object StatementParser {
             )
           )
         case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
-            if schema.fields.map(_.name).contains(group.dimension) && (fieldName == "value" || fieldName == "*") =>
+            if schema.fieldsMap.get(group.dimension).isDefined && (fieldName == "value" || fieldName == "*") =>
           Success(
             ParsedAggregatedQuery(
               statement.namespace,
@@ -131,8 +131,7 @@ object StatementParser {
               sortOpt,
               limitOpt
             ))
-        case (false, Success(Seq(Field(_, Some(_)))), Some(group))
-            if schema.fields.map(_.name).contains(group.dimension) =>
+        case (false, Success(Seq(Field(_, Some(_)))), Some(group)) if schema.fieldsMap.get(group.dimension).isDefined =>
           Failure(new InvalidStatementException(StatementParserErrors.AGGREGATION_NOT_ON_VALUE))
         case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
           Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(group.dimension)))

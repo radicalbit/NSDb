@@ -236,8 +236,10 @@ trait CommandApi {
                           ContentTypes.`application/json`,
                           write(
                             DescribeMetricResponse(
-                              schema.fields
-                                .map(field => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName))
+                              schema.fieldsMap.map {
+                                case (_, field) =>
+                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                              }.toSet
                             )
                           )
                         )

@@ -35,12 +35,12 @@ trait TypeSupport {
   /**
     * Checks if every field provided is valid.
     * @param bit the bit to check.
-    * @return a sequence of [[TypedField]]. [[Failure]] if at least one field is invalid.
+    * @return a map of [[TypedField]] keyed by field name. [[Failure]] if at least one field is invalid.
     */
-  def validateSchemaTypeSupport(bit: Bit): Try[Seq[TypedField]] = {
-    val x = bit.fields.toSeq
-      .map { case (n, (v, t)) => IndexType.tryFromRawField(RawField(n, t, v)) }
-    Try(x.map(f => f.get))
+  def validateSchemaTypeSupport(bit: Bit): Try[Map[String, TypedField]] = {
+    val x = bit.fields
+      .map { case (n, (v, t)) => n -> IndexType.fromRawField(RawField(n, t, v)) }
+    Try(x.mapValues(f => f.get).map(identity))
   }
 }
 
@@ -117,7 +117,7 @@ sealed trait IndexType[T] extends Serializable {
   * @tparam ST corresponding scala type with [[Numeric]] context bound.
   */
 sealed abstract class NumericType[T <: JSerializable, ST: Numeric: ClassTag] extends IndexType[T] {
-  lazy val scalaNumeric = implicitly[Numeric[ST]]
+  lazy val scalaNumeric: Numeric[ST] = implicitly[Numeric[ST]]
 
   /**
     * Returns a [[Numeric]] to be used for arithmetic operations
@@ -137,12 +137,6 @@ object IndexType {
   private val supportedType = Seq(INT(), BIGINT(), DECIMAL(), VARCHAR())
 
   def fromRawField(rawField: RawField): Try[TypedField] =
-    supportedType.find(_.actualType == rawField.value.getClass) match {
-      case Some(indexType) => Success(TypedField(rawField.name, rawField.fieldClassType, indexType, rawField.value))
-      case None            => Failure(new RuntimeException(s"class ${rawField.value.getClass} is not supported"))
-    }
-
-  def tryFromRawField(rawField: RawField): Try[TypedField] =
     supportedType.find(_.actualType == rawField.value.getClass) match {
       case Some(indexType) => Success(TypedField(rawField.name, rawField.fieldClassType, indexType, rawField.value))
       case None            => Failure(new RuntimeException(s"class ${rawField.value.getClass} is not supported"))

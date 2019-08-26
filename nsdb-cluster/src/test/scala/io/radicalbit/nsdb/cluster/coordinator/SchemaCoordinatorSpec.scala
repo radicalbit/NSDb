@@ -54,11 +54,23 @@ class SchemaCoordinatorSpec
 
   val baseSchema = Schema(
     "people",
-    Set(
-      SchemaField("name", DimensionFieldType, VARCHAR()),
-      SchemaField("timestamp", TimestampFieldType, BIGINT()),
-      SchemaField("value", ValueFieldType, INT()),
-      SchemaField("city", TagFieldType, VARCHAR())
+    Map(
+      "name"      -> SchemaField("name", DimensionFieldType, VARCHAR()),
+      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+      "value"     -> SchemaField("value", ValueFieldType, INT()),
+      "city"      -> SchemaField("city", TagFieldType, VARCHAR())
+    )
+  )
+
+  val unionSchema = Schema(
+    "people",
+    Map(
+      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+      "value"     -> SchemaField("value", ValueFieldType, INT()),
+      "name"      -> SchemaField("name", DimensionFieldType, VARCHAR()),
+      "surname"   -> SchemaField("surname", DimensionFieldType, VARCHAR()),
+      "city"      -> SchemaField("city", TagFieldType, VARCHAR()),
+      "country"   -> SchemaField("country", TagFieldType, VARCHAR())
     )
   )
 
@@ -115,25 +127,15 @@ class SchemaCoordinatorSpec
     )
 
     val schema = probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]].right.value.schema
-    schema.fields.exists(_.name == "timestamp") shouldBe true
-    schema.fields.exists(_.name == "value") shouldBe true
+    schema.fieldsMap.exists(_._1 == "timestamp") shouldBe true
+    schema.fieldsMap.exists(_._1 == "value") shouldBe true
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema(
-        "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
-        )
-      )
+      unionSchema
     )
 
     probe.send(schemaCoordinator,
@@ -159,17 +161,7 @@ class SchemaCoordinatorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema(
-        "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
-        )
-      )
+      unionSchema
     )
 
     probe.send(
@@ -205,17 +197,7 @@ class SchemaCoordinatorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema(
-        "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
-        )
-      )
+      unionSchema
     )
 
     probe.send(
@@ -234,17 +216,7 @@ class SchemaCoordinatorSpec
     val schema = probe.expectMsgType[SchemaGot]
     schema.metric shouldBe "offices"
     schema.schema shouldBe Some(
-      Schema(
-        "offices",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
-        )
-      )
+      unionSchema.copy(metric = "offices")
     )
 
     probe.send(
@@ -286,11 +258,11 @@ class SchemaCoordinatorSpec
     existingGot.schema shouldBe Some(
       Schema(
         "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR())
+        Map(
+          "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          "value"     -> SchemaField("value", ValueFieldType, INT()),
+          "name"      -> SchemaField("name", DimensionFieldType, VARCHAR()),
+          "city"      -> SchemaField("city", TagFieldType, VARCHAR())
         )
       ))
 
@@ -301,11 +273,11 @@ class SchemaCoordinatorSpec
     existingGot1.schema shouldBe Some(
       Schema(
         "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
+        Map(
+          "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          "value"     -> SchemaField("value", ValueFieldType, INT()),
+          "surname"   -> SchemaField("surname", DimensionFieldType, VARCHAR()),
+          "country"   -> SchemaField("country", TagFieldType, VARCHAR())
         )
       ))
   }
@@ -320,17 +292,7 @@ class SchemaCoordinatorSpec
     val existingGot = probe.expectMsgType[SchemaGot]
     existingGot.metric shouldBe "people"
     existingGot.schema shouldBe Some(
-      Schema(
-        "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
-        )
-      )
+      unionSchema
     )
 
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace1, "people", nameRecord))
@@ -342,17 +304,7 @@ class SchemaCoordinatorSpec
     val existingGot1 = probe.expectMsgType[SchemaGot]
     existingGot1.metric shouldBe "people"
     existingGot1.schema shouldBe Some(
-      Schema(
-        "people",
-        Set(
-          SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          SchemaField("value", ValueFieldType, INT()),
-          SchemaField("name", DimensionFieldType, VARCHAR()),
-          SchemaField("surname", DimensionFieldType, VARCHAR()),
-          SchemaField("city", TagFieldType, VARCHAR()),
-          SchemaField("country", TagFieldType, VARCHAR())
-        )
-      )
+      unionSchema
     )
   }
 }
