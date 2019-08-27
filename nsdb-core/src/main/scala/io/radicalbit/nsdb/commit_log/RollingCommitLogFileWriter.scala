@@ -18,13 +18,15 @@ package io.radicalbit.nsdb.commit_log
 
 import java.io._
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
-import akka.actor.Props
+import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.util.Config._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object RollingCommitLogFileWriter {
@@ -81,16 +83,20 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   private val childName = s"commit-log-checker-$db-$namespace-$metric"
 
-  log.info("Initializing the commit log serializer {}...", serializerClass)
-  override protected implicit val serializer: CommitLogSerializer =
-    Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
-  log.info("Commit log serializer {} initialized successfully.", serializerClass)
-
   private var file: File               = _
   private var fileOS: FileOutputStream = _
 
-  override def preStart(): Unit = {
+  override protected implicit val serializer: CommitLogSerializer =
+    Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]
 
+  lazy val passivateAfter = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.commit-log.passivate-after").toNanos,
+    TimeUnit.NANOSECONDS)
+
+  context.setReceiveTimeout(passivateAfter)
+
+  override def preStart(): Unit = {
+    log.info("Initializing the commit log serializer {}...", serializerClass)
     val checker = context.actorOf(RollingCommitLogFileChecker.props(db, namespace, metric), childName)
 
     new File(directory).mkdirs()
@@ -112,6 +118,12 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
     checker ! CheckFiles(file)
 
+    log.info("Commit log serializer {} initialized successfully.", serializerClass)
+  }
+
+  override def postStop(): Unit = {
+    log.debug(s"closing input stream for file $file")
+    Option(fileOS).foreach(os => os.close())
   }
 
   override protected def createEntry(entry: CommitLogEntry): Try[Unit] = {
@@ -128,8 +140,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
     operation
   }
 
-  protected def close(): Unit = fileOS.close()
-
   protected def appendToDisk(entry: CommitLogEntry): Unit = {
     fileOS.write(serializer.serialize(entry))
     fileOS.flush()
@@ -142,7 +152,7 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
       val f = newFile(current)
 
       context.child(childName).foreach {
-        log.debug(s"Sending commitlog check for actual file : ${f.getName}")
+        log.debug(s"Sending commit log check for actual file : ${f.getName}")
         _ ! CheckFiles(f)
       }
 
@@ -160,11 +170,13 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   protected def newOutputStream(file: File): FileOutputStream = new FileOutputStream(file, true)
 
   override def receive: Receive = super.receive orElse {
+    case ReceiveTimeout =>
+      self ! PoisonPill
     case ForceRolling =>
       val f = newFile(file)
       file = f
       context.child(childName).foreach {
-        log.debug(s"Sending commitlog check for actual file : ${f.getName}")
+        log.debug(s"Sending commit log check for actual file : ${f.getName}")
         _ ! CheckFiles(f)
       }
       fileOS.close()

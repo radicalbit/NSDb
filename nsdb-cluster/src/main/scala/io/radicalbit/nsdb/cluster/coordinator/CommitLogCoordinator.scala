@@ -25,10 +25,8 @@ import io.radicalbit.nsdb.actors.MetricPerformerActor
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PersistedBits
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter
-import io.radicalbit.nsdb.common.protocol.Coordinates
 import io.radicalbit.nsdb.util.ActorPathLogging
 
-import scala.collection.mutable
 import scala.concurrent.Future
 
 /**
@@ -38,19 +36,13 @@ import scala.concurrent.Future
   */
 class CommitLogCoordinator extends ActorPathLogging {
 
-  private val commitLoggerWriters: mutable.Map[Coordinates, ActorRef] = mutable.Map.empty
-
-  private def getWriter(db: String, namespace: String, metric: String): ActorRef = {
-    commitLoggerWriters.getOrElse(
-      Coordinates(db, namespace, metric), {
-        val commitLogWriter =
-          context.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric),
-                          s"commit-log-writer-$db-$namespace-$metric")
-        commitLoggerWriters += (Coordinates(db, namespace, metric) -> commitLogWriter)
-        commitLogWriter
-      }
-    )
-  }
+  private def getWriter(db: String, namespace: String, metric: String): ActorRef =
+    context
+      .child(s"commit-log-writer-$db-$namespace-$metric")
+      .getOrElse(
+        context.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric),
+                        s"commit-log-writer-$db-$namespace-$metric")
+      )
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),

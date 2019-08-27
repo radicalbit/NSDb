@@ -21,7 +21,7 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
 import io.radicalbit.nsdb.model.Location
@@ -40,9 +40,8 @@ class RollingCommitLogFileWriterSpec
   private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
   private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
 
-  private val interval = FiniteDuration(
-    system.settings.config.getDuration("nsdb.commit-log.check-interval", TimeUnit.SECONDS),
-    TimeUnit.SECONDS)
+  lazy val passivateAfter =
+    FiniteDuration(system.settings.config.getDuration("nsdb.commit-log.passivate-after").toNanos, TimeUnit.NANOSECONDS)
 
   before {
     new File(directory).mkdirs()
@@ -83,15 +82,14 @@ class RollingCommitLogFileWriterSpec
 
         system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
 
-        Thread.sleep(interval.toMillis + 1000)
+        awaitAssert {
+          val existingFiles = Option(Paths.get(directory).toFile.list())
+            .map(_.toSet)
+            .getOrElse(Set.empty)
 
-        val existingFiles = Option(Paths.get(directory).toFile.list())
-          .map(_.toSet)
-          .getOrElse(Set.empty)
-
-        existingFiles.size shouldBe 1
-        existingFiles shouldBe Set(secondFileName)
-
+          existingFiles.size shouldBe 1
+          existingFiles shouldBe Set(secondFileName)
+        }
       }
 
       "check and delete old files when they are not balanced" in {
@@ -110,20 +108,26 @@ class RollingCommitLogFileWriterSpec
 
         val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
 
-        Thread.sleep(interval.toMillis + 1000)
-
         rolling ! WriteToCommitLog(db, namespace, metric, 1, RejectedEntryAction(bit1), Location(metric, "node", 0, 0))
 
         rolling ! ForceRolling
 
-        Thread.sleep(interval.toMillis + 1000)
+        awaitAssert {
+          val existingFiles = Option(Paths.get(directory).toFile.list())
+            .map(_.toSet)
+            .getOrElse(Set.empty)
 
-        val existingFiles = Option(Paths.get(directory).toFile.list())
-          .map(_.toSet)
-          .getOrElse(Set.empty)
+          existingFiles.size shouldBe 1
+          new File(s"$directory/${existingFiles.head}").length() shouldBe 0
+        }
+      }
 
-        existingFiles.size shouldBe 1
-        new File(s"$directory/${existingFiles.head}").length() shouldBe 0
+      "passivate itself after a period of inactivity" in {
+        val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
+
+        val probe = TestProbe()
+        probe.watch(rolling)
+        probe.expectTerminated(rolling, passivateAfter)
       }
     }
   }

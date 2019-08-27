@@ -50,6 +50,7 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
     |    writer = "io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter"
     |    directory = "target/commitLog"
     |    max-size = 50000
+    |    passivate-after = 5s
     |  }
     |}
     """.stripMargin))
