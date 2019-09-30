@@ -30,10 +30,12 @@ import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
+  GetMetricInfo,
   SubscribeCommitLogCoordinator,
   SubscribeMetricsDataActor,
   UpdateSchemaFromRecord
 }
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricInfoGot
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
 
 import scala.concurrent.Await

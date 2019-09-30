@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import akka.http.scaladsl.model.StatusCodes._
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.DimensionFieldType
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
@@ -34,6 +35,7 @@ import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
 import org.scalatest.{FlatSpec, Matchers}
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 object CommandApiTest {
@@ -46,6 +48,14 @@ object CommandApiTest {
     val schemas = Map(
       "metric1" -> Schema(
         "metric1",
+        Map(
+          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
+          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
+          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
+        )
+      ),
+      "metricWithoutInfo" -> Schema(
+        "metricWithoutInfo",
         Map(
           "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
           "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
@@ -85,6 +95,17 @@ object CommandApiTest {
       case DropMetric(db, namespace, metric) => sender() ! MetricDropped(db, namespace, metric)
     }
   }
+
+  class FakeMetadataCoordinator extends Actor {
+    override def receive: Receive = {
+      case GetMetricInfo(db, namespace, "metricWithoutInfo") =>
+        sender() ! MetricInfoGot(db, namespace, "metricWithoutInfo", None)
+      case GetMetricInfo(db, namespace, "nonExistingMetric") =>
+        sender() ! MetricInfoGot(db, namespace, "nonExistingMetric", None)
+      case GetMetricInfo(db, namespace, metric) =>
+        sender() ! MetricInfoGot(db, namespace, metric, Some(MetricInfo(db, namespace, metric, 100, 100)))
+    }
+  }
 }
 
 class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
@@ -96,7 +117,11 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
 
   override def writeCoordinator: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
 
+  override def metadataCoordinator: ActorRef = system.actorOf(Props[FakeMetadataCoordinator])
+
   override def authenticationProvider: NSDBAuthProvider = new TestAuthProvider
+
+  override val ec: ExecutionContext = ExecutionContext.Implicits.global
 
   override implicit val formats: DefaultFormats = DefaultFormats
   override implicit val timeout: Timeout        = 5 seconds
@@ -130,6 +155,18 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
   }
 
   "CommandsApi describe existing metric " should "return description" in {
+    Get("/commands/db1/namespace1/metricWithoutInfo").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe OK
+      val entity = entityAs[String]
+      entity shouldBe write(
+        DescribeMetricResponse(
+          schemas("metricWithoutInfo").fieldsMap.map {
+            case (_, field) => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+          }.toSet,
+          None
+        ))
+    }
+
     Get("/commands/db1/namespace1/metric1").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
@@ -137,13 +174,26 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
         DescribeMetricResponse(
           schemas("metric1").fieldsMap.map {
             case (_, field) => Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-          }.toSet
+          }.toSet,
+          Some(MetricInfo("db1", "namespace1", "metric1", 100, 100))
+        ))
+    }
+  }
+
+  "CommandsApi describe metric initialized but without schema " should "return description" in {
+    Get("/commands/db1/namespace1/metricWithoutSchema").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe OK
+      val entity = entityAs[String]
+      entity shouldBe write(
+        DescribeMetricResponse(
+          Set.empty,
+          Some(MetricInfo("db1", "namespace1", "metricWithoutSchema", 100, 100))
         ))
     }
   }
 
   "CommandsApi describe not existing metric " should "return NotFound" in {
-    Get("/commands/db1/namespace1/metric10").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+    Get("/commands/db1/namespace1/nonExistingMetric").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe NotFound
     }
   }

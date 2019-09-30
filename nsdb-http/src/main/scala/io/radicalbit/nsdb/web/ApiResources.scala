@@ -90,7 +90,10 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 class ApiResources(val publisherActor: ActorRef,
                    val readCoordinator: ActorRef,
                    val writeCoordinator: ActorRef,
-                   val authenticationProvider: NSDBAuthProvider)(implicit val timeout: Timeout, logger: LoggingAdapter)
+                   val metadataCoordinator: ActorRef,
+                   val authenticationProvider: NSDBAuthProvider)(override implicit val timeout: Timeout,
+                                                                 implicit val logger: LoggingAdapter,
+                                                                 override implicit val ec: ExecutionContext)
     extends CommandApi
     with QueryApi
     with DataApi {
@@ -116,5 +119,4 @@ class ApiResources(val publisherActor: ActorRef,
       commandsApi ~
       swagger ~
       new SwaggerDocService().routes
-
 }
