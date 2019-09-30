@@ -41,6 +41,6 @@ class NsdbNodeEndpoint(readCoordinator: ActorRef,
                    writeCoordinator = writeCoordinator,
                    metadataCoordinator = metadataCoordinator)
 
-  initWebEndpoint(writeCoordinator, readCoordinator, publisher)
+  initWebEndpoint(writeCoordinator, readCoordinator, metadataCoordinator, publisher)
 
 }

@@ -536,8 +536,6 @@ object MetadataCoordinator {
                                     namespace: String,
                                     metric: String,
                                     occurredOn: Long = System.currentTimeMillis)
-
-    case class GetMetricInfo(db: String, namespace: String, metric: String)
     case class PutMetricInfo(metricInfo: MetricInfo)
 
     case object CheckOutdatedLocations
@@ -555,7 +553,6 @@ object MetadataCoordinator {
     case class LocationDeleted(db: String, namespace: String, location: Location)
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
 
-    case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
     case class MetricInfoPut(metricInfo: MetricInfo)
     case class MetricInfoFailed(metricInfo: MetricInfo, message: String)
 

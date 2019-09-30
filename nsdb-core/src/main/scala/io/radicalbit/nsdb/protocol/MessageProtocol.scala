@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
@@ -35,6 +36,8 @@ object MessageProtocol {
     case class GetNamespaces(db: String)                 extends ControlMessage
     case class GetMetrics(db: String, namespace: String) extends ControlMessage
     case class GetSchema(db: String, namespace: String, metric: String)
+
+    case class GetMetricInfo(db: String, namespace: String, metric: String)
 
     case class PutSchemaInCache(db: String, namespace: String, metric: String, schema: Schema)
     case class GetSchemaFromCache(db: String, namespace: String, metric: String)
@@ -99,6 +102,7 @@ object MessageProtocol {
     case class NamespacesGot(db: String, namespaces: Set[String])
     case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String)
+    case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
     case class SchemaCached(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
     case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])

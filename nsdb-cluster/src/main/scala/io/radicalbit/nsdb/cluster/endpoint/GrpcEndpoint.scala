@@ -23,12 +23,8 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetMetricInfo, PutMetricInfo}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
-  MetricInfoFailed,
-  MetricInfoGot,
-  MetricInfoPut
-}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
@@ -53,6 +49,7 @@ import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowN
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseCommand.DescribeMetricResponse.MetricField.{FieldClassType => GrpcFieldClassType}
+import io.radicalbit.nsdb.rpc.responseCommand.DescribeMetricResponse.{MetricInfo => GrpcMetricInfo}
 import io.radicalbit.nsdb.rpc.responseCommand.{
   Namespaces,
   DescribeMetricResponse => GrpcDescribeMetricResponse,
@@ -63,7 +60,6 @@ import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
-import io.radicalbit.nsdb.rpc.responseCommand.DescribeMetricResponse.{MetricInfo => GrpcMetricInfo}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}

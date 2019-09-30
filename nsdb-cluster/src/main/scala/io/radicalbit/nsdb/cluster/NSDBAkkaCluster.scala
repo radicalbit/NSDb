@@ -54,14 +54,6 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
     name = "databaseActorGuardian"
   )
 
-  /**
-    * Returns the node actor guardian actor props.
-    * @param metadataCache the global metadata cache.
-    * @param schemaCache the global schema cache.
-    */
-  def nodeActorGuardianProps(metadataCache: ActorRef, schemaCache: ActorRef): Props =
-    NodeActorsGuardian.props(metadataCache, schemaCache)
-
   Future
     .sequence(
       Seq((databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef],
@@ -69,7 +61,7 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
     .onComplete {
       case Success(metadataCache :: schemaCache :: Nil) =>
         system.actorOf(
-          ClusterListener.props(nodeActorGuardianProps(metadataCache, schemaCache)),
+          ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
           name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
         )
       case _ =>
