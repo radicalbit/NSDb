@@ -23,6 +23,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
+import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -32,6 +33,7 @@ import javax.ws.rs.Path
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 @Api(value = "/commands", produces = "application/json")
@@ -40,10 +42,12 @@ trait CommandApi {
 
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
+  def metadataCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
   implicit val formats: DefaultFormats
+  implicit val ec: ExecutionContext
 
   case class CommandRequestDatabase(db: String)                                  extends Db
   case class CommandRequestNamespace(db: String, namespace: String)              extends Namespace
@@ -54,7 +58,7 @@ trait CommandApi {
   case class ShowNamespacesResponse(namespaces: Set[String]) extends CommandResponse
   case class ShowMetricsResponse(metrics: Set[String])       extends CommandResponse
   case class Field(name: String, `type`: String)
-  case class DescribeMetricResponse(fields: Set[Field]) extends CommandResponse
+  case class DescribeMetricResponse(fields: Set[Field], metricInfo: Option[MetricInfo]) extends CommandResponse
 
   @Api(value = "/dbs", produces = "application/json")
   @Path("/dbs")
@@ -229,8 +233,12 @@ trait CommandApi {
             pathPrefix(Segment) { metric =>
               (pathEnd & get) {
                 authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
-                  onComplete(readCoordinator ? GetSchema(db, namespace, metric)) {
-                    case Success(SchemaGot(_, _, _, Some(schema))) =>
+                  onComplete(
+                    Future.sequence(
+                      Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
+                          (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
+                    )) {
+                    case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
                       complete(
                         HttpEntity(
                           ContentTypes.`application/json`,
@@ -239,12 +247,13 @@ trait CommandApi {
                               schema.fieldsMap.map {
                                 case (_, field) =>
                                   Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                              }.toSet
+                              }.toSet,
+                              metricInfo
                             )
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, None)) =>
+                    case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
                       complete(HttpResponse(NotFound))
                     case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                     case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))

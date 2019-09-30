@@ -48,13 +48,16 @@ trait WebResources extends WsResources with CorsSupport with SSLSupport { this: 
   implicit lazy val httpTimeout: Timeout =
     Timeout(config.getDuration("nsdb.http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  def initWebEndpoint(writeCoordinator: ActorRef, readCoordinator: ActorRef, publisher: ActorRef)(
-      implicit logger: LoggingAdapter) =
+  def initWebEndpoint(writeCoordinator: ActorRef,
+                      readCoordinator: ActorRef,
+                      metadataCoordinator: ActorRef,
+                      publisher: ActorRef)(implicit logger: LoggingAdapter) =
     authProvider match {
       case Success(provider) =>
         val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
                                                                              readCoordinator,
                                                                              writeCoordinator,
+                                                                             metadataCoordinator,
                                                                              provider).apiResources(config)
 
         val httpExt = akka.http.scaladsl.Http()
