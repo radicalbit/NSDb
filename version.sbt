@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-version in ThisBuild := "0.9.0-RC1"
+version in ThisBuild := "0.9.0-RC2"
