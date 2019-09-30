@@ -22,7 +22,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.radicalbit.nsdb.common.NsdbConfig
 
 /**
-  * Creates Nsdb configuration looking up the `ConfDir` folder or into the classpath.
+  * Creates NSDb configuration looking up the `ConfDir` folder or into the classpath.
   * The retrieved configuration is properly adjusted in case ssl is enabled or not
   */
 trait NsdbClusterConfig extends NsdbConfig {
