@@ -24,6 +24,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.vandermeer.asciitable.{AsciiTable, CWC_LongestWord}
 import de.vandermeer.asciithemes.a7.A7_Grids
 import io.radicalbit.nsdb.common.protocol._
+import scala.concurrent.duration._
 
 import scala.util.Try
 
@@ -123,9 +124,23 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
         Try(render(List("Metric Name"), res.metrics.map(m => List(m))))
       case res: DescribeMetricResponse =>
         Try(
-          render(List("Field Name", "Type", "Field Class Type"),
-                 res.fields.map(x =>
-                   List(x.name, x.`type`, x.fieldClassType.toString.replace("FieldType", "").toUpperCase))))
+          StringBuilder.newBuilder
+            .append(
+              render(List("Field Name", "Type", "Field Class Type"),
+                     res.fields.map(x =>
+                       List(x.name, x.`type`, x.fieldClassType.toString.replace("FieldType", "").toUpperCase)))
+            )
+            .append("\n")
+            .append(res.metricInfo
+              .map(info =>
+                render(
+                  List("Property", "Value"),
+                  List(List("shardInterval", s"${info.shardInterval.milliseconds.toSeconds} seconds"),
+                       List("retention", s"${info.retention.milliseconds.toSeconds} seconds"))
+              ))
+              .getOrElse(""))
+            .toString()
+        )
       case res: NamespacesListRetrieved =>
         Try(render(List("Namespace Name"), res.namespaces.map(name => List(name)).toList))
       case res: CommandStatementExecutedWithFailure =>
