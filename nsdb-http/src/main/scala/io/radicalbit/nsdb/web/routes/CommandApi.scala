@@ -253,6 +253,24 @@ trait CommandApi {
                           )
                         )
                       )
+                    case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
+                      complete(
+                        HttpEntity(
+                          ContentTypes.`application/json`,
+                          write(
+                            DescribeMetricResponse(
+                              schemaOpt
+                                .map(s =>
+                                  s.fieldsMap.map {
+                                    case (_, field) =>
+                                      Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                                  }.toSet)
+                                .getOrElse(Set.empty),
+                              Some(metricInfo)
+                            )
+                          )
+                        )
+                      )
                     case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
                       complete(HttpResponse(NotFound))
                     case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))

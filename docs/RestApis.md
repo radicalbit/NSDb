@@ -306,7 +306,7 @@ http://<host>:<port>/commands/database/namespaces
 
 
 ## Describe metric
-`Describe metric` command retrieves the schema descriptor of a specific metric.
+`Describe metric` command retrieves the schema descriptor and custom shard interval and retention (if present) of a specific metric.
 
 **URL** : `/commands/<database_name>/<namespace_name>/<metric_name>`
 
@@ -333,7 +333,14 @@ http://<host>:<port>/commands/database/namespaces
       { "name" : "dimension_2",
         "type" : "INTEGER"
       }
-  ]
+  ],
+  "metricInfo": {
+    "db": "database",
+    "namespace": "namespace",
+    "metric": "metric",
+    "shardInterval": 172800000,
+    "retention": 86400000
+  }
 }
 ```
 ### Error Responses

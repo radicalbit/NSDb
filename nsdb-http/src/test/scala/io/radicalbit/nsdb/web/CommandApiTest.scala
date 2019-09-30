@@ -100,6 +100,8 @@ object CommandApiTest {
     override def receive: Receive = {
       case GetMetricInfo(db, namespace, "metricWithoutInfo") =>
         sender() ! MetricInfoGot(db, namespace, "metricWithoutInfo", None)
+      case GetMetricInfo(db, namespace, "nonExistingMetric") =>
+        sender() ! MetricInfoGot(db, namespace, "nonExistingMetric", None)
       case GetMetricInfo(db, namespace, metric) =>
         sender() ! MetricInfoGot(db, namespace, metric, Some(MetricInfo(db, namespace, metric, 100, 100)))
     }
@@ -178,8 +180,20 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     }
   }
 
+  "CommandsApi describe metric initialized but without schema " should "return description" in {
+    Get("/commands/db1/namespace1/metricWithoutSchema").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe OK
+      val entity = entityAs[String]
+      entity shouldBe write(
+        DescribeMetricResponse(
+          Set.empty,
+          Some(MetricInfo("db1", "namespace1", "metricWithoutSchema", 100, 100))
+        ))
+    }
+  }
+
   "CommandsApi describe not existing metric " should "return NotFound" in {
-    Get("/commands/db1/namespace1/metric10").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+    Get("/commands/db1/namespace1/nonExistingMetric").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe NotFound
     }
   }
