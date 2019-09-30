@@ -16,7 +16,7 @@ If we want to model the number of accesses to emergency rooms in a country (or i
   - the patients' priority
   - the hospital coordinates (geohash)
 
-### Bit Containers
+### Metrics and Bit
 
 A series of time series records (bits) is called `metric`.
 
@@ -25,6 +25,13 @@ NSDb provides two levels of containers for metrics: `database` and `namespace`.
 A bit belongs to a namespace, which belongs to a database.
 
 To declare the database and the namespace is not required in a sql statement, but it is necessary for the outer context (e.g. rest apis, java apis or cli)
+
+### Metric Info
+
+The following properties can be configured for a metric. This configuration must be performed before inserting bits and cannot be updated.
+
+* shard interval: the time interval that determines the shard length.
+* retention: the time interval in which data are kept into the indices.
 
 ## Schema design
 
