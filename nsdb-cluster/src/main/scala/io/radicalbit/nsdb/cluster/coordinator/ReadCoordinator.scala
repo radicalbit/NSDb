@@ -239,10 +239,12 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                   val sortedLocations = filteredLocations.sortBy(_.from)
 
                   val globalRanges: Seq[TimeRange] =
-                    TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
-                                                                          sortedLocations.head.from,
-                                                                          rangeLength,
-                                                                          condition)
+                    if (sortedLocations.isEmpty) Seq.empty
+                    else
+                      TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
+                                                                            sortedLocations.head.from,
+                                                                            rangeLength,
+                                                                            condition)
 
                   gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
                     res
