@@ -171,6 +171,10 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   override def receive: Receive = super.receive orElse {
     case ReceiveTimeout =>
+      context.child(childName).foreach {
+        log.debug(s"Sending commit log check for actual file before passivating : ${file.getName}")
+        _ ! CheckFiles(file)
+      }
       self ! PoisonPill
     case ForceRolling =>
       val f = newFile(file)
