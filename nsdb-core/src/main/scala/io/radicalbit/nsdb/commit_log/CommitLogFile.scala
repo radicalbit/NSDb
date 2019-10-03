@@ -50,6 +50,7 @@ object CommitLogFile {
           case Some(e: AccumulatedEntry) => if (!pending.contains(e.id)) pending += e.id
           case Some(e: PersistedEntry)   => if (!closedEntries.contains(e.id)) closedEntries += e.id
           case Some(e: RejectedEntry)    => if (!closedEntries.contains(e.id)) closedEntries += e.id
+          case Some(_)                   =>
           case None                      =>
         }
         r = inputStream.read(contents)

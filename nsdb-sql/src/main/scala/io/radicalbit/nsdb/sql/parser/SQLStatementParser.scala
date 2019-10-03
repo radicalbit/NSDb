@@ -224,10 +224,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   lazy val where: PackratParser[Expression] = Where ~> expression
 
-  lazy val groupBy
-    : PackratParser[GroupByAggregation] = (group ~> ((temporalInterval ~> (intValue ?) ~ timeMeasure) ?) ~ (dimension ?)) ^^ {
-    case None ~ Some(dim) => SimpleGroupByAggregation(dim)
-    case Some(i) ~ None   => TemporalGroupByAggregation(i._1.getOrElse(1) * i._2)
+  lazy val simpleGroupBy: PackratParser[GroupByAggregation] = (group ~> dimension) ^^ { dim =>
+    SimpleGroupByAggregation(dim)
+  }
+
+  lazy val temporalGroupBy
+    : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (intValue ?) ~ timeMeasure) ^^ {
+    case unit ~ conversion => TemporalGroupByAggregation(unit.getOrElse(1) * conversion)
   }
 
   lazy val order: PackratParser[OrderOperator] = (Order ~> dimension ~ (Desc ?)) ^^ {
@@ -238,7 +241,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   lazy val limit: PackratParser[LimitOperator] = (Limit ~> intValue) ^^ (value => LimitOperator(value))
 
   private def selectQuery(db: String, namespace: String) =
-    select ~ from ~ (where ?) ~ (groupBy ?) ~ (order ?) ~ (limit ?) <~ ";" ^^ {
+    select ~ from ~ (where ?) ~ ((temporalGroupBy | simpleGroupBy) ?) ~ (order ?) ~ (limit ?) <~ ";" ^^ {
       case d ~ fs ~ met ~ cond ~ gr ~ ord ~ lim =>
         SelectSQLStatement(db = db,
                            namespace = namespace,
