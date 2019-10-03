@@ -259,6 +259,21 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select with a temporal group by with count aggregation with a limit" in {
+      parser.parse(db = "db",
+                   namespace = "registry",
+                   input = "select count(value) from people group by interval 1d limit 1") should be(
+        Success(SelectSQLStatement(
+          db = "db",
+          namespace = "registry",
+          metric = "people",
+          distinct = false,
+          fields = ListFields(List(Field("value", Some(CountAggregation)))),
+          groupBy = Some(TemporalGroupByAggregation(86400000)),
+          limit = Some(LimitOperator(1))
+        )))
+    }
+
     "receive a select with a temporal group by, filtered by time with measure" should {
       "parse it successfully if the interval contains a space" in {
         parser.parse(

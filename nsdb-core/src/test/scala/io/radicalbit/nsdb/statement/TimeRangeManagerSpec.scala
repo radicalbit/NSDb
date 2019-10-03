@@ -181,7 +181,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
               expression2 = EqualityExpression(dimension = "name", value = "john")
             )
           )) shouldBe List(
-          Interval.fromBounds(Closed(2l), Unbound())
+          Interval.fromBounds(Closed(2L), Unbound())
         )
       }
     }
