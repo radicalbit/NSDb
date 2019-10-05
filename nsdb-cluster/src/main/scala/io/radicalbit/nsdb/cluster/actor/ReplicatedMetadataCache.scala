@@ -201,7 +201,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
           .map {
             case UpdateSuccess(_, _) =>
               LocationCached(db, namespace, metric, from, to, value)
-            case _ => PutLocationInCacheFailed(db, namespace, metric, value)
+            case e =>
+              log.error(s"error in put location in cache $e")
+              PutLocationInCacheFailed(db, namespace, metric, value)
           }
         _ <- replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(
           _ :+ (keyWithNode -> value))
