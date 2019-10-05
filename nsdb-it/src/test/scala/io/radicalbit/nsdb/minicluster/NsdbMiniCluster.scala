@@ -58,7 +58,6 @@ trait NsdbMiniCluster extends LazyLogging {
     if (cleanup)
       FileUtils.deleteDirectory(new File(rootFolder))
     nodes
-    Thread.sleep(5000)
   }
 
   def stop(): Unit = {
