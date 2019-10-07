@@ -74,7 +74,7 @@ trait NSDBAActors {
     metadataCache         <- (databaseActorGuardian ? GetMetadataCache(nodeName)).mapTo[ActorRef]
     schemaCache           <- (databaseActorGuardian ? GetSchemaCache(nodeName)).mapTo[ActorRef]
   } yield {
-    system.log.debug("caches got")
+    system.log.debug("MetadataCache and SchemaCache successfully retrieved. Creating cluster listener actor.")
     system.actorOf(
       ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
       name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
