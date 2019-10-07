@@ -66,7 +66,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
-  * Concrete implementation of Nsdb's Grpc endpoint
+  * Concrete implementation of NSDb's Grpc endpoint
   * @param readCoordinator the read coordinator actor
   * @param writeCoordinator the write coordinator actor
   * @param system the global actor system
@@ -95,17 +95,20 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   override protected[this] def migration: Migration = MigrationServiceDump
 
+  override protected[this] val interface: String = system.settings.config.getString("nsdb.grpc.interface")
+
   override protected[this] val port: Int = system.settings.config.getInt("nsdb.grpc.port")
 
   override protected[this] val parserSQL = new SQLStatementParser
 
   start() match {
     case Success(_) =>
-      log.info("GrpcEndpoint started on port {}", port)
+      log.info("GrpcEndpoint started on interface {} on port {}", interface, port)
       system.registerOnTermination {
         stop()
       }
-    case Failure(ex) => log.error("error in starting Grpc endpoint", ex)
+    case Failure(ex) =>
+      log.error(s"error in starting Grpc endpoint on interface $interface and port $port", ex)
   }
 
   /**

@@ -22,7 +22,7 @@ class MiniClusterStarter(override val nodesNumber: Int, override val passivateAf
     extends NsdbMiniCluster
 
 object MiniClusterStarter extends App with NsdbMiniCluster {
-  override protected[this] def nodesNumber              = 2
+  override protected[this] def nodesNumber              = 3
   override protected[this] def passivateAfter: Duration = Duration.ofHours(1)
 
   start()

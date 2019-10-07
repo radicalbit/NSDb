@@ -29,12 +29,9 @@ trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] val instanceId = { UUID.randomUUID }
 
-  protected[this] val startingAkkaRemotePort = 2552
-  protected[this] val startingHttpPort       = 9010
-  protected[this] val startingUiPort         = 9020
-  protected[this] val startingGrpcPort       = 7817
-  protected[this] val rootFolder             = s"target/minicluster/$instanceId/"
-  protected[this] val clFolder               = s"target/commitLog/$instanceId"
+  protected[this] val startingHostname = "127.0.0."
+  protected[this] val rootFolder       = s"target/minicluster/$instanceId/"
+  protected[this] val clFolder         = s"target/commitLog/$instanceId"
 
   protected[this] def nodesNumber: Int
   protected[this] def passivateAfter: Duration
@@ -45,11 +42,8 @@ trait NsdbMiniCluster extends LazyLogging {
       _ = Thread.sleep(1000)
     } yield
       new NSDbMiniClusterNode(
-        akkaRemotePort = startingAkkaRemotePort + i,
-        httpPort = startingHttpPort + i,
-        uiPort = startingUiPort + i,
-        grpcPort = startingGrpcPort + i,
-        dataDir = s"$rootFolder/data${startingAkkaRemotePort + i}",
+        hostname = s"$startingHostname${i + 1}",
+        dataDir = s"$rootFolder/data$i",
         commitLogDir = s"$clFolder$i",
         passivateAfter = passivateAfter
       )).toSet

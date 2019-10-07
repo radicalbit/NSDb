@@ -20,7 +20,6 @@ import java.util.concurrent.TimeoutException
 
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor._
-import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 
 /**
   * Actor that creates all the global actors (e.g. metadata cache, cluster listener)
@@ -36,15 +35,5 @@ class DatabaseActorsGuardian extends Actor with ActorLogging {
       super.supervisorStrategy.decider.apply(t)
   }
 
-  def receive: Receive = {
-    case GetMetadataCache(nodeName) =>
-      sender ! context.system.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
-    case GetSchemaCache(nodeName) =>
-      sender ! context.system.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
-  }
-}
-
-object DatabaseActorsGuardian {
-  case class GetMetadataCache(nodeName: String)
-  case class GetSchemaCache(nodeName: String)
+  def receive: Receive = Actor.emptyBehavior
 }

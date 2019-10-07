@@ -23,10 +23,7 @@ import io.radicalbit.nsdb.common.NsdbConfig
 
 trait NsdbMiniClusterConf extends NsdbConfig {
 
-  def akkaRemotePort: Int
-  def grpcPort: Int
-  def httpPort: Int
-  def uiPort: Int
+  def hostname: String
   def dataDir: String
   def commitLogDir: String
   def passivateAfter: Duration
@@ -34,10 +31,10 @@ trait NsdbMiniClusterConf extends NsdbConfig {
   override def config: Config =
     ConfigFactory
       .load("minicluster.conf")
-      .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(akkaRemotePort))
-      .withValue("nsdb.grpc.port", ConfigValueFactory.fromAnyRef(grpcPort))
-      .withValue("nsdb.http.port", ConfigValueFactory.fromAnyRef(httpPort))
-      .withValue("nsdb.ui.port", ConfigValueFactory.fromAnyRef(uiPort))
+      .withValue("akka.management.http.hostname", ConfigValueFactory.fromAnyRef(hostname))
+      .withValue("akka.remote.artery.canonical.hostname", ConfigValueFactory.fromAnyRef(hostname))
+      .withValue("nsdb.grpc.interface", ConfigValueFactory.fromAnyRef(hostname))
+      .withValue("nsdb.http.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
       .withValue("nsdb.commit-log.directory", ConfigValueFactory.fromAnyRef(commitLogDir))
       .withValue("nsdb.sharding.passivate-after", ConfigValueFactory.fromAnyRef(passivateAfter))

@@ -50,7 +50,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
     val timestamp = System.currentTimeMillis()
 
     val nsdb =
-      Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+      Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
     val bit = nsdb
       .db("root")
@@ -93,7 +93,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
     val nsdb =
       eventually {
-        Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = secondNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
 
     val bit = Bit(timestamp = System.currentTimeMillis(),

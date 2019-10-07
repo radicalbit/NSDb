@@ -82,7 +82,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     val nsdbConnection =
       eventually {
-        Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
 
     super.beforeAll()
@@ -116,7 +116,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
       val query = nsdb
         .db(db)
@@ -134,7 +134,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
       val query = nsdb
         .db(db)
@@ -152,7 +152,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("execute it successfully when ordered by value") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
       val query = nsdb
         .db(db)
@@ -173,7 +173,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select projecting a wildcard with a limit and a ordering when ordered by another dimension") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
       val query = nsdb
         .db(db)
@@ -193,7 +193,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select over tags fields") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
       val query = nsdb
         .db(db)
@@ -215,7 +215,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select over dimensions fields") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -233,7 +233,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select over dimensions and tags fields") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -259,7 +259,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select distinct over a single field") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -281,7 +281,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("execute successfully with limit over distinct values") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -295,7 +295,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("execute successfully with ascending order") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -319,7 +319,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("execute successfully with descending order") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -343,7 +343,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("fail if receive a  distinct select projecting a wildcard") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -359,7 +359,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   ignore("receive a select projecting a list of fields with mixed aggregated and simple") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -382,7 +382,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select projecting a list of fields with only a count") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -399,7 +399,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("fail if receive a select projecting a list of fields when other aggregation than count is provided") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -414,7 +414,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("fail if receive a select distinct projecting a list of fields ") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -429,7 +429,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a range selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -444,7 +444,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a GTE selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -459,7 +459,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a GTE and a NOT selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -473,7 +473,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a GT AND a LTE selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -487,7 +487,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a GTE OR a LT selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -501,7 +501,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a = selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -515,7 +515,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a GTE AND a = selection") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -529,7 +529,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a GTE selection and a group by") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -544,7 +544,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("fail if receive a select containing a GTE selection and a group by without any aggregation") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -559,7 +559,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a non existing entity") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -574,7 +574,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a group by statement with asc ordering over string dimension") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -596,7 +596,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a group by statement with desc ordering over string dimension") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -633,7 +633,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("execute a group by select statement with desc ordering over numerical dimension") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -657,7 +657,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a group by on long dimension with count aggregation") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -674,7 +674,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a group by on long dimension with sum aggregation") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -694,7 +694,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a group by on double dimension with count aggregation") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)
@@ -714,7 +714,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   test("receive a select containing a group by on double dimension with sum aggregation") {
     minicluster.nodes.foreach { n =>
       val nsdb =
-        Await.result(NSDB.connect(host = "127.0.0.1", port = n.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
         .namespace(namespace)

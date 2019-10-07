@@ -16,7 +16,11 @@
 
 package io.radicalbit.nsdb.client.rpc
 
-import io.grpc.{Server, ServerBuilder}
+import java.net.InetSocketAddress
+
+import com.google.common.net.InetAddresses
+import io.grpc.Server
+import io.grpc.netty.NettyServerBuilder
 import io.radicalbit.nsdb.rpc.dump.DumpGrpc
 import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
 import io.radicalbit.nsdb.rpc.health.HealthGrpc
@@ -40,6 +44,8 @@ trait GRPCServer {
 
   protected[this] def executionContextExecutor: ExecutionContext
 
+  protected[this] def interface: String
+
   protected[this] def port: Int
 
   protected[this] def serviceSQL: NSDBServiceSQL
@@ -62,8 +68,8 @@ trait GRPCServer {
     System.err.println("Server shut down")
   }
 
-  lazy val server = ServerBuilder
-    .forPort(port)
+  lazy val server = NettyServerBuilder
+    .forAddress(new InetSocketAddress(InetAddresses.forString(interface), port))
     .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
     .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
     .addService(InitMetricGrpc.bindService(initMetricService, executionContextExecutor))

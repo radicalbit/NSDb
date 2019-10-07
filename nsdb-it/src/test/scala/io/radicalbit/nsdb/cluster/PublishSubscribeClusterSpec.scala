@@ -56,15 +56,15 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
     val nsdbFirstNode =
       eventually {
-        Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
     val nsdbSecondNode =
       eventually {
-        Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = secondNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
 
-    val firstNodeWsClient  = new WebSocketClient("localhost", firstNode.httpPort)
-    val secondNodeWsClient = new WebSocketClient("localhost", firstNode.httpPort)
+    val firstNodeWsClient  = new WebSocketClient("localhost", 9000)
+    val secondNodeWsClient = new WebSocketClient("localhost", 9000)
 
     eventually {
       assert(
@@ -130,14 +130,14 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     val secondNode = minicluster.nodes.last
 
     val nsdbFirstNode = eventually {
-      Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+      Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
     }
     val nsdbSecondNode = eventually {
-      Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
+      Await.result(NSDB.connect(host = secondNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
     }
 
-    val firstNodeWsClient  = new WebSocketClient("localhost", firstNode.httpPort)
-    val secondNodeWsClient = new WebSocketClient("localhost", firstNode.httpPort)
+    val firstNodeWsClient  = new WebSocketClient("localhost", 9000)
+    val secondNodeWsClient = new WebSocketClient("localhost", 9000)
 
     //subscription phase
     firstNodeWsClient.subscribe("db", "namespace", "metric1")

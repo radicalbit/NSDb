@@ -37,7 +37,7 @@ import scala.concurrent.duration._
   */
 class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
-  private val cluster = Cluster(context.system)
+  private lazy val cluster = Cluster(context.system)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -55,9 +55,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
   def receive: Receive = {
     case MemberUp(member)
         if member.address.host.isDefined &&
-          member.address.host.get == config.getString("akka.remote.netty.tcp.hostname") &&
-          member.address.port.isDefined &&
-          member.address.port.get == config.getInt("akka.remote.netty.tcp.port") =>
+          member.address.host.get == config.getString("akka.remote.artery.canonical.hostname") =>
       log.info("Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
