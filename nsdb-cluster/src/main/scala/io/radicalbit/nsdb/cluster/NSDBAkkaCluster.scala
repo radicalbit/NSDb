@@ -18,15 +18,17 @@ package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor._
 import akka.cluster.Cluster
+import akka.cluster.ddata.DistributedData
+import akka.cluster.singleton._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian, NodeActorsGuardian}
 import io.radicalbit.nsdb.common.NsdbConfig
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.Success
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 /**
   * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
@@ -40,7 +42,8 @@ trait NSDBAkkaCluster { this: NsdbConfig =>
 /**
   * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
   */
-trait NSDBAActors { this: NSDBAkkaCluster =>
+trait NSDBAActors {
+  this: NSDBAkkaCluster =>
 
   import akka.pattern.ask
 
@@ -49,25 +52,39 @@ trait NSDBAActors { this: NSDBAkkaCluster =>
 
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  private val databaseActorGuardian = system.actorOf(
-    Props(classOf[DatabaseActorsGuardian]),
+  system.actorOf(
+    ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
+                                  terminationMessage = PoisonPill,
+                                  settings = ClusterSingletonManagerSettings(system)),
     name = "databaseActorGuardian"
   )
 
-  Future
-    .sequence(
-      Seq((databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef],
-          (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]))
-    .onComplete {
-      case Success(metadataCache :: schemaCache :: Nil) =>
-        system.actorOf(
-          ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
-          name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
-        )
-      case _ =>
-        system.log.error("Error retrieving caches, terminating system.")
-        system.terminate()
-    }
+  DistributedData(system).replicator
+
+  system.actorOf(
+    ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
+                                settings = ClusterSingletonProxySettings(system)),
+    name = "databaseActorGuardianProxy"
+  )
+
+  lazy val nodeName: String = createNodeName(Cluster(system).selfMember)
+
+  (for {
+    databaseActorGuardian <- system.actorSelection("user/databaseActorGuardianProxy").resolveOne()
+    metadataCache         <- (databaseActorGuardian ? GetMetadataCache(nodeName)).mapTo[ActorRef]
+    schemaCache           <- (databaseActorGuardian ? GetSchemaCache(nodeName)).mapTo[ActorRef]
+  } yield {
+    system.log.debug("MetadataCache and SchemaCache successfully retrieved. Creating cluster listener actor.")
+    system.actorOf(
+      ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
+      name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+    )
+  }).recover {
+    case e =>
+      Await.result(system.terminate, 5.seconds)
+      Await.result(system.whenTerminated, 5.seconds)
+      system.log.error(s"Error retrieving caches $e, actor system terminated.")
+  }
 }
 
 /**

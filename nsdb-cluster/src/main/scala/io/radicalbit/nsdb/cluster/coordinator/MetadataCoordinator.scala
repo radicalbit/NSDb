@@ -96,6 +96,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
         if (successResponses.size == responses.size) {
           Future(LocationsAdded(db, namespace, successResponses.map(_.value)))
         } else {
+          log.error(s"errors in adding locations in cache $errorResponses")
           Future
             .sequence(successResponses.map(location => cache ? EvictLocation(db, namespace, location.value)))
             .flatMap { _ =>
@@ -430,7 +431,9 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
 
                     performAddLocationIntoCache(db, namespace, locations).map {
                       case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                      case _                          => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                      case e =>
+                        log.error(s"unexpected result while trying to add locations in cache $e")
+                        GetWriteLocationsFailed(db, namespace, metric, timestamp)
                     }
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
@@ -450,7 +453,9 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
 
                 performAddLocationIntoCache(db, namespace, locations).map {
                   case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                  case _                          => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+                  case e =>
+                    log.error(s"unexpected result while trying to add locations in cache $e")
+                    GetWriteLocationsFailed(db, namespace, metric, timestamp)
                 }
               }
           case _ =>

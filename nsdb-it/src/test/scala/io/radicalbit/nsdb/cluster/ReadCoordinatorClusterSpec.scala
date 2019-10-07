@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.cluster
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.common.protocol._
-import io.radicalbit.nsdb.minicluster.MiniClusterSpec
 import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
+import io.radicalbit.nsdb.test.MiniClusterSpec
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
@@ -80,15 +80,30 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     val firstNode = minicluster.nodes.head
 
-    val nsdb =
-      Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+    val nsdbConnection =
+      eventually {
+        Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+      }
 
     super.beforeAll()
 
-    Await.result(nsdb.write(LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name))), 10.seconds)
-    Await.result(nsdb.write(DoubleMetric.testRecords.map(_.asApiBit(db, namespace, DoubleMetric.name))), 10.seconds)
-    Await.result(nsdb.write(AggregationMetric.testRecords.map(_.asApiBit(db, namespace, AggregationMetric.name))),
-                 10.seconds)
+    LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name)).foreach { bit =>
+      eventually {
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+      }
+    }
+
+    DoubleMetric.testRecords.map(_.asApiBit(db, namespace, DoubleMetric.name)).foreach { bit =>
+      eventually {
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+      }
+    }
+
+    AggregationMetric.testRecords.map(_.asApiBit(db, namespace, AggregationMetric.name)).foreach { bit =>
+      eventually {
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+      }
+    }
 
     waitIndexing()
   }
@@ -377,7 +392,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(readRes.records.size == 1)
 
-      assert(readRes.records.head.asBit == Bit(0, 6L, Map.empty, Map("count(*)" -> 6)))
+      assert(readRes.records.head.asBit.value == 6L)
     }
   }
 

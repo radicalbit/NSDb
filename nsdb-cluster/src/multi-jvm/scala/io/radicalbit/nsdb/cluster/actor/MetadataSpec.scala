@@ -97,8 +97,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   implicit val timeout: Timeout = Timeout(5.seconds)
 
-  lazy val metadataCache = Await.result((guardian ? GetMetadataCache).mapTo[ActorRef], 5.seconds)
-  lazy val schemaCache   = Await.result((guardian ? GetSchemaCache).mapTo[ActorRef], 5.seconds)
+  lazy val metadataCache = Await.result((guardian ? GetMetadataCache("not-relevant")).mapTo[ActorRef], 5.seconds)
+  lazy val schemaCache   = Await.result((guardian ? GetSchemaCache("not-relevant")).mapTo[ActorRef], 5.seconds)
 
   system.actorOf(ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)), name = "clusterListener")
 
