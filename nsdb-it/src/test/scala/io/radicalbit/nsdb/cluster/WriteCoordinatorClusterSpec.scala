@@ -38,14 +38,14 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
   test("join cluster") {
     eventually {
       assert(
-        Cluster(minicluster.nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == minicluster.nodes.size)
+        Cluster(nodes.head.system).state.members
+          .count(_.status == MemberStatus.Up) == nodes.size)
     }
   }
 
   test("add record from first node") {
 
-    val firstNode = minicluster.nodes.head
+    val firstNode = nodes.head
 
     val timestamp = System.currentTimeMillis()
 
@@ -89,7 +89,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
   test("add record from last node") {
 
-    val secondNode = minicluster.nodes.last
+    val secondNode = nodes.last
 
     val nsdb =
       eventually {

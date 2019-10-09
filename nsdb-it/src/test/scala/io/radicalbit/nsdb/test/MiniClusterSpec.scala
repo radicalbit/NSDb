@@ -2,13 +2,13 @@ package io.radicalbit.nsdb.test
 
 import java.time.Duration
 
-import io.radicalbit.nsdb.minicluster.{MiniClusterStarter, NsdbMiniCluster}
+import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually {
+trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
 
   val nodesNumber: Int
 
@@ -18,18 +18,16 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually {
 
   def passivateAfter: Duration = Duration.ofHours(1)
 
-  lazy val minicluster: NsdbMiniCluster = new MiniClusterStarter(nodesNumber)
-
   override def beforeAll(): Unit = {
-    minicluster.start(true)
+    start(true)
   }
 
   override def afterAll(): Unit = {
-    minicluster.stop()
+    stop()
   }
 
   protected lazy val indexingTime: Long =
-    minicluster.nodes.head.system.settings.config.getDuration("nsdb.write.scheduler.interval").toMillis
+    nodes.head.system.settings.config.getDuration("nsdb.write.scheduler.interval").toMillis
 
   protected def waitIndexing(): Unit    = Thread.sleep(indexingTime + 1000)
   protected def waitPassivation(): Unit = Thread.sleep(passivateAfter.toMillis + 1000)

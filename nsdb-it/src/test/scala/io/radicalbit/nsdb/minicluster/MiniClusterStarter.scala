@@ -18,9 +18,6 @@ package io.radicalbit.nsdb.minicluster
 
 import java.time.Duration
 
-class MiniClusterStarter(override val nodesNumber: Int, override val passivateAfter: Duration = Duration.ofHours(1))
-    extends NsdbMiniCluster
-
 object MiniClusterStarter extends App with NsdbMiniCluster {
   override protected[this] def nodesNumber              = 3
   override protected[this] def passivateAfter: Duration = Duration.ofHours(1)
