@@ -98,6 +98,7 @@ class ApiResources(val publisherActor: ActorRef,
                                                                  override implicit val ec: ExecutionContext)
     extends CommandApi
     with QueryApi
+    with QueryValidationApi
     with DataApi {
 
   implicit val formats: DefaultFormats = DefaultFormats
@@ -116,6 +117,7 @@ class ApiResources(val publisherActor: ActorRef,
 
   def apiResources(config: Config)(implicit ec: ExecutionContext): Route =
     queryApi ~
+      queryValidationApi ~
       dataApi ~
       healthCheckApi ~
       commandsApi ~
