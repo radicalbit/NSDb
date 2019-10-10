@@ -43,6 +43,7 @@ object MessageProtocol {
     case class GetSchemaFromCache(db: String, namespace: String, metric: String)
     case class EvictSchema(db: String, namespace: String, metric: String)
 
+    case class ValidateStatement(selectStatement: SelectSQLStatement)
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,

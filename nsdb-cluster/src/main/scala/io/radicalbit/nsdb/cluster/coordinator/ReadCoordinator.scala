@@ -160,6 +160,18 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       metadataCoordinator forward msg
     case msg: GetSchema =>
       schemaCoordinator forward msg
+    case ValidateStatement(statement) =>
+      log.debug("validating {}", statement)
+      (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+        .map {
+          case SchemaGot(_, _, _, Some(schema)) =>
+            StatementParser.parseStatement(statement, schema) match {
+              case Right(_)  => Right(true)
+              case Left(err) => Left(err)
+            }
+          case _ => Left(s"metric ${statement.metric} does not exist")
+        }
+        .pipeTo(sender())
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
