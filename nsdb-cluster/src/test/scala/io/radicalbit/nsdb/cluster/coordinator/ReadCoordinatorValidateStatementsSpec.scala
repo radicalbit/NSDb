@@ -68,13 +68,15 @@ class ReadCoordinatorValidateStatementsSpec extends AbstractReadCoordinatorSpec 
         probe.send(
           readCoordinatorActor,
           ValidateStatement(
-            SelectSQLStatement(db = db,
+            SelectSQLStatement(
+              db = db,
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
               fields = AllFields,
               groupBy = Some(SimpleGroupByAggregation("dimension")),
-              limit = Some(LimitOperator(2)))
+              limit = Some(LimitOperator(2))
+            )
           )
         )
 

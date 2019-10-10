@@ -135,7 +135,7 @@ trait QueryApi {
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
   def queryApi()(implicit logger: LoggingAdapter): Route = {
-    pathPrefix("query") {
+    path("query") {
       post {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>

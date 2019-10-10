@@ -169,7 +169,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
               case Right(_)  => SelectStatementValidated(statement)
               case Left(err) => SelectStatementValidationFailed(statement, err)
             }
-          case _ => SelectStatementValidationFailed(statement, s"metric ${statement.metric} does not exist", MetricNotFound(statement.metric))
+          case _ =>
+            SelectStatementValidationFailed(statement,
+                                            s"metric ${statement.metric} does not exist",
+                                            MetricNotFound(statement.metric))
         }
         .pipeTo(sender())
     case ExecuteStatement(statement) =>
