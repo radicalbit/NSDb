@@ -38,7 +38,6 @@ import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
-import scala.util.Failure
 
 object QueryApiTest {
   class FakeReadCoordinator extends Actor {
@@ -49,21 +48,21 @@ object QueryApiTest {
         StatementParser.parseStatement(
           statement,
           Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
-          case scala.util.Success(_) =>
+          case Right(_) =>
             val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
             sender ! SelectStatementExecuted(statement.db,
                                              statement.namespace,
                                              statement.metric,
                                              bitsParametrized(e.value1, e.value2))
-          case Failure(_) => sender ! SelectStatementFailed("statement not valid")
+          case Left(_) => sender ! SelectStatementFailed("statement not valid")
         }
       case ExecuteStatement(statement) =>
         StatementParser.parseStatement(
           statement,
           Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
-          case scala.util.Success(_) =>
+          case Right(_) =>
             sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-          case Failure(_) => sender ! SelectStatementFailed("statement not valid")
+          case Left(_) => sender ! SelectStatementFailed("statement not valid")
         }
     }
   }

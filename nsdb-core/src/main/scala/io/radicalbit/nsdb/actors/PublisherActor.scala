@@ -38,7 +38,6 @@ import org.apache.lucene.index.IndexWriter
 import scala.collection.mutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 /**
   * Models queries used for the  subscription process.
@@ -158,7 +157,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               .isDefined =>
           val luceneQuery = StatementParser.parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
-            case Success(parsedQuery: ParsedSimpleQuery) =>
+            case Right(parsedQuery: ParsedSimpleQuery) =>
               val temporaryIndex: TemporaryIndex = new TemporaryIndex()
               implicit val writer: IndexWriter   = temporaryIndex.getWriter
               temporaryIndex.write(record)
@@ -169,9 +168,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId
                   .get(id)
                   .foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
-            case Success(_) => log.error("unreachable branch reached...")
-            case Failure(ex) =>
-              log.error(ex, s"query ${nsdbQuery.query} against schema $schema not valid because of")
+            case Right(_) => log.error("unreachable branch reached...")
+            case Left(error) =>
+              log.error(s"query ${nsdbQuery.query} against schema $schema not valid because $error")
           }
         case _ =>
       }

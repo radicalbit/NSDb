@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.statement
 
-import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{SumAggregation => SqlSumAggregation, _}
 import io.radicalbit.nsdb.index._
@@ -25,10 +24,7 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
-import org.scalatest.TryValues._
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.util.{Failure, Success}
 
 class StatementParserSpec extends WordSpec with Matchers {
 
@@ -60,7 +56,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4))),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -73,30 +69,35 @@ class StatementParserSpec extends WordSpec with Matchers {
     }
 
     "receive a select projecting a not existing dimension" should {
-      "fails" in {
-        StatementParser.parseStatement(
-          SelectSQLStatement(db = "db",
-                             namespace = "registry",
-                             metric = "people",
-                             distinct = false,
-                             fields = ListFields(List(Field("address", None))),
-                             limit = Some(LimitOperator(4))),
-          schema
-        ) shouldBe 'failure
+      "fail" in {
+        StatementParser
+          .parseStatement(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("address", None))),
+                               limit = Some(LimitOperator(4))),
+            schema
+          )
+          .isLeft shouldBe true
+        //FIXME check what's inside left
       }
     }
 
     "receive a select projecting a wildcard with distinct" should {
       "fail" in {
-        StatementParser.parseStatement(
-          SelectSQLStatement(db = "db",
-                             namespace = "registry",
-                             metric = "people",
-                             distinct = true,
-                             fields = AllFields,
-                             limit = Some(LimitOperator(4))),
-          schema
-        ) shouldBe 'failure
+        StatementParser
+          .parseStatement(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = true,
+                               fields = AllFields,
+                               limit = Some(LimitOperator(4))),
+            schema
+          )
+          .isLeft shouldBe true
       }
     }
 
@@ -111,7 +112,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4))),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -137,7 +138,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -149,17 +150,19 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail if distinct (Not supported yet)" in {
-        StatementParser.parseStatement(
-          SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = true,
-            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
-            limit = Some(LimitOperator(4))
-          ),
-          schema
-        ) shouldBe 'failure
+        StatementParser
+          .parseStatement(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = true,
+              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None))),
+              limit = Some(LimitOperator(4))
+            ),
+            schema
+          )
+          .isLeft shouldBe true
       }
 
       "parse it successfully with mixed aggregated and simple" in {
@@ -177,7 +180,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -189,20 +192,22 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail when other aggregation than count is provided" in {
-        StatementParser.parseStatement(
-          SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(
-              List(Field("*", Some(CountAggregation)),
-                   Field("surname", None),
-                   Field("creationDate", Some(SqlSumAggregation)))),
-            limit = Some(LimitOperator(4))
-          ),
-          schema
-        ) shouldBe 'failure
+        StatementParser
+          .parseStatement(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation)),
+                     Field("surname", None),
+                     Field("creationDate", Some(SqlSumAggregation)))),
+              limit = Some(LimitOperator(4))
+            ),
+            schema
+          )
+          .isLeft shouldBe true
       }
     }
 
@@ -220,7 +225,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -247,7 +252,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -271,7 +276,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -295,7 +300,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -319,7 +324,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         )
-        result.failure.exception shouldBe a[InvalidStatementException]
+        result.isLeft shouldBe true
       }
       "parse it successfully on a number vs a string" in {
         StatementParser.parseStatement(
@@ -334,7 +339,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -362,7 +367,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -387,7 +392,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -411,7 +416,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         )
-        result.failure.exception shouldBe a[InvalidStatementException]
+        result.isLeft shouldBe true
       }
     }
 
@@ -434,7 +439,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -472,7 +477,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -517,7 +522,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -562,7 +567,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -597,7 +602,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4))),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -623,7 +628,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                              limit = Some(LimitOperator(4))),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -652,7 +657,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -674,7 +679,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                                                           distinct = false,
                                                           fields = AllFields),
                                        schema) should be(
-          Success(
+          Right(
             ParsedSimpleQuery("registry", "people", new MatchAllDocsQuery(), false, Int.MaxValue)
           )
         )
@@ -695,7 +700,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedAggregatedQuery(
               "registry",
               "people",
@@ -717,7 +722,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedAggregatedQuery(
               "registry",
               "people",
@@ -744,7 +749,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedAggregatedQuery(
               "registry",
               "people",
@@ -771,7 +776,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -806,7 +811,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -835,7 +840,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -871,7 +876,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -901,7 +906,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -937,7 +942,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedSimpleQuery(
               "registry",
               "people",
@@ -969,7 +974,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedAggregatedQuery(
               "registry",
               "people",
@@ -988,19 +993,21 @@ class StatementParserSpec extends WordSpec with Matchers {
 
     "receive a group by with aggregation function on dimension different from value" should {
       "fail" in {
-        StatementParser.parseStatement(
-          SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("amount", Some(SqlSumAggregation)))),
-            condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
-            groupBy = Some(SimpleGroupByAggregation("name")),
-            limit = Some(LimitOperator(5))
-          ),
-          schema
-        ) shouldBe a[Failure[_]]
+        StatementParser
+          .parseStatement(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("amount", Some(SqlSumAggregation)))),
+              condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
+              groupBy = Some(SimpleGroupByAggregation("name")),
+              limit = Some(LimitOperator(5))
+            ),
+            schema
+          )
+          .isLeft shouldBe true
       }
 
     }
@@ -1020,7 +1027,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedTemporalAggregatedQuery(
               "registry",
               "people",
@@ -1046,7 +1053,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) should be(
-          Success(
+          Right(
             ParsedTemporalAggregatedQuery(
               "registry",
               "people",
@@ -1072,7 +1079,7 @@ class StatementParserSpec extends WordSpec with Matchers {
           ),
           schema
         ) shouldBe
-          Success(
+          Right(
             ParsedTemporalAggregatedQuery(
               "registry",
               "people",
@@ -1094,7 +1101,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = None
           ),
           schema
-        ) shouldBe Success(
+        ) shouldBe Right(
           ParsedTemporalAggregatedQuery(
             "registry",
             "people",

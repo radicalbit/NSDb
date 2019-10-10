@@ -69,7 +69,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       self ! PoisonPill
     case ExecuteSelectStatement(statement, schema, _, globalRanges) =>
       StatementParser.parseStatement(statement, schema) match {
-        case Success(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
+        case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
             case Success(bits) =>
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
@@ -78,7 +78,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
+        case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
             Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, sort, limit))) match {
             case Success(bits) =>
@@ -88,7 +88,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), sort, limit)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), sort, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetCountIndex
@@ -100,7 +100,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), sort, limit)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), sort, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetSumIndex
@@ -117,7 +117,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetRangeIndex
@@ -145,7 +145,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
           handleNoIndexResults(
             Try(
@@ -176,7 +176,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
-        case Success(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
           handleNoIndexResults(
             Try(
@@ -208,13 +208,13 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
           }
 
-        case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")
 
-        case Success(_) => sender ! SelectStatementFailed("Unsupported query type")
-        case Failure(ex) =>
-          log.error(ex, "error occurred executing query {} in location {}", statement, location)
-          sender ! SelectStatementFailed(ex.getMessage)
+        case Right(_) => sender ! SelectStatementFailed("Unsupported query type")
+        case Left(error) =>
+          log.error("error occurred executing query {} in location {} {}", statement, location, error)
+          sender ! SelectStatementFailed(error)
       }
     case RefreshShard =>
       index.refresh()

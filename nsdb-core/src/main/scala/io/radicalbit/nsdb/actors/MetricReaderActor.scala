@@ -36,7 +36,6 @@ import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success}
 
 /**
   * Actor responsible for:
@@ -246,7 +245,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         .pipeTo(sender)
     case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
       StatementParser.parseStatement(statement, schema) match {
-        case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
+        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
             actorsForLocations(locations)
 
@@ -281,7 +280,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               case Left(err) => err
             }
             .pipeTo(sender)
-        case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+        case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val filteredActors =
@@ -300,7 +299,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
@@ -313,7 +312,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
@@ -337,7 +336,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
             .pipeTo(sender)
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 
@@ -347,7 +346,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
             .pipeTo(sender)
 
-        case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+        case Left(error) => sender ! SelectStatementFailed(error)
         case _           => sender ! SelectStatementFailed("Not a select statement.")
       }
     case DeleteAllMetrics(_, _) =>

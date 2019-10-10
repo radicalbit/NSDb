@@ -66,7 +66,7 @@ object StatementParser {
     * @param schema metric's schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
-  def parseStatement(statement: SelectSQLStatement, schema: Schema): Try[ParsedQuery] = {
+  def parseStatement(statement: SelectSQLStatement, schema: Schema): Either[String, ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
       schema.fieldsMap.get(order.dimension) match {
         case Some(SchemaField(_, _, VARCHAR())) =>
@@ -98,90 +98,94 @@ object StatementParser {
 
     val limitOpt = statement.limit.map(_.value)
 
-    expParsed.flatMap(exp =>
-      (distinctValue, fieldList, statement.groupBy) match {
-        case (_, Failure(exception), _) => Failure(exception)
-        // Trying to order by a dimension not in group by clause
-        case (false, Success(Seq(Field(_, Some(_)))), Some(group))
-            if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
-          Failure(new InvalidStatementException(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP))
-        // Match temporal count aggregation
-        case (false, Success(Seq(Field(fieldName, Some(aggregation)))), Some(TemporalGroupByAggregation(interval)))
-            if fieldName == "value" || fieldName == "*" =>
-          Success(
-            ParsedTemporalAggregatedQuery(
-              statement.namespace,
-              statement.metric,
-              exp.q,
-              interval,
-              InternalTemporalAggregation(aggregation),
-              statement.condition,
-              sortOpt,
-              limitOpt
+    expParsed match {
+      case Success(exp) =>
+        (distinctValue, fieldList, statement.groupBy) match {
+          case (_, Failure(exception), _) => Left(exception.getMessage)
+          // Trying to order by a dimension not in group by clause
+          case (false, Success(Seq(Field(_, Some(_)))), Some(group))
+              if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
+            Left(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP)
+          // Match temporal count aggregation
+          case (false, Success(Seq(Field(fieldName, Some(aggregation)))), Some(TemporalGroupByAggregation(interval)))
+              if fieldName == "value" || fieldName == "*" =>
+            Right(
+              ParsedTemporalAggregatedQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                interval,
+                InternalTemporalAggregation(aggregation),
+                statement.condition,
+                sortOpt,
+                limitOpt
+              )
             )
-          )
-        case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
-            if schema.fieldsMap.get(group.dimension).isDefined && (fieldName == "value" || fieldName == "*") =>
-          Success(
-            ParsedAggregatedQuery(
-              statement.namespace,
-              statement.metric,
-              exp.q,
-              aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
-              sortOpt,
-              limitOpt
-            ))
-        case (false, Success(Seq(Field(_, Some(_)))), Some(group)) if schema.fieldsMap.get(group.dimension).isDefined =>
-          Failure(new InvalidStatementException(StatementParserErrors.AGGREGATION_NOT_ON_VALUE))
-        case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
-          Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(group.dimension)))
-        case (_, Success(List(Field(_, None))), Some(_)) =>
-          Failure(new InvalidStatementException(StatementParserErrors.NO_AGGREGATION_GROUP_BY))
-        case (_, Success(List(_)), Some(_)) =>
-          Failure(new InvalidStatementException(StatementParserErrors.MORE_FIELDS_GROUP_BY))
-        case (true, Success(List()), None) =>
-          Failure(new InvalidStatementException(StatementParserErrors.MORE_FIELDS_DISTINCT))
-        //TODO: Not supported yet
-        case (true, Success(fieldsSeq), None) if fieldsSeq.lengthCompare(1) > 0 =>
-          Failure(new InvalidStatementException(StatementParserErrors.MORE_FIELDS_DISTINCT))
-        case (false, Success(Seq(Field(name, Some(CountAggregation)))), None) =>
-          Success(
-            ParsedSimpleQuery(
-              statement.namespace,
-              statement.metric,
-              exp.q,
-              distinct = false,
-              limitOpt.getOrElse(Integer.MAX_VALUE),
-              List(SimpleField(name, count = true)),
-              sortOpt
+          case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
+              if schema.fieldsMap.get(group.dimension).isDefined && (fieldName == "value" || fieldName == "*") =>
+            Right(
+              ParsedAggregatedQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
+                sortOpt,
+                limitOpt
+              ))
+          case (false, Success(Seq(Field(_, Some(_)))), Some(group))
+              if schema.fieldsMap.get(group.dimension).isDefined =>
+            Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
+          case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
+            Left(StatementParserErrors.notExistingDimension(group.dimension))
+          case (_, Success(List(Field(_, None))), Some(_)) =>
+            Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
+          case (_, Success(List(_)), Some(_)) =>
+            Left(StatementParserErrors.MORE_FIELDS_GROUP_BY)
+          case (true, Success(List()), None) =>
+            Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
+          //TODO: Not supported yet
+          case (true, Success(fieldsSeq), None) if fieldsSeq.lengthCompare(1) > 0 =>
+            Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
+          case (false, Success(Seq(Field(name, Some(CountAggregation)))), None) =>
+            Right(
+              ParsedSimpleQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                distinct = false,
+                limitOpt.getOrElse(Integer.MAX_VALUE),
+                List(SimpleField(name, count = true)),
+                sortOpt
+              )
             )
-          )
-        case (distinct, Success(fieldsSeq), None)
-            if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
-          Success(
-            ParsedSimpleQuery(
-              statement.namespace,
-              statement.metric,
-              exp.q,
-              distinct,
-              limitOpt getOrElse Int.MaxValue,
-              fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
-              sortOpt
-            ))
-        case (false, Success(List()), None) =>
-          Success(
-            ParsedSimpleQuery(statement.namespace,
-                              statement.metric,
-                              exp.q,
-                              distinct = false,
-                              limitOpt getOrElse Int.MaxValue,
-                              List(),
-                              sortOpt))
+          case (distinct, Success(fieldsSeq), None)
+              if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
+            Right(
+              ParsedSimpleQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                distinct,
+                limitOpt getOrElse Int.MaxValue,
+                fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
+                sortOpt
+              ))
+          case (false, Success(List()), None) =>
+            Right(
+              ParsedSimpleQuery(statement.namespace,
+                                statement.metric,
+                                exp.q,
+                                distinct = false,
+                                limitOpt getOrElse Int.MaxValue,
+                                List(),
+                                sortOpt))
 
-        case (_, Success(fieldsSeq), None)
-            if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
-          Failure(new InvalidStatementException(StatementParserErrors.NO_GROUP_BY_AGGREGATION))
-    })
+          case (_, Success(fieldsSeq), None)
+              if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
+            Left(StatementParserErrors.NO_GROUP_BY_AGGREGATION)
+        }
+      case Failure(ex) => Left(ex.getMessage)
+    }
   }
 
   /**
