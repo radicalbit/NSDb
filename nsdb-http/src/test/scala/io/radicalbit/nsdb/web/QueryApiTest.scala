@@ -50,25 +50,22 @@ object QueryApiTest {
           Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
           case Right(_) =>
             val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
-            sender ! SelectStatementExecuted(statement.db,
-                                             statement.namespace,
-                                             statement.metric,
-                                             bitsParametrized(e.value1, e.value2))
-          case Left(_) => sender ! SelectStatementFailed("statement not valid")
+            sender ! SelectStatementExecuted(statement, bitsParametrized(e.value1, e.value2))
+          case Left(_) => sender ! SelectStatementFailed(statement, "statement not valid")
         }
       case ExecuteStatement(statement) =>
         StatementParser.parseStatement(
           statement,
           Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
           case Right(_) =>
-            sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-          case Left(_) => sender ! SelectStatementFailed("statement not valid")
+            sender ! SelectStatementExecuted(statement, bits)
+          case Left(_) => sender ! SelectStatementFailed(statement, "statement not valid")
         }
     }
   }
 
   object FakeReadCoordinator {
-    def bitsParametrized(from: Long, to: Long) =
+    def bitsParametrized(from: Long, to: Long): Seq[Bit] =
       Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
           Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map("country" -> "country")))
     val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
@@ -93,9 +90,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
-    override def writeCoordinator: ActorRef       = writeCoordinatorActor
     override def readCoordinator: ActorRef        = readCoordinatorActor
-    override def publisherActor: ActorRef         = null
     override implicit val formats: DefaultFormats = DefaultFormats
     override implicit val timeout: Timeout        = 5 seconds
 
@@ -104,9 +99,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val emptyQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
-    override def writeCoordinator: ActorRef = writeCoordinatorActor
-    override def readCoordinator: ActorRef  = readCoordinatorActor
-    override def publisherActor: ActorRef   = null
+    override def readCoordinator: ActorRef = readCoordinatorActor
 
     override implicit val formats: DefaultFormats = DefaultFormats
     override implicit val timeout: Timeout        = 5 seconds

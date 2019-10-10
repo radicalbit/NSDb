@@ -351,17 +351,20 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
               (readCoordinator ? ExecuteStatement(select))
                 .map {
                   // SelectExecution Success
-                  case SelectStatementExecuted(db, namespace, metric, values: Seq[Bit]) =>
-                    log.debug("SQL statement succeeded on db {} with namespace {} and metric {}", db, namespace, metric)
+                  case SelectStatementExecuted(statement, values: Seq[Bit]) =>
+                    log.debug("SQL statement succeeded on db {} with namespace {} and metric {}",
+                              statement.db,
+                              statement.namespace,
+                              statement.metric)
                     SQLStatementResponse(
-                      db = db,
-                      namespace = namespace,
-                      metric = metric,
+                      db = statement.db,
+                      namespace = statement.namespace,
+                      metric = statement.metric,
                       completedSuccessfully = true,
                       records = values.map(bit => bit.asGrpcBit)
                     )
                   // SelectExecution Failure
-                  case SelectStatementFailed(reason, _) =>
+                  case SelectStatementFailed(statement, reason, _) =>
                     SQLStatementResponse(
                       db = requestDb,
                       namespace = requestNamespace,

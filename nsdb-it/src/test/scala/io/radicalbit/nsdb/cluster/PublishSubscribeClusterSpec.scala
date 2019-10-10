@@ -164,8 +164,7 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     eventually {
       assert(
         Await
-          .result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
-          .completedSuccessfully)
+          .result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
     }
     eventually {
       assert(

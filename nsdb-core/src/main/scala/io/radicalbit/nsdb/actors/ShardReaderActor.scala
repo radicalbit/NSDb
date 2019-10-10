@@ -72,20 +72,20 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+              sender ! SelectStatementExecuted(statement, bits)
             case Failure(ex) =>
               log.error(ex, "error occurred executing query {} in location {}", statement, location)
-              sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementFailed(statement, ex.getMessage)
           }
 
         case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
             Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, sort, limit))) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+              sender ! SelectStatementExecuted(statement, bits)
             case Failure(ex) =>
               log.error(ex, "error occurred executing query {} in location {}", statement, location)
-              sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementFailed(statement, ex.getMessage)
           }
 
         case Right(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), sort, limit)) =>
@@ -94,10 +94,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               facetIndexes.facetCountIndex
                 .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType))) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+              sender ! SelectStatementExecuted(statement, bits)
             case Failure(ex) =>
               log.error(ex, "error occurred executing query {} in location {}", statement, location)
-              sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementFailed(statement, ex.getMessage)
           }
 
         case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), sort, limit)) =>
@@ -111,10 +111,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                         schema.fieldsMap(groupField).indexType,
                         Some(schema.fieldsMap("value").indexType)))) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+              sender ! SelectStatementExecuted(statement, bits)
             case Failure(ex) =>
               log.error(ex, "error occurred executing query {} in location {}", statement, location)
-              sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementFailed(statement, ex.getMessage)
           }
 
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
@@ -142,8 +142,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     }
                 })) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementExecuted(statement, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(statement, ex.getMessage)
           }
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
@@ -173,8 +173,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     }
                 })) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementExecuted(statement, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(statement, ex.getMessage)
           }
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
@@ -204,17 +204,17 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     }
                 })) match {
             case Success(bits) =>
-              sender ! SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
-            case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
+              sender ! SelectStatementExecuted(statement, bits)
+            case Failure(ex) => sender ! SelectStatementFailed(statement, ex.getMessage)
           }
 
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
-          sender ! SelectStatementFailed(s"$aggregationType is not currently supported.")
+          sender ! SelectStatementFailed(statement, s"$aggregationType is not currently supported.")
 
-        case Right(_) => sender ! SelectStatementFailed("Unsupported query type")
+        case Right(_) => sender ! SelectStatementFailed(statement, "Unsupported query type")
         case Left(error) =>
           log.error("error occurred executing query {} in location {} {}", statement, location, error)
-          sender ! SelectStatementFailed(error)
+          sender ! SelectStatementFailed(statement, error)
       }
     case RefreshShard =>
       index.refresh()

@@ -113,14 +113,14 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
-          Left(SelectStatementFailed(errs.map(_.reason).mkString(",")))
+          Left(SelectStatementFailed(statement, errs.map(_.reason).mkString(",")))
         } else
           Right(postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
       }
       .recover {
         case t =>
           log.error(t, "an error occurred while gathering results from nodes")
-          Left(SelectStatementFailed(t.getMessage))
+          Left(SelectStatementFailed(statement, t.getMessage))
       }
   }
 
@@ -328,24 +328,26 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       .toSeq
                   }
                 case Left(_) =>
-                  Future(Left(SelectStatementFailed("Select Statement not valid")))
+                  Future(Left(SelectStatementFailed(statement, "Select Statement not valid")))
                 case _ =>
-                  Future(Left(SelectStatementFailed("Not a select statement.")))
+                  Future(Left(SelectStatementFailed(statement, "Not a select statement.")))
               }
 
             applyOrderingWithLimit(result, statement, schema).map {
               case Right(results) =>
-                SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results)
+                SelectStatementExecuted(statement, results)
               case Left(failed) => failed
             }
           case _ =>
             Future(
-              SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
+              SelectStatementFailed(statement,
+                                    s"Metric ${statement.metric} does not exist ",
+                                    MetricNotFound(statement.metric)))
         }
         .recoverWith {
           case t =>
             log.error(t, "")
-            Future(SelectStatementFailed("Generic error occurred"))
+            Future(SelectStatementFailed(statement, "Generic error occurred"))
         }
         .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)

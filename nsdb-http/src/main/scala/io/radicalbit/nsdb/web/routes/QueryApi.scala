@@ -108,8 +108,6 @@ trait QueryApi {
   import io.radicalbit.nsdb.web.Formats._
 
   def readCoordinator: ActorRef
-  def writeCoordinator: ActorRef
-  def publisherActor: ActorRef
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
@@ -165,11 +163,11 @@ trait QueryApi {
               statementOpt match {
                 case Some(statement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
-                    case Success(SelectStatementExecuted(_, _, _, values)) =>
+                    case Success(SelectStatementExecuted(_, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
-                    case Success(SelectStatementFailed(reason, MetricNotFound(metric))) =>
+                    case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
                       complete(HttpResponse(NotFound, entity = reason))
-                    case Success(SelectStatementFailed(reason, _)) =>
+                    case Success(SelectStatementFailed(_, reason, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))
                     case Success(r) =>
                       logger.error("unknown response received {}", r)
