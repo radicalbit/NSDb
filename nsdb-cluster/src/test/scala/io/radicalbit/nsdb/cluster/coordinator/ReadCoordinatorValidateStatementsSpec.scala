@@ -16,10 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
@@ -45,13 +42,11 @@ class ReadCoordinatorValidateStatementsSpec extends AbstractReadCoordinatorSpec 
         )
 
         awaitAssert {
-          probe.expectMsgType[Either[String, Boolean]]
-        }.isRight shouldBe true
-
+          probe.expectMsgType[SelectStatementValidated]
+        }
       }
 
-      "return a left in case of a select on a non existing field" in within(5.seconds) {
-
+      "return an error in case of a select on a non existing field" in within(5.seconds) {
         probe.send(
           readCoordinatorActor,
           ValidateStatement(
@@ -65,9 +60,27 @@ class ReadCoordinatorValidateStatementsSpec extends AbstractReadCoordinatorSpec 
         )
 
         awaitAssert {
-          probe.expectMsgType[Either[String, Boolean]]
-        }.isLeft shouldBe true
+          probe.expectMsgType[SelectStatementValidationFailed]
+        }
+      }
 
+      "return an error in case of a wrong statement" in within(5.seconds) {
+        probe.send(
+          readCoordinatorActor,
+          ValidateStatement(
+            SelectSQLStatement(db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = AllFields,
+              groupBy = Some(SimpleGroupByAggregation("dimension")),
+              limit = Some(LimitOperator(2)))
+          )
+        )
+
+        awaitAssert {
+          probe.expectMsgType[SelectStatementValidationFailed]
+        }
       }
     }
   }

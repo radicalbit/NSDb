@@ -139,6 +139,8 @@ object StatementParser {
             Left(StatementParserErrors.notExistingDimension(group.dimension))
           case (_, Success(List(Field(_, None))), Some(_)) =>
             Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
+          case (_, Success(Nil), Some(_)) =>
+            Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
           case (_, Success(List(_)), Some(_)) =>
             Left(StatementParserErrors.MORE_FIELDS_GROUP_BY)
           case (true, Success(List()), None) =>

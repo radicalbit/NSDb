@@ -71,36 +71,31 @@ trait QueryValidationApi {
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
   def queryValidationApi(implicit logger: LoggingAdapter): Route = {
-    path("query") {
-      path("validate") {
-        pathEnd {
-          post {
-            entity(as[QueryValidationBody]) { qb =>
-              optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-                authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-                  new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString) match {
-                    case Success(statement: SelectSQLStatement) =>
-                      onComplete(readCoordinator ? ValidateStatement(statement)) {
-                        case Success(SelectStatementValidated(_)) =>
-                          complete(HttpResponse(OK))
-                        case Success(SelectStatementValidationFailed(_, reason, MetricNotFound(_))) =>
-                          complete(HttpResponse(NotFound, entity = reason))
-                        case Success(SelectStatementValidationFailed(_, reason, _)) =>
-                          complete(HttpResponse(BadRequest, entity = reason))
-                        case Success(r) =>
-                          logger.error("unknown response received {}", r)
-                          complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                        case Failure(ex) =>
-                          logger.error("", ex)
-                          complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                      }
-                    case Success(_) =>
-                      complete(
-                        HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is not a select statement"))
-                    case Failure(exception) =>
-                      complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
+    path("query" / "validate") {
+      post {
+        entity(as[QueryValidationBody]) { qb =>
+          optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+            authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
+              new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString) match {
+                case Success(statement: SelectSQLStatement) =>
+                  onComplete(readCoordinator ? ValidateStatement(statement)) {
+                    case Success(SelectStatementValidated(_)) =>
+                      complete(HttpResponse(OK))
+                    case Success(SelectStatementValidationFailed(_, reason, MetricNotFound(_))) =>
+                      complete(HttpResponse(NotFound, entity = reason))
+                    case Success(SelectStatementValidationFailed(_, reason, _)) =>
+                      complete(HttpResponse(BadRequest, entity = reason))
+                    case Success(r) =>
+                      logger.error("unknown response received {}", r)
+                      complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                    case Failure(ex) =>
+                      logger.error("", ex)
+                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
-                }
+                case Success(_) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is not a select statement"))
+                case Failure(exception) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
               }
             }
           }
