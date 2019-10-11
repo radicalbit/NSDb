@@ -22,13 +22,13 @@ import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
 import akka.cluster.singleton._
+import akka.management.cluster.bootstrap.ClusterBootstrap
+import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
-import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian, NodeActorsGuardian}
+import io.radicalbit.nsdb.cluster.actor._
 import io.radicalbit.nsdb.common.NsdbConfig
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.concurrent.ExecutionContextExecutor
 
 /**
   * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
@@ -45,8 +45,6 @@ trait NSDBAkkaCluster { this: NsdbConfig =>
 trait NSDBAActors {
   this: NSDBAkkaCluster =>
 
-  import akka.pattern.ask
-
   implicit val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
@@ -59,6 +57,9 @@ trait NSDBAActors {
     name = "databaseActorGuardian"
   )
 
+  AkkaManagement(system).start()
+  ClusterBootstrap(system).start()
+
   DistributedData(system).replicator
 
   system.actorOf(
@@ -69,22 +70,14 @@ trait NSDBAActors {
 
   lazy val nodeName: String = createNodeName(Cluster(system).selfMember)
 
-  (for {
-    databaseActorGuardian <- system.actorSelection("user/databaseActorGuardianProxy").resolveOne()
-    metadataCache         <- (databaseActorGuardian ? GetMetadataCache(nodeName)).mapTo[ActorRef]
-    schemaCache           <- (databaseActorGuardian ? GetSchemaCache(nodeName)).mapTo[ActorRef]
-  } yield {
-    system.log.debug("MetadataCache and SchemaCache successfully retrieved. Creating cluster listener actor.")
-    system.actorOf(
-      ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
-      name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
-    )
-  }).recover {
-    case e =>
-      Await.result(system.terminate, 5.seconds)
-      Await.result(system.whenTerminated, 5.seconds)
-      system.log.error(s"Error retrieving caches $e, actor system terminated.")
-  }
+  system.actorOf(
+    ClusterListener.props(
+      NodeActorsGuardian.props(
+        system.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName"),
+        system.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
+      )),
+    name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+  )
 }
 
 /**

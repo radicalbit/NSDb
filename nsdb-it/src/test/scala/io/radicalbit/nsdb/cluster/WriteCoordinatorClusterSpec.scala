@@ -38,19 +38,19 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
   test("join cluster") {
     eventually {
       assert(
-        Cluster(minicluster.nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == minicluster.nodes.size)
+        Cluster(nodes.head.system).state.members
+          .count(_.status == MemberStatus.Up) == nodes.size)
     }
   }
 
   test("add record from first node") {
 
-    val firstNode = minicluster.nodes.head
+    val firstNode = nodes.head
 
     val timestamp = System.currentTimeMillis()
 
     val nsdb =
-      Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
+      Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
 
     val bit = nsdb
       .db("root")
@@ -89,11 +89,11 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
   test("add record from last node") {
 
-    val secondNode = minicluster.nodes.last
+    val secondNode = nodes.last
 
     val nsdb =
       eventually {
-        Await.result(NSDB.connect(host = "127.0.0.1", port = secondNode.grpcPort)(ExecutionContext.global), 10.seconds)
+        Await.result(NSDB.connect(host = secondNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
 
     val bit = Bit(timestamp = System.currentTimeMillis(),

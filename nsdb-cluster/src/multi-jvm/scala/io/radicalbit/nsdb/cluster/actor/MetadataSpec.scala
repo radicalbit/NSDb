@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.Props
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.{Cluster, MemberStatus}
 import akka.remote.testconductor.RoleName
@@ -8,7 +8,6 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -93,12 +92,10 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
-  import akka.pattern._
-
   implicit val timeout: Timeout = Timeout(5.seconds)
 
-  lazy val metadataCache = Await.result((guardian ? GetMetadataCache("not-relevant")).mapTo[ActorRef], 5.seconds)
-  lazy val schemaCache   = Await.result((guardian ? GetSchemaCache("not-relevant")).mapTo[ActorRef], 5.seconds)
+  lazy val metadataCache = system.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
+  lazy val schemaCache   = system.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
 
   system.actorOf(ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)), name = "clusterListener")
 

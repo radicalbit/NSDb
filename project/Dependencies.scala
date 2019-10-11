@@ -65,6 +65,13 @@ object Dependencies {
     lazy val slf4j           = namespace %% "akka-slf4j"              % version
     lazy val clusterTools    = namespace %% "akka-cluster-tools"      % version
     lazy val multiNode       = namespace %% "akka-multi-node-testkit" % version
+    lazy val discovery       = namespace %% "akka-discovery"          % version
+  }
+
+  object akka_management {
+    lazy val version   = "1.0.3"
+    lazy val namespace = "com.lightbend.akka.management"
+    lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version
   }
 
   object scala_logging {
@@ -230,6 +237,8 @@ object Dependencies {
     lazy val libraries = Seq(
       akka.cluster,
       akka.clusterTools,
+      akka.discovery,
+      akka_management.cluster_bootstrap,
       akka.distributedData,
       scala_logging.scala_logging,
       akka.slf4j,
