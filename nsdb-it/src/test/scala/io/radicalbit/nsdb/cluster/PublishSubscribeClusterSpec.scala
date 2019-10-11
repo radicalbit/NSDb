@@ -69,6 +69,8 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     eventually {
       assert(
         Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
+    }
+    eventually {
       assert(
         Await
           .result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds)
@@ -77,9 +79,9 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
     waitIndexing()
 
+    firstNodeWsClient.subscribe("db", "namespace", "metric1")
     //subscription phase
     val firstSubscriptionBuffer = eventually {
-      firstNodeWsClient.subscribe("db", "namespace", "metric1")
 
       val firstSubscriptionBuffer = firstNodeWsClient.receivedBuffer()
 
@@ -91,10 +93,12 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     val firstSubscriptionResponse =
       parse(firstSubscriptionBuffer.head.asTextMessage.getStrictText)
 
+    logger.error(s"received $firstSubscriptionResponse")
+
     assert((firstSubscriptionResponse \ "records").extract[JArray].arr.size == 1)
 
+    lastNodeWsClient.subscribe("db", "namespace", "metric2")
     val lastSubscriptionBuffer = eventually {
-      lastNodeWsClient.subscribe("db", "namespace", "metric2")
 
       val lastSubscriptionBuffer = lastNodeWsClient.receivedBuffer()
 
@@ -109,11 +113,23 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     assert((lastSubscriptionResponse \ "records").extract[JArray].arr.size == 1)
 
     //streaming phase
-    Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
-    Await.result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds)
+    firstNodeWsClient.clearBuffer()
+    lastNodeWsClient.clearBuffer()
+    eventually {
+      assert(
+        Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
+    }
 
-    val firstStreamingBuffer = firstNodeWsClient.receivedBuffer()
-    assert(firstStreamingBuffer.length == 1)
+    eventually {
+      assert(
+        Await.result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds).completedSuccessfully)
+    }
+
+    val firstStreamingBuffer = eventually {
+      val firstStreamingBuffer = firstNodeWsClient.receivedBuffer()
+      assert(firstStreamingBuffer.length == 1)
+      firstStreamingBuffer
+    }
 
     val firstStreamingResponse =
       parse(firstStreamingBuffer.head.asTextMessage.getStrictText)
@@ -121,12 +137,13 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     assert((firstStreamingResponse \ "metric").extract[String] == "metric1")
     assert((firstStreamingResponse \ "records").extract[JArray].arr.size == 1)
 
-    val lastStreamingBuffer = lastNodeWsClient.receivedBuffer()
+    val lastStreamingBuffer = eventually {
+      val lastStreamingBuffer = lastNodeWsClient.receivedBuffer()
+      assert(lastStreamingBuffer.length == 1)
+      lastStreamingBuffer
+    }
 
-    assert(firstSubscriptionBuffer.length == 1)
-
-    val lastStreamingResponse =
-      parse(lastStreamingBuffer.head.asTextMessage.getStrictText)
+    val lastStreamingResponse = parse(lastStreamingBuffer.head.asTextMessage.getStrictText)
 
     assert((lastStreamingResponse \ "metric").extract[String] == "metric2")
     assert((lastStreamingResponse \ "records").extract[JArray].arr.size == 1)
@@ -147,25 +164,22 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     val firstNodeWsClient = new WebSocketClient("127.0.0.1", 9000)
     val lastNodeWsClient  = new WebSocketClient("127.0.0.3", 9000)
 
-    eventually {
-      //subscription phase
-      firstNodeWsClient.subscribe("db", "namespace", "metric1")
+    //subscription phase
+    firstNodeWsClient.subscribe("db", "namespace", "metric1")
+    lastNodeWsClient.subscribe("db", "namespace", "metric2")
 
+    eventually {
       assert(firstNodeWsClient.receivedBuffer().length == 1)
     }
 
     eventually {
-      lastNodeWsClient.subscribe("db", "namespace", "metric2")
-
       assert(lastNodeWsClient.receivedBuffer().length == 1)
     }
 
     //streaming phase
     eventually {
       assert(
-        Await
-          .result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
-          .completedSuccessfully)
+        Await.result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
     }
     eventually {
       assert(

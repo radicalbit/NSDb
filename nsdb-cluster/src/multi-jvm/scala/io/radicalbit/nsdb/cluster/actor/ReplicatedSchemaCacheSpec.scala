@@ -103,8 +103,6 @@ class ReplicatedSchemaCacheSpec
       join(node1, node1)
       join(node2, node1)
 
-      expectNoMessage(1 second)
-
       awaitAssert {
         DistributedData(system).replicator ! GetReplicaCount
         expectMsgType[ReplicaCount].n shouldBe 2

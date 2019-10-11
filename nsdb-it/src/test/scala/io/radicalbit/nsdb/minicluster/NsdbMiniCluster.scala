@@ -39,7 +39,6 @@ trait NsdbMiniCluster extends LazyLogging {
   lazy val nodes: Set[NSDbMiniClusterNode] =
     (for {
       i <- 0 until nodesNumber
-      _ = Thread.sleep(1000)
     } yield
       new NSDbMiniClusterNode(
         hostname = s"$startingHostname${i + 1}",

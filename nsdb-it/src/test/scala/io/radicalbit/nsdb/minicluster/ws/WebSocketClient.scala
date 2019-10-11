@@ -53,13 +53,7 @@ class WebSocketClient(host: String, port: Int) extends LazyLogging with Synchron
     ws ! TextMessage.Strict(msg)
   }
 
-  def receivedBuffer(clear: Boolean = true): ListBuffer[Message] = {
-    Thread.sleep(1000)
-
-    val buf = buffer
-    if (clear) clearBuffer()
-    buf
-  }
+  def receivedBuffer(): ListBuffer[Message] = buffer
 
   def subscribe(db: String, namespace: String, metric: String): Unit =
     ws ! TextMessage.Strict(
