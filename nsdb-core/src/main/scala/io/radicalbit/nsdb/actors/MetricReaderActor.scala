@@ -123,6 +123,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   /**
     * Groups results coming from different shards according to the group by clause provided in the query.
     *
+    * @param statement the select sql statement.
     * @param actors Shard actors to retrieve results from.
     * @param groupBy the group by clause dimension.
     * @param msg the original [[ExecuteSelectStatement]] command
@@ -146,7 +147,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   /**
     * Gathers results from every shard actor and elaborate them.
     *
-    * @param statement the select sql statement
+    * @param statement the select sql statement.
     * @param actors Shard actors to retrieve results from.
     *                @param msg the original [[ExecuteSelectStatement]] command
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.

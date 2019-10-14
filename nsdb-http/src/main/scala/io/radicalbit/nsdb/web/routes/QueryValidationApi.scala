@@ -67,6 +67,7 @@ trait QueryValidationApi {
     ))
   @ApiResponses(
     Array(
+      new ApiResponse(code = 200, message = "Query is valid"),
       new ApiResponse(code = 404, message = "Not found item reason"),
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
