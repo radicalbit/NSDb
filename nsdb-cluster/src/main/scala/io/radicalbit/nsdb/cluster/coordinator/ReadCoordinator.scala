@@ -44,7 +44,6 @@ import spire.math.Interval
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success}
 
 /**
   * Actor that receives and handles every read request.
@@ -114,14 +113,14 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
-          Left(SelectStatementFailed(errs.map(_.reason).mkString(",")))
+          Left(SelectStatementFailed(statement, errs.map(_.reason).mkString(",")))
         } else
           Right(postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
       }
       .recover {
         case t =>
           log.error(t, "an error occurred while gathering results from nodes")
-          Left(SelectStatementFailed(t.getMessage))
+          Left(SelectStatementFailed(statement, t.getMessage))
       }
   }
 
@@ -161,6 +160,21 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       metadataCoordinator forward msg
     case msg: GetSchema =>
       schemaCoordinator forward msg
+    case ValidateStatement(statement) =>
+      log.debug("validating {}", statement)
+      (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+        .map {
+          case SchemaGot(_, _, _, Some(schema)) =>
+            StatementParser.parseStatement(statement, schema) match {
+              case Right(_)  => SelectStatementValidated(statement)
+              case Left(err) => SelectStatementValidationFailed(statement, err)
+            }
+          case _ =>
+            SelectStatementValidationFailed(statement,
+                                            s"metric ${statement.metric} does not exist",
+                                            MetricNotFound(statement.metric))
+        }
+        .pipeTo(sender())
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
@@ -179,7 +193,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
             val result: Future[Either[SelectStatementFailed, Seq[Bit]]] =
               StatementParser.parseStatement(statement, schema) match {
                 //pure count(*) query
-                case Success(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
+                case Right(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                     if fields.lengthCompare(1) == 0 && fields.head.count =>
                   gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
                     val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
@@ -192,10 +206,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                           tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
                   })
 
-                case Success(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
+                case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
                   gatherNodeResults(statement, schema, uniqueLocationsByNode)(identity)
 
-                case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+                case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
                   val distinctField = fields.head.name
 
                   gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { values =>
@@ -207,13 +221,13 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                     )
                   }
 
-                case Success(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
+                case Right(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
                   gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
                     values =>
                       Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
                   }
 
-                case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+                case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
                   gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
                     values =>
                       val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
@@ -227,7 +241,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                           Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
                       }
                   }
-                case Success(
+                case Right(
                     ParsedTemporalAggregatedQuery(_,
                                                   _,
                                                   _,
@@ -254,7 +268,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       .values
                       .toSeq
                   }
-                case Success(
+                case Right(
                     ParsedTemporalAggregatedQuery(_,
                                                   _,
                                                   _,
@@ -280,7 +294,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       .values
                       .toSeq
                   }
-                case Success(
+                case Right(
                     ParsedTemporalAggregatedQuery(_,
                                                   _,
                                                   _,
@@ -316,25 +330,27 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                       .values
                       .toSeq
                   }
-                case Failure(_) =>
-                  Future(Left(SelectStatementFailed("Select Statement not valid")))
+                case Left(_) =>
+                  Future(Left(SelectStatementFailed(statement, "Select Statement not valid")))
                 case _ =>
-                  Future(Left(SelectStatementFailed("Not a select statement.")))
+                  Future(Left(SelectStatementFailed(statement, "Not a select statement.")))
               }
 
             applyOrderingWithLimit(result, statement, schema).map {
               case Right(results) =>
-                SelectStatementExecuted(statement.db, statement.namespace, statement.metric, results)
+                SelectStatementExecuted(statement, results)
               case Left(failed) => failed
             }
           case _ =>
             Future(
-              SelectStatementFailed(s"Metric ${statement.metric} does not exist ", MetricNotFound(statement.metric)))
+              SelectStatementFailed(statement,
+                                    s"Metric ${statement.metric} does not exist ",
+                                    MetricNotFound(statement.metric)))
         }
         .recoverWith {
           case t =>
             log.error(t, "")
-            Future(SelectStatementFailed("Generic error occurred"))
+            Future(SelectStatementFailed(statement, "Generic error occurred"))
         }
         .pipeToWithEffect(sender()) { _ =>
           if (perfLogger.isDebugEnabled)

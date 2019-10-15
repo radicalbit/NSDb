@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
-import io.radicalbit.nsdb.common.statement.DescOrderOperator
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
@@ -36,7 +36,6 @@ import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.{Failure, Success}
 
 /**
   * Actor responsible for:
@@ -124,18 +123,20 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   /**
     * Groups results coming from different shards according to the group by clause provided in the query.
     *
+    * @param statement the select sql statement.
     * @param actors Shard actors to retrieve results from.
     * @param groupBy the group by clause dimension.
     * @param msg the original [[ExecuteSelectStatement]] command
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def gatherAndGroupShardResults(actors: Seq[(Location, ActorRef)],
+  private def gatherAndGroupShardResults(statement: SelectSQLStatement,
+                                         actors: Seq[(Location, ActorRef)],
                                          groupBy: String,
                                          msg: ExecuteSelectStatement)(
       aggregationFunction: Seq[Bit] => Bit): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
 
-    gatherShardResults(actors, msg) { seq =>
+    gatherShardResults(statement, actors, msg) { seq =>
       seq
         .groupBy(_.tags(groupBy))
         .map(m => aggregationFunction(m._2))
@@ -146,23 +147,26 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   /**
     * Gathers results from every shard actor and elaborate them.
     *
+    * @param statement the select sql statement.
     * @param actors Shard actors to retrieve results from.
     *                @param msg the original [[ExecuteSelectStatement]] command
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
-  private def gatherShardResults(actors: Seq[(Location, ActorRef)], msg: ExecuteSelectStatement)(
+  private def gatherShardResults(statement: SelectSQLStatement,
+                                 actors: Seq[(Location, ActorRef)],
+                                 msg: ExecuteSelectStatement)(
       postProcFun: Seq[Bit] => Seq[Bit] = identity): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
     Future
       .sequence(actors.map {
         case (_, actor) =>
           (actor ? msg.copy(locations = actors.map(_._1)))
-            .recoverWith { case t => Future(SelectStatementFailed(t.getMessage)) }
+            .recoverWith { case t => Future(SelectStatementFailed(statement, t.getMessage)) }
       })
       .map { e =>
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
-          Left(SelectStatementFailed(errs.map(_.reason).mkString(",")))
+          Left(SelectStatementFailed(statement, errs.map(_.reason).mkString(",")))
         } else
           Right(postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
       }
@@ -172,12 +176,14 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * Retrieves and order results from different shards in case the statement does not contains aggregations
     * and a where condition involving timestamp has been provided.
     *
+    * @param statement select sql statement.
     * @param actors shard actors to retrieve data from.
     * @param parsedStatement parsed statement.
-    *@param msg the original [[ExecuteSelectStatement]] command
+    * @param msg the original [[ExecuteSelectStatement]] command
     * @return a single sequence of results obtained from different shards.
     */
   private def retrieveAndOrderPlainResults(
+      statement: SelectSQLStatement,
       actors: Seq[(Location, ActorRef)],
       parsedStatement: ParsedSimpleQuery,
       msg: ExecuteSelectStatement): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
@@ -188,13 +194,13 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       val eventuallyOrderedActors =
         statement.getTimeOrdering.map(actors.sortBy(_._1.from)(_)).getOrElse(actors)
 
-      gatherShardResults(eventuallyOrderedActors, msg) { seq =>
+      gatherShardResults(statement, eventuallyOrderedActors, msg) { seq =>
         seq.take(parsedStatement.limit)
       }
 
     } else {
 
-      gatherShardResults(actors, msg) { seq =>
+      gatherShardResults(statement, actors, msg) { seq =>
         val schemaField = msg.schema.fieldsMap(statement.order.get.dimension)
         val o           = schemaField.indexType.ord
         implicit val ord: Ordering[JSerializable] =
@@ -213,13 +219,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     }
   }
 
-  private def generateResponse(db: String,
-                               namespace: String,
-                               metric: String,
-                               rawResp: Either[SelectStatementFailed, Seq[Bit]]) =
+  private def generateResponse(statement: SelectSQLStatement, rawResp: Either[SelectStatementFailed, Seq[Bit]]) =
     rawResp match {
       case Right(seq) =>
-        SelectStatementExecuted(db, namespace, metric, seq)
+        SelectStatementExecuted(statement, seq)
       case Left(err) => err
     }
 
@@ -246,11 +249,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         .pipeTo(sender)
     case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
       StatementParser.parseStatement(statement, schema) match {
-        case Success(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
+        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           val actors =
             actorsForLocations(locations)
 
-          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg)
+          val orderedResults = retrieveAndOrderPlainResults(statement, actors, parsedStatement, msg)
 
           orderedResults
             .map {
@@ -265,12 +268,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                         dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
                         tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
 
-                  SelectStatementExecuted(statement.db, statement.namespace, statement.metric, bits)
+                  SelectStatementExecuted(statement, bits)
                 } else {
                   SelectStatementExecuted(
-                    statement.db,
-                    statement.namespace,
-                    statement.metric,
+                    statement,
                     seq.map(
                       b =>
                         if (b.tags.contains("count(*)"))
@@ -281,13 +282,13 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               case Left(err) => err
             }
             .pipeTo(sender)
-        case Success(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+        case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val filteredActors =
             actorsForLocations(locations)
 
-          val shardResults = gatherAndGroupShardResults(filteredActors, distinctField, msg) { values =>
+          val shardResults = gatherAndGroupShardResults(statement, filteredActors, distinctField, msg) { values =>
             Bit(
               timestamp = 0,
               value = 0,
@@ -297,28 +298,28 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           }
 
           applyOrderingWithLimit(shardResults, statement, schema)
-            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
+            .map { generateResponse(statement, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
           val shardResults =
-            gatherAndGroupShardResults(filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
+            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
               Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
             }
 
           applyOrderingWithLimit(shardResults, statement, schema)
-            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
+            .map { generateResponse(statement, _) }
             .pipeTo(sender)
 
-        case Success(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
           val rawResult =
-            gatherAndGroupShardResults(filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
+            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
               val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
               implicit val numeric: Numeric[JSerializable] = v.numeric
               aggregationType match {
@@ -333,22 +334,22 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
           applyOrderingWithLimit(rawResult, statement, schema)
             .map { resp =>
-              generateResponse(statement.db, statement.namespace, statement.metric, resp)
+              generateResponse(statement, resp)
             }
             .pipeTo(sender)
 
-        case Success(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, _, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 
-          val shardResults = gatherShardResults(actors, msg)()
+          val shardResults = gatherShardResults(statement, actors, msg)()
 
           applyOrderingWithLimit(shardResults, statement, schema)
-            .map { generateResponse(statement.db, statement.namespace, statement.metric, _) }
+            .map { generateResponse(statement, _) }
             .pipeTo(sender)
 
-        case Failure(ex) => sender ! SelectStatementFailed(ex.getMessage)
-        case _           => sender ! SelectStatementFailed("Not a select statement.")
+        case Left(error) => sender ! SelectStatementFailed(statement, error)
+        case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")
       }
     case DeleteAllMetrics(_, _) =>
       actors.foreach {

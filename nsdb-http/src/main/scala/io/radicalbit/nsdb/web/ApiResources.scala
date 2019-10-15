@@ -81,6 +81,8 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit val QbFormat = jsonFormat7(QueryBody.apply)
 
+  implicit val QvbFormat = jsonFormat4(QueryValidationBody.apply)
+
   implicit val BitFormat = jsonFormat4(Bit.apply)
 
   implicit val InsertBodyFormat = jsonFormat4(InsertBody.apply)
@@ -96,6 +98,7 @@ class ApiResources(val publisherActor: ActorRef,
                                                                  override implicit val ec: ExecutionContext)
     extends CommandApi
     with QueryApi
+    with QueryValidationApi
     with DataApi {
 
   implicit val formats: DefaultFormats = DefaultFormats
@@ -114,6 +117,7 @@ class ApiResources(val publisherActor: ActorRef,
 
   def apiResources(config: Config)(implicit ec: ExecutionContext): Route =
     queryApi ~
+      queryValidationApi ~
       dataApi ~
       healthCheckApi ~
       commandsApi ~

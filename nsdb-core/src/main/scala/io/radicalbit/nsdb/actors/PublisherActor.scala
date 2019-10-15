@@ -38,7 +38,6 @@ import org.apache.lucene.index.IndexWriter
 import scala.collection.mutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 /**
   * Models queries used for the  subscription process.
@@ -101,8 +100,8 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         case (id, nsdbQuery) =>
           val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
             .map {
-              case e: SelectStatementExecuted  => RecordsPublished(id, e.metric, e.values)
-              case SelectStatementFailed(_, _) => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
+              case e: SelectStatementExecuted     => RecordsPublished(id, e.statement.metric, e.values)
+              case SelectStatementFailed(_, _, _) => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
             }
           subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       }
@@ -124,7 +123,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
                 queries += (id                   -> NsdbQuery(id, query))
                 SubscribedByQueryString(queryString, id, e.values)
-              case SelectStatementFailed(reason, _) => SubscriptionByQueryStringFailed(queryString, reason)
+              case SelectStatementFailed(statement, reason, _) => SubscriptionByQueryStringFailed(queryString, reason)
             }
             .pipeTo(sender())
         } {
@@ -145,7 +144,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
                 subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
                 SubscribedByQuid(quid, e.values)
-              case SelectStatementFailed(reason, _) => SubscriptionByQuidFailed(quid, reason)
+              case SelectStatementFailed(statement, reason, _) => SubscriptionByQuidFailed(quid, reason)
             }
             .pipeTo(sender())
         case None => sender ! SubscriptionByQuidFailed(quid, s"quid $quid not found")
@@ -158,7 +157,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               .isDefined =>
           val luceneQuery = StatementParser.parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
-            case Success(parsedQuery: ParsedSimpleQuery) =>
+            case Right(parsedQuery: ParsedSimpleQuery) =>
               val temporaryIndex: TemporaryIndex = new TemporaryIndex()
               implicit val writer: IndexWriter   = temporaryIndex.getWriter
               temporaryIndex.write(record)
@@ -169,9 +168,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId
                   .get(id)
                   .foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
-            case Success(_) => log.error("unreachable branch reached...")
-            case Failure(ex) =>
-              log.error(ex, s"query ${nsdbQuery.query} against schema $schema not valid because of")
+            case Right(_) => log.error("unreachable branch reached...")
+            case Left(error) =>
+              log.error(s"query ${nsdbQuery.query} against schema $schema not valid because $error")
           }
         case _ =>
       }

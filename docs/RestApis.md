@@ -5,7 +5,7 @@ Furthermore, WS APIs allow registering real-time queries on NSDb cluster. Every 
 HTTP APIs implement three main route categories:
 - Query API, used to run historical select queries.
 - Data API, used to perform insert statements.
-- Command API, allowing commands execution e.g. display of namespaces and metrics, drop statements.
+- Command API, allowing commands execution e.g. display of databases, namespaces and metrics, drop statements.
 
 All the above-mentioned Web APIs allow custom security authorization mechanism implementation. To define authorization logic, user must implement `io.radicalbit.nsdb.security.http.NSDBAuthProvider` trait defining authorization behaviour for the database, namespace and metric models.
 Once the custom authorization provider is set up, its canonical class name must be added to NSDb conf file under the key `nsdb.security.auth-provider-class`.
@@ -155,6 +155,73 @@ Filter object is defines as below:
 
 **Content** : `Error message`
 
+# Query Validate APIs
+
+Check if a query is valid.
+
+**URL** : `/query/validate`
+
+**Method** : `POST`
+
+**Auth required** : Depending on security configuration
+
+**Permissions required** : Read permission on metric, depending on security configuration
+
+**Data params**
+
+Provide `db`, `namespace`, `metric` and the query to be validated.
+
+```json
+{
+    "db": "[string]",
+    "namespace": "[string]",
+    "metric": "[string]",
+    "queryString": "[string]"
+}
+```
+
+**Data examples**
+
+`From` and `To` fields are optionals.
+
+```json
+{
+    "db": "db",
+    "namespace": "namespace",
+    "metric": "people",
+    "queryString": "select * from people limit 100"
+}
+```
+
+```json
+{
+    "db": "db",
+    "namespace": "namespace",
+    "metric": "people",
+    "queryString": "non valid query"
+}
+```
+
+## Success Response
+
+**Condition** : If the query provided is valid an empty success response will be returned
+
+**Code** : `200 OK`
+
+## Error Responses
+
+**Condition** : If query is invalid.
+
+**Code** : `400 BAD REQUEST`
+
+**Content** : `Error message`
+
+### Or
+
+**Condition** : If metric does not exist
+
+**Code** : `404 NOT FOUND`
+
 # Data APIs
 
 This API allows bit insertion into NSDb's metric. Bit description and metric information must be defined in request body.
@@ -230,6 +297,34 @@ Provide `db`, `namespace`, `metric` and the `bit` to be inserted.
 
 # Commands APis
 Commands APis map some functionalities already implemented in NSDb Command Line Interface. They consist in a set of statements aimed to retrieve information about namespace and metric structure and on the other hand to perform drop action on the latter.
+
+## Show databases
+`Show databases` command retrieve the list of databases.
+
+**URL** : `/commands/dbs`
+
+**Method** : `GET`
+
+**Auth required** : Depending on security configuration
+
+### Example
+```
+http://<host>:<port>/commands/dbs
+```
+### Success Response
+**Code:** `200 OK`
+
+**Content example**
+```json
+{
+  "dbs":
+    [
+      "db1",
+      "db2"
+    ]
+}
+```
+
 ## Show namespaces
 `Show namespaces` command retrieve the list of namespaces belonging to the specified database.
 

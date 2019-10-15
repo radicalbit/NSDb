@@ -49,11 +49,8 @@ class TestSubscriber extends Actor {
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(_) =>
-      sender() ! SelectStatementExecuted(db = "db",
-                                         namespace = "testNamespace",
-                                         metric = "testMetric",
-                                         values = Seq.empty)
+    case ExecuteStatement(statement) =>
+      sender() ! SelectStatementExecuted(statement, values = Seq.empty)
   }
 }
 

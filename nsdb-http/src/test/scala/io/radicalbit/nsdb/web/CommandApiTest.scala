@@ -26,6 +26,7 @@ import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import akka.http.scaladsl.model.StatusCodes._
+import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.DimensionFieldType
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -39,55 +40,6 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 object CommandApiTest {
-
-  object Data {
-    val dbs        = Set("db1", "db2")
-    val namespaces = Set("namespace1", "namespace2")
-    val metrics    = Set("metric1", "metric2")
-
-    val schemas = Map(
-      "metric1" -> Schema(
-        "metric1",
-        Map(
-          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
-          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
-          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
-        )
-      ),
-      "metricWithoutInfo" -> Schema(
-        "metricWithoutInfo",
-        Map(
-          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
-          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
-          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
-        )
-      ),
-      "metric2" -> Schema(
-        "metric2",
-        Map(
-          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
-          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
-          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
-        )
-      )
-    )
-  }
-
-  class FakeReadCoordinator extends Actor {
-
-    import Data._
-
-    override def receive: Receive = {
-      case GetDbs =>
-        sender() ! DbsGot(dbs)
-      case GetNamespaces(db) =>
-        sender() ! NamespacesGot(db, namespaces)
-      case GetMetrics(db, namespace) =>
-        sender ! MetricsGot(db, namespace, metrics)
-      case GetSchema(db, namespace, metric) =>
-        sender() ! SchemaGot(db, namespace, metric, schemas.get(metric))
-    }
-  }
 
   class FakeWriteCoordinator extends Actor {
     override def receive: Receive = {
@@ -111,7 +63,7 @@ object CommandApiTest {
 class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
 
   import io.radicalbit.nsdb.web.CommandApiTest._
-  import io.radicalbit.nsdb.web.CommandApiTest.Data._
+  import FakeReadCoordinator.Data._
 
   override def readCoordinator: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 

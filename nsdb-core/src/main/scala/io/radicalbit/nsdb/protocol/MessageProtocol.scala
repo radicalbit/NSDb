@@ -43,6 +43,7 @@ object MessageProtocol {
     case class GetSchemaFromCache(db: String, namespace: String, metric: String)
     case class EvictSchema(db: String, namespace: String, metric: String)
 
+    case class ValidateStatement(selectStatement: SelectSQLStatement)
     case class ExecuteStatement(selectStatement: SelectSQLStatement)
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
@@ -105,8 +106,14 @@ object MessageProtocol {
     case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
     case class SchemaCached(db: String, namespace: String, metric: String, schema: Option[Schema])
     case class MetricsGot(db: String, namespace: String, metrics: Set[String])
-    case class SelectStatementExecuted(db: String, namespace: String, metric: String, values: Seq[Bit])
-    case class SelectStatementFailed(reason: String, errorCode: ErrorCode = Generic)
+
+    case class SelectStatementValidated(statement: SelectSQLStatement)
+    case class SelectStatementValidationFailed(statement: SelectSQLStatement,
+                                               reason: String,
+                                               errorCode: ErrorCode = Generic)
+
+    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit])
+    case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic)
 
     sealed trait WriteCoordinatorResponse {
       def location: Location = Location("", "", 0, 0)
