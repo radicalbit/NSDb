@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
+import java.nio.file.Paths
+
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
@@ -25,11 +27,21 @@ import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
+  AddLocationFailed,
+  AddLocationsFailed,
+  LocationAdded,
+  LocationsAdded
+}
+import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
@@ -71,7 +83,50 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
           case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
-            new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
+            val indexBasePath = config.getString("nsdb.index.base-path")
+
+            val x: Seq[(String, String, Location)] =
+              Option(Paths.get(indexBasePath).toFile.listFiles())
+                .map(_.filter(_.isDirectory))
+                .map(_.toSeq)
+                .getOrElse(Seq.empty)
+                .flatMap { databaseDir =>
+                  Option(databaseDir.listFiles())
+                    .map(_.filter(_.isDirectory))
+                    .map(_.toSeq)
+                    .getOrElse(Seq.empty)
+                    .map(f => (databaseDir.getName, f))
+                    .flatMap {
+                      case (database, namespaceDir) =>
+                        Option(Paths.get(namespaceDir.getAbsolutePath, "shards").toFile.list())
+                          .map(_.toSet)
+                          .getOrElse(Set.empty)
+                          .filter(_.split("_").length == 3)
+                          .map(_.split("_"))
+                          .map {
+                            case Array(metric, from, to) =>
+                              (database, namespaceDir.getName, Location(metric, nodeName, from.toLong, to.toLong))
+                          }
+                    }
+                }
+
+            Future
+              .sequence(x.map {
+                case (db, namespace, location) => metadataCoordinator ? AddLocation(db, namespace, location)
+              })
+              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+              .onComplete {
+                case Success((successes, failures)) if failures.isEmpty =>
+                  new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
+                    context.system)
+                case Success((successes, failures)) =>
+                  log.error(s" failures $failures")
+                //FIXME handle error
+                case Failure(ex) =>
+                  //FIXME handle error
+                  log.error(s" failure", ex)
+              }
+
           case _ =>
         }
     case UnreachableMember(member) =>
