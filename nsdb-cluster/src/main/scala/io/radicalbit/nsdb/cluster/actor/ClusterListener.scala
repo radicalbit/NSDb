@@ -28,19 +28,15 @@ import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
-  AddLocationFailed,
-  AddLocationsFailed,
-  LocationAdded,
-  LocationsAdded
-}
-import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded}
+import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -83,51 +79,27 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
           case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
-            val indexBasePath = config.getString("nsdb.index.base-path")
-
-            val x: Seq[(String, String, Location)] =
-              Option(Paths.get(indexBasePath).toFile.listFiles())
-                .map(_.filter(_.isDirectory))
-                .map(_.toSeq)
-                .getOrElse(Seq.empty)
-                .flatMap { databaseDir =>
-                  Option(databaseDir.listFiles())
-                    .map(_.filter(_.isDirectory))
-                    .map(_.toSeq)
-                    .getOrElse(Seq.empty)
-                    .map(f => (databaseDir.getName, f))
-                    .flatMap {
-                      case (database, namespaceDir) =>
-                        Option(Paths.get(namespaceDir.getAbsolutePath, "shards").toFile.list())
-                          .map(_.toSet)
-                          .getOrElse(Set.empty)
-                          .filter(_.split("_").length == 3)
-                          .map(_.split("_"))
-                          .map {
-                            case Array(metric, from, to) =>
-                              (database, namespaceDir.getName, Location(metric, nodeName, from.toLong, to.toLong))
-                          }
-                    }
-                }
+            val locationsToAdd: Seq[LocationWithCoordinates] =
+              FileUtils.getLocationFromFilesystem(config.getString("nsdb.index.base-path"), nodeName)
 
             Future
-              .sequence(x.map {
+              .sequence(locationsToAdd.map {
                 case (db, namespace, location) => metadataCoordinator ? AddLocation(db, namespace, location)
               })
               .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
               .onComplete {
-                case Success((successes, failures)) if failures.isEmpty =>
+                case Success((_, failures)) if failures.isEmpty =>
                   new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
                     context.system)
-                case Success((successes, failures)) =>
+                case Success((_, failures)) =>
                   log.error(s" failures $failures")
-                //FIXME handle error
+                  cluster.leave(member.address)
                 case Failure(ex) =>
-                  //FIXME handle error
                   log.error(s" failure", ex)
+                  cluster.leave(member.address)
               }
-
-          case _ =>
+          case unknownResponse =>
+            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)

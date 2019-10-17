@@ -17,8 +17,11 @@
 package io.radicalbit.nsdb.cluster.util
 
 import java.io._
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.util.zip.{ZipEntry, ZipFile}
+
+import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -43,13 +46,15 @@ object FileUtils {
     * @param path a directory.
     * @return all the first level sub directories of the given directory.
     */
-  def getSubDirs(path: File): Array[File] = path.listFiles(new DirectoryFilter)
+  def getSubDirs(path: File): List[File] =
+    Option(path.listFiles(new DirectoryFilter)).map(_.toList).getOrElse(List.empty)
 
   /**
     * @param path a directory.
     * @return all the first level sub directories of the given directory.
     */
-  def getSubDirs(path: Path): Array[File] = path.toFile.listFiles(new DirectoryFilter)
+  def getSubDirs(path: Path): List[File] =
+    Option(path.toFile.listFiles(new DirectoryFilter)).map(_.toList).getOrElse(List.empty)
 
   /**
     * @param path a string path.
@@ -78,6 +83,33 @@ object FileUtils {
       unzipAllFile(zipFile, zipFile.entries.asScala.toList, new File(targetFolder))
     }
   }
+
+  /**
+    * retrieve a list of locations from shards store in the file system.
+    * The subfolders will be scanned according to this hierarchy.
+    * indexBasePath -> database -> namespace -> "shards" -> metric_[from_timestamp]_[to_timestamp].
+    * @param basePath the base path to begin the scan.
+    * @param nodeName the node name that will be used for creating locations.
+    *                 @return a list of [[LocationWithCoordinates]].
+    */
+  def getLocationFromFilesystem(basePath: String, nodeName: String): List[LocationWithCoordinates] =
+    FileUtils
+      .getSubDirs(Paths.get(basePath))
+      .flatMap { databaseDir =>
+        FileUtils
+          .getSubDirs(databaseDir)
+          .map(f => (databaseDir.getName, f))
+          .flatMap {
+            case (database, namespaceDir) =>
+              FileUtils
+                .getSubDirs(Paths.get(namespaceDir.getAbsolutePath, "shards"))
+                .collect {
+                  case file if file.getName.split("_").length == 3 =>
+                    val Array(metric, from, to) = file.getName.split("_")
+                    (database, namespaceDir.getName, Location(metric, nodeName, from.toLong, to.toLong))
+                }
+          }
+      }
 
   /**
     * unzip all the entries of a zip file into a target folder.

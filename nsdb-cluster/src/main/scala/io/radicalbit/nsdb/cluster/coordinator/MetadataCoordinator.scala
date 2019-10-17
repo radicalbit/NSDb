@@ -483,7 +483,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
         .pipeTo(sender)
     case Migrate(inputPath) =>
       val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
-        FileUtils.getSubDirs(db).toList.flatMap { namespace =>
+        FileUtils.getSubDirs(db).flatMap { namespace =>
           val metricInfoDirectory =
             createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata", "info"))
 

@@ -33,3 +33,16 @@ case class Location(metric: String, node: String, from: Long, to: Long) {
 
   def interval: Interval[Long] = Interval.fromBounds(Closed(from), Closed(to))
 }
+
+object Location {
+
+  /**
+    * type alias to enrich a Location with a database and a namespace that contain it.
+    */
+  type LocationWithCoordinates = (String, String, Location)
+
+  /**
+    * @return an empty location
+    */
+  def empty = Location("", "", 0, 0)
+}

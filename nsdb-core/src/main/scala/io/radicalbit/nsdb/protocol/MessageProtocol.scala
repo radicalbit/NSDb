@@ -116,7 +116,7 @@ object MessageProtocol {
     case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic)
 
     sealed trait WriteCoordinatorResponse {
-      def location: Location = Location("", "", 0, 0)
+      def location: Location = Location.empty
       def timestamp: Long    = System.currentTimeMillis()
     }
 
