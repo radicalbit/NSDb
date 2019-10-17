@@ -90,14 +90,6 @@ class MetadataCoordinatorSpec
   }
 
   "MetadataCoordinator" should {
-    "add location for a metric" in {
-
-      awaitAssert {
-        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
-        probe.expectMsgType[LocationsGot].locations shouldBe empty
-      }
-    }
-
     "add a Location" in {
       probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 60000L)))
       val locationAdded = awaitAssert {
@@ -108,6 +100,27 @@ class MetadataCoordinatorSpec
       locationAdded.namespace shouldBe namespace
       locationAdded.locations.size shouldBe 1
       locationAdded.locations.head shouldBe Location(metric, "node_01", 0L, 60000L)
+    }
+
+    "add multiple locations for a metric" in {
+
+      val locations = Seq(Location(metric, "node_01", 0L, 30000L),
+                          Location(metric, "node_01", 0L, 60000L),
+                          Location(metric, "node_01", 0L, 90000L))
+
+      probe.send(metadataCoordinator, AddLocations(db, namespace, locations))
+      val locationAdded = awaitAssert {
+        probe.expectMsgType[LocationsAdded]
+      }
+
+      locationAdded.db shouldBe db
+      locationAdded.namespace shouldBe namespace
+      locationAdded.locations.sortBy(_.to) shouldBe locations
+
+      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+      awaitAssert {
+        probe.expectMsgType[LocationsGot].locations.sortBy(_.to) shouldBe locations
+      }
     }
 
     "retrieve a Location for a metric" in {

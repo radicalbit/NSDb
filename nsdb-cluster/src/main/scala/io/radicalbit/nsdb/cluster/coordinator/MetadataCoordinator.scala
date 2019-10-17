@@ -463,6 +463,8 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
         } pipeTo sender()
     case AddLocation(db, namespace, location) =>
       performAddLocationIntoCache(db, namespace, Seq(location)).pipeTo(sender)
+    case AddLocations(db, namespace, locations) =>
+      performAddLocationIntoCache(db, namespace, locations).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
       (cache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
