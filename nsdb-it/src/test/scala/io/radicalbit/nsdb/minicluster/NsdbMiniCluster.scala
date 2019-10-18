@@ -23,8 +23,6 @@ import java.util.UUID
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
 
-import scala.concurrent.Await
-
 trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] val instanceId = { UUID.randomUUID }
@@ -54,7 +52,6 @@ trait NsdbMiniCluster extends LazyLogging {
   }
 
   def stop(): Unit = {
-    import scala.concurrent.duration._
     nodes.foreach(n => n.stop())
     nodes.foreach(n => n.stop())
   }

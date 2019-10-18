@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster
 
-class ReadCoordinatorClusterPassivationSpec extends ReadCoordinatorClusterSpec {
+class ClusterPassivationSpec extends ReadCoordinatorClusterSpec {
 
   override val passivateAfter = java.time.Duration.ofSeconds(10)
 
