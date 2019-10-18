@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.Paths
-
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
@@ -27,7 +25,7 @@ import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded}
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
@@ -82,10 +80,17 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
             val locationsToAdd: Seq[LocationWithCoordinates] =
               FileUtils.getLocationFromFilesystem(config.getString("nsdb.index.base-path"), nodeName)
 
+            val locationsGroupedBy: Map[(String, String), Seq[(String, String, Location)]] = locationsToAdd.groupBy {
+              case (database, namespace, _) => (database, namespace)
+            }
+
             Future
-              .sequence(locationsToAdd.map {
-                case (db, namespace, location) => metadataCoordinator ? AddLocation(db, namespace, location)
-              })
+              .sequence {
+                locationsGroupedBy.map {
+                  case ((db, namespace), locations) =>
+                    metadataCoordinator ? AddLocations(db, namespace, locations.map(_._3))
+                }
+              }
               .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
               .onComplete {
                 case Success((_, failures)) if failures.isEmpty =>
