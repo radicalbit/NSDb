@@ -78,14 +78,14 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
   override def beforeAll(): Unit = {
 
+    super.beforeAll()
+
     val firstNode = nodes.head
 
     val nsdbConnection =
       eventually {
         Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
-
-    super.beforeAll()
 
     LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name)).foreach { bit =>
       eventually {

@@ -50,7 +50,7 @@ trait NsdbMiniCluster extends LazyLogging {
   def start(cleanup: Boolean = false): Unit = {
     if (cleanup)
       FileUtils.deleteDirectory(new File(rootFolder))
-    nodes
+    nodes.foreach(_.start())
   }
 
   def stop(): Unit = {
