@@ -55,7 +55,7 @@ trait NsdbMiniCluster extends LazyLogging {
 
   def stop(): Unit = {
     import scala.concurrent.duration._
-    nodes.foreach(n => Await.result(n.system.terminate(), 10.seconds))
-    nodes.foreach(n => Await.result(n.system.whenTerminated, 10.seconds))
+    nodes.foreach(n => n.stop())
+    nodes.foreach(n => n.stop())
   }
 }
