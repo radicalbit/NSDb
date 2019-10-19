@@ -9,9 +9,12 @@ import scala.concurrent.Await
 
 trait NSDBAkkaMiniCluster { this: NsdbConfig with NSDBAActors =>
 
-  implicit var system: ActorSystem = ActorSystem("nsdb", config)
+  implicit var system: ActorSystem = _
 
-  def start(): Unit = initTopLevelActors()
+  def start(): Unit = {
+    system = ActorSystem("nsdb", config)
+    initTopLevelActors()
+  }
 
   def stop(): Unit = {
     Await.result(system.terminate(), 10.seconds)

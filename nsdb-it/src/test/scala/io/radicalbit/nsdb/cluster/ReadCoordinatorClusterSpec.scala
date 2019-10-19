@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster
 
+import akka.cluster.{Cluster, MemberStatus}
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.common.protocol._
@@ -112,6 +113,14 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     stop()
   }
 
+  test("join cluster") {
+    eventually {
+      assert(
+        Cluster(nodes.head.system).state.members
+          .count(_.status == MemberStatus.Up) == nodes.size)
+    }
+  }
+
   test("receive a select projecting a wildcard with a limit") {
 
     nodes.foreach { n =>
@@ -123,10 +132,12 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         .namespace(namespace)
         .query(s"select * from ${LongMetric.name} limit 2")
 
-      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-      assert(readRes.completedSuccessfully)
-      assert(readRes.records.size == 2)
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 2)
+      }
     }
   }
 
@@ -141,11 +152,13 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         .namespace(namespace)
         .query(s"select * from ${LongMetric.name} order by timestamp desc limit 2")
 
-      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-      assert(readRes.completedSuccessfully)
-      assert(readRes.records.size == 2)
-      assert(readRes.records.map(_.asBit) == LongMetric.testRecords.reverse.take(2))
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 2)
+        assert(readRes.records.map(_.asBit) == LongMetric.testRecords.reverse.take(2))
+      }
     }
   }
 

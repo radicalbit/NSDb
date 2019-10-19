@@ -47,10 +47,10 @@ trait NSDBAActors {
 
   implicit def system: ActorSystem
 
-  implicit val timeout: Timeout =
+  implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  implicit val executionContext: ExecutionContextExecutor = system.dispatcher
+  implicit lazy val executionContext: ExecutionContextExecutor = system.dispatcher
 
   def initTopLevelActors(): Unit = {
     system.actorOf(
