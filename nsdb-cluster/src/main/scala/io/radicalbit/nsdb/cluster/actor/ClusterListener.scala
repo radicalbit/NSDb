@@ -25,11 +25,17 @@ import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded}
+import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
+import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.{Failure, Success}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
@@ -71,8 +77,34 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
           case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
-            new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
-          case _ =>
+            val locationsToAdd: Seq[LocationWithCoordinates] =
+              FileUtils.getLocationFromFilesystem(config.getString("nsdb.index.base-path"), nodeName)
+
+            val locationsGroupedBy: Map[(String, String), Seq[(String, String, Location)]] = locationsToAdd.groupBy {
+              case (database, namespace, _) => (database, namespace)
+            }
+
+            Future
+              .sequence {
+                locationsGroupedBy.map {
+                  case ((db, namespace), locations) =>
+                    metadataCoordinator ? AddLocations(db, namespace, locations.map(_._3))
+                }
+              }
+              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+              .onComplete {
+                case Success((_, failures)) if failures.isEmpty =>
+                  new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(
+                    context.system)
+                case Success((_, failures)) =>
+                  log.error(s" failures $failures")
+                  cluster.leave(member.address)
+                case Failure(ex) =>
+                  log.error(s" failure", ex)
+                  cluster.leave(member.address)
+              }
+          case unknownResponse =>
+            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)

@@ -36,6 +36,7 @@ trait NsdbMiniClusterConf extends NsdbConfig {
       .withValue("nsdb.grpc.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.http.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
+      .withValue("akka.cluster.distributed-data.durable.lmdb.dir", ConfigValueFactory.fromAnyRef(s"$dataDir/ddata"))
       .withValue("nsdb.commit-log.directory", ConfigValueFactory.fromAnyRef(commitLogDir))
       .withValue("nsdb.sharding.passivate-after", ConfigValueFactory.fromAnyRef(passivateAfter))
 }

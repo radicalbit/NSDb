@@ -32,9 +32,15 @@ object MetadataSpec extends MultiNodeConfig {
     |akka.log-dead-letters-during-shutdown = off
     |nsdb{
     |
+    |  grpc {
+    |    interface = "0.0.0.0"
+    |    port = 7817
+    |  }
+    |
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds
+    |  rpc-endpoint.timeout = 30 seconds
     |  publisher.timeout = 10 seconds
     |  publisher.scheduler.interval = 5 seconds
     |  write.scheduler.interval = 15 seconds
@@ -62,6 +68,10 @@ object MetadataSpec extends MultiNodeConfig {
     |    directory = "target/commitLog"
     |    max-size = 50000
     |    passivate-after = 5s
+    |  }
+    |  websocket {
+    |    refresh-period = 100
+    |    retention-size = 10
     |  }
     |}
     """.stripMargin))

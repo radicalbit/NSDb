@@ -167,7 +167,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           op(schema)
         case Left(UpdateSchemaFailed(_, _, _, errs)) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
-          Future(RecordRejected(db, namespace, metric, bit, Location("", "", 0, 0), errs, System.currentTimeMillis()))
+          Future(RecordRejected(db, namespace, metric, bit, Location.empty, errs, System.currentTimeMillis()))
       }
 
   /**
@@ -193,7 +193,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                          namespace,
                          metric,
                          bit,
-                         Location("", "", 0, 0),
+                         Location.empty,
                          List(s"no location found for bit $bit"),
                          System.currentTimeMillis()))
     }

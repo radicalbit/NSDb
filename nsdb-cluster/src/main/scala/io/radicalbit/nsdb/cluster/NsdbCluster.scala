@@ -19,4 +19,4 @@ package io.radicalbit.nsdb.cluster
 /**
   * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
   */
-object NsdbCluster extends App with NsdbClusterDefinition
+object NsdbCluster extends App with ProductionCluster

@@ -33,54 +33,58 @@ import scala.concurrent.ExecutionContextExecutor
 /**
   * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
   */
-trait NSDBAkkaCluster { this: NsdbConfig =>
+trait NSDBAkkaCluster { this: NsdbConfig with NSDBActors =>
 
   implicit val system: ActorSystem = ActorSystem("nsdb", config)
 
+  initTopLevelActors()
 }
 
 /**
   * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
   */
-trait NSDBAActors {
-  this: NSDBAkkaCluster =>
+trait NSDBActors {
 
-  implicit val timeout: Timeout =
+  implicit def system: ActorSystem
+
+  implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  implicit val executionContext: ExecutionContextExecutor = system.dispatcher
+  implicit lazy val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  system.actorOf(
-    ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
-                                  terminationMessage = PoisonPill,
-                                  settings = ClusterSingletonManagerSettings(system)),
-    name = "databaseActorGuardian"
-  )
+  def initTopLevelActors(): Unit = {
+    system.actorOf(
+      ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
+                                    terminationMessage = PoisonPill,
+                                    settings = ClusterSingletonManagerSettings(system)),
+      name = "databaseActorGuardian"
+    )
 
-  AkkaManagement(system).start()
-  ClusterBootstrap(system).start()
+    AkkaManagement(system).start()
+    ClusterBootstrap(system).start()
 
-  DistributedData(system).replicator
+    DistributedData(system).replicator
 
-  system.actorOf(
-    ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
-                                settings = ClusterSingletonProxySettings(system)),
-    name = "databaseActorGuardianProxy"
-  )
+    system.actorOf(
+      ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
+                                  settings = ClusterSingletonProxySettings(system)),
+      name = "databaseActorGuardianProxy"
+    )
 
-  lazy val nodeName: String = createNodeName(Cluster(system).selfMember)
+    lazy val nodeName: String = createNodeName(Cluster(system).selfMember)
 
-  system.actorOf(
-    ClusterListener.props(
-      NodeActorsGuardian.props(
-        system.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName"),
-        system.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
-      )),
-    name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
-  )
+    system.actorOf(
+      ClusterListener.props(
+        NodeActorsGuardian.props(
+          system.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName"),
+          system.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
+        )),
+      name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+    )
+  }
 }
 
 /**
-  * Simply mix in [[NSDBAkkaCluster]] with [[NSDBAActors]]
+  * Simply mix in [[NSDBAkkaCluster]] with [[NSDBActors]]
   */
-trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors with NsdbConfig
+trait ProductionCluster extends NSDBAkkaCluster with NSDBActors with NsdbClusterConfig
