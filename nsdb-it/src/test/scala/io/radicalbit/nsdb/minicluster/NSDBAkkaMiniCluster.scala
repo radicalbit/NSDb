@@ -1,13 +1,13 @@
 package io.radicalbit.nsdb.minicluster
 
 import akka.actor.ActorSystem
-import io.radicalbit.nsdb.cluster.NSDBAActors
+import io.radicalbit.nsdb.cluster.NSDBActors
 import io.radicalbit.nsdb.common.NsdbConfig
 
 import scala.concurrent.duration._
 import scala.concurrent.Await
 
-trait NSDBAkkaMiniCluster { this: NsdbConfig with NSDBAActors =>
+trait NSDBAkkaMiniCluster { this: NsdbConfig with NSDBActors =>
 
   implicit var system: ActorSystem = _
 

@@ -18,12 +18,12 @@ package io.radicalbit.nsdb.minicluster
 
 import java.time.Duration
 
-import io.radicalbit.nsdb.cluster.NSDBAActors
+import io.radicalbit.nsdb.cluster.NSDBActors
 
 class NSDbMiniClusterNode(val hostname: String,
                           val dataDir: String,
                           val commitLogDir: String,
                           val passivateAfter: Duration = Duration.ofHours(1))
     extends NSDBAkkaMiniCluster
-    with NSDBAActors
+    with NSDBActors
     with NsdbMiniClusterConf
