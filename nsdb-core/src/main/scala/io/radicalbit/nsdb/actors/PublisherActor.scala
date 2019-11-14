@@ -134,21 +134,6 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               .map(e => SubscribedByQueryString(queryString, id, e.values))
               .pipeTo(sender())
         }
-    case SubscribeByQueryId(actor, quid) =>
-      queries.get(quid) match {
-        case Some(q) =>
-          log.debug(s"found query $q for id $quid")
-          (readCoordinator ? ExecuteStatement(q.query))
-            .map {
-              case e: SelectStatementExecuted =>
-                val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(quid, Set.empty)
-                subscribedActorsByQueryId += (quid -> (previousRegisteredActors + actor))
-                SubscribedByQuid(quid, e.values)
-              case SelectStatementFailed(statement, reason, _) => SubscriptionByQuidFailed(quid, reason)
-            }
-            .pipeTo(sender())
-        case None => sender ! SubscriptionByQuidFailed(quid, s"quid $quid not found")
-      }
     case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {
         case (id, nsdbQuery)
@@ -195,12 +180,10 @@ object PublisherActor {
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)
         extends ControlMessage
-    case class SubscribeByQueryId(actor: ActorRef, qid: String) extends ControlMessage
-    case class Unsubscribe(actor: ActorRef)                     extends ControlMessage
+    case class Unsubscribe(actor: ActorRef) extends ControlMessage
   }
 
   object Events {
-    case class SubscribedByQuid(quid: String, records: Seq[Bit])                             extends ControlMessage
     case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit]) extends ControlMessage
     case class SubscriptionByQueryStringFailed(queryString: String, reason: String)          extends ControlMessage
     case class SubscriptionByQuidFailed(quid: String, reason: String)                        extends ControlMessage

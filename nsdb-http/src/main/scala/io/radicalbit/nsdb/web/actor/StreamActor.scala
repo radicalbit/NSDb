@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -96,16 +96,7 @@ class StreamActor(publisher: ActorRef,
                                         metric,
                                         queryString,
                                         s"unauthorized ${checkAuthorization.failReason}"))
-    case msg @ RegisterQuid(db, namespace, metric, quid) =>
-      log.debug(s"registering quid $quid")
-      val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
-      if (checkAuthorization.success)
-        publisher ! SubscribeByQueryId(self, quid)
-      else
-        wsActor ! OutgoingMessage(
-          QuidRegistrationFailed(db, namespace, metric, quid, s"unauthorized ${checkAuthorization.failReason}"))
-    case msg @ (SubscribedByQueryString(_, _, _) | SubscribedByQuid(_, _) | SubscriptionByQueryStringFailed(_, _) |
+    case msg @ (SubscribedByQueryString(_, _, _) | SubscriptionByQueryStringFailed(_, _) |
         SubscriptionByQuidFailed(_, _)) =>
       wsActor ! OutgoingMessage(msg.asInstanceOf[AnyRef])
     case msg @ RecordsPublished(quid, _, _) =>
@@ -128,7 +119,6 @@ object StreamActor {
 
   case object Terminate
   case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String) extends Metric
-  case class RegisterQuid(db: String, namespace: String, metric: String, quid: String)         extends Metric
   case class QuerystringRegistrationFailed(db: String,
                                            namespace: String,
                                            metric: String,
