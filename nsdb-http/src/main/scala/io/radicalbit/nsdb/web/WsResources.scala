@@ -78,7 +78,7 @@ trait WsResources {
       Flow[Message]
         .map {
           case TextMessage.Strict(text) =>
-            parse(text).extractOpt[RegisterQuery] getOrElse "Message not handled by receiver"
+            parse(text).extractOpt[RegisterQuery] getOrElse s"Message $text not handled by receiver"
           case _ => "Message not handled by receiver"
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))

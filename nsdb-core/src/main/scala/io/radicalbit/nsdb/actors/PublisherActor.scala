@@ -92,7 +92,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         val f = (readCoordinator ? ExecuteStatement(q.query))
           .map {
             case e: SelectStatementExecuted     => RecordsPublished(id, e.statement.metric, e.values)
-            case SelectStatementFailed(_, _, _) => RecordsPublished(id, q.query.metric, Seq.empty)
+            case SelectStatementFailed(statement, reason, _) =>
+              log.error(s"aggregated statement {} subscriber refresh failed because of {}", statement, reason)
+              RecordsPublished(id, q.query.metric, Seq.empty)
           }
         subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
       case _ => //do nothing
@@ -101,30 +103,30 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
   override def receive: Receive = {
     case SubscribeBySqlStatement(actor, queryString, query) =>
+      val subscribedQueryId = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
+        UUID.randomUUID().toString
+
       subscribedActorsByQueryId
-        .find { case (_, v: Set[ActorRef]) => v.contains(actor) }
+        .get(subscribedQueryId)
+        .find(_.contains(actor))
         .fold {
           log.debug(s"subscribing a new actor to query $queryString")
-          val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
-            UUID.randomUUID().toString
-
           (readCoordinator ? ExecuteStatement(query))
             .map {
               case e: SelectStatementExecuted =>
-                val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(id, Set.empty)
-                subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
-                queries += (id                   -> NSDbQuery(id, query))
-                SubscribedByQueryString(queryString, id, e.values)
+                val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(subscribedQueryId, Set.empty)
+                subscribedActorsByQueryId += (subscribedQueryId -> (previousRegisteredActors + actor))
+                queries += (subscribedQueryId                   -> NSDbQuery(subscribedQueryId, query))
+                SubscribedByQueryString(queryString, subscribedQueryId, e.values)
               case SelectStatementFailed(_, reason, _) => SubscriptionByQueryStringFailed(queryString, reason)
             }
             .pipeTo(sender())
-        } {
-          case (id, _) =>
-            log.debug(s"subscribing existing actor to query $queryString")
-            (readCoordinator ? ExecuteStatement(query))
-              .mapTo[SelectStatementExecuted]
-              .map(e => SubscribedByQueryString(queryString, id, e.values))
-              .pipeTo(sender())
+        } { _ =>
+          log.debug(s"subscribing existing actor to query $queryString")
+          (readCoordinator ? ExecuteStatement(query))
+            .mapTo[SelectStatementExecuted]
+            .map(e => SubscribedByQueryString(queryString, subscribedQueryId, e.values))
+            .pipeTo(sender())
         }
     case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {

@@ -22,7 +22,9 @@ import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, PublishRecord}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
 import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
@@ -30,6 +32,8 @@ import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
+
+import scala.concurrent.duration._
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
@@ -50,8 +54,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
   val wsSecureResources = wsResources(publisherActor, new TestAuthProvider)
 
-  "WebSocketStream" should "register to a query" in {
-
+  "WebSocketStream" should "fail to register if invalid registration message is provided" in {
     val wsClient = WSProbe()
 
     WS("/ws-stream", wsClient.flow) ~> wsStandardResources ~>
@@ -72,14 +75,32 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         obj.isDefined shouldBe true
         obj.get.reason shouldEqual "not a select query"
+      }
+  }
+
+  "WebSocketStream" should "register to a query and receive events" in {
+
+    val wsClient = WSProbe()
+
+    WS("/ws-stream", wsClient.flow) ~> wsStandardResources ~>
+      check {
+
+        isWebSocketUpgrade shouldEqual true
 
         wsClient.sendMessage(
           """{"db":"db","namespace":"registry","metric":"people","queryString":"select * from people limit 1"}""")
 
-        val subscribed = wsClient.expectMessage().asTextMessage.getStrictText
-        parse(subscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
+        val firstSubscribed = wsClient.expectMessage().asTextMessage.getStrictText
+        parse(firstSubscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
 
-        //TODO find out how to test combining somehow the actorsystem coming from ScalatestRouteTest and from Testkit
+        val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
+        publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit).get)
+        publisherActor ! PublishRecord("db", "registry", "animals", bit, Schema("people", bit).get)
+
+        val firstRecordsPublished = wsClient.expectMessage().asTextMessage.getStrictText
+
+        (parse(firstRecordsPublished) \ "records").extract[JArray].arr.size shouldBe 1
+        wsClient.expectNoMessage(5 seconds)
       }
   }
 
@@ -104,7 +125,6 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
         obj.isDefined shouldBe true
         obj.get.reason shouldEqual "unauthorized header not provided"
-
       }
   }
 

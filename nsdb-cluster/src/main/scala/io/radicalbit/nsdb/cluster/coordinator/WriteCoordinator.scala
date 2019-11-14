@@ -295,16 +295,20 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  namespace: String,
                                  metric: String,
                                  bit: Bit,
-                                 schema: Schema): Future[WriteCoordinatorResponse] = {
+                                 schema: Schema,
+                                 publish: Boolean): Future[WriteCoordinatorResponse] = {
     val (succeedResponses: List[RecordAdded], _: List[RecordRejected]) =
       partitionResponses[RecordAdded, RecordRejected](responses)
 
     if (succeedResponses.size == responses.size) {
       unstashAll()
       ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
-      publishers.foreach {
-        case (_, publisherActor) => publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
-      }
+      if (publish)
+        publishers.foreach {
+          case (_, publisherActor) =>
+            log.error(s"publishing metric $metric to actor $publisherActor size ${publishers.size}")
+            publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
+        }
 
       val accumulationResult = Future
         .sequence {
@@ -370,13 +374,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                      metric: String,
                      timestamp: Long,
                      bit: Bit,
-                     schema: Schema): Future[WriteCoordinatorResponse] = {
+                     schema: Schema,
+                     publish: Boolean = true): Future[WriteCoordinatorResponse] = {
     val commitLogResponses: Future[Seq[CommitLogResponse]] =
       Future
         .sequence(locations.map { loc =>
           writeCommitLog(db, namespace, timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
         })
-    val accumulatedResponses: Future[WriteCoordinatorResponse] = commitLogResponses
+
+    commitLogResponses
       .flatMap { results =>
         handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) { succeedResponses =>
           Future
@@ -384,11 +390,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
               accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
             })
             .flatMap { results =>
-              handleAccumulatorResponses(results, db, namespace, metric, bit, schema)
+              handleAccumulatorResponses(results, db, namespace, metric, bit, schema, publish)
             }
         }
       }
-    accumulatedResponses
   }
 
   override def preStart(): Unit = {
@@ -447,7 +452,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           // Send write requests for eventual consistent location iff consistent locations had accumulated the data
           accumulatedResponses.flatMap {
             case _: InputMapped =>
-              writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema)
+              writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema, publish = false)
             case r: RecordRejected =>
               // It does nothing for responses not included in consistency level
               log.error(

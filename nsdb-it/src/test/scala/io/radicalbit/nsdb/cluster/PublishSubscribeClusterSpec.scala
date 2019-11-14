@@ -82,18 +82,13 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     firstNodeWsClient.subscribe("db", "namespace", "metric1")
     //subscription phase
     val firstSubscriptionBuffer = eventually {
-
       val firstSubscriptionBuffer = firstNodeWsClient.receivedBuffer()
-
       assert(firstSubscriptionBuffer.length == 1)
-
       firstSubscriptionBuffer
     }
 
     val firstSubscriptionResponse =
       parse(firstSubscriptionBuffer.head.asTextMessage.getStrictText)
-
-    logger.error(s"received $firstSubscriptionResponse")
 
     assert((firstSubscriptionResponse \ "records").extract[JArray].arr.size == 1)
 

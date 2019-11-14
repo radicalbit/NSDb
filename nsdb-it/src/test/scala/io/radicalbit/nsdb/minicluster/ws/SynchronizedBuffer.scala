@@ -30,12 +30,12 @@ trait SynchronizedBuffer[T] {
   /**
     * Remove all the elements from the buffer.
     */
-  def clearBuffer(): Boolean = _buffer.compareAndSet(_buffer.get(), ListBuffer.empty)
+  def clearBuffer(): Unit = _buffer.set(ListBuffer.empty)
 
   /**
     * @return the buffer state.
     */
-  def buffer: ListBuffer[T] = _buffer.get()
+  protected def buffer: ListBuffer[T] = _buffer.get()
 
   /**
     * Generic method to update the buffer given a transformation function
