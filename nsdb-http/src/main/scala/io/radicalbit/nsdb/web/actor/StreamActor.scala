@@ -35,12 +35,14 @@ import scala.util.{Failure, Success}
 
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
+  * @param clientAddress the client address that established the connection (for logging and monitoring purposes).
   * @param publisher global Publisher Actor.
   * @param publishInterval publish to web socket interval.
   * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
   * @param authProvider the configured [[NSDBAuthProvider]]
   */
-class StreamActor(publisher: ActorRef,
+class StreamActor(clientAddress: String,
+                  publisher: ActorRef,
                   publishInterval: Int,
                   securityHeaderPayload: Option[String],
                   authProvider: NSDBAuthProvider)
@@ -65,6 +67,7 @@ class StreamActor(publisher: ActorRef,
         while (buffer.nonEmpty) wsActor ! OutgoingMessage(buffer.dequeue())
       }
 
+      log.info("establishing web socket connection from {}", clientAddress)
       context become connected(wsActor)
   }
 
@@ -98,7 +101,7 @@ class StreamActor(publisher: ActorRef,
     case msg @ RecordsPublished(_, _, _) =>
       buffer += msg
     case Terminate =>
-      log.debug("terminating stream actor")
+      log.info("closing web socket connection from address {}", clientAddress)
       (publisher ? Unsubscribe(self)).foreach { _ =>
         self ! PoisonPill
         wsActor ! PoisonPill
@@ -122,9 +125,10 @@ object StreamActor {
                                            reason: String)
   case class QuidRegistrationFailed(db: String, namespace: String, metric: String, quid: String, reason: String)
 
-  def props(publisherActor: ActorRef,
+  def props(clientAddress: String,
+            publisherActor: ActorRef,
             refreshPeriod: Int,
             securityHeader: Option[String],
             authProvider: NSDBAuthProvider) =
-    Props(new StreamActor(publisherActor, refreshPeriod, securityHeader, authProvider))
+    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, securityHeader, authProvider))
 }

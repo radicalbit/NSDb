@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.web
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem}
+import akka.http.scaladsl.model.RemoteAddress
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives._
@@ -47,6 +48,7 @@ trait WsResources {
 
   /**
     * Akka stream Flow used to define the webSocket behaviour.
+    * @param clientAddress the client addess that opened the connection (for debugging and monitoring purposes).
     * @param publishInterval interval of data publishing operation.
     * @param retentionSize size of the buffer used to retain events in case of no subscribers.
     * @param publisherActor the global [[io.radicalbit.nsdb.actors.PublisherActor]].
@@ -54,7 +56,8 @@ trait WsResources {
     * @param authProvider the configured [[NSDBAuthProvider]].
     * @return the [[Flow]] that models the WebSocket.
     */
-  private def newStream(publishInterval: Int,
+  private def newStream(clientAddress: String,
+                        publishInterval: Int,
                         retentionSize: Int,
                         publisherActor: ActorRef,
                         securityHeaderPayload: Option[String],
@@ -65,7 +68,7 @@ trait WsResources {
       */
     val connectedWsActor = system.actorOf(
       StreamActor
-        .props(publisherActor, refreshPeriod, securityHeaderPayload, authProvider)
+        .props(clientAddress, publisherActor, refreshPeriod, securityHeaderPayload, authProvider)
         .withDispatcher("akka.actor.control-aware-dispatcher"))
 
     /**
@@ -111,15 +114,23 @@ trait WsResources {
     */
   def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =
     path("ws-stream") {
-      parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
-        case (period, retention) if period >= refreshPeriod =>
-          optionalHeaderValueByName(authProvider.headerName) { header =>
-            handleWebSocketMessages(newStream(period, retention, publisherActor, header, authProvider))
-          }
-        case (period, _) =>
-          complete(
-            (BadRequest,
-             s"publish period of $period milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
+      extractClientIP { remoteAddress: RemoteAddress =>
+        parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
+          case (period, retention) if period >= refreshPeriod =>
+            optionalHeaderValueByName(authProvider.headerName) { header =>
+              handleWebSocketMessages(
+                newStream(remoteAddress.toOption.map(_.getHostAddress).getOrElse("unknown"),
+                          period,
+                          retention,
+                          publisherActor,
+                          header,
+                          authProvider))
+            }
+          case (period, _) =>
+            complete(
+              (BadRequest,
+               s"publish period of $period milliseconds cannot be used, must be greater or equal to $refreshPeriod"))
+        }
       }
     }
 }

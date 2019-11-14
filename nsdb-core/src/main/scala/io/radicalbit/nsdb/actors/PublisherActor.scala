@@ -26,7 +26,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{AllFields, ListFields, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{SelectSQLStatement, SimpleGroupByAggregation, TemporalGroupByAggregation}
 import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -44,14 +44,12 @@ import scala.concurrent.duration._
   * @param uuid a generated, unique identifier for a query.
   * @param query the parsed select statement.
   */
-case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
-  def aggregated: Boolean = {
-    query.fields match {
-      case AllFields         => false
-      case ListFields(fList) => fList.exists(f => f.aggregation.isDefined)
-    }
-  }
+case class NSDbQuery(uuid: String, query: SelectSQLStatement) {
+  val aggregated: Boolean = query.groupBy.nonEmpty
 
+  val simpleAggregated: Boolean = query.groupBy.exists(_.isInstanceOf[SimpleGroupByAggregation])
+
+  val temporalAggregated: Boolean = query.groupBy.exists(_.isInstanceOf[TemporalGroupByAggregation])
 }
 
 /**
@@ -72,9 +70,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
   lazy val subscribedActorsByQueryId: mutable.Map[String, Set[ActorRef]] = mutable.Map.empty
 
   /**
-    * mutable map of queries aggregated by query id
+    * mutable map of non aggregated queries by query id
     */
-  lazy val queries: mutable.Map[String, NsdbQuery] = mutable.Map.empty
+  lazy val queries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
 
   implicit val disp: ExecutionContextExecutor = context.system.dispatcher
 
@@ -89,26 +87,22 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     * scheduler that updates aggregated queries subscribers
     */
   context.system.scheduler.schedule(interval, interval) {
-    queries
-      .filter {
-        case (id, q) =>
-          q.aggregated && subscribedActorsByQueryId.get(id).isDefined && subscribedActorsByQueryId(id).nonEmpty
-      }
-      .foreach {
-        case (id, nsdbQuery) =>
-          val f = (readCoordinator ? ExecuteStatement(nsdbQuery.query))
-            .map {
-              case e: SelectStatementExecuted     => RecordsPublished(id, e.statement.metric, e.values)
-              case SelectStatementFailed(_, _, _) => RecordsPublished(id, nsdbQuery.query.metric, Seq.empty)
-            }
-          subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
-      }
+    queries.foreach {
+      case (id, q) if q.aggregated && subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
+        val f = (readCoordinator ? ExecuteStatement(q.query))
+          .map {
+            case e: SelectStatementExecuted     => RecordsPublished(id, e.statement.metric, e.values)
+            case SelectStatementFailed(_, _, _) => RecordsPublished(id, q.query.metric, Seq.empty)
+          }
+        subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+      case _ => //do nothing
+    }
   }
 
   override def receive: Receive = {
     case SubscribeBySqlStatement(actor, queryString, query) =>
       subscribedActorsByQueryId
-        .find { case (_, v) => v == actor }
+        .find { case (_, v: Set[ActorRef]) => v.contains(actor) }
         .fold {
           log.debug(s"subscribing a new actor to query $queryString")
           val id = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
@@ -119,9 +113,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               case e: SelectStatementExecuted =>
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(id, Set.empty)
                 subscribedActorsByQueryId += (id -> (previousRegisteredActors + actor))
-                queries += (id                   -> NsdbQuery(id, query))
+                queries += (id                   -> NSDbQuery(id, query))
                 SubscribedByQueryString(queryString, id, e.values)
-              case SelectStatementFailed(statement, reason, _) => SubscriptionByQueryStringFailed(queryString, reason)
+              case SelectStatementFailed(_, reason, _) => SubscriptionByQueryStringFailed(queryString, reason)
             }
             .pipeTo(sender())
         } {
