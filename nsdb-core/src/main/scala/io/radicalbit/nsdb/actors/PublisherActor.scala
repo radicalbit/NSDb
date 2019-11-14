@@ -60,8 +60,6 @@ case class NsdbQuery(uuid: String, query: SelectSQLStatement) {
   *
   * - [[SubscribeBySqlStatement]] the subscription is asked providing a query string, which is parsed into [[SelectSQLStatement]]. If the query does not exist, a new one will be created and registered.
   *
-  * - [[SubscribeByQueryId]] the subscription is asked providing a query id, which have already been registered.
-  *
   * A generic publisher must send a [[PublishRecord]] message in order to trigger the publishing mechanism.
   * Every published event will be checked against every registered query. If the event fulfills the query, it will be published to every query relatedsubscriber.
   * @param readCoordinator global read coordinator responsible to execute queries when needed

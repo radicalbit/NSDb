@@ -52,7 +52,7 @@ class StreamActor(publisher: ActorRef,
 
   override def receive: Receive = waiting
 
-  private val buffer: mutable.Map[String, RecordsPublished] = mutable.Map.empty
+  private val buffer: mutable.Queue[RecordsPublished] = mutable.Queue.empty
 
   /**
     * Waits for the WebSocket actor reference behaviour.
@@ -62,11 +62,7 @@ class StreamActor(publisher: ActorRef,
       import scala.concurrent.duration._
 
       context.system.scheduler.schedule(0.seconds, publishInterval.millis) {
-        val keys = buffer.keys
-        keys.foreach { k =>
-          wsActor ! OutgoingMessage(buffer(k))
-          buffer -= k
-        }
+        while (buffer.nonEmpty) wsActor ! OutgoingMessage(buffer.dequeue())
       }
 
       context become connected(wsActor)
@@ -99,8 +95,8 @@ class StreamActor(publisher: ActorRef,
     case msg @ (SubscribedByQueryString(_, _, _) | SubscriptionByQueryStringFailed(_, _) |
         SubscriptionByQuidFailed(_, _)) =>
       wsActor ! OutgoingMessage(msg.asInstanceOf[AnyRef])
-    case msg @ RecordsPublished(quid, _, _) =>
-      buffer += (quid -> msg)
+    case msg @ RecordsPublished(_, _, _) =>
+      buffer += msg
     case Terminate =>
       log.debug("terminating stream actor")
       (publisher ? Unsubscribe(self)).foreach { _ =>
