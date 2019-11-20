@@ -119,15 +119,17 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
-    case "D" => 24 * 3600 * 1000
-    case "H" => 3600 * 1000
-    case "M" => 60 * 1000
-    case "S" => 1000
+    case "D" => ("D", 24 * 3600 * 1000)
+    case "H" => ("H", 3600 * 1000)
+    case "M" => ("M", 60 * 1000)
+    case "S" => ("S", 1000)
   }
 
-  private val delta = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
-    case "+" ~ v ~ measure => System.currentTimeMillis() + v * measure
-    case "-" ~ v ~ measure => System.currentTimeMillis() - v * measure
+  private val delta: Parser[RelativeTimestampValue] = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
+    case "+" ~ v ~ ((unitMeasure, timeInterval)) =>
+      RelativeTimestampValue(System.currentTimeMillis() + v * timeInterval, v, unitMeasure)
+    case "-" ~ v ~ ((unitMeasure, timeInterval)) =>
+      RelativeTimestampValue(System.currentTimeMillis() - v * timeInterval, v, unitMeasure)
   }
 
   private val comparisonTerm = delta | floatValue | longValue
@@ -230,7 +232,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   lazy val temporalGroupBy
     : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (intValue ?) ~ timeMeasure) ^^ {
-    case unit ~ conversion => TemporalGroupByAggregation(unit.getOrElse(1) * conversion)
+    case unit ~ conversion => TemporalGroupByAggregation(unit.getOrElse(1) * conversion._2)
   }
 
   lazy val order: PackratParser[OrderOperator] = (Order ~> dimension ~ (Desc ?)) ^^ {

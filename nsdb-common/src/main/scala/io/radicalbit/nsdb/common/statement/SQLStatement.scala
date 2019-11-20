@@ -147,6 +147,17 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
   */
 case class LimitOperator(value: Int)
 
+// Timestamp
+sealed trait TimestampValue {
+  def timestamp: Long
+}
+
+case class AbsoluteTimestampValue(override val timestamp: Long) extends TimestampValue
+case class RelativeTimestampValue(override val timestamp: Long, quantity: Long, unitMeasure: String)
+    extends TimestampValue
+
+// Timestamp
+
 sealed trait GroupByAggregation {
   def dimension: String
 }

@@ -40,14 +40,32 @@ object ExpressionParser {
     val q = exp match {
       case Some(NullableExpression(dimension)) => nullableExpression(schema, dimension)
 
-      case Some(EqualityExpression(dimension, value)) => equalityExpression(schema, dimension, value)
+      case Some(EqualityExpression(dimension, value)) =>
+        value match {
+
+          case RelativeTimestampValue(timestamp, _, _) => equalityExpression(schema, dimension, timestamp)
+          case AbsoluteTimestampValue(timestamp)       => equalityExpression(schema, dimension, timestamp)
+          case _                                       => equalityExpression(schema, dimension, value)
+
+        }
 
       case Some(LikeExpression(dimension, value)) => likeExpression(schema, dimension, value)
 
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value)) =>
-        comparisonExpression(schema, dimension, operator, value)
+        value match {
+          case RelativeTimestampValue(timestamp, _, _) => comparisonExpression(schema, dimension, operator, timestamp)
+          case AbsoluteTimestampValue(timestamp)       => comparisonExpression(schema, dimension, operator, timestamp)
+          case _                                       => comparisonExpression(schema, dimension, operator, value)
+        }
 
-      case Some(RangeExpression(dimension, p1, p2)) => rangeExpression(schema, dimension, p1, p2)
+      case Some(RangeExpression(dimension, p1, p2)) =>
+        (p1, p2) match {
+          case (RelativeTimestampValue(timestamp1, _, _), RelativeTimestampValue(timestamp2, _, _)) =>
+            rangeExpression(schema, dimension, timestamp1, timestamp2)
+          case (AbsoluteTimestampValue(timestamp1), AbsoluteTimestampValue(timestamp2)) =>
+            rangeExpression(schema, dimension, timestamp1, timestamp2)
+          case _ => rangeExpression(schema, dimension, p1, p2)
+        }
 
       case Some(UnaryLogicalExpression(expression, _)) => unaryLogicalExpression(schema, expression)
 
