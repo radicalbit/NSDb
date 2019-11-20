@@ -96,6 +96,13 @@ object Dependencies {
     lazy val contrib   = namespace %% "akka-stream-contrib" % version
   }
 
+  object kamon {
+    lazy val kamonVersion = "2.0.3"
+    lazy val kamonPrometheusVersion = "2.0.0"
+    lazy val bundle = "io.kamon" %% "kamon-bundle" % kamonVersion
+    lazy val prometheus = "io.kamon" %% "kamon-prometheus" %  kamonPrometheusVersion
+  }
+
   object swagger {
     lazy val version     = "1.5.19"
     lazy val namespace   = "io.swagger"
@@ -233,6 +240,8 @@ object Dependencies {
       akka.distributedData,
       scala_logging.scala_logging,
       akka.slf4j,
+      kamon.bundle,
+      kamon.prometheus,
       logback.logback,
       scalatest.core % Test,
       akka.testkit   % Test,
