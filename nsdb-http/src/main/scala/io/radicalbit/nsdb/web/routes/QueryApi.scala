@@ -27,7 +27,7 @@ import akka.util.Timeout
 import akka.pattern.ask
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -89,7 +89,7 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name ") db: St
                      @(ApiModelProperty @field)(value = "namespace name ") namespace: String,
                      @(ApiModelProperty @field)(value = "metric name ") metric: String,
                      @(ApiModelProperty @field)(value = "sql query string") queryString: String,
-                     @(ApiModelProperty @field)(value = "timestamp lower bound condition",
+                     @(ApiModelProperty @field)(value = "timestamp lower bound condition ",
                                                 required = false,
                                                 dataType = "long") from: Option[Long],
                      @(ApiModelProperty @field)(value = "timestamp upper bound condition",
@@ -98,7 +98,9 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name ") db: St
                      @(ApiModelProperty @field)(
                        value = "filters definition, adding where condition",
                        required = false,
-                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]])
+                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]],
+                     @(ApiModelProperty @field)(value = "return parsed query", required = false, dataType = "boolean") parsed: Option[
+                       Boolean])
     extends Metric
 
 @Api(value = "/query", produces = "application/json")
@@ -115,7 +117,9 @@ trait QueryApi {
 
   @ApiModel(description = "Query Response")
   case class QueryResponse(
-      @(ApiModelProperty @field)(value = "query result as a Seq of Bits ") records: Seq[Bit]
+      @(ApiModelProperty @field)(value = "query result as a Seq of Bits ") records: Seq[Bit],
+      @(ApiModelProperty @field)(value = "json representation of query ", required = false, dataType = "SQLStatement") parsed: Option[
+        SQLStatement],
   )
 
   @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[QueryResponse])
@@ -164,7 +168,13 @@ trait QueryApi {
                 case Some(statement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
-                      complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
+                      qb.parsed match {
+                        case Some(true) =>
+                          complete(
+                            HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values, Some(statement)))))
+                        case None =>
+                          complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values, None))))
+                      }
                     case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>
