@@ -124,13 +124,24 @@ class PublisherActorSpec
     probe.expectNoMessage(3 seconds)
   }
 
-  "PublisherActor" should "send a messge to all its subscribers when a matching event comes" in {
+  "PublisherActor" should "send a message to all its subscribers when a matching event comes" in {
+
+    val secondProbe = TestProbe()
+
     probe.send(publisherActor, SubscribeBySqlStatement(probeActor, "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryString]
+
+    secondProbe.send(publisherActor, SubscribeBySqlStatement(secondProbe.ref, "queryString", testSqlStatement))
+    secondProbe.expectMsgType[SubscribedByQueryString]
 
     probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
     val recordPublished = probe.expectMsgType[RecordsPublished]
     recordPublished.metric shouldBe "people"
     recordPublished.records shouldBe Seq(testRecordSatisfy)
+
+    secondProbe.expectMsgType[RecordsPublished]
+
+    probe.expectNoMessage(5 seconds)
+    secondProbe.expectNoMessage(5 seconds)
   }
 }

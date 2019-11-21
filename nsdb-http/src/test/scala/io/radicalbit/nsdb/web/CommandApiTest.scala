@@ -17,17 +17,17 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, ActorRef, Props}
+import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
+import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.common.protocol.DimensionFieldType
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import akka.http.scaladsl.model.StatusCodes._
-import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.DimensionFieldType
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.CommandApi
@@ -110,8 +110,8 @@ object CommandApiTest {
 
 class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
 
-  import io.radicalbit.nsdb.web.CommandApiTest._
   import io.radicalbit.nsdb.web.CommandApiTest.Data._
+  import io.radicalbit.nsdb.web.CommandApiTest._
 
   override def readCoordinator: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 

@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeByQueryId, SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -35,12 +35,14 @@ import scala.util.{Failure, Success}
 
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
+  * @param clientAddress the client address that established the connection (for logging and monitoring purposes).
   * @param publisher global Publisher Actor.
   * @param publishInterval publish to web socket interval.
   * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
   * @param authProvider the configured [[NSDBAuthProvider]]
   */
-class StreamActor(publisher: ActorRef,
+class StreamActor(clientAddress: String,
+                  publisher: ActorRef,
                   publishInterval: Int,
                   securityHeaderPayload: Option[String],
                   authProvider: NSDBAuthProvider)
@@ -52,7 +54,7 @@ class StreamActor(publisher: ActorRef,
 
   override def receive: Receive = waiting
 
-  private val buffer: mutable.Map[String, RecordsPublished] = mutable.Map.empty
+  private val buffer: mutable.Queue[RecordsPublished] = mutable.Queue.empty
 
   /**
     * Waits for the WebSocket actor reference behaviour.
@@ -62,13 +64,10 @@ class StreamActor(publisher: ActorRef,
       import scala.concurrent.duration._
 
       context.system.scheduler.schedule(0.seconds, publishInterval.millis) {
-        val keys = buffer.keys
-        keys.foreach { k =>
-          wsActor ! OutgoingMessage(buffer(k))
-          buffer -= k
-        }
+        while (buffer.nonEmpty) wsActor ! OutgoingMessage(buffer.dequeue())
       }
 
+      log.info("establishing web socket connection from {}", clientAddress)
       context become connected(wsActor)
   }
 
@@ -96,22 +95,13 @@ class StreamActor(publisher: ActorRef,
                                         metric,
                                         queryString,
                                         s"unauthorized ${checkAuthorization.failReason}"))
-    case msg @ RegisterQuid(db, namespace, metric, quid) =>
-      log.debug(s"registering quid $quid")
-      val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
-      if (checkAuthorization.success)
-        publisher ! SubscribeByQueryId(self, quid)
-      else
-        wsActor ! OutgoingMessage(
-          QuidRegistrationFailed(db, namespace, metric, quid, s"unauthorized ${checkAuthorization.failReason}"))
-    case msg @ (SubscribedByQueryString(_, _, _) | SubscribedByQuid(_, _) | SubscriptionByQueryStringFailed(_, _) |
+    case msg @ (SubscribedByQueryString(_, _, _) | SubscriptionByQueryStringFailed(_, _) |
         SubscriptionByQuidFailed(_, _)) =>
       wsActor ! OutgoingMessage(msg.asInstanceOf[AnyRef])
-    case msg @ RecordsPublished(quid, _, _) =>
-      buffer += (quid -> msg)
+    case msg @ RecordsPublished(_, _, _) =>
+      buffer += msg
     case Terminate =>
-      log.debug("terminating stream actor")
+      log.info("closing web socket connection from address {}", clientAddress)
       (publisher ? Unsubscribe(self)).foreach { _ =>
         self ! PoisonPill
         wsActor ! PoisonPill
@@ -128,7 +118,6 @@ object StreamActor {
 
   case object Terminate
   case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String) extends Metric
-  case class RegisterQuid(db: String, namespace: String, metric: String, quid: String)         extends Metric
   case class QuerystringRegistrationFailed(db: String,
                                            namespace: String,
                                            metric: String,
@@ -136,9 +125,10 @@ object StreamActor {
                                            reason: String)
   case class QuidRegistrationFailed(db: String, namespace: String, metric: String, quid: String, reason: String)
 
-  def props(publisherActor: ActorRef,
+  def props(clientAddress: String,
+            publisherActor: ActorRef,
             refreshPeriod: Int,
             securityHeader: Option[String],
             authProvider: NSDBAuthProvider) =
-    Props(new StreamActor(publisherActor, refreshPeriod, securityHeader, authProvider))
+    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, securityHeader, authProvider))
 }
