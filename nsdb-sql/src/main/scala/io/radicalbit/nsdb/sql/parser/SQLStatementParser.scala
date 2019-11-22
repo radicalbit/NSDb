@@ -125,7 +125,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
     case "S" => ("S", 1000)
   }
 
-  private val delta: Parser[RelativeTimestampValue] = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
+  // def instead val because timestamp should be calculated everytime but there is a problem with
+  // more than one "now - something" in the same query because "now" will be different for each condition
+  private def delta: Parser[RelativeTimestampValue] = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
     case "+" ~ v ~ ((unitMeasure, timeInterval)) =>
       RelativeTimestampValue(System.currentTimeMillis() + v * timeInterval, v, unitMeasure)
     case "-" ~ v ~ ((unitMeasure, timeInterval)) =>

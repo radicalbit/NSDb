@@ -18,6 +18,8 @@ package io.radicalbit.nsdb.sql.parser
 
 import io.radicalbit.nsdb.common.statement._
 import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.TryValues._
+import org.scalatest.OptionValues._
 
 import scala.util.Success
 
@@ -155,13 +157,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 3.5)))
           )))
       }
-
-      "parse it successfully using relative time" in {
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, now + 4 s)")
-        statement.isSuccess shouldBe true
-      }
     }
 
     "receive a select containing a = selection" should {
@@ -199,12 +194,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = "word_word")))
           )))
-      }
-
-      "parse it successfully using relative time" in {
-        val statement =
-          parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = now - 10s")
-        statement.isSuccess shouldBe true
       }
     }
 
@@ -247,14 +236,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L)))
           )))
       }
-
-      "parse it successfully using relative time" in {
-        val statement =
-          parser.parse(db = "db",
-                       namespace = "registry",
-                       input = "SELECT name FROM people WHERE timestamp >= now - 10s")
-        statement.isSuccess shouldBe true
-      }
     }
 
     "receive a select containing a GT AND a = selection" should {
@@ -294,14 +275,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
           )))
       }
 
-      "parse it successfully using relative time" in {
-        val statement = parser.parse(
-          db = "db",
-          namespace = "registry",
-          input =
-            "SELECT name FROM people WHERE timestamp < now + 30d and timestamp > now - 2h AND timestamp = now + 4m")
-        statement.isSuccess shouldBe true
-      }
     }
 
     "receive a select containing a GT AND a LTE selection" should {
@@ -342,14 +315,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             )))
           )))
       }
-
-      "parse it successfully using relative time" in {
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input =
-                                       "SELECT name FROM people WHERE timestamp > now - 2h AND timestamp <= now + 4m")
-        statement.isSuccess shouldBe true
-      }
     }
 
     "receive a select containing a GTE OR a LT selection" should {
@@ -373,14 +338,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               operator = NotOperator
             )))
           )))
-      }
-
-      "parse it successfully using relative time" in {
-        val statement =
-          parser.parse(db = "db",
-                       namespace = "registry",
-                       input = "SELECT name FROM people WHERE NOT timestamp >= now + 2m OR timestamp < now - 4h")
-        statement.isSuccess shouldBe true
       }
     }
 
