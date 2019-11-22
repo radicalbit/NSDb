@@ -91,7 +91,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
       case (id, q) if q.aggregated && subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
         val f = (readCoordinator ? ExecuteStatement(q.query))
           .map {
-            case e: SelectStatementExecuted     => RecordsPublished(id, e.statement.metric, e.values)
+            case e: SelectStatementExecuted => RecordsPublished(id, e.statement.metric, e.values)
             case SelectStatementFailed(statement, reason, _) =>
               log.error(s"aggregated statement {} subscriber refresh failed because of {}", statement, reason)
               RecordsPublished(id, q.query.metric, Seq.empty)
