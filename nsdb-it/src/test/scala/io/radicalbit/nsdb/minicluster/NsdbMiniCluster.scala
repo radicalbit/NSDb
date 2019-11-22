@@ -23,8 +23,6 @@ import java.util.UUID
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
 
-import scala.concurrent.Await
-
 trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] val instanceId = { UUID.randomUUID }
@@ -57,13 +55,12 @@ trait NsdbMiniCluster extends LazyLogging {
   def start(cleanup: Boolean = false): Unit = {
     if (cleanup)
       FileUtils.deleteDirectory(new File(rootFolder))
-    nodes
+    nodes.foreach(_.start())
     Thread.sleep(5000)
   }
 
   def stop(): Unit = {
-    import scala.concurrent.duration._
-    nodes.foreach(n => Await.result(n.system.terminate(), 10.seconds))
-    nodes.foreach(n => Await.result(n.system.whenTerminated, 10.seconds))
+    nodes.foreach(n => n.stop())
+    nodes.foreach(n => n.stop())
   }
 }

@@ -77,13 +77,11 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
   val namespace = "registry"
 
   override def beforeAll(): Unit = {
-
+    super.beforeAll()
     val firstNode = minicluster.nodes.head
 
     val nsdb =
       Await.result(NSDB.connect(host = "127.0.0.1", port = firstNode.grpcPort)(ExecutionContext.global), 10.seconds)
-
-    super.beforeAll()
 
     Await.result(nsdb.write(LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name))), 10.seconds)
     Await.result(nsdb.write(DoubleMetric.testRecords.map(_.asApiBit(db, namespace, DoubleMetric.name))), 10.seconds)
@@ -91,10 +89,6 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
                  10.seconds)
 
     waitIndexing()
-  }
-
-  override def afterAll(): Unit = {
-    minicluster.stop()
   }
 
   test("receive a select projecting a wildcard with a limit") {

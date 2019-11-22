@@ -23,54 +23,49 @@ import akka.cluster.Cluster
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian.{GetMetadataCache, GetSchemaCache}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, DatabaseActorsGuardian, NodeActorsGuardian}
-import io.radicalbit.nsdb.common.NsdbConfig
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Success
 
 /**
-  * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
+  * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint]] based on coordinators
   */
-trait NSDBAkkaCluster { this: NsdbConfig =>
-
-  implicit val system: ActorSystem = ActorSystem("nsdb", config)
-
-}
-
-/**
-  * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
-  */
-trait NSDBAActors { this: NSDBAkkaCluster =>
+trait NSDBActors {
 
   import akka.pattern.ask
+  def system: ActorSystem
 
-  implicit val timeout: Timeout =
+  implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  implicit val executionContext: ExecutionContextExecutor = system.dispatcher
+  implicit lazy val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  private val databaseActorGuardian = system.actorOf(
-    Props(classOf[DatabaseActorsGuardian]),
-    name = "databaseActorGuardian"
-  )
+  def initTopLevelActors() = {
 
-  Future
-    .sequence(
-      Seq((databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef],
-          (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]))
-    .onComplete {
-      case Success(metadataCache :: schemaCache :: Nil) =>
-        system.actorOf(
-          ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
-          name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
-        )
-      case _ =>
-        system.log.error("Error retrieving caches, terminating system.")
-        system.terminate()
-    }
+    val databaseActorGuardian =
+      system.actorOf(
+        Props(classOf[DatabaseActorsGuardian]),
+        name = "databaseActorGuardian"
+      )
+
+    Future
+      .sequence(
+        Seq((databaseActorGuardian ? GetMetadataCache).mapTo[ActorRef],
+            (databaseActorGuardian ? GetSchemaCache).mapTo[ActorRef]))
+      .onComplete {
+        case Success(metadataCache :: schemaCache :: Nil) =>
+          system.actorOf(
+            ClusterListener.props(NodeActorsGuardian.props(metadataCache, schemaCache)),
+            name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}"
+          )
+        case _ =>
+          system.log.error("Error retrieving caches, terminating system.")
+          system.terminate()
+      }
+  }
 }
 
 /**
-  * Simply mix in [[NSDBAkkaCluster]] with [[NSDBAActors]]
+  * Simply mix in [[NSDBActors]] with [[NsdbClusterConfig]]
   */
-trait ProductionCluster extends NSDBAkkaCluster with NSDBAActors with NsdbConfig
+trait ProductionCluster extends NSDBActors with NsdbClusterConfig

@@ -306,7 +306,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       if (publish)
         publishers.foreach {
           case (_, publisherActor) =>
-            log.error(s"publishing metric $metric to actor $publisherActor size ${publishers.size}")
             publisherActor ! PublishRecord(db, namespace, metric, bit, schema)
         }
 
