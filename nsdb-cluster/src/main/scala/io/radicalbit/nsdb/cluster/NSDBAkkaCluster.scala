@@ -31,16 +31,6 @@ import io.radicalbit.nsdb.common.NsdbConfig
 import scala.concurrent.ExecutionContextExecutor
 
 /**
-  * Creates the [[ActorSystem]] based on a configuration provided by the concrete implementation
-  */
-trait NSDBAkkaCluster { this: NsdbConfig with NSDBActors =>
-
-  implicit val system: ActorSystem = ActorSystem("nsdb", config)
-
-  initTopLevelActors()
-}
-
-/**
   * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
   */
 trait NSDBActors {
@@ -85,6 +75,6 @@ trait NSDBActors {
 }
 
 /**
-  * Simply mix in [[NSDBAkkaCluster]] with [[NSDBActors]]
+  * Simply mix in [[NSDBActors]] with [[NsdbClusterConfig]]
   */
-trait ProductionCluster extends NSDBAkkaCluster with NSDBActors with NsdbClusterConfig
+trait ProductionCluster extends NSDBActors with NsdbClusterConfig
