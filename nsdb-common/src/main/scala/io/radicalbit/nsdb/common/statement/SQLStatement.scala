@@ -153,7 +153,7 @@ sealed trait TimestampValue {
 }
 
 case class AbsoluteTimestampValue(override val timestamp: Long) extends TimestampValue
-case class RelativeTimestampValue(override val timestamp: Long, quantity: Long, unitMeasure: String)
+case class RelativeTimestampValue(override val timestamp: Long, operator: String, quantity: Long, unitMeasure: String)
     extends TimestampValue
 
 // Timestamp
