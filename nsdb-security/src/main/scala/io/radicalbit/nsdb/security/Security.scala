@@ -30,7 +30,7 @@ trait NsdbSecurity {
 
   def config: Config
 
-  protected def logger: LoggingAdapter
+  def logger: LoggingAdapter
 
   /**
     * configuration key to set if security is enabled or not.
