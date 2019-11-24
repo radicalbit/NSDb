@@ -18,9 +18,10 @@ package io.radicalbit.nsdb.web
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem}
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.RemoteAddress
 import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.ws.{Message, TextMessage, UpgradeToWebSocket}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
@@ -32,11 +33,15 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 import org.json4s.jackson.Serialization.write
 
+import scala.collection.JavaConverters._
+
 trait WsResources {
 
   implicit def formats: Formats
 
   implicit def system: ActorSystem
+
+  def logger: LoggingAdapter
 
   /** Publish refresh period default value , also considered as the min value */
   private val refreshPeriod = system.settings.config.getInt("nsdb.websocket.refresh-period")
@@ -117,14 +122,21 @@ trait WsResources {
       extractClientIP { remoteAddress: RemoteAddress =>
         parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
           case (period, retention) if period >= refreshPeriod =>
-            optionalHeaderValueByName(authProvider.headerName) { header =>
-              handleWebSocketMessages(
+            extractUpgradeToWebSocket { u: UpgradeToWebSocket =>
+              val subProtocols = u.getRequestedProtocols().iterator().asScala.toSeq
+              logger.debug("found sub protocols in ws request {}", subProtocols)
+
+              val header = subProtocols.mkString(" ")
+
+              handleWebSocketMessagesForOptionalProtocol(
                 newStream(remoteAddress.toOption.map(_.getHostAddress).getOrElse("unknown"),
                           period,
                           retention,
                           publisherActor,
-                          header,
-                          authProvider))
+                          Some(header),
+                          authProvider),
+                subProtocols.headOption
+              )
             }
           case (period, _) =>
             complete(

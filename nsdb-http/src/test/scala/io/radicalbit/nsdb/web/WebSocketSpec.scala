@@ -17,7 +17,8 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, Props}
-import akka.http.scaladsl.model.StatusCodes
+import akka.event.LoggingAdapter
+import akka.http.scaladsl.model.{HttpProtocol, StatusCodes}
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
@@ -43,6 +44,8 @@ class FakeReadCoordinatorActor extends Actor {
 }
 
 class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers with WsResources {
+
+  override def logger: LoggingAdapter = system.log
 
   implicit val formats = DefaultFormats
 
@@ -155,10 +158,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
 
     val wsClient = WSProbe()
 
-    val wsHeader = WS("/ws-stream", wsClient.flow).headers.head
-
-    WS("/ws-stream", wsClient.flow)
-      .withHeaders(wsHeader, RawHeader("testHeader", "testHeader")) ~> wsSecureResources ~>
+    WS("/ws-stream", wsClient.flow, Seq("testHeader")) ~> wsSecureResources ~>
       check {
         isWebSocketUpgrade shouldEqual true
 
@@ -217,5 +217,4 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
         response.status shouldBe StatusCodes.BadRequest
       }
   }
-
 }
