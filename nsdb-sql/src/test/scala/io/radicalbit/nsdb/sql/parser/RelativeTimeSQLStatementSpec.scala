@@ -51,7 +51,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now - 10 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 10
-        firstTimestamp.unitMeasure shouldBe "S"
+        firstTimestamp.unitMeasure shouldBe "s"
       }
 
       "parse it successfully relative time in simple where comparison condition" in {
@@ -72,7 +72,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now - 10 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 10
-        firstTimestamp.unitMeasure shouldBe "S"
+        firstTimestamp.unitMeasure shouldBe "s"
       }
 
       "parse it successfully using relative time in complex where condition" in {
@@ -93,12 +93,12 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now + 5 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "+"
         firstTimestamp.quantity shouldBe 5
-        firstTimestamp.unitMeasure shouldBe "S"
+        firstTimestamp.unitMeasure shouldBe "s"
 
         secondTimestamp.timestamp shouldBe now - 8 * days +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 8
-        secondTimestamp.unitMeasure shouldBe "D"
+        secondTimestamp.unitMeasure shouldBe "d"
       }
 
       "parse it successfully using relative time in very complex where condition" in {
@@ -123,17 +123,17 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now + 30 * days +- timestampTolerance
         firstTimestamp.operator shouldBe "+"
         firstTimestamp.quantity shouldBe 30
-        firstTimestamp.unitMeasure shouldBe "D"
+        firstTimestamp.unitMeasure shouldBe "d"
 
         secondTimestamp.timestamp shouldBe now - 2 * hours +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 2
-        secondTimestamp.unitMeasure shouldBe "H"
+        secondTimestamp.unitMeasure shouldBe "h"
 
         thirdTimestamp.timestamp shouldBe now + 4 * minutes +- timestampTolerance
         thirdTimestamp.operator shouldBe "+"
         thirdTimestamp.quantity shouldBe 4
-        thirdTimestamp.unitMeasure shouldBe "M"
+        thirdTimestamp.unitMeasure shouldBe "m"
       }
 
       "parse it successfully using relative time in very complex where condition with brackets" in {
@@ -160,17 +160,17 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now + 30 * days +- timestampTolerance
         firstTimestamp.operator shouldBe "+"
         firstTimestamp.quantity shouldBe 30
-        firstTimestamp.unitMeasure shouldBe "D"
+        firstTimestamp.unitMeasure shouldBe "d"
 
         secondTimestamp.timestamp shouldBe now - 2 * hours +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 2
-        secondTimestamp.unitMeasure shouldBe "H"
+        secondTimestamp.unitMeasure shouldBe "h"
 
         thirdTimestamp.timestamp shouldBe now + 4 * minutes +- timestampTolerance
         thirdTimestamp.operator shouldBe "+"
         thirdTimestamp.quantity shouldBe 4
-        thirdTimestamp.unitMeasure shouldBe "M"
+        thirdTimestamp.unitMeasure shouldBe "m"
       }
 
       "parse it successfully with a relative timestamp range condition" in {
@@ -192,11 +192,11 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now - 2 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 2
-        firstTimestamp.unitMeasure shouldBe "S"
+        firstTimestamp.unitMeasure shouldBe "s"
         secondTimestamp.timestamp shouldBe now + 4 * seconds +- timestampTolerance
         secondTimestamp.operator shouldBe "+"
         secondTimestamp.quantity shouldBe 4
-        secondTimestamp.unitMeasure shouldBe "S"
+        secondTimestamp.unitMeasure shouldBe "s"
       }
 
       "parse it successfully with a relative timestamp range condition with unnecessary brackets" in {
@@ -218,11 +218,11 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now - 2 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 2
-        firstTimestamp.unitMeasure shouldBe "S"
+        firstTimestamp.unitMeasure shouldBe "s"
         secondTimestamp.timestamp shouldBe now + 4 * seconds +- timestampTolerance
         secondTimestamp.operator shouldBe "+"
         secondTimestamp.quantity shouldBe 4
-        secondTimestamp.unitMeasure shouldBe "S"
+        secondTimestamp.unitMeasure shouldBe "s"
       }
 
       "parse it successfully with a mixed relative/absolute timestamp range condition" in {
@@ -242,7 +242,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.timestamp shouldBe now - 2 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 2
-        firstTimestamp.unitMeasure shouldBe "S"
+        firstTimestamp.unitMeasure shouldBe "s"
         expression.value2 shouldBe 5
       }
 

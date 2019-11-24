@@ -119,10 +119,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
-    case "D" => ("D", 24 * 3600 * 1000)
-    case "H" => ("H", 3600 * 1000)
-    case "M" => ("M", 60 * 1000)
-    case "S" => ("S", 1000)
+    case "D" => ("d", 24 * 3600 * 1000)
+    case "H" => ("h", 3600 * 1000)
+    case "M" => ("m", 60 * 1000)
+    case "S" => ("s", 1000)
   }
 
   // def instead val because timestamp should be calculated everytime but there is a problem with
