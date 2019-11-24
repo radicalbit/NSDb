@@ -237,7 +237,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(3000))
+              groupBy = Some(TemporalGroupByAggregation(3000, 3, "s"))
             )
           ))
       }
@@ -253,7 +253,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(60000))
+              groupBy = Some(TemporalGroupByAggregation(60000, 1, "m"))
             )
           ))
       }
@@ -269,7 +269,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
           metric = "people",
           distinct = false,
           fields = ListFields(List(Field("value", Some(CountAggregation)))),
-          groupBy = Some(TemporalGroupByAggregation(86400000)),
+          groupBy = Some(TemporalGroupByAggregation(86400000, 1, "d")),
           limit = Some(LimitOperator(1))
         )))
     }
@@ -294,7 +294,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
             )
           ))
       }
@@ -318,7 +318,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
             )
           ))
       }
@@ -342,7 +342,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(SumAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
             )
           ))
       }

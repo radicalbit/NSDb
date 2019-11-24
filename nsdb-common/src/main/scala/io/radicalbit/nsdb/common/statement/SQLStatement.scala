@@ -147,7 +147,9 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
   */
 case class LimitOperator(value: Int)
 
-// Timestamp
+/**
+  * Timestamp to wrap timestamp value for tracking relative timestamp
+  */
 sealed trait TimestampValue {
   def timestamp: Long
 }
@@ -155,8 +157,6 @@ sealed trait TimestampValue {
 case class AbsoluteTimestampValue(override val timestamp: Long) extends TimestampValue
 case class RelativeTimestampValue(override val timestamp: Long, operator: String, quantity: Long, unitMeasure: String)
     extends TimestampValue
-
-// Timestamp
 
 sealed trait GroupByAggregation {
   def dimension: String
@@ -171,8 +171,10 @@ case class SimpleGroupByAggregation(dimension: String) extends GroupByAggregatio
 /**
   * Temporal aggregation.
   * @param interval The time aggregation interval in Milliseconds.
+  * @param quantity The quantity for unitMeasure
+  * @param unitMeasure identifier for time measure (s, m, h, d)
   */
-case class TemporalGroupByAggregation(interval: Long) extends GroupByAggregation {
+case class TemporalGroupByAggregation(interval: Long, quantity: Long, unitMeasure: String) extends GroupByAggregation {
   override val dimension: String = "timestamp"
 }
 

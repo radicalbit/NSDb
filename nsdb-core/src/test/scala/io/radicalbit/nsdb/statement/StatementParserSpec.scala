@@ -1022,7 +1022,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(CountAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
             limit = None
           ),
           schema
@@ -1048,7 +1048,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
             limit = None
           ),
           schema
@@ -1074,7 +1074,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(MinAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
             limit = None
           ),
           schema
@@ -1097,7 +1097,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(MaxAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
             limit = None
           ),
           schema

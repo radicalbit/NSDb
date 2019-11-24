@@ -107,8 +107,9 @@ object StatementParser {
               if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
             Left(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP)
           // Match temporal count aggregation
-          case (false, Success(Seq(Field(fieldName, Some(aggregation)))), Some(TemporalGroupByAggregation(interval)))
-              if fieldName == "value" || fieldName == "*" =>
+          case (false,
+                Success(Seq(Field(fieldName, Some(aggregation)))),
+                Some(TemporalGroupByAggregation(interval, _, _))) if fieldName == "value" || fieldName == "*" =>
             Right(
               ParsedTemporalAggregatedQuery(
                 statement.namespace,
