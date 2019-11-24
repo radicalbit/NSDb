@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.25"
+    lazy val version   = "2.5.26"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
@@ -76,7 +76,7 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.1.4"
+    lazy val version   = "10.1.10"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
