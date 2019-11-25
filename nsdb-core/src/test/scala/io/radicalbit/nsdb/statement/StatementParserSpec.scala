@@ -1022,7 +1022,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(CountAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1032,7 +1032,33 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
-              1,
+              1000,
+              InternalCountTemporalAggregation,
+              None
+            ))
+        )
+      }
+
+      "parse it when count aggregation is provided with different interval" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(CountAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(86400000, 1, "d")),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              86400000,
               InternalCountTemporalAggregation,
               None
             ))
@@ -1048,7 +1074,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1058,7 +1084,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
-              1,
+              1000,
               InternalSumTemporalAggregation,
               None
             ))
@@ -1074,7 +1100,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(MinAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1084,7 +1110,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
-              1,
+              1000,
               InternalMinTemporalAggregation,
               None
             ))
@@ -1097,7 +1123,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(MaxAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1, 1, "ms")),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1106,7 +1132,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             "registry",
             "people",
             new MatchAllDocsQuery(),
-            1,
+            1000,
             InternalMaxTemporalAggregation,
             None
           ))
