@@ -43,7 +43,6 @@ object ExpressionParser {
       case Some(EqualityExpression(dimension, value)) =>
         value match {
           case RelativeTimestampValue(timestamp, _, _, _) => equalityExpression(schema, dimension, timestamp)
-          case AbsoluteTimestampValue(timestamp)          => equalityExpression(schema, dimension, timestamp)
           case _                                          => equalityExpression(schema, dimension, value)
         }
 
@@ -53,15 +52,12 @@ object ExpressionParser {
         value match {
           case RelativeTimestampValue(timestamp, _, _, _) =>
             comparisonExpression(schema, dimension, operator, timestamp)
-          case AbsoluteTimestampValue(timestamp) => comparisonExpression(schema, dimension, operator, timestamp)
           case _                                 => comparisonExpression(schema, dimension, operator, value)
         }
 
       case Some(RangeExpression(dimension, p1, p2)) =>
         (p1, p2) match {
           case (RelativeTimestampValue(timestamp1, _, _, _), RelativeTimestampValue(timestamp2, _, _, _)) =>
-            rangeExpression(schema, dimension, timestamp1, timestamp2)
-          case (AbsoluteTimestampValue(timestamp1), AbsoluteTimestampValue(timestamp2)) =>
             rangeExpression(schema, dimension, timestamp1, timestamp2)
           case _ => rangeExpression(schema, dimension, p1, p2)
         }

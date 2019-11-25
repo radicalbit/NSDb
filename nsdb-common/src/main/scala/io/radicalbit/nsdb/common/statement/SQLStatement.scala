@@ -153,8 +153,16 @@ case class LimitOperator(value: Int)
 sealed trait TimestampValue {
   def timestamp: Long
 }
+// consider if have to change all the timestamp (now are Long) to AbsoluteTimestampValue
+// case class AbsoluteTimestampValue(override val timestamp: Long) extends TimestampValue
 
-case class AbsoluteTimestampValue(override val timestamp: Long) extends TimestampValue
+/**
+  * Class that represent a relative timestamp.
+  * @param timestamp the absolute timestamp
+  * @param operator the operator of the now (plus or minus)
+  * @param quantity the quantity of the relative time
+  * @param unitMeasure the unit measure of the relative time (s, m, h, d)
+  */
 case class RelativeTimestampValue(override val timestamp: Long, operator: String, quantity: Long, unitMeasure: String)
     extends TimestampValue
 

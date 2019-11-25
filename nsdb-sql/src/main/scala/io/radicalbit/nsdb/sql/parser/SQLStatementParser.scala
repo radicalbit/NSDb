@@ -234,8 +234,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   lazy val temporalGroupBy
     : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (intValue ?) ~ timeMeasure) ^^ {
-    case unit ~ conversion =>
-      TemporalGroupByAggregation(unit.getOrElse(1) * conversion._2, unit.getOrElse(1).toLong, conversion._1)
+    case unit ~ ((timeMeasure, quantity)) =>
+      TemporalGroupByAggregation(unit.getOrElse(1) * quantity, unit.getOrElse(1).toLong, timeMeasure)
   }
 
   lazy val order: PackratParser[OrderOperator] = (Order ~> dimension ~ (Desc ?)) ^^ {
