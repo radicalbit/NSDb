@@ -66,7 +66,8 @@ case class TupledLogicalExpression(expression1: Expression, operator: TupledLogi
   * @param comparison comparison operator (e.g. >, >=, <, <=).
   * @param value the value to compare the dimension with.
   */
-case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: T) extends Expression
+case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: ComparisonValue[T])
+    extends Expression
 
 /**
   * <b>Inclusive</b> range operation between a lower and a upper boundary.
@@ -74,14 +75,15 @@ case class ComparisonExpression[T](dimension: String, comparison: ComparisonOper
   * @param value1 lower boundary.
   * @param value2 upper boundary.
   */
-case class RangeExpression[T](dimension: String, value1: T, value2: T) extends Expression
+case class RangeExpression[T](dimension: String, value1: ComparisonValue[T], value2: ComparisonValue[T])
+    extends Expression
 
 /**
   * Simple equality expression e.g. dimension = value.
   * @param dimension dimension name.
   * @param value value to check the equality with.
   */
-case class EqualityExpression[T](dimension: String, value: T) extends Expression
+case class EqualityExpression[T](dimension: String, value: ComparisonValue[T]) extends Expression
 
 /**
   * Simple like expression for varchar dimensions e.g. dimension like value.
@@ -150,21 +152,25 @@ case class LimitOperator(value: Int)
 /**
   * Timestamp to wrap timestamp value for tracking relative timestamp
   */
-sealed trait TimestampValue {
-  def timestamp: Long
+sealed trait ComparisonValue[T] {
+  def value: T
 }
-// consider if have to change all the timestamp (now are Long) to AbsoluteTimestampValue
-// case class AbsoluteTimestampValue(override val timestamp: Long) extends TimestampValue
 
 /**
-  * Class that represent a relative timestamp.
-  * @param timestamp the absolute timestamp
+  * Class that represent an absolute comparison value
+  * @param value the absolute value
+  */
+case class AbsoluteComparisonValue[T](override val value: T) extends ComparisonValue[T]
+
+/**
+  * Class that represent a relative comparison value.
+  * @param value the absolute value
   * @param operator the operator of the now (plus or minus)
   * @param quantity the quantity of the relative time
   * @param unitMeasure the unit measure of the relative time (s, m, h, d)
   */
-case class RelativeTimestampValue(override val timestamp: Long, operator: String, quantity: Long, unitMeasure: String)
-    extends TimestampValue
+case class RelativeComparisonValue[T](override val value: T, operator: String, quantity: T, unitMeasure: String)
+    extends ComparisonValue[T]
 
 sealed trait GroupByAggregation {
   def dimension: String
@@ -228,7 +234,7 @@ case class SelectSQLStatement(override val db: String,
     * @return the enriched instance.
     */
   def enrichWithTimeRange(dimension: String, from: Long, to: Long): SelectSQLStatement = {
-    val tsRangeExpression = RangeExpression(dimension, from, to)
+    val tsRangeExpression = RangeExpression(dimension, AbsoluteComparisonValue(from), AbsoluteComparisonValue(to))
     val newCondition = this.condition match {
       case Some(cond) => Condition(TupledLogicalExpression(tsRangeExpression, AndOperator, cond.expression))
       case None       => Condition(tsRangeExpression)
@@ -243,9 +249,9 @@ case class SelectSQLStatement(override val db: String,
     * @param operator the operator.
     * @return the parsed [[Expression]].
     */
-  private def filterToExpression(dimension: String,
-                                 value: Option[JSerializable],
-                                 operator: String): Option[Expression] = {
+  private def filterToExpression[T](dimension: String,
+                                    value: Option[AbsoluteComparisonValue[T]],
+                                    operator: String): Option[Expression] = {
     operator.toUpperCase match {
       case ">"         => Some(ComparisonExpression(dimension, GreaterThanOperator, value.get))
       case ">="        => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.get))
@@ -267,7 +273,8 @@ case class SelectSQLStatement(override val db: String,
     * @return a new instance of [[SelectSQLStatement]] enriched with the filter provided.
     */
   def addConditions(filters: Seq[(String, Option[JSerializable], String)]): SelectSQLStatement = {
-    val expressions: Seq[Expression] = filters.flatMap(f => filterToExpression(f._1, f._2, f._3))
+    val expressions: Seq[Expression] =
+      filters.flatMap(f => filterToExpression(f._1, f._2.map(AbsoluteComparisonValue(_)), f._3))
     val filtersExpression =
       expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
     val newCondition: Condition = this.condition match {

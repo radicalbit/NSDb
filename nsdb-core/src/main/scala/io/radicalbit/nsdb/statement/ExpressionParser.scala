@@ -42,24 +42,31 @@ object ExpressionParser {
 
       case Some(EqualityExpression(dimension, value)) =>
         value match {
-          case RelativeTimestampValue(timestamp, _, _, _) => equalityExpression(schema, dimension, timestamp)
-          case _                                          => equalityExpression(schema, dimension, value)
+          case AbsoluteComparisonValue(value)          => equalityExpression(schema, dimension, value)
+          case RelativeComparisonValue(value, _, _, _) => equalityExpression(schema, dimension, value)
+          // case _                                          => equalityExpression(schema, dimension, value)
         }
 
       case Some(LikeExpression(dimension, value)) => likeExpression(schema, dimension, value)
 
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value)) =>
         value match {
-          case RelativeTimestampValue(timestamp, _, _, _) =>
-            comparisonExpression(schema, dimension, operator, timestamp)
-          case _                                 => comparisonExpression(schema, dimension, operator, value)
+          case AbsoluteComparisonValue(value) => comparisonExpression(schema, dimension, operator, value)
+          case RelativeComparisonValue(value, _, _, _) =>
+            comparisonExpression(schema, dimension, operator, value)
+          // case _ => comparisonExpression(schema, dimension, operator, value)
         }
 
       case Some(RangeExpression(dimension, p1, p2)) =>
         (p1, p2) match {
-          case (RelativeTimestampValue(timestamp1, _, _, _), RelativeTimestampValue(timestamp2, _, _, _)) =>
-            rangeExpression(schema, dimension, timestamp1, timestamp2)
-          case _ => rangeExpression(schema, dimension, p1, p2)
+          case (RelativeComparisonValue(value1, _, _, _), RelativeComparisonValue(value2, _, _, _)) =>
+            rangeExpression(schema, dimension, value1, value2)
+          case (RelativeComparisonValue(value1, _, _, _), AbsoluteComparisonValue(value2)) =>
+            rangeExpression(schema, dimension, value1, value2)
+          case (AbsoluteComparisonValue(value1), RelativeComparisonValue(value2, _, _, _)) =>
+            rangeExpression(schema, dimension, value1, value2)
+          case (AbsoluteComparisonValue(value1), AbsoluteComparisonValue(value2)) =>
+            rangeExpression(schema, dimension, value1, value2)
         }
 
       case Some(UnaryLogicalExpression(expression, _)) => unaryLogicalExpression(schema, expression)
