@@ -135,8 +135,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
       RelativeComparisonValue(System.currentTimeMillis() - v * timeInterval, "-", v, unitMeasure)
   }
 
-  private val comparisonTerm =
-    delta | floatValue.map(AbsoluteComparisonValue(_)) | longValue.map(AbsoluteComparisonValue(_))
+  private val comparisonTerm = delta | floatValue.map(AbsoluteComparisonValue(_)) | longValue.map(
+    AbsoluteComparisonValue(_))
 
   private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
     case _ ~ f ~ fs =>
@@ -160,7 +160,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
-    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression | bracketedExpression
+    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpressionRule | equalityExpression | likeExpression | bracketedExpression
 
   private lazy val bracketedExpression: PackratParser[Expression] = OpenRoundBracket ~> expression <~ CloseRoundBracket
 
@@ -200,10 +200,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
       case dim ~ None ~ _    => NullableExpression(dim)
     }
 
-  lazy val comparisonExpression =
-    comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
+  lazy val comparisonExpressionRule = comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
 
-  private def comparisonExpression(operator: String, comparisonOperator: ComparisonOperator) =
+  private def comparisonExpression(operator: String,
+                                   comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[AnyVal]] =
     (dimension <~ operator) ~ comparisonTerm ^^ {
       case d ~ v =>
         ComparisonExpression(d, comparisonOperator, v)

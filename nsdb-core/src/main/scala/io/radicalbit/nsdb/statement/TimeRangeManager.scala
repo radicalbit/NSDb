@@ -31,16 +31,17 @@ object TimeRangeManager {
 
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {
-      case Some(EqualityExpression("timestamp", value: Long)) => List(Interval.point(value))
-      case Some(ComparisonExpression("timestamp", operator: ComparisonOperator, value: Long)) =>
+      case Some(EqualityExpression("timestamp", ComparisonValue(value: Long))) => List(Interval.point(value))
+      case Some(ComparisonExpression("timestamp", operator: ComparisonOperator, ComparisonValue(value: Long))) =>
         operator match {
           case GreaterThanOperator      => List(Interval.fromBounds(Open(value), Unbound()))
           case GreaterOrEqualToOperator => List(Interval.fromBounds(Closed(value), Unbound()))
           case LessThanOperator         => List(Interval.openUpper(0, value))
           case LessOrEqualToOperator    => List(Interval.closed(0, value))
         }
-      case Some(RangeExpression("timestamp", v1: Long, v2: Long)) => List(Interval.closed(v1, v2))
-      case Some(UnaryLogicalExpression(expression, _))            => extractTimeRange(Some(expression)).flatMap(i => ~i)
+      case Some(RangeExpression("timestamp", ComparisonValue(v1: Long), ComparisonValue(v2: Long))) =>
+        List(Interval.closed(v1, v2))
+      case Some(UnaryLogicalExpression(expression, _)) => extractTimeRange(Some(expression)).flatMap(i => ~i)
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
         if (intervals.isEmpty)

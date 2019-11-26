@@ -57,7 +57,7 @@ class FakeReadCoordinator extends Actor {
         Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
         case Right(_) =>
           val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
-          sender ! SelectStatementExecuted(statement, bitsParametrized(e.value1, e.value2))
+          sender ! SelectStatementExecuted(statement, bitsParametrized(e.value1.value, e.value2.value))
         case Left(_) => sender ! SelectStatementFailed(statement, "statement not valid")
       }
     case ExecuteStatement(statement) =>

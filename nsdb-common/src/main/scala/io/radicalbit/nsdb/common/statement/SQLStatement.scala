@@ -152,8 +152,12 @@ case class LimitOperator(value: Int)
 /**
   * Timestamp to wrap timestamp value for tracking relative timestamp
   */
-sealed trait ComparisonValue[T] {
+sealed trait ComparisonValue[+T] {
   def value: T
+}
+
+object ComparisonValue {
+  def unapply[T](cv: ComparisonValue[T]): Option[T] = Some(cv.value)
 }
 
 /**
@@ -250,14 +254,16 @@ case class SelectSQLStatement(override val db: String,
     * @return the parsed [[Expression]].
     */
   private def filterToExpression[T](dimension: String,
-                                    value: Option[AbsoluteComparisonValue[T]],
+                                    value: Option[JSerializable],
                                     operator: String): Option[Expression] = {
     operator.toUpperCase match {
-      case ">"         => Some(ComparisonExpression(dimension, GreaterThanOperator, value.get))
-      case ">="        => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.get))
-      case "="         => Some(EqualityExpression(dimension, value.get))
-      case "<="        => Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.get))
-      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.get))
+      case ">" => Some(ComparisonExpression(dimension, GreaterThanOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case ">=" =>
+        Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case "=" => Some(EqualityExpression(dimension, value.map(AbsoluteComparisonValue(_)).get))
+      case "<=" =>
+        Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.map(AbsoluteComparisonValue(_)).get))
       case "LIKE"      => Some(LikeExpression(dimension, value.get.asInstanceOf[String]))
       case "ISNULL"    => Some(NullableExpression(dimension))
       case "ISNOTNULL" => Some(UnaryLogicalExpression(NullableExpression(dimension), NotOperator))
@@ -274,7 +280,7 @@ case class SelectSQLStatement(override val db: String,
     */
   def addConditions(filters: Seq[(String, Option[JSerializable], String)]): SelectSQLStatement = {
     val expressions: Seq[Expression] =
-      filters.flatMap(f => filterToExpression(f._1, f._2.map(AbsoluteComparisonValue(_)), f._3))
+      filters.flatMap(f => filterToExpression(f._1, f._2, f._3))
     val filtersExpression =
       expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
     val newCondition: Condition = this.condition match {

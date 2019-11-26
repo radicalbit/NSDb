@@ -23,7 +23,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{Condition, DeleteSQLStatement, RangeExpression}
+import io.radicalbit.nsdb.common.statement.{AbsoluteComparisonValue, Condition, DeleteSQLStatement, RangeExpression}
 import io.radicalbit.nsdb.model.Location
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -78,7 +78,10 @@ class CommitLogCoordinatorSpec
     }
     "write a delete by query" in within(5.seconds) {
       val deleteStatement =
-        DeleteSQLStatement("db2", "namespace2", "metric2", Condition(RangeExpression("age", 1L, 2L)))
+        DeleteSQLStatement("db2",
+                           "namespace2",
+                           "metric2",
+                           Condition(RangeExpression("age", AbsoluteComparisonValue(1L), AbsoluteComparisonValue(2L))))
       awaitAssert {
         commitLogCoordinatorActor ! WriteToCommitLog("db2",
                                                      "namespace2",
