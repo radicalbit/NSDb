@@ -50,6 +50,8 @@ case class InsertBody(@(ApiModelProperty @field)(value = "database name") db: St
 trait DataApi {
 
   import io.radicalbit.nsdb.web.Formats._
+  import io.radicalbit.nsdb.web.validation.ValidationDirective._
+  import io.radicalbit.nsdb.web.validation.Validators._
 
   def writeCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider
@@ -76,20 +78,22 @@ trait DataApi {
       post {
         entity(as[InsertBody]) { insertBody =>
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-            authenticationProvider.authorizeMetric(ent = insertBody, header = header, writePermission = true) {
-              onComplete(
-                writeCoordinator ? MapInput(insertBody.bit.timestamp,
-                                            insertBody.db,
-                                            insertBody.namespace,
-                                            insertBody.metric,
-                                            insertBody.bit)) {
-                case Success(_: InputMapped) =>
-                  complete("OK")
-                case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
-                  complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
-                case Success(_) =>
-                  complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+            validateModel(insertBody).apply { validatedInsertBody =>
+              authenticationProvider.authorizeMetric(ent = validatedInsertBody, header = header, writePermission = true) {
+                onComplete(
+                  writeCoordinator ? MapInput(validatedInsertBody.bit.timestamp,
+                                              validatedInsertBody.db,
+                                              validatedInsertBody.namespace,
+                                              validatedInsertBody.metric,
+                                              validatedInsertBody.bit)) {
+                  case Success(_: InputMapped) =>
+                    complete("OK")
+                  case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
+                    complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
+                  case Success(_) =>
+                    complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                }
               }
             }
           }
