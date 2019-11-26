@@ -129,8 +129,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val upperBoundType  = readByteBuffer.read
         val upperBoundValue = argument(upperBoundType)
         clazz
-          .getConstructor(classOf[String], classOf[AnyRef], classOf[AnyRef])
-          .newInstance(dim, lowerBoundValue, upperBoundValue)
+          .getConstructor(classOf[String], classOf[ComparisonValue[_]], classOf[ComparisonValue[_]])
+          .newInstance(dim, AbsoluteComparisonValue(lowerBoundValue), AbsoluteComparisonValue(upperBoundValue))
 
       case `comparisonExpressionClassName` =>
         val dim       = readByteBuffer.read
@@ -140,16 +140,16 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[ComparisonOperator], classOf[AnyRef])
-          .newInstance(dim, operator, value)
+          .getConstructor(classOf[String], classOf[ComparisonOperator], classOf[ComparisonValue[_]])
+          .newInstance(dim, operator, AbsoluteComparisonValue(value))
 
       case `equalityExpressionClassName` =>
         val dim       = readByteBuffer.read
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[AnyRef])
-          .newInstance(dim, value)
+          .getConstructor(classOf[String], classOf[ComparisonValue[_]])
+          .newInstance(dim, AbsoluteComparisonValue(value))
 
       case `likeExpressionClassName` =>
         val dim       = readByteBuffer.read
@@ -203,18 +203,18 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     writeBuffer.write(clazzName)
 
     expression match {
-      case ComparisonExpression(dimension, comparisonOperator, value) =>
+      case ComparisonExpression(dimension, comparisonOperator, ComparisonValue(value)) =>
         writeBuffer.write(dimension)
         writeBuffer.write(comparisonOperator.getClass.getCanonicalName)
         writeBuffer.write(value.getClass.getCanonicalName)
         writeBuffer.write(value.toString)
-      case RangeExpression(dimension, value1, value2) =>
+      case RangeExpression(dimension, ComparisonValue(value1), ComparisonValue(value2)) =>
         writeBuffer.write(dimension)
         writeBuffer.write(value1.getClass.getCanonicalName)
         writeBuffer.write(value1.toString)
         writeBuffer.write(value2.getClass.getCanonicalName)
         writeBuffer.write(value2.toString)
-      case EqualityExpression(dimension, value) =>
+      case EqualityExpression(dimension, ComparisonValue(value)) =>
         writeBuffer.write(dimension)
         writeBuffer.write(value.getClass.getCanonicalName)
         writeBuffer.write(value.toString)
