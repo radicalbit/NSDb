@@ -19,6 +19,9 @@ package io.radicalbit.nsdb.web.validation
 import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 
+/**
+  * Akka Http Directive for case class fields validation
+  */
 object ValidationDirective {
 
   def validateModel[T](model: T)(implicit validator: Validator[T]): Directive1[T] = {

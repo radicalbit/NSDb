@@ -19,11 +19,15 @@ package io.radicalbit.nsdb.web.validation
 import io.radicalbit.nsdb.sql.parser.RegexNSDb
 import io.radicalbit.nsdb.web.routes.InsertBody
 
+/**
+  * Collection of type class instances of [[Validator]]
+  */
 object Validators extends RegexNSDb {
 
-  implicit val insertBodyValidator: Validator[InsertBody] = new Validator[InsertBody] {
+  import ValidatorRegexHelpers._
 
-    private def metricRule(metricName: String): Boolean = !metricName.matches(metric.regex)
+  implicit val insertBodyValidator: Validator[InsertBody] = new Validator[InsertBody] {
+    private def metricRule(metricName: String): Boolean = !metricName.evaluateAgainstRegex(metric)
 
     def apply(insertBody: InsertBody): Seq[FieldErrorInfo] = {
       val metricErrorOpt =

@@ -16,6 +16,10 @@
 
 package io.radicalbit.nsdb.web.validation
 
+/**
+  * The type class for field validation
+  * @tparam T
+  */
 trait Validator[T] extends (T => Seq[FieldErrorInfo]) {
 
   def validationStage(rule: Boolean, fieldName: String, errorText: String): Option[FieldErrorInfo] =

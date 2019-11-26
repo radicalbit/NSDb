@@ -16,6 +16,9 @@
 
 package io.radicalbit.nsdb.sql.parser
 
+/**
+  * Collection of regular expressions used in NSDb
+  */
 trait RegexNSDb {
   val metric = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
 }

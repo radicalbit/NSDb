@@ -88,7 +88,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit val InsertBodyFormat = jsonFormat4(InsertBody.apply)
 
-  implicit val validatedFieldFormat = jsonFormat2(FieldErrorInfo.apply)
+  implicit val FieldErrorInfoFormat = jsonFormat2(FieldErrorInfo.apply)
 
 }
 

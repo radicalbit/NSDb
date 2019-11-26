@@ -16,4 +16,9 @@
 
 package io.radicalbit.nsdb.web.validation
 
+/**
+  * Information about validation field error
+  * @param name the name of the field
+  * @param error message explaining the error
+  */
 final case class FieldErrorInfo(name: String, error: String)

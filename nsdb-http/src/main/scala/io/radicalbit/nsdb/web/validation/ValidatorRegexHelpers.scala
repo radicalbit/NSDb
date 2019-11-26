@@ -16,10 +16,13 @@
 
 package io.radicalbit.nsdb.web.validation
 
-import akka.http.scaladsl.server.Rejection
+import scala.util.matching.Regex
 
 /**
-  * Custom Rejection for validation field error
-  * @param invalidFields list of [[FieldErrorInfo]] occurred during the validation
+  * Implicit class utilities for regular expression evaluation
   */
-final case class ModelValidationRejection(invalidFields: Seq[FieldErrorInfo]) extends Rejection
+object ValidatorRegexHelpers {
+  implicit class EvaluateStringAgainstRegex(s: String) {
+    def evaluateAgainstRegex(regex: Regex): Boolean = s.matches(regex.regex)
+  }
+}

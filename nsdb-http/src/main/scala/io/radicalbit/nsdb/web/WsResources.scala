@@ -53,7 +53,7 @@ trait WsResources {
 
   /**
     * Akka stream Flow used to define the webSocket behaviour.
-    * @param clientAddress the client addess that opened the connection (for debugging and monitoring purposes).
+    * @param clientAddress the client address that opened the connection (for debugging and monitoring purposes).
     * @param publishInterval interval of data publishing operation.
     * @param retentionSize size of the buffer used to retain events in case of no subscribers.
     * @param publisherActor the global [[io.radicalbit.nsdb.actors.PublisherActor]].

@@ -77,8 +77,8 @@ trait DataApi {
     pathPrefix("data") {
       post {
         entity(as[InsertBody]) { insertBody =>
-          validateModel(insertBody).apply { validatedInsertBody =>
-            optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+          optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+            validateModel(insertBody).apply { validatedInsertBody =>
               authenticationProvider.authorizeMetric(ent = validatedInsertBody, header = header, writePermission = true) {
                 onComplete(
                   writeCoordinator ? MapInput(validatedInsertBody.bit.timestamp,
