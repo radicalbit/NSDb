@@ -17,9 +17,11 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, ActorRef, Props}
+import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.headers.RawHeader
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.Directives.complete
+import akka.http.scaladsl.server.{RejectionHandler, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -30,7 +32,9 @@ import io.radicalbit.nsdb.web.DataApiTest.FakeWriteCoordinator
 import io.radicalbit.nsdb.web.Formats._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.{DataApi, InsertBody}
+import io.radicalbit.nsdb.web.validation.{FieldErrorInfo, ModelValidationRejection}
 import org.json4s._
+import org.json4s.jackson.Serialization.write
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -43,7 +47,21 @@ object DataApiTest {
   }
 }
 
-class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
+trait MyRejectionHandler {
+  import org.json4s.jackson.Serialization.write
+  implicit val formats = DefaultFormats
+
+  implicit def myRejectionHandler: RejectionHandler =
+    RejectionHandler
+      .newBuilder()
+      .handle {
+        case ModelValidationRejection(data) =>
+          complete(HttpResponse(BadRequest, entity = write(data)))
+      }
+      .result()
+}
+
+class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with MyRejectionHandler {
 
   val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
 
@@ -88,6 +106,15 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
       status shouldBe OK
       val entity = entityAs[String]
       entity shouldBe "OK"
+    }
+  }
+
+  "DataApi" should "validate the InsertBody" in {
+    val b = InsertBody("db", "namespace", "ghost-metric", Bit(0, 1, Map.empty, Map.empty))
+    Post("/data", b) ~> testRoutes ~> check {
+      status shouldBe BadRequest
+      val entity = entityAs[String]
+      entity shouldBe write(Seq(FieldErrorInfo("metric", "Field metric must contain only alphanumeric chars")))
     }
   }
 

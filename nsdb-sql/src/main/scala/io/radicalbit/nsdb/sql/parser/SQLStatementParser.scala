@@ -44,7 +44,7 @@ import scala.util.parsing.input.CharSequenceReader
   *   timeMeasure := "D" | "H" | "M" | "S"
   * }}}
   */
-final class SQLStatementParser extends RegexParsers with PackratParsers {
+final class SQLStatementParser extends RegexParsers with PackratParsers with RegexNSDb {
 
   implicit class InsensitiveString(str: String) {
     def ignoreCase: PackratParser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
@@ -109,7 +109,6 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val aggField = ((sum | min | max | count) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ { e =>
     Field(e._2, Some(e._1))
   }
-  private val metric    = """(^[a-zA-Z][a-zA-Z0-9_]*)""".r
   private val dimension = digits
   private val stringValue = (digitsWithDashes | (("'" ?) ~> (digitsWithDashes +) <~ ("'" ?))) ^^ {
     case string: String        => string

@@ -28,6 +28,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
+import io.radicalbit.nsdb.web.validation.FieldErrorInfo
 import org.json4s.DefaultFormats
 import spray.json._
 
@@ -86,6 +87,8 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
   implicit val BitFormat = jsonFormat4(Bit.apply)
 
   implicit val InsertBodyFormat = jsonFormat4(InsertBody.apply)
+
+  implicit val validatedFieldFormat = jsonFormat2(FieldErrorInfo.apply)
 
 }
 
