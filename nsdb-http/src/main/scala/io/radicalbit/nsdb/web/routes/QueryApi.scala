@@ -27,14 +27,16 @@ import akka.util.Timeout
 import akka.pattern.ask
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{Aggregation, CountAggregation, MaxAggregation, MinAggregation, SQLStatement, SelectSQLStatement, SumAggregation}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.web.CustomSerializers
 import io.swagger.annotations._
-import org.json4s.DefaultFormats
+import org.json4s
+import org.json4s.{CustomSerializer, DefaultFormats, Formats, JNull, JString}
 import org.json4s.jackson.Serialization.write
 
 import scala.annotation.meta.field
@@ -113,7 +115,9 @@ trait QueryApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: DefaultFormats
+  implicit val newFormats: Formats = DefaultFormats ++ CustomSerializers.customSerializers
+
+  // implicit val formats: DefaultFormats = DefaultFormats
 
   @ApiModel(description = "Query Response")
   case class QueryResponse(

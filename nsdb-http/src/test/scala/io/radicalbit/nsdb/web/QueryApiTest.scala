@@ -56,7 +56,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
     override def readCoordinator: ActorRef        = readCoordinatorActor
-    override implicit val formats: DefaultFormats = DefaultFormats
+    implicit val formats: DefaultFormats = DefaultFormats
     override implicit val timeout: Timeout        = 5 seconds
 
   }
@@ -66,7 +66,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
 
     override def readCoordinator: ActorRef = readCoordinatorActor
 
-    override implicit val formats: DefaultFormats = DefaultFormats
+    implicit val formats: DefaultFormats = DefaultFormats
     override implicit val timeout: Timeout        = 5 seconds
   }
 
@@ -281,15 +281,15 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "QueryApi called with optional parameter parsed = true" should
-    "correctly query the db with a single filter over Long and return the parsed query" in {
+    "correctly query the db with a simple count aggregation query and return the parsed query" in {
     val q =
       QueryBody("db",
                 "namespace",
                 "metric",
-                "select * from metric limit 1",
+                "select count(*) from metric limit 1",
                 None,
                 None,
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
+                None,
                 Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
@@ -325,12 +325,11 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |    "namespace" : "namespace",
           |    "metric" : "metric",
           |    "distinct" : false,
-          |    "fields" : { },
-          |    "condition" : {
-          |      "expression" : {
-          |        "dimension" : "value",
-          |        "value" : 1
-          |      }
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
           |    },
           |    "limit" : {
           |      "value" : 1
