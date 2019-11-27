@@ -40,32 +40,12 @@ object ExpressionParser {
     val q = exp match {
       case Some(NullableExpression(dimension)) => nullableExpression(schema, dimension)
 
-      case Some(EqualityExpression(dimension, value)) =>
-        value match {
-          case AbsoluteComparisonValue(value)          => equalityExpression(schema, dimension, value)
-          case RelativeComparisonValue(value, _, _, _) => equalityExpression(schema, dimension, value)
-        }
-
-      case Some(LikeExpression(dimension, value)) => likeExpression(schema, dimension, value)
-
-      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, value)) =>
-        value match {
-          case AbsoluteComparisonValue(value) => comparisonExpression(schema, dimension, operator, value)
-          case RelativeComparisonValue(value, _, _, _) =>
-            comparisonExpression(schema, dimension, operator, value)
-        }
-
-      case Some(RangeExpression(dimension, p1, p2)) =>
-        (p1, p2) match {
-          case (RelativeComparisonValue(value1, _, _, _), RelativeComparisonValue(value2, _, _, _)) =>
-            rangeExpression(schema, dimension, value1, value2)
-          case (RelativeComparisonValue(value1, _, _, _), AbsoluteComparisonValue(value2)) =>
-            rangeExpression(schema, dimension, value1, value2)
-          case (AbsoluteComparisonValue(value1), RelativeComparisonValue(value2, _, _, _)) =>
-            rangeExpression(schema, dimension, value1, value2)
-          case (AbsoluteComparisonValue(value1), AbsoluteComparisonValue(value2)) =>
-            rangeExpression(schema, dimension, value1, value2)
-        }
+      case Some(EqualityExpression(dimension, ComparisonValue(value))) => equalityExpression(schema, dimension, value)
+      case Some(LikeExpression(dimension, value))                      => likeExpression(schema, dimension, value)
+      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, ComparisonValue(value))) =>
+        comparisonExpression(schema, dimension, operator, value)
+      case Some(RangeExpression(dimension, ComparisonValue(value1), ComparisonValue(value2))) =>
+        rangeExpression(schema, dimension, value1, value2)
 
       case Some(UnaryLogicalExpression(expression, _)) => unaryLogicalExpression(schema, expression)
 
