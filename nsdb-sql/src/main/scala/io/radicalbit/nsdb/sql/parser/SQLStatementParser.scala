@@ -101,8 +101,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
   private val numbers          = """([0-9]+)""".r
   private val intValue         = numbers ^^ { _.toInt }
   private val longValue        = numbers ^^ { _.toLong }
-  //TODO evaluate to change this name into something more consistent to its actual type
-  private val floatValue = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
+  private val doubleValue      = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
 
   private val field = digits ^^ { e =>
     Field(e, None)
@@ -135,7 +134,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
       RelativeComparisonValue(System.currentTimeMillis() - v * timeInterval, "-", v, unitMeasure)
   }
 
-  private val comparisonTerm = delta | floatValue.map(AbsoluteComparisonValue(_)) | longValue.map(
+  private val comparisonTerm = delta | doubleValue.map(AbsoluteComparisonValue(_)) | longValue.map(
     AbsoluteComparisonValue(_))
 
   private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
@@ -148,9 +147,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers {
 
   private val timestampAssignment = (Ts ~ Equal) ~> longValue
 
-  private val valueAssignment = (Val ~ Equal) ~> (floatValue | longValue)
+  private val valueAssignment = (Val ~ Equal) ~> (doubleValue | longValue)
 
-  private val assignment = (dimension <~ Equal) ~ (stringValue | floatValue | intValue) ^^ {
+  private val assignment = (dimension <~ Equal) ~ (stringValue | doubleValue | intValue) ^^ {
     case k ~ v => k -> v.asInstanceOf[JSerializable]
   }
 

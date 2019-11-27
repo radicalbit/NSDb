@@ -44,7 +44,6 @@ object ExpressionParser {
         value match {
           case AbsoluteComparisonValue(value)          => equalityExpression(schema, dimension, value)
           case RelativeComparisonValue(value, _, _, _) => equalityExpression(schema, dimension, value)
-          // case _                                          => equalityExpression(schema, dimension, value)
         }
 
       case Some(LikeExpression(dimension, value)) => likeExpression(schema, dimension, value)
@@ -54,7 +53,6 @@ object ExpressionParser {
           case AbsoluteComparisonValue(value) => comparisonExpression(schema, dimension, operator, value)
           case RelativeComparisonValue(value, _, _, _) =>
             comparisonExpression(schema, dimension, operator, value)
-          // case _ => comparisonExpression(schema, dimension, operator, value)
         }
 
       case Some(RangeExpression(dimension, p1, p2)) =>
