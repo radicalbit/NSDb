@@ -150,7 +150,7 @@ case class DescOrderOperator(override val dimension: String) extends OrderOperat
 case class LimitOperator(value: Int)
 
 /**
-  * Timestamp to wrap timestamp value for tracking relative timestamp
+  * Comparison value to wrap values for tracking relative and absolute (mainly for relative timestamp)
   */
 sealed trait ComparisonValue[+T] {
   def value: T
