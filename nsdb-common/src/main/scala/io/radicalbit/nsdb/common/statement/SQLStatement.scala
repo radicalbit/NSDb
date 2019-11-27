@@ -164,7 +164,7 @@ object ComparisonValue {
   * Class that represent an absolute comparison value
   * @param value the absolute value
   */
-case class AbsoluteComparisonValue[T](override val value: T) extends ComparisonValue[T]
+final case class AbsoluteComparisonValue[T](override val value: T) extends ComparisonValue[T]
 
 /**
   * Class that represent a relative comparison value.
@@ -173,7 +173,7 @@ case class AbsoluteComparisonValue[T](override val value: T) extends ComparisonV
   * @param quantity the quantity of the relative time
   * @param unitMeasure the unit measure of the relative time (s, m, h, d)
   */
-case class RelativeComparisonValue[T](override val value: T, operator: String, quantity: T, unitMeasure: String)
+final case class RelativeComparisonValue[T](override val value: T, operator: String, quantity: T, unitMeasure: String)
     extends ComparisonValue[T]
 
 sealed trait GroupByAggregation {
