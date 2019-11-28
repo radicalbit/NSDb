@@ -127,7 +127,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         distinct = false,
         fields = AllFields,
         condition = Some(
-          Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+          Condition(
+            ComparisonExpression(dimension = "timestamp",
+                                 comparison = GreaterOrEqualToOperator,
+                                 value = AbsoluteComparisonValue(10L)))),
         limit = Some(LimitOperator(4))
       )
 
@@ -197,7 +200,10 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
             db = db,
             namespace = "testDelete",
             metric = "testMetric",
-            condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))
+            condition = Condition(
+              RangeExpression(dimension = "timestamp",
+                              value1 = AbsoluteComparisonValue(2L),
+                              value2 = AbsoluteComparisonValue(4L)))
           )
         )
       )

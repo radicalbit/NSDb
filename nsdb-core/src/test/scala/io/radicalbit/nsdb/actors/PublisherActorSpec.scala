@@ -59,7 +59,10 @@ class PublisherActorSpec
     distinct = false,
     fields = AllFields,
     condition = Some(
-      Condition(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+      Condition(
+        ComparisonExpression(dimension = "timestamp",
+                             comparison = GreaterOrEqualToOperator,
+                             value = AbsoluteComparisonValue(10L)))),
     limit = Some(LimitOperator(4))
   )
 

@@ -38,8 +38,10 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("value", Some(SumAggregation)))),
-              condition = Some(Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
+              condition = Some(
+                Condition(ComparisonExpression(dimension = "timestamp",
+                                               comparison = GreaterOrEqualToOperator,
+                                               value = AbsoluteComparisonValue(2L)))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           )
@@ -63,8 +65,10 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("creationDate", None))),
-              condition = Some(Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L))),
+              condition = Some(
+                Condition(ComparisonExpression(dimension = "timestamp",
+                                               comparison = GreaterOrEqualToOperator,
+                                               value = AbsoluteComparisonValue(2L)))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           )

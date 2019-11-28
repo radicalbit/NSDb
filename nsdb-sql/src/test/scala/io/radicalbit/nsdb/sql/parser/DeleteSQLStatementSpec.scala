@@ -36,24 +36,26 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
     "receive a delete containing a range selection" should {
       "parse it successfully" in {
         parser.parse(db = "db", namespace = "registry", input = "delete FROM people WHERE timestamp IN (2,4)") should be(
-          Success(
-            DeleteSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))
-            )))
+          Success(DeleteSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            condition = Condition(RangeExpression(dimension = "timestamp",
+                                                  value1 = AbsoluteComparisonValue(2L),
+                                                  value2 = AbsoluteComparisonValue(4L)))
+          )))
       }
 
       "parse it successfully ignoring case" in {
         parser.parse(db = "db", namespace = "registry", input = "delete FrOm people where timestamp in (2,4)") should be(
-          Success(
-            DeleteSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              condition = Condition(RangeExpression(dimension = "timestamp", value1 = 2, value2 = 4))
-            )))
+          Success(DeleteSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            condition = Condition(RangeExpression(dimension = "timestamp",
+                                                  value1 = AbsoluteComparisonValue(2),
+                                                  value2 = AbsoluteComparisonValue(4)))
+          )))
       }
     }
 
@@ -64,8 +66,9 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
-            condition = Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))
+            condition = Condition(ComparisonExpression(dimension = "timestamp",
+                                                       comparison = GreaterOrEqualToOperator,
+                                                       value = AbsoluteComparisonValue(10L)))
           )))
       }
     }
@@ -80,10 +83,13 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             condition = Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterThanOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = AndOperator,
-              expression2 =
-                ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
+              expression2 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(4L))
             ))
           )))
       }
@@ -100,10 +106,13 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             condition = Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessThanOperator,
+                                                   value = AbsoluteComparisonValue(4L))
               ),
               operator = NotOperator
             ))

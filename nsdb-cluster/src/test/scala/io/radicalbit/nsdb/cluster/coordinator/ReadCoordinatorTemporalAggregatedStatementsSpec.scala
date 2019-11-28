@@ -155,7 +155,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -191,9 +191,9 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
-                                                 value = 200000L))),
+                                                 value = AbsoluteComparisonValue(200000L)))),
                 fields = ListFields(List(Field("*", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000)),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 limit = Some(LimitOperator(2))
               )
             )
@@ -219,9 +219,9 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
-                                                 value = 100000L))),
+                                                 value = AbsoluteComparisonValue(100000L)))),
                 fields = ListFields(List(Field("*", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000)),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 limit = Some(LimitOperator(2))
               )
             )
@@ -251,7 +251,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000)),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 limit = Some(LimitOperator(2))
               )
             )
@@ -280,7 +280,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -314,7 +314,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -348,7 +348,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(CountAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -384,8 +384,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
-                                                 value = 60000L))),
-                groupBy = Some(TemporalGroupByAggregation(30000L))
+                                                 value = AbsoluteComparisonValue(60000L)))),
+                groupBy = Some(TemporalGroupByAggregation(30000L, 30, "s"))
               )
             )
           )
@@ -416,9 +416,11 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(CountAggregation)))),
-                condition = Some(Condition(
-                  ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 60000L))),
-                groupBy = Some(TemporalGroupByAggregation(30000L))
+                condition = Some(
+                  Condition(ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessThanOperator,
+                                                 value = AbsoluteComparisonValue(60000L)))),
+                groupBy = Some(TemporalGroupByAggregation(30000L, 30, "s"))
               )
             )
           )
@@ -449,7 +451,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(CountAggregation)))),
                 condition = None,
-                groupBy = Some(TemporalGroupByAggregation(100000L))
+                groupBy = Some(TemporalGroupByAggregation(100000L, 100, "s"))
               )
             )
           )
@@ -480,8 +482,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
-                                                 value = 60000L))),
-                groupBy = Some(TemporalGroupByAggregation(100000L))
+                                                 value = AbsoluteComparisonValue(60000L)))),
+                groupBy = Some(TemporalGroupByAggregation(100000L, 100, "s"))
               )
             )
           )
@@ -512,7 +514,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(SumAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -546,7 +548,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -580,7 +582,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(SumAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -614,7 +616,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(SumAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -648,7 +650,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(MaxAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -682,7 +684,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(MaxAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -716,7 +718,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(MaxAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -750,7 +752,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(MaxAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -784,7 +786,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(MinAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -818,7 +820,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalLongMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(MinAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )
@@ -852,7 +854,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("*", Some(MinAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(30000))
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
           )
@@ -886,7 +888,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
                 fields = ListFields(List(Field("value", Some(MinAggregation)))),
-                groupBy = Some(TemporalGroupByAggregation(60000))
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
           )

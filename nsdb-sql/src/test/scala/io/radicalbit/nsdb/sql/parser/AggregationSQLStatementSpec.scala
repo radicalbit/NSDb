@@ -80,7 +80,9 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            condition = Some(Condition(RangeExpression(dimension = "timestamp",
+                                                       value1 = AbsoluteComparisonValue(2L),
+                                                       value2 = AbsoluteComparisonValue(4L)))),
             groupBy = Some(SimpleGroupByAggregation("name"))
           )))
       }
@@ -97,8 +99,9 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", Some(MinAggregation)))),
-            condition = Some(Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+            condition = Some(Condition(ComparisonExpression(dimension = "timestamp",
+                                                            comparison = GreaterOrEqualToOperator,
+                                                            value = AbsoluteComparisonValue(10)))),
             groupBy = Some(SimpleGroupByAggregation("name"))
           )))
       }
@@ -117,10 +120,13 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterThanOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = AndOperator,
-              expression2 =
-                ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
+              expression2 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(4L))
             ))),
             groupBy = Some(SimpleGroupByAggregation("name"))
           )))
@@ -177,8 +183,9 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 = EqualityExpression(dimension = "name", value = "b483a480-832b-473e-a999-5d1a5950858d"),
-              expression2 = EqualityExpression(dimension = "surname", value = "b483a480-832b"),
+              expression1 = EqualityExpression(dimension = "name",
+                                               value = AbsoluteComparisonValue("b483a480-832b-473e-a999-5d1a5950858d")),
+              expression2 = EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("b483a480-832b")),
               operator = AndOperator
             ))),
             groupBy = Some(SimpleGroupByAggregation("surname"))
@@ -209,11 +216,14 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
             condition = Some(Condition(
               TupledLogicalExpression(
-                EqualityExpression("prediction", 1.0),
+                EqualityExpression(dimension = "prediction", value = AbsoluteComparisonValue(1.0)),
                 AndOperator,
-                TupledLogicalExpression(EqualityExpression("adoptedModel", "b483a480-832b-473e-a999-5d1a5950858d"),
-                                        AndOperator,
-                                        EqualityExpression("id", "c1234-56789"))
+                TupledLogicalExpression(
+                  EqualityExpression(dimension = "adoptedModel",
+                                     value = AbsoluteComparisonValue("b483a480-832b-473e-a999-5d1a5950858d")),
+                  AndOperator,
+                  EqualityExpression(dimension = "id", AbsoluteComparisonValue("c1234-56789"))
+                )
               )
             )),
             groupBy = Some(SimpleGroupByAggregation("id"))
@@ -237,7 +247,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(3000))
+              groupBy = Some(TemporalGroupByAggregation(3000, 3, "s"))
             )
           ))
       }
@@ -253,7 +263,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(60000))
+              groupBy = Some(TemporalGroupByAggregation(60000, 1, "m"))
             )
           ))
       }
@@ -269,7 +279,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
           metric = "people",
           distinct = false,
           fields = ListFields(List(Field("value", Some(CountAggregation)))),
-          groupBy = Some(TemporalGroupByAggregation(86400000)),
+          groupBy = Some(TemporalGroupByAggregation(86400000, 1, "d")),
           limit = Some(LimitOperator(1))
         )))
     }
@@ -287,14 +297,16 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               condition = Some(Condition(TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression[Long](dimension = "timestamp", comparison = GreaterThanOperator, value = 1),
-                expression2 =
-                  ComparisonExpression[Long](dimension = "timestamp", comparison = LessThanOperator, value = 100),
+                expression1 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = GreaterThanOperator,
+                                                         value = AbsoluteComparisonValue(1)),
+                expression2 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = LessThanOperator,
+                                                         value = AbsoluteComparisonValue(100)),
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
             )
           ))
       }
@@ -311,14 +323,16 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               condition = Some(Condition(TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression[Long](dimension = "timestamp", comparison = GreaterThanOperator, value = 1),
-                expression2 =
-                  ComparisonExpression[Long](dimension = "timestamp", comparison = LessThanOperator, value = 100),
+                expression1 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = GreaterThanOperator,
+                                                         value = AbsoluteComparisonValue(1)),
+                expression2 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = LessThanOperator,
+                                                         value = AbsoluteComparisonValue(100)),
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
             )
           ))
       }
@@ -335,14 +349,16 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               condition = Some(Condition(TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression[Long](dimension = "timestamp", comparison = GreaterThanOperator, value = 1),
-                expression2 =
-                  ComparisonExpression[Long](dimension = "timestamp", comparison = LessThanOperator, value = 100),
+                expression1 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = GreaterThanOperator,
+                                                         value = AbsoluteComparisonValue(1)),
+                expression2 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = LessThanOperator,
+                                                         value = AbsoluteComparisonValue(100)),
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(SumAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
             )
           ))
       }

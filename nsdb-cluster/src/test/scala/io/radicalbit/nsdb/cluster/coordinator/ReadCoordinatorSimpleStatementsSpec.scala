@@ -581,7 +581,10 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2L),
+                                          value2 = AbsoluteComparisonValue(4L)))),
               limit = Some(LimitOperator(4))
             )
           )
@@ -604,8 +607,10 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+              condition = Some(
+                Condition(ComparisonExpression(dimension = "timestamp",
+                                               comparison = GreaterOrEqualToOperator,
+                                               value = AbsoluteComparisonValue(10L)))),
               limit = Some(LimitOperator(4))
             )
           )
@@ -634,7 +639,9 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               condition = Some(
                 Condition(
                   UnaryLogicalExpression(
-                    ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L),
+                    ComparisonExpression(dimension = "timestamp",
+                                         comparison = GreaterOrEqualToOperator,
+                                         value = AbsoluteComparisonValue(10L)),
                     NotOperator
                   ))),
               limit = Some(LimitOperator(6))
@@ -662,11 +669,13 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               distinct = false,
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterThanOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = AndOperator,
-                expression2 =
-                  ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(4L))
               ))),
               limit = Some(LimitOperator(4))
             )
@@ -692,10 +701,13 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               distinct = false,
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessThanOperator,
+                                                   value = AbsoluteComparisonValue(4L))
               ))),
               limit = Some(LimitOperator(6))
             )
@@ -720,7 +732,8 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 2L))),
+              condition =
+                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(2L)))),
               limit = Some(LimitOperator(4))
             )
           )
@@ -745,10 +758,11 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               distinct = false,
               fields = ListFields(List(Field("name", None))),
               condition = Some(Condition(expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = AndOperator,
-                expression2 = EqualityExpression(dimension = "name", value = "John")
+                expression2 = EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("John"))
               ))),
               limit = Some(LimitOperator(6))
             )

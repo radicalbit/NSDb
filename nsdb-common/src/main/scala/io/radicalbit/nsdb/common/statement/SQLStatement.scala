@@ -24,7 +24,7 @@ import io.radicalbit.nsdb.common.JSerializable
   * @param name field's name.
   * @param aggregation if there is an aggregation for the field (sum, count ecc.).
   */
-case class Field(name: String, aggregation: Option[Aggregation])
+final case class Field(name: String, aggregation: Option[Aggregation])
 
 /**
   * Parsed select fields objects.
@@ -32,11 +32,11 @@ case class Field(name: String, aggregation: Option[Aggregation])
   * [[ListFields]] if a list of fields are specified in the query.
   */
 sealed trait SelectedFields
-case object AllFields                      extends SelectedFields
-case class ListFields(fields: List[Field]) extends SelectedFields
+case object AllFields                            extends SelectedFields
+final case class ListFields(fields: List[Field]) extends SelectedFields
 
-case class ListAssignment(fields: Map[String, JSerializable])
-case class Condition(expression: Expression)
+final case class ListAssignment(fields: Map[String, JSerializable])
+final case class Condition(expression: Expression)
 
 /**
   * Where condition expression for queries.
@@ -49,7 +49,7 @@ sealed trait Expression
   * @param expression the simple expression.
   * @param operator the operator to be applied to the expression.
   */
-case class UnaryLogicalExpression(expression: Expression, operator: SingleLogicalOperator) extends Expression
+final case class UnaryLogicalExpression(expression: Expression, operator: SingleLogicalOperator) extends Expression
 
 /**
   * A couple of simple expressions having a [[TupledLogicalOperator]] applied.
@@ -57,7 +57,9 @@ case class UnaryLogicalExpression(expression: Expression, operator: SingleLogica
   * @param operator the operator to apply.
   * @param expression2 the second expression.
   */
-case class TupledLogicalExpression(expression1: Expression, operator: TupledLogicalOperator, expression2: Expression)
+final case class TupledLogicalExpression(expression1: Expression,
+                                         operator: TupledLogicalOperator,
+                                         expression2: Expression)
     extends Expression
 
 /**
@@ -66,7 +68,8 @@ case class TupledLogicalExpression(expression1: Expression, operator: TupledLogi
   * @param comparison comparison operator (e.g. >, >=, <, <=).
   * @param value the value to compare the dimension with.
   */
-case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: T) extends Expression
+final case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: ComparisonValue[T])
+    extends Expression
 
 /**
   * <b>Inclusive</b> range operation between a lower and a upper boundary.
@@ -74,27 +77,28 @@ case class ComparisonExpression[T](dimension: String, comparison: ComparisonOper
   * @param value1 lower boundary.
   * @param value2 upper boundary.
   */
-case class RangeExpression[T](dimension: String, value1: T, value2: T) extends Expression
+final case class RangeExpression[T](dimension: String, value1: ComparisonValue[T], value2: ComparisonValue[T])
+    extends Expression
 
 /**
   * Simple equality expression e.g. dimension = value.
   * @param dimension dimension name.
   * @param value value to check the equality with.
   */
-case class EqualityExpression[T](dimension: String, value: T) extends Expression
+final case class EqualityExpression[T](dimension: String, value: ComparisonValue[T]) extends Expression
 
 /**
   * Simple like expression for varchar dimensions e.g. dimension like value.
   * @param dimension dimension name.
   * @param value string value with wildcards.
   */
-case class LikeExpression(dimension: String, value: String) extends Expression
+final case class LikeExpression(dimension: String, value: String) extends Expression
 
 /**
   * Simple nullable expression e.g. dimension is null.
   * @param dimension dimension name.
   */
-case class NullableExpression(dimension: String) extends Expression
+final case class NullableExpression(dimension: String) extends Expression
 
 /**
   * Logical operators that can be applied to 1 or 2 expressions.
@@ -138,14 +142,41 @@ case object SumAggregation   extends Aggregation
 sealed trait OrderOperator {
   def dimension: String
 }
-case class AscOrderOperator(override val dimension: String)  extends OrderOperator
-case class DescOrderOperator(override val dimension: String) extends OrderOperator
+final case class AscOrderOperator(override val dimension: String)  extends OrderOperator
+final case class DescOrderOperator(override val dimension: String) extends OrderOperator
 
 /**
   * Limit operator used to limit the size of search results.
   * @param value the maximum number of results
   */
-case class LimitOperator(value: Int)
+final case class LimitOperator(value: Int)
+
+/**
+  * Comparison value to wrap values for tracking relative and absolute (mainly for relative timestamp)
+  */
+sealed trait ComparisonValue[+T] {
+  def value: T
+}
+
+object ComparisonValue {
+  def unapply[T](cv: ComparisonValue[T]): Option[T] = Some(cv.value)
+}
+
+/**
+  * Class that represent an absolute comparison value
+  * @param value the absolute value
+  */
+final case class AbsoluteComparisonValue[T](override val value: T) extends ComparisonValue[T]
+
+/**
+  * Class that represent a relative comparison value.
+  * @param value the absolute value
+  * @param operator the operator of the now (plus or minus)
+  * @param quantity the quantity of the relative time
+  * @param unitMeasure the unit measure of the relative time (s, m, h, d)
+  */
+final case class RelativeComparisonValue[T](override val value: T, operator: String, quantity: T, unitMeasure: String)
+    extends ComparisonValue[T]
 
 sealed trait GroupByAggregation {
   def dimension: String
@@ -155,13 +186,16 @@ sealed trait GroupByAggregation {
   * Class that represent a simple Group By clause.
   * @param dimension the dimension to apply the aggregation to
   */
-case class SimpleGroupByAggregation(dimension: String) extends GroupByAggregation
+final case class SimpleGroupByAggregation(dimension: String) extends GroupByAggregation
 
 /**
   * Temporal aggregation.
   * @param interval The time aggregation interval in Milliseconds.
+  * @param quantity The quantity for unitMeasure
+  * @param unitMeasure identifier for time measure (s, m, h, d)
   */
-case class TemporalGroupByAggregation(interval: Long) extends GroupByAggregation {
+final case class TemporalGroupByAggregation(interval: Long, quantity: Long, unitMeasure: String)
+    extends GroupByAggregation {
   override val dimension: String = "timestamp"
 }
 
@@ -187,15 +221,15 @@ sealed trait SQLStatement extends NSDBStatement {
   * @param order present if the query includes a order clause. See [[OrderOperator]].
   * @param limit present if the query includes a limit clause. See [[LimitOperator]].
   */
-case class SelectSQLStatement(override val db: String,
-                              override val namespace: String,
-                              override val metric: String,
-                              distinct: Boolean,
-                              fields: SelectedFields,
-                              condition: Option[Condition] = None,
-                              groupBy: Option[GroupByAggregation] = None,
-                              order: Option[OrderOperator] = None,
-                              limit: Option[LimitOperator] = None)
+final case class SelectSQLStatement(override val db: String,
+                                    override val namespace: String,
+                                    override val metric: String,
+                                    distinct: Boolean,
+                                    fields: SelectedFields,
+                                    condition: Option[Condition] = None,
+                                    groupBy: Option[GroupByAggregation] = None,
+                                    order: Option[OrderOperator] = None,
+                                    limit: Option[LimitOperator] = None)
     extends SQLStatement
     with LazyLogging {
 
@@ -207,7 +241,7 @@ case class SelectSQLStatement(override val db: String,
     * @return the enriched instance.
     */
   def enrichWithTimeRange(dimension: String, from: Long, to: Long): SelectSQLStatement = {
-    val tsRangeExpression = RangeExpression(dimension, from, to)
+    val tsRangeExpression = RangeExpression(dimension, AbsoluteComparisonValue(from), AbsoluteComparisonValue(to))
     val newCondition = this.condition match {
       case Some(cond) => Condition(TupledLogicalExpression(tsRangeExpression, AndOperator, cond.expression))
       case None       => Condition(tsRangeExpression)
@@ -222,15 +256,17 @@ case class SelectSQLStatement(override val db: String,
     * @param operator the operator.
     * @return the parsed [[Expression]].
     */
-  private def filterToExpression(dimension: String,
-                                 value: Option[JSerializable],
-                                 operator: String): Option[Expression] = {
+  private def filterToExpression[T](dimension: String,
+                                    value: Option[JSerializable],
+                                    operator: String): Option[Expression] = {
     operator.toUpperCase match {
-      case ">"         => Some(ComparisonExpression(dimension, GreaterThanOperator, value.get))
-      case ">="        => Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.get))
-      case "="         => Some(EqualityExpression(dimension, value.get))
-      case "<="        => Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.get))
-      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.get))
+      case ">" => Some(ComparisonExpression(dimension, GreaterThanOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case ">=" =>
+        Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case "=" => Some(EqualityExpression(dimension, value.map(AbsoluteComparisonValue(_)).get))
+      case "<=" =>
+        Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.map(AbsoluteComparisonValue(_)).get))
       case "LIKE"      => Some(LikeExpression(dimension, value.get.asInstanceOf[String]))
       case "ISNULL"    => Some(NullableExpression(dimension))
       case "ISNOTNULL" => Some(UnaryLogicalExpression(NullableExpression(dimension), NotOperator))
@@ -246,7 +282,8 @@ case class SelectSQLStatement(override val db: String,
     * @return a new instance of [[SelectSQLStatement]] enriched with the filter provided.
     */
   def addConditions(filters: Seq[(String, Option[JSerializable], String)]): SelectSQLStatement = {
-    val expressions: Seq[Expression] = filters.flatMap(f => filterToExpression(f._1, f._2, f._3))
+    val expressions: Seq[Expression] =
+      filters.flatMap { case (dimension, value, operator) => filterToExpression(dimension, value, operator) }
     val filtersExpression =
       expressions.reduce((prevExpr, expr) => TupledLogicalExpression(prevExpr, AndOperator, expr))
     val newCondition: Condition = this.condition match {
@@ -278,13 +315,13 @@ case class SelectSQLStatement(override val db: String,
   * @param tags the tags to be inserted.
   * @param value the value to be inserted.
   */
-case class InsertSQLStatement(override val db: String,
-                              override val namespace: String,
-                              override val metric: String,
-                              timestamp: Option[Long],
-                              dimensions: Option[ListAssignment],
-                              tags: Option[ListAssignment],
-                              value: JSerializable)
+final case class InsertSQLStatement(override val db: String,
+                                    override val namespace: String,
+                                    override val metric: String,
+                                    timestamp: Option[Long],
+                                    dimensions: Option[ListAssignment],
+                                    tags: Option[ListAssignment],
+                                    value: JSerializable)
     extends SQLStatement
 
 /**
@@ -294,11 +331,11 @@ case class InsertSQLStatement(override val db: String,
   * @param metric the metric.
   * @param condition the condition to filter records to delete.
   */
-case class DeleteSQLStatement(override val db: String,
-                              override val namespace: String,
-                              override val metric: String,
-                              condition: Condition)
+final case class DeleteSQLStatement(override val db: String,
+                                    override val namespace: String,
+                                    override val metric: String,
+                                    condition: Condition)
     extends SQLStatement
 
-case class DropSQLStatement(override val db: String, override val namespace: String, override val metric: String)
+final case class DropSQLStatement(override val db: String, override val namespace: String, override val metric: String)
     extends SQLStatement

@@ -101,7 +101,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val numbers          = """([0-9]+)""".r
   private val intValue         = numbers ^^ { _.toInt }
   private val longValue        = numbers ^^ { _.toLong }
-  private val floatValue       = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
+  private val doubleValue      = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
 
   private val field = digits ^^ { e =>
     Field(e, None)
@@ -118,18 +118,23 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
-    case "D" => 24 * 3600 * 1000
-    case "H" => 3600 * 1000
-    case "M" => 60 * 1000
-    case "S" => 1000
+    case "D" => ("d", 24 * 3600 * 1000)
+    case "H" => ("h", 3600 * 1000)
+    case "M" => ("m", 60 * 1000)
+    case "S" => ("s", 1000)
   }
 
-  private val delta = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
-    case "+" ~ v ~ measure => System.currentTimeMillis() + v * measure
-    case "-" ~ v ~ measure => System.currentTimeMillis() - v * measure
+  // def instead val because timestamp should be calculated everytime but there is a problem with
+  // more than one "now - something" in the same query because "now" will be different for each condition
+  private def delta: PackratParser[RelativeComparisonValue[Long]] = now ~> ("+" | "-") ~ longValue ~ timeMeasure ^^ {
+    case "+" ~ v ~ ((unitMeasure, timeInterval)) =>
+      RelativeComparisonValue(System.currentTimeMillis() + v * timeInterval, "+", v, unitMeasure)
+    case "-" ~ v ~ ((unitMeasure, timeInterval)) =>
+      RelativeComparisonValue(System.currentTimeMillis() - v * timeInterval, "-", v, unitMeasure)
   }
 
-  private val comparisonTerm = delta | floatValue | longValue
+  private val comparisonTerm = delta | doubleValue.map(AbsoluteComparisonValue(_)) | longValue.map(
+    AbsoluteComparisonValue(_))
 
   private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
     case _ ~ f ~ fs =>
@@ -141,9 +146,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   private val timestampAssignment = (Ts ~ Equal) ~> longValue
 
-  private val valueAssignment = (Val ~ Equal) ~> (floatValue | longValue)
+  private val valueAssignment = (Val ~ Equal) ~> (doubleValue | longValue)
 
-  private val assignment = (dimension <~ Equal) ~ (stringValue | floatValue | intValue) ^^ {
+  private val assignment = (dimension <~ Equal) ~ (stringValue | doubleValue | intValue) ^^ {
     case k ~ v => k -> v.asInstanceOf[JSerializable]
   }
 
@@ -153,7 +158,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   // Please don't change the order of the expressions, can cause infinite recursions
   private lazy val expression: PackratParser[Expression] =
-    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpression | equalityExpression | likeExpression | bracketedExpression
+    unaryLogicalExpression | tupledLogicalExpression | nullableExpression | rangeExpression | comparisonExpressionRule | equalityExpression | likeExpression | bracketedExpression
 
   private lazy val bracketedExpression: PackratParser[Expression] = OpenRoundBracket ~> expression <~ CloseRoundBracket
 
@@ -177,8 +182,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val orTupledLogicalExpression: PackratParser[TupledLogicalExpression] = tupledLogicalExpression(Or, OrOperator)
 
-  lazy val equalityExpression
-    : PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue | comparisonTerm) ^^ {
+  lazy val equalityExpression: PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue.map(n =>
+    AbsoluteComparisonValue(n)) | comparisonTerm) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }
 
@@ -193,11 +198,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
       case dim ~ None ~ _    => NullableExpression(dim)
     }
 
-  lazy val comparisonExpression: PackratParser[ComparisonExpression[_]] =
-    comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
+  lazy val comparisonExpressionRule = comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
 
   private def comparisonExpression(operator: String,
-                                   comparisonOperator: ComparisonOperator): PackratParser[ComparisonExpression[_]] =
+                                   comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[AnyVal]] =
     (dimension <~ operator) ~ comparisonTerm ^^ {
       case d ~ v =>
         ComparisonExpression(d, comparisonOperator, v)
@@ -229,7 +233,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val temporalGroupBy
     : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (intValue ?) ~ timeMeasure) ^^ {
-    case unit ~ conversion => TemporalGroupByAggregation(unit.getOrElse(1) * conversion)
+    case unit ~ ((timeMeasure, quantity)) =>
+      TemporalGroupByAggregation(unit.getOrElse(1) * quantity, unit.getOrElse(1).toLong, timeMeasure)
   }
 
   lazy val order: PackratParser[OrderOperator] = (Order ~> dimension ~ (Desc ?)) ^^ {

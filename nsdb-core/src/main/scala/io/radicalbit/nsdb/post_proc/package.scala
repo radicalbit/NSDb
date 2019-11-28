@@ -39,7 +39,7 @@ package object post_proc {
     chainedResults.map {
       case Right(seq) =>
         statement.groupBy match {
-          case Some(TemporalGroupByAggregation(_)) =>
+          case Some(TemporalGroupByAggregation(_, _, _)) =>
             val sortedResults = seq.sortBy(_.timestamp)
             statement.limit.map(_.value).map(v => Right(sortedResults.takeRight(v))) getOrElse Right(sortedResults)
           case _ =>

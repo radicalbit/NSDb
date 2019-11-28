@@ -528,8 +528,10 @@ object MetadataCoordinator {
       db = db,
       namespace = namespace,
       metric = metric,
-      condition =
-        Condition(ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = threshold))
+      condition = Condition(
+        ComparisonExpression(dimension = "timestamp",
+                             comparison = LessThanOperator,
+                             value = AbsoluteComparisonValue(threshold)))
     )
 
   object commands {

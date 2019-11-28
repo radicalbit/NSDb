@@ -220,7 +220,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -247,7 +251,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = 10L))),
+            condition =
+              Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10L)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -271,7 +276,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "name", value = "TestString"))),
+            condition =
+              Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("TestString")))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -295,7 +301,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("amount", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "amount", value = 0))),
+            condition = Some(Condition(EqualityExpression(dimension = "amount", value = AbsoluteComparisonValue(0)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -319,7 +325,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "creationDate", value = 0.5))),
+            condition =
+              Some(Condition(EqualityExpression(dimension = "creationDate", value = AbsoluteComparisonValue(0.5)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -334,7 +341,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "name", value = 0))),
+            condition = Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue(0)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -361,8 +368,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))),
+            condition = Some(
+              Condition(
+                ComparisonExpression(dimension = "timestamp",
+                                     comparison = GreaterOrEqualToOperator,
+                                     value = AbsoluteComparisonValue(10L)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -386,8 +396,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("amount", None))),
-            condition = Some(Condition(
-              ComparisonExpression(dimension = "amount", comparison = GreaterOrEqualToOperator, value = 10L))),
+            condition = Some(
+              Condition(
+                ComparisonExpression(dimension = "amount",
+                                     comparison = GreaterOrEqualToOperator,
+                                     value = AbsoluteComparisonValue(10L)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -411,7 +424,8 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "creationDate", value = 0.5))),
+            condition =
+              Some(Condition(EqualityExpression(dimension = "creationDate", value = AbsoluteComparisonValue(0.5)))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -430,10 +444,13 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterThanOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = AndOperator,
-              expression2 =
-                ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
+              expression2 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(4L))
             ))),
             limit = Some(LimitOperator(4))
           ),
@@ -466,10 +483,13 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessThanOperator,
+                                                   value = AbsoluteComparisonValue(4L))
               ),
               operator = NotOperator
             ))),
@@ -511,10 +531,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = EqualityExpression(dimension = "name", value = "$john$")
+                expression2 = EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("$john$"))
               ),
               operator = NotOperator
             ))),
@@ -556,8 +577,9 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
                 expression2 = LikeExpression(dimension = "name", value = "$john$")
               ),
@@ -651,7 +673,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
             order = Some(DescOrderOperator(dimension = "creationDate")),
             limit = Some(LimitOperator(5))
           ),
@@ -695,7 +721,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", Some(SqlSumAggregation)))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
             groupBy = Some(SimpleGroupByAggregation("name"))
           ),
           schema
@@ -717,7 +747,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
             groupBy = Some(SimpleGroupByAggregation("name"))
           ),
           schema
@@ -742,7 +776,11 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
             groupBy = Some(SimpleGroupByAggregation("name")),
             order = Some(DescOrderOperator(dimension = "value")),
             limit = Some(LimitOperator(5))
@@ -1022,7 +1060,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(CountAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1032,7 +1070,33 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
-              1,
+              1000,
+              InternalCountTemporalAggregation,
+              None
+            ))
+        )
+      }
+
+      "parse it when count aggregation is provided with different interval" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(CountAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(86400000, 1, "d")),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              86400000,
               InternalCountTemporalAggregation,
               None
             ))
@@ -1048,7 +1112,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1058,7 +1122,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
-              1,
+              1000,
               InternalSumTemporalAggregation,
               None
             ))
@@ -1074,7 +1138,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(MinAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1084,7 +1148,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               new MatchAllDocsQuery(),
-              1,
+              1000,
               InternalMinTemporalAggregation,
               None
             ))
@@ -1097,7 +1161,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("*", Some(MaxAggregation)))),
             condition = None,
-            groupBy = Some(TemporalGroupByAggregation(1)),
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
           ),
           schema
@@ -1106,7 +1170,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             "registry",
             "people",
             new MatchAllDocsQuery(),
-            1,
+            1000,
             InternalMaxTemporalAggregation,
             None
           ))

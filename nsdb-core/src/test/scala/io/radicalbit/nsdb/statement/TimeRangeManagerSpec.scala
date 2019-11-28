@@ -58,7 +58,9 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         TimeRangeManager.extractTimeRange(
           Some(
-            RangeExpression(dimension = "other", value1 = 2L, value2 = 4L)
+            RangeExpression(dimension = "other",
+                            value1 = AbsoluteComparisonValue(2L),
+                            value2 = AbsoluteComparisonValue(4L))
           )) shouldBe List.empty
       }
 
@@ -66,9 +68,13 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             TupledLogicalExpression(
-              expression1 = RangeExpression(dimension = "other", value1 = 2L, value2 = 4L),
+              expression1 = RangeExpression(dimension = "other",
+                                            value1 = AbsoluteComparisonValue(2L),
+                                            value2 = AbsoluteComparisonValue(4L)),
               operator = AndOperator,
-              expression2 = RangeExpression(dimension = "other2", value1 = 2L, value2 = 4L)
+              expression2 = RangeExpression(dimension = "other2",
+                                            value1 = AbsoluteComparisonValue(2L),
+                                            value2 = AbsoluteComparisonValue(4L))
             )
           )) shouldBe List.empty
       }
@@ -77,9 +83,13 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             TupledLogicalExpression(
-              expression1 = RangeExpression(dimension = "other", value1 = 2L, value2 = 4L),
+              expression1 = RangeExpression(dimension = "other",
+                                            value1 = AbsoluteComparisonValue(2L),
+                                            value2 = AbsoluteComparisonValue(4L)),
               operator = OrOperator,
-              expression2 = RangeExpression(dimension = "other2", value1 = 2L, value2 = 4L)
+              expression2 = RangeExpression(dimension = "other2",
+                                            value1 = AbsoluteComparisonValue(2L),
+                                            value2 = AbsoluteComparisonValue(4L))
             )
           )) shouldBe List.empty
       }
@@ -89,7 +99,9 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
       "parse it successfully in case of a range selection" in {
         TimeRangeManager.extractTimeRange(
           Some(
-            RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)
+            RangeExpression(dimension = "timestamp",
+                            value1 = AbsoluteComparisonValue(2L),
+                            value2 = AbsoluteComparisonValue(4L))
           )) shouldBe List(
           Interval.closed(2L, 4L)
         )
@@ -97,7 +109,10 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
 
       "parse it successfully in case of a GTE selection" in {
         TimeRangeManager.extractTimeRange(
-          Some(ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L))
+          Some(
+            ComparisonExpression(dimension = "timestamp",
+                                 comparison = GreaterOrEqualToOperator,
+                                 value = AbsoluteComparisonValue(10L)))
         ) shouldBe List(
           Interval.fromBounds(Closed(10L), Unbound())
         )
@@ -107,10 +122,13 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterThanOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = AndOperator,
-              expression2 =
-                ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 4l)
+              expression2 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(4L))
             )
           )) shouldBe List(
           Interval.openLower(2, 4)
@@ -121,7 +139,9 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             UnaryLogicalExpression(
-              expression = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              expression = ComparisonExpression(dimension = "timestamp",
+                                                comparison = GreaterThanOperator,
+                                                value = AbsoluteComparisonValue(2L)),
               operator = NotOperator
             )
           )) shouldBe List(
@@ -131,7 +151,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             UnaryLogicalExpression(
-              expression = RangeExpression("timestamp", 2L, 4L),
+              expression = RangeExpression("timestamp", AbsoluteComparisonValue(2L), AbsoluteComparisonValue(4L)),
               operator = NotOperator
             )
           )) shouldBe List(
@@ -145,10 +165,13 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           Some(
             UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessThanOperator,
+                                                   value = AbsoluteComparisonValue(4L))
               ),
               operator = NotOperator
             )
@@ -163,10 +186,11 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             TupledLogicalExpression(
-              expression1 =
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = OrOperator,
-              expression2 = EqualityExpression(dimension = "name", value = "john")
+              expression2 = EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("john"))
             )
           )) shouldBe List(
           Interval.fromBounds(Closed(2l), Unbound())
@@ -175,10 +199,11 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             TupledLogicalExpression(
-              expression1 =
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = AndOperator,
-              expression2 = EqualityExpression(dimension = "name", value = "john")
+              expression2 = EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("john"))
             )
           )) shouldBe List(
           Interval.fromBounds(Closed(2L), Unbound())
@@ -210,7 +235,11 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           10L,
           0L,
           5L,
-          Some(Condition(RangeExpression(dimension = "timestamp", value1 = 0L, value2 = 5L))))
+          Some(
+            Condition(
+              RangeExpression(dimension = "timestamp",
+                              value1 = AbsoluteComparisonValue(0L),
+                              value2 = AbsoluteComparisonValue(5L)))))
         res shouldBe Seq(TimeRange(0, 5, true, true))
       }
 
@@ -221,7 +250,9 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           5L,
           Some(
             Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 50L))))
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = GreaterOrEqualToOperator,
+                                   value = AbsoluteComparisonValue(50L)))))
 
         res shouldBe Seq(
           TimeRange(95, 100, false, true),
@@ -243,7 +274,10 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           0L,
           5L,
           Some(
-            Condition(ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 50L))))
+            Condition(
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = LessOrEqualToOperator,
+                                   value = AbsoluteComparisonValue(50L)))))
 
         res shouldBe Seq(
           TimeRange(45, 50, false, true),
@@ -266,9 +300,13 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           5L,
           Some(
             Condition(TupledLogicalExpression(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 70L),
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = GreaterOrEqualToOperator,
+                                   value = AbsoluteComparisonValue(70L)),
               AndOperator,
-              ComparisonExpression(dimension = "timestamp", comparison = LessOrEqualToOperator, value = 90L)
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = LessOrEqualToOperator,
+                                   value = AbsoluteComparisonValue(90L))
             )))
         )
 
@@ -287,9 +325,13 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           5L,
           Some(
             Condition(TupledLogicalExpression(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 70L),
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = GreaterThanOperator,
+                                   value = AbsoluteComparisonValue(70L)),
               AndOperator,
-              ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 90L)
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = LessThanOperator,
+                                   value = AbsoluteComparisonValue(90L))
             )))
         )
 

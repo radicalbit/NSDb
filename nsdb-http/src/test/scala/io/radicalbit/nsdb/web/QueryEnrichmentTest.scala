@@ -40,15 +40,17 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
         val enrichedStatement = originalStatement.addConditions(filters.map(Filter.unapply(_).get))
 
         enrichedStatement shouldEqual
-          SelectSQLStatement("db",
-                             "namespace",
-                             "people",
-                             false,
-                             ListFields(List(Field("name", None))),
-                             Some(Condition(EqualityExpression("age", 1L))),
-                             None,
-                             None,
-                             Some(LimitOperator(1)))
+          SelectSQLStatement(
+            "db",
+            "namespace",
+            "people",
+            false,
+            ListFields(List(Field("name", None))),
+            Some(Condition(EqualityExpression("age", AbsoluteComparisonValue(1L)))),
+            None,
+            None,
+            Some(LimitOperator(1))
+          )
       }
       "be correctly converted with GT operator" in {
         val filters = Seq(FilterByValue("age", 1L, FilterOperators.GreaterThan))
@@ -71,7 +73,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(ComparisonExpression("age", GreaterThanOperator, 1L))),
+            Some(Condition(ComparisonExpression("age", GreaterThanOperator, AbsoluteComparisonValue(1L)))),
             None,
             None,
             Some(LimitOperator(1))
@@ -98,7 +100,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(ComparisonExpression("age", GreaterOrEqualToOperator, 1L))),
+            Some(Condition(ComparisonExpression("age", GreaterOrEqualToOperator, AbsoluteComparisonValue(1L)))),
             None,
             None,
             Some(LimitOperator(1))
@@ -125,7 +127,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(ComparisonExpression("age", LessThanOperator, 1L))),
+            Some(Condition(ComparisonExpression("age", LessThanOperator, AbsoluteComparisonValue(1L)))),
             None,
             None,
             Some(LimitOperator(1))
@@ -152,7 +154,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(ComparisonExpression("age", LessOrEqualToOperator, 1L))),
+            Some(Condition(ComparisonExpression("age", LessOrEqualToOperator, AbsoluteComparisonValue(1L)))),
             None,
             None,
             Some(LimitOperator(1))
@@ -182,7 +184,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(EqualityExpression("surname", "Poe"))),
+            Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue("Poe")))),
             None,
             None,
             Some(LimitOperator(1))
@@ -240,8 +242,11 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(
-              TupledLogicalExpression(EqualityExpression("age", 1L), AndOperator, EqualityExpression("height", 100L)))),
+            Some(
+              Condition(
+                TupledLogicalExpression(EqualityExpression("age", AbsoluteComparisonValue(1L)),
+                                        AndOperator,
+                                        EqualityExpression("height", AbsoluteComparisonValue(100L))))),
             None,
             None,
             Some(LimitOperator(1))
@@ -256,7 +261,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "people",
           false,
           ListFields(List(Field("name", None))),
-          Some(Condition(EqualityExpression("surname", "poe"))),
+          Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue("poe")))),
           None,
           None,
           Some(LimitOperator(1))
@@ -274,12 +279,12 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             Some(
               Condition(
                 TupledLogicalExpression(
-                  EqualityExpression("surname", "poe"),
+                  EqualityExpression("surname", AbsoluteComparisonValue("poe")),
                   AndOperator,
                   TupledLogicalExpression(
-                    EqualityExpression("age", 1L),
+                    EqualityExpression("age", AbsoluteComparisonValue(1L)),
                     AndOperator,
-                    EqualityExpression("height", 100L)
+                    EqualityExpression("height", AbsoluteComparisonValue(100L))
                   )
                 )
               )),
@@ -319,9 +324,9 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                   LikeExpression("surname", "poe"),
                   AndOperator,
                   TupledLogicalExpression(
-                    ComparisonExpression("age", GreaterThanOperator, 1L),
+                    ComparisonExpression("age", GreaterThanOperator, AbsoluteComparisonValue(1L)),
                     AndOperator,
-                    ComparisonExpression("height", LessOrEqualToOperator, 100L)
+                    ComparisonExpression("height", LessOrEqualToOperator, AbsoluteComparisonValue(100L))
                   )
                 )
               )),
@@ -340,8 +345,11 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
           "people",
           false,
           ListFields(List(Field("name", None))),
-          Some(Condition(
-            TupledLogicalExpression(LikeExpression("surname", "poe"), OrOperator, EqualityExpression("number", 1.0)))),
+          Some(
+            Condition(
+              TupledLogicalExpression(LikeExpression("surname", "poe"),
+                                      OrOperator,
+                                      EqualityExpression("number", AbsoluteComparisonValue(1.0))))),
           None,
           None,
           Some(LimitOperator(1))
@@ -361,12 +369,12 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
                 TupledLogicalExpression(
                   TupledLogicalExpression(LikeExpression("surname", "poe"),
                                           OrOperator,
-                                          EqualityExpression("number", 1.0)),
+                                          EqualityExpression("number", AbsoluteComparisonValue(1.0))),
                   AndOperator,
                   TupledLogicalExpression(
-                    ComparisonExpression("age", GreaterThanOperator, 1L),
+                    ComparisonExpression("age", GreaterThanOperator, AbsoluteComparisonValue(1L)),
                     AndOperator,
-                    ComparisonExpression("height", LessOrEqualToOperator, 100L)
+                    ComparisonExpression("height", LessOrEqualToOperator, AbsoluteComparisonValue(100L))
                   )
                 )
               )),
@@ -389,7 +397,8 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             Condition(
               TupledLogicalExpression(LikeExpression("surname", "poe"),
                                       OrOperator,
-                                      UnaryLogicalExpression(EqualityExpression("number", 1.0), NotOperator)))),
+                                      UnaryLogicalExpression(EqualityExpression("number", AbsoluteComparisonValue(1.0)),
+                                                             NotOperator)))),
           None,
           None,
           Some(LimitOperator(1))
@@ -407,14 +416,15 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             Some(
               Condition(
                 TupledLogicalExpression(
-                  TupledLogicalExpression(LikeExpression("surname", "poe"),
-                                          OrOperator,
-                                          UnaryLogicalExpression(EqualityExpression("number", 1.0), NotOperator)),
+                  TupledLogicalExpression(
+                    LikeExpression("surname", "poe"),
+                    OrOperator,
+                    UnaryLogicalExpression(EqualityExpression("number", AbsoluteComparisonValue(1.0)), NotOperator)),
                   AndOperator,
                   TupledLogicalExpression(
-                    ComparisonExpression("age", GreaterThanOperator, 1L),
+                    ComparisonExpression("age", GreaterThanOperator, AbsoluteComparisonValue(1L)),
                     AndOperator,
-                    ComparisonExpression("height", LessOrEqualToOperator, 100L)
+                    ComparisonExpression("height", LessOrEqualToOperator, AbsoluteComparisonValue(100L))
                   )
                 )
               )),

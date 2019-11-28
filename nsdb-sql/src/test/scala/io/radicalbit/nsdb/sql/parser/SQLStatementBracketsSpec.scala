@@ -36,7 +36,9 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 4L)))
+            condition = Some(Condition(RangeExpression(dimension = "timestamp",
+                                                       value1 = AbsoluteComparisonValue(2L),
+                                                       value2 = AbsoluteComparisonValue(4L))))
           )))
       }
 
@@ -48,7 +50,9 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp", value1 = 2L, value2 = 3.5)))
+            condition = Some(Condition(RangeExpression(dimension = "timestamp",
+                                                       value1 = AbsoluteComparisonValue(2L),
+                                                       value2 = AbsoluteComparisonValue(3.5))))
           )))
       }
 
@@ -69,7 +73,8 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "timestamp", value = "word_word")))
+            condition =
+              Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue("word_word"))))
           )))
       }
 
@@ -105,8 +110,9 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(
-              ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 10L)))
+            condition = Some(Condition(ComparisonExpression(dimension = "timestamp",
+                                                            comparison = GreaterOrEqualToOperator,
+                                                            value = AbsoluteComparisonValue(10L))))
           )))
       }
 
@@ -131,9 +137,11 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp", comparison = GreaterThanOperator, value = 2L),
+              expression1 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = GreaterThanOperator,
+                                                 value = AbsoluteComparisonValue(2L)),
               operator = AndOperator,
-              expression2 = EqualityExpression(dimension = "timestamp", value = 4L)
+              expression2 = EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(4L))
             )))
           )))
       }
@@ -161,10 +169,13 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessThanOperator,
+                                                   value = AbsoluteComparisonValue(4L))
               ),
               operator = NotOperator
             )))
@@ -181,11 +192,14 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 = UnaryLogicalExpression(
-                ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
-                operator = NotOperator),
+              expression1 = UnaryLogicalExpression(ComparisonExpression(dimension = "timestamp",
+                                                                        comparison = GreaterOrEqualToOperator,
+                                                                        value = AbsoluteComparisonValue(2L)),
+                                                   operator = NotOperator),
               operator = OrOperator,
-              expression2 = ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L)
+              expression2 = ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessThanOperator,
+                                                 value = AbsoluteComparisonValue(4L))
             )))
           )))
       }
@@ -202,12 +216,14 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(UnaryLogicalExpression(
               expression = TupledLogicalExpression(
-                expression1 =
-                  ComparisonExpression(dimension = "timestamp", comparison = GreaterOrEqualToOperator, value = 2L),
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
                 operator = OrOperator,
-                expression2 = UnaryLogicalExpression(
-                  ComparisonExpression(dimension = "timestamp", comparison = LessThanOperator, value = 4L),
-                  operator = NotOperator)
+                expression2 = UnaryLogicalExpression(ComparisonExpression(dimension = "timestamp",
+                                                                          comparison = LessThanOperator,
+                                                                          value = AbsoluteComparisonValue(4L)),
+                                                     operator = NotOperator)
               ),
               operator = NotOperator
             )))
@@ -230,11 +246,15 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             distinct = false,
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
-              expression1 = TupledLogicalExpression(expression1 = LikeExpression("name", "$an$"),
-                                                    operator = AndOperator,
-                                                    expression2 = EqualityExpression("surname", "pippo")),
+              expression1 = TupledLogicalExpression(
+                expression1 = LikeExpression("name", "$an$"),
+                operator = AndOperator,
+                expression2 = EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo"))
+              ),
               operator = AndOperator,
-              expression2 = RangeExpression("timestamp", 2, 4)
+              expression2 = RangeExpression(dimension = "timestamp",
+                                            value1 = AbsoluteComparisonValue(2),
+                                            value2 = AbsoluteComparisonValue(4))
             ))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
@@ -254,12 +274,17 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(
-              Condition(TupledLogicalExpression(LikeExpression("name", "$an$"),
-                                                AndOperator,
-                                                TupledLogicalExpression(EqualityExpression("surname", "pippo"),
-                                                                        AndOperator,
-                                                                        RangeExpression("timestamp", 2, 4))))),
+            condition = Some(Condition(TupledLogicalExpression(
+              LikeExpression("name", "$an$"),
+              AndOperator,
+              TupledLogicalExpression(
+                EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")),
+                AndOperator,
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2),
+                                value2 = AbsoluteComparisonValue(4))
+              )
+            ))),
             order = Some(DescOrderOperator(dimension = "name")),
             limit = Some(LimitOperator(5))
           )))
@@ -278,10 +303,11 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
               metric = "AreaOccupancy",
               distinct = false,
               fields = AllFields,
-              condition = Some(
-                Condition(TupledLogicalExpression(EqualityExpression("name", "MeetingArea"),
-                                                  AndOperator,
-                                                  UnaryLogicalExpression(NullableExpression("name"), NotOperator)))),
+              condition = Some(Condition(TupledLogicalExpression(
+                EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
+                AndOperator,
+                UnaryLogicalExpression(NullableExpression("name"), NotOperator)
+              ))),
               order = Some(DescOrderOperator(dimension = "timestamp")),
               limit = Some(LimitOperator(1))
             ))
@@ -304,11 +330,12 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
               condition = Some(
                 Condition(
                   TupledLogicalExpression(
-                    expression1 =
-                      TupledLogicalExpression(expression1 = EqualityExpression("name", "MeetingArea"),
-                                              operator = AndOperator,
-                                              expression2 =
-                                                UnaryLogicalExpression(NullableExpression("name"), NotOperator)),
+                    expression1 = TupledLogicalExpression(
+                      expression1 =
+                        EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
+                      operator = AndOperator,
+                      expression2 = UnaryLogicalExpression(NullableExpression("name"), NotOperator)
+                    ),
                     operator = OrOperator,
                     expression2 = UnaryLogicalExpression(NullableExpression("floor"), NotOperator)
                   )
@@ -335,11 +362,15 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = TupledLogicalExpression(
-                expression1 = TupledLogicalExpression(expression1 = LikeExpression("name", "$an$"),
-                                                      operator = AndOperator,
-                                                      expression2 = EqualityExpression("surname", "pippo")),
+                expression1 = TupledLogicalExpression(
+                  expression1 = LikeExpression("name", "$an$"),
+                  operator = AndOperator,
+                  expression2 = EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo"))
+                ),
                 operator = AndOperator,
-                expression2 = RangeExpression("timestamp", 2, 4)
+                expression2 = RangeExpression(dimension = "timestamp",
+                                              value1 = AbsoluteComparisonValue(2),
+                                              value2 = AbsoluteComparisonValue(4))
               ),
               expression2 = UnaryLogicalExpression(NullableExpression("code"), NotOperator),
               operator = AndOperator

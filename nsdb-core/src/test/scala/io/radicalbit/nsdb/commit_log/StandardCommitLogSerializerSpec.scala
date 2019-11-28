@@ -137,7 +137,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = RangeExpression("dimension", 10L, 11L)
+        val expression = RangeExpression("dimension", AbsoluteComparisonValue(10L), AbsoluteComparisonValue(11L))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -151,7 +151,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = RangeExpression("dimension", 10.0, 11.0)
+        val expression = RangeExpression("dimension", AbsoluteComparisonValue(10.0), AbsoluteComparisonValue(11.0))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -165,7 +165,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = RangeExpression("dimension", 10, 11)
+        val expression = RangeExpression("dimension", AbsoluteComparisonValue(10), AbsoluteComparisonValue(11))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -179,7 +179,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, 11)
+        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, AbsoluteComparisonValue(11))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -193,7 +193,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, 11L)
+        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, AbsoluteComparisonValue(11L))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -207,7 +207,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, 11.0)
+        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, AbsoluteComparisonValue(11.0))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -217,11 +217,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         desEntry should be(Some(originalEntry))
       }
       "be created correctly with ComparisonExpression for String" in {
-        val db         = "test-db"
-        val namespace  = "test-namespace"
-        val ts         = 1500909299161L
-        val metric     = "test-metric"
-        val expression = ComparisonExpression("dimension", GreaterOrEqualToOperator, "dimValue")
+        val db        = "test-db"
+        val namespace = "test-namespace"
+        val ts        = 1500909299161L
+        val metric    = "test-metric"
+        val expression =
+          ComparisonExpression("dimension", GreaterOrEqualToOperator, AbsoluteComparisonValue("dimValue"))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -235,7 +236,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = EqualityExpression("dimension", "dimValue")
+        val expression = EqualityExpression("dimension", AbsoluteComparisonValue("dimValue"))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -249,7 +250,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = EqualityExpression("dimension", 1)
+        val expression = EqualityExpression("dimension", AbsoluteComparisonValue(1))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -263,7 +264,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = EqualityExpression("dimension", 1L)
+        val expression = EqualityExpression("dimension", AbsoluteComparisonValue(1L))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -277,7 +278,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace  = "test-namespace"
         val ts         = 1500909299161L
         val metric     = "test-metric"
-        val expression = EqualityExpression("dimension", 1.0)
+        val expression = EqualityExpression("dimension", AbsoluteComparisonValue(1.0))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -320,7 +321,10 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val ts        = 1500909299161L
         val metric    = "test-metric"
         val expression =
-          UnaryLogicalExpression(ComparisonExpression("dimension", GreaterOrEqualToOperator, "dimValue"), NotOperator)
+          UnaryLogicalExpression(ComparisonExpression("dimension",
+                                                      GreaterOrEqualToOperator,
+                                                      AbsoluteComparisonValue("dimValue")),
+                                 NotOperator)
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
@@ -335,9 +339,11 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val ts        = 1500909299161L
         val metric    = "test-metric"
         val expression =
-          TupledLogicalExpression(ComparisonExpression("dimension", GreaterOrEqualToOperator, "dimValue"),
-                                  AndOperator,
-                                  RangeExpression("timestamp", 10L, 11L))
+          TupledLogicalExpression(
+            ComparisonExpression("dimension", GreaterOrEqualToOperator, AbsoluteComparisonValue("dimValue")),
+            AndOperator,
+            RangeExpression("timestamp", AbsoluteComparisonValue(10L), AbsoluteComparisonValue(11L))
+          )
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)
 
