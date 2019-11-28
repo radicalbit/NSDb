@@ -17,8 +17,7 @@
 package io.radicalbit.nsdb.web
 
 import io.radicalbit.nsdb.common.statement._
-import org.json4s
-import org.json4s.JsonAST.{JArray, JDouble, JField, JInt, JLong, JValue}
+import org.json4s.JsonAST.{JDouble, JField, JInt, JLong}
 import org.json4s.{CustomSerializer, JNull, JObject, JString}
 
 object CustomSerializers {
@@ -32,7 +31,7 @@ object CustomSerializers {
     EqualityExpressionSerializer
   )
 
-  val customTestingSerializers = customSerializers ++ List(RelativeComparisonTestingSerializer)
+  val customSerializersForTesting = customSerializers ++ List(RelativeComparisonSerializerForTesting)
 
   case object AggregationSerializer
       extends CustomSerializer[Aggregation](_ =>
@@ -130,37 +129,7 @@ object CustomSerializers {
   case object EqualityExpressionSerializer
       extends CustomSerializer[EqualityExpression[_]](_ =>
         ({
-          case JObject(
-              List(JField("dimension", JString(dimension)),
-                   JField("comparison", JString("=")),
-                   JField("value", JLong(value)))) =>
-            EqualityExpression(dimension, AbsoluteComparisonValue(value: Long))
-          case JObject(
-              List(JField("dimension", JString(dimension)),
-                   JField("comparison", JString("=")),
-                   JField("value", JInt(value)))) =>
-            EqualityExpression(dimension, AbsoluteComparisonValue(value.intValue(): Int))
-          case JObject(
-              List(JField("dimension", JString(dimension)),
-                   JField("comparison", JString("=")),
-                   JField("value", JString(value)))) =>
-            EqualityExpression(dimension, AbsoluteComparisonValue(value: String))
-          case JObject(
-              List(JField("dimension", JString(dimension)),
-                   JField("comparison", JString("=")),
-                   JField("value", JDouble(value)))) =>
-            EqualityExpression(dimension, AbsoluteComparisonValue(value: Double))
-          case JObject(
-              List(JField("dimension", JString(dimension)),
-                   JField("comparison", JString("=")),
-                   JField("value",
-                          JObject(
-                            List(JField("value", JLong(value)),
-                                 JField("operator", JString(operator)),
-                                 JField("quantity", JLong(quantity)),
-                                 JField("unitMeasure", JString(unitMeasure)))
-                          )))) =>
-            EqualityExpression(dimension, RelativeComparisonValue(value: Long, operator, quantity: Long, unitMeasure))
+          case _ => throw new UnsupportedOperationException("Deserializing an EqualityExpression is not yet supported")
         }, {
           case EqualityExpression(dimension, AbsoluteComparisonValue(value: Long)) =>
             JObject(
@@ -200,7 +169,7 @@ object CustomSerializers {
               ))
         }))
 
-  case object RelativeComparisonTestingSerializer
+  case object RelativeComparisonSerializerForTesting
       extends CustomSerializer[RelativeComparisonValue[_]](_ =>
         ({
           case JObject(

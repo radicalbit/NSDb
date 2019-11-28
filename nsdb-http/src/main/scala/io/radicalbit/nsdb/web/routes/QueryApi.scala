@@ -16,26 +16,17 @@
 
 package io.radicalbit.nsdb.web.routes
 
-import javax.ws.rs.Path
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.util.Timeout
 import akka.pattern.ask
+import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{
-  Aggregation,
-  CountAggregation,
-  MaxAggregation,
-  MinAggregation,
-  SQLStatement,
-  SelectSQLStatement,
-  SumAggregation
-}
+import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -43,9 +34,9 @@ import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.web.CustomSerializers
 import io.swagger.annotations._
-import org.json4s
-import org.json4s.{CustomSerializer, DefaultFormats, Formats, JNull, JString}
+import javax.ws.rs.Path
 import org.json4s.jackson.Serialization.write
+import org.json4s.{DefaultFormats, Formats}
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -129,7 +120,7 @@ trait QueryApi {
   case class QueryResponse(
       @(ApiModelProperty @field)(value = "query result as a Seq of Bits ") records: Seq[Bit],
       @(ApiModelProperty @field)(value = "json representation of query ", required = false, dataType = "SQLStatement") parsed: Option[
-        SQLStatement],
+        SQLStatement]
   )
 
   @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[QueryResponse])
