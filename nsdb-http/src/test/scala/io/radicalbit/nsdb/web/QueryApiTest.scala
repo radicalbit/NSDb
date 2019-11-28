@@ -23,7 +23,6 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
-import io.radicalbit.nsdb.common.statement.{RelativeComparisonValue, SQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
@@ -34,8 +33,6 @@ import io.radicalbit.nsdb.web.routes._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
-import org.json4s.jackson.Serialization.write
-
 
 import scala.concurrent.duration._
 
@@ -58,9 +55,9 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
-    override def readCoordinator: ActorRef        = readCoordinatorActor
-    implicit val formats: DefaultFormats = DefaultFormats
-    override implicit val timeout: Timeout        = 5 seconds
+    override def readCoordinator: ActorRef = readCoordinatorActor
+    //override implicit val formats: DefaultFormats = DefaultFormats
+    override implicit val timeout: Timeout = 5 seconds
 
   }
 
@@ -68,9 +65,12 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
     override def readCoordinator: ActorRef = readCoordinatorActor
-
-    // implicit val formats: DefaultFormats = DefaultFormats
-    override implicit val timeout: Timeout        = 5 seconds
+    /*
+        override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
+        fixed timestamp in order to make the test time-independent
+     */
+    override implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customTestingSerializers
+    override implicit val timeout: Timeout = 5 seconds
   }
 
   val testRoutes = Route.seal(
@@ -286,14 +286,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple count aggregation query and return the parsed query" in {
     val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select count(*) from metric limit 1",
-                None,
-                None,
-                None,
-                Some(true))
+      QueryBody("db", "namespace", "metric", "select count(*) from metric limit 1", None, None, None, Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -347,13 +340,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple sum aggregation query and return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select sum(value) from metric group by name limit 2 ",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select sum(value) from metric group by name limit 2 ",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -410,13 +403,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple min aggregation query and return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select min(value) from metric group by name limit 3 ",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select min(value) from metric group by name limit 3 ",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -473,13 +466,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple max aggregation query and return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select max(value) from metric group by name limit 4",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select max(value) from metric group by name limit 4",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -536,13 +529,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple query with asc order and return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select * from metric order by timestamp limit 2",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select * from metric order by timestamp limit 2",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -595,13 +588,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple query with desc order and return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select * from metric order by timestamp desc limit 5",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select * from metric order by timestamp desc limit 5",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -654,13 +647,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple query with and condition return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select * from metric where timestamp > 0 and timestamp < 200  limit 2",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select * from metric where timestamp > 0 and timestamp < 200  limit 2",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -728,13 +721,13 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     "correctly query the db with a simple query with equality expression and return the parsed query" in {
     val q =
       QueryBody("db",
-        "namespace",
-        "metric",
-        "select * from metric where timestamp = 5 limit 2",
-        None,
-        None,
-        None,
-        Some(true))
+                "namespace",
+                "metric",
+                "select * from metric where timestamp = 5 limit 2",
+                None,
+                None,
+                None,
+                Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -786,6 +779,170 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     }
   }
 
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with some conditions and return the parsed query" in {
+    val q =
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select * from metric where timestamp > 1 and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
+        None,
+        None,
+        None,
+        Some(true)
+      )
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+      |  "records" : [ {
+      |    "timestamp" : 0,
+      |    "value" : 1,
+      |    "dimensions" : {
+      |      "name" : "name",
+      |      "number" : 2
+      |    },
+      |    "tags" : {
+      |      "country" : "country"
+      |    }
+      |  }, {
+      |    "timestamp" : 2,
+      |    "value" : 3,
+      |    "dimensions" : {
+      |      "name" : "name",
+      |      "number" : 2
+      |    },
+      |    "tags" : {
+      |      "country" : "country"
+      |    }
+      |  } ],
+      |  "parsed" : {
+      |    "db" : "db",
+      |    "namespace" : "namespace",
+      |    "metric" : "metric",
+      |    "distinct" : false,
+      |    "fields" : { },
+      |    "condition" : {
+      |      "expression" : {
+      |        "expression1" : {
+      |          "dimension" : "timestamp",
+      |          "comparison" : ">",
+      |          "value" : {
+      |            "value" : 1
+      |          }
+      |        },
+      |        "operator" : "and",
+      |        "expression2" : {
+      |          "expression1" : {
+      |            "dimension" : "timestamp",
+      |            "comparison" : "<",
+      |            "value" : {
+      |              "value" : 2
+      |            }
+      |          },
+      |          "operator" : "and",
+      |          "expression2" : {
+      |            "expression1" : {
+      |              "dimension" : "timestamp",
+      |              "comparison" : "=",
+      |              "value" : 3
+      |            },
+      |            "operator" : "or",
+      |            "expression2" : {
+      |              "expression1" : {
+      |                "dimension" : "timestamp",
+      |                "comparison" : ">=",
+      |                "value" : {
+      |                  "value" : 4
+      |                }
+      |              },
+      |              "operator" : "or",
+      |              "expression2" : {
+      |                "dimension" : "timestamp",
+      |                "comparison" : "<=",
+      |                "value" : {
+      |                  "value" : 5
+      |                }
+      |              }
+      |            }
+      |          }
+      |        }
+      |      }
+      |    }
+      |  }
+      |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query relative value and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric where timestamp > now - 2d",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "condition" : {
+          |      "expression" : {
+          |        "dimension" : "timestamp",
+          |        "comparison" : ">",
+          |        "value" : {
+          |          "value" : 0,
+          |          "operator" : "-",
+          |          "quantity" : 2,
+          |          "unitMeasure" : "d"
+          |        }
+          |      }
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
 
   "Secured QueryApi" should "not allow a request without the security header" in {
     val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None, None)
