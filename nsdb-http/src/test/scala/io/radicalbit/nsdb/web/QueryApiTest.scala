@@ -23,7 +23,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
-import io.radicalbit.nsdb.common.statement.SQLStatement
+import io.radicalbit.nsdb.common.statement.{RelativeComparisonValue, SQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
@@ -34,6 +34,8 @@ import io.radicalbit.nsdb.web.routes._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import org.scalatest.{FlatSpec, Matchers}
+import org.json4s.jackson.Serialization.write
+
 
 import scala.concurrent.duration._
 
@@ -67,7 +69,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
 
     override def readCoordinator: ActorRef = readCoordinatorActor
 
-    implicit val formats: DefaultFormats = DefaultFormats
+    // implicit val formats: DefaultFormats = DefaultFormats
     override implicit val timeout: Timeout        = 5 seconds
   }
 
@@ -721,7 +723,70 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
 
     }
   }
-  
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with equality expression and return the parsed query" in {
+    val q =
+      QueryBody("db",
+        "namespace",
+        "metric",
+        "select * from metric where timestamp = 5 limit 2",
+        None,
+        None,
+        None,
+        Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "condition" : {
+          |      "expression" : {
+          |        "dimension" : "timestamp",
+          |        "comparison" : "=",
+          |        "value" : 5
+          |      }
+          |    },
+          |    "limit" : {
+          |      "value" : 2
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+
   "Secured QueryApi" should "not allow a request without the security header" in {
     val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None, None)
 
