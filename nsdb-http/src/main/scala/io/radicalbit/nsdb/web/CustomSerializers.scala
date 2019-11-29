@@ -37,7 +37,7 @@ object CustomSerializers {
       extends CustomSerializer[Aggregation](_ =>
         ({
           case JString(aggregation) =>
-            aggregation match {
+            aggregation.toLowerCase match {
               case "count" => CountAggregation
               case "max"   => MaxAggregation
               case "min"   => MinAggregation
@@ -73,7 +73,7 @@ object CustomSerializers {
       extends CustomSerializer[LogicalOperator](_ =>
         ({
           case JString(logical) =>
-            logical match {
+            logical.toLowerCase match {
               case "not" => NotOperator
               case "and" => AndOperator
               case "or"  => OrOperator
@@ -89,7 +89,7 @@ object CustomSerializers {
       extends CustomSerializer[OrderOperator](_ =>
         ({
           case JObject(List(JField("order_by", JString(order)), JField("direction", JString(direction)))) =>
-            direction match {
+            direction.toLowerCase match {
               case "asc"  => AscOrderOperator(order)
               case "desc" => DescOrderOperator(order)
             }
