@@ -26,7 +26,7 @@ import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
-import io.radicalbit.nsdb.common.NsdbConfig
+import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -75,6 +75,6 @@ trait NSDBActors {
 }
 
 /**
-  * Simply mix in [[NSDBActors]] with [[NsdbClusterConfig]]
+  * Simply mix in [[NSDBActors]] with [[NsdbClusterConfigProvider]]
   */
-trait ProductionCluster extends NSDBActors with NsdbClusterConfig
+trait ProductionCluster extends NSDBActors with NsdbClusterConfigProvider

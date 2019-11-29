@@ -57,7 +57,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val config = context.system.settings.config
 
-  private val indexBasePath = config.getString("nsdb.index.base-path")
+  private val indexBasePath = config.getString("nsdb.storage.index-path")
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator

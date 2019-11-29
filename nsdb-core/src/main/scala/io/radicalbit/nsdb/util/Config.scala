@@ -23,7 +23,7 @@ object Config {
   val CommitLogSerializerConf = "nsdb.commit-log.serializer"
   val CommitLogWriterConf     = "nsdb.commit-log.writer"
   val CommitLogEnabledConf    = "nsdb.commit-log.enabled"
-  val CommitLogDirectoryConf  = "nsdb.commit-log.directory"
+  val CommitLogDirectoryConf  = "nsdb.storage.commit-log-path"
   val CommitLogMaxSizeConf    = "nsdb.commit-log.max-size"
   val CommitLogBufferSizeConf = "nsdb.commit-log.buffer-size"
 

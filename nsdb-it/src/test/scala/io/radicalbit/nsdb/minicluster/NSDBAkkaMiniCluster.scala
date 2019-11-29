@@ -2,17 +2,17 @@ package io.radicalbit.nsdb.minicluster
 
 import akka.actor.ActorSystem
 import io.radicalbit.nsdb.cluster.NSDBActors
-import io.radicalbit.nsdb.common.NsdbConfig
+import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
 
 import scala.concurrent.duration._
 import scala.concurrent.Await
 
-trait NSDBAkkaMiniCluster { this: NsdbConfig with NSDBActors =>
+trait NSDBAkkaMiniCluster { this: NsdbConfigProvider with NSDBActors =>
 
   implicit var system: ActorSystem = _
 
   def start(): Unit = {
-    system = ActorSystem("nsdb", config)
+    system = ActorSystem("NSDb", config)
     initTopLevelActors()
   }
 

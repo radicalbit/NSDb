@@ -19,22 +19,18 @@ package io.radicalbit.nsdb.cluster
 import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.radicalbit.nsdb.common.NsdbConfig
+import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
 
 /**
   * Creates NSDb configuration looking up the `ConfDir` folder or into the classpath.
   * The retrieved configuration is properly adjusted in case ssl is enabled or not
   */
-trait NsdbClusterConfig extends NsdbConfig {
-  private lazy val initialConfig: Config = ConfigFactory
-    .parseFile(Paths.get(System.getProperty("confDir"), "cluster.conf").toFile)
-    .resolve()
-    .withFallback(ConfigFactory.load("cluster"))
+trait NsdbClusterConfigProvider extends NsdbConfigProvider {
 
-  lazy val config: Config = if (initialConfig.getBoolean("akka.remote.netty.tcp.enable-ssl")) {
-    initialConfig
-      .withValue("akka.remote.enabled-transports", initialConfig.getValue("akka.remote.enabled-transports-ssl"))
-      .withValue("akka.cluster.seed-nodes", initialConfig.getValue("akka.cluster.seed-nodes-ssl"))
-  } else
-    initialConfig
+  override lazy val highLevelConfig = ConfigFactory
+    .parseFile(Paths.get(System.getProperty("confDir"), "nsdb.conf").toFile)
+
+  override def lowLevelConfig: Config =
+    mergeConf(highLevelConfig, ConfigFactory.load("application-common"), ConfigFactory.load("application-native"))
+
 }

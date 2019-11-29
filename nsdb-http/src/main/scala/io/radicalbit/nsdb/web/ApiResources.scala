@@ -123,5 +123,5 @@ class ApiResources(val publisherActor: ActorRef,
       healthCheckApi ~
       commandsApi ~
       swagger ~
-      new SwaggerDocService().routes
+      new SwaggerDocService(config.getString("nsdb.http.interface"), config.getInt("nsdb.http.port")).routes
 }
