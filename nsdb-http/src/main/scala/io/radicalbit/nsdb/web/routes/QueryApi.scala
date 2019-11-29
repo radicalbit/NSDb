@@ -16,26 +16,27 @@
 
 package io.radicalbit.nsdb.web.routes
 
-import javax.ws.rs.Path
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.util.Timeout
 import akka.pattern.ask
+import akka.util.Timeout
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.web.CustomSerializers
 import io.swagger.annotations._
-import org.json4s.DefaultFormats
+import javax.ws.rs.Path
 import org.json4s.jackson.Serialization.write
+import org.json4s.{DefaultFormats, Formats}
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -56,7 +57,7 @@ object NullableOperators extends Enumeration {
   val IsNotNull = Value("ISNOTNULL")
 }
 
-@ApiModel(description = "Filter sealed trait ", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
+@ApiModel(description = "Filter sealed trait", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
 sealed trait Filter
 
 case object Filter {
@@ -69,25 +70,25 @@ case object Filter {
 
 @ApiModel(description = "Filter using operator", parent = classOf[Filter])
 case class FilterByValue(
-    @(ApiModelProperty @field)(value = "dimension on which apply condition ") dimension: String,
+    @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
     @(ApiModelProperty @field)(value = "value of comparation") value: JSerializable,
     @(ApiModelProperty @field)(
       value = "filter comparison operator",
       dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value
 ) extends Filter
 
-@ApiModel(description = "Filter for nullable ", parent = classOf[Filter])
+@ApiModel(description = "Filter for nullable", parent = classOf[Filter])
 case class FilterNullableValue(
-    @(ApiModelProperty @field)(value = "dimension on which apply condition ") dimension: String,
+    @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
     @(ApiModelProperty @field)(
       value = "filter nullability operator",
       dataType = "io.radicalbit.nsdb.web.routes.NullableOperators") operator: NullableOperators.Value
 ) extends Filter
 
 @ApiModel(description = "Query body")
-case class QueryBody(@(ApiModelProperty @field)(value = "database name ") db: String,
-                     @(ApiModelProperty @field)(value = "namespace name ") namespace: String,
-                     @(ApiModelProperty @field)(value = "metric name ") metric: String,
+case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: String,
+                     @(ApiModelProperty @field)(value = "namespace name") namespace: String,
+                     @(ApiModelProperty @field)(value = "metric name") metric: String,
                      @(ApiModelProperty @field)(value = "sql query string") queryString: String,
                      @(ApiModelProperty @field)(value = "timestamp lower bound condition",
                                                 required = false,
@@ -98,7 +99,9 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name ") db: St
                      @(ApiModelProperty @field)(
                        value = "filters definition, adding where condition",
                        required = false,
-                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]])
+                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]],
+                     @(ApiModelProperty @field)(value = "return parsed query", required = false, dataType = "boolean") parsed: Option[
+                       Boolean])
     extends Metric
 
 @Api(value = "/query", produces = "application/json")
@@ -111,11 +114,13 @@ trait QueryApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: DefaultFormats
+  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers
 
   @ApiModel(description = "Query Response")
   case class QueryResponse(
-      @(ApiModelProperty @field)(value = "query result as a Seq of Bits ") records: Seq[Bit]
+      @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
+      @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
+        SQLStatement]
   )
 
   @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[QueryResponse])
@@ -164,7 +169,8 @@ trait QueryApi {
                 case Some(statement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
-                      complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values))))
+                      complete(HttpEntity(ContentTypes.`application/json`,
+                                          write(QueryResponse(values, qb.parsed.map(_ => statement)))))
                     case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>

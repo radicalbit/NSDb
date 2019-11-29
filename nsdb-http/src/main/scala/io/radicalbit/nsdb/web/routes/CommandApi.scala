@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.DefaultFormats
+import org.json4s.{DefaultFormats, Formats}
 import org.json4s.jackson.Serialization.write
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,7 +46,7 @@ trait CommandApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: DefaultFormats
+  implicit val formats: Formats
   implicit val ec: ExecutionContext
 
   case class CommandRequestDatabase(db: String)                                  extends Db

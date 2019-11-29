@@ -80,7 +80,7 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
       }
   }
 
-  implicit val QbFormat = jsonFormat7(QueryBody.apply)
+  implicit val QbFormat = jsonFormat8(QueryBody.apply)
 
   implicit val QvbFormat = jsonFormat4(QueryValidationBody.apply)
 
@@ -103,8 +103,6 @@ class ApiResources(val publisherActor: ActorRef,
     with QueryApi
     with QueryValidationApi
     with DataApi {
-
-  implicit val formats: DefaultFormats = DefaultFormats
 
   def healthCheckApi: Route = {
     pathPrefix("status") {

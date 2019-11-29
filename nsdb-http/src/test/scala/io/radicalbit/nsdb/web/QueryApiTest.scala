@@ -55,9 +55,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
-    override def readCoordinator: ActorRef        = readCoordinatorActor
-    override implicit val formats: DefaultFormats = DefaultFormats
-    override implicit val timeout: Timeout        = 5 seconds
+    override def readCoordinator: ActorRef = readCoordinatorActor
+    override implicit val timeout: Timeout = 5 seconds
 
   }
 
@@ -65,9 +64,12 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
     override def readCoordinator: ActorRef = readCoordinatorActor
-
-    override implicit val formats: DefaultFormats = DefaultFormats
-    override implicit val timeout: Timeout        = 5 seconds
+    /*
+        override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
+        fixed timestamp in order to make the test time-independent
+     */
+    override implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializersForTesting
+    override implicit val timeout: Timeout = 5 seconds
   }
 
   val testRoutes = Route.seal(
@@ -92,7 +94,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
                 "select * from metric limit 1",
                 None,
                 None,
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
+                None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -136,7 +139,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
                 "select * from metric limit 1",
                 Some(100),
                 Some(200),
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
+                None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -180,7 +184,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
                 "select * from metric limit 1",
                 None,
                 None,
-                Some(Seq(FilterByValue("value", "1", FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", "1", FilterOperators.Equality))),
+                None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -196,7 +201,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
                 "select * from metric limit 1",
                 None,
                 None,
-                Some(Seq(FilterByValue("value", "vd", FilterOperators.Equality))))
+                Some(Seq(FilterByValue("value", "vd", FilterOperators.Equality))),
+                None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe InternalServerError
@@ -204,7 +210,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "QueryApi" should "correctly query the db with time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), None)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), None, None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -241,7 +247,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "QueryApi" should "correctly query the db without time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", None, None, None)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", None, None, None, None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -276,8 +282,1117 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     }
   }
 
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple count aggregation query and return the parsed query" in {
+    val q =
+      QueryBody("db", "namespace", "metric", "select count(*) from metric limit 1", None, None, None, Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
+          |    },
+          |    "limit" : {
+          |      "value" : 1
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple sum aggregation query and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select sum(value) from metric group by name limit 2 ",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "value",
+          |        "aggregation" : "sum"
+          |      } ]
+          |    },
+          |    "groupBy" : {
+          |      "dimension" : "name"
+          |    },
+          |    "limit" : {
+          |      "value" : 2
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple min aggregation query and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select min(value) from metric group by name limit 3 ",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "value",
+          |        "aggregation" : "min"
+          |      } ]
+          |    },
+          |    "groupBy" : {
+          |      "dimension" : "name"
+          |    },
+          |    "limit" : {
+          |      "value" : 3
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple max aggregation query and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select max(value) from metric group by name limit 4",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "value",
+          |        "aggregation" : "max"
+          |      } ]
+          |    },
+          |    "groupBy" : {
+          |      "dimension" : "name"
+          |    },
+          |    "limit" : {
+          |      "value" : 4
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with asc order and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric order by timestamp limit 2",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "order" : {
+          |      "order_by" : "timestamp",
+          |      "direction" : "asc"
+          |    },
+          |    "limit" : {
+          |      "value" : 2
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with desc order and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric order by timestamp desc limit 5",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "order" : {
+          |      "order_by" : "timestamp",
+          |      "direction" : "desc"
+          |    },
+          |    "limit" : {
+          |      "value" : 5
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with 'and' condition return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric where timestamp > 0 and timestamp < 200  limit 2",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "condition" : {
+          |      "expression" : {
+          |        "expression1" : {
+          |          "dimension" : "timestamp",
+          |          "comparison" : ">",
+          |          "value" : {
+          |            "value" : 0
+          |          }
+          |        },
+          |        "operator" : "and",
+          |        "expression2" : {
+          |          "dimension" : "timestamp",
+          |          "comparison" : "<",
+          |          "value" : {
+          |            "value" : 200
+          |          }
+          |        }
+          |      }
+          |    },
+          |    "limit" : {
+          |      "value" : 2
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with equality expression and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric where timestamp = 5 limit 2",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "condition" : {
+          |      "expression" : {
+          |        "dimension" : "timestamp",
+          |        "comparison" : "=",
+          |        "value" : 5
+          |      }
+          |    },
+          |    "limit" : {
+          |      "value" : 2
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with some conditions and return the parsed query" in {
+    val q =
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select * from metric where timestamp > 1 and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
+        None,
+        None,
+        None,
+        Some(true)
+      )
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+      |  "records" : [ {
+      |    "timestamp" : 0,
+      |    "value" : 1,
+      |    "dimensions" : {
+      |      "name" : "name",
+      |      "number" : 2
+      |    },
+      |    "tags" : {
+      |      "country" : "country"
+      |    }
+      |  }, {
+      |    "timestamp" : 2,
+      |    "value" : 3,
+      |    "dimensions" : {
+      |      "name" : "name",
+      |      "number" : 2
+      |    },
+      |    "tags" : {
+      |      "country" : "country"
+      |    }
+      |  } ],
+      |  "parsed" : {
+      |    "db" : "db",
+      |    "namespace" : "namespace",
+      |    "metric" : "metric",
+      |    "distinct" : false,
+      |    "fields" : { },
+      |    "condition" : {
+      |      "expression" : {
+      |        "expression1" : {
+      |          "dimension" : "timestamp",
+      |          "comparison" : ">",
+      |          "value" : {
+      |            "value" : 1
+      |          }
+      |        },
+      |        "operator" : "and",
+      |        "expression2" : {
+      |          "expression1" : {
+      |            "dimension" : "timestamp",
+      |            "comparison" : "<",
+      |            "value" : {
+      |              "value" : 2
+      |            }
+      |          },
+      |          "operator" : "and",
+      |          "expression2" : {
+      |            "expression1" : {
+      |              "dimension" : "timestamp",
+      |              "comparison" : "=",
+      |              "value" : 3
+      |            },
+      |            "operator" : "or",
+      |            "expression2" : {
+      |              "expression1" : {
+      |                "dimension" : "timestamp",
+      |                "comparison" : ">=",
+      |                "value" : {
+      |                  "value" : 4
+      |                }
+      |              },
+      |              "operator" : "or",
+      |              "expression2" : {
+      |                "dimension" : "timestamp",
+      |                "comparison" : "<=",
+      |                "value" : {
+      |                  "value" : 5
+      |                }
+      |              }
+      |            }
+      |          }
+      |        }
+      |      }
+      |    }
+      |  }
+      |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query with like condition and return the parsed query" in {
+    val q =
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select * from metric where name like $m$ and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
+        None,
+        None,
+        None,
+        Some(true)
+      )
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "condition" : {
+          |      "expression" : {
+          |        "expression1" : {
+          |          "dimension" : "name",
+          |          "comparison" : "like",
+          |          "value" : "$m$"
+          |        },
+          |        "operator" : "and",
+          |        "expression2" : {
+          |          "expression1" : {
+          |            "dimension" : "timestamp",
+          |            "comparison" : "<",
+          |            "value" : {
+          |              "value" : 2
+          |            }
+          |          },
+          |          "operator" : "and",
+          |          "expression2" : {
+          |            "expression1" : {
+          |              "dimension" : "timestamp",
+          |              "comparison" : "=",
+          |              "value" : 3
+          |            },
+          |            "operator" : "or",
+          |            "expression2" : {
+          |              "expression1" : {
+          |                "dimension" : "timestamp",
+          |                "comparison" : ">=",
+          |                "value" : {
+          |                  "value" : 4
+          |                }
+          |              },
+          |              "operator" : "or",
+          |              "expression2" : {
+          |                "dimension" : "timestamp",
+          |                "comparison" : "<=",
+          |                "value" : {
+          |                  "value" : 5
+          |                }
+          |              }
+          |            }
+          |          }
+          |        }
+          |      }
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a simple query relative value and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select * from metric where timestamp > now - 2d",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : { },
+          |    "condition" : {
+          |      "expression" : {
+          |        "dimension" : "timestamp",
+          |        "comparison" : ">",
+          |        "value" : {
+          |          "value" : 0,
+          |          "operator" : "-",
+          |          "quantity" : 2,
+          |          "unitMeasure" : "d"
+          |        }
+          |      }
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a complex query return the parsed query" in {
+    val q =
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select count(*) from metric where timestamp > now - 2d or name = 'a' and timestamp < 3 group by timestamp",
+        None,
+        None,
+        None,
+        Some(true)
+      )
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
+          |    },
+          |    "condition" : {
+          |      "expression" : {
+          |        "expression1" : {
+          |          "dimension" : "timestamp",
+          |          "comparison" : ">",
+          |          "value" : {
+          |            "value" : 0,
+          |            "operator" : "-",
+          |            "quantity" : 2,
+          |            "unitMeasure" : "d"
+          |          }
+          |        },
+          |        "operator" : "or",
+          |        "expression2" : {
+          |          "expression1" : {
+          |            "dimension" : "name",
+          |            "comparison" : "=",
+          |            "value" : "a"
+          |          },
+          |          "operator" : "and",
+          |          "expression2" : {
+          |            "dimension" : "timestamp",
+          |            "comparison" : "<",
+          |            "value" : {
+          |              "value" : 3
+          |            }
+          |          }
+          |        }
+          |      }
+          |    },
+          |    "groupBy" : {
+          |      "dimension" : "timestamp"
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a very complex query return the parsed query" in {
+    val q =
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select count(*) from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or name = 'a' and timestamp < 3 group by timestamp",
+        None,
+        None,
+        None,
+        Some(true)
+      )
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
+          |    },
+          |    "condition" : {
+          |      "expression" : {
+          |        "expression1" : {
+          |          "dimension" : "name",
+          |          "comparison" : "like",
+          |          "value" : "$m$"
+          |        },
+          |        "operator" : "or",
+          |        "expression2" : {
+          |          "expression1" : {
+          |            "dimension" : "timestamp",
+          |            "value1" : {
+          |              "value" : 0,
+          |              "operator" : "-",
+          |              "quantity" : 2,
+          |              "unitMeasure" : "h"
+          |            },
+          |            "value2" : {
+          |              "value" : 7
+          |            }
+          |          },
+          |          "operator" : "and",
+          |          "expression2" : {
+          |            "expression1" : {
+          |              "dimension" : "timestamp",
+          |              "comparison" : ">",
+          |              "value" : {
+          |                "value" : 0,
+          |                "operator" : "-",
+          |                "quantity" : 2,
+          |                "unitMeasure" : "d"
+          |              }
+          |            },
+          |            "operator" : "or",
+          |            "expression2" : {
+          |              "expression1" : {
+          |                "dimension" : "name",
+          |                "comparison" : "=",
+          |                "value" : "a"
+          |              },
+          |              "operator" : "and",
+          |              "expression2" : {
+          |                "dimension" : "timestamp",
+          |                "comparison" : "<",
+          |                "value" : {
+          |                  "value" : 3
+          |                }
+          |              }
+          |            }
+          |          }
+          |        }
+          |      }
+          |    },
+          |    "groupBy" : {
+          |      "dimension" : "timestamp"
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a very very complex query return the parsed query" in {
+    val q =
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select name, timestamp, value from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or " +
+          "name = 'a' or timestamp <= now - 1s and value >= 5 and timestamp < 3 limit 5",
+        None,
+        None,
+        None,
+        Some(true)
+      )
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "name"
+          |      }, {
+          |        "name" : "timestamp"
+          |      }, {
+          |        "name" : "value"
+          |      } ]
+          |    },
+          |    "condition" : {
+          |      "expression" : {
+          |        "expression1" : {
+          |          "dimension" : "name",
+          |          "comparison" : "like",
+          |          "value" : "$m$"
+          |        },
+          |        "operator" : "or",
+          |        "expression2" : {
+          |          "expression1" : {
+          |            "dimension" : "timestamp",
+          |            "value1" : {
+          |              "value" : 0,
+          |              "operator" : "-",
+          |              "quantity" : 2,
+          |              "unitMeasure" : "h"
+          |            },
+          |            "value2" : {
+          |              "value" : 7
+          |            }
+          |          },
+          |          "operator" : "and",
+          |          "expression2" : {
+          |            "expression1" : {
+          |              "dimension" : "timestamp",
+          |              "comparison" : ">",
+          |              "value" : {
+          |                "value" : 0,
+          |                "operator" : "-",
+          |                "quantity" : 2,
+          |                "unitMeasure" : "d"
+          |              }
+          |            },
+          |            "operator" : "or",
+          |            "expression2" : {
+          |              "expression1" : {
+          |                "dimension" : "name",
+          |                "comparison" : "=",
+          |                "value" : "a"
+          |              },
+          |              "operator" : "or",
+          |              "expression2" : {
+          |                "expression1" : {
+          |                  "dimension" : "timestamp",
+          |                  "comparison" : "<=",
+          |                  "value" : {
+          |                    "value" : 0,
+          |                    "operator" : "-",
+          |                    "quantity" : 1,
+          |                    "unitMeasure" : "s"
+          |                  }
+          |                },
+          |                "operator" : "and",
+          |                "expression2" : {
+          |                  "expression1" : {
+          |                    "dimension" : "value",
+          |                    "comparison" : ">=",
+          |                    "value" : {
+          |                      "value" : 5
+          |                    }
+          |                  },
+          |                  "operator" : "and",
+          |                  "expression2" : {
+          |                    "dimension" : "timestamp",
+          |                    "comparison" : "<",
+          |                    "value" : {
+          |                      "value" : 3
+          |                    }
+          |                  }
+          |                }
+          |              }
+          |            }
+          |          }
+          |        }
+          |      }
+          |    },
+          |    "limit" : {
+          |      "value" : 5
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
   "Secured QueryApi" should "not allow a request without the security header" in {
-    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None)
+    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None, None)
 
     Post("/query", q) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -292,7 +1407,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
-    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2), None)
+    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2), None, None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -301,7 +1416,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(1), Some(2), None)
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(1), Some(2), None, None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
