@@ -57,7 +57,7 @@ object NullableOperators extends Enumeration {
   val IsNotNull = Value("ISNOTNULL")
 }
 
-@ApiModel(description = "Filter sealed trait ", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
+@ApiModel(description = "Filter sealed trait", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
 sealed trait Filter
 
 case object Filter {
@@ -70,27 +70,27 @@ case object Filter {
 
 @ApiModel(description = "Filter using operator", parent = classOf[Filter])
 case class FilterByValue(
-    @(ApiModelProperty @field)(value = "dimension on which apply condition ") dimension: String,
+    @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
     @(ApiModelProperty @field)(value = "value of comparation") value: JSerializable,
     @(ApiModelProperty @field)(
       value = "filter comparison operator",
       dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value
 ) extends Filter
 
-@ApiModel(description = "Filter for nullable ", parent = classOf[Filter])
+@ApiModel(description = "Filter for nullable", parent = classOf[Filter])
 case class FilterNullableValue(
-    @(ApiModelProperty @field)(value = "dimension on which apply condition ") dimension: String,
+    @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
     @(ApiModelProperty @field)(
       value = "filter nullability operator",
       dataType = "io.radicalbit.nsdb.web.routes.NullableOperators") operator: NullableOperators.Value
 ) extends Filter
 
 @ApiModel(description = "Query body")
-case class QueryBody(@(ApiModelProperty @field)(value = "database name ") db: String,
-                     @(ApiModelProperty @field)(value = "namespace name ") namespace: String,
-                     @(ApiModelProperty @field)(value = "metric name ") metric: String,
+case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: String,
+                     @(ApiModelProperty @field)(value = "namespace name") namespace: String,
+                     @(ApiModelProperty @field)(value = "metric name") metric: String,
                      @(ApiModelProperty @field)(value = "sql query string") queryString: String,
-                     @(ApiModelProperty @field)(value = "timestamp lower bound condition ",
+                     @(ApiModelProperty @field)(value = "timestamp lower bound condition",
                                                 required = false,
                                                 dataType = "long") from: Option[Long],
                      @(ApiModelProperty @field)(value = "timestamp upper bound condition",
@@ -118,8 +118,8 @@ trait QueryApi {
 
   @ApiModel(description = "Query Response")
   case class QueryResponse(
-      @(ApiModelProperty @field)(value = "query result as a Seq of Bits ") records: Seq[Bit],
-      @(ApiModelProperty @field)(value = "json representation of query ", required = false, dataType = "SQLStatement") parsed: Option[
+      @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
+      @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
         SQLStatement]
   )
 
@@ -169,13 +169,8 @@ trait QueryApi {
                 case Some(statement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
-                      qb.parsed match {
-                        case Some(true) =>
-                          complete(
-                            HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values, Some(statement)))))
-                        case None =>
-                          complete(HttpEntity(ContentTypes.`application/json`, write(QueryResponse(values, None))))
-                      }
+                      complete(HttpEntity(ContentTypes.`application/json`,
+                                          write(QueryResponse(values, qb.parsed.map(_ => statement)))))
                     case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>

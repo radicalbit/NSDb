@@ -95,10 +95,10 @@ object CustomSerializers {
             }
           case JNull => null
         }, {
-          case AscOrderOperator(order_by) =>
-            JObject(List(JField("order_by", JString(order_by)), JField("direction", JString("asc"))))
-          case DescOrderOperator(order_by) =>
-            JObject(List(JField("order_by", JString(order_by)), JField("direction", JString("desc"))))
+          case AscOrderOperator(orderBy) =>
+            JObject(List(JField("order_by", JString(orderBy)), JField("direction", JString("asc"))))
+          case DescOrderOperator(orderBy) =>
+            JObject(List(JField("order_by", JString(orderBy)), JField("direction", JString("desc"))))
         }))
 
   case object NullableExpressionSerializer
