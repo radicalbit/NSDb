@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.web.routes
 
 import javax.ws.rs.Path
-
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.http.scaladsl.model.HttpResponse
@@ -31,7 +30,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, RecordRe
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.swagger.annotations._
-import org.json4s.DefaultFormats
+import org.json4s.{DefaultFormats, Formats}
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -57,7 +56,7 @@ trait DataApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: DefaultFormats
+  implicit val formats: Formats
 
   @ApiOperation(value = "Insert Bit", nickname = "insert", httpMethod = "POST", response = classOf[String])
   @ApiImplicitParams(

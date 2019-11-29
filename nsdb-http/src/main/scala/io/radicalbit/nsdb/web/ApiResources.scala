@@ -104,8 +104,6 @@ class ApiResources(val publisherActor: ActorRef,
     with QueryValidationApi
     with DataApi {
 
-  override implicit val formats: DefaultFormats = DefaultFormats
-
   def healthCheckApi: Route = {
     pathPrefix("status") {
       (pathEnd & get) {
