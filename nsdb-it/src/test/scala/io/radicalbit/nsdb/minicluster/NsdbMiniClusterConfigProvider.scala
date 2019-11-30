@@ -27,17 +27,17 @@ trait NsdbMiniClusterConfigProvider extends NsdbConfigProvider {
   def storageDir: String
   def passivateAfter: Duration
 
-  override lazy val highLevelConfig: Config =
+  override lazy val userDefinedConfig: Config =
     ConfigFactory
       .parseResources("nsdb-minicluster.conf")
-      .withValue("nsdb.akka.hostname", ConfigValueFactory.fromAnyRef(hostname))
+      .withValue("nsdb.node.hostname", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.grpc.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.http.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.storage.base-path", ConfigValueFactory.fromAnyRef(storageDir))
       .resolve()
 
-  override lazy val lowLevelConfig: Config =
-    mergeConf(highLevelConfig,
+  override lazy val lowLevelTemplateConfig: Config =
+    mergeConf(userDefinedConfig,
               ConfigFactory.parseResources("application-native.conf"),
               ConfigFactory.parseResources("application-common.conf"))
 }

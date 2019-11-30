@@ -22,15 +22,18 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
 
 /**
-  * Creates NSDb configuration looking up the `ConfDir` folder or into the classpath.
-  * The retrieved configuration is properly adjusted in case ssl is enabled or not
+  * Creates NSDb user defined configuration looking up the `ConfDir` folder or into the classpath.
   */
 trait NsdbClusterConfigProvider extends NsdbConfigProvider {
 
-  override lazy val highLevelConfig = ConfigFactory
+  override lazy val userDefinedConfig = ConfigFactory
     .parseFile(Paths.get(System.getProperty("confDir"), "nsdb.conf").toFile)
+    .withFallback(ConfigFactory.parseResources("nsdb.conf"))
+    .resolve()
 
-  override def lowLevelConfig: Config =
-    mergeConf(highLevelConfig, ConfigFactory.load("application-common"), ConfigFactory.load("application-native"))
+  override lazy val lowLevelTemplateConfig: Config =
+    mergeConf(userDefinedConfig,
+              ConfigFactory.parseResources("application-native.conf"),
+              ConfigFactory.parseResources("application-common.conf"))
 
 }

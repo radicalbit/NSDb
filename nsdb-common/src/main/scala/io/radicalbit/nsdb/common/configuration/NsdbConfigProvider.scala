@@ -18,28 +18,55 @@ package io.radicalbit.nsdb.common.configuration
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+/**
+  * Manages the build of NSDb configuration.
+  * NSDb config will be used for the actor system creation but also to retrieve user configuration properties (e.g. storage folders)
+  * The overall config is built from a low level template (containing all the akka configs), that is merged with a high level config file
+  * that contains all the user defined keys.
+  */
 trait NsdbConfigProvider {
 
-  def highLevelConfig: Config
-  def lowLevelConfig: Config
+  /**
+    * @return the user defined configuration.
+    */
+  def userDefinedConfig: Config
 
+  /**
+    * @return the low level akka configuration template.
+    */
+  def lowLevelTemplateConfig: Config
+
+  /**
+    * Merges a list of [[Config]]
+    * @param configs the input configurations.
+    * @return the merged configuration.
+    */
   protected def mergeConf(configs: Config*): Config =
     configs
       .fold(ConfigFactory.empty()) { (acc, e) =>
         acc.withFallback(e)
       }
 
-  private def customize(highLevelConfig: Config, lowLevelConfig: Config) =
-    lowLevelConfig
-      .withValue("akka.remote.artery.canonical.hostname", highLevelConfig.getValue("nsdb.akka.hostname"))
-      .withValue("akka.remote.artery.canonical.port", highLevelConfig.getValue("nsdb.akka.port"))
+  /**
+    * Populates the low level template with the configuration keys provided in the user level one.
+    * @param userDefinedConfig The user defined configurations.
+    * @param lowLevelTemplateConfig The low level template configurations.
+    * @return The final configuration.
+    */
+  private def populateTemplate(userDefinedConfig: Config, lowLevelTemplateConfig: Config): Config =
+    lowLevelTemplateConfig
+      .withValue("akka.remote.artery.canonical.hostname", userDefinedConfig.getValue("nsdb.node.hostname"))
+      .withValue("akka.remote.artery.canonical.port", userDefinedConfig.getValue("nsdb.node.port"))
       .withValue("akka.cluster.distributed-data.durable.lmdb.dir",
-                 highLevelConfig.getValue("nsdb.storage.metadata-path"))
+                 userDefinedConfig.getValue("nsdb.storage.metadata-path"))
       .withValue("akka.management.required-contact-point-nr",
-                 highLevelConfig.getValue("nsdb.cluster.required-contact-point-nr"))
-      .withValue("akka.discovery.config.services.NSDb.endpoints", highLevelConfig.getValue("nsdb.cluster.endpoints"))
+                 userDefinedConfig.getValue("nsdb.cluster.required-contact-point-nr"))
+      .withValue("akka.discovery.config.services.NSDb.endpoints", userDefinedConfig.getValue("nsdb.cluster.endpoints"))
       .resolve()
 
-  final lazy val config: Config = customize(highLevelConfig, lowLevelConfig)
+  /**
+    * The final NSDb configuration.
+    */
+  final lazy val config: Config = populateTemplate(userDefinedConfig, lowLevelTemplateConfig)
 
 }
