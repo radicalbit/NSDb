@@ -42,7 +42,7 @@ class CommitLogCoordinatorSpec
 
   override def beforeAll = {
 
-    val directory = new File(conf.getString("nsdb.commit-log.directory"))
+    val directory = new File(conf.getString("nsdb.storage.commit-log-path"))
     if (!directory.exists) {
       directory.mkdir
     } else {
