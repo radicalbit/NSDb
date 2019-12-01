@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.util.ConfigKeys
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -57,7 +58,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val config = context.system.settings.config
 
-  private val indexBasePath = config.getString("nsdb.storage.index-path")
+  private val indexBasePath = config.getString(ConfigKeys.StorageIndexPath)
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
@@ -131,5 +132,6 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 }
 
 object NodeActorsGuardian {
-  def props(metadataCache: ActorRef, schemaCache: ActorRef) = Props(new NodeActorsGuardian(metadataCache, schemaCache))
+  def props(metadataCache: ActorRef, schemaCache: ActorRef): Props =
+    Props(new NodeActorsGuardian(metadataCache, schemaCache))
 }

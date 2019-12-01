@@ -50,7 +50,7 @@ import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.dump.DumpTarget
-import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.{ActorPathLogging, ConfigKeys}
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import org.apache.commons.io.{FileUtils => ApacheFileUtils}
 import org.apache.lucene.document.LongPoint
@@ -642,7 +642,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     case CreateDump(destPath, targets) =>
       log.info(s"Starting dump with destination : $destPath and targets : ${targets.mkString(",")}")
 
-      val basePath       = context.system.settings.config.getString("nsdb.index.base-path")
+      val basePath       = context.system.settings.config.getString(ConfigKeys.StorageIndexPath)
       val dumpIdentifier = UUID.randomUUID().toString
       val tmpPath        = s"/tmp/nsdbDump/$dumpIdentifier"
 
