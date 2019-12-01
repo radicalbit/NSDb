@@ -72,6 +72,13 @@ object Dependencies {
     lazy val version   = "1.0.3"
     lazy val namespace = "com.lightbend.akka.management"
     lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version
+    lazy val cluster_http = namespace %% "akka-management-cluster-http" % version
+  }
+
+  object akka_discovery {
+    lazy val version   = akka_management.version
+    lazy val namespace = "com.lightbend.akka.discovery"
+    lazy val kubernetes_api =  namespace %% "akka-discovery-kubernetes-api" % version
   }
 
   object scala_logging {
@@ -240,6 +247,8 @@ object Dependencies {
       akka.clusterTools,
       akka.discovery,
       akka_management.cluster_bootstrap,
+      akka_management.cluster_http,
+      akka_discovery.kubernetes_api,
       akka.distributedData,
       scala_logging.scala_logging,
       akka.slf4j,

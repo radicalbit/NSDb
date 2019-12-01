@@ -20,6 +20,7 @@ import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
+import io.radicalbit.nsdb.util.ConfigKeys
 
 /**
   * Creates NSDb user defined configuration looking up the `ConfDir` folder or into the classpath.
@@ -32,8 +33,10 @@ trait NsdbClusterConfigProvider extends NsdbConfigProvider {
     .resolve()
 
   override lazy val lowLevelTemplateConfig: Config =
-    mergeConf(userDefinedConfig,
-              ConfigFactory.parseResources("application-native.conf"),
-              ConfigFactory.parseResources("application-common.conf"))
+    mergeConf(
+      userDefinedConfig,
+      ConfigFactory.parseResources(s"application-${userDefinedConfig.getString(ConfigKeys.ClusterMode)}.conf"),
+      ConfigFactory.parseResources("application-common.conf")
+    )
 
 }
