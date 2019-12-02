@@ -25,8 +25,6 @@ spec:
       containers:
       - name: nsdb
         image: tools.radicalbit.io/nsdb:1.0.0-SNAPSHOT
-        # Remove for a real project, the image is picked up locally for the integratio test
-        imagePullPolicy: Never
         #health
         livenessProbe:
           httpGet:
@@ -62,6 +60,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: "metadata.labels['app']"
+        - name: CLUSTER_MODE
+          value: "k8s"
+        - name: SHARD_INTERVAL
+            value: "10d"
 #deployment
 ---
 #rbac
