@@ -14,12 +14,23 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.common
+package io.radicalbit.nsdb.util
 
-import com.typesafe.config.Config
+object ConfigKeys {
 
-trait NsdbConfig {
+  val CommitLogSerializer = "nsdb.commit-log.serializer"
+  val CommitLogWriter     = "nsdb.commit-log.writer"
+  val CommitLogDirectory  = "nsdb.storage.commit-log-path"
+  val CommitLogMaxSize    = "nsdb.commit-log.max-size"
+  val CommitLogBufferSize = "nsdb.commit-log.buffer-size"
 
-  def config: Config
+  val StorageIndexPath = "nsdb.storage.index-path"
+
+  val GrpcInterface = "nsdb.grpc.interface"
+  val GrpcPort      = "nsdb.grpc.port"
+
+  val HttpInterface = "nsdb.http.interface"
+  val HttpPort      = "nsdb.http.port"
+  val HttpsPort     = "nsdb.http.https-port"
 
 }

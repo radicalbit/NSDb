@@ -20,6 +20,7 @@ import java.io.File
 import java.time.Duration
 import java.util.UUID
 
+import com.typesafe.config.ConfigRenderOptions
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
 
@@ -29,7 +30,6 @@ trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] val startingHostname = "127.0.0."
   protected[this] val rootFolder       = s"target/minicluster/$instanceId/"
-  protected[this] val clFolder         = s"target/commitLog/$instanceId"
 
   protected[this] def nodesNumber: Int
   protected[this] def passivateAfter: Duration
@@ -40,8 +40,7 @@ trait NsdbMiniCluster extends LazyLogging {
     } yield
       new NSDbMiniClusterNode(
         hostname = s"$startingHostname${i + 1}",
-        dataDir = s"$rootFolder/data$i",
-        commitLogDir = s"$clFolder$i",
+        storageDir = s"$rootFolder/data$i",
         passivateAfter = passivateAfter
       )).toSet
 

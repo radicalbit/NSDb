@@ -21,7 +21,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 
 trait CommitLogSpec {
 
-  protected lazy val directory = ConfigFactory.load().getString("nsdb.commit-log.directory")
+  protected lazy val directory = ConfigFactory.load().getString("nsdb.storage.commit-log-path")
 
   implicit val serializer = new StandardCommitLogSerializer
 

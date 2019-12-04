@@ -32,6 +32,7 @@ import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.util.ConfigKeys
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -59,9 +60,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
   override def postStop(): Unit = cluster.unsubscribe(self)
 
   def receive: Receive = {
-    case MemberUp(member)
-        if member.address.host.isDefined &&
-          member.address.host.get == config.getString("akka.remote.artery.canonical.hostname") =>
+    case MemberUp(member) if member == cluster.selfMember =>
       log.info("Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
@@ -78,7 +77,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
             val locationsToAdd: Seq[LocationWithCoordinates] =
-              FileUtils.getLocationFromFilesystem(config.getString("nsdb.index.base-path"), nodeName)
+              FileUtils.getLocationFromFilesystem(config.getString(ConfigKeys.StorageIndexPath), nodeName)
 
             val locationsGroupedBy: Map[(String, String), Seq[(String, String, Location)]] = locationsToAdd.groupBy {
               case (database, namespace, _) => (database, namespace)

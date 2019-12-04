@@ -26,6 +26,7 @@ import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.util.ConfigKeys
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
 import io.radicalbit.nsdb.web.validation.FieldErrorInfo
@@ -123,5 +124,5 @@ class ApiResources(val publisherActor: ActorRef,
       healthCheckApi ~
       commandsApi ~
       swagger ~
-      new SwaggerDocService().routes
+      new SwaggerDocService(config.getString(ConfigKeys.HttpInterface), config.getInt(ConfigKeys.HttpPort)).routes
 }

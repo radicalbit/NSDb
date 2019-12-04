@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import com.typesafe.config.ConfigFactory
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
@@ -127,16 +126,17 @@ lazy val `nsdb-cluster` = project
     packageName in Docker := "nsdb",
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "src/main/resources"
+      val confResources = ((confDir ** "*" --- confDir) pair (relativeTo(confDir), false)).filterNot{case (_,name) => name.contains("application")}
 
       for {
-        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- confResources
       } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
     },
     mappings in Docker ++= {
-      val confDir = baseDirectory.value / "../docker-scripts"
+      val scriptDir = baseDirectory.value / "../docker-scripts"
 
       for {
-        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- (scriptDir ** "*" --- scriptDir) pair (relativeTo(scriptDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
     },
     version in Docker := version.value,
@@ -206,9 +206,10 @@ lazy val `nsdb-cluster` = project
     packageName in Universal := s"nsdb-${version.value}",
     mappings in Universal ++= {
       val confDir = baseDirectory.value / "src/main/resources"
+      val confResources = ((confDir ** "*" --- confDir) pair (relativeTo(confDir), false)).filterNot{case (_,name) => name.contains("application")}
 
       for {
-        (file, relativePath) <- (confDir ** "*" --- confDir) pair (relativeTo(confDir), false)
+        (file, relativePath) <- confResources
       } yield file -> s"conf/$relativePath"
     },
     discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value,

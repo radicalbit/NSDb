@@ -24,13 +24,13 @@ import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.fileNameSeparator
 import io.radicalbit.nsdb.util.ActorPathLogging
-import io.radicalbit.nsdb.util.Config.{CommitLogDirectoryConf, CommitLogSerializerConf, getString}
+import io.radicalbit.nsdb.util.ConfigKeys.{CommitLogDirectory, CommitLogSerializer}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 object RollingCommitLogFileChecker {
-  def props(db: String, namespace: String, metric: String) =
+  def props(db: String, namespace: String, metric: String): Props =
     Props(new RollingCommitLogFileChecker(db, namespace, metric))
 
   case class CheckFiles(actualFile: File)
@@ -45,10 +45,10 @@ object RollingCommitLogFileChecker {
   */
 class RollingCommitLogFileChecker(db: String, namespace: String, metric: String) extends ActorPathLogging {
 
-  implicit val config: Config = context.system.settings.config
+  val config: Config = context.system.settings.config
 
-  private val directory       = getString(CommitLogDirectoryConf)
-  private val serializerClass = getString(CommitLogSerializerConf)
+  private val directory       = config.getString(CommitLogDirectory)
+  private val serializerClass = config.getString(CommitLogSerializer)
 
   implicit val serializer: CommitLogSerializer =
     Class.forName(serializerClass).newInstance().asInstanceOf[CommitLogSerializer]

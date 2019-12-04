@@ -24,7 +24,7 @@ import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
-import io.radicalbit.nsdb.util.Config._
+import io.radicalbit.nsdb.util.ConfigKeys._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
@@ -36,7 +36,7 @@ object RollingCommitLogFileWriter {
     */
   case object ForceRolling
 
-  def props(db: String, namespace: String, metric: String) =
+  def props(db: String, namespace: String, metric: String): Props =
     Props(new RollingCommitLogFileWriter(db, namespace, metric))
 
   private[commit_log] val fileNameSeparator = "~"
@@ -75,11 +75,11 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   import RollingCommitLogFileWriter._
 
-  implicit val config: Config = context.system.settings.config
+  val config: Config = context.system.settings.config
 
-  private val serializerClass = getString(CommitLogSerializerConf)
-  private val directory       = getString(CommitLogDirectoryConf)
-  private val maxSize         = getLong(CommitLogMaxSizeConf)
+  private val serializerClass = config.getString(CommitLogSerializer)
+  private val directory       = config.getString(CommitLogDirectory)
+  private val maxSize         = config.getLong(CommitLogMaxSize)
 
   private val childName = s"commit-log-checker-$db-$namespace-$metric"
 

@@ -19,24 +19,25 @@ package io.radicalbit.nsdb.minicluster
 import java.time.Duration
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.common.NsdbConfig
+import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
 
-trait NsdbMiniClusterConf extends NsdbConfig {
+trait NsdbMiniClusterConfigProvider extends NsdbConfigProvider {
 
   def hostname: String
-  def dataDir: String
-  def commitLogDir: String
+  def storageDir: String
   def passivateAfter: Duration
 
-  override def config: Config =
+  override lazy val userDefinedConfig: Config =
     ConfigFactory
-      .load("minicluster.conf")
-      .withValue("akka.management.http.hostname", ConfigValueFactory.fromAnyRef(hostname))
-      .withValue("akka.remote.artery.canonical.hostname", ConfigValueFactory.fromAnyRef(hostname))
+      .parseResources("nsdb-minicluster.conf")
+      .withValue("nsdb.node.hostname", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.grpc.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.http.interface", ConfigValueFactory.fromAnyRef(hostname))
-      .withValue("nsdb.index.base-path", ConfigValueFactory.fromAnyRef(dataDir))
-      .withValue("akka.cluster.distributed-data.durable.lmdb.dir", ConfigValueFactory.fromAnyRef(s"$dataDir/ddata"))
-      .withValue("nsdb.commit-log.directory", ConfigValueFactory.fromAnyRef(commitLogDir))
-      .withValue("nsdb.sharding.passivate-after", ConfigValueFactory.fromAnyRef(passivateAfter))
+      .withValue("nsdb.storage.base-path", ConfigValueFactory.fromAnyRef(storageDir))
+      .resolve()
+
+  override lazy val lowLevelTemplateConfig: Config =
+    mergeConf(userDefinedConfig,
+              ConfigFactory.parseResources("application-native.conf"),
+              ConfigFactory.parseResources("application-common.conf"))
 }

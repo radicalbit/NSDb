@@ -59,7 +59,13 @@ object MetadataSpec extends MultiNodeConfig {
     |    }
     |  }
     |
-    |  index.base-path = "target/test_index/MetadataTest"
+    |  storage {
+    |    base-path  = "target/test_index/MetadataTest"
+    |    index-path = ${nsdb.storage.base-path}"/index"
+    |    commit-log-path = ${nsdb.storage.base-path}"/commit_log"
+    |    metadata-path = ${nsdb.storage.base-path}"/metadata"
+    |  }
+    |
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds
     |  commit-log {
