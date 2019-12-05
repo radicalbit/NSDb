@@ -26,7 +26,6 @@ import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
-import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -43,15 +42,15 @@ trait NSDBActors {
   implicit lazy val executionContext: ExecutionContextExecutor = system.dispatcher
 
   def initTopLevelActors(): Unit = {
+    AkkaManagement(system).start()
+    ClusterBootstrap(system).start()
+
     system.actorOf(
       ClusterSingletonManager.props(singletonProps = Props(classOf[DatabaseActorsGuardian]),
                                     terminationMessage = PoisonPill,
                                     settings = ClusterSingletonManagerSettings(system)),
       name = "databaseActorGuardian"
     )
-
-    AkkaManagement(system).start()
-    ClusterBootstrap(system).start()
 
     DistributedData(system).replicator
 

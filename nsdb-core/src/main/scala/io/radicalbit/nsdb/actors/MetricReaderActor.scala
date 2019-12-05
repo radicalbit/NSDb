@@ -176,14 +176,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * Retrieves and order results from different shards in case the statement does not contains aggregations
     * and a where condition involving timestamp has been provided.
     *
-    * @param statement select sql statement.
     * @param actors shard actors to retrieve data from.
     * @param parsedStatement parsed statement.
     * @param msg the original [[ExecuteSelectStatement]] command
     * @return a single sequence of results obtained from different shards.
     */
   private def retrieveAndOrderPlainResults(
-      statement: SelectSQLStatement,
       actors: Seq[(Location, ActorRef)],
       parsedStatement: ParsedSimpleQuery,
       msg: ExecuteSelectStatement): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
@@ -253,7 +251,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val actors =
             actorsForLocations(locations)
 
-          val orderedResults = retrieveAndOrderPlainResults(statement, actors, parsedStatement, msg)
+          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg)
 
           orderedResults
             .map {

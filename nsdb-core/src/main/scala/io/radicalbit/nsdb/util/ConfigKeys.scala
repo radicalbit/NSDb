@@ -33,4 +33,5 @@ object ConfigKeys {
   val HttpPort      = "nsdb.http.port"
   val HttpsPort     = "nsdb.http.https-port"
 
+  val ClusterMode = "nsdb.cluster.mode"
 }

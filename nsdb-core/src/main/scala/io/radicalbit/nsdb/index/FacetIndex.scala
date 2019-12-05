@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
-import io.radicalbit.nsdb.model.TypedField
 import org.apache.lucene.document._
 import org.apache.lucene.facet._
 import org.apache.lucene.facet.taxonomy.SearcherTaxonomyManager

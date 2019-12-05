@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.util
 
-import scala.reflect.ClassTag
-
 object ErrorManagementUtils {
 
   /**
