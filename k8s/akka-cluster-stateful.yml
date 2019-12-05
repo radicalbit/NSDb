@@ -1,0 +1,122 @@
+---
+apiVersion: "apps/v1"
+kind: StatefulSet
+metadata:
+  name: nsdb
+  labels:
+    app: nsdb
+spec:
+  podManagementPolicy: Parallel
+  serviceName: "nsdb-dns-internal"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nsdb
+  template:
+    metadata:
+      labels:
+        app: nsdb
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: nsdb
+          image: tools.radicalbit.io/nsdb:1.0.0-SNAPSHOT
+          imagePullPolicy: IfNotPresent
+          #health
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: management
+            initialDelaySeconds: 60
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: management
+            initialDelaySeconds: 60
+          #health
+          ports:
+            - name: remoting
+              containerPort: 2552
+              protocol: TCP
+            - name: management
+              containerPort: 8558
+              protocol: TCP
+            - name: http
+              containerPort: 9000
+              protocol: TCP
+            - name: grpc
+              containerPort: 7817
+              protocol: TCP
+          env:
+            # Can be removed once async-dns supports search domains (in Akka 2.5.20)
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # The DNS-based discovery will use this service name to look for the headless
+            # service defined below
+            - name: AKKA_CLUSTER_BOOTSTRAP_SERVICE_NAME
+              value: "nsdb-dns-internal"
+            - name: CLUSTER_MODE
+              value: "k8s-dns"
+            - name: SHARD_INTERVAL
+              value: "10d"
+---
+#headless
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nsdb
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  name: "nsdb-dns-internal"
+spec:
+  ports:
+    - name: management
+      port: 8558
+      protocol: TCP
+      targetPort: 8558
+    - name: remoting
+      port: 2552
+      protocol: TCP
+      targetPort: 2552
+    - name: http
+      port: 9000
+      protocol: TCP
+      targetPort: 9000
+    - name: grpc
+      port: 7817
+      protocol: TCP
+      targetPort: 7817
+  selector:
+    app: nsdb
+  clusterIP: None
+  publishNotReadyAddresses: true
+#headless
+---
+#public
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nsdb
+  name: "nsdb-dns"
+spec:
+  ports:
+    - name: management
+      port: 8558
+      protocol: TCP
+      targetPort: 8558
+    - name: http
+      port: 9000
+      protocol: TCP
+      targetPort: 9000
+    - name: grpc
+      port: 7817
+      protocol: TCP
+      targetPort: 7817
+  selector:
+    app: "nsdb"
+  type: LoadBalancer
+#public
