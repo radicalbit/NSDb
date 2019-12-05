@@ -61,9 +61,9 @@ spec:
               apiVersion: v1
               fieldPath: "metadata.labels['app']"
         - name: CLUSTER_MODE
-          value: "k8s"
+          value: "k8s-api"
         - name: SHARD_INTERVAL
-            value: "10d"
+          value: "10d"
 #deployment
 ---
 #rbac
@@ -97,3 +97,27 @@ roleRef:
   name: pod-reader
   apiGroup: rbac.authorization.k8s.io
 #rbac
+---
+#service
+kind: Service
+apiVersion: v1
+metadata:
+  name: nsdb
+spec:
+  type: NodePort
+  selector:
+    app: nsdb
+  ports:
+    - protocol: TCP
+      name: management
+      port: 8558
+      targetPort: management
+    - protocol: TCP
+      name: http
+      port: 9000
+      targetPort: http
+    - protocol: TCP
+      name: grpc
+      port: 7817
+      targetPort: grpc
+#service
