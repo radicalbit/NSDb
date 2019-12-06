@@ -31,7 +31,7 @@ class LocalMetadataCache extends Actor {
 
   import LocalMetadataCache.{DeleteAll, DeleteDone}
 
-  val locations: mutable.Map[LocationWithNodeKey, Location] = mutable.Map.empty
+  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty
 
   val metricInfo: ConcurrentHashMap[MetricInfoCacheKey, MetricInfo] = new ConcurrentHashMap
 
@@ -56,7 +56,7 @@ class LocalMetadataCache extends Actor {
       coordinates --= coordinates.filter(c => c.db == db && c.namespace == namespace)
       sender() ! NamespaceFromCacheDropped(db, namespace)
     case PutLocationInCache(db, namespace, metric, from, to, value) =>
-      val key = LocationWithNodeKey(db, namespace, metric, value.node, from: Long, to: Long)
+      val key = LocationKey(db, namespace, metric, value.node, from: Long, to: Long)
       locations.put(key, value)
       coordinates += Coordinates(db, namespace, metric)
       sender ! LocationCached(db, namespace, metric, from, to, value)
@@ -80,7 +80,7 @@ class LocalMetadataCache extends Actor {
           sender ! MetricInfoCached(db, namespace, metric, Some(info))
       }
     case EvictLocation(db, namespace, location) =>
-      locations -= LocationWithNodeKey(db, namespace, location.metric, location.node, location.from, location.to)
+      locations -= LocationKey(db, namespace, location.metric, location.node, location.from, location.to)
       sender ! Right(LocationEvicted(db, namespace, location))
     case GetMetricInfoFromCache(db, namespace, metric) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
