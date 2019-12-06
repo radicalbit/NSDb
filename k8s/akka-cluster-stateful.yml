@@ -12,6 +12,15 @@ spec:
   selector:
     matchLabels:
       app: nsdb
+  volumeClaimTemplates:
+    - metadata:
+        name: nsdb
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 10Gi
   template:
     metadata:
       labels:
@@ -47,6 +56,9 @@ spec:
             - name: grpc
               containerPort: 7817
               protocol: TCP
+          volumeMounts:
+            - name: nsdb
+              mountPath: opt/nsdb/data
           env:
             # Can be removed once async-dns supports search domains (in Akka 2.5.20)
             - name: NAMESPACE
