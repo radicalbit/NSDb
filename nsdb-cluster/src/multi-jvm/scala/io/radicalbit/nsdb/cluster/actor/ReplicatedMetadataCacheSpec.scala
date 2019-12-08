@@ -98,8 +98,8 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location1)
-          expectMsg(LocationCached("db", "namespace", metric, 0, 1, location1))
+          replicatedCache ! PutLocationInCache("db", "namespace", metric,  location1)
+          expectMsg(LocationCached("db", "namespace", metric, location1))
         }
       }
 
@@ -114,8 +114,8 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location2)
-          expectMsg(LocationCached("db", "namespace", metric, 0, 1, location2))
+          replicatedCache ! PutLocationInCache("db", "namespace", metric,  location2)
+          expectMsg(LocationCached("db", "namespace", metric,  location2))
         }
       }
 
@@ -156,8 +156,8 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node2) {
         awaitAssert {
-          replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2", 0,1,location22)
-          expectMsg(LocationCached("db1", "namespace1", "metric2", 0,1, location22))
+          replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2", location22)
+          expectMsg(LocationCached("db1", "namespace1", "metric2", location22))
         }
       }
 
@@ -224,8 +224,8 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node1) {
         awaitAssert {
-          replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2", 0, 1, newLocation)
-          expectMsg(LocationCached("db1", "namespace1", "metric2", 0, 1, newLocation))
+          replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2",  newLocation)
+          expectMsg(LocationCached("db1", "namespace1", "metric2",  newLocation))
         }
       }
 
@@ -245,16 +245,16 @@ class ReplicatedMetadataCacheSpec
       val metric2InfoValue = MetricInfo("db1", "namespace1", "metric2", 1, 0)
 
       runOn(node1) {
-        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric1", 0, 1, l1)
-        expectMsg(LocationCached("db1", "namespace1", "metric1", 0, 1, l1))
+        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric1",  l1)
+        expectMsg(LocationCached("db1", "namespace1", "metric1",  l1))
 
         replicatedCache ! PutMetricInfoInCache(metric1InfoValue)
         expectMsg(MetricInfoCached("db1", "namespace1", "metric1", Some(metric1InfoValue)))
       }
 
       runOn(node1) {
-        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2", 0, 1, l2)
-        expectMsg(LocationCached("db1", "namespace1", "metric2", 0, 1, l2))
+        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2",  l2)
+        expectMsg(LocationCached("db1", "namespace1", "metric2",  l2))
 
         replicatedCache ! PutMetricInfoInCache(metric2InfoValue)
         expectMsg(MetricInfoCached("db1", "namespace1", "metric2", Some(metric2InfoValue)))
@@ -311,13 +311,13 @@ class ReplicatedMetadataCacheSpec
       enterBarrier("after-drop-namespace")
 
       runOn(node1) {
-        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric1", 0, 1, l1)
-        expectMsg(LocationCached("db1", "namespace1", "metric1", 0, 1, l1))
+        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric1",  l1)
+        expectMsg(LocationCached("db1", "namespace1", "metric1",  l1))
       }
 
       runOn(node1) {
-        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2", 0, 1, l2)
-        expectMsg(LocationCached("db1", "namespace1", "metric2", 0, 1, l2))
+        replicatedCache ! PutLocationInCache("db1", "namespace1", "metric2",  l2)
+        expectMsg(LocationCached("db1", "namespace1", "metric2",  l2))
       }
 
       awaitAssert {
@@ -336,8 +336,8 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node1) {
         for (i ← 10 to 20) {
-          replicatedCache ! PutLocationInCache("db", "namespace", metric, i - 1, i, location(i - 1, i))
-          expectMsg(LocationCached("db", "namespace", metric, i - 1, i, location(i - 1, i)))
+          replicatedCache ! PutLocationInCache("db", "namespace", metric, location(i - 1, i))
+          expectMsg(LocationCached("db", "namespace", metric, location(i - 1, i)))
 
           replicatedCache ! PutMetricInfoInCache(metricInfoValue(s"metric_$i"))
           expectMsg(MetricInfoCached("db", "namespace", s"metric_$i", Some(metricInfoValue(s"metric_$i"))))
@@ -392,8 +392,8 @@ class ReplicatedMetadataCacheSpec
       val location  = Location(metric, "node1", 0, 1)
 
       runOn(node1) {
-        replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location)
-        expectMsg(LocationCached("db", "namespace", metric, 0, 1, location))
+        replicatedCache ! PutLocationInCache("db", "namespace", metric,  location)
+        expectMsg(LocationCached("db", "namespace", metric,  location))
       }
 
       runOn(node2) {
@@ -422,13 +422,13 @@ class ReplicatedMetadataCacheSpec
       val updatedLocation = Location(metric, "node1", 0, 1)
 
       runOn(node1) {
-        replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, location)
-        expectMsg(LocationCached("db", "namespace", metric, 0, 1, location))
+        replicatedCache ! PutLocationInCache("db", "namespace", metric,  location)
+        expectMsg(LocationCached("db", "namespace", metric,  location))
       }
 
       runOn(node2) {
-        replicatedCache ! PutLocationInCache("db", "namespace", metric, 0, 1, updatedLocation)
-        expectMsg(LocationCached("db", "namespace", metric, 0, 1, updatedLocation))
+        replicatedCache ! PutLocationInCache("db", "namespace", metric,  updatedLocation)
+        expectMsg(LocationCached("db", "namespace", metric,  updatedLocation))
       }
 
       runOn(node1) {

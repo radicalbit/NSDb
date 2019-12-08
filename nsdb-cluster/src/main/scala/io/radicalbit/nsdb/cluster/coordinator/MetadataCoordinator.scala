@@ -87,7 +87,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
     Future
       .sequence(
         locations.map(location =>
-          (cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location))
+          (cache ? PutLocationInCache(db, namespace, location.metric, location))
             .mapTo[AddLocationResponse]))
       .flatMap { responses =>
         val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =

@@ -34,17 +34,6 @@ import scala.concurrent.duration._
 object ReplicatedMetadataCache {
 
   /**
-    * internal key to store multiple location (for multiple nodes) per time interval.
-    * @param db metric db.
-    * @param namespace metric namespace.
-    * @param metric metric name.
-    * @param node location node.
-    * @param from location lower bound.
-    * @param to location upper bound.
-    */
-  case class LocationKey(db: String, namespace: String, metric: String, node: String, from: Long, to: Long)
-
-  /**
     * Cache key for a metric locations.
     * @param db metric db.
     * @param namespace metric name.
@@ -68,12 +57,7 @@ object ReplicatedMetadataCache {
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
 
-  final case class PutLocationInCache(db: String,
-                                      namespace: String,
-                                      metric: String,
-                                      from: Long,
-                                      to: Long,
-                                      value: Location)
+  final case class PutLocationInCache(db: String, namespace: String, metric: String, value: Location)
   final case class GetLocationsFromCache(db: String, namespace: String, metric: String)
   final case object GetDbsFromCache
   final case class GetNamespacesFromCache(db: String)
@@ -81,7 +65,7 @@ object ReplicatedMetadataCache {
 
   sealed trait AddLocationResponse
 
-  final case class LocationCached(db: String, namespace: String, metric: String, from: Long, to: Long, value: Location)
+  final case class LocationCached(db: String, namespace: String, metric: String, value: Location)
       extends AddLocationResponse
   final case class LocationFromCacheGot(db: String,
                                         namespace: String,
@@ -136,15 +120,6 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   implicit val address: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
   /**
-    * convert a [[LocationKey]] into an internal cache key
-    *
-    * @param locKey the location key to convert
-    * @return [[LWWMapKey]] resulted from locKey hashCode
-    */
-  private def locationKey(locKey: LocationKey): LWWMapKey[LocationKey, Location] =
-    LWWMapKey("location-cache-" + math.abs(locKey.hashCode) % 100)
-
-  /**
     * convert a [[MetricLocationsCacheKey]] into an internal cache key
     *
     * @param metricKey the metric key to convert
@@ -180,19 +155,17 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   import context.dispatcher
 
   def receive: Receive = {
-    case PutLocationInCache(db, namespace, metric, from, to, value) =>
-      val key       = LocationKey(db, namespace, metric, value.node, from, to)
-      val metricKey = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
+    case PutLocationInCache(db, namespace, metric, value) =>
+      val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       (for {
-        loc <- (replicator ? Update(locationKey(key), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value)))
+        loc <- (replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(_ :+ value))
           .map {
             case UpdateSuccess(_, _) =>
-              LocationCached(db, namespace, metric, from, to, value)
+              LocationCached(db, namespace, metric, value)
             case e =>
               log.error(s"error in put location in cache $e")
               PutLocationInCacheFailed(db, namespace, metric, value)
           }
-        _ <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(_ :+ value)
         _ <- replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
@@ -233,10 +206,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         .pipeTo(sender)
 
     case EvictLocation(db, namespace, loc @ Location(metric, node, from, to)) =>
-      val key       = LocationKey(db, namespace, metric, node, from, to)
-      val metricKey = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
+      val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       val f = for {
-        _ <- replicator ? Update(locationKey(key), LWWMap(), WriteMajority(writeDuration))(_ remove (address, key))
         remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteMajority(writeDuration))(
           _ remove loc)
       } yield remove

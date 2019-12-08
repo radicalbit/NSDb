@@ -79,17 +79,17 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
 
       val location = Location(metric, "localhost", start, end)
 
-      (cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location))
+      (cache ? PutLocationInCache(db, namespace, location.metric, location))
         .map {
-          case LocationCached(_, _, _, _, _, loc) => LocationsGot(db, namespace, metric, Seq(loc))
-          case _                                  => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+          case LocationCached(_, _, _, loc) => LocationsGot(db, namespace, metric, Seq(loc))
+          case _                            => GetWriteLocationsFailed(db, namespace, metric, timestamp)
         }
         .pipeTo(sender())
     case AddLocation(db, namespace, location) =>
-      (cache ? PutLocationInCache(db, namespace, location.metric, location.from, location.to, location))
+      (cache ? PutLocationInCache(db, namespace, location.metric, location))
         .map {
-          case LocationCached(_, _, _, _, _, loc) => LocationsGot(db, namespace, location.metric, Seq(loc))
-          case _                                  => GetWriteLocationsFailed(db, namespace, location.metric, location.from)
+          case LocationCached(_, _, _, loc) => LocationsGot(db, namespace, location.metric, Seq(loc))
+          case _                            => GetWriteLocationsFailed(db, namespace, location.metric, location.from)
         }
         .pipeTo(sender())
     case GetMetricInfo(db, namespace, metric) =>

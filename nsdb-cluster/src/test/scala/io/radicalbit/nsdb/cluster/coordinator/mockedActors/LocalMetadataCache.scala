@@ -31,7 +31,7 @@ class LocalMetadataCache extends Actor {
 
   import LocalMetadataCache.{DeleteAll, DeleteDone}
 
-  val locations: mutable.Map[LocationKey, Location] = mutable.Map.empty
+  val locations: mutable.Map[MetricLocationsCacheKey, Set[Location]] = mutable.Map.empty
 
   val metricInfo: ConcurrentHashMap[MetricInfoCacheKey, MetricInfo] = new ConcurrentHashMap
 
@@ -55,16 +55,17 @@ class LocalMetadataCache extends Actor {
     case DropNamespaceFromCache(db, namespace) =>
       coordinates --= coordinates.filter(c => c.db == db && c.namespace == namespace)
       sender() ! NamespaceFromCacheDropped(db, namespace)
-    case PutLocationInCache(db, namespace, metric, from, to, value) =>
-      val key = LocationKey(db, namespace, metric, value.node, from: Long, to: Long)
-      locations.put(key, value)
+    case PutLocationInCache(db, namespace, metric, value) =>
+      val key              = MetricLocationsCacheKey(db, namespace, metric)
+      val previousLocation = locations.getOrElse(key, Set.empty)
+      locations.put(key, previousLocation + value)
       coordinates += Coordinates(db, namespace, metric)
-      sender ! LocationCached(db, namespace, metric, from, to, value)
+      sender ! LocationCached(db, namespace, metric, value)
     case GetLocationsFromCache(db, namespace, metric) =>
-      val locs = locations.collect {
-        case (k, v) if k.db == db && k.namespace == namespace && k.metric == metric => v
-      }
-      sender ! LocationsCached(db, namespace, metric, locs.toSeq)
+      sender ! LocationsCached(db,
+                               namespace,
+                               metric,
+                               locations.getOrElse(MetricLocationsCacheKey(db, namespace, metric), Set.empty).toList)
     case DeleteAll =>
       locations.clear()
       metricInfo.clear()
@@ -80,7 +81,9 @@ class LocalMetadataCache extends Actor {
           sender ! MetricInfoCached(db, namespace, metric, Some(info))
       }
     case EvictLocation(db, namespace, location) =>
-      locations -= LocationKey(db, namespace, location.metric, location.node, location.from, location.to)
+      val key              = MetricLocationsCacheKey(db, namespace, location.metric)
+      val previousLocation = locations.getOrElse(key, Set.empty)
+      locations.put(key, previousLocation - location)
       sender ! Right(LocationEvicted(db, namespace, location))
     case GetMetricInfoFromCache(db, namespace, metric) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
