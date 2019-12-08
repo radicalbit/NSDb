@@ -148,10 +148,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     * convert a [[MetricLocationsCacheKey]] into an internal cache key
     *
     * @param metricKey the metric key to convert
-    * @return [[LWWMapKey]] resulted from metricKey hashCode
+    * @return [[ORSetKey]] resulted from metricKey hashCode
     */
-  private def metricLocationsKey(metricKey: MetricLocationsCacheKey): LWWMapKey[LocationKey, Location] =
-    LWWMapKey(s"metric-locations-cache-${metricKey.db}-${metricKey.namespace}-${metricKey.metric}")
+  private def metricLocationsKey(metricKey: MetricLocationsCacheKey): ORSetKey[Location] =
+    ORSetKey(s"metric-locations-cache-${metricKey.db}-${metricKey.namespace}-${metricKey.metric}")
 
   /**
     * convert a [[MetricInfoCacheKey]] into an internal cache key
@@ -192,7 +192,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
               log.error(s"error in put location in cache $e")
               PutLocationInCacheFailed(db, namespace, metric, value)
           }
-        _ <- replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value))
+        _ <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(_ :+ value)
         _ <- replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
@@ -232,13 +232,13 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         }
         .pipeTo(sender)
 
-    case EvictLocation(db, namespace, Location(metric, node, from, to)) =>
+    case EvictLocation(db, namespace, loc @ Location(metric, node, from, to)) =>
       val key       = LocationKey(db, namespace, metric, node, from, to)
       val metricKey = MetricLocationsCacheKey(key.db, key.namespace, key.metric)
       val f = for {
         _ <- replicator ? Update(locationKey(key), LWWMap(), WriteMajority(writeDuration))(_ remove (address, key))
-        remove <- replicator ? Update(metricLocationsKey(metricKey), LWWMap(), WriteMajority(writeDuration))(
-          _ remove (address, key))
+        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteMajority(writeDuration))(
+          _ remove loc)
       } yield remove
       f.map {
           case UpdateSuccess(_, _) =>
@@ -352,11 +352,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
         .pipeTo(sender())
     case g: GetFailure[_] =>
       log.error(s"Error in cache GetFailure: $g")
-    case g @ GetSuccess(LWWMapKey(_), Some(MetricLocationsRequest(key, replyTo))) =>
+    case g @ GetSuccess(ORSetKey(_), Some(MetricLocationsRequest(key, replyTo))) =>
       val values = g.dataValue
-        .asInstanceOf[LWWMap[MetricLocationsCacheKey, Location]]
-        .entries
-        .values
+        .asInstanceOf[ORSet[Location]]
+        .elements
         .toList
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, values)
     case g @ GetSuccess(LWWMapKey(_), Some(MetricInfoRequest(key, replyTo))) =>
