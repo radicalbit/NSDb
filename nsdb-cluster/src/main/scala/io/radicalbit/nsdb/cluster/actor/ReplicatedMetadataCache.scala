@@ -185,8 +185,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
               log.error(s"error in put location in cache $e")
               PutLocationInCacheFailed(db, namespace, metric, location)
           }
-        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), WriteLocal)(_ :+ (db, namespace, location))
-        _ <- replicator ? Update(coordinatesKey, ORSet(), WriteLocal)(_ :+ Coordinates(db, namespace, metric))
+        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), WriteAll(writeDuration))(
+          _ :+ (db, namespace, location))
+        _ <- replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(
+          _ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
       val key = MetricInfoCacheKey(db, namespace, metric)

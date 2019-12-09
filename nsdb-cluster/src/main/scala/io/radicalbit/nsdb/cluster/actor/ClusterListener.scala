@@ -25,8 +25,8 @@ import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
 import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.model.Location
@@ -52,6 +52,8 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
+  implicit val defaultTimeout: Timeout = Timeout(5.seconds)
+
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
@@ -64,8 +66,6 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
       log.info("Member is Up: {}", member.address)
 
       val nodeName = createNodeName(member)
-
-      implicit val timeout: Timeout = Timeout(5.seconds)
 
       val nodeActorsGuardian =
         context.system.actorOf(nodeActorsGuardianProps.withDeploy(Deploy(scope = RemoteScope(member.address))),
@@ -111,6 +111,22 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
       log.debug("Member detected as unreachable: {}", member)
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
+
+      val selfNodeName = createNodeName(cluster.selfMember)
+
+      (context.actorSelection(s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
+        .map {
+          case NodeChildActorsGot(metadataCoordinator, _, _, _) =>
+            (metadataCoordinator ? RemoveNodeMetadata(createNodeName(member))).map {
+              case Right(NodeMetadataRemoved(nodeName)) =>
+                log.info(s"metadata successfully removed for node $nodeName")
+              case Left(RemoveNodeMetadataFailed(nodeName)) =>
+                log.error(s"RemoveNodeMetadataFailed for node $nodeName")
+            }
+
+          case unknownResponse =>
+            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
+        }
 
     case _: MemberEvent => // ignore
   }
