@@ -87,7 +87,9 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
               .sequence {
                 locationsGroupedBy.map {
                   case ((db, namespace), locations) =>
-                    metadataCoordinator ? AddLocations(db, namespace, locations.map(_._3))
+                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
+                      case (_, _, location) => location
+                    })
                 }
               }
               .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
@@ -108,13 +110,14 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
     case UnreachableMember(member) =>
       log.debug("Member detected as unreachable: {}", member)
     case MemberRemoved(member, previousStatus) =>
-      log.debug("Member is Removed: {} after {}", member.address, previousStatus)
+      log.info("Member is Removed: {} after {}", member.address, previousStatus)
+
     case _: MemberEvent => // ignore
   }
 }
 
 object ClusterListener {
 
-  def props(nodeActorsGuardianProps: Props) =
+  def props(nodeActorsGuardianProps: Props): Props =
     Props(new ClusterListener(nodeActorsGuardianProps))
 }
