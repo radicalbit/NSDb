@@ -351,12 +351,14 @@ class ReplicatedMetadataCacheSpec
             expectMsg(MetricInfoCached("db", "namespace", s"metric_$i", Some(metricInfoValue(s"metric_$i"))))
           }
         }
-        awaitAssert {
-          replicatedCache ! GetLocationsFromCache("db", "namespace", metric)
-          val cached = expectMsgType[LocationsCached]
-          cached.value.size shouldBe 11
-        }
       }
+
+      awaitAssert {
+        replicatedCache ! GetLocationsFromCache("db", "namespace", metric)
+        val cached = expectMsgType[LocationsCached]
+        cached.value.size shouldBe 11
+      }
+
       enterBarrier("after-bulk-add")
     }
 
@@ -439,6 +441,62 @@ class ReplicatedMetadataCacheSpec
 
       }
       enterBarrier("after-update")
+    }
+
+    "evict locations for a node" in within(5.seconds) {
+      val db = "db2"
+      val namespace = "namespace2"
+      val metric   = "metric2"
+
+      runOn(node1) {
+        for (i ← 10 to 20) {
+          replicatedCache ! PutLocationInCache(db, namespace, metric, Location(metric, "node10", i - 1, i))
+          expectMsg(LocationCached(db, namespace, metric, Location(metric, "node10",i - 1, i)))
+        }
+      }
+
+      runOn(node2) {
+        for (i ← 10 to 20) {
+          replicatedCache ! PutLocationInCache(db, namespace, metric, Location(metric, "node20", i - 1, i))
+          expectMsg(LocationCached(db, namespace, metric, Location(metric, "node20",i - 1, i)))
+        }
+      }
+
+      awaitAssert {
+        replicatedCache ! GetLocationsFromCache(db, namespace, metric)
+        expectMsgType[LocationsCached].value.size shouldBe 22
+      }
+
+      awaitAssert {
+        replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, "node10")
+        expectMsgType[LocationsCached].value.size shouldBe 11
+      }
+      awaitAssert {
+        replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, "node20")
+        expectMsgType[LocationsCached].value.size shouldBe 11
+      }
+
+      runOn(node2) {
+          replicatedCache ! EvictLocationsInNode("node10")
+          expectMsg(Right(LocationsInNodeEvicted("node10")))
+      }
+
+      awaitAssert {
+        replicatedCache ! GetLocationsFromCache(db, namespace, metric)
+        expectMsgType[LocationsCached].value.size shouldBe 11
+      }
+
+      runOn(node1) {
+          replicatedCache ! EvictLocationsInNode("node20")
+          expectMsg(Right(LocationsInNodeEvicted("node20")))
+      }
+
+      awaitAssert {
+        replicatedCache ! GetLocationsFromCache(db, namespace, metric)
+        expectMsgType[LocationsCached].value.size shouldBe 0
+      }
+
+      enterBarrier("after-node-evict")
     }
 
   }
