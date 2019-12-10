@@ -69,7 +69,7 @@ object Dependencies {
   }
 
   object akka_management {
-    lazy val version   = "1.0.3"
+    lazy val version   = "1.0.5"
     lazy val namespace = "com.lightbend.akka.management"
     lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version
     lazy val cluster_http = namespace %% "akka-management-cluster-http" % version
@@ -104,12 +104,6 @@ object Dependencies {
     lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http"    % "0.14.0"
   }
 
-  object akka_contrib {
-    lazy val version   = "0.9"
-    lazy val namespace = "com.typesafe.akka"
-    lazy val contrib   = namespace %% "akka-stream-contrib" % version
-  }
-
   object kamon {
     lazy val kamonVersion = "2.0.3"
     lazy val kamonPrometheusVersion = "2.0.0"
@@ -136,7 +130,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.2.0"
+    lazy val version     = "8.3.1"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -311,7 +305,7 @@ object Dependencies {
     lazy val libraries = Seq(
       akka.stream,
       akka_http.default,
-      akka_contrib.contrib,
+      akka.stream,
       json4s.jackson,
       akka_http.sprayJson,
       javaWebsocket.javaWebsocket,

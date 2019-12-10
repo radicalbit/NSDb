@@ -17,14 +17,12 @@
 package io.radicalbit.nsdb.cluster
 
 import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import kamon.Kamon
 
 /**
   * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
   */
 object NsdbCluster extends App with ProductionCluster {
-  Kamon.init(ConfigFactory.load("kamon.conf"))
+  initMonitoring()
   val system: ActorSystem = ActorSystem("NSDb", config)
   initTopLevelActors()
 }

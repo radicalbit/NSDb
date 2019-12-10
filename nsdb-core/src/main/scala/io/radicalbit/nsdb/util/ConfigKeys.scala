@@ -34,4 +34,6 @@ object ConfigKeys {
   val HttpsPort     = "nsdb.http.https-port"
 
   val ClusterMode = "nsdb.cluster.mode"
+
+  val MonitoringEnabled = "nsdb.monitoring.enabled"
 }
