@@ -72,7 +72,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
   lazy val replicationFactor: Int =
     context.system.settings.config.getInt("nsdb.cluster.replication-factor")
 
-  lazy val retentionCheckInterval = FiniteDuration(
+  lazy val retentionCheckInterval: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.retention.check.interval").toNanos,
     TimeUnit.NANOSECONDS)
 
@@ -481,6 +481,13 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
           case e => MetricInfoFailed(metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
+    case RemoveNodeMetadata(nodeName) =>
+      (cache ? EvictLocationsInNode(nodeName))
+        .map {
+          case Left(EvictLocationsInNodeFailed(_)) => RemoveNodeMetadataFailed(nodeName)
+          case Right(LocationsInNodeEvicted(_))    => NodeMetadataRemoved(nodeName)
+        }
+        .pipeTo(sender())
     case Migrate(inputPath) =>
       val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
         FileUtils.getSubDirs(db).flatMap { namespace =>
@@ -523,7 +530,7 @@ object MetadataCoordinator {
     * Generates a delete statement given a threshold. The delete statement involves records older than the threshold.
     * e.g. delete from "metric" where timestamp < threshold
     */
-  def deleteStatementFromThreshold(db: String, namespace: String, metric: String, threshold: Long) =
+  def deleteStatementFromThreshold(db: String, namespace: String, metric: String, threshold: Long): DeleteSQLStatement =
     DeleteSQLStatement(
       db = db,
       namespace = namespace,
@@ -540,7 +547,6 @@ object MetadataCoordinator {
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
     case class AddLocation(db: String, namespace: String, location: Location)
     case class AddLocations(db: String, namespace: String, locations: Seq[Location])
-    case class DeleteLocation(db: String, namespace: String, location: Location)
     case class DeleteMetricMetadata(db: String,
                                     namespace: String,
                                     metric: String,
@@ -548,6 +554,8 @@ object MetadataCoordinator {
     case class PutMetricInfo(metricInfo: MetricInfo)
 
     case object CheckOutdatedLocations
+
+    case class RemoveNodeMetadata(nodeName: String)
   }
 
   object events {
@@ -559,13 +567,15 @@ object MetadataCoordinator {
     case class AddLocationFailed(db: String, namespace: String, location: Location)
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
     case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
-    case class LocationDeleted(db: String, namespace: String, location: Location)
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
 
     case class MetricInfoPut(metricInfo: MetricInfo)
     case class MetricInfoFailed(metricInfo: MetricInfo, message: String)
 
     case class MetricInfosMigrated(infos: Seq[MetricInfo])
+
+    case class NodeMetadataRemoved(nodeName: String)
+    case class RemoveNodeMetadataFailed(nodeName: String)
   }
 
   def props(cache: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
