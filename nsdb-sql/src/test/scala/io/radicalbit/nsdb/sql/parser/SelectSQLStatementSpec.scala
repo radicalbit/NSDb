@@ -18,8 +18,6 @@ package io.radicalbit.nsdb.sql.parser
 
 import io.radicalbit.nsdb.common.statement._
 import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.TryValues._
-import org.scalatest.OptionValues._
 
 import scala.util.Success
 

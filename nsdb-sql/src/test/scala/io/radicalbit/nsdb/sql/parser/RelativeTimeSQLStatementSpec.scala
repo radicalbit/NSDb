@@ -75,6 +75,90 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         firstTimestamp.unitMeasure shouldBe "s"
       }
 
+      "parse it successfully relative time in simple where comparison condition (now)" in {
+        val statement =
+          parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp < now")
+
+        statement.success.value.isInstanceOf[SelectSQLStatement] shouldBe true
+        val now = System.currentTimeMillis()
+
+        val selectSQLStatement = statement.success.value.asInstanceOf[SelectSQLStatement]
+        val expression =
+          selectSQLStatement.condition.value.expression.asInstanceOf[ComparisonExpression[_]]
+
+        val firstTimestamp = expression.value.asInstanceOf[AbsoluteComparisonValue[Long]]
+
+        firstTimestamp.value shouldBe now +- timestampTolerance
+      }
+
+      "parse it successfully relative time with double comparison condition (AND)" in {
+        val statement =
+          parser.parse(db = "db",
+                       namespace = "registry",
+                       input = "SELECT name FROM people WHERE timestamp < now AND age >= 18")
+
+        val now = System.currentTimeMillis()
+
+        statement.success.value.isInstanceOf[SelectSQLStatement] shouldBe true
+
+        val selectSQLStatement = statement.success.value.asInstanceOf[SelectSQLStatement]
+        val condition =
+          selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
+
+        val timestampExpression = condition.expression1.asInstanceOf[ComparisonExpression[Long]]
+        val ageExpression       = condition.expression2.asInstanceOf[ComparisonExpression[Int]]
+
+        val timestampComparison = timestampExpression.value.asInstanceOf[AbsoluteComparisonValue[Long]]
+        val ageComparison       = ageExpression.value.asInstanceOf[AbsoluteComparisonValue[Int]]
+
+        timestampComparison.value shouldBe now +- timestampTolerance
+        timestampExpression.comparison shouldBe LessThanOperator
+
+        ageComparison.value shouldBe 18
+        ageExpression.comparison shouldBe GreaterOrEqualToOperator
+
+      }
+
+      "parse it successfully relative time in complex comparison condition (AND/OR)" in {
+        val statement =
+          parser.parse(
+            db = "db",
+            namespace = "registry",
+            input = "SELECT name FROM people WHERE timestamp < now and timestamp > now - 2h OR timestamp = now + 4m")
+
+        statement.success.value.isInstanceOf[SelectSQLStatement] shouldBe true
+        val now = System.currentTimeMillis()
+
+        val selectSQLStatement = statement.success.value.asInstanceOf[SelectSQLStatement]
+        val expression         = selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
+
+        val firstTimestamp =
+          expression.expression1.asInstanceOf[ComparisonExpression[_]].value.asInstanceOf[AbsoluteComparisonValue[Long]]
+        val secondExpression = expression.expression2.asInstanceOf[TupledLogicalExpression]
+        val secondTimestamp =
+          secondExpression.expression1
+            .asInstanceOf[ComparisonExpression[_]]
+            .value
+            .asInstanceOf[RelativeComparisonValue[Long]]
+        val thirdTimestamp = secondExpression.expression2
+          .asInstanceOf[EqualityExpression[_]]
+          .value
+          .asInstanceOf[RelativeComparisonValue[Long]]
+
+        firstTimestamp.value shouldBe now +- timestampTolerance
+
+        secondTimestamp.value shouldBe now - 2 * hours +- timestampTolerance
+        secondTimestamp.operator shouldBe "-"
+        secondTimestamp.quantity shouldBe 2
+        secondTimestamp.unitMeasure shouldBe "h"
+
+        thirdTimestamp.value shouldBe now + 4 * minutes +- timestampTolerance
+        thirdTimestamp.operator shouldBe "+"
+        thirdTimestamp.quantity shouldBe 4
+        thirdTimestamp.unitMeasure shouldBe "m"
+
+      }
+
       "parse it successfully using relative time in complex where condition" in {
 
         val statement = parser.parse(db = "db",
