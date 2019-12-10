@@ -126,12 +126,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   // def instead val because timestamp should be calculated everytime but there is a problem with
   // more than one "now - something" in the same query because "now" will be different for each condition
-  private def delta: PackratParser[ComparisonValue[Long]] = now ~> ("+" | "-").? ~ longValue.? ~ timeMeasure.? ^^ {
-    case Some("+") ~ Some(v) ~ Some((unitMeasure, timeInterval)) =>
+  private def delta: PackratParser[ComparisonValue[Long]] = now ~> (("+" | "-") ~ longValue ~ timeMeasure).? ^^ {
+    case Some("+" ~ v ~ ((unitMeasure, timeInterval))) =>
       RelativeComparisonValue(System.currentTimeMillis() + v * timeInterval, "+", v, unitMeasure)
-    case Some("-") ~ Some(v) ~ Some((unitMeasure, timeInterval)) =>
+    case Some("-" ~ v ~ ((unitMeasure, timeInterval))) =>
       RelativeComparisonValue(System.currentTimeMillis() - v * timeInterval, "-", v, unitMeasure)
-    case None ~ None ~ None =>
+    case None =>
       AbsoluteComparisonValue(System.currentTimeMillis())
   }
 
