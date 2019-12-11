@@ -64,6 +64,7 @@ object Dependencies {
     lazy val sharding        = namespace %% "akka-sharding"           % version
     lazy val slf4j           = namespace %% "akka-slf4j"              % version
     lazy val clusterTools    = namespace %% "akka-cluster-tools"      % version
+    lazy val clusterMetrics  = namespace %% "akka-cluster-metrics"    % version
     lazy val multiNode       = namespace %% "akka-multi-node-testkit" % version
     lazy val discovery       = namespace %% "akka-discovery"          % version
   }
@@ -105,10 +106,13 @@ object Dependencies {
   }
 
   object kamon {
+    lazy val namespace= "io.kamon"
     lazy val kamonVersion = "2.0.3"
     lazy val kamonPrometheusVersion = "2.0.0"
-    lazy val bundle = "io.kamon" %% "kamon-bundle" % kamonVersion
-    lazy val prometheus = "io.kamon" %% "kamon-prometheus" %  kamonPrometheusVersion
+    lazy val sigarVersion = "1.6.6-rev002"
+    lazy val bundle = namespace %% "kamon-bundle" % kamonVersion
+    lazy val prometheus = namespace %% "kamon-prometheus" %  kamonPrometheusVersion
+    lazy val sigarLoader = namespace % "sigar-loader" % sigarVersion
   }
 
   object swagger {
@@ -246,6 +250,7 @@ object Dependencies {
     lazy val libraries = Seq(
       akka.cluster,
       akka.clusterTools,
+      akka.clusterMetrics,
       akka.discovery,
       akka_management.cluster_bootstrap,
       akka_management.cluster_http,
@@ -255,6 +260,7 @@ object Dependencies {
       akka.slf4j,
       kamon.bundle,
       kamon.prometheus,
+      kamon.sigarLoader,
       logback.logback,
       scalatest.core % Test,
       akka.testkit   % Test,

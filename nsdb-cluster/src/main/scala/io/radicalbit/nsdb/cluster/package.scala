@@ -15,12 +15,16 @@
  */
 
 package io.radicalbit.nsdb
+import akka.actor.Address
 import akka.cluster.Member
 
 package object cluster {
 
   def createNodeName(member: Member) =
     s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
+
+  def createNodeName(address: Address) =
+    s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(2552)}"
 
   final object PubSubTopics {
     final val COORDINATORS_TOPIC   = "coordinators"

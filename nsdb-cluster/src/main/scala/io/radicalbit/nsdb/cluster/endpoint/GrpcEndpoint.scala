@@ -375,7 +375,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
                 }
                 .recoverWith {
                   case t =>
-                    log.error("", t)
+                    log.error(s"Error in executing statement $statement", t)
                     Future.successful(
                       SQLStatementResponse(
                         db = requestDb,

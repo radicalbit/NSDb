@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.cluster.actor
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
+import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
 import akka.pattern.ask
@@ -34,6 +35,7 @@ import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.ConfigKeys
 
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
@@ -45,6 +47,7 @@ import scala.util.{Failure, Success}
 class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
   private lazy val cluster = Cluster(context.system)
+  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -54,9 +57,13 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
   implicit val defaultTimeout: Timeout = Timeout(5.seconds)
 
+  private var clusterMetrics: mutable.Map[String, Map[String, Number]] = mutable.Map.empty
+
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
+    clusterMetricSystem.subscribe(self)
+
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
@@ -129,6 +136,9 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
         }
 
     case _: MemberEvent => // ignore
+    case ClusterMetricsChanged(nodeMetrics) =>
+      log.debug(s"received metrics $nodeMetrics")
+    nodeMetrics.foreach(m => clusterMetrics.put(createNodeName(m.address), m.metrics.map(m => m.name -> m.value).toMap))
   }
 }
 
