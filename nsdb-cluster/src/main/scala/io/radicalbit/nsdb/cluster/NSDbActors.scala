@@ -32,7 +32,7 @@ import scala.concurrent.ExecutionContextExecutor
 /**
   * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
   */
-trait NSDBActors {
+trait NSDbActors {
 
   implicit def system: ActorSystem
 
@@ -72,8 +72,3 @@ trait NSDBActors {
     )
   }
 }
-
-/**
-  * Simply mix in [[NSDBActors]] with [[NsdbClusterConfigProvider]]
-  */
-trait ProductionCluster extends NSDBActors with NsdbClusterConfigProvider

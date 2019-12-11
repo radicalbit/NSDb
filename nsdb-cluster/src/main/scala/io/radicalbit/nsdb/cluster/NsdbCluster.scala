@@ -22,6 +22,7 @@ import akka.actor.ActorSystem
   * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
   */
 object NsdbCluster extends App with ProductionCluster {
-  override val system = ActorSystem("NSDb", config)
+  initMonitoring()
+  val system: ActorSystem = ActorSystem("NSDb", config)
   initTopLevelActors()
 }
