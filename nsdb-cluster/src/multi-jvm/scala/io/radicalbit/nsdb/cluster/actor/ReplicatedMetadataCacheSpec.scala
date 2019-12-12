@@ -462,6 +462,8 @@ class ReplicatedMetadataCacheSpec
         }
       }
 
+      enterBarrier("after-add-multiple-node-location")
+
       awaitAssert {
         replicatedCache ! GetLocationsFromCache(db, namespace, metric)
         expectMsgType[LocationsCached].value.size shouldBe 22
