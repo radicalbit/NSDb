@@ -66,6 +66,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
     clusterMetricSystem.subscribe(self)
+    mediator ! Subscribe(LOCATIONS_METRIC_TOPIC, self)
 
   }
 
@@ -138,6 +139,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
     case _: MemberEvent => // ignore
     case LocationsMetricChanged(nodeName, locations) =>
+      log.debug(s"received location metric $locations for nodeName $nodeName")
       clusterMetrics.put((nodeName, "locations"), locations)
     case ClusterMetricsChanged(nodeMetrics) =>
       log.debug(s"received metrics $nodeMetrics")
