@@ -92,7 +92,7 @@ object FileUtils {
     * @param nodeName the node name that will be used for creating locations.
     *                 @return a list of [[LocationWithCoordinates]].
     */
-  def getLocationFromFilesystem(basePath: String, nodeName: String): List[LocationWithCoordinates] =
+  def getLocationsFromFilesystem(basePath: String, nodeName: String): List[LocationWithCoordinates] =
     FileUtils
       .getSubDirs(Paths.get(basePath))
       .flatMap { databaseDir =>

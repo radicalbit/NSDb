@@ -27,8 +27,9 @@ package object cluster {
     s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(2552)}"
 
   final object PubSubTopics {
-    final val COORDINATORS_TOPIC   = "coordinators"
-    final val NODE_GUARDIANS_TOPIC = "node-guardians"
+    final val COORDINATORS_TOPIC     = "coordinators"
+    final val NODE_GUARDIANS_TOPIC   = "node-guardians"
+    final val LOCATIONS_METRIC_TOPIC = "locations-metric"
   }
 
 }

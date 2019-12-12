@@ -21,11 +21,12 @@ import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension}
 import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
+import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.cluster.actor.ClusterListener.LocationsMetricChanged
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
@@ -46,18 +47,20 @@ import scala.util.{Failure, Success}
   */
 class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
-  private lazy val cluster = Cluster(context.system)
+  private lazy val cluster             = Cluster(context.system)
   private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
+  private lazy val selfNodeName        = createNodeName(cluster.selfMember)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  private val config = context.system.settings.config
+  private val config         = context.system.settings.config
+  private lazy val indexPath = config.getString(ConfigKeys.StorageIndexPath)
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   implicit val defaultTimeout: Timeout = Timeout(5.seconds)
 
-  private var clusterMetrics: mutable.Map[String, Map[String, Number]] = mutable.Map.empty
+  private val clusterMetrics: mutable.Map[(String, String), Number] = mutable.Map.empty
 
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
@@ -84,7 +87,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
             val locationsToAdd: Seq[LocationWithCoordinates] =
-              FileUtils.getLocationFromFilesystem(config.getString(ConfigKeys.StorageIndexPath), nodeName)
+              FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
 
             val locationsGroupedBy: Map[(String, String), Seq[(String, String, Location)]] = locationsToAdd.groupBy {
               case (database, namespace, _) => (database, namespace)
@@ -119,8 +122,6 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
 
-      val selfNodeName = createNodeName(cluster.selfMember)
-
       (context.actorSelection(s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
         .map {
           case NodeChildActorsGot(metadataCoordinator, _, _, _) =>
@@ -136,13 +137,22 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
         }
 
     case _: MemberEvent => // ignore
+    case LocationsMetricChanged(nodeName, locations) =>
+      clusterMetrics.put((nodeName, "locations"), locations)
     case ClusterMetricsChanged(nodeMetrics) =>
       log.debug(s"received metrics $nodeMetrics")
-    nodeMetrics.foreach(m => clusterMetrics.put(createNodeName(m.address), m.metrics.map(m => m.name -> m.value).toMap))
+      nodeMetrics.foreach(nodeMetric =>
+        nodeMetric.metrics.foreach(metric =>
+          clusterMetrics.put((createNodeName(nodeMetric.address), metric.name), metric.value)))
+      mediator ! Publish(
+        LOCATIONS_METRIC_TOPIC,
+        LocationsMetricChanged(selfNodeName, FileUtils.getLocationsFromFilesystem(indexPath, selfNodeName).size))
   }
 }
 
 object ClusterListener {
+
+  case class LocationsMetricChanged(nodeName: String, locations: Int)
 
   def props(nodeActorsGuardianProps: Props): Props =
     Props(new ClusterListener(nodeActorsGuardianProps))
