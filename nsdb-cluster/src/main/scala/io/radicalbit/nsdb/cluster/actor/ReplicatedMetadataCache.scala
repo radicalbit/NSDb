@@ -229,9 +229,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     case EvictLocation(db, namespace, loc @ Location(metric, node, from, to)) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       val f = for {
-        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteMajority(writeDuration))(
+        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(
           _ remove loc)
-        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), WriteMajority(writeDuration))(
+        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), WriteAll(writeDuration))(
           _ remove (db, namespace, loc))
       } yield remove
       f.map {
