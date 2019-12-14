@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.actor
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
-import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension}
+import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, Metric}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.pattern.ask
@@ -47,9 +47,9 @@ import scala.util.{Failure, Success}
   */
 class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
 
-  private lazy val cluster             = Cluster(context.system)
+  private lazy val cluster = Cluster(context.system)
   private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
-  private lazy val selfNodeName        = createNodeName(cluster.selfMember)
+  private lazy val selfNodeName = createNodeName(cluster.selfMember)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -60,7 +60,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
   implicit val defaultTimeout: Timeout = Timeout(5.seconds)
 
-  private val clusterMetrics: mutable.Map[(String, String), Number] = mutable.Map.empty
+  private val clusterMetrics: mutable.Map[(String, String), Metric] = mutable.Map.empty
 
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
@@ -138,14 +138,14 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
         }
 
     case _: MemberEvent => // ignore
-    case LocationsMetricChanged(nodeName, locations) =>
-      log.debug(s"received location metric $locations for nodeName $nodeName")
-      clusterMetrics.put((nodeName, "locations"), locations)
+//    case LocationsMetricChanged(nodeName, locations) =>
+//      log.debug(s"received location metric $locations for nodeName $nodeName")
+//      clusterMetrics.put((nodeName, "locations"), locations)
     case ClusterMetricsChanged(nodeMetrics) =>
       log.debug(s"received metrics $nodeMetrics")
       nodeMetrics.foreach(nodeMetric =>
         nodeMetric.metrics.foreach(metric =>
-          clusterMetrics.put((createNodeName(nodeMetric.address), metric.name), metric.value)))
+          clusterMetrics.put((createNodeName(nodeMetric.address), metric.name), metric)))
       mediator ! Publish(
         LOCATIONS_METRIC_TOPIC,
         LocationsMetricChanged(selfNodeName, FileUtils.getLocationsFromFilesystem(indexPath, selfNodeName).size))
