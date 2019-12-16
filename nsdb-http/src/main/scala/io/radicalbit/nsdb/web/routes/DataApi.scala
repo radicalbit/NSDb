@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, RecordRe
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.swagger.annotations._
-import org.json4s.{DefaultFormats, Formats}
+import org.json4s.Formats
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}

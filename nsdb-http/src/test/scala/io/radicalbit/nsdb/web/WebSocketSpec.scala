@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, Props}
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.{HttpProtocol, StatusCodes}
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor

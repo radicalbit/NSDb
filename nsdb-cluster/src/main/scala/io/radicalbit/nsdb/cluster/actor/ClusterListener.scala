@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.cluster.actor.ClusterListener.DiskOccupationChanged
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
-import io.radicalbit.nsdb.cluster.{NsdbNodeEndpoint, createNodeName}
+import io.radicalbit.nsdb.cluster.{Metrics, NsdbNodeEndpoint, createNodeName}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -70,13 +70,13 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
   /**
   collects all the high level metrics (e.g. disk occupation ratio)
     */
-  private var nsdbMetrics: mutable.Map[String, Set[NodeMetrics]] = mutable.Map.empty
+  private val nsdbMetrics: mutable.Map[String, Set[NodeMetrics]] = mutable.Map.empty
 
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
     clusterMetricSystem.subscribe(self)
-    mediator ! Subscribe(LOCATIONS_METRIC_TOPIC, self)
+    mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
 
   }
 
@@ -149,23 +149,25 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
 
     case _: MemberEvent => // ignore
     case DiskOccupationChanged(nodeName, ratio) =>
-      log.info(s"received disk occupation ratio $ratio for nodeName $nodeName")
+      log.debug(s"received disk occupation ratio $ratio for nodeName $nodeName")
       nsdbMetrics.put(nodeName,
                       Set(
                         NodeMetrics(Address("nsdb", nodeName),
                                     System.currentTimeMillis(),
-                                    Set(Metric("disk_occupation", ratio, None)))))
+                                    Set(Metric(Metrics.DISK_OCCUPATION, ratio, None)))))
+      log.debug(s"nsdb metrics $nsdbMetrics")
     case ClusterMetricsChanged(nodeMetrics) =>
-      log.info(s"received metrics $nodeMetrics")
+      log.debug(s"received metrics $nodeMetrics")
       akkaClusterMetrics = nodeMetrics.groupBy(nodeMetric => createNodeName(nodeMetric.address))
       Try {
         val fs = Files.getFileStore(Paths.get(indexPath))
-        mediator ! Publish(LOCATIONS_METRIC_TOPIC,
+        mediator ! Publish(NSDB_METRICS_TOPIC,
                            DiskOccupationChanged(selfNodeName, (fs.getUsableSpace / fs.getTotalSpace.toDouble) * 100))
+        log.debug(s"akka cluster metrics $akkaClusterMetrics")
       }.recover {
         // if the fs path has not been created yet, the occupation ration will be 100.0
-        case e: NoSuchFileException =>
-          mediator ! Publish(LOCATIONS_METRIC_TOPIC, DiskOccupationChanged(selfNodeName, 100.0))
+        case _: NoSuchFileException =>
+          mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, 100.0))
       }
   }
 }

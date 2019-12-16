@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.{DefaultFormats, Formats}
+import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
 
 import scala.concurrent.{ExecutionContext, Future}

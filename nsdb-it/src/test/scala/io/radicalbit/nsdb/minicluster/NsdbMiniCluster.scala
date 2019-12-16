@@ -20,7 +20,6 @@ import java.io.File
 import java.time.Duration
 import java.util.UUID
 
-import com.typesafe.config.ConfigRenderOptions
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
 
