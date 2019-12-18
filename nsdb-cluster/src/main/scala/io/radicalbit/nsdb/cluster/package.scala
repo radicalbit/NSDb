@@ -26,13 +26,21 @@ package object cluster {
   def createNodeName(address: Address) =
     s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(2552)}"
 
+  /**
+    * Creates a fake address with a dedicated (and invented) `nsdb` protocol
+    * @param nodeName the node name [host]_[port]
+    */
+  def createAddress(nodeName: String): Address = {
+    val splittedNodeName = nodeName.split("_")
+    Address("nsdb",
+            "NSDb",
+            Option(splittedNodeName(0)).getOrElse("noHost"),
+            Option(splittedNodeName(1)).map(_.toInt).getOrElse(2552))
+  }
+
   final object PubSubTopics {
     final val COORDINATORS_TOPIC   = "coordinators"
     final val NODE_GUARDIANS_TOPIC = "node-guardians"
     final val NSDB_METRICS_TOPIC   = "nsdb-metrics"
-  }
-
-  final object Metrics {
-    final val DISK_OCCUPATION = "disk_occupation"
   }
 }

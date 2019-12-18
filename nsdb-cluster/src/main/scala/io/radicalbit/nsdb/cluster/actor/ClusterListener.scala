@@ -32,7 +32,8 @@ import io.radicalbit.nsdb.cluster.actor.ClusterListener.DiskOccupationChanged
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
-import io.radicalbit.nsdb.cluster.{Metrics, NsdbNodeEndpoint, createNodeName}
+import io.radicalbit.nsdb.cluster._
+import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -148,26 +149,30 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
         }
 
     case _: MemberEvent => // ignore
-    case DiskOccupationChanged(nodeName, ratio) =>
-      log.debug(s"received disk occupation ratio $ratio for nodeName $nodeName")
-      nsdbMetrics.put(nodeName,
-                      Set(
-                        NodeMetrics(Address("nsdb", nodeName),
-                                    System.currentTimeMillis(),
-                                    Set(Metric(Metrics.DISK_OCCUPATION, ratio, None)))))
+    case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
+      log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")
+      nsdbMetrics.put(
+        nodeName,
+        Set(
+          NodeMetrics(
+            createAddress(nodeName),
+            System.currentTimeMillis(),
+            Set(Metric(NSDbMetrics.DiskFreeSpace, usableSpace, None),
+                Metric(NSDbMetrics.DiskTotalSpace, totalSpace, None))
+          ))
+      )
       log.debug(s"nsdb metrics $nsdbMetrics")
     case ClusterMetricsChanged(nodeMetrics) =>
       log.debug(s"received metrics $nodeMetrics")
       akkaClusterMetrics = nodeMetrics.groupBy(nodeMetric => createNodeName(nodeMetric.address))
       Try {
         val fs = Files.getFileStore(Paths.get(indexPath))
-        mediator ! Publish(NSDB_METRICS_TOPIC,
-                           DiskOccupationChanged(selfNodeName, (fs.getUsableSpace / fs.getTotalSpace.toDouble) * 100))
+        mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, fs.getUsableSpace, fs.getTotalSpace))
         log.debug(s"akka cluster metrics $akkaClusterMetrics")
       }.recover {
         // if the fs path has not been created yet, the occupation ration will be 100.0
         case _: NoSuchFileException =>
-          mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, 100.0))
+          mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, 100, 100))
       }
   }
 }
@@ -177,9 +182,10 @@ object ClusterListener {
   /**
     * Event fired when akka cluster metrics are collected that described the disk occupation ration for a node
     * @param nodeName cluster node name.
-    * @param usableSpacePerc the percentage between the free and the total disk space.
+    * @param usableSpace the free space on disk.
+    * @param totalSpace total disk space.
     */
-  case class DiskOccupationChanged(nodeName: String, usableSpacePerc: Double)
+  case class DiskOccupationChanged(nodeName: String, usableSpace: Long, totalSpace: Long)
 
   def props(nodeActorsGuardianProps: Props): Props =
     Props(new ClusterListener(nodeActorsGuardianProps))
