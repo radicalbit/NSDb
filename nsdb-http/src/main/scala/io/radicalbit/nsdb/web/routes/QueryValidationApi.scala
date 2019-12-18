@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.{DefaultFormats, Formats}
+import org.json4s.Formats
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}

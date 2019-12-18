@@ -30,7 +30,6 @@ import io.radicalbit.nsdb.util.ConfigKeys
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
 import io.radicalbit.nsdb.web.validation.FieldErrorInfo
-import org.json4s.DefaultFormats
 import spray.json._
 
 import scala.concurrent.ExecutionContext

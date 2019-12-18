@@ -15,6 +15,7 @@
  */
 
 package io.radicalbit.nsdb
+import akka.actor.Address
 import akka.cluster.Member
 
 package object cluster {
@@ -22,9 +23,16 @@ package object cluster {
   def createNodeName(member: Member) =
     s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
 
+  def createNodeName(address: Address) =
+    s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(2552)}"
+
   final object PubSubTopics {
     final val COORDINATORS_TOPIC   = "coordinators"
     final val NODE_GUARDIANS_TOPIC = "node-guardians"
+    final val NSDB_METRICS_TOPIC   = "nsdb-metrics"
   }
 
+  final object Metrics {
+    final val DISK_OCCUPATION = "disk_occupation"
+  }
 }

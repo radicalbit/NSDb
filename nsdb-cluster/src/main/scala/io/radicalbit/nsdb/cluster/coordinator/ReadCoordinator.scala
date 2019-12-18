@@ -349,7 +349,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         }
         .recoverWith {
           case t =>
-            log.error(t, "")
+            log.error(t, s"Error in Execute Statement $statement")
             Future(SelectStatementFailed(statement, "Generic error occurred"))
         }
         .pipeToWithEffect(sender()) { _ =>
