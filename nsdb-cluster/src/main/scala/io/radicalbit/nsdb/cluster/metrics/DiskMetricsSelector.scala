@@ -20,7 +20,7 @@ import akka.actor.Address
 import akka.cluster.metrics.{CapacityMetricsSelector, NodeMetrics}
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics.Disk
 
-case object DiskMetricsCollector extends CapacityMetricsSelector {
+case object DiskMetricsSelector extends CapacityMetricsSelector {
 
   /**
     * Remaining capacity for each node. The value is between
@@ -31,7 +31,7 @@ case object DiskMetricsCollector extends CapacityMetricsSelector {
   override def capacity(nodeMetrics: Set[NodeMetrics]): Map[Address, Double] = {
     nodeMetrics.collect {
       case Disk(address, freeSpace, totalSpace) =>
-        val capacity = 1.0 - freeSpace / totalSpace
+        val capacity = 1.0 - freeSpace.toDouble / totalSpace
         (address, capacity)
     }.toMap
   }
