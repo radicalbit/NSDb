@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.actor
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
@@ -50,7 +50,7 @@ class MetricsDataActorSpec()
   val namespace1 = "namespace1"
 
   val fakeMetadataCoordinator =
-    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(LocalMetadataCache.props)))
+    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
 
   val metricsDataActor =
     system.actorOf(MetricsDataActor.props(basePath, "testNode", ActorRef.noSender))

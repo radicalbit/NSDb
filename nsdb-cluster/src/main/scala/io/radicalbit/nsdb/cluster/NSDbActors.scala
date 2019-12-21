@@ -60,8 +60,6 @@ trait NSDbActors {
       name = "databaseActorGuardianProxy"
     )
 
-    lazy val nodeName: String = createNodeName(Cluster(system).selfMember)
-
     system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
   }
 }

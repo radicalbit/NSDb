@@ -25,6 +25,7 @@ import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
+import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
@@ -32,8 +33,10 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatemen
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
-import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
+import io.radicalbit.nsdb.cluster.metrics.DiskMetricsSelector
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
+import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
@@ -50,7 +53,7 @@ import org.apache.lucene.store.Directory
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Try
+import scala.util.{Random, Try}
 
 /**
   * Actor that handles locations (shards) for metrics.
@@ -417,51 +420,39 @@ class MetadataCoordinator(clusterListener: ActorRef,
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       (metadataCache ? GetLocationsFromCache(db, namespace, metric))
         .flatMap {
-          case LocationsCached(_, _, _, values) if values.nonEmpty =>
+          case LocationsCached(_, _, _, values) =>
             values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
               case Nil =>
-                getShardInterval(db, namespace, metric)
-                  .flatMap { interval =>
-                    val start = getShardStartIstant(timestamp, interval)
-                    val end   = getShardEndIstant(start, interval)
+                for {
+                  shardInterval <- getShardInterval(db, namespace, metric)
+                  nodeMetrics   <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
+                  addLocationResult <- {
+                    val start = getShardStartIstant(timestamp, shardInterval)
+                    val end   = getShardEndIstant(start, shardInterval)
 
-                    //TODO more sophisticated node choice logic must be added here
-                    val nodes = cluster.state.members
-                      .filter(_.status == MemberStatus.Up)
-                      .take(replicationFactor)
-                      .map(createNodeName)
+                    val nodes =
+                      if (nodeMetrics.nodeMetrics.nonEmpty)
+                        new CapacityWriteNodesSelectionLogic(DiskMetricsSelector)
+                          .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                      else {
+                        Random
+                          .shuffle(cluster.state.members.filter(_.status == MemberStatus.Up))
+                          .take(replicationFactor)
+                          .map(createNodeName)
+                      }
 
                     val locations = nodes.map(Location(metric, _, start, end)).toSeq
-
-                    performAddLocationIntoCache(db, namespace, locations).map {
-                      case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                      case e =>
-                        log.error(s"unexpected result while trying to add locations in cache $e")
-                        GetWriteLocationsFailed(db, namespace, metric, timestamp)
-                    }
+                    performAddLocationIntoCache(db, namespace, locations)
+                  }
+                } yield
+                  addLocationResult match {
+                    case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
+                    case e =>
+                      log.error(s"unexpected result while trying to add locations in cache $e")
+                      GetWriteLocationsFailed(db, namespace, metric, timestamp)
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
             }
-          case LocationsCached(_, _, _, _) =>
-            getShardInterval(db, namespace, metric)
-              .flatMap { interval =>
-                val start = getShardStartIstant(timestamp, interval)
-                val end   = getShardEndIstant(start, interval)
-
-                val nodes = cluster.state.members
-                  .filter(_.status == MemberStatus.Up)
-                  .take(replicationFactor)
-                  .map(createNodeName)
-
-                val locations = nodes.map(Location(metric, _, start, end)).toSeq
-
-                performAddLocationIntoCache(db, namespace, locations).map {
-                  case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                  case e =>
-                    log.error(s"unexpected result while trying to add locations in cache $e")
-                    GetWriteLocationsFailed(db, namespace, metric, timestamp)
-                }
-              }
           case _ =>
             Future(LocationsGot(db, namespace, metric, Seq.empty))
         } pipeTo sender()

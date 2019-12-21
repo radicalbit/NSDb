@@ -28,7 +28,7 @@ import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.actor.ClusterListener.DiskOccupationChanged
+import io.radicalbit.nsdb.cluster.actor.ClusterListener.{DiskOccupationChanged, GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
@@ -173,6 +173,8 @@ class ClusterListener() extends Actor with ActorLogging {
         case _: NoSuchFileException =>
           mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, 100, 100))
       }
+    case GetNodeMetrics =>
+      sender() ! NodeMetricsGot((akkaClusterMetrics ++ nsdbMetrics).values.flatten.toSet)
   }
 }
 
@@ -185,5 +187,8 @@ object ClusterListener {
     * @param totalSpace total disk space.
     */
   case class DiskOccupationChanged(nodeName: String, usableSpace: Long, totalSpace: Long)
+
+  case object GetNodeMetrics
+  case class NodeMetricsGot(nodeMetrics: Set[NodeMetrics])
 
 }
