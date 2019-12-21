@@ -35,7 +35,7 @@ import io.radicalbit.nsdb.util.ConfigKeys
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
   */
-class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends Actor with ActorLogging {
+class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
@@ -60,6 +60,9 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 
   private val indexBasePath = config.getString(ConfigKeys.StorageIndexPath)
 
+  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
+  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
+
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
       .props(schemaCache)
@@ -70,7 +73,7 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
   private val metadataCoordinator =
     context.actorOf(
       MetadataCoordinator
-        .props(metadataCache, schemaCoordinator, mediator)
+        .props(clusterListener, metadataCache, schemaCoordinator, mediator)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       name = s"metadata-coordinator_$nodeName"
@@ -132,6 +135,6 @@ class NodeActorsGuardian(metadataCache: ActorRef, schemaCache: ActorRef) extends
 }
 
 object NodeActorsGuardian {
-  def props(metadataCache: ActorRef, schemaCache: ActorRef): Props =
-    Props(new NodeActorsGuardian(metadataCache, schemaCache))
+  def props(clusterListener: ActorRef): Props =
+    Props(new NodeActorsGuardian(clusterListener))
 }

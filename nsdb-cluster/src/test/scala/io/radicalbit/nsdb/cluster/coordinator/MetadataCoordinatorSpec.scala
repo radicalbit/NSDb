@@ -65,7 +65,8 @@ class MetadataCoordinatorSpec
     system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
   val metricsDataActorProbe = TestProbe()
   val metadataCache         = system.actorOf(LocalMetadataCache.props)
-  val metadataCoordinator   = system.actorOf(MetadataCoordinator.props(metadataCache, schemaCoordinator, probe.ref))
+  val metadataCoordinator =
+    system.actorOf(MetadataCoordinator.props(probe.ref, metadataCache, schemaCoordinator, probe.ref))
 
   val db        = "testDb"
   val namespace = "testNamespace"

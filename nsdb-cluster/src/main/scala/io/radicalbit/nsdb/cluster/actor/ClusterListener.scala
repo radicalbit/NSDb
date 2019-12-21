@@ -46,9 +46,8 @@ import scala.util.{Failure, Success, Try}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
-  * @param nodeActorsGuardianProps props of NodeActorGuardian actor.
   */
-class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLogging {
+class ClusterListener() extends Actor with ActorLogging {
 
   private lazy val cluster             = Cluster(context.system)
   private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
@@ -90,7 +89,7 @@ class ClusterListener(nodeActorsGuardianProps: Props) extends Actor with ActorLo
       val nodeName = createNodeName(member)
 
       val nodeActorsGuardian =
-        context.system.actorOf(nodeActorsGuardianProps.withDeploy(Deploy(scope = RemoteScope(member.address))),
+        context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
                                name = s"guardian_$nodeName")
 
       (nodeActorsGuardian ? GetNodeChildActors)
@@ -187,6 +186,4 @@ object ClusterListener {
     */
   case class DiskOccupationChanged(nodeName: String, usableSpace: Long, totalSpace: Long)
 
-  def props(nodeActorsGuardianProps: Props): Props =
-    Props(new ClusterListener(nodeActorsGuardianProps))
 }

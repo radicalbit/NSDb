@@ -98,7 +98,7 @@ class RetentionSpec
   val metadataCoordinator =
     system.actorOf(
       MetadataCoordinator
-        .props(localMetadataCache, schemaCoordinator, system.actorOf(Props.empty))
+        .props(system.actorOf(Props.empty), localMetadataCache, schemaCoordinator, system.actorOf(Props.empty))
         .withDispatcher("akka.actor.control-aware-dispatcher"),
       "metadata-coordinator"
     )
