@@ -31,7 +31,7 @@ case object DiskMetricsSelector extends CapacityMetricsSelector {
   override def capacity(nodeMetrics: Set[NodeMetrics]): Map[Address, Double] = {
     nodeMetrics.collect {
       case Disk(address, freeSpace, totalSpace) =>
-        val capacity = 1.0 - freeSpace.toDouble / totalSpace
+        val capacity = freeSpace.toDouble / totalSpace
         (address, capacity)
     }.toMap
   }

@@ -169,12 +169,18 @@ class ClusterListener() extends Actor with ActorLogging {
         mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, fs.getUsableSpace, fs.getTotalSpace))
         log.debug(s"akka cluster metrics $akkaClusterMetrics")
       }.recover {
-        // if the fs path has not been created yet, the occupation ration will be 100.0
+        // if the fs path has not been created yet, the occupation ratio will be 100.0
         case _: NoSuchFileException =>
           mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, 100, 100))
       }
     case GetNodeMetrics =>
-      sender() ! NodeMetricsGot((akkaClusterMetrics ++ nsdbMetrics).values.flatten.toSet)
+      val mergedMetrics = (akkaClusterMetrics ++ nsdbMetrics).values.map(nodeMetricsSet =>
+        nodeMetricsSet.reduce { (nodeMetrics1: NodeMetrics, nodeMetrics2: NodeMetrics) =>
+          NodeMetrics(nodeMetrics1.address,
+                      System.currentTimeMillis(),
+                      metrics = nodeMetrics1.metrics ++ nodeMetrics2.metrics)
+      })
+      sender() ! NodeMetricsGot(mergedMetrics.toSet)
   }
 }
 
@@ -189,6 +195,11 @@ object ClusterListener {
   case class DiskOccupationChanged(nodeName: String, usableSpace: Long, totalSpace: Long)
 
   case object GetNodeMetrics
+
+  /**
+    * Contains the metrics for each alive member of the cluster.
+    * @param nodeMetrics one entry contains all the metrics for a single node.
+    */
   case class NodeMetricsGot(nodeMetrics: Set[NodeMetrics])
 
 }
