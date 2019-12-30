@@ -56,6 +56,11 @@ lazy val `nsdb-common` = project
   .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)
   .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "io.radicalbit.nsdb"
+  )
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Common.libraries)
 

@@ -38,7 +38,10 @@ import scala.util.{Failure, Success}
   * Instantiate NSDb Http Server exposing apis defined in [[ApiResources]]
   * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
   */
-trait WebResources extends WsResources with CorsSupport with SSLSupport { this: NsdbSecurity =>
+trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
+
+  import CORSSupport._
+  import VersionHeader._
 
   def config: Config
 
@@ -67,14 +70,16 @@ trait WebResources extends WsResources with CorsSupport with SSLSupport { this: 
           if (isSSLEnabled) {
             val port = config.getInt("nsdb.http.https-port")
             logger.info(s"Cluster Apis started with https protocol on port $port")
-            httpExt.bindAndHandle(withCors(api),
-                                  config.getString(ConfigKeys.HttpInterface),
-                                  config.getInt(ConfigKeys.HttpsPort),
-                                  connectionContext = serverContext)
+            httpExt.bindAndHandle(
+              withCors(withNSDbVersion(api)),
+              config.getString(ConfigKeys.HttpInterface),
+              config.getInt(ConfigKeys.HttpsPort),
+              connectionContext = serverContext
+            )
           } else {
             val port = config.getInt(ConfigKeys.HttpPort)
             logger.info(s"Cluster Apis started with http protocol on port $port")
-            httpExt.bindAndHandle(withCors(api), config.getString(ConfigKeys.HttpInterface), port)
+            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), config.getString(ConfigKeys.HttpInterface), port)
           }
 
         scala.sys.addShutdownHook {
