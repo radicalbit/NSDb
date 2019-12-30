@@ -16,8 +16,15 @@
 
 package io.radicalbit.nsdb.cluster.logic
 
-import akka.cluster.metrics.{CapacityMetricsSelector, NodeMetrics}
+import akka.cluster.metrics.{
+  CapacityMetricsSelector,
+  CpuMetricsSelector,
+  HeapMetricsSelector,
+  NodeMetrics,
+  SystemLoadAverageMetricsSelector
+}
 import io.radicalbit.nsdb.cluster._
+import io.radicalbit.nsdb.cluster.metrics.{DiskMetricsSelector, NSDbMixMetricSelector}
 
 /**
   * Node selection logic based on nodes capacity, that is retrieved from the node metrics and a selector
@@ -28,6 +35,21 @@ class CapacityWriteNodesSelectionLogic(metricsSelector: CapacityMetricsSelector)
   override def selectWriteNodes(nodeMetrics: Set[NodeMetrics], replicationFactor: Int): Seq[String] = {
     metricsSelector.capacity(nodeMetrics).toList.sortBy { case (_, m) => m }.reverse.take(replicationFactor).map {
       case (address, _) => createNodeName(address)
+    }
+  }
+}
+
+object CapacityWriteNodesSelectionLogic {
+
+  def fromConfigValue(configValue: String): CapacityMetricsSelector = {
+    configValue match {
+      case "heap" => HeapMetricsSelector
+      case "load" => SystemLoadAverageMetricsSelector
+      case "cpu"  => CpuMetricsSelector
+      case "disk" => DiskMetricsSelector
+      case "mix"  => NSDbMixMetricSelector
+      case wrongConfigValue =>
+        throw new IllegalArgumentException(s"$wrongConfigValue is not a valid value for metric-selector")
     }
   }
 }

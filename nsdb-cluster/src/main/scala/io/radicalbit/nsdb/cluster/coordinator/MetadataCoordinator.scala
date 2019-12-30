@@ -34,7 +34,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
-import io.radicalbit.nsdb.cluster.metrics.DiskMetricsSelector
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -432,7 +431,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
                     val nodes =
                       if (nodeMetrics.nodeMetrics.nonEmpty)
-                        new CapacityWriteNodesSelectionLogic(DiskMetricsSelector)
+                        new CapacityWriteNodesSelectionLogic(
+                          CapacityWriteNodesSelectionLogic.fromConfigValue("nsdb.cluster.metric-selector"))
                           .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
                       else {
                         Random
