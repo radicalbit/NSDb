@@ -346,20 +346,6 @@ case class Bit protected (db: String,
   def tag(k: String, d: java.math.BigDecimal): Bit =
     if (d.scale() > 0) tag(k, d.doubleValue()) else tag(k, d.longValue())
 
-  @deprecated(
-    "It's not fully type safe and it's not possible to make it due to our best friend Jvm type erasure. It's better to be removed in order to prevent a non correct usage of the apis",
-    "0.7.0"
-  )
-  def dimension[T](k: String, d: Option[T]): Bit =
-    d match {
-      case Some(v: java.math.BigDecimal) => dimension(k, v)
-      case Some(v: Long)                 => dimension(k, v)
-      case Some(v: Int)                  => dimension(k, v)
-      case Some(v: Double)               => dimension(k, v)
-      case Some(v: String)               => dimension(k, v)
-      case _                             => this
-    }
-
   /**
     * Adds a Long timestamp to the bit.
     * @param v the timestamp.

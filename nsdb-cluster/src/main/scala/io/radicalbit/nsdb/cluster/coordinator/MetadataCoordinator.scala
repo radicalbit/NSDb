@@ -67,20 +67,20 @@ class MetadataCoordinator(clusterListener: ActorRef,
     with DirectorySupport {
   private val cluster = Cluster(context.system)
 
-  implicit val timeout: Timeout = Timeout(
-    context.system.settings.config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS),
-    TimeUnit.SECONDS)
+  private val config = context.system.settings.config
+
+  implicit val timeout: Timeout =
+    Timeout(config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
   import context.dispatcher
 
   lazy val defaultShardingInterval: Long =
-    context.system.settings.config.getDuration("nsdb.sharding.interval").toMillis
+    config.getDuration("nsdb.sharding.interval").toMillis
 
   lazy val replicationFactor: Int =
-    context.system.settings.config.getInt("nsdb.cluster.replication-factor")
+    config.getInt("nsdb.cluster.replication-factor")
 
-  lazy val retentionCheckInterval: FiniteDuration = FiniteDuration(
-    context.system.settings.config.getDuration("nsdb.retention.check.interval").toNanos,
-    TimeUnit.NANOSECONDS)
+  lazy val retentionCheckInterval: FiniteDuration =
+    FiniteDuration(config.getDuration("nsdb.retention.check.interval").toNanos, TimeUnit.NANOSECONDS)
 
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
@@ -130,9 +130,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
 
-    val interval = FiniteDuration(
-      context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
+    val interval =
+      FiniteDuration(config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
@@ -432,7 +431,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
                     val nodes =
                       if (nodeMetrics.nodeMetrics.nonEmpty)
                         new CapacityWriteNodesSelectionLogic(
-                          CapacityWriteNodesSelectionLogic.fromConfigValue("nsdb.cluster.metric-selector"))
+                          CapacityWriteNodesSelectionLogic.fromConfigValue(
+                            config.getString("nsdb.cluster.metrics-selector")))
                           .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
                       else {
                         Random
