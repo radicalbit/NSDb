@@ -22,6 +22,7 @@ import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.actor.ClusterListener
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -64,8 +65,11 @@ class MetadataCoordinatorSpec
   val schemaCoordinator =
     system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
   val metricsDataActorProbe = TestProbe()
-  val metadataCache         = system.actorOf(LocalMetadataCache.props)
-  val metadataCoordinator   = system.actorOf(MetadataCoordinator.props(metadataCache, schemaCoordinator, probe.ref))
+  val metadataCache         = system.actorOf(Props[LocalMetadataCache])
+  val clusterListener       = system.actorOf(Props[ClusterListener])
+
+  val metadataCoordinator =
+    system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCoordinator, probe.ref))
 
   val db        = "testDb"
   val namespace = "testNamespace"

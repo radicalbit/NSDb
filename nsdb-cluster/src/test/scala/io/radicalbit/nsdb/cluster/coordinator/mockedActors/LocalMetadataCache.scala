@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
 import java.util.concurrent.ConcurrentHashMap
 
-import akka.actor.{Actor, Props}
+import akka.actor.Actor
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
@@ -94,8 +94,6 @@ class LocalMetadataCache extends Actor {
 }
 
 object LocalMetadataCache {
-  def props: Props = Props(new LocalMetadataCache)
-
   case object DeleteAll
   case object DeleteDone
 }

@@ -25,6 +25,7 @@ import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
+import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
@@ -32,8 +33,9 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatemen
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
-import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
+import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
@@ -50,13 +52,17 @@ import org.apache.lucene.store.Directory
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Try
+import scala.util.{Random, Try}
 
 /**
-  * Actor that handles metadata (i.e. write location for metrics)
-  * @param cache cluster aware metric's location cache
+  * Actor that handles locations (shards) for metrics.
+  * @param clusterListener actor that collects cluster metrics.
+  * @param metadataCache cluster aware metrics location cache.
   */
-class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
+class MetadataCoordinator(clusterListener: ActorRef,
+                          metadataCache: ActorRef,
+                          schemaCoordinator: ActorRef,
+                          mediator: ActorRef)
     extends ActorPathLogging
     with DirectorySupport {
   private val cluster = Cluster(context.system)
@@ -87,7 +93,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
     Future
       .sequence(
         locations.map(location =>
-          (cache ? PutLocationInCache(db, namespace, location.metric, location))
+          (metadataCache ? PutLocationInCache(db, namespace, location.metric, location))
             .mapTo[AddLocationResponse]))
       .flatMap { responses =>
         val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =
@@ -98,7 +104,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
         } else {
           log.error(s"errors in adding locations in cache $errorResponses")
           Future
-            .sequence(successResponses.map(location => cache ? EvictLocation(db, namespace, location.value)))
+            .sequence(successResponses.map(location => metadataCache ? EvictLocation(db, namespace, location.value)))
             .flatMap { _ =>
               Future(AddLocationsFailed(db, namespace, errorResponses.map(_.location)))
             }
@@ -114,7 +120,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
     * @return the actual shard interval.
     */
   private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
-    (cache ? GetMetricInfoFromCache(db, namespace, metric))
+    (metadataCache ? GetMetricInfoFromCache(db, namespace, metric))
       .flatMap {
         case MetricInfoCached(_, _, _, Some(MetricInfo(_, _, _, shardInterval, _))) if shardInterval > 0 =>
           Future(shardInterval)
@@ -136,7 +142,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
     }
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval) {
-      cache ! GetAllMetricInfoWithRetention
+      metadataCache ! GetAllMetricInfoWithRetention
     }
 
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval * 10) {
@@ -272,11 +278,11 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
 
   override def receive: Receive = {
     case CheckOutdatedLocations =>
-      (cache ? GetAllMetricInfoWithRetention).mapTo[AllMetricInfoWithRetentionGot].foreach {
+      (metadataCache ? GetAllMetricInfoWithRetention).mapTo[AllMetricInfoWithRetentionGot].foreach {
         case AllMetricInfoWithRetentionGot(metricInfos) =>
           metricInfos.foreach {
             case MetricInfo(db, namespace, metric, _, _) =>
-              (cache ? GetLocationsFromCache(db, namespace, metric))
+              (metadataCache ? GetLocationsFromCache(db, namespace, metric))
                 .mapTo[LocationsCached]
                 .foreach {
                   case LocationsCached(db, namespace, _, locations) =>
@@ -298,7 +304,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
         case MetricInfo(db, namespace, metric, _, retention) =>
           val threshold = System.currentTimeMillis() - retention
 
-          (cache ? GetLocationsFromCache(db, namespace, metric))
+          (metadataCache ? GetLocationsFromCache(db, namespace, metric))
             .mapTo[LocationsCached]
             .map {
               case LocationsCached(_, _, _, locations) =>
@@ -307,7 +313,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
-                    (cache ? EvictLocation(db, namespace, location))
+                    (metadataCache ? EvictLocation(db, namespace, location))
                       .mapTo[Either[EvictLocationFailed, LocationEvicted]]
                       .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
                   })
@@ -377,87 +383,76 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
       }
       sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
     case GetDbs =>
-      (cache ? GetDbsFromCache)
+      (metadataCache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
         .map(m => DbsGot(m.dbs))
         .pipeTo(sender())
     case GetNamespaces(db) =>
-      (cache ? GetNamespacesFromCache(db))
+      (metadataCache ? GetNamespacesFromCache(db))
         .mapTo[NamespacesFromCacheGot]
         .map(m => NamespacesGot(db, m.namespaces))
         .pipeTo(sender())
     case GetMetrics(db, namespace) =>
-      (cache ? GetMetricsFromCache(db, namespace))
+      (metadataCache ? GetMetricsFromCache(db, namespace))
         .mapTo[MetricsFromCacheGot]
         .map(m => MetricsGot(db, namespace, m.metrics))
         .pipeTo(sender())
     case DropMetric(db, namespace, metric) =>
-      (cache ? DropMetricFromCache(db, namespace, metric))
+      (metadataCache ? DropMetricFromCache(db, namespace, metric))
         .mapTo[MetricFromCacheDropped]
         .map { _ =>
           MetricDropped(db, namespace, metric)
         }
         .pipeTo(sender())
     case DeleteNamespace(db, namespace) =>
-      (cache ? DropNamespaceFromCache(db, namespace))
+      (metadataCache ? DropNamespaceFromCache(db, namespace))
         .mapTo[NamespaceFromCacheDropped]
         .map { _ =>
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
     case GetLocations(db, namespace, metric) =>
-      (cache ? GetLocationsFromCache(db, namespace, metric))
+      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
         .mapTo[LocationsCached]
         .map(l => LocationsGot(db, namespace, metric, l.value))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      (cache ? GetLocationsFromCache(db, namespace, metric))
+      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
         .flatMap {
-          case LocationsCached(_, _, _, values) if values.nonEmpty =>
+          case LocationsCached(_, _, _, values) =>
             values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
               case Nil =>
-                getShardInterval(db, namespace, metric)
-                  .flatMap { interval =>
-                    val start = getShardStartIstant(timestamp, interval)
-                    val end   = getShardEndIstant(start, interval)
+                for {
+                  shardInterval <- getShardInterval(db, namespace, metric)
+                  nodeMetrics   <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
+                  addLocationResult <- {
+                    val start = getShardStartIstant(timestamp, shardInterval)
+                    val end   = getShardEndIstant(start, shardInterval)
 
-                    //TODO more sophisticated node choice logic must be added here
-                    val nodes = cluster.state.members
-                      .filter(_.status == MemberStatus.Up)
-                      .take(replicationFactor)
-                      .map(createNodeName)
+                    val nodes =
+                      if (nodeMetrics.nodeMetrics.nonEmpty)
+                        new CapacityWriteNodesSelectionLogic(
+                          CapacityWriteNodesSelectionLogic.fromConfigValue("nsdb.cluster.metric-selector"))
+                          .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                      else {
+                        Random
+                          .shuffle(cluster.state.members.filter(_.status == MemberStatus.Up))
+                          .take(replicationFactor)
+                          .map(createNodeName)
+                      }
 
                     val locations = nodes.map(Location(metric, _, start, end)).toSeq
-
-                    performAddLocationIntoCache(db, namespace, locations).map {
-                      case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                      case e =>
-                        log.error(s"unexpected result while trying to add locations in cache $e")
-                        GetWriteLocationsFailed(db, namespace, metric, timestamp)
-                    }
+                    performAddLocationIntoCache(db, namespace, locations)
+                  }
+                } yield
+                  addLocationResult match {
+                    case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
+                    case e =>
+                      log.error(s"unexpected result while trying to add locations in cache $e")
+                      GetWriteLocationsFailed(db, namespace, metric, timestamp)
                   }
               case s => Future(LocationsGot(db, namespace, metric, s))
             }
-          case LocationsCached(_, _, _, _) =>
-            getShardInterval(db, namespace, metric)
-              .flatMap { interval =>
-                val start = getShardStartIstant(timestamp, interval)
-                val end   = getShardEndIstant(start, interval)
-
-                val nodes = cluster.state.members
-                  .filter(_.status == MemberStatus.Up)
-                  .take(replicationFactor)
-                  .map(createNodeName)
-
-                val locations = nodes.map(Location(metric, _, start, end)).toSeq
-
-                performAddLocationIntoCache(db, namespace, locations).map {
-                  case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                  case e =>
-                    log.error(s"unexpected result while trying to add locations in cache $e")
-                    GetWriteLocationsFailed(db, namespace, metric, timestamp)
-                }
-              }
           case _ =>
             Future(LocationsGot(db, namespace, metric, Seq.empty))
         } pipeTo sender()
@@ -466,13 +461,13 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
     case AddLocations(db, namespace, locations) =>
       performAddLocationIntoCache(db, namespace, locations).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
-      (cache ? GetMetricInfoFromCache(db, namespace, metric))
+      (metadataCache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
           case MetricInfoCached(_, _, _, value) => MetricInfoGot(db, namespace, metric, value)
         }
         .pipeTo(sender)
     case PutMetricInfo(metricInfo: MetricInfo) =>
-      (cache ? PutMetricInfoInCache(metricInfo))
+      (metadataCache ? PutMetricInfoInCache(metricInfo))
         .map {
           case MetricInfoCached(_, _, _, Some(_)) =>
             MetricInfoPut(metricInfo)
@@ -482,7 +477,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
         }
         .pipeTo(sender)
     case RemoveNodeMetadata(nodeName) =>
-      (cache ? EvictLocationsInNode(nodeName))
+      (metadataCache ? EvictLocationsInNode(nodeName))
         .map {
           case Left(EvictLocationsInNodeFailed(_)) => RemoveNodeMetadataFailed(nodeName)
           case Right(LocationsInNodeEvicted(_))    => NodeMetadataRemoved(nodeName)
@@ -513,7 +508,7 @@ class MetadataCoordinator(cache: ActorRef, schemaCoordinator: ActorRef, mediator
       Future
         .sequence(allMetadata.map {
           case (Coordinates(_, _, _), metricInfo) =>
-            (cache ? PutMetricInfoInCache(metricInfo))
+            (metadataCache ? PutMetricInfoInCache(metricInfo))
               .mapTo[MetricInfoCached]
         })
         .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
@@ -578,6 +573,9 @@ object MetadataCoordinator {
     case class RemoveNodeMetadataFailed(nodeName: String)
   }
 
-  def props(cache: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
-    Props(new MetadataCoordinator(cache, schemaCoordinator, mediator))
+  def props(clusterListener: ActorRef,
+            metadataCache: ActorRef,
+            schemaCoordinator: ActorRef,
+            mediator: ActorRef): Props =
+    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCoordinator, mediator))
 }

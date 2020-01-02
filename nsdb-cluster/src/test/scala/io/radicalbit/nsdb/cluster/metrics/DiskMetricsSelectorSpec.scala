@@ -27,16 +27,17 @@ import org.scalatest.OptionValues._
 
 class DiskMetricsSelectorSpec extends WordSpec with Matchers {
 
-  val node1    = Address("nsdb", "NSDb", "node1", 2552)
-  val node2    = Address("nsdb", "NSDb", "node2", 2552)
-  val node3    = Address("nsdb", "NSDb", "node3", 2552)
-  val node4    = Address("nsdb", "NSDb", "node4", 2552)
-  val realNode = Address("nsdb", "NSDb", "real", 2552)
+  val emptyNode      = Address("nsdb", "NSDb", "emptyNode", 2552)
+  val almostFullNode = Address("nsdb", "NSDb", "node1", 2552)
+  val node2          = Address("nsdb", "NSDb", "node2", 2552)
+  val node3          = Address("nsdb", "NSDb", "node3", 2552)
+  val node4          = Address("nsdb", "NSDb", "node4", 2552)
+  val realNode       = Address("nsdb", "NSDb", "real", 2552)
 
   val fs = Files.getFileStore(Paths.get("."))
 
   val nodeMetrics1 = NodeMetrics(
-    node1,
+    almostFullNode,
     System.currentTimeMillis,
     Set(
       Metric.create(DiskTotalSpace, 1000000, None),
@@ -47,6 +48,12 @@ class DiskMetricsSelectorSpec extends WordSpec with Matchers {
       Metric.create(SystemLoadAverage, 0.5, None),
       Metric.create(Processors, 8, None)
     ).flatten
+  )
+
+  val emptyNodeMetric = NodeMetrics(
+    emptyNode,
+    System.currentTimeMillis,
+    Set(Metric.create(DiskTotalSpace, 1000000, None), Metric.create(DiskFreeSpace, 0, None)).flatten
   )
 
   val nodeMetrics2 = NodeMetrics(
@@ -62,7 +69,7 @@ class DiskMetricsSelectorSpec extends WordSpec with Matchers {
   )
 
   val nodeMetrics4 = NodeMetrics(
-    node3,
+    node4,
     System.currentTimeMillis,
     Set()
   )
@@ -73,14 +80,15 @@ class DiskMetricsSelectorSpec extends WordSpec with Matchers {
     Set(Metric.create(DiskTotalSpace, fs.getTotalSpace, None), Metric.create(DiskFreeSpace, fs.getUsableSpace, None)).flatten
   )
 
-  val nodeMetrics = Set(nodeMetrics1, nodeMetrics2, nodeMetrics3, nodeMetrics4, realNodeMetrics)
+  val nodeMetrics = Set(emptyNodeMetric, nodeMetrics1, nodeMetrics2, nodeMetrics3, nodeMetrics4, realNodeMetrics)
 
   "DiskMetricsSelector" must {
     "calculate capacity of heap metrics" in {
       val capacity = DiskMetricsSelector.capacity(nodeMetrics)
-      capacity.get(node1) shouldBe Some(0.9999)
-      capacity.get(node2) shouldBe Some(0.25)
-      capacity.get(node3) shouldBe Some(0)
+      capacity.get(emptyNode) shouldBe Some(0.0)
+      capacity.get(almostFullNode) shouldBe Some(0.0001)
+      capacity.get(node2) shouldBe Some(0.75)
+      capacity.get(node3) shouldBe Some(1)
       capacity.get(node4) shouldBe None
       //for a real node the capacity must be between 0 and 1. There's no way to estimate a reasonable capacity value and mocking is not the point here
       capacity.get(realNode).value shouldBe >(0.0)

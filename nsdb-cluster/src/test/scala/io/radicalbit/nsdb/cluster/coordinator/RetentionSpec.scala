@@ -22,7 +22,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
+import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetricsDataActor}
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
   AllMetricInfoWithRetentionGot,
   GetAllMetricInfoWithRetention
@@ -98,7 +98,10 @@ class RetentionSpec
   val metadataCoordinator =
     system.actorOf(
       MetadataCoordinator
-        .props(localMetadataCache, schemaCoordinator, system.actorOf(Props.empty))
+        .props(system.actorOf(Props[ClusterListener]),
+               localMetadataCache,
+               schemaCoordinator,
+               system.actorOf(Props.empty))
         .withDispatcher("akka.actor.control-aware-dispatcher"),
       "metadata-coordinator"
     )
