@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Radicalbit S.r.l.
+ * Copyright 2018-2020 Radicalbit S.r.l.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -287,6 +287,8 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
 lazy val `nsdb-it` = (project in file("nsdb-it"))
   .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.dontPublish: _*)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.It.libraries)
   .dependsOn(`nsdb-cluster`)
   .dependsOn(`nsdb-scala-api`)

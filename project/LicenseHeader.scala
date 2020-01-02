@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Radicalbit S.r.l.
+ * Copyright 2018-2020 Radicalbit S.r.l.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import sbt.Def
 object LicenseHeader {
 
   lazy val settings: Seq[Def.Setting[_]] = Seq(
-    headerLicense := Some(HeaderLicense.ALv2("2018", "Radicalbit S.r.l.")),
+    headerLicense := Some(HeaderLicense.ALv2("2018-2020", "Radicalbit S.r.l.")),
     headerMappings := headerMappings.value ++ Map(
       HeaderFileType.conf    -> HeaderCommentStyle.hashLineComment,
       FileType("properties") -> HeaderCommentStyle.hashLineComment,
