@@ -41,6 +41,12 @@ class CapacityWriteNodesSelectionLogic(metricsSelector: CapacityMetricsSelector)
 
 object CapacityWriteNodesSelectionLogic {
 
+  /**
+    * Provides a metric selector from a config value.
+    * @param configValue the config value provided in the NSDb configuration file
+    * @return the specified metric selector
+    * @throws IllegalArgumentException the configuration is not among the allowed values.
+    */
   def fromConfigValue(configValue: String): CapacityMetricsSelector = {
     configValue match {
       case "heap" => HeapMetricsSelector
