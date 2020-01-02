@@ -23,9 +23,9 @@ import akka.http.scaladsl.server.Route
 /**
   * Allows Cross-Origin call to exposed Http Apis.
   */
-trait CorsSupport {
+object CORSSupport {
 
-  val optionsSupport = {
+  val optionsSupport: Route = {
     options { complete("") }
   }
 
@@ -40,5 +40,19 @@ trait CorsSupport {
   )
 
   def withCors(route: Route) = respondWithHeaders(corsHeaders) { route ~ optionsSupport }
+
+}
+
+/**
+  * Adds a custom header containing NSDb version
+  */
+object VersionHeader {
+  import io.radicalbit.nsdb.{BuildInfo => NSDbBuildInfo}
+
+  final val NSDbVersionHeaderKey = "NSDb-Version"
+
+  final val versionHeader = List(RawHeader(NSDbVersionHeaderKey, NSDbBuildInfo.version))
+
+  def withNSDbVersion(route: Route) = respondWithHeaders(versionHeader) { route }
 
 }
