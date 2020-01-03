@@ -27,6 +27,7 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString("""
     |akka.loglevel = ERROR
     |akka.actor{
+    | allow-java-serialization = on
     | provider = "cluster"
     | control-aware-dispatcher {
     |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
