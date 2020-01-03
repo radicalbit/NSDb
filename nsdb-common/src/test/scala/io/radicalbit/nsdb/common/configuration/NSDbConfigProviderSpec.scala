@@ -49,10 +49,10 @@ class NSDbConfigProviderSpec extends FlatSpec with Matchers with OneInstancePerT
     config.getValue("akka.remote.artery.canonical.port") shouldBe userDefinedConfig.getValue("nsdb.node.port")
     config.getValue("akka.cluster.distributed-data.durable.lmdb.dir") shouldBe userDefinedConfig.getValue(
       "nsdb.storage.metadata-path")
-    config.getValue("akka.management.required-contact-point-nr") shouldBe userDefinedConfig.getValue(
-      "nsdb.cluster.required-contact-point-nr")
     config.getValue("akka.discovery.config.services.NSDb.endpoints") shouldBe userDefinedConfig.getValue(
       "nsdb.cluster.endpoints")
+
+    config.hasPath("akka.management.required-contact-point-nr") shouldBe false
   }
 
 }

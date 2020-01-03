@@ -53,16 +53,27 @@ trait NsdbConfigProvider {
     * @param lowLevelTemplateConfig The low level template configurations.
     * @return The final configuration.
     */
-  private def populateTemplate(userDefinedConfig: Config, lowLevelTemplateConfig: Config): Config =
-    lowLevelTemplateConfig
-      .withValue("akka.remote.artery.canonical.hostname", userDefinedConfig.getValue("nsdb.node.hostname"))
-      .withValue("akka.remote.artery.canonical.port", userDefinedConfig.getValue("nsdb.node.port"))
+  private def populateTemplate(userDefinedConfig: Config, lowLevelTemplateConfig: Config): Config = {
+    var populatedConfigs = lowLevelTemplateConfig
+    if (populatedConfigs.hasPath("akka.remote.artery.canonical.hostname"))
+      populatedConfigs = populatedConfigs.withValue("akka.remote.artery.canonical.hostname",
+                                                    userDefinedConfig.getValue("nsdb.node.hostname"))
+    if (populatedConfigs.hasPath("akka.remote.artery.canonical.port"))
+      populatedConfigs =
+        populatedConfigs.withValue("akka.remote.artery.canonical.port", userDefinedConfig.getValue("nsdb.node.port"))
+    if (populatedConfigs.hasPath("akka.management.required-contact-point-nr"))
+      populatedConfigs = populatedConfigs.withValue(
+        "akka.management.required-contact-point-nr",
+        userDefinedConfig.getValue("nsdb.cluster.required-contact-point-nr"))
+    if (populatedConfigs.hasPath("akka.discovery.config.services.NSDb.endpoints"))
+      populatedConfigs = populatedConfigs.withValue("akka.discovery.config.services.NSDb.endpoints",
+                                                    userDefinedConfig.getValue("nsdb.cluster.endpoints"))
+
+    populatedConfigs
       .withValue("akka.cluster.distributed-data.durable.lmdb.dir",
                  userDefinedConfig.getValue("nsdb.storage.metadata-path"))
-      .withValue("akka.management.required-contact-point-nr",
-                 userDefinedConfig.getValue("nsdb.cluster.required-contact-point-nr"))
-      .withValue("akka.discovery.config.services.NSDb.endpoints", userDefinedConfig.getValue("nsdb.cluster.endpoints"))
       .resolve()
+  }
 
   /**
     * The final NSDb configuration.
