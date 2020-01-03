@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.util.ConfigKeys
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -58,7 +58,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
 
   private val config = context.system.settings.config
 
-  private val indexBasePath = config.getString(ConfigKeys.StorageIndexPath)
+  private val indexBasePath = config.getString(StorageIndexPath)
 
   private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
   private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")

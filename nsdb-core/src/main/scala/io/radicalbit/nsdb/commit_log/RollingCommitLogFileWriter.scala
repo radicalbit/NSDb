@@ -24,7 +24,7 @@ import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
-import io.radicalbit.nsdb.util.ConfigKeys._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try

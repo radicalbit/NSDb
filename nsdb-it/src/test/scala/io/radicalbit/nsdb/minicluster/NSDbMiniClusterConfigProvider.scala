@@ -19,9 +19,9 @@ package io.radicalbit.nsdb.minicluster
 import java.time.Duration
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.common.configuration.NsdbConfigProvider
+import io.radicalbit.nsdb.common.configuration.NSDbConfigProvider
 
-trait NsdbMiniClusterConfigProvider extends NsdbConfigProvider {
+trait NSDbMiniClusterConfigProvider extends NSDbConfigProvider {
 
   def hostname: String
   def storageDir: String

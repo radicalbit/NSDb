@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.cluster
 import java.nio.file.Paths
 
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.util.ConfigKeys
 import kamon.Kamon
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 /**
   * Defines NSDb monitoring system.
@@ -37,11 +37,11 @@ trait NSDbMonitoring {
     * Initializes monitoring system if it is enabled.
     */
   protected def initMonitoring(): Unit =
-    if (monitoringConfiguration.getBoolean(ConfigKeys.MonitoringEnabled))
+    if (monitoringConfiguration.getBoolean(MonitoringEnabled))
       Kamon.init(ConfigFactory.load("monitoring.conf"))
 }
 
 /**
-  * Simply mix in [[NSDbActors]] with [[NSDbMonitoring]] and [[NsdbClusterConfigProvider]]
+  * Simply mix in [[NSDbActors]] with [[NSDbMonitoring]] and [[NSDbClusterConfigProvider]]
   */
-trait ProductionCluster extends NSDbActors with NSDbMonitoring with NsdbClusterConfigProvider
+trait ProductionCluster extends NSDbActors with NSDbMonitoring with NSDbClusterConfigProvider
