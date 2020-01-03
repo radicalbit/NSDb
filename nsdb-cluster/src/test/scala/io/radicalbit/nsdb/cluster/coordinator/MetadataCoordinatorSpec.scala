@@ -49,7 +49,7 @@ class MetadataCoordinatorSpec
         ConfigFactory
           .load()
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
-          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2652))
+          .withValue("akka.remote.artery.canonical.port", ConfigValueFactory.fromAnyRef(2650))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("60s"))
       ))
     with ImplicitSender
