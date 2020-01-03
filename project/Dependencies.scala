@@ -53,12 +53,13 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.5.25"
+    lazy val version   = "2.6.1"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor           = namespace %% "akka-actor"              % version
     lazy val testkit         = namespace %% "akka-testkit"            % version
     lazy val stream          = namespace %% "akka-stream"             % version
+    lazy val stream_testkit  = namespace %% "akka-stream-testkit"     % version
     lazy val distributedData = namespace %% "akka-distributed-data"   % version
     lazy val cluster         = namespace %% "akka-cluster"            % version
     lazy val sharding        = namespace %% "akka-sharding"           % version
@@ -72,14 +73,14 @@ object Dependencies {
   object akka_management {
     lazy val version   = "1.0.5"
     lazy val namespace = "com.lightbend.akka.management"
-    lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version
-    lazy val cluster_http = namespace %% "akka-management-cluster-http" % version
+    lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
+    lazy val cluster_http = namespace %% "akka-management-cluster-http" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
   }
 
   object akka_discovery {
     lazy val version   = akka_management.version
     lazy val namespace = "com.lightbend.akka.discovery"
-    lazy val kubernetes_api =  namespace %% "akka-discovery-kubernetes-api" % version
+    lazy val kubernetes_api =  namespace %% "akka-discovery-kubernetes-api" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
   }
 
   object scala_logging {
@@ -91,14 +92,8 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.1.4"
+    lazy val version   = "10.1.11"
     lazy val namespace = "com.typesafe.akka"
-
-    lazy val core_http = namespace %% "akka-http-core" % version excludeAll (ExclusionRule(organization =
-                                                                                             "com.typesafe.akka",
-                                                                                           name = "akka-actor"),
-    ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream"),
-    ExclusionRule(organization = "com.typesafe.akka", name = "akka-stream-testkit"))
     lazy val default         = namespace                      %% "akka-http"            % version
     lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
     lazy val sprayJson       = "com.typesafe.akka"            %% "akka-http-spray-json" % version
@@ -134,7 +129,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.3.1"
+    lazy val version     = "8.4.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -165,7 +160,6 @@ object Dependencies {
     lazy val version         = scalapb.compiler.Version.grpcJavaVersion
     lazy val namespace       = "io.grpc"
     lazy val `grpc-netty`    = namespace % "grpc-netty" % version
-    lazy val `grpc-protobuf` = namespace % "grpc-protobuf" % version
   }
 
   object scalaPB {
@@ -240,7 +234,6 @@ object Dependencies {
     val libraries = Seq(
       slf4j.api,
       gRPC.`grpc-netty`,
-      gRPC.`grpc-protobuf`,
       scalaPB.`runtime`,
       scalaPB.`runtime-grpc`
     )
@@ -316,6 +309,7 @@ object Dependencies {
       akka_http.sprayJson,
       javaWebsocket.javaWebsocket,
       scalatest.core % Test,
+      akka.stream_testkit,
       akka_http.testkit,
       akka_http.swaggerAkkaHttp,
       swagger.coreSwagger
