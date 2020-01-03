@@ -1,7 +1,7 @@
 sudo: required
 language: scala
 scala:
-  - 2.11.11
+  - 2.12.12
 jdk:
   - openjdk8
 before_cache:
@@ -13,7 +13,7 @@ cache:
     - $HOME/.sbt
     - $HOME/.custom-cache
 script:
-  - sbt -jvm-opts .jvmopts-travis clean coverage ++$TRAVIS_SCALA_VERSION fixCheck test coverageReport coverageAggregate
+  - sbt -jvm-opts .jvmopts-travis clean coverage fixCheck test coverageReport coverageAggregate
 after_success:
   - bash <(curl -s https://codecov.io/bash)
   - >
