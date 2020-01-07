@@ -27,7 +27,7 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.security.NsdbSecurity
-import io.radicalbit.nsdb.util.ConfigKeys
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
@@ -72,14 +72,14 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
             logger.info(s"Cluster Apis started with https protocol on port $port")
             httpExt.bindAndHandle(
               withCors(withNSDbVersion(api)),
-              config.getString(ConfigKeys.HttpInterface),
-              config.getInt(ConfigKeys.HttpsPort),
+              config.getString(HttpInterface),
+              config.getInt(HttpsPort),
               connectionContext = serverContext
             )
           } else {
-            val port = config.getInt(ConfigKeys.HttpPort)
+            val port = config.getInt(HttpPort)
             logger.info(s"Cluster Apis started with http protocol on port $port")
-            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), config.getString(ConfigKeys.HttpInterface), port)
+            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), config.getString(HttpInterface), port)
           }
 
         scala.sys.addShutdownHook {

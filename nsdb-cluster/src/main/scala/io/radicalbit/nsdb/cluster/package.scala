@@ -21,10 +21,10 @@ import akka.cluster.Member
 package object cluster {
 
   def createNodeName(member: Member) =
-    s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(2552)}"
+    s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(0)}"
 
   def createNodeName(address: Address) =
-    s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(2552)}"
+    s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(0)}"
 
   /**
     * Creates a fake address with a dedicated (and invented) `nsdb` protocol
@@ -35,7 +35,7 @@ package object cluster {
     Address("nsdb",
             "NSDb",
             Option(splittedNodeName(0)).getOrElse("noHost"),
-            Option(splittedNodeName(1)).map(_.toInt).getOrElse(2552))
+            Option(splittedNodeName(1)).map(_.toInt).getOrElse(0))
   }
 
   final object PubSubTopics {

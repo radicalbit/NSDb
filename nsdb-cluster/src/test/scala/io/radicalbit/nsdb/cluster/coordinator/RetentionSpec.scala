@@ -47,7 +47,7 @@ class RetentionSpec
         "RetentionSpec",
         ConfigFactory
           .load()
-          .withValue("akka.remote.netty.tcp.port", ConfigValueFactory.fromAnyRef(2654))
+          .withValue("akka.remote.artery.canonical.port", ConfigValueFactory.fromAnyRef(2654))
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
           .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("1s"))

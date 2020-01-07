@@ -37,7 +37,7 @@ import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.util.ConfigKeys
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -56,7 +56,7 @@ class ClusterListener() extends Actor with ActorLogging {
   private val mediator = DistributedPubSub(context.system).mediator
 
   private lazy val config    = context.system.settings.config
-  private lazy val indexPath = config.getString(ConfigKeys.StorageIndexPath)
+  private lazy val indexPath = config.getString(StorageIndexPath)
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 

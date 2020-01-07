@@ -59,7 +59,7 @@ import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
-import io.radicalbit.nsdb.util.ConfigKeys
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.Duration
@@ -96,9 +96,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   override protected[this] def migration: Migration = MigrationServiceDump
 
-  override protected[this] val interface: String = system.settings.config.getString(ConfigKeys.GrpcInterface)
+  override protected[this] val interface: String = system.settings.config.getString(GrpcInterface)
 
-  override protected[this] val port: Int = system.settings.config.getInt(ConfigKeys.GrpcPort)
+  override protected[this] val port: Int = system.settings.config.getInt(GrpcPort)
 
   override protected[this] val parserSQL = new SQLStatementParser
 

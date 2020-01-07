@@ -17,6 +17,8 @@
 package io.radicalbit.nsdb.common.configuration
 
 import com.typesafe.config.{Config, ConfigFactory}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.LowLevel._
 
 /**
   * Manages the build of NSDb configuration.
@@ -24,7 +26,7 @@ import com.typesafe.config.{Config, ConfigFactory}
   * The overall config is built from a low level template (containing all the akka configs), that is merged with a high level config file
   * that contains all the user defined keys.
   */
-trait NsdbConfigProvider {
+trait NSDbConfigProvider {
 
   /**
     * @return the user defined configuration.
@@ -53,16 +55,23 @@ trait NsdbConfigProvider {
     * @param lowLevelTemplateConfig The low level template configurations.
     * @return The final configuration.
     */
-  private def populateTemplate(userDefinedConfig: Config, lowLevelTemplateConfig: Config): Config =
-    lowLevelTemplateConfig
-      .withValue("akka.remote.artery.canonical.hostname", userDefinedConfig.getValue("nsdb.node.hostname"))
-      .withValue("akka.remote.artery.canonical.port", userDefinedConfig.getValue("nsdb.node.port"))
-      .withValue("akka.cluster.distributed-data.durable.lmdb.dir",
-                 userDefinedConfig.getValue("nsdb.storage.metadata-path"))
-      .withValue("akka.management.required-contact-point-nr",
-                 userDefinedConfig.getValue("nsdb.cluster.required-contact-point-nr"))
-      .withValue("akka.discovery.config.services.NSDb.endpoints", userDefinedConfig.getValue("nsdb.cluster.endpoints"))
+  private def populateTemplate(userDefinedConfig: Config, lowLevelTemplateConfig: Config): Config = {
+    var populatedConfigs = lowLevelTemplateConfig
+    if (populatedConfigs.hasPath(AkkaArteryHostName))
+      populatedConfigs = populatedConfigs.withValue(AkkaArteryHostName, userDefinedConfig.getValue(NSDbNodeHostName))
+    if (populatedConfigs.hasPath(AkkaArteryPort))
+      populatedConfigs = populatedConfigs.withValue(AkkaArteryPort, userDefinedConfig.getValue(NSDbNodePort))
+    if (populatedConfigs.hasPath(AkkaManagementContactPointNr))
+      populatedConfigs =
+        populatedConfigs.withValue(AkkaManagementContactPointNr, userDefinedConfig.getValue(NSDbClusterContactPointNr))
+    if (populatedConfigs.hasPath(AkkaDiscoveryNSDbEndpoints))
+      populatedConfigs =
+        populatedConfigs.withValue(AkkaDiscoveryNSDbEndpoints, userDefinedConfig.getValue(NSDbClusterEndpoints))
+
+    populatedConfigs
+      .withValue(AkkaDDPersistenceDir, userDefinedConfig.getValue(NSDBMetadataPath))
       .resolve()
+  }
 
   /**
     * The final NSDb configuration.

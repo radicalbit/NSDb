@@ -18,8 +18,10 @@ package io.radicalbit.nsdb.common.configuration
 
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import NSDbConfig.LowLevel._
+import NSDbConfig.HighLevel._
 
-class NSDbConfigProviderSpec extends FlatSpec with Matchers with OneInstancePerTest with NsdbConfigProvider {
+class NSDbConfigProviderSpec extends FlatSpec with Matchers with OneInstancePerTest with NSDbConfigProvider {
 
   override def userDefinedConfig: Config      = ConfigFactory.parseResources("nsdb-test.conf").resolve()
   override def lowLevelTemplateConfig: Config = ConfigFactory.parseResources("application-test.conf")
@@ -45,14 +47,12 @@ class NSDbConfigProviderSpec extends FlatSpec with Matchers with OneInstancePerT
   }
 
   "NSDbConfigProvider" should "properly populate a low level conf" in {
-    config.getValue("akka.remote.artery.canonical.hostname") shouldBe userDefinedConfig.getValue("nsdb.node.hostname")
-    config.getValue("akka.remote.artery.canonical.port") shouldBe userDefinedConfig.getValue("nsdb.node.port")
-    config.getValue("akka.cluster.distributed-data.durable.lmdb.dir") shouldBe userDefinedConfig.getValue(
-      "nsdb.storage.metadata-path")
-    config.getValue("akka.management.required-contact-point-nr") shouldBe userDefinedConfig.getValue(
-      "nsdb.cluster.required-contact-point-nr")
-    config.getValue("akka.discovery.config.services.NSDb.endpoints") shouldBe userDefinedConfig.getValue(
-      "nsdb.cluster.endpoints")
+    config.getValue(AkkaArteryHostName) shouldBe userDefinedConfig.getValue(NSDbNodeHostName)
+    config.getValue(AkkaArteryPort) shouldBe userDefinedConfig.getValue(NSDbNodePort)
+    config.getValue(AkkaDDPersistenceDir) shouldBe userDefinedConfig.getValue(NSDBMetadataPath)
+    config.getValue(AkkaDiscoveryNSDbEndpoints) shouldBe userDefinedConfig.getValue(NSDbClusterEndpoints)
+
+    config.hasPath(AkkaManagementContactPointNr) shouldBe false
   }
 
 }

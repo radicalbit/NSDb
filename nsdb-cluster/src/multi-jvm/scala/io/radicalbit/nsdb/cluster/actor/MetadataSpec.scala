@@ -25,6 +25,7 @@ object MetadataSpec extends MultiNodeConfig {
     |akka.loglevel = ERROR
     |akka.actor{
     | provider = "cluster"
+    | allow-java-serialization = on
     | control-aware-dispatcher {
     |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
     |   }
@@ -83,11 +84,11 @@ object MetadataSpec extends MultiNodeConfig {
     """.stripMargin))
 
   nodeConfig(node1)(ConfigFactory.parseString("""
-      |akka.remote.netty.tcp.port = 25520
+      |akka.remote.artery.canonical.port = 25520
     """.stripMargin))
 
   nodeConfig(node2)(ConfigFactory.parseString("""
-      |akka.remote.netty.tcp.port = 25530
+      |akka.remote.artery.canonical.port = 25530
     """.stripMargin))
 
 }
