@@ -20,12 +20,15 @@ import java.nio.file.Files
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType}
+import io.radicalbit.nsdb.index.StorageStrategy.Memory
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 import scala.util.Success
 
 class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
+
+  override def indexStorageStrategy: StorageStrategy = Memory
 
   "SchemaIndex" should "union schemas properly" in {
 
@@ -169,5 +172,4 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
     schemaIndex.getSchema("metric_3") shouldBe Some(testDataBis)
 
   }
-
 }

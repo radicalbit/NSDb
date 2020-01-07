@@ -41,7 +41,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.DirectorySupport
+import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -68,6 +68,9 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
   implicit val timeout: Timeout =
     Timeout(config.getDuration("nsdb.metadata-coordinator.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
   import context.dispatcher
+
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
 
   lazy val defaultShardingInterval: Long =
     config.getDuration("nsdb.sharding.interval").toMillis

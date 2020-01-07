@@ -30,7 +30,11 @@ import org.apache.lucene.util.InfoStream
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-class AllFacetIndexes(basePath: String, db: String, namespace: String, location: Location)
+class AllFacetIndexes(basePath: String,
+                      db: String,
+                      namespace: String,
+                      location: Location,
+                      override val indexStorageStrategy: StorageStrategy)
     extends LazyLogging
     with DirectorySupport {
 

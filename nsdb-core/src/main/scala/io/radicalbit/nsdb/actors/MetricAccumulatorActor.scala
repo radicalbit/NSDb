@@ -26,6 +26,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+import io.radicalbit.nsdb.index.StorageStrategy
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -57,6 +58,9 @@ class MetricAccumulatorActor(val basePath: String,
   import scala.collection.mutable
 
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
+
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
 
   /**
     * Actor responsible for the actual writes into indexes.
@@ -218,6 +222,7 @@ class MetricAccumulatorActor(val basePath: String,
           sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
       }
     case msg @ Refresh(writeIds, keys) =>
+      garbageCollectIndexes()
       opBufferMap --= writeIds
       performingOps = Map.empty
       keys.foreach { key =>

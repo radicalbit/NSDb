@@ -20,10 +20,13 @@ import java.nio.file.Files
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.index.DirectorySupport
+import io.radicalbit.nsdb.index.StorageStrategy.Memory
+import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
+
+  override def indexStorageStrategy: StorageStrategy = Memory
 
   "MetricInfoIndex" should "write and read properly" in {
 

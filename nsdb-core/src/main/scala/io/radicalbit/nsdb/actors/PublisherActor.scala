@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{SelectSQLStatement, SimpleGroupByAggregation, TemporalGroupByAggregation}
-import io.radicalbit.nsdb.index.TemporaryIndex
+import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy, TemporaryIndex}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -62,7 +62,7 @@ case class NSDbQuery(uuid: String, query: SelectSQLStatement) {
   * Every published event will be checked against every registered query. If the event fulfills the query, it will be published to every query relatedsubscriber.
   * @param readCoordinator global read coordinator responsible to execute queries when needed
   */
-class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
+class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging with DirectorySupport {
 
   /**
     * mutable subscriber map aggregated by query id
@@ -78,6 +78,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
 
   val interval = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
@@ -137,7 +140,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
           val luceneQuery = StatementParser.parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
             case Right(parsedQuery: ParsedSimpleQuery) =>
-              val temporaryIndex: TemporaryIndex = new TemporaryIndex()
+              val temporaryIndex: TemporaryIndex = new TemporaryIndex(indexStorageStrategy)
               implicit val writer: IndexWriter   = temporaryIndex.getWriter
               temporaryIndex.write(record)
               writer.close()

@@ -22,20 +22,17 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
-  AddRecordToLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
-import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.index.DirectorySupport
+import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -75,6 +72,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   log.info("WriteCoordinator is ready.")
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
+
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
 
   lazy val consistencyLevel: Int =
     context.system.settings.config.getInt("nsdb.cluster.consistency-level")

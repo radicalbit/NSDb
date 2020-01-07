@@ -47,7 +47,10 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
     |  publisher.scheduler.interval = 5 seconds
     |  write.scheduler.interval = 15 seconds
     |
-    |  index.base-path = "target/test_index/ReplicatedCacheSpec"
+    |  index{
+    |     base-path = "target/test_index/ReplicatedCacheSpec"
+    |     storage-strategy = "Memory"
+    |  }
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds
     |  commit-log {

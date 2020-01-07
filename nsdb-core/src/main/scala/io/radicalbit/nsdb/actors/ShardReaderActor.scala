@@ -48,12 +48,16 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     extends ActorPathLogging
     with DirectorySupport {
 
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+
   lazy val directory: Directory =
     createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
 
   lazy val index = new TimeSeriesIndex(directory)
 
-  lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
+  lazy val facetIndexes =
+    new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location, indexStorageStrategy)
 
   lazy val passivateAfter: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
