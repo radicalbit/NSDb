@@ -75,12 +75,9 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
       .timestamp(timestamp)
       .value(new java.math.BigDecimal("13"))
       .dimension("city", "Mouseton")
-      .dimension("notimportant", None)
-      .dimension("Someimportant", Some(2))
       .tag("gender", "M")
       .dimension("bigDecimalLong", new java.math.BigDecimal("12"))
       .dimension("bigDecimalDouble", new java.math.BigDecimal("12.5"))
-      .dimension("OptionBigDecimal", Some(new java.math.BigDecimal("15.5")))
 
     eventually {
       val res = Await.result(nsdb.write(bit), 10.seconds)

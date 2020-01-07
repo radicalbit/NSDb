@@ -37,12 +37,9 @@ object NSDBMainWrite extends App {
     .metric("people")
     .value(new java.math.BigDecimal("13.5"))
     .dimension("city", "Mouseton")
-    .dimension("notimportant", None)
-    .dimension("Someimportant", Some(2))
     .tag("gender", "M")
     .dimension("bigDecimalLong", new java.math.BigDecimal("12"))
     .dimension("bigDecimalDouble", new java.math.BigDecimal("12.5"))
-    .dimension("OptionBigDecimal", Some(new java.math.BigDecimal("15.5")))
 
   val res: Future[RPCInsertResult] = nsdb.write(series)
 

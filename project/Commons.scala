@@ -25,7 +25,7 @@ object Commons {
 
   val scalaVer = "2.12.7"
 
-  val nonCrossSettings: Seq[Def.Setting[_]] = Seq(
+  val settings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,
     addCompilerPlugin(scalafixSemanticdb),
     scalacOptions ++= Seq(
@@ -60,6 +60,4 @@ object Commons {
         oldStrategy(x)
     }
   )
-
-  val crossScalaVersionSettings = nonCrossSettings :+ (crossScalaVersions := Seq("2.11.11", "2.12.7"))
 }

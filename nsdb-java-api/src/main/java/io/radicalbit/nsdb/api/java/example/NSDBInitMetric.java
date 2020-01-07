@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+package io.radicalbit.nsdb.api.java.example;
 import io.radicalbit.nsdb.api.java.DescribeMetricResult;
 import io.radicalbit.nsdb.api.java.InitMetricResult;
 import io.radicalbit.nsdb.api.java.NSDB;
