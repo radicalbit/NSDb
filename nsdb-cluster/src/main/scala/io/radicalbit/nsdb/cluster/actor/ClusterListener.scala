@@ -34,8 +34,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
 import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
+import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
