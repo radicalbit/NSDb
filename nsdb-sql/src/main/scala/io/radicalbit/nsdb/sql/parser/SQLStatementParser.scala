@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.sql.parser
 
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
 
@@ -151,7 +151,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val valueAssignment = (Val ~ Equal) ~> (doubleValue | longValue)
 
   private val assignment = (dimension <~ Equal) ~ (stringValue | doubleValue | intValue) ^^ {
-    case k ~ v => k -> v.asInstanceOf[JSerializable]
+    case k ~ v => k -> NSDbType(v)
   }
 
   private val assignments = OpenRoundBracket ~> assignment ~ rep(Comma ~> assignment) <~ CloseRoundBracket ^^ {
@@ -280,7 +280,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
           timestamp = ts,
           dimensions = dimensions.map(ListAssignment),
           tags = tags.map(ListAssignment),
-          value = value.asInstanceOf[JSerializable]
+          value = NSDbNumericType(value)
         )
     }
 

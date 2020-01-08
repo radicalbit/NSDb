@@ -24,7 +24,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
@@ -61,9 +61,9 @@ object NullableOperators extends Enumeration {
 sealed trait Filter
 
 case object Filter {
-  def unapply(arg: Filter): Option[(String, Option[JSerializable], String)] =
+  def unapply(arg: Filter): Option[(String, Option[NSDbType], String)] =
     arg match {
-      case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
+      case byValue: FilterByValue             => Some((byValue.dimension, Some(NSDbType(byValue.value)), byValue.operator.toString))
       case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
     }
 }
@@ -71,7 +71,7 @@ case object Filter {
 @ApiModel(description = "Filter using operator", parent = classOf[Filter])
 case class FilterByValue(
     @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
-    @(ApiModelProperty @field)(value = "value of comparation") value: JSerializable,
+    @(ApiModelProperty @field)(value = "value of comparation") value: java.io.Serializable,
     @(ApiModelProperty @field)(
       value = "filter comparison operator",
       dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value

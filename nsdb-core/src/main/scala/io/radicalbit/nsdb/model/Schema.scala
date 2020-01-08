@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.model
 
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.{Bit, FieldClassType}
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
@@ -28,7 +28,7 @@ import scala.util.{Failure, Success, Try}
   * @param fieldClassType the field class Type [[FieldClassType]].
   * @param value field value.
   */
-case class RawField(name: String, fieldClassType: FieldClassType, value: JSerializable)
+case class RawField(name: String, fieldClassType: FieldClassType, value: NSDbType)
 
 /**
   * It models a bit field decorated by an internal type descriptor.
@@ -37,7 +37,7 @@ case class RawField(name: String, fieldClassType: FieldClassType, value: JSerial
   * @param indexType type descriptor.
   * @param value field value.
   */
-case class TypedField(name: String, fieldClassType: FieldClassType, indexType: IndexType[_], value: JSerializable)
+case class TypedField(name: String, fieldClassType: FieldClassType, indexType: IndexType[_], value: NSDbType)
 
 /**
   * It models a schema field.

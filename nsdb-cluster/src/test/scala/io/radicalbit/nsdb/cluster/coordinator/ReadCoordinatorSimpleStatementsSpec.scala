@@ -379,11 +379,11 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         }
 
         expected.values shouldBe Seq(
-          Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "John"))
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Bill")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frank")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "J")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "John"))
         )
       }
 
@@ -406,11 +406,11 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0L, 0L, Map.empty, Map("name" -> "John")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "John")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "J")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frank")),
+          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Bill"))
         )
       }
     }
@@ -494,12 +494,12 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(2L, 2, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(4L, 3, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-          Bit(6L, 4, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-          Bit(8L, 5, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-          Bit(10L, 6, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+          Bit.fromRaw(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit.fromRaw(2L, 2, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit.fromRaw(4L, 3, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+          Bit.fromRaw(6L, 4, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+          Bit.fromRaw(8L, 5, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+          Bit.fromRaw(10L, 6, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
         )
       }
 
@@ -523,7 +523,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0, 4L, Map.empty, Map("count(*)" -> 4))
+          Bit.fromRaw(0, 4L, Map.empty, Map("count(*)" -> 4))
         )
       }
 
@@ -621,7 +621,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         }
 
         expected.values.size shouldBe 1
-        expected.values.head shouldBe Bit(10, 6, Map.empty, Map("name" -> "Frankie"))
+        expected.values.head shouldBe Bit.fromRaw(10, 6, Map.empty, Map("name" -> "Frankie"))
       }
     }
 

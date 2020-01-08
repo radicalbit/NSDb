@@ -53,10 +53,10 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
-  lazy val bit = Bit(timestamp = System.currentTimeMillis(),
-                     dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
-                     value = 2,
-                     tags = Map.empty)
+  lazy val bit: Bit = Bit.fromRaw(timestamp = System.currentTimeMillis(),
+                                  dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
+                                  value = 2,
+                                  tags = Map.empty)
 
   test("join cluster") {
     eventually {
@@ -84,7 +84,9 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
     eventually {
       assert(
-        Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
+        Await
+          .result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
+          .completedSuccessfully)
     }
     eventually {
       assert(
@@ -128,12 +130,16 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     lastNodeWsClient.clearBuffer()
     eventually {
       assert(
-        Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
+        Await
+          .result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
+          .completedSuccessfully)
     }
 
     eventually {
       assert(
-        Await.result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds).completedSuccessfully)
+        Await
+          .result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds)
+          .completedSuccessfully)
     }
 
     val firstStreamingBuffer = eventually {
@@ -190,11 +196,15 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
     //streaming phase
     eventually {
       assert(
-        Await.result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds).completedSuccessfully)
+        Await
+          .result(nsdbLastNode.write(bit.asApiBit("db", "namespace", "metric1")), 10.seconds)
+          .completedSuccessfully)
     }
     eventually {
       assert(
-        Await.result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds).completedSuccessfully)
+        Await
+          .result(nsdbFirstNode.write(bit.asApiBit("db", "namespace", "metric2")), 10.seconds)
+          .completedSuccessfully)
     }
 
     eventually {

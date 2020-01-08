@@ -52,7 +52,7 @@ class CommitLogCoordinatorSpec
 
   "CommitLogCoordinator" should {
     "write a insert entry" in within(5.seconds) {
-      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
+      val bit = Bit.fromRaw(0, 1, Map("dim" -> "v"), Map.empty)
       awaitAssert {
         commitLogCoordinatorActor ! WriteToCommitLog("db",
                                                      "namespace",
@@ -65,7 +65,7 @@ class CommitLogCoordinatorSpec
     }
     //FIXME: Actually not implemented
     "write a reject entry" in within(5.seconds) {
-      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
+      val bit = Bit.fromRaw(0, 1, Map("dim" -> "v"), Map.empty)
       awaitAssert {
         commitLogCoordinatorActor ! WriteToCommitLog("db1",
                                                      "namespace1",

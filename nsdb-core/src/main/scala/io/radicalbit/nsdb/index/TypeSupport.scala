@@ -16,15 +16,14 @@
 
 package io.radicalbit.nsdb.index
 
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.exception.TypeNotSupportedException
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.{JDouble, JLong, JSerializable}
 import io.radicalbit.nsdb.model.{RawField, TypedField}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.util.BytesRef
 
-import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -50,49 +49,47 @@ trait TypeSupport {
   *
   * - [[NumericType]] for numeric types
   *
-  * - [[StringType]] for strings
-  *
-  * @tparam T corresponding java type.
+  * @tparam T corresponding raw type.
   */
 sealed trait IndexType[T] extends Serializable {
 
   /**
     * @return the scala type.
     */
-  def actualType: Class[T]
+  def actualType: Manifest[T]
 
   /**
     * @param fieldName field name
     * @param value field value.
     * @return the sequence of lucene [[Field]] to be added into indexes during write operations.
     */
-  def indexField(fieldName: String, value: JSerializable): Seq[Field]
+  def indexField(fieldName: String, value: NSDbType): Seq[Field]
 
   /**
     * @param fieldName field name
     * @param value field value.
     * @return the sequence of lucene [[Field]] to be added into facet indexes during write operations.
     */
-  def facetField(fieldName: String, value: JSerializable): Seq[Field]
+  def facetField(fieldName: String, value: NSDbType): Seq[Field]
 
   /**
     * @return scala [[Ordering]] for the type.
     */
-  def ord: Ordering[JSerializable]
+  def ord: Ordering[Any]
 
   /**
     * Serializes a value of this type.
     * @param value the value.
     * @return the byte array.
     */
-  def serialize(value: JSerializable): Array[Byte] = value.toString.getBytes()
+  def serialize(value: NSDbType): Array[Byte] = value.rawValue.toString.getBytes()
 
   /**
     * Deserializes a byte array into this type.
     * @param value the byte array to deserialize
     * @return an instance of this type.
     */
-  def deserialize(value: Array[Byte]): T
+  def deserialize(value: Array[Byte]): NSDbType
 
   /**
     * Casts a [[Any]] into this type.
@@ -114,113 +111,109 @@ sealed trait IndexType[T] extends Serializable {
   * - [[DECIMAL]] for 64 bit floating point numbers.
   *
   * @tparam T corresponding java type.
-  * @tparam ST corresponding scala type with [[Numeric]] context bound.
   */
-sealed abstract class NumericType[T <: JSerializable, ST: Numeric: ClassTag] extends IndexType[T] {
-  lazy val scalaNumeric: Numeric[ST] = implicitly[Numeric[ST]]
+sealed abstract class NumericType[T] extends IndexType[T] {
 
   /**
     * Returns a [[Numeric]] to be used for arithmetic operations
     */
-  def numeric: Numeric[JSerializable]
+  def numeric: Numeric[Any]
 }
-
-/**
-  * Model for string type.
-  * The only subclass is [[VARCHAR]].
-  * @tparam T corresponding java type.
-  */
-sealed trait StringType[T <: JSerializable] extends IndexType[T]
 
 object IndexType {
 
   private val supportedType = Seq(INT(), BIGINT(), DECIMAL(), VARCHAR())
 
   def fromRawField(rawField: RawField): Try[TypedField] =
-    supportedType.find(_.actualType == rawField.value.getClass) match {
+    supportedType.find(_.actualType == rawField.value.concreteManifest) match {
       case Some(indexType) => Success(TypedField(rawField.name, rawField.fieldClassType, indexType, rawField.value))
-      case None            => Failure(new RuntimeException(s"class ${rawField.value.getClass} is not supported"))
+      case None =>
+        Failure(
+          new RuntimeException(
+            s"class ${Manifest.classType(rawField.value.rawValue.getClass).runtimeClass} is not supported"))
     }
 
-  def fromClass(clazz: Class[_]): Try[IndexType[_]] = supportedType.find(_.actualType == clazz) match {
-    case Some(indexType: IndexType[_]) => Success(indexType)
-    case None                          => Failure(new TypeNotSupportedException(s"unsupported type $clazz"))
-  }
+  def fromManifest(manifest: Manifest[_]): Try[IndexType[_]] =
+    supportedType.find(_.actualType == manifest) match {
+      case Some(indexType: IndexType[_]) => Success(indexType)
+      case None                          => Failure(new TypeNotSupportedException(s"unsupported type $manifest"))
+    }
 
 }
 
-case class INT() extends NumericType[Integer, Int] {
-  def actualType = classOf[Integer]
-  def ord        = Ordering[Integer].asInstanceOf[Ordering[JSerializable]]
-  override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
-    Seq(new IntPoint(fieldName, value.toString.toInt),
-        new NumericDocValuesField(fieldName, value.toString.toLong),
-        new StoredField(fieldName, value.toString.toInt))
-  override def facetField(fieldName: String, value: JSerializable): Seq[Field] =
+case class INT() extends NumericType[Int] {
+  def actualType = manifest[Int]
+  def ord        = Ordering[Int].asInstanceOf[Ordering[Any]]
+  override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
+    Seq(new IntPoint(fieldName, cast(value.rawValue)),
+        new NumericDocValuesField(fieldName, cast(value.rawValue)),
+        new StoredField(fieldName, cast(value.rawValue)))
+  override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new IntPoint(fieldName, value.toString.toInt),
-      new NumericDocValuesField(fieldName, value.toString.toLong)
+      new IntPoint(fieldName, cast(value.rawValue)),
+      new NumericDocValuesField(fieldName, cast(value.rawValue))
     )
-  def deserialize(value: Array[Byte]) = new String(value).toInt
 
-  override def numeric: Numeric[JSerializable] = implicitly[Numeric[Int]].asInstanceOf[Numeric[JSerializable]]
+  override def deserialize(value: Array[Byte]): NSDbIntType = NSDbIntType(new String(value).toInt)
 
-  override def cast(value: Any): Integer = value.toString.toInt
+  override def numeric: Numeric[Any] = implicitly[Numeric[Int]].asInstanceOf[Numeric[Any]]
+
+  override def cast(value: Any): Int = value.toString.toInt
 }
-case class BIGINT() extends NumericType[JLong, Long] {
-  def actualType = classOf[JLong]
-  def ord        = Ordering[JLong].asInstanceOf[Ordering[JSerializable]]
-  override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
+case class BIGINT() extends NumericType[Long] {
+  def actualType = manifest[Long]
+  def ord        = Ordering[Long].asInstanceOf[Ordering[Any]]
+  override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new LongPoint(fieldName, value.toString.toLong),
-      new NumericDocValuesField(fieldName, value.toString.toLong),
-      new StoredField(fieldName, value.toString.toLong)
+      new LongPoint(fieldName, cast(value.rawValue)),
+      new NumericDocValuesField(fieldName, cast(value.rawValue)),
+      new StoredField(fieldName, cast(value.rawValue))
     )
-  override def facetField(fieldName: String, value: JSerializable): Seq[Field] =
+  override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new LongPoint(fieldName, value.toString.toLong),
-      new NumericDocValuesField(fieldName, value.toString.toLong)
+      new LongPoint(fieldName, cast(value.rawValue)),
+      new NumericDocValuesField(fieldName, cast(value.rawValue))
     )
-  def deserialize(value: Array[Byte]) = new String(value).toLong
+  def deserialize(value: Array[Byte]): NSDbLongType = NSDbLongType(new String(value).toLong)
 
-  override def numeric: Numeric[JSerializable] = implicitly[Numeric[Long]].asInstanceOf[Numeric[JSerializable]]
+  override def numeric: Numeric[Any] = implicitly[Numeric[Long]].asInstanceOf[Numeric[Any]]
 
-  override def cast(value: Any): JLong = value.toString.toLong
+  override def cast(value: Any): Long = value.toString.toLong
 }
-case class DECIMAL() extends NumericType[JDouble, Double] {
-  def actualType = classOf[JDouble]
-  def ord        = Ordering[JDouble].asInstanceOf[Ordering[JSerializable]]
-  override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
+case class DECIMAL() extends NumericType[Double] {
+  def actualType = manifest[Double]
+  def ord        = Ordering[Double].asInstanceOf[Ordering[Any]]
+  override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new DoublePoint(fieldName, value.toString.toDouble),
-      new DoubleDocValuesField(fieldName, value.toString.toDouble),
-      new StoredField(fieldName, value.toString.toDouble)
+      new DoublePoint(fieldName, cast(value.rawValue)),
+      new DoubleDocValuesField(fieldName, cast(value.rawValue)),
+      new StoredField(fieldName, cast(value.rawValue))
     )
-  override def facetField(fieldName: String, value: JSerializable): Seq[Field] =
+  override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new DoublePoint(fieldName, value.toString.toDouble),
-      new DoubleDocValuesField(fieldName, value.toString.toDouble)
+      new DoublePoint(fieldName, cast(value.rawValue)),
+      new DoubleDocValuesField(fieldName, cast(value.rawValue))
     )
-  def deserialize(value: Array[Byte]) = new String(value).toDouble
+  def deserialize(value: Array[Byte]): NSDbDoubleType = NSDbDoubleType(new String(value).toDouble)
 
-  override def numeric: Numeric[JSerializable] = implicitly[Numeric[Double]].asInstanceOf[Numeric[JSerializable]]
+  override def numeric: Numeric[Any] = implicitly[Numeric[Double]].asInstanceOf[Numeric[Any]]
 
-  override def cast(value: Any): JDouble = value.toString.toDouble
+  override def cast(value: Any): Double = value.toString.toDouble
 }
-case class VARCHAR() extends StringType[String] {
-  def actualType = classOf[String]
-  def ord        = Ordering[String].asInstanceOf[Ordering[JSerializable]]
-  override def indexField(fieldName: String, value: JSerializable): Seq[Field] =
+case class VARCHAR() extends IndexType[String] {
+  def actualType = manifest[String]
+  def ord        = Ordering[String].asInstanceOf[Ordering[Any]]
+  override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new StringField(fieldName, value.toString, Store.YES),
-      new SortedDocValuesField(fieldName, new BytesRef(value.toString))
+      new StringField(fieldName, cast(value.rawValue), Store.YES),
+      new SortedDocValuesField(fieldName, new BytesRef(cast(value.rawValue)))
     )
-  override def facetField(fieldName: String, value: JSerializable): Seq[Field] =
+  override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
-      new StringField(fieldName, value.toString, Store.YES),
-      new SortedDocValuesField(fieldName, new BytesRef(value.toString))
+      new StringField(fieldName, cast(value.rawValue), Store.YES),
+      new SortedDocValuesField(fieldName, new BytesRef(cast(value.rawValue)))
     )
-  def deserialize(value: Array[Byte]) = new String(value)
+  def deserialize(value: Array[Byte]) = NSDbStringType(new String(value))
 
   override def cast(value: Any): String = value.toString
 }

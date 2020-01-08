@@ -109,10 +109,10 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = secondNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       }
 
-    val bit = Bit(timestamp = System.currentTimeMillis(),
-                  dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
-                  value = 2,
-                  tags = Map.empty)
+    val bit = Bit.fromRaw(timestamp = System.currentTimeMillis(),
+                          dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
+                          value = 2,
+                          tags = Map.empty)
 
     import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 

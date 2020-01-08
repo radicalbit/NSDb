@@ -16,8 +16,8 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.OrderedTaxonomyFacetCounts
 import org.apache.lucene.document.Field
 import org.apache.lucene.facet.taxonomy.FastTaxonomyFacetCounts
@@ -89,13 +89,14 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
     val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, limit, valueIndexType)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
-        .map(lv =>
-          Bit(
-            timestamp = 0,
-            value = lv.value.longValue(),
-            dimensions = Map.empty[String, JSerializable],
-            tags = Map(groupField -> indexType.cast(lv.label).asInstanceOf[JSerializable])
-        ))
+        .map(
+          lv =>
+            Bit(
+              timestamp = 0,
+              value = NSDbNumericType(lv.value.longValue()),
+              dimensions = Map.empty,
+              tags = Map(groupField -> NSDbType(indexType.cast(lv.label)))
+          ))
         .toSeq)
   }
 }

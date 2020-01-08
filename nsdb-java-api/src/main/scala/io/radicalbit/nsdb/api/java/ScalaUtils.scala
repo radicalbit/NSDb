@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.api.java
 
-import io.radicalbit.nsdb.common.{JDouble, JLong}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.request.RPCInsert.Value
@@ -31,19 +30,19 @@ protected object ScalaUtils {
 
   def emptyValue: Value.Empty.type = RPCInsert.Value.Empty
 
-  def longValue(v: JLong) = RPCInsert.Value.LongValue(v)
+  def longValue(v: Long) = RPCInsert.Value.LongValue(v)
 
-  def decimalValue(v: JDouble) = RPCInsert.Value.DecimalValue(v)
+  def decimalValue(v: Double) = RPCInsert.Value.DecimalValue(v)
 
-  def longDimension(v: JLong) = Dimension(Dimension.Value.LongValue(v))
+  def longDimension(v: Long) = Dimension(Dimension.Value.LongValue(v))
 
-  def decimalDimension(v: JDouble) = Dimension(Dimension.Value.DecimalValue(v))
+  def decimalDimension(v: Double) = Dimension(Dimension.Value.DecimalValue(v))
 
   def stringDimension(v: String) = Dimension(Dimension.Value.StringValue(v))
 
-  def longTag(v: JLong) = Tag(Tag.Value.LongValue(v))
+  def longTag(v: Long) = Tag(Tag.Value.LongValue(v))
 
-  def decimalTag(v: JDouble) = Tag(Tag.Value.DecimalValue(v))
+  def decimalTag(v: Double) = Tag(Tag.Value.DecimalValue(v))
 
   def stringTag(v: String) = Tag(Tag.Value.StringValue(v))
 

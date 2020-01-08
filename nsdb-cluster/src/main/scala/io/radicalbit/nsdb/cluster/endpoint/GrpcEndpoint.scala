@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
@@ -320,21 +320,21 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       res
     }
 
-    private def valueFor(v: RPCInsert.Value): JSerializable = v match {
-      case _: RPCInsert.Value.DecimalValue => v.decimalValue.get
-      case _: RPCInsert.Value.LongValue    => v.longValue.get
+    private def valueFor(v: RPCInsert.Value): NSDbNumericType = v match {
+      case _: RPCInsert.Value.DecimalValue => NSDbNumericType(v.decimalValue.get)
+      case _: RPCInsert.Value.LongValue    => NSDbNumericType(v.longValue.get)
     }
 
-    private def dimensionFor(v: Dimension.Value): JSerializable = v match {
-      case _: Dimension.Value.DecimalValue => v.decimalValue.get
-      case _: Dimension.Value.LongValue    => v.longValue.get
-      case _                               => v.stringValue.get
+    private def dimensionFor(v: Dimension.Value): NSDbType = v match {
+      case _: Dimension.Value.DecimalValue => NSDbType(v.decimalValue.get)
+      case _: Dimension.Value.LongValue    => NSDbType(v.longValue.get)
+      case _                               => NSDbType(v.stringValue.get)
     }
 
-    private def tagFor(v: Tag.Value): JSerializable = v match {
-      case _: Tag.Value.DecimalValue => v.decimalValue.get
-      case _: Tag.Value.LongValue    => v.longValue.get
-      case _                         => v.stringValue.get
+    private def tagFor(v: Tag.Value): NSDbType = v match {
+      case _: Tag.Value.DecimalValue => NSDbType(v.decimalValue.get)
+      case _: Tag.Value.LongValue    => NSDbType(v.longValue.get)
+      case _                         => NSDbType(v.stringValue.get)
     }
 
     override def executeSQLStatement(

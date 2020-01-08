@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.common.statement
 
 import com.typesafe.scalalogging.LazyLogging
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
 /**
   * Parsed object for sql select and insert statements.
@@ -35,7 +35,7 @@ sealed trait SelectedFields
 case class AllFields()                           extends SelectedFields
 final case class ListFields(fields: List[Field]) extends SelectedFields
 
-final case class ListAssignment(fields: Map[String, JSerializable])
+final case class ListAssignment(fields: Map[String, NSDbType])
 final case class Condition(expression: Expression)
 
 sealed trait Expression
@@ -246,7 +246,7 @@ final case class SelectSQLStatement(override val db: String,
     * @return the parsed [[Expression]].
     */
   private def filterToExpression[T](dimension: String,
-                                    value: Option[JSerializable],
+                                    value: Option[NSDbType],
                                     operator: String): Option[Expression] = {
     operator.toUpperCase match {
       case ">" => Some(ComparisonExpression(dimension, GreaterThanOperator, value.map(AbsoluteComparisonValue(_)).get))
@@ -270,7 +270,7 @@ final case class SelectSQLStatement(override val db: String,
     * @param filters filters of tuple composed of dimension name, value and operator. See #filterToExpression for more details.
     * @return a new instance of [[SelectSQLStatement]] enriched with the filter provided.
     */
-  def addConditions(filters: Seq[(String, Option[JSerializable], String)]): SelectSQLStatement = {
+  def addConditions(filters: Seq[(String, Option[NSDbType], String)]): SelectSQLStatement = {
     val expressions: Seq[Expression] =
       filters.flatMap { case (dimension, value, operator) => filterToExpression(dimension, value, operator) }
     val filtersExpression =
@@ -310,7 +310,7 @@ final case class InsertSQLStatement(override val db: String,
                                     timestamp: Option[Long],
                                     dimensions: Option[ListAssignment],
                                     tags: Option[ListAssignment],
-                                    value: JSerializable)
+                                    value: NSDbNumericType)
     extends SQLStatement
 
 /**

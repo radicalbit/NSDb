@@ -34,15 +34,15 @@ object TemporalDoubleMetric {
   val name = "temporalDoubleMetric"
 
   val recordsShard1: Seq[Bit] = Seq(
-    Bit(150000, 2.5, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(120000, 3.5, Map("surname" -> "Doe"), Map("name" -> "John"))
+    Bit.fromRaw(150000, 2.5, Map("surname" -> "Doe"), Map("name" -> "John")),
+    Bit.fromRaw(120000, 3.5, Map("surname" -> "Doe"), Map("name" -> "John"))
   )
 
   val recordsShard2: Seq[Bit] = Seq(
-    Bit(90000, 5.5, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(60000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
-    Bit(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
-    Bit(0, 1.5, Map("surname"     -> "Doe"), Map("name" -> "Frankie"))
+    Bit.fromRaw(90000, 5.5, Map("surname" -> "Doe"), Map("name" -> "John")),
+    Bit.fromRaw(60000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+    Bit.fromRaw(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+    Bit.fromRaw(0, 1.5, Map("surname"     -> "Doe"), Map("name" -> "Frankie"))
   )
 
   val testRecords: Seq[Bit] = recordsShard1 ++ recordsShard2
@@ -54,15 +54,15 @@ object TemporalLongMetric {
   val name = "temporalLongMetric"
 
   val recordsShard1: Seq[Bit] = Seq(
-    Bit(150000L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-    Bit(120000L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
+    Bit.fromRaw(150000L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
+    Bit.fromRaw(120000L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
   )
 
   val recordsShard2: Seq[Bit] = Seq(
-    Bit(90000L, 5L, Map("surname" -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(60000L, 7L, Map("surname" -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(30000L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(0L, 1L, Map("surname"     -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+    Bit.fromRaw(90000L, 5L, Map("surname" -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit.fromRaw(60000L, 7L, Map("surname" -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+    Bit.fromRaw(30000L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+    Bit.fromRaw(0L, 1L, Map("surname"     -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
   )
 
   val testRecords: Seq[Bit] = recordsShard1 ++ recordsShard2
@@ -166,13 +166,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 1, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 1, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 1, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 1, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -233,8 +233,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -263,8 +263,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -291,10 +291,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 2, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 2, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 2, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 2, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -325,13 +325,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 1, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 1, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 1, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 1, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -359,10 +359,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 2, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 2, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 2, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 2, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -396,11 +396,11 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 5
 
         expected.values shouldBe Seq(
-          Bit(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(60000, 1, Map("lowerBound"  -> 60000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 1, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 1, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 1, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -431,8 +431,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"     -> 0, "upperBound"     -> 29999), Map()),
-          Bit(29999, 1, Map("lowerBound" -> 29999, "upperBound" -> 59999), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"     -> 0, "upperBound"     -> 29999), Map()),
+          Bit.fromRaw(29999, 1, Map("lowerBound" -> 29999, "upperBound" -> 59999), Map())
         )
       }
     }
@@ -462,8 +462,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(0, 4, Map("lowerBound"     -> 0, "upperBound"     -> 90000), Map()),
-          Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 4, Map("lowerBound"     -> 0, "upperBound"     -> 90000), Map()),
+          Bit.fromRaw(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -494,8 +494,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(60000, 2, Map("lowerBound" -> 60000, "upperBound" -> 90000), Map()),
-          Bit(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(60000, 2, Map("lowerBound" -> 60000, "upperBound" -> 90000), Map()),
+          Bit.fromRaw(90000, 2, Map("lowerBound" -> 90000, "upperBound" -> 190000), Map())
         )
       }
     }
@@ -525,13 +525,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 7, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 3, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 7, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 3, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -559,10 +559,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 11, Map("lowerBound" -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 8, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 11, Map("lowerBound" -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 8, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -593,13 +593,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 7.5, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 3.5, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0.0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -627,10 +627,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 12.0, Map("lowerBound" -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 9.0, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 12.0, Map("lowerBound" -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 9.0, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -661,13 +661,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 7, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 3, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 7, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 3, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -695,10 +695,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 7, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 7, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -729,13 +729,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 7.5, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 3.5, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0.0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -763,10 +763,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 7.5, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 7.5, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -797,13 +797,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 7, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 3, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 7, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 3, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -831,10 +831,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 3, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 3, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 2, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 
@@ -865,13 +865,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 7
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 40000), Map()),
+          Bit.fromRaw(40000, 7.5, Map("lowerBound"  -> 40000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 5.5, Map("lowerBound"  -> 70000, "upperBound"  -> 100000), Map()),
+          Bit.fromRaw(100000, 3.5, Map("lowerBound" -> 100000, "upperBound" -> 130000), Map()),
+          Bit.fromRaw(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 160000), Map()),
+          Bit.fromRaw(160000, 0.0, Map("lowerBound" -> 160000, "upperBound" -> 190000), Map())
         )
 
       }
@@ -899,10 +899,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
-          Bit(70000, 3.5, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
+          Bit.fromRaw(0, 1.5, Map("lowerBound"      -> 0, "upperBound"      -> 10000), Map()),
+          Bit.fromRaw(10000, 4.5, Map("lowerBound"  -> 10000, "upperBound"  -> 70000), Map()),
+          Bit.fromRaw(70000, 3.5, Map("lowerBound"  -> 70000, "upperBound"  -> 130000), Map()),
+          Bit.fromRaw(130000, 2.5, Map("lowerBound" -> 130000, "upperBound" -> 190000), Map())
         )
       }
 

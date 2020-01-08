@@ -32,15 +32,15 @@ class ASCIITableBuilderSpec extends WordSpec with Matchers {
       "parse it successfully" in {
 
         val input = List(
-          Bit(timestamp = 1L,
-              value = 10,
-              dimensions = Map("name" -> "Roger", "surname" -> "Sterling", "age" -> 65),
-              Map.empty),
-          Bit(timestamp = 2L, value = 20, dimensions = Map("name"    -> "Don", "surname" -> "Draper"), Map.empty),
-          Bit(timestamp = 3L, value = 30, dimensions = Map("age"     -> 28, "surname" -> "Olson"), Map.empty),
-          Bit(timestamp = 4L, value = 40, dimensions = Map("name"    -> "Pete"), Map.empty),
-          Bit(timestamp = 5L, value = 50, dimensions = Map("age"     -> "32"), Map.empty),
-          Bit(timestamp = 6L, value = 60, dimensions = Map("surname" -> "Holloway"), Map.empty)
+          Bit.fromRaw(timestamp = 1L,
+                      value = 10,
+                      dimensions = Map("name" -> "Roger", "surname" -> "Sterling", "age" -> 65),
+                      Map.empty),
+          Bit.fromRaw(timestamp = 2L, value = 20, dimensions = Map("name"    -> "Don", "surname" -> "Draper"), Map.empty),
+          Bit.fromRaw(timestamp = 3L, value = 30, dimensions = Map("age"     -> 28, "surname" -> "Olson"), Map.empty),
+          Bit.fromRaw(timestamp = 4L, value = 40, dimensions = Map("name"    -> "Pete"), Map.empty),
+          Bit.fromRaw(timestamp = 5L, value = 50, dimensions = Map("age"     -> "32"), Map.empty),
+          Bit.fromRaw(timestamp = 6L, value = 60, dimensions = Map("surname" -> "Holloway"), Map.empty)
         )
 
         val expected = """+-----------------------+-----+---+-----+--------+

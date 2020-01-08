@@ -81,16 +81,17 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
   lazy val metricsDataActor =
     TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "localhost", writeCoordinatorActor))
 
-  val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
-  val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
+  val record1 = Bit.fromRaw(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
+  val record2 =
+    Bit.fromRaw(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
 
   def defaultBehaviour {
     "write records" in within(5.seconds) {
-      val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
+      val record1 = Bit.fromRaw(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
       val record2 =
-        Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
+        Bit.fromRaw(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
       val incompatibleRecord =
-        Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
+        Bit.fromRaw(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
 
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
 
@@ -118,7 +119,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
     }
 
     "write records and publish event to its subscriber" in within(5.seconds) {
-      val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"), Map.empty)
+      val testRecordSatisfy = Bit.fromRaw(100, 1, Map("name" -> "john"), Map.empty)
 
       val testSqlStatement = SelectSQLStatement(
         db = db,
@@ -176,11 +177,26 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
     "delete entries" in within(5.seconds) {
 
       val records: Seq[Bit] = Seq(
-        Bit(2, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-        Bit(4, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-        Bit(6, 1, Map("name"  -> "Bill", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-        Bit(8, 1, Map("name"  -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
-        Bit(10, 1, Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty)
+        Bit.fromRaw(2,
+                    1,
+                    Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+                    Map.empty),
+        Bit.fromRaw(4,
+                    1,
+                    Map("name" -> "John", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+                    Map.empty),
+        Bit.fromRaw(6,
+                    1,
+                    Map("name" -> "Bill", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+                    Map.empty),
+        Bit.fromRaw(8,
+                    1,
+                    Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+                    Map.empty),
+        Bit.fromRaw(10,
+                    1,
+                    Map("name" -> "Frank", "surname" -> "Doe", "creationDate" -> System.currentTimeMillis()),
+                    Map.empty)
       )
 
       records.foreach(r => probe.send(writeCoordinatorActor, MapInput(r.timestamp, db, "testDelete", "testMetric", r)))

@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.statement.{InsertSQLStatement, ListAssignment}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -31,13 +32,15 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people DIM(name=john) VAL=23 ") should be(
           Success(
-            InsertSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               timestamp = None,
-                               dimensions = Some(ListAssignment(Map("name" -> "john"))),
-                               tags = None,
-                               value = 23))
+            InsertSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              timestamp = None,
+              dimensions = Some(ListAssignment(Map("name" -> NSDbType("john")))),
+              tags = None,
+              value = NSDbNumericType(23)
+            ))
         )
       }
     }
@@ -46,13 +49,15 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
       "parse it successfully" in {
         parser.parse(db = "db", namespace = "registry", input = "INSERT INTO people TAGS(city='new york') VAL=23 ") should be(
           Success(
-            InsertSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               timestamp = None,
-                               dimensions = None,
-                               tags = Some(ListAssignment(Map("city" -> "new york"))),
-                               value = 23))
+            InsertSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              timestamp = None,
+              dimensions = None,
+              tags = Some(ListAssignment(Map("city" -> NSDbType("new york")))),
+              value = NSDbNumericType(23)
+            ))
         )
       }
     }
@@ -68,9 +73,9 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = None,
-              dimensions = Some(ListAssignment(Map("name" -> "john"))),
-              tags = Some(ListAssignment(Map("city"       -> "new york"))),
-              value = 23
+              dimensions = Some(ListAssignment(Map("name" -> NSDbType("john")))),
+              tags = Some(ListAssignment(Map("city"       -> NSDbType("new york")))),
+              value = NSDbNumericType(23)
             ))
         )
       }
@@ -78,18 +83,19 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions and a single tag" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "INSERT INTO people DIM(name=john, surname=doe) TAGS(city='new york') VAL=23 ") should be(
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input = "INSERT INTO people DIM(name=john, surname=doe) TAGS(city='new york') VAL=NSDbNumericType(23) ") should be(
           Success(
             InsertSQLStatement(
               db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = None,
-              dimensions = Some(ListAssignment(Map("name" -> "john", "surname" -> "doe"))),
-              tags = Some(ListAssignment(Map("city"       -> "new york"))),
-              value = 23
+              dimensions = Some(ListAssignment(Map("name" -> NSDbType("john"), "surname" -> NSDbType("doe")))),
+              tags = Some(ListAssignment(Map("city"       -> NSDbType("new york")))),
+              value = NSDbNumericType(23)
             ))
         )
       }
@@ -100,16 +106,17 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
         parser.parse(
           db = "db",
           namespace = "registry",
-          input = "INSERT INTO people TS=123456 DIM(name=john, surname=doe) TAGS(city='new york') VAL=23 ") should be(
+          input =
+            "INSERT INTO people TS=123456 DIM(name=john, surname=doe) TAGS(city='new york') VAL=NSDbNumericType(23) ") should be(
           Success(
             InsertSQLStatement(
               db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
-              dimensions = Some(ListAssignment(Map("name" -> "john", "surname" -> "doe"))),
-              tags = Some(ListAssignment(Map("city"       -> "new york"))),
-              value = 23
+              dimensions = Some(ListAssignment(Map("name" -> NSDbType("john"), "surname" -> NSDbType("doe")))),
+              tags = Some(ListAssignment(Map("city"       -> NSDbType("new york")))),
+              value = NSDbNumericType(23)
             ))
         )
       }
@@ -117,18 +124,19 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
 
     "receive an insert with multiple dimensions and tags in int and float format and a timestamp" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "INSERT INTO people TS=123456 DIM(x=1, y=1.5) TAGS(a=3.2, b=4) VAL=23 ") should be(
+        parser.parse(
+          db = "db",
+          namespace = "registry",
+          input = "INSERT INTO people TS=123456 DIM(x=1, y=1.5) TAGS(a=3.2, b=4) VAL=NSDbNumericType(23) ") should be(
           Success(
             InsertSQLStatement(
               db = "db",
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
-              dimensions = Some(ListAssignment(Map("x" -> 1, "y"   -> 1.5))),
-              tags = Some(ListAssignment(Map("a"       -> 3.2, "b" -> 4))),
-              value = 23
+              dimensions = Some(ListAssignment(Map("x" -> NSDbType(1), "y"   -> NSDbType(1.5)))),
+              tags = Some(ListAssignment(Map("a"       -> NSDbType(3.2), "b" -> NSDbType(4)))),
+              value = NSDbNumericType(23)
             ))
         )
       }
@@ -145,9 +153,9 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = Some(123456),
-              dimensions = Some(ListAssignment(Map("x" -> 1, "y" -> 1.5))),
-              tags = Some(ListAssignment(Map("city"    -> "new york"))),
-              value = 23.5
+              dimensions = Some(ListAssignment(Map("x" -> NSDbType(1), "y" -> NSDbType(1.5)))),
+              tags = Some(ListAssignment(Map("city"    -> NSDbType("new york")))),
+              value = NSDbNumericType(23.5)
             ))
         )
       }
@@ -163,7 +171,7 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
                                timestamp = None,
                                dimensions = None,
                                tags = None,
-                               value = 23)
+                               value = NSDbNumericType(23))
           )
         )
       }
@@ -180,9 +188,9 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               timestamp = None,
-              dimensions = Some(ListAssignment(Map("name" -> "spaced string"))),
-              tags = Some(ListAssignment(Map("city"       -> "chicago"))),
-              23
+              dimensions = Some(ListAssignment(Map("name" -> NSDbType("spaced string")))),
+              tags = Some(ListAssignment(Map("city"       -> NSDbType("chicago")))),
+              NSDbNumericType(23)
             )
           )
         )
@@ -197,9 +205,9 @@ class InsertSQLStatementSpec extends WordSpec with Matchers {
                                "registry",
                                "people",
                                None,
-                               Some(ListAssignment(Map("name" -> "a"))),
+                               Some(ListAssignment(Map("name" -> NSDbType("a")))),
                                tags = None,
-                               23)
+                               NSDbNumericType(23))
           )
         )
       }

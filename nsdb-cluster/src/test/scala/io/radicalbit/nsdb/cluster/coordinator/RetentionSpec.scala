@@ -68,27 +68,27 @@ class RetentionSpec
   val metricWithoutRetention = "metricWithoutRetention"
 
   val records: Seq[Bit] = Seq(
-    Bit(1L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
-    Bit(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
-    Bit(12L, 7L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
-    Bit(14L, 8L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
-    Bit(16L, 9L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+    Bit.fromRaw(1L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit.fromRaw(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit.fromRaw(4L, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
+    Bit.fromRaw(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit.fromRaw(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit.fromRaw(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
+    Bit.fromRaw(12L, 7L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+    Bit.fromRaw(14L, 8L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+    Bit.fromRaw(16L, 9L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
   )
 
   def currentRecords(currentTime: Long, retention: Long): Seq[Bit] = Seq(
-    Bit(currentTime + retention - 3000, 1L, Map("surname"      -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime + retention - 1500, 2L, Map("surname"      -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime + (retention * 2) - 700, 3L, Map("surname" -> "D"), Map("name"   -> "J")),
-    Bit(currentTime + (retention * 2) - 500, 4L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime + (retention * 3) - 200, 5L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime + (retention * 3) - 100, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
-    Bit(currentTime + (retention * 3) - 50, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime + (retention * 4) - 10, 8L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime + (retention * 5) + 10, 9L, Map("surname"  -> "Doe"), Map("name" -> "Frankie"))
+    Bit.fromRaw(currentTime + retention - 3000, 1L, Map("surname"      -> "Doe"), Map("name" -> "John")),
+    Bit.fromRaw(currentTime + retention - 1500, 2L, Map("surname"      -> "Doe"), Map("name" -> "John")),
+    Bit.fromRaw(currentTime + (retention * 2) - 700, 3L, Map("surname" -> "D"), Map("name"   -> "J")),
+    Bit.fromRaw(currentTime + (retention * 2) - 500, 4L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+    Bit.fromRaw(currentTime + (retention * 3) - 200, 5L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+    Bit.fromRaw(currentTime + (retention * 3) - 100, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
+    Bit.fromRaw(currentTime + (retention * 3) - 50, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit.fromRaw(currentTime + (retention * 4) - 10, 8L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit.fromRaw(currentTime + (retention * 5) + 10, 9L, Map("surname"  -> "Doe"), Map("name" -> "Frankie"))
   )
 
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])

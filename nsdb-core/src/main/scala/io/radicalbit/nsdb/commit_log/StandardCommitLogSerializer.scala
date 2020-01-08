@@ -18,11 +18,11 @@ package io.radicalbit.nsdb.commit_log
 
 import java.nio.{Buffer, ByteBuffer}
 
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.{Dimension, Value}
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 import org.slf4j.LoggerFactory
 
@@ -54,10 +54,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.DimensionType]],
     *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.DimensionValue]]
     */
-  private def extractDimensions(dimensions: Map[String, JSerializable]): List[Dimension] =
+  private def extractDimensions(dimensions: Map[String, NSDbType]): List[Dimension] =
     dimensions.map {
       case (k, v) =>
-        val i = IndexType.fromClass(v.getClass).get
+        val i = IndexType.fromManifest(v.concreteManifest).get
         (k, i.getClass.getCanonicalName, i.serialize(v))
     }.toList
 
@@ -70,8 +70,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.ValueType]]
     *         [[io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.RawValue]]
     */
-  private def extractValue(value: JSerializable): Value = {
-    val vType = IndexType.fromClass(value.getClass).get
+  private def extractValue(value: NSDbType): Value = {
+    val vType = IndexType.fromManifest(value.concreteManifest).get
     ("value", vType.getClass.getCanonicalName, vType.serialize(value))
   }
 
@@ -82,11 +82,11 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     * @param dimensions [[List]] containing bit's dimensions in [[Dimension]] type
     * @return [[Map]] containing bit's dimensions in key-value representation
     */
-  private def createDimensions(dimensions: List[Dimension]): Map[String, JSerializable] =
+  private def createDimensions(dimensions: List[Dimension]): Map[String, NSDbType] =
     dimensions.map {
       case (n, t, v) =>
         val i = Class.forName(t).newInstance().asInstanceOf[IndexType[_]]
-        n -> i.deserialize(v).asInstanceOf[JSerializable]
+        n -> i.deserialize(v).asInstanceOf[NSDbType]
     }.toMap
 
   /**
@@ -282,7 +282,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
               namespace = namespace,
               metric = metric,
               timestamp = ts,
-              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              Bit(timestamp = ts,
+                  value = NSDbNumericType(0),
+                  dimensions = createDimensions(dimensions),
+                  tags = createDimensions(tags)),
               id
             ))
         case c if c == classOf[AccumulatedEntry].getCanonicalName =>
@@ -315,7 +318,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
               namespace = namespace,
               metric = metric,
               timestamp = ts,
-              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              Bit(timestamp = ts,
+                  value = NSDbNumericType(0),
+                  dimensions = createDimensions(dimensions),
+                  tags = createDimensions(tags)),
               id
             ))
         case c if c == classOf[PersistedEntry].getCanonicalName =>
@@ -348,7 +354,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
               namespace = namespace,
               metric = metric,
               timestamp = ts,
-              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              Bit(timestamp = ts,
+                  value = NSDbNumericType(0),
+                  dimensions = createDimensions(dimensions),
+                  tags = createDimensions(tags)),
               id
             ))
         case c if c == classOf[RejectedEntry].getCanonicalName =>
@@ -381,7 +390,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
               namespace = namespace,
               metric = metric,
               timestamp = ts,
-              Bit(timestamp = ts, value = 0, dimensions = createDimensions(dimensions), tags = createDimensions(tags)),
+              Bit(timestamp = ts,
+                  value = NSDbNumericType(0),
+                  dimensions = createDimensions(dimensions),
+                  tags = createDimensions(tags)),
               id
             ))
         case c if c == classOf[DeleteEntry].getCanonicalName =>

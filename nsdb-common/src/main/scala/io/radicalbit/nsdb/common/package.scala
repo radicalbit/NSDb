@@ -21,8 +21,54 @@ package io.radicalbit.nsdb
   */
 package object common {
 
-  type JSerializable = java.io.Serializable
+//  type JSerializable = java.io.Serializable
+//
+//  type JLong   = java.lang.Long
+//  type JDouble = java.lang.Double
 
-  type JLong   = java.lang.Long
-  type JDouble = java.lang.Double
+  sealed trait NSDbType {
+    def rawValue: Any
+
+    def concreteManifest: Manifest[_]
+  }
+
+  object NSDbType {
+    def apply(rawValue: Any): NSDbType = {
+      rawValue match {
+        case v: Int    => NSDbIntType(v)
+        case v: Long   => NSDbLongType(v)
+        case v: Double => NSDbDoubleType(v)
+        case v: String => NSDbStringType(v)
+        case v         => throw new IllegalArgumentException(s"rawValue $v of class ${v.getClass} is not a valid NSDbType")
+      }
+    }
+  }
+
+  sealed trait NSDbNumericType extends NSDbType
+
+  object NSDbNumericType {
+    def apply(rawValue: Any): NSDbNumericType = {
+      rawValue match {
+        case v: Int    => NSDbIntType(v)
+        case v: Long   => NSDbLongType(v)
+        case v: Double => NSDbDoubleType(v)
+        case v =>
+          throw new IllegalArgumentException(s"rawValue $v of class ${v.getClass} is not a valid NSDbNumericType")
+      }
+    }
+  }
+
+  case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
+    def concreteManifest: Manifest[_] = manifest[Int]
+  }
+  case class NSDbLongType(rawValue: Long) extends NSDbNumericType {
+    def concreteManifest: Manifest[_] = manifest[Long]
+  }
+  case class NSDbDoubleType(rawValue: Double) extends NSDbNumericType {
+    def concreteManifest: Manifest[_] = manifest[Double]
+  }
+  case class NSDbStringType(rawValue: String) extends NSDbType {
+    def concreteManifest: Manifest[_] = manifest[String]
+  }
+
 }

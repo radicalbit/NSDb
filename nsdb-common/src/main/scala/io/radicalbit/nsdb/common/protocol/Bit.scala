@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.common.protocol
 
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
 /**
   * Class that models NSDb Bit containers hierarchy.
@@ -49,23 +49,20 @@ trait TimeSeriesRecord {
   * @param value      record value.
   * @param dimensions record dimensions.
   */
-case class Bit(timestamp: Long,
-               value: JSerializable,
-               dimensions: Map[String, JSerializable],
-               tags: Map[String, JSerializable])
+case class Bit(timestamp: Long, value: NSDbNumericType, dimensions: Map[String, NSDbType], tags: Map[String, NSDbType])
     extends TimeSeriesRecord {
 
   /**
     * @return all fields included dimensions, timestamp and value.
     */
-  def fields: Map[String, (JSerializable, FieldClassType)] =
+  def fields: Map[String, (NSDbType, FieldClassType)] =
     extractFields(dimensions, DimensionFieldType) ++
       extractFields(tags, TagFieldType) +
-      ("timestamp" -> (timestamp.asInstanceOf[JSerializable], TimestampFieldType)) +
-      ("value"     -> (value.asInstanceOf[JSerializable], ValueFieldType))
+      ("timestamp" -> (NSDbType(timestamp), TimestampFieldType)) +
+      ("value"     -> (value, ValueFieldType))
 
-  private def extractFields(m: Map[String, JSerializable],
-                            classType: FieldClassType): Map[String, (JSerializable, FieldClassType)] =
+  private def extractFields(m: Map[String, NSDbType],
+                            classType: FieldClassType): Map[String, (NSDbType, FieldClassType)] =
     m.map { case (k, v) => k -> (v, classType) }
 
   /**
@@ -80,5 +77,11 @@ case class Bit(timestamp: Long,
 }
 
 object Bit {
-  def empty = Bit(0, 0L, Map.empty, Map.empty)
+
+  def fromRaw(timestamp: Long, value: Any, dimensions: Map[String, Any], tags: Map[String, Any]) =
+    Bit(timestamp, NSDbNumericType(value), dimensions.map { case (k, rawValue) => (k, NSDbType(rawValue)) }, tags.map {
+      case (k, rawValue)                                                       => (k, NSDbType(rawValue))
+    })
+
+  def empty: Bit = Bit(0, NSDbNumericType(0L), Map.empty, Map.empty)
 }
