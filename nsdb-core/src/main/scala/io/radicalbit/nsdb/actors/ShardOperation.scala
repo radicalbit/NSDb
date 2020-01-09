@@ -17,8 +17,8 @@
 package io.radicalbit.nsdb.actors
 
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.Location
-import org.apache.lucene.search.Query
+import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
+import io.radicalbit.nsdb.model.{Location, Schema}
 
 /**
   * shard operations accumulated by [[MetricAccumulatorActor]] and performed by [[MetricPerformerActor]]
@@ -43,9 +43,13 @@ sealed trait ShardOperation {
   val location: Location
 }
 
-case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit)    extends ShardOperation
-case class DeleteShardQueryOperation(namespace: String, location: Location, query: Query) extends ShardOperation
-case class WriteShardOperation(namespace: String, location: Location, bit: Bit)           extends ShardOperation
+case class DeleteShardRecordOperation(namespace: String, location: Location, bit: Bit) extends ShardOperation
+case class DeleteShardQueryOperation(namespace: String,
+                                     location: Location,
+                                     deleteStatement: DeleteSQLStatement,
+                                     schema: Schema)
+    extends ShardOperation
+case class WriteShardOperation(namespace: String, location: Location, bit: Bit) extends ShardOperation
 
 object ShardOperation {
 
@@ -58,7 +62,7 @@ object ShardOperation {
     action match {
       case DeleteShardRecordOperation(namespace, location, bit) =>
         Some(WriteShardOperation(namespace, location, bit))
-      case DeleteShardQueryOperation(_, _, _) =>
+      case DeleteShardQueryOperation(_, _, _, _) =>
         None
       case WriteShardOperation(namespace, location, bit) =>
         Some(DeleteShardRecordOperation(namespace, location, bit))

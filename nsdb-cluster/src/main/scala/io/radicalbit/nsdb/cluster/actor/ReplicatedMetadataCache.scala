@@ -26,8 +26,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Coordinates
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
+import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -186,7 +185,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
               PutLocationInCacheFailed(db, namespace, metric, location)
           }
         _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), WriteAll(writeDuration))(
-          _ :+ (db, namespace, location))
+          _ :+ LocationWithCoordinates(db, namespace, location))
         _ <- replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(
           _ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
@@ -231,7 +230,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val f = for {
         remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(_ remove loc)
         _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), WriteAll(writeDuration))(
-          _ remove (db, namespace, loc))
+          _ remove LocationWithCoordinates(db, namespace, loc))
       } yield remove
       f.map {
           case UpdateSuccess(_, _) =>
@@ -249,7 +248,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                   .asInstanceOf[ORSet[LocationWithCoordinates]]
                   .elements
                   .map {
-                    case (db, namespace, location) =>
+                    case LocationWithCoordinates(db, namespace, location) =>
                       (self ? EvictLocation(db, namespace, location))
                         .mapTo[Either[EvictLocationFailed, LocationEvicted]]
                   }
@@ -388,7 +387,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
       val values = g.dataValue
         .asInstanceOf[ORSet[LocationWithCoordinates]]
         .elements
-        .collect { case (d, n, location) if d == db && n == namespace && location.metric == metric => location }
+        .collect {
+          case LocationWithCoordinates(d, n, location) if d == db && n == namespace && location.metric == metric =>
+            location
+        }
         .toList
       replyTo ! LocationsCached(db, namespace, metric, values)
     case g @ GetSuccess(LWWMapKey(_), Some(MetricInfoRequest(key, replyTo))) =>

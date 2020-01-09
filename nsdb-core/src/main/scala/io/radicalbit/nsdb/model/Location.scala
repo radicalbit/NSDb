@@ -37,12 +37,12 @@ case class Location(metric: String, node: String, from: Long, to: Long) {
 object Location {
 
   /**
-    * type alias to enrich a Location with a database and a namespace that contain it.
-    */
-  type LocationWithCoordinates = (String, String, Location)
-
-  /**
     * @return an empty location
     */
-  def empty = Location("", "", 0, 0)
+  def empty: Location = Location("", "", 0, 0)
 }
+
+/**
+  * Enriches a Location with a database and a namespace that contains it.
+  */
+case class LocationWithCoordinates(db: String, namespace: String, location: Location)
