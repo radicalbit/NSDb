@@ -168,12 +168,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       case `unaryLogicalExpressionClassName` =>
         val expClass = readByteBuffer.read
         val exp      = createExpression(expClass)
-        val opClazz  = readByteBuffer.read
-        val module   = runtimeMirror.staticModule(opClazz)
-        val operator = runtimeMirror.reflectModule(module).instance.asInstanceOf[SingleLogicalOperator]
-        clazz
-          .getConstructor(classOf[Expression], classOf[SingleLogicalOperator])
-          .newInstance(exp, operator)
+        clazz.getConstructor(classOf[Expression]).newInstance(exp)
 
       case `tupleLogicalExpressionClassName` =>
         val expClass1 = readByteBuffer.read
@@ -224,9 +219,8 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         writeBuffer.write(value.toString)
       case NullableExpression(dimension) =>
         writeBuffer.write(dimension)
-      case UnaryLogicalExpression(expression1, unaryLogicalOperator) =>
+      case UnaryLogicalExpression(expression1) =>
         extractExpression(expression1)
-        writeBuffer.write(unaryLogicalOperator.getClass.getCanonicalName)
       case TupledLogicalExpression(expression1, tupledLogicalOperator, expression2) =>
         extractExpression(expression1)
         writeBuffer.write(tupledLogicalOperator.getClass.getCanonicalName)

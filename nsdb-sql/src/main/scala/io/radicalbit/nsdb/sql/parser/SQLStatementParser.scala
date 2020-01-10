@@ -141,7 +141,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val selectFields = (Distinct ?) ~ (All | aggField | field) ~ rep(Comma ~> (aggField | field)) ^^ {
     case _ ~ f ~ fs =>
       f match {
-        case All      => AllFields
+        case All      => AllFields()
         case f: Field => ListFields(f +: fs)
       }
   }
@@ -167,7 +167,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 
   private lazy val notUnaryLogicalExpression: PackratParser[UnaryLogicalExpression] =
-    (Not ~> expression) ^^ (expression => UnaryLogicalExpression(expression, NotOperator))
+    (Not ~> expression) ^^ (expression => UnaryLogicalExpression(expression))
 
   private lazy val tupledLogicalExpression: PackratParser[TupledLogicalExpression] =
     andTupledLogicalExpression | orTupledLogicalExpression
@@ -196,7 +196,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val nullableExpression: PackratParser[Expression] =
     (dimension <~ Is) ~ (Not ?) ~ Null ^^ {
-      case dim ~ Some(_) ~ _ => UnaryLogicalExpression(NullableExpression(dim), NotOperator)
+      case dim ~ Some(_) ~ _ => UnaryLogicalExpression(NullableExpression(dim))
       case dim ~ None ~ _    => NullableExpression(dim)
     }
 
@@ -222,8 +222,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
       case d ~ v1 ~ v2 => RangeExpression(dimension = d, value1 = v1, value2 = v2)
     }
 
-  lazy val select
-    : PackratParser[~[Option[String], SelectedFields with Product with Serializable]] = Select ~> Distinct.? ~ selectFields
+  lazy val select: PackratParser[~[Option[String], SelectedFields]] = Select ~> Distinct.? ~ selectFields
 
   lazy val from: PackratParser[String] = From ~> metric
 

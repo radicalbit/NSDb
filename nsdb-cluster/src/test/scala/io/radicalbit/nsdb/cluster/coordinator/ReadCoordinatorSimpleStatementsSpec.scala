@@ -39,7 +39,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
                                namespace = namespace,
                                metric = LongMetric.name,
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(2)))
           )
         )
@@ -62,7 +62,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = AllFields,
+              fields = AllFields(),
               limit = Some(LimitOperator(2)),
               order = Some(DescOrderOperator("timestamp"))
             )
@@ -85,7 +85,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = AllFields,
+              fields = AllFields(),
               limit = Some(LimitOperator(2)),
               order = Some(DescOrderOperator("value"))
             )
@@ -107,7 +107,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
                                namespace = namespace,
                                metric = LongMetric.name,
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(3)),
                                order = Some(DescOrderOperator("name")))
           )
@@ -425,7 +425,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
                                namespace = namespace,
                                metric = LongMetric.name,
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(6)))
           )
         )
@@ -443,7 +443,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
                                namespace = namespace,
                                metric = LongMetric.name,
                                distinct = true,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(6)))
           )
         )
@@ -641,8 +641,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
                   UnaryLogicalExpression(
                     ComparisonExpression(dimension = "timestamp",
                                          comparison = GreaterOrEqualToOperator,
-                                         value = AbsoluteComparisonValue(10L)),
-                    NotOperator
+                                         value = AbsoluteComparisonValue(10L))
                   ))),
               limit = Some(LimitOperator(6))
             )

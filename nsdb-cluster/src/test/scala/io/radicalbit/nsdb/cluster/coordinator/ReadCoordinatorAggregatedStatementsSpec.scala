@@ -88,7 +88,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
                                namespace = namespace,
                                metric = "nonexisting",
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(5)))
           )
         )

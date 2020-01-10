@@ -176,8 +176,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                 expression2 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = LessThanOperator,
                                                    value = AbsoluteComparisonValue(4L))
-              ),
-              operator = NotOperator
+              )
             )))
           )))
       }
@@ -194,8 +193,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
             condition = Some(Condition(TupledLogicalExpression(
               expression1 = UnaryLogicalExpression(ComparisonExpression(dimension = "timestamp",
                                                                         comparison = GreaterOrEqualToOperator,
-                                                                        value = AbsoluteComparisonValue(2L)),
-                                                   operator = NotOperator),
+                                                                        value = AbsoluteComparisonValue(2L))),
               operator = OrOperator,
               expression2 = ComparisonExpression(dimension = "timestamp",
                                                  comparison = LessThanOperator,
@@ -222,10 +220,8 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                 operator = OrOperator,
                 expression2 = UnaryLogicalExpression(ComparisonExpression(dimension = "timestamp",
                                                                           comparison = LessThanOperator,
-                                                                          value = AbsoluteComparisonValue(4L)),
-                                                     operator = NotOperator)
-              ),
-              operator = NotOperator
+                                                                          value = AbsoluteComparisonValue(4L)))
+              )
             )))
           )))
       }
@@ -302,12 +298,14 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "AreaOccupancy",
               distinct = false,
-              fields = AllFields,
-              condition = Some(Condition(TupledLogicalExpression(
-                EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
-                AndOperator,
-                UnaryLogicalExpression(NullableExpression("name"), NotOperator)
-              ))),
+              fields = AllFields(),
+              condition = Some(
+                Condition(
+                  TupledLogicalExpression(
+                    EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
+                    AndOperator,
+                    UnaryLogicalExpression(NullableExpression("name"))
+                  ))),
               order = Some(DescOrderOperator(dimension = "timestamp")),
               limit = Some(LimitOperator(1))
             ))
@@ -326,7 +324,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "AreaOccupancy",
               distinct = false,
-              fields = AllFields,
+              fields = AllFields(),
               condition = Some(
                 Condition(
                   TupledLogicalExpression(
@@ -334,10 +332,10 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                       expression1 =
                         EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
                       operator = AndOperator,
-                      expression2 = UnaryLogicalExpression(NullableExpression("name"), NotOperator)
+                      expression2 = UnaryLogicalExpression(NullableExpression("name"))
                     ),
                     operator = OrOperator,
-                    expression2 = UnaryLogicalExpression(NullableExpression("floor"), NotOperator)
+                    expression2 = UnaryLogicalExpression(NullableExpression("floor"))
                   )
                 )),
               order = Some(DescOrderOperator(dimension = "timestamp")),
@@ -372,7 +370,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                                               value1 = AbsoluteComparisonValue(2),
                                               value2 = AbsoluteComparisonValue(4))
               ),
-              expression2 = UnaryLogicalExpression(NullableExpression("code"), NotOperator),
+              expression2 = UnaryLogicalExpression(NullableExpression("code")),
               operator = AndOperator
             ))),
             order = Some(DescOrderOperator(dimension = "name")),

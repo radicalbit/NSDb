@@ -63,7 +63,6 @@ object Dependencies {
     lazy val distributedData        = namespace %% "akka-distributed-data"       % version
     lazy val cluster                = namespace %% "akka-cluster"                % version
     lazy val sharding               = namespace %% "akka-sharding"               % version
-    lazy val jackson_serialization  = namespace %% "akka-serialization-jackson"  % version
     lazy val slf4j                  = namespace %% "akka-slf4j"                  % version
     lazy val clusterTools           = namespace %% "akka-cluster-tools"          % version
     lazy val clusterMetrics         = namespace %% "akka-cluster-metrics"        % version
@@ -227,7 +226,6 @@ object Dependencies {
     val libraries = Seq(
       scala_logging.scala_logging,
       config.core,
-      akka.jackson_serialization,
       scalatest.core % Test
     )
   }
@@ -247,7 +245,6 @@ object Dependencies {
       akka.clusterTools,
       akka.clusterMetrics,
       akka.discovery,
-      akka.jackson_serialization,
       akka_management.cluster_bootstrap,
       akka_management.cluster_http,
       akka_discovery.kubernetes_api,

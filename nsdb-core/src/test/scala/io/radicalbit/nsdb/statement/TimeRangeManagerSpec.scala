@@ -141,8 +141,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
             UnaryLogicalExpression(
               expression = ComparisonExpression(dimension = "timestamp",
                                                 comparison = GreaterThanOperator,
-                                                value = AbsoluteComparisonValue(2L)),
-              operator = NotOperator
+                                                value = AbsoluteComparisonValue(2L))
             )
           )) shouldBe List(
           Interval.fromBounds(Unbound(), Closed(2))
@@ -151,8 +150,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
         TimeRangeManager.extractTimeRange(
           Some(
             UnaryLogicalExpression(
-              expression = RangeExpression("timestamp", AbsoluteComparisonValue(2L), AbsoluteComparisonValue(4L)),
-              operator = NotOperator
+              expression = RangeExpression("timestamp", AbsoluteComparisonValue(2L), AbsoluteComparisonValue(4L))
             )
           )) shouldBe List(
           Interval.fromBounds(Unbound(), Open(2)),
@@ -172,8 +170,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
                 expression2 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = LessThanOperator,
                                                    value = AbsoluteComparisonValue(4L))
-              ),
-              operator = NotOperator
+              )
             )
           )) shouldBe List(
           Interval.fromBounds(Unbound(), Open(0))

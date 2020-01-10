@@ -41,7 +41,7 @@ object TimeRangeManager {
         }
       case Some(RangeExpression("timestamp", ComparisonValue(v1: Long), ComparisonValue(v2: Long))) =>
         List(Interval.closed(v1, v2))
-      case Some(UnaryLogicalExpression(expression, _)) => extractTimeRange(Some(expression)).flatMap(i => ~i)
+      case Some(UnaryLogicalExpression(expression)) => extractTimeRange(Some(expression)).flatMap(i => ~i)
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
         if (intervals.isEmpty)

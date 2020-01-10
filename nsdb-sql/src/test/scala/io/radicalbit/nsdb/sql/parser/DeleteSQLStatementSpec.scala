@@ -113,8 +113,7 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
                 expression2 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = LessThanOperator,
                                                    value = AbsoluteComparisonValue(4L))
-              ),
-              operator = NotOperator
+              )
             ))
           )))
       }

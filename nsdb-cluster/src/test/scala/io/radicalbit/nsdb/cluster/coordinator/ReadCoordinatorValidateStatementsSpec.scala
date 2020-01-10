@@ -36,7 +36,7 @@ class ReadCoordinatorValidateStatementsSpec extends AbstractReadCoordinatorSpec 
                                namespace = namespace,
                                metric = LongMetric.name,
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(2)))
           )
         )
@@ -73,7 +73,7 @@ class ReadCoordinatorValidateStatementsSpec extends AbstractReadCoordinatorSpec 
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = AllFields,
+              fields = AllFields(),
               groupBy = Some(SimpleGroupByAggregation("dimension")),
               limit = Some(LimitOperator(2))
             )
