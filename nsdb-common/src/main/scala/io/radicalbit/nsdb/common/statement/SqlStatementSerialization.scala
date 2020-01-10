@@ -67,9 +67,24 @@ object SqlStatementSerialization {
 
   }
 
-  CountAggregation
-  MaxAggregation
-  MinAggregation
-  SumAggregation
+  object LogicalOperatorSerialization {
 
+    class LogicalOperatorJsonSerializer extends StdSerializer[LogicalOperator](classOf[LogicalOperator]) {
+
+      override def serialize(value: LogicalOperator, gen: JsonGenerator, provider: SerializerProvider): Unit =
+        gen.writeString(value.toString)
+    }
+
+    class LogicalOperatorJsonDeserializer extends StdDeserializer[LogicalOperator](classOf[LogicalOperator]) {
+
+      override def deserialize(p: JsonParser, ctxt: DeserializationContext): LogicalOperator = {
+        p.getText match {
+          case "NotOperator"   => NotOperator
+          case "AndOperator"   => AndOperator
+          case "OrAggregation" => OrOperator
+        }
+      }
+    }
+
+  }
 }

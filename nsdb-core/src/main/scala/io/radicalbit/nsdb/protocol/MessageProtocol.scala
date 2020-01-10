@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
@@ -104,9 +105,15 @@ object MessageProtocol {
     */
   object Events {
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[MetricNotFound], name = "MetricNotFound"),
+        new JsonSubTypes.Type(value = classOf[Generic], name = "Generic")
+      ))
     sealed trait ErrorCode
     case class MetricNotFound(metric: String) extends ErrorCode with NSDbSerializable
-    case object Generic                       extends ErrorCode with NSDbSerializable
+    case class Generic()                      extends ErrorCode with NSDbSerializable
 
     case class DbsGot(dbs: Set[String])                                                         extends NSDbSerializable
     case class NamespacesGot(db: String, namespaces: Set[String])                               extends NSDbSerializable
@@ -121,11 +128,11 @@ object MessageProtocol {
     case class SelectStatementValidated(statement: SelectSQLStatement) extends NSDbSerializable
     case class SelectStatementValidationFailed(statement: SelectSQLStatement,
                                                reason: String,
-                                               errorCode: ErrorCode = Generic)
+                                               errorCode: ErrorCode = Generic())
         extends NSDbSerializable
 
     case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit]) extends NSDbSerializable
-    case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic)
+    case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic())
         extends NSDbSerializable
 
     sealed trait WriteCoordinatorResponse {

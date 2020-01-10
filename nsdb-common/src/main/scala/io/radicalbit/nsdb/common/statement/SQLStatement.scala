@@ -23,6 +23,7 @@ import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization.{AggregationJsonDeserializer, AggregationJsonSerializer}
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization.{ComparisonOperatorJsonDeserializer, ComparisonOperatorJsonSerializer}
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization.{LogicalOperatorJsonDeserializer, LogicalOperatorJsonSerializer}
 
 /**
   * Parsed object for sql select and insert statements.
@@ -122,6 +123,8 @@ final case class NullableExpression(dimension: String) extends Expression
 /**
   * Logical operators that can be applied to 1 or 2 expressions.
   */
+@JsonSerialize(using = classOf[LogicalOperatorJsonSerializer])
+@JsonDeserialize(using = classOf[LogicalOperatorJsonDeserializer])
 sealed trait LogicalOperator
 
 
