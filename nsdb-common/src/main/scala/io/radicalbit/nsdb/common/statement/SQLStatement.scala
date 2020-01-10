@@ -22,8 +22,8 @@ import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization.{AggregationJsonDeserializer, AggregationJsonSerializer}
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization.{ComparisonOperatorJsonDeserializer, ComparisonOperatorJsonSerializer}
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization.{LogicalOperatorJsonDeserializer, LogicalOperatorJsonSerializer}
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
 /**
   * Parsed object for sql select and insert statements.

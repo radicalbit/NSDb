@@ -85,13 +85,14 @@ object ReplicatedMetadataCache {
       extends AddLocationResponse
 
   final case class LocationsCached(db: String, namespace: String, metric: String, value: Seq[Location])
-  final case class EvictLocation(db: String, namespace: String, location: Location)
-  final case class EvictLocationsInNode(nodeName: String)
+      extends NSDbSerializable
+  final case class EvictLocation(db: String, namespace: String, location: Location) extends NSDbSerializable
+  final case class EvictLocationsInNode(nodeName: String)                           extends NSDbSerializable
 
-  final case class LocationEvicted(db: String, namespace: String, location: Location)
-  final case class EvictLocationFailed(db: String, namespace: String, location: Location)
-  final case class LocationsInNodeEvicted(nodeName: String)
-  final case class EvictLocationsInNodeFailed(nodeName: String)
+  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends NSDbSerializable
+  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
+  final case class LocationsInNodeEvicted(nodeName: String)                               extends NSDbSerializable
+  final case class EvictLocationsInNodeFailed(nodeName: String)                           extends NSDbSerializable
 
   final case class PutMetricInfoInCache(metricInfo: MetricInfo)                          extends NSDbSerializable
   final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo) extends NSDbSerializable

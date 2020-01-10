@@ -23,6 +23,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
@@ -113,17 +114,21 @@ class StreamActor(clientAddress: String,
 }
 
 object StreamActor {
-  case class Connect(outgoing: ActorRef)
-  case class OutgoingMessage(message: AnyRef)
+  case class Connect(outgoing: ActorRef)      extends NSDbSerializable
+  case class OutgoingMessage(message: AnyRef) extends NSDbSerializable
 
   case object Terminate
-  case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String) extends Metric
+  case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String)
+      extends Metric
+      with NSDbSerializable
   case class QuerystringRegistrationFailed(db: String,
                                            namespace: String,
                                            metric: String,
                                            queryString: String,
                                            reason: String)
+      extends NSDbSerializable
   case class QuidRegistrationFailed(db: String, namespace: String, metric: String, quid: String, reason: String)
+      extends NSDbSerializable
 
   def props(clientAddress: String,
             publisherActor: ActorRef,

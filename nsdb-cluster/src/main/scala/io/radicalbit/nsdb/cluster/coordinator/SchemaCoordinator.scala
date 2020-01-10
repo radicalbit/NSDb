@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.{
   SchemaMigrationFailed
 }
 import io.radicalbit.nsdb.cluster.util.FileUtils
-import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -199,12 +199,13 @@ object SchemaCoordinator {
     Props(new SchemaCoordinator(schemaCache))
 
   object events {
-    case class NamespaceSchemaDeleted(db: String, namespace: String)
-    case class SchemaMigrated(schemas: Seq[(Coordinates, Schema)])
+    case class NamespaceSchemaDeleted(db: String, namespace: String) extends NSDbSerializable
+    case class SchemaMigrated(schemas: Seq[(Coordinates, Schema)])   extends NSDbSerializable
     case class SchemaMigrationFailed(db: String, namespace: String, metric: String, errors: List[String])
+        extends NSDbSerializable
   }
 
   object commands {
-    case class DeleteNamespaceSchema(db: String, namespace: String)
+    case class DeleteNamespaceSchema(db: String, namespace: String) extends NSDbSerializable
   }
 }
