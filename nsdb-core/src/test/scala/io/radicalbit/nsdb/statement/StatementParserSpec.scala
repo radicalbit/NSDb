@@ -293,7 +293,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
-      "parse it successfully on a decimal vs a int" in {
+      "parse it successfully on a DECIMAL() vs a int" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -317,7 +317,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
-      "fail on a int vs a decimal" in {
+      "fail on a int vs a DECIMAL()" in {
         val result = StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -388,7 +388,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
-      "parse it successfully on a decimal vs a int" in {
+      "parse it successfully on a DECIMAL() vs a int" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -416,7 +416,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
-      "fail on a int vs a decimal" in {
+      "fail on a int vs a DECIMAL()" in {
         val result = StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -867,7 +867,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
     }
-    "receive a select containing a not nullable expression on decimal" should {
+    "receive a select containing a not nullable expression on DECIMAL()" should {
       "parse it successfully" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -903,7 +903,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
     }
-    "receive a select containing a nullable expression on decimal" should {
+    "receive a select containing a nullable expression on DECIMAL()" should {
       "parse it successfully" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -999,7 +999,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a group by on a dimension of type different from varchar" should {
+    "receive a group by on a dimension of type different from VARCHAR()" should {
       "succeed" in {
         StatementParser.parseStatement(
           SelectSQLStatement(

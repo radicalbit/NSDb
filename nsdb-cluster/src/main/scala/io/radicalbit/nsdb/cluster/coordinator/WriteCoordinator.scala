@@ -487,7 +487,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                           namespace = namespace,
                                           metric = location.metric,
                                           ts = System.currentTimeMillis(),
-                                          action = DeleteNamespaceAction,
+                                          action = DeleteNamespaceAction(),
                                           location)).mapTo[CommitLogResponse]
             }
         }
@@ -558,7 +558,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                           namespace = namespace,
                                           metric = metric,
                                           ts = System.currentTimeMillis(),
-                                          action = DeleteMetricAction,
+                                          action = DeleteMetricAction(),
                                           location)).mapTo[CommitLogResponse]
             }
         }

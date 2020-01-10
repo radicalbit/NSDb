@@ -37,6 +37,7 @@ import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
 import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -191,14 +192,14 @@ object ClusterListener {
     * @param usableSpace the free space on disk.
     * @param totalSpace total disk space.
     */
-  case class DiskOccupationChanged(nodeName: String, usableSpace: Long, totalSpace: Long)
+  case class DiskOccupationChanged(nodeName: String, usableSpace: Long, totalSpace: Long) extends NSDbSerializable
 
-  case object GetNodeMetrics
+  case object GetNodeMetrics extends NSDbSerializable
 
   /**
     * Contains the metrics for each alive member of the cluster.
     * @param nodeMetrics one entry contains all the metrics for a single node.
     */
-  case class NodeMetricsGot(nodeMetrics: Set[NodeMetrics])
+  case class NodeMetricsGot(nodeMetrics: Set[NodeMetrics]) extends NSDbSerializable
 
 }

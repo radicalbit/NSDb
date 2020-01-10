@@ -18,13 +18,15 @@ package io.radicalbit.nsdb.common.protocol
 
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
+trait NSDbSerializable
+
 /**
   * Class that models NSDb Bit containers hierarchy.
   * A series of time series records (bits) is called metric.
   * NSDb provides two levels of containers for metrics: database and namespace.
   * A bit belongs to a metric, which belongs namespace, which belongs to a database.
   */
-case class Coordinates(db: String, namespace: String, metric: String)
+case class Coordinates(db: String, namespace: String, metric: String) extends NSDbSerializable
 
 /**
   * Trait that contains Long timestamp field.
@@ -77,6 +79,5 @@ case class Bit(timestamp: Long, value: NSDbNumericType, dimensions: Map[String, 
 }
 
 object Bit {
-
   def empty: Bit = Bit(0, 0L, Map.empty, Map.empty)
 }

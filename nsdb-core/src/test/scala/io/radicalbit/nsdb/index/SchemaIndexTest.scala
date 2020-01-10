@@ -77,9 +77,17 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
 
     val firstSchema = schemaIndex.getSchema("metric_0")
 
+    firstSchema.get.metric shouldBe "metric_0"
+    firstSchema.get.fieldsMap("field1") shouldBe SchemaField("field1", DimensionFieldType, BIGINT())
+
+//    firstSchema.get.fieldsMap("field2").indexType.indexField(_,_) shouldBe VARCHAR().indexField(_,_)
+
+    firstSchema.get.fieldsMap("field2") shouldBe SchemaField("field2", DimensionFieldType, VARCHAR())
+//    firstSchema.get.fieldsMap("field0") shouldBe SchemaField("field0", DimensionFieldType, VARCHAR())
+
     firstSchema shouldBe Some(
       Schema(
-        s"metric_0",
+        "metric_0",
         Map(
           "field1" -> SchemaField("field1", DimensionFieldType, BIGINT()),
           "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()),

@@ -25,6 +25,7 @@ import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -234,7 +235,7 @@ class MetricAccumulatorActor(val basePath: String,
 
 object MetricAccumulatorActor {
 
-  case class Refresh(writeIds: Seq[String], locations: Seq[Location])
+  case class Refresh(writeIds: Seq[String], locations: Seq[Location]) extends NSDbSerializable
 
   def props(basePath: String,
             db: String,

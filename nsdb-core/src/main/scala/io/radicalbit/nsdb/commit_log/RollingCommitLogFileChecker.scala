@@ -25,6 +25,7 @@ import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.fileNameSeparator
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -33,7 +34,7 @@ object RollingCommitLogFileChecker {
   def props(db: String, namespace: String, metric: String): Props =
     Props(new RollingCommitLogFileChecker(db, namespace, metric))
 
-  case class CheckFiles(actualFile: File)
+  case class CheckFiles(actualFile: File) extends NSDbSerializable
 }
 
 /**

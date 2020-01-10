@@ -25,9 +25,15 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
   val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
-    |akka.loglevel = ERROR
+    |akka.loglevel = INFO
     |akka.actor{
-    | allow-java-serialization = on
+    | allow-java-serialization = off
+    |
+    | serialization-bindings {
+    |   "java.io.Serializable" = none
+    |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
+    | }
+    |
     | provider = "cluster"
     | control-aware-dispatcher {
     |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"

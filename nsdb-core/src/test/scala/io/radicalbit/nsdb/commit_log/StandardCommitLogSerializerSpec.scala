@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.commit_log
 
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
+import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import org.scalatest.{Matchers, WordSpec}
@@ -52,13 +53,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace = "test1-namespace"
         val ts        = 1500909299165L
         val metric    = "test1-metric"
-        val bit = Bit(
-          timestamp = ts,
-          dimensions = Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0),
-          tags = Map("tag1"             -> "value1", "tag2"       -> 2, "tag3"       -> 3L, "tag4"       -> 3.0),
-          value = 0
-        )
-        val id = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
           ReceivedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
@@ -74,13 +74,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace = "test1-namespace"
         val ts        = 1500909299165L
         val metric    = "test1-metric"
-        val bit = Bit(
-          timestamp = ts,
-          dimensions = Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0),
-          tags = Map("tag1"             -> "value1", "tag2"       -> 2, "tag3"       -> 3L, "tag4"       -> 3.0),
-          value = 0
-        )
-        val id = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
           AccumulatedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
@@ -96,13 +95,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace = "test1-namespace"
         val ts        = 1500909299165L
         val metric    = "test1-metric"
-        val bit = Bit(
-          timestamp = ts,
-          dimensions = Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0),
-          tags = Map("tag1"             -> "value1", "tag2"       -> 2, "tag3"       -> 3L, "tag4"       -> 3.0),
-          value = 0
-        )
-        val id = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
           PersistedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 
@@ -118,13 +116,12 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val namespace = "test1-namespace"
         val ts        = 1500909299165L
         val metric    = "test1-metric"
-        val bit = Bit(
-          timestamp = ts,
-          dimensions = Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0),
-          tags = Map("tag1"             -> "value1", "tag2"       -> 2, "tag3"       -> 3L, "tag4"       -> 3.0),
-          value = 0
-        )
-        val id = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
+        val dimensions: Map[String, JSerializable] =
+          Map("dimension1" -> "value1", "dimension2" -> 2, "dimension3" -> 3L, "dimension4" -> 3.0)
+        val tags: Map[String, JSerializable] =
+          Map("tag1" -> "value1", "tag2" -> 2, "tag3" -> 3L, "tag4" -> 3.0)
+        val bit = Bit(timestamp = ts, dimensions = dimensions, tags = tags, value = 0)
+        val id  = CommitLogBitEntry.bitIdentifier(db, namespace, metric, bit)
         val originalEntry =
           RejectedEntry(db = db, namespace = namespace, metric = metric, timestamp = bit.timestamp, bit = bit, id)
 

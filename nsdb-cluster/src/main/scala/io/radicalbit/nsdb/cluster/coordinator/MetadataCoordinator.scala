@@ -38,7 +38,7 @@ import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
@@ -538,39 +538,45 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetLocations(db: String, namespace: String, metric: String)
+    case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
-    case class AddLocation(db: String, namespace: String, location: Location)
-    case class AddLocations(db: String, namespace: String, locations: Seq[Location])
+        extends NSDbSerializable
+    case class AddLocation(db: String, namespace: String, location: Location)        extends NSDbSerializable
+    case class AddLocations(db: String, namespace: String, locations: Seq[Location]) extends NSDbSerializable
     case class DeleteMetricMetadata(db: String,
                                     namespace: String,
                                     metric: String,
                                     occurredOn: Long = System.currentTimeMillis)
-    case class PutMetricInfo(metricInfo: MetricInfo)
+        extends NSDbSerializable
+    case class PutMetricInfo(metricInfo: MetricInfo) extends NSDbSerializable
 
-    case object CheckOutdatedLocations
+    case object CheckOutdatedLocations extends NSDbSerializable
 
-    case class RemoveNodeMetadata(nodeName: String)
+    case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
   }
 
   object events {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
+        extends NSDbSerializable
     case class GetWriteLocationsFailed(db: String, namespace: String, metric: String, timestamp: Long)
+        extends NSDbSerializable
     case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)
-    case class LocationAdded(db: String, namespace: String, location: Location)
-    case class AddLocationFailed(db: String, namespace: String, location: Location)
-    case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])
-    case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location])
+        extends NSDbSerializable
+    case class LocationAdded(db: String, namespace: String, location: Location)            extends NSDbSerializable
+    case class AddLocationFailed(db: String, namespace: String, location: Location)        extends NSDbSerializable
+    case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])     extends NSDbSerializable
+    case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location]) extends NSDbSerializable
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
+        extends NSDbSerializable
 
-    case class MetricInfoPut(metricInfo: MetricInfo)
-    case class MetricInfoFailed(metricInfo: MetricInfo, message: String)
+    case class MetricInfoPut(metricInfo: MetricInfo)                     extends NSDbSerializable
+    case class MetricInfoFailed(metricInfo: MetricInfo, message: String) extends NSDbSerializable
 
-    case class MetricInfosMigrated(infos: Seq[MetricInfo])
+    case class MetricInfosMigrated(infos: Seq[MetricInfo]) extends NSDbSerializable
 
-    case class NodeMetadataRemoved(nodeName: String)
-    case class RemoveNodeMetadataFailed(nodeName: String)
+    case class NodeMetadataRemoved(nodeName: String)      extends NSDbSerializable
+    case class RemoveNodeMetadataFailed(nodeName: String) extends NSDbSerializable
   }
 
   def props(clusterListener: ActorRef,

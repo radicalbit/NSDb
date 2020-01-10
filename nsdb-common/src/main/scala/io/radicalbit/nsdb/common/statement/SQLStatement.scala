@@ -16,7 +16,12 @@
 
 package io.radicalbit.nsdb.common.statement
 
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.typesafe.scalalogging.LazyLogging
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization.{AggregationJsonDeserializer, AggregationJsonSerializer}
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization.{ComparisonOperatorJsonDeserializer, ComparisonOperatorJsonSerializer}
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
 /**
@@ -31,14 +36,33 @@ final case class Field(name: String, aggregation: Option[Aggregation])
   * [[AllFields]] for a `select *` statement.
   * [[ListFields]] if a list of fields are specified in the query.
   */
-sealed trait SelectedFields
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(new JsonSubTypes.Type(value = classOf[AllFields], name = "AllFields"),
+        new JsonSubTypes.Type(value = classOf[ListFields], name = "ListFields")))
+sealed trait SelectedFields                      extends NSDbSerializable
 case class AllFields()                           extends SelectedFields
 final case class ListFields(fields: List[Field]) extends SelectedFields
 
 final case class ListAssignment(fields: Map[String, NSDbType])
 final case class Condition(expression: Expression)
 
-sealed trait Expression
+/**
+  * Where condition expression for queries.
+  * [[ComparisonExpression]] simple comparison expression.
+  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[ComparisonExpression[_]], name = "ComparisonExpression"),
+    new JsonSubTypes.Type(value = classOf[EqualityExpression[_]], name = "EqualityExpression"),
+    new JsonSubTypes.Type(value = classOf[LikeExpression], name = "LikeExpression"),
+    new JsonSubTypes.Type(value = classOf[NullableExpression], name = "NullableExpression"),
+    new JsonSubTypes.Type(value = classOf[RangeExpression[_]], name = "RangeExpression"),
+    new JsonSubTypes.Type(value = classOf[TupledLogicalExpression], name = "TupledLogicalExpression"),
+    new JsonSubTypes.Type(value = classOf[NotExpression], name = "NotExpression")
+  ))
+sealed trait Expression extends NSDbSerializable
 
 /**
   * Simple Not expression.
@@ -100,6 +124,7 @@ final case class NullableExpression(dimension: String) extends Expression
   */
 sealed trait LogicalOperator
 
+
 /**
   * Logical operators that can be applied only to 2 expressions e.g. [[AndOperator]] and [[OrOperator]].
   */
@@ -111,6 +136,8 @@ case object NotOperator            extends LogicalOperator
 /**
   * Comparison operators to be used in [[ComparisonExpression]].
   */
+@JsonSerialize(using = classOf[ComparisonOperatorJsonSerializer])
+@JsonDeserialize(using = classOf[ComparisonOperatorJsonDeserializer])
 sealed trait ComparisonOperator
 case object GreaterThanOperator      extends ComparisonOperator
 case object GreaterOrEqualToOperator extends ComparisonOperator
@@ -120,6 +147,8 @@ case object LessOrEqualToOperator    extends ComparisonOperator
 /**
   * Aggregations to be used optionally in [[Field]].
   */
+@JsonSerialize(using = classOf[AggregationJsonSerializer])
+@JsonDeserialize(using = classOf[AggregationJsonDeserializer])
 sealed trait Aggregation
 case object CountAggregation extends Aggregation
 case object MaxAggregation   extends Aggregation
@@ -129,7 +158,13 @@ case object SumAggregation   extends Aggregation
 /**
   * Order operators in sql queries. Possible values are [[AscOrderOperator]] or [[DescOrderOperator]].
   */
-sealed trait OrderOperator {
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[AscOrderOperator], name = "AscOrderOperator"),
+    new JsonSubTypes.Type(value = classOf[DescOrderOperator], name = "DescOrderOperator")
+  ))
+sealed trait OrderOperator extends NSDbSerializable {
   def dimension: String
 }
 final case class AscOrderOperator(override val dimension: String)  extends OrderOperator
@@ -139,11 +174,17 @@ final case class DescOrderOperator(override val dimension: String) extends Order
   * Limit operator used to limit the size of search results.
   * @param value the maximum number of results
   */
-final case class LimitOperator(value: Int)
+final case class LimitOperator(value: Int) extends NSDbSerializable
 
 /**
   * Comparison value to wrap values for tracking relative and absolute (mainly for relative timestamp)
   */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[AbsoluteComparisonValue[_]], name = "AbsoluteComparisonValue"),
+    new JsonSubTypes.Type(value = classOf[RelativeComparisonValue[_]], name = "RelativeComparisonValue")
+  ))
 sealed trait ComparisonValue[+T] {
   def value: T
 }
@@ -168,6 +209,12 @@ final case class AbsoluteComparisonValue[T](override val value: T) extends Compa
 final case class RelativeComparisonValue[T](override val value: T, operator: String, quantity: T, unitMeasure: String)
     extends ComparisonValue[T]
 
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[SimpleGroupByAggregation], name = "SimpleGroupByAggregation"),
+    new JsonSubTypes.Type(value = classOf[TemporalGroupByAggregation], name = "TemporalGroupByAggregation")
+  ))
 sealed trait GroupByAggregation {
   def dimension: String
 }
@@ -221,7 +268,8 @@ final case class SelectSQLStatement(override val db: String,
                                     order: Option[OrderOperator] = None,
                                     limit: Option[LimitOperator] = None)
     extends SQLStatement
-    with LazyLogging {
+    with LazyLogging
+    with NSDbSerializable {
 
   /**
     * Returns a new instance enriched with a [[RangeExpression]].

@@ -38,7 +38,7 @@ sealed trait EndpointOutputProtocol
   * [[SQLStatementExecuted]] if no errors occur.
   * [[SQLStatementFailed]] if an error occurs.
   */
-sealed trait SQLStatementResult extends EndpointOutputProtocol {
+sealed trait SQLStatementResult extends EndpointOutputProtocol with NSDbSerializable {
   def db: String
   def namespace: String
   def metric: String

@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
@@ -68,6 +68,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     case ReceiveTimeout =>
       self ! PoisonPill
     case ExecuteSelectStatement(statement, schema, _, globalRanges) =>
+      log.debug("executing statement in metric shard reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
           handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity))) match {
@@ -229,7 +230,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
 object ShardReaderActor {
 
-  case object RefreshShard
+  case object RefreshShard extends NSDbSerializable
 
   def props(basePath: String, db: String, namespace: String, location: Location): Props =
     Props(new ShardReaderActor(basePath, db, namespace, location))

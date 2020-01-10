@@ -25,6 +25,7 @@ import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
@@ -34,7 +35,7 @@ object RollingCommitLogFileWriter {
   /**
     * Force rolling no matter the criteria. For test purpose
     */
-  case object ForceRolling
+  case object ForceRolling extends NSDbSerializable
 
   def props(db: String, namespace: String, metric: String): Props =
     Props(new RollingCommitLogFileWriter(db, namespace, metric))

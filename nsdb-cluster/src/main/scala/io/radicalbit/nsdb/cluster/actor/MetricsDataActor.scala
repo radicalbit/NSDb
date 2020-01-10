@@ -27,7 +27,7 @@ import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
 import io.radicalbit.nsdb.cluster.util.{FileUtils => NSDbFileUtils}
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -140,6 +140,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
     case msg @ GetCountWithLocations(db, namespace, _, _) =>
       getOrCreateReader(db, namespace) forward msg
     case msg @ ExecuteSelectStatement(statement, _, _, _) =>
+      log.debug("executing statement in metric data actor {}", statement)
       getOrCreateReader(statement.db, statement.namespace) forward msg
     case AddRecordToLocation(db, namespace, bit, location) =>
       getOrCreateAccumulator(db, namespace) forward AddRecordToShard(
@@ -188,9 +189,11 @@ object MetricsDataActor {
   def props(basePath: String, nodeName: String, commitLogCoordinator: ActorRef): Props =
     Props(new MetricsDataActor(basePath, nodeName, commitLogCoordinator))
 
-  case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location)
+  case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location) extends NSDbSerializable
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
+      extends NSDbSerializable
   case class ExecuteDeleteStatementInternalInLocations(statement: DeleteSQLStatement,
                                                        schema: Schema,
                                                        locations: Seq[Location])
+      extends NSDbSerializable
 }

@@ -16,7 +16,9 @@
 
 package io.radicalbit.nsdb.common.statement
 
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+
 /**
   * Generic statement trait.
   */
-trait NSDBStatement
+trait NSDBStatement extends NSDbSerializable

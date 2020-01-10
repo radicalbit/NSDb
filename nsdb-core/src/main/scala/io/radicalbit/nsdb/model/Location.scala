@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.model
 
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.Closed
@@ -28,7 +29,7 @@ import spire.math.interval.Closed
   * @param from shard interval lower bound.
   * @param to shard interval upper bound.
   */
-case class Location(metric: String, node: String, from: Long, to: Long) {
+case class Location(metric: String, node: String, from: Long, to: Long) extends NSDbSerializable {
   def shardName = s"${metric}_${from}_$to"
 
   def interval: Interval[Long] = Interval.fromBounds(Closed(from), Closed(to))
@@ -45,4 +46,4 @@ object Location {
 /**
   * Enriches a Location with a database and a namespace that contains it.
   */
-case class LocationWithCoordinates(db: String, namespace: String, location: Location)
+case class LocationWithCoordinates(db: String, namespace: String, location: Location) extends NSDbSerializable
