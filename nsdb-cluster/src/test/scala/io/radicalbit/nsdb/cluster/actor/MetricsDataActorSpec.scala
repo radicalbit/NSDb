@@ -72,7 +72,7 @@ class MetricsDataActorSpec()
 
   "metricsDataActor" should "write and delete properly" in within(5.seconds) {
 
-    val record = Bit.fromRaw(System.currentTimeMillis, 0.5, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
+    val record = Bit(System.currentTimeMillis, 0.5, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace, record, location(metric)))
 
@@ -109,7 +109,7 @@ class MetricsDataActorSpec()
 
   "metricsDataActor" should "write and delete properly in multiple namespaces" in within(5.seconds) {
 
-    val record = Bit.fromRaw(System.currentTimeMillis, 24, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
+    val record = Bit(System.currentTimeMillis, 24, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
 
@@ -139,7 +139,7 @@ class MetricsDataActorSpec()
 
   "metricsDataActor" should "delete a namespace" in within(5.seconds) {
 
-    val record = Bit.fromRaw(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
+    val record = Bit(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
 
@@ -169,7 +169,7 @@ class MetricsDataActorSpec()
   "metricsDataActor" should "delete outdated locations" in within(5.seconds) {
     val namespaceToCheck = "namespaceToCheck"
 
-    val record = Bit.fromRaw(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
+    val record = Bit(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
     val locationToEvict    = Location("metricToCheck", "testNode", 0, 100)
     val locationNotToEvict = Location("metricToCheck", "testNode", 100, 200)

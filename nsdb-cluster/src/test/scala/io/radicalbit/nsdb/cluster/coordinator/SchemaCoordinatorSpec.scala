@@ -49,8 +49,8 @@ class SchemaCoordinatorSpec
   val namespace  = "namespace"
   val namespace1 = "namespace1"
 
-  val nameRecord    = Bit.fromRaw(0, 1, Map("name"    -> "name"), Map("city"       -> "milano"))
-  val surnameRecord = Bit.fromRaw(0, 1, Map("surname" -> "surname"), Map("country" -> "italy"))
+  val nameRecord    = Bit(0, 1, Map("name"    -> "name"), Map("city"       -> "milano"))
+  val surnameRecord = Bit(0, 1, Map("surname" -> "surname"), Map("country" -> "italy"))
 
   val baseSchema = Schema(
     "people",
@@ -107,7 +107,7 @@ class SchemaCoordinatorSpec
         "db",
         "namespace",
         "people",
-        Bit.fromRaw(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+        Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
     probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'left
@@ -123,7 +123,7 @@ class SchemaCoordinatorSpec
         "db",
         "namespace",
         "people",
-        Bit.fromRaw(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
     val schema = probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]].right.value.schema
@@ -139,7 +139,7 @@ class SchemaCoordinatorSpec
     )
 
     probe.send(schemaCoordinator,
-               UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit.fromRaw(0, 23.5, Map.empty, Map.empty)))
+               UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty, Map.empty)))
 
     probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
   }
@@ -151,7 +151,7 @@ class SchemaCoordinatorSpec
         "db",
         "namespace",
         "people",
-        Bit.fromRaw(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
     probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
@@ -164,11 +164,9 @@ class SchemaCoordinatorSpec
       unionSchema
     )
 
-    probe.send(schemaCoordinator,
-               UpdateSchemaFromRecord("db",
-                                      "namespace",
-                                      "people",
-                                      Bit.fromRaw(0, 2, Map("name" -> "john"), Map("country" -> "italy"))))
+    probe.send(
+      schemaCoordinator,
+      UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map("country" -> "italy"))))
 
     probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
 
@@ -189,7 +187,7 @@ class SchemaCoordinatorSpec
         "db",
         "namespace",
         "people",
-        Bit.fromRaw(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
     probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
@@ -208,7 +206,7 @@ class SchemaCoordinatorSpec
         "db",
         "namespace",
         "offices",
-        Bit.fromRaw(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
     probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right

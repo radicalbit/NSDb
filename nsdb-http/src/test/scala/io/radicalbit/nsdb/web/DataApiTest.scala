@@ -100,7 +100,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with My
   }
 
   "DataApi" should "correctly insert a record" in {
-    val b = InsertBody("db", "namespace", "metric", Bit.fromRaw(0, 1, Map.empty, Map.empty))
+    val b = InsertBody("db", "namespace", "metric", Bit(0, 1, Map.empty, Map.empty))
 
     Post("/data", b) ~> testRoutes ~> check {
       status shouldBe OK
@@ -110,7 +110,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with My
   }
 
   "DataApi" should "validate the InsertBody" in {
-    val b = InsertBody("db", "namespace", "ghost-metric", Bit.fromRaw(0, 1, Map.empty, Map.empty))
+    val b = InsertBody("db", "namespace", "ghost-metric", Bit(0, 1, Map.empty, Map.empty))
     Post("/data", b) ~> testRoutes ~> check {
       status shouldBe BadRequest
       val entity = entityAs[String]
@@ -119,7 +119,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with My
   }
 
   "Secured DataApi" should "not allow a request without the security header" in {
-    val b = InsertBody("db", "namespace", "metric", Bit.fromRaw(0, 1, Map.empty, Map.empty))
+    val b = InsertBody("db", "namespace", "metric", Bit(0, 1, Map.empty, Map.empty))
 
     Post("/data", b) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -134,14 +134,14 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with My
   }
 
   "Secured DataApi" should "not allow a request for an unauthorized resources" in {
-    val b = InsertBody("db", "namespace", "notAuthorizedMetric", Bit.fromRaw(0, 1, Map.empty, Map.empty))
+    val b = InsertBody("db", "namespace", "notAuthorizedMetric", Bit(0, 1, Map.empty, Map.empty))
 
     Post("/data", b).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
       entityAs[String] shouldBe "not authorized forbidden access to metric notAuthorizedMetric"
     }
 
-    val readOnly = InsertBody("db", "namespace", "readOnlyMetric", Bit.fromRaw(0, 1, Map.empty, Map.empty))
+    val readOnly = InsertBody("db", "namespace", "readOnlyMetric", Bit(0, 1, Map.empty, Map.empty))
 
     Post("/data", readOnly).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -150,7 +150,7 @@ class DataApiTest extends FlatSpec with Matchers with ScalatestRouteTest with My
   }
 
   "Secured DataApi" should "allow a request for an authorized resources" in {
-    val b = InsertBody("db", "namespace", "metric", Bit.fromRaw(0, 1, Map.empty, Map.empty))
+    val b = InsertBody("db", "namespace", "metric", Bit(0, 1, Map.empty, Map.empty))
 
     Post("/data", b).withHeaders(RawHeader("testHeader", "testHeader")) ~> testRoutes ~> check {
       status shouldBe OK

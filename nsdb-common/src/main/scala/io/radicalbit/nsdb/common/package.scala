@@ -28,6 +28,12 @@ package object common {
   }
 
   object NSDbType {
+
+    implicit def NSDbTypeLong(value: Long): NSDbType     = NSDbType(value)
+    implicit def NSDbTypeInt(value: Int): NSDbType       = NSDbType(value)
+    implicit def NSDbTypeDouble(value: Double): NSDbType = NSDbType(value)
+    implicit def NSDbTypeString(value: String): NSDbType = NSDbType(value)
+
     def apply(rawValue: Any): NSDbType = {
       rawValue match {
         case v: Int    => NSDbIntType(v)
@@ -42,6 +48,11 @@ package object common {
   sealed trait NSDbNumericType extends NSDbType
 
   object NSDbNumericType {
+
+    implicit def NSDbNumericTypeLong(value: Long): NSDbNumericType     = NSDbNumericType(value)
+    implicit def NSDbNumericTypeInt(value: Int): NSDbNumericType       = NSDbNumericType(value)
+    implicit def NSDbNumericTypeDouble(value: Double): NSDbNumericType = NSDbNumericType(value)
+
     def apply(rawValue: Any): NSDbNumericType = {
       rawValue match {
         case v: Int    => NSDbIntType(v)

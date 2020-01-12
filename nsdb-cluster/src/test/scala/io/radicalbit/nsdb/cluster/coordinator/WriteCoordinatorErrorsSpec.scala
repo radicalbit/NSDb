@@ -113,8 +113,8 @@ class WriteCoordinatorErrorsSpec
   lazy val node2MetricsDataActor =
     TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(failureAccumulationProbe.ref))
 
-  val record1 = Bit.fromRaw(System.currentTimeMillis, 1, Map("dimension1" -> "dimension1"), Map("tag1" -> "tag1"))
-  val record2 = Bit.fromRaw(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
+  val record1 = Bit(System.currentTimeMillis, 1, Map("dimension1" -> "dimension1"), Map("tag1" -> "tag1"))
+  val record2 = Bit(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
 
   override def beforeAll: Unit = {
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(successfulCommitLogCoordinator, node1),

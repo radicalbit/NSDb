@@ -78,7 +78,7 @@ class MetricAccumulatorActorSpec()
 
   "MetricAccumulatorActor" should "write and delete properly" in {
 
-    val bit      = Bit.fromRaw(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit      = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val location = Location("shardActorMetric", nodeName, 0, 100)
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit))
@@ -117,11 +117,11 @@ class MetricAccumulatorActorSpec()
     val key  = Location("shardActorMetric", nodeName, 0, 100)
     val key2 = Location("shardActorMetric", nodeName, 101, 200)
 
-    val bit11 = Bit.fromRaw(System.currentTimeMillis, 22.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val bit12 = Bit.fromRaw(System.currentTimeMillis, 30.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val bit13 = Bit.fromRaw(System.currentTimeMillis, 50.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val bit21 = Bit.fromRaw(System.currentTimeMillis, 150, Map("dimension"  -> "dimension"), Map("tag" -> "tag"))
-    val bit22 = Bit.fromRaw(System.currentTimeMillis, 160, Map("dimension"  -> "dimension"), Map("tag" -> "tag"))
+    val bit11 = Bit(System.currentTimeMillis, 22.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit12 = Bit(System.currentTimeMillis, 30.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit13 = Bit(System.currentTimeMillis, 50.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit21 = Bit(System.currentTimeMillis, 150, Map("dimension"  -> "dimension"), Map("tag" -> "tag"))
+    val bit22 = Bit(System.currentTimeMillis, 160, Map("dimension"  -> "dimension"), Map("tag" -> "tag"))
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key, bit11))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key, bit12))
@@ -167,8 +167,8 @@ class MetricAccumulatorActorSpec()
 
   "MetricAccumulatorActor" should "drop a metric" in {
 
-    val bit1 = Bit.fromRaw(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val bit2 = Bit.fromRaw(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit1 = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit2 = Bit(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit1))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit2))
@@ -200,8 +200,8 @@ class MetricAccumulatorActorSpec()
     metricAccumulatorActor.underlyingActor.shards.clear()
     metricAccumulatorActor.underlyingActor.facetIndexShards.clear()
 
-    val bit1 = Bit.fromRaw(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val bit2 = Bit.fromRaw(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit1 = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
+    val bit2 = Bit(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
 
     val location1 = Location("testMetric", nodeName, 25, 28)
     val location2 = Location("testMetric", nodeName, 30, 33)

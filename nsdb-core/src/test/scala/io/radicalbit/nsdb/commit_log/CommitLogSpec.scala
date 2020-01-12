@@ -25,7 +25,7 @@ trait CommitLogSpec {
 
   implicit val serializer = new StandardCommitLogSerializer
 
-  val dummyBit = Bit.fromRaw(0, 10, Map("dim" -> "dim"), Map("tag" -> "tag"))
+  val dummyBit = Bit(0, 10, Map("dim" -> "dim"), Map("tag" -> "tag"))
 
   val db        = "db"
   val namespace = "namespace"

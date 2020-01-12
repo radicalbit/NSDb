@@ -31,12 +31,12 @@ object LongMetric {
   val name = "longMetric"
 
   val testRecords: List[Bit] = List(
-    Bit.fromRaw(1L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit.fromRaw(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit.fromRaw(4L, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
-    Bit.fromRaw(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit.fromRaw(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit.fromRaw(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+    Bit(1L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit(4L, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
+    Bit(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
   )
 
 }
@@ -46,11 +46,11 @@ object DoubleMetric {
   val name = "doubleMetric"
 
   val testRecords: List[Bit] = List(
-    Bit.fromRaw(2L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit.fromRaw(4L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit.fromRaw(6L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit.fromRaw(8L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit.fromRaw(10L, 1.5, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
+    Bit(2L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit(4L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
+    Bit(6L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+    Bit(8L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+    Bit(10L, 1.5, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
   )
 
 }
@@ -60,12 +60,12 @@ object AggregationMetric {
   val name = "aggregationMetric"
 
   val testRecords: List[Bit] = List(
-    Bit.fromRaw(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit.fromRaw(4L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
-    Bit.fromRaw(2L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit.fromRaw(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit.fromRaw(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit.fromRaw(10L, 1L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+    Bit(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(4L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
+    Bit(2L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+    Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+    Bit(10L, 1L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
   )
 
 }
@@ -320,11 +320,11 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Bill")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frank")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "J")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "John"))
+          Bit(0L, 0L, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "John"))
         ))
     }
   }
@@ -344,11 +344,11 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "John")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "J")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frankie")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Frank")),
-          Bit.fromRaw(0L, 0L, Map.empty, Map("name" -> "Bill"))
+          Bit(0L, 0L, Map.empty, Map("name" -> "John")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 0L, Map.empty, Map("name" -> "Bill"))
         ))
     }
   }
@@ -382,12 +382,12 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
-          Bit.fromRaw(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit.fromRaw(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit.fromRaw(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-          Bit.fromRaw(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-          Bit.fromRaw(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-          Bit.fromRaw(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+          Bit(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit(2L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit(4L, 1, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+          Bit(6L, 1, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+          Bit(8L, 1, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+          Bit(10L, 1, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
         ))
     }
   }
@@ -465,7 +465,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
       assert(readRes.records.size == 1)
-      assert(readRes.records.head.asBit == Bit.fromRaw(10, 6L, Map.empty, Map("name" -> "Frankie")))
+      assert(readRes.records.head.asBit == Bit(10, 6L, Map.empty, Map("name" -> "Frankie")))
     }
   }
 
@@ -597,11 +597,11 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "Bill")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "Frank")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "Frankie")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "J")),
-          Bit.fromRaw(0L, 2L, Map.empty, Map("name" -> "John"))
+          Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 2L, Map.empty, Map("name" -> "John"))
         ))
     }
   }
@@ -619,11 +619,11 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 2L, Map.empty, Map("name" -> "John")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "J")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "Frankie")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "Frank")),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("name" -> "Bill"))
+          Bit(0L, 2L, Map.empty, Map("name" -> "John")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Bill"))
         ))
 
       val sumQuery = nsdb
@@ -635,10 +635,10 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 3.0, Map.empty, Map("name" -> "John")),
-          Bit.fromRaw(0L, 1.5, Map.empty, Map("name" -> "Frankie")),
-          Bit.fromRaw(0L, 1.5, Map.empty, Map("name" -> "Frank")),
-          Bit.fromRaw(0L, 1.5, Map.empty, Map("name" -> "Bill"))
+          Bit(0L, 3.0, Map.empty, Map("name" -> "John")),
+          Bit(0L, 1.5, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1.5, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1.5, Map.empty, Map("name" -> "Bill"))
         ))
     }
   }
@@ -680,7 +680,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) ==
-          Seq(Bit.fromRaw(0L, 1L, Map.empty, Map("age" -> 20L)), Bit.fromRaw(0L, 5L, Map.empty, Map("age" -> 15L))))
+          Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 5L, Map.empty, Map("age" -> 15L))))
     }
   }
 
@@ -698,8 +698,8 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       assert(
         readRes.records.map(_.asBit) ==
           Seq(
-            Bit.fromRaw(0L, 6L, Map.empty, Map("age" -> 15L)),
-            Bit.fromRaw(0L, 2L, Map.empty, Map("age" -> 20L))
+            Bit(0L, 6L, Map.empty, Map("age" -> 15L)),
+            Bit(0L, 2L, Map.empty, Map("age" -> 20L))
           ))
     }
   }
@@ -717,9 +717,9 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 3L, Map.empty, Map("height" -> 30.5)),
-          Bit.fromRaw(0L, 2L, Map.empty, Map("height" -> 32.0)),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("height" -> 31.0))
+          Bit(0L, 3L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 2L, Map.empty, Map("height" -> 32.0)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0))
         ))
     }
   }
@@ -737,9 +737,9 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit.fromRaw(0L, 5L, Map.empty, Map("height" -> 30.5)),
-          Bit.fromRaw(0L, 1L, Map.empty, Map("height" -> 31.0)),
-          Bit.fromRaw(0L, 2L, Map.empty, Map("height" -> 32.0))
+          Bit(0L, 5L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 2L, Map.empty, Map("height" -> 32.0))
         ))
     }
   }

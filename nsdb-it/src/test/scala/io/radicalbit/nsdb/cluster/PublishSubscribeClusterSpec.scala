@@ -53,10 +53,10 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
-  lazy val bit: Bit = Bit.fromRaw(timestamp = System.currentTimeMillis(),
-                                  dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
-                                  value = 2,
-                                  tags = Map.empty)
+  lazy val bit: Bit = Bit(timestamp = System.currentTimeMillis(),
+                          dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
+                          value = 2,
+                          tags = Map.empty)
 
   test("join cluster") {
     eventually {

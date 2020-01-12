@@ -84,7 +84,7 @@ class MetadataCoordinatorSpec
     Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
     Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, "localhost"), 10 seconds)
 
-    val nameRecord = Bit.fromRaw(0, 1, Map("name" -> "name"), Map("city" -> "milano"))
+    val nameRecord = Bit(0, 1, Map("name" -> "name"), Map("city" -> "milano"))
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, nameRecord), 10 seconds)
   }
 

@@ -77,7 +77,7 @@ class MetricPerformerActorSpec
       "indexerPerformerActor")
 
   val errorLocation = Location("IndexerPerformerActorMetric", "node1", 1, 1)
-  val bit           = Bit.fromRaw(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
+  val bit           = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
 
   override def beforeAll: Unit = {
     import scala.collection.JavaConverters._

@@ -78,10 +78,5 @@ case class Bit(timestamp: Long, value: NSDbNumericType, dimensions: Map[String, 
 
 object Bit {
 
-  def fromRaw(timestamp: Long, value: Any, dimensions: Map[String, Any], tags: Map[String, Any]) =
-    Bit(timestamp, NSDbNumericType(value), dimensions.map { case (k, rawValue) => (k, NSDbType(rawValue)) }, tags.map {
-      case (k, rawValue)                                                       => (k, NSDbType(rawValue))
-    })
-
-  def empty: Bit = Bit(0, NSDbNumericType(0L), Map.empty, Map.empty)
+  def empty: Bit = Bit(0, 0L, Map.empty, Map.empty)
 }

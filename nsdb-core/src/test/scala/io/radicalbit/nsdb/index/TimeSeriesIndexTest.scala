@@ -41,10 +41,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit.fromRaw(timestamp = System.currentTimeMillis,
-                    value = 23,
-                    dimensions = Map("dimension" -> s"dimension_$i"),
-                    tags = Map("tag"             -> s"tag_$i"))
+        Bit(timestamp = System.currentTimeMillis,
+            value = 23,
+            dimensions = Map("dimension" -> s"dimension_$i"),
+            tags = Map("tag"             -> s"tag_$i"))
       timeSeriesIndex.write(testData)(metricWriter)
     }
     metricWriter.close()
@@ -60,10 +60,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit.fromRaw(timestamp = i,
-                    value = 23.5,
-                    dimensions = Map("dimension" -> s"dimension-$i"),
-                    tags = Map("tag"             -> s"tag-$i"))
+        Bit(timestamp = i,
+            value = 23.5,
+            dimensions = Map("dimension" -> s"dimension-$i"),
+            tags = Map("tag"             -> s"tag-$i"))
       timeSeriesIndex.write(testData)
     }
 
@@ -90,10 +90,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     (0 to 100).foreach { i =>
       val testData =
-        Bit.fromRaw(timestamp = i,
-                    value = 23.5,
-                    dimensions = Map("dimension" -> s"dimension_$i"),
-                    tags = Map("tag"             -> s"tag_$i"))
+        Bit(timestamp = i,
+            value = 23.5,
+            dimensions = Map("dimension" -> s"dimension_$i"),
+            tags = Map("tag"             -> s"tag_$i"))
       timeSeriesIndex.write(testData)
     }
 
@@ -121,10 +121,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
     val timestamp = System.currentTimeMillis
 
-    val testData = Bit.fromRaw(timestamp = timestamp,
-                               value = 0.2,
-                               dimensions = Map("dimension" -> s"dimension"),
-                               tags = Map("tag"             -> s"tag"))
+    val testData = Bit(timestamp = timestamp,
+                       value = 0.2,
+                       dimensions = Map("dimension" -> s"dimension"),
+                       tags = Map("tag"             -> s"tag"))
 
     timeSeriesIndex.write(testData)
 
@@ -156,7 +156,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //    implicit val writer = timeSeriesIndex.getWriter
 //
 //    (0 to 9).foreach { i =>
-//      val testData = Bit.fromRaw(timestamp = System.currentTimeMillis,
+//      val testData = Bit(timestamp = System.currentTimeMillis,
 //                         value = 10,
 //                         dimensions = Map("dimension" -> s"dimension_${i / 4}"),
 //                         tags = Map("tag"             -> s"tag_${i / 4}", "number" -> i))
@@ -178,7 +178,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 //
 //    val records: Seq[Bit] = (0 to 9).map { i =>
-//      Bit.fromRaw(timestamp = i,
+//      Bit(timestamp = i,
 //          value = i,
 //          dimensions = Map("dimension" -> s"dimension_${i / 4}"),
 //          tags = Map("tag"             -> s"tag_${i / 4}"))
@@ -197,9 +197,9 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //                                        Some(ascSort))
 //
 //    results shouldBe Seq(
-//      Bit.fromRaw(0, 3, Map.empty, tags = Map("tag" -> "tag_0")),
-//      Bit.fromRaw(0, 7, Map.empty, tags = Map("tag" -> "tag_1")),
-//      Bit.fromRaw(0, 9, Map.empty, tags = Map("tag" -> "tag_2"))
+//      Bit(0, 3, Map.empty, tags = Map("tag" -> "tag_0")),
+//      Bit(0, 7, Map.empty, tags = Map("tag" -> "tag_1")),
+//      Bit(0, 9, Map.empty, tags = Map("tag" -> "tag_2"))
 //    )
 //
 //    val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
@@ -211,9 +211,9 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //                                            Some(descSort))
 //
 //    descResults shouldBe Seq(
-//      Bit.fromRaw(0, 9, Map.empty, tags = Map("tag" -> "tag_2")),
-//      Bit.fromRaw(0, 7, Map.empty, tags = Map("tag" -> "tag_1")),
-//      Bit.fromRaw(0, 3, Map.empty, tags = Map("tag" -> "tag_0"))
+//      Bit(0, 9, Map.empty, tags = Map("tag" -> "tag_2")),
+//      Bit(0, 7, Map.empty, tags = Map("tag" -> "tag_1")),
+//      Bit(0, 3, Map.empty, tags = Map("tag" -> "tag_0"))
 //    )
 //  }
 //
@@ -221,7 +221,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 //
 //    val records: Seq[Bit] = (0 to 9).map { i =>
-//      Bit.fromRaw(timestamp = i,
+//      Bit(timestamp = i,
 //          value = i,
 //          dimensions = Map("dimension" -> s"dimension_${i / 4}"),
 //          tags = Map("tag"             -> s"tag_${i / 4}"))
@@ -239,7 +239,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 //                                            Some(2),
 //                                            Some(descSort))
 //
-//    descResults shouldBe Seq(Bit.fromRaw(0, 9, Map("dimension" -> "dimension_2"), tags = Map.empty),
-//                             Bit.fromRaw(0, 7, Map("dimension" -> "dimension_1"), tags = Map.empty))
+//    descResults shouldBe Seq(Bit(0, 9, Map("dimension" -> "dimension_2"), tags = Map.empty),
+//                             Bit(0, 7, Map("dimension" -> "dimension_1"), tags = Map.empty))
 //  }
 }

@@ -88,15 +88,15 @@ class ReplicatedSchemaCacheSpec
 
   val metric1 = "metric1"
   val key1    = SchemaKey(db, namespace, metric1)
-  val schema1 = Schema(metric1, Bit.fromRaw(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+  val schema1 = Schema(metric1, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
 
   val metric2 = "metric2"
   val key2    = SchemaKey(db, namespace, metric2)
-  val schema2 = Schema(metric2, Bit.fromRaw(0, 1.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+  val schema2 = Schema(metric2, Bit(0, 1.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
 
   val metric3 = "metric3"
   val key3    = SchemaKey(db, namespace, metric3)
-  val schema3 = Schema(metric3, Bit.fromRaw(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+  val schema3 = Schema(metric3, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
 
   "ReplicatedSchemaCacheSpec" must {
 
@@ -140,7 +140,7 @@ class ReplicatedSchemaCacheSpec
 
       def key(i: Int) = SchemaKey(db, namespace, s"multimetric_$i")
       def schema(i: Int) =
-        Schema(s"multimetric_$i", Bit.fromRaw(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+        Schema(s"multimetric_$i", Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
 
       runOn(node1) {
         for (i ← 10 to 20) {
@@ -201,9 +201,9 @@ class ReplicatedSchemaCacheSpec
 
       val metric = "metric4"
 
-      val schema = Schema(metric, Bit.fromRaw(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
+      val schema = Schema(metric, Bit(0, 1L, Map("dimension" -> "dimension"), Map("tag" -> "tag"))).get
       val updatedSchema =
-        Schema("updatedMetric", Bit.fromRaw(0, 1L, Map("dimension" -> "dimension1"), Map("tag" -> "tag1"))).get
+        Schema("updatedMetric", Bit(0, 1L, Map("dimension" -> "dimension1"), Map("tag" -> "tag1"))).get
 
       runOn(node1) {
         replicatedCache ! PutSchemaInCache(db, namespace, metric, schema)
