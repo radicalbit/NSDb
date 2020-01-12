@@ -72,13 +72,13 @@ class ASCIITableBuilder(tableMaxWidth: Int) extends LazyLogging {
           val allFields: Map[FieldName, Option[String]] = extractColumnNames(statement)
 
           val rows: List[Row] = statement.res.toList.map { x =>
-            val fieldsMap    = (x.dimensions ++ x.tags).map { case (k, v)                 => (k, Some(v.toString)) }
+            val fieldsMap    = (x.dimensions ++ x.tags).map { case (k, v)                 => (k, Some(v.rawValue.toString)) }
             val mergedFields = allFields.combine(fieldsMap).toList.sortBy { case (col, _) => col }
             // prepending timestamp and value
 
             LocalDateTime
               .ofInstant(Instant.ofEpochMilli(x.timestamp), TimeZone.getTimeZone("UTC").toZoneId)
-              .toString +: x.value.toString +: mergedFields.map {
+              .toString +: x.value.rawValue.toString +: mergedFields.map {
               case (_, value) => value getOrElse ""
             }
           }

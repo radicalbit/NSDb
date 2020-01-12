@@ -46,8 +46,8 @@ object BitConverters {
 
       bit.tags.foreach {
         case (k, NSDbDoubleType(v)) => apiBit.tag(k, v)
-        case (k, NSDbLongType(v)) => apiBit.tag(k, v)
-        case (k, NSDbIntType(v))  => apiBit.tag(k, v)
+        case (k, NSDbLongType(v))   => apiBit.tag(k, v)
+        case (k, NSDbIntType(v))    => apiBit.tag(k, v)
         case (k, NSDbStringType(v)) => apiBit.tag(k, v)
       }
       apiBit

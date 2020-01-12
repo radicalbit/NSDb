@@ -32,6 +32,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.web.BitSerializer.BitSerializer
 import io.radicalbit.nsdb.web.CustomSerializers
 import io.swagger.annotations._
 import javax.ws.rs.Path
@@ -114,7 +115,7 @@ trait QueryApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers
+  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer
 
   @ApiModel(description = "Query Response")
   case class QueryResponse(

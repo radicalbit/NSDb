@@ -31,21 +31,21 @@ object GrpcBitConverters {
         value = bit.value match {
           case NSDbLongType(v)   => GrpcBit.Value.LongValue(v)
           case NSDbDoubleType(v) => GrpcBit.Value.DecimalValue(v)
-          case NSDbIntType(v) => GrpcBit.Value.LongValue(v.longValue())
+          case NSDbIntType(v)    => GrpcBit.Value.LongValue(v.longValue())
         },
         dimensions = bit.dimensions.map {
           case (k, NSDbDoubleType(v)) => (k, Dimension(Dimension.Value.DecimalValue(v)))
           case (k, NSDbLongType(v))   => (k, Dimension(Dimension.Value.LongValue(v)))
           case (k, NSDbIntType(v))    => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
           case (k, NSDbStringType(v)) => (k, Dimension(Dimension.Value.StringValue(v)))
-          case (k, v) => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+          case (k, v)                 => (k, Dimension(Dimension.Value.StringValue(v.toString)))
         },
         tags = bit.tags.map {
           case (k, NSDbDoubleType(v)) => (k, Tag(Tag.Value.DecimalValue(v)))
           case (k, NSDbLongType(v))   => (k, Tag(Tag.Value.LongValue(v)))
           case (k, NSDbIntType(v))    => (k, Tag(Tag.Value.LongValue(v.longValue())))
           case (k, NSDbStringType(v)) => (k, Tag(Tag.Value.StringValue(v)))
-          case (k, v) => (k, Tag(Tag.Value.StringValue(v.toString)))
+          case (k, v)                 => (k, Tag(Tag.Value.StringValue(v.toString)))
         }
       )
   }
