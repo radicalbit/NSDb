@@ -249,14 +249,14 @@ final case class SelectSQLStatement(override val db: String,
                                     value: Option[NSDbType],
                                     operator: String): Option[Expression] = {
     operator.toUpperCase match {
-      case ">" => Some(ComparisonExpression(dimension, GreaterThanOperator, value.map(AbsoluteComparisonValue(_)).get))
+      case ">" => Some(ComparisonExpression(dimension, GreaterThanOperator, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
       case ">=" =>
-        Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.map(AbsoluteComparisonValue(_)).get))
-      case "=" => Some(EqualityExpression(dimension, value.map(AbsoluteComparisonValue(_)).get))
+        Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
+      case "=" => Some(EqualityExpression(dimension, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
       case "<=" =>
-        Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.map(AbsoluteComparisonValue(_)).get))
-      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.map(AbsoluteComparisonValue(_)).get))
-      case "LIKE"      => Some(LikeExpression(dimension, value.get.asInstanceOf[String]))
+        Some(ComparisonExpression(dimension, LessOrEqualToOperator, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
+      case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
+      case "LIKE"      => Some(LikeExpression(dimension, value.get.rawValue.asInstanceOf[String]))
       case "ISNULL"    => Some(NullableExpression(dimension))
       case "ISNOTNULL" => Some(NotExpression(NullableExpression(dimension)))
       case op @ _ =>

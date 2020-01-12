@@ -32,38 +32,22 @@ object BitConverters {
     def asApiBit(db: String, namespace: String, metric: String): ApiBit = {
       val initialBit = Db(db).namespace(namespace).metric(metric).timestamp(bit.timestamp)
       val apiBit = bit.value match {
-//        case v: java.lang.Long       => initialBit.value(v)
-//        case v: java.lang.Double     => initialBit.value(v)
-//        case v: java.lang.Float      => initialBit.value(v.toDouble)
-//        case v: java.lang.Integer    => initialBit.value(v)
-//        case v: java.math.BigDecimal => initialBit.value(v)
         case NSDbLongType(v)   => initialBit.value(v)
         case NSDbDoubleType(v) => initialBit.value(v)
-        //          case v: java.lang.Float                        => GrpcBit.Value.DecimalValue(v.doubleValue())
-        case NSDbIntType(v) => initialBit.value(v)
+        case NSDbIntType(v)    => initialBit.value(v)
       }
 
       bit.dimensions.foreach {
         case (k, NSDbDoubleType(v)) => apiBit.dimension(k, v)
-//        case (k, v: java.lang.Float)      => apiBit.dimension(k, v.toDouble)
-        case (k, NSDbLongType(v)) => apiBit.dimension(k, v)
-        case (k, NSDbIntType(v))  => apiBit.dimension(k, v)
-//        case (k, v: java.math.BigDecimal) => apiBit.dimension(k, v)
+        case (k, NSDbLongType(v))   => apiBit.dimension(k, v)
+        case (k, NSDbIntType(v))    => apiBit.dimension(k, v)
         case (k, NSDbStringType(v)) => apiBit.dimension(k, v)
       }
 
       bit.tags.foreach {
-//        case (k, v: java.lang.Double)     => apiBit.tag(k, v)
-//        case (k, v: java.lang.Float)      => apiBit.tag(k, v.toDouble)
-//        case (k, v: java.lang.Long)       => apiBit.tag(k, v)
-//        case (k, v: java.lang.Integer)    => apiBit.tag(k, v)
-//        case (k, v: java.math.BigDecimal) => apiBit.tag(k, v)
-//        case (k, v: String)               => apiBit.tag(k, v)
         case (k, NSDbDoubleType(v)) => apiBit.tag(k, v)
-        //        case (k, v: java.lang.Float)      => apiBit.dimension(k, v.toDouble)
         case (k, NSDbLongType(v)) => apiBit.tag(k, v)
         case (k, NSDbIntType(v))  => apiBit.tag(k, v)
-        //        case (k, v: java.math.BigDecimal) => apiBit.dimension(k, v)
         case (k, NSDbStringType(v)) => apiBit.tag(k, v)
       }
       apiBit
@@ -88,7 +72,7 @@ object BitConverters {
       case _                         => NSDbType(v.stringValue.get)
     }
 
-    def asCommonBit =
+    def asCommonBit: Bit =
       Bit(
         timestamp = bit.timestamp.getOrElse(System.currentTimeMillis()),
         dimensions = bit.dimensions.collect {

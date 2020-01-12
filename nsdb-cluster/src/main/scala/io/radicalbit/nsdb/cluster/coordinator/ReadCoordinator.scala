@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
@@ -196,7 +196,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                 case Right(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                     if fields.lengthCompare(1) == 0 && fields.head.count =>
                   gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
-                    val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
+                    val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
                     val count       = if (recordCount <= limit) recordCount else limit
 
                     Seq(Bit(

@@ -240,7 +240,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         }
 
         expected.values.size shouldBe 6
-        val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
+        val names = expected.values.flatMap(_.tags.values.map(_.rawValue.asInstanceOf[String]))
 
         names.count(_ == "Bill") shouldBe 1
         names.count(_ == "Frank") shouldBe 1
@@ -270,7 +270,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
 
         expected.values.size shouldBe 6
 
-        val names = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
+        val names = expected.values.flatMap(_.dimensions.values.map(_.rawValue.asInstanceOf[String]))
         names.count(_ == "Doe") shouldBe 5
         names.count(_ == "D") shouldBe 1
       }
@@ -296,10 +296,10 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
 
         expected.values.size shouldBe 6
 
-        val dimensions = expected.values.flatMap(_.dimensions.values.map(_.asInstanceOf[String]))
+        val dimensions = expected.values.flatMap(_.dimensions.values.map(_.rawValue.asInstanceOf[String]))
         dimensions.count(_ == "Doe") shouldBe 5
 
-        val tags = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
+        val tags = expected.values.flatMap(_.tags.values.map(_.rawValue.asInstanceOf[String]))
 
         tags.count(_ == "Bill") shouldBe 1
         tags.count(_ == "Frank") shouldBe 1
@@ -327,7 +327,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         val expected = awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
         }
-        val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
+        val names = expected.values.flatMap(_.tags.values.map(_.rawValue.asInstanceOf[String]))
 
         names.contains("Bill") shouldBe true
         names.contains("Frank") shouldBe true
@@ -354,7 +354,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         val expected = awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
         }
-        val names = expected.values.flatMap(_.tags.values.map(_.asInstanceOf[String]))
+        val names = expected.values.flatMap(_.tags.values.map(_.rawValue.asInstanceOf[String]))
         names.size shouldBe 2
       }
 
@@ -494,12 +494,12 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit.fromRaw(1L, 1, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit.fromRaw(2L, 2, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit.fromRaw(4L, 3, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-          Bit.fromRaw(6L, 4, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-          Bit.fromRaw(8L, 5, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-          Bit.fromRaw(10L, 6, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+          Bit.fromRaw(1L, 1L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit.fromRaw(2L, 2L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
+          Bit.fromRaw(4L, 3L, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
+          Bit.fromRaw(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
+          Bit.fromRaw(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
+          Bit.fromRaw(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
         )
       }
 
@@ -523,7 +523,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit.fromRaw(0, 4L, Map.empty, Map("count(*)" -> 4))
+          Bit.fromRaw(0, 4, Map.empty, Map("count(*)" -> 4))
         )
       }
 
@@ -621,7 +621,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         }
 
         expected.values.size shouldBe 1
-        expected.values.head shouldBe Bit.fromRaw(10, 6, Map.empty, Map("name" -> "Frankie"))
+        expected.values.head shouldBe Bit.fromRaw(10, 6L, Map.empty, Map("name" -> "Frankie"))
       }
     }
 

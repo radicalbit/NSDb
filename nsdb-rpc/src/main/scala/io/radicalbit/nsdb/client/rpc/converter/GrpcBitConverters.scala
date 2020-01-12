@@ -15,8 +15,8 @@
  */
 
 package io.radicalbit.nsdb.client.rpc.converter
-import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbIntType, NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 
 /**
@@ -31,29 +31,20 @@ object GrpcBitConverters {
         value = bit.value match {
           case NSDbLongType(v)   => GrpcBit.Value.LongValue(v)
           case NSDbDoubleType(v) => GrpcBit.Value.DecimalValue(v)
-//          case v: java.lang.Float                        => GrpcBit.Value.DecimalValue(v.doubleValue())
           case NSDbIntType(v) => GrpcBit.Value.LongValue(v.longValue())
-//          case v: java.math.BigDecimal if v.scale() == 0 => GrpcBit.Value.LongValue(v.longValue())
-//          case v: java.math.BigDecimal                   => GrpcBit.Value.DecimalValue(v.doubleValue())
         },
         dimensions = bit.dimensions.map {
           case (k, NSDbDoubleType(v)) => (k, Dimension(Dimension.Value.DecimalValue(v)))
-//          case (k, v: java.lang.Float)   => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
-          case (k, NSDbLongType(v)) => (k, Dimension(Dimension.Value.LongValue(v)))
-          case (k, NSDbIntType(v))  => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-//          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
-//            (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-//          case (k, v: java.math.BigDecimal) => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
+          case (k, NSDbLongType(v))   => (k, Dimension(Dimension.Value.LongValue(v)))
+          case (k, NSDbIntType(v))    => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+          case (k, NSDbStringType(v)) => (k, Dimension(Dimension.Value.StringValue(v)))
           case (k, v) => (k, Dimension(Dimension.Value.StringValue(v.toString)))
         },
         tags = bit.tags.map {
           case (k, NSDbDoubleType(v)) => (k, Tag(Tag.Value.DecimalValue(v)))
-//          case (k, v: java.lang.Float)   => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
-          case (k, NSDbLongType(v)) => (k, Tag(Tag.Value.LongValue(v)))
-          case (k, NSDbIntType(v))  => (k, Tag(Tag.Value.LongValue(v.longValue())))
-//          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
-//            (k, Tag(Tag.Value.LongValue(v.longValue())))
-//          case (k, v: java.math.BigDecimal) => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
+          case (k, NSDbLongType(v))   => (k, Tag(Tag.Value.LongValue(v)))
+          case (k, NSDbIntType(v))    => (k, Tag(Tag.Value.LongValue(v.longValue())))
+          case (k, NSDbStringType(v)) => (k, Tag(Tag.Value.StringValue(v)))
           case (k, v) => (k, Tag(Tag.Value.StringValue(v.toString)))
         }
       )

@@ -24,9 +24,9 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
@@ -257,7 +257,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             .map {
               case Right(seq) =>
                 if (fields.lengthCompare(1) == 0 && fields.head.count) {
-                  val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
+                  val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
                   val count       = if (recordCount <= limit) recordCount else limit
 
                   val bits = Seq(
@@ -291,7 +291,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val shardResults = gatherAndGroupShardResults(statement, filteredActors, distinctField, msg) { values =>
             Bit(
               timestamp = 0,
-              value = NSDbNumericType(0),
+              value = NSDbLongType(0),
               dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
               tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
             )
@@ -308,7 +308,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           val shardResults =
             gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
               Bit(0,
-                  NSDbNumericType(values.map(_.value.asInstanceOf[Long]).sum),
+                  NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
                   values.head.dimensions,
                   values.head.tags)
             }
@@ -406,10 +406,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @return
     */
   private def retrieveCount(values: Seq[Bit],
-                            count: Int,
+                            count: Long,
                             extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
     values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[NSDbType])))
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
       .getOrElse(Map.empty[String, NSDbType])
 
 }

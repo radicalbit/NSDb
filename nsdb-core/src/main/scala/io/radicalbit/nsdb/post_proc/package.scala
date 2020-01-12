@@ -81,7 +81,7 @@ package object post_proc {
     */
   def retrieveCount(values: Seq[Bit], count: Int, extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
     values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[NSDbType])))
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
       .getOrElse(Map.empty[String, NSDbType])
 
 }
