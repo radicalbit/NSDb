@@ -35,7 +35,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = AllFields)))
+                               fields = AllFields())))
       }
     }
 
@@ -47,7 +47,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = true,
-                               fields = AllFields)))
+                               fields = AllFields())))
       }
     }
 
@@ -344,7 +344,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(UnaryLogicalExpression(
+            condition = Some(Condition(NotExpression(
               expression = TupledLogicalExpression(
                 expression1 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = GreaterOrEqualToOperator,
@@ -353,8 +353,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                 expression2 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = LessThanOperator,
                                                    value = AbsoluteComparisonValue(4L))
-              ),
-              operator = NotOperator
+              )
             )))
           )))
       }
@@ -368,7 +367,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                order = Some(AscOrderOperator("name")))))
       }
     }
@@ -381,7 +380,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = AllFields,
+                               fields = AllFields(),
                                limit = Some(LimitOperator(10)))))
       }
     }
@@ -465,7 +464,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "AreaOccupancy",
             distinct = false,
-            fields = AllFields,
+            fields = AllFields(),
             condition = Some(Condition(EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
@@ -483,7 +482,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "AreaOccupancy",
             distinct = false,
-            fields = AllFields,
+            fields = AllFields(),
             condition = Some(
               Condition(
                 TupledLogicalExpression(EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")),
@@ -506,12 +505,14 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "AreaOccupancy",
             distinct = false,
-            fields = AllFields,
-            condition = Some(Condition(TupledLogicalExpression(
-              EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
-              AndOperator,
-              UnaryLogicalExpression(NullableExpression("name"), NotOperator)
-            ))),
+            fields = AllFields(),
+            condition = Some(
+              Condition(
+                TupledLogicalExpression(
+                  EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
+                  AndOperator,
+                  NotExpression(NullableExpression("name"))
+                ))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
           ))
@@ -530,14 +531,14 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "AreaOccupancy",
             distinct = false,
-            fields = AllFields,
+            fields = AllFields(),
             condition = Some(Condition(TupledLogicalExpression(
               EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")),
               AndOperator,
               TupledLogicalExpression(
-                UnaryLogicalExpression(NullableExpression("name"), NotOperator),
+                NotExpression(NullableExpression("name")),
                 OrOperator,
-                UnaryLogicalExpression(NullableExpression("floor"), NotOperator)
+                NotExpression(NullableExpression("floor"))
               )
             ))),
             order = Some(DescOrderOperator(dimension = "timestamp")),

@@ -34,8 +34,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
 import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
+import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
@@ -100,8 +99,8 @@ class ClusterListener() extends Actor with ActorLogging {
             val locationsToAdd: Seq[LocationWithCoordinates] =
               FileUtils.getLocationsFromFilesystem(indexPath, nodeName)
 
-            val locationsGroupedBy: Map[(String, String), Seq[(String, String, Location)]] = locationsToAdd.groupBy {
-              case (database, namespace, _) => (database, namespace)
+            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
+              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
             }
 
             Future
@@ -109,7 +108,7 @@ class ClusterListener() extends Actor with ActorLogging {
                 locationsGroupedBy.map {
                   case ((db, namespace), locations) =>
                     metadataCoordinator ? AddLocations(db, namespace, locations.map {
-                      case (_, _, location) => location
+                      case LocationWithCoordinates(_, _, location) => location
                     })
                 }
               }

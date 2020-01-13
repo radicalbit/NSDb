@@ -57,7 +57,7 @@ class PublisherActorSpec
     namespace = "registry",
     metric = "people",
     distinct = false,
-    fields = AllFields,
+    fields = AllFields(),
     condition = Some(
       Condition(
         ComparisonExpression(dimension = "timestamp",

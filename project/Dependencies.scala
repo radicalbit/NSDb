@@ -56,18 +56,18 @@ object Dependencies {
     lazy val version   = "2.6.1"
     lazy val namespace = "com.typesafe.akka"
 
-    lazy val actor           = namespace %% "akka-actor"              % version
-    lazy val testkit         = namespace %% "akka-testkit"            % version
-    lazy val stream          = namespace %% "akka-stream"             % version
-    lazy val stream_testkit  = namespace %% "akka-stream-testkit"     % version
-    lazy val distributedData = namespace %% "akka-distributed-data"   % version
-    lazy val cluster         = namespace %% "akka-cluster"            % version
-    lazy val sharding        = namespace %% "akka-sharding"           % version
-    lazy val slf4j           = namespace %% "akka-slf4j"              % version
-    lazy val clusterTools    = namespace %% "akka-cluster-tools"      % version
-    lazy val clusterMetrics  = namespace %% "akka-cluster-metrics"    % version
-    lazy val multiNode       = namespace %% "akka-multi-node-testkit" % version
-    lazy val discovery       = namespace %% "akka-discovery"          % version
+    lazy val actor                  = namespace %% "akka-actor"                  % version
+    lazy val testkit                = namespace %% "akka-testkit"                % version
+    lazy val stream                 = namespace %% "akka-stream"                 % version
+    lazy val stream_testkit         = namespace %% "akka-stream-testkit"         % version
+    lazy val distributedData        = namespace %% "akka-distributed-data"       % version
+    lazy val cluster                = namespace %% "akka-cluster"                % version
+    lazy val sharding               = namespace %% "akka-sharding"               % version
+    lazy val slf4j                  = namespace %% "akka-slf4j"                  % version
+    lazy val clusterTools           = namespace %% "akka-cluster-tools"          % version
+    lazy val clusterMetrics         = namespace %% "akka-cluster-metrics"        % version
+    lazy val multiNode              = namespace %% "akka-multi-node-testkit"     % version
+    lazy val discovery              = namespace %% "akka-discovery"              % version
   }
 
   object akka_management {
@@ -97,7 +97,7 @@ object Dependencies {
     lazy val default         = namespace                      %% "akka-http"            % version
     lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
     lazy val sprayJson       = "com.typesafe.akka"            %% "akka-http-spray-json" % version
-    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http"    % "0.14.0"
+    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http"    % "2.0.4"
   }
 
   object kamon {
@@ -123,7 +123,7 @@ object Dependencies {
   }
 
   object json4s {
-    lazy val version   = "3.5.4"
+    lazy val version   = "3.6.7"
     lazy val namespace = "org.json4s"
     lazy val jackson   = namespace %% "json4s-jackson" % version
   }

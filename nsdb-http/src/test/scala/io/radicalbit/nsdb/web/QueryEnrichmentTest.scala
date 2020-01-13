@@ -397,8 +397,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             Condition(
               TupledLogicalExpression(LikeExpression("surname", "poe"),
                                       OrOperator,
-                                      UnaryLogicalExpression(EqualityExpression("number", AbsoluteComparisonValue(1.0)),
-                                                             NotOperator)))),
+                                      NotExpression(EqualityExpression("number", AbsoluteComparisonValue(1.0)))))),
           None,
           None,
           Some(LimitOperator(1))
@@ -416,10 +415,9 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             Some(
               Condition(
                 TupledLogicalExpression(
-                  TupledLogicalExpression(
-                    LikeExpression("surname", "poe"),
-                    OrOperator,
-                    UnaryLogicalExpression(EqualityExpression("number", AbsoluteComparisonValue(1.0)), NotOperator)),
+                  TupledLogicalExpression(LikeExpression("surname", "poe"),
+                                          OrOperator,
+                                          NotExpression(EqualityExpression("number", AbsoluteComparisonValue(1.0)))),
                   AndOperator,
                   TupledLogicalExpression(
                     ComparisonExpression("age", GreaterThanOperator, AbsoluteComparisonValue(1L)),
@@ -485,7 +483,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
             "people",
             false,
             ListFields(List(Field("name", None))),
-            Some(Condition(UnaryLogicalExpression(NullableExpression("age"), NotOperator))),
+            Some(Condition(NotExpression(NullableExpression("age")))),
             None,
             None,
             Some(LimitOperator(1))
@@ -518,7 +516,7 @@ class QueryEnrichmentTest extends WordSpec with Matchers {
               Condition(
                 TupledLogicalExpression(NullableExpression("age"),
                                         AndOperator,
-                                        UnaryLogicalExpression(NullableExpression("height"), NotOperator)))),
+                                        NotExpression(NullableExpression("height"))))),
             None,
             None,
             Some(LimitOperator(1))

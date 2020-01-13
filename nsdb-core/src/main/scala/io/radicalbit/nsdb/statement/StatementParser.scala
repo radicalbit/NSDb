@@ -83,7 +83,7 @@ object StatementParser {
 
     val expParsed = ExpressionParser.parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
     val fieldList = statement.fields match {
-      case AllFields => Success(List.empty)
+      case AllFields() => Success(List.empty)
       case ListFields(list) =>
         val metricDimensions     = schema.fieldsMap.values.map(_.name).toSeq
         val projectionDimensions = list.map(_.name).filterNot(_ == "*")

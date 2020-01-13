@@ -20,8 +20,7 @@ import java.io._
 import java.nio.file.{Path, Paths}
 import java.util.zip.{ZipEntry, ZipFile}
 
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.model.Location.LocationWithCoordinates
+import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -106,7 +105,9 @@ object FileUtils {
                 .collect {
                   case file if file.getName.split("_").length == 3 =>
                     val Array(metric, from, to) = file.getName.split("_")
-                    (database, namespaceDir.getName, Location(metric, nodeName, from.toLong, to.toLong))
+                    LocationWithCoordinates(database,
+                                            namespaceDir.getName,
+                                            Location(metric, nodeName, from.toLong, to.toLong))
                 }
           }
       }

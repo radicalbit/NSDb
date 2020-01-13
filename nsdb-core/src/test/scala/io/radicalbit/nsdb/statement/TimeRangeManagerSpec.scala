@@ -138,11 +138,10 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
       "parse it successfully of a NOT condition" in {
         TimeRangeManager.extractTimeRange(
           Some(
-            UnaryLogicalExpression(
+            NotExpression(
               expression = ComparisonExpression(dimension = "timestamp",
                                                 comparison = GreaterThanOperator,
-                                                value = AbsoluteComparisonValue(2L)),
-              operator = NotOperator
+                                                value = AbsoluteComparisonValue(2L))
             )
           )) shouldBe List(
           Interval.fromBounds(Unbound(), Closed(2))
@@ -150,9 +149,8 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
 
         TimeRangeManager.extractTimeRange(
           Some(
-            UnaryLogicalExpression(
-              expression = RangeExpression("timestamp", AbsoluteComparisonValue(2L), AbsoluteComparisonValue(4L)),
-              operator = NotOperator
+            NotExpression(
+              expression = RangeExpression("timestamp", AbsoluteComparisonValue(2L), AbsoluteComparisonValue(4L))
             )
           )) shouldBe List(
           Interval.fromBounds(Unbound(), Open(2)),
@@ -163,7 +161,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
       "parse it successfully in case of a GTE OR a LT selection" in {
         TimeRangeManager.extractTimeRange(
           Some(
-            UnaryLogicalExpression(
+            NotExpression(
               expression = TupledLogicalExpression(
                 expression1 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = GreaterOrEqualToOperator,
@@ -172,8 +170,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
                 expression2 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = LessThanOperator,
                                                    value = AbsoluteComparisonValue(4L))
-              ),
-              operator = NotOperator
+              )
             )
           )) shouldBe List(
           Interval.fromBounds(Unbound(), Open(0))

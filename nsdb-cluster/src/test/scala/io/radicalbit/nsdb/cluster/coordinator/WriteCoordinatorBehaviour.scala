@@ -125,7 +125,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         namespace = namespace,
         metric = "testMetric",
         distinct = false,
-        fields = AllFields,
+        fields = AllFields(),
         condition = Some(
           Condition(
             ComparisonExpression(dimension = "timestamp",

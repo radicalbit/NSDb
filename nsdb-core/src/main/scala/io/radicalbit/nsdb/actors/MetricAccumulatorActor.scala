@@ -210,7 +210,7 @@ class MetricAccumulatorActor(val basePath: String,
       StatementParser.parseStatement(statement, schema) match {
         case Success(ParsedDeleteQuery(ns, metric, q)) =>
           keys.foreach { key =>
-            opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, q))
+            opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, statement, schema))
           }
           sender() ! DeleteStatementExecuted(db, namespace, metric)
         case Failure(ex) =>

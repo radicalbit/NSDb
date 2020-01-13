@@ -74,13 +74,11 @@ object CustomSerializers {
         ({
           case JString(logical) =>
             logical.toLowerCase match {
-              case "not" => NotOperator
               case "and" => AndOperator
               case "or"  => OrOperator
             }
           case JNull => null
         }, {
-          case NotOperator => JString("not")
           case AndOperator => JString("and")
           case OrOperator  => JString("or")
         }))
