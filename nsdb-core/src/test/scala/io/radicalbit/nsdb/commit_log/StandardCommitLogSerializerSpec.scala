@@ -321,7 +321,7 @@ class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
         val ts        = 1500909299161L
         val metric    = "test-metric"
         val expression =
-          UnaryLogicalExpression(
+          NotExpression(
             ComparisonExpression("dimension", GreaterOrEqualToOperator, AbsoluteComparisonValue("dimValue")))
         val originalEntry =
           DeleteEntry(db = db, namespace = namespace, metric = metric, timestamp = ts, expression = expression)

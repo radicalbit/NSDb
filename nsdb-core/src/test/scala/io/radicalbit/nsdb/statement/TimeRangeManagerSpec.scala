@@ -138,7 +138,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
       "parse it successfully of a NOT condition" in {
         TimeRangeManager.extractTimeRange(
           Some(
-            UnaryLogicalExpression(
+            NotExpression(
               expression = ComparisonExpression(dimension = "timestamp",
                                                 comparison = GreaterThanOperator,
                                                 value = AbsoluteComparisonValue(2L))
@@ -149,7 +149,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
 
         TimeRangeManager.extractTimeRange(
           Some(
-            UnaryLogicalExpression(
+            NotExpression(
               expression = RangeExpression("timestamp", AbsoluteComparisonValue(2L), AbsoluteComparisonValue(4L))
             )
           )) shouldBe List(
@@ -161,7 +161,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
       "parse it successfully in case of a GTE OR a LT selection" in {
         TimeRangeManager.extractTimeRange(
           Some(
-            UnaryLogicalExpression(
+            NotExpression(
               expression = TupledLogicalExpression(
                 expression1 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = GreaterOrEqualToOperator,

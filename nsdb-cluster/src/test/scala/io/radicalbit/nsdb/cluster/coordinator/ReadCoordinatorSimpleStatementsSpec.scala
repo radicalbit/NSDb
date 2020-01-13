@@ -638,7 +638,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               fields = ListFields(List(Field("name", None))),
               condition = Some(
                 Condition(
-                  UnaryLogicalExpression(
+                  NotExpression(
                     ComparisonExpression(dimension = "timestamp",
                                          comparison = GreaterOrEqualToOperator,
                                          value = AbsoluteComparisonValue(10L))

@@ -483,7 +483,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(
               Condition(
-                UnaryLogicalExpression(
+                NotExpression(
                   expression = TupledLogicalExpression(
                     expression1 = ComparisonExpression(dimension = "timestamp",
                                                        comparison = GreaterOrEqualToOperator,
@@ -532,7 +532,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(
               Condition(
-                UnaryLogicalExpression(
+                NotExpression(
                   expression = TupledLogicalExpression(
                     expression1 = ComparisonExpression(dimension = "timestamp",
                                                        comparison = GreaterOrEqualToOperator,
@@ -579,7 +579,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             fields = ListFields(List(Field("name", None))),
             condition = Some(
               Condition(
-                UnaryLogicalExpression(
+                NotExpression(
                   expression = TupledLogicalExpression(
                     expression1 = ComparisonExpression(dimension = "timestamp",
                                                        comparison = GreaterOrEqualToOperator,
@@ -812,7 +812,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", None))),
-            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "name")))),
+            condition = Some(Condition(NotExpression(NullableExpression(dimension = "name")))),
             limit = Some(LimitOperator(5))
           ),
           schema
@@ -876,7 +876,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", None))),
-            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "value")))),
+            condition = Some(Condition(NotExpression(NullableExpression(dimension = "value")))),
             limit = Some(LimitOperator(5))
           ),
           schema
@@ -941,7 +941,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", None))),
-            condition = Some(Condition(UnaryLogicalExpression(NullableExpression(dimension = "creationDate")))),
+            condition = Some(Condition(NotExpression(NullableExpression(dimension = "creationDate")))),
             limit = Some(LimitOperator(5))
           ),
           schema

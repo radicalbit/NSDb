@@ -47,7 +47,7 @@ object ExpressionParser {
       case Some(RangeExpression(dimension, ComparisonValue(value1), ComparisonValue(value2))) =>
         rangeExpression(schema, dimension, value1, value2)
 
-      case Some(UnaryLogicalExpression(expression)) => unaryLogicalExpression(schema, expression)
+      case Some(NotExpression(expression)) => unaryLogicalExpression(schema, expression)
 
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         tupledLogicalExpression(schema, expression1, operator, expression2)

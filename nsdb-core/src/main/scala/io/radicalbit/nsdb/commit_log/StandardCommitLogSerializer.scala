@@ -42,7 +42,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private final val equalityExpressionClassName     = classOf[EqualityExpression[_]].getCanonicalName
   private final val likeExpressionClassName         = classOf[LikeExpression].getCanonicalName
   private final val nullableExpressionClassName     = classOf[NullableExpression].getCanonicalName
-  private final val unaryLogicalExpressionClassName = classOf[UnaryLogicalExpression].getCanonicalName
+  private final val unaryLogicalExpressionClassName = classOf[NotExpression].getCanonicalName
   private final val tupleLogicalExpressionClassName = classOf[TupledLogicalExpression].getCanonicalName
 
   /**
@@ -219,7 +219,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         writeBuffer.write(value.toString)
       case NullableExpression(dimension) =>
         writeBuffer.write(dimension)
-      case UnaryLogicalExpression(expression1) =>
+      case NotExpression(expression1) =>
         extractExpression(expression1)
       case TupledLogicalExpression(expression1, tupledLogicalOperator, expression2) =>
         extractExpression(expression1)

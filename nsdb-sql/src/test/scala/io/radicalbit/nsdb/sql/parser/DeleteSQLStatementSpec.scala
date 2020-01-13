@@ -104,7 +104,7 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             metric = "people",
-            condition = Condition(UnaryLogicalExpression(
+            condition = Condition(NotExpression(
               expression = TupledLogicalExpression(
                 expression1 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = GreaterOrEqualToOperator,

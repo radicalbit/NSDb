@@ -41,10 +41,10 @@ final case class Condition(expression: Expression)
 sealed trait Expression
 
 /**
-  * Simple expression having a [[NotOperator]] applied.
-  * @param expression the simple expression.
+  * Simple Not expression.
+  * @param expression the expression to negate.
   */
-final case class UnaryLogicalExpression(expression: Expression) extends Expression
+final case class NotExpression(expression: Expression) extends Expression
 
 /**
   * A couple of simple expressions having a [[TupledLogicalOperator]] applied.
@@ -99,11 +99,6 @@ final case class NullableExpression(dimension: String) extends Expression
   * Logical operators that can be applied to 1 or 2 expressions.
   */
 sealed trait LogicalOperator
-
-/**
-  * Logical operator that can be applied only to 1 expression e.g. [[NotOperator]].
-  */
-case object NotOperator extends LogicalOperator
 
 /**
   * Logical operators that can be applied only to 2 expressions e.g. [[AndOperator]] and [[OrOperator]].
@@ -263,7 +258,7 @@ final case class SelectSQLStatement(override val db: String,
       case "<"         => Some(ComparisonExpression(dimension, LessThanOperator, value.map(AbsoluteComparisonValue(_)).get))
       case "LIKE"      => Some(LikeExpression(dimension, value.get.asInstanceOf[String]))
       case "ISNULL"    => Some(NullableExpression(dimension))
-      case "ISNOTNULL" => Some(UnaryLogicalExpression(NullableExpression(dimension)))
+      case "ISNOTNULL" => Some(NotExpression(NullableExpression(dimension)))
       case op @ _ =>
         logger.warn("Ignored filter with invalid operator: {}", op)
         None

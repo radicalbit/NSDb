@@ -344,7 +344,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(UnaryLogicalExpression(
+            condition = Some(Condition(NotExpression(
               expression = TupledLogicalExpression(
                 expression1 = ComparisonExpression(dimension = "timestamp",
                                                    comparison = GreaterOrEqualToOperator,
@@ -511,7 +511,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                 TupledLogicalExpression(
                   EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("MeetingArea")),
                   AndOperator,
-                  UnaryLogicalExpression(NullableExpression("name"))
+                  NotExpression(NullableExpression("name"))
                 ))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
@@ -536,9 +536,9 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")),
               AndOperator,
               TupledLogicalExpression(
-                UnaryLogicalExpression(NullableExpression("name")),
+                NotExpression(NullableExpression("name")),
                 OrOperator,
-                UnaryLogicalExpression(NullableExpression("floor"))
+                NotExpression(NullableExpression("floor"))
               )
             ))),
             order = Some(DescOrderOperator(dimension = "timestamp")),

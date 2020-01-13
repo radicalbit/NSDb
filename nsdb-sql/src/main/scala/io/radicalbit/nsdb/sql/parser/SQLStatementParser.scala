@@ -166,8 +166,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   private lazy val unaryLogicalExpression = notUnaryLogicalExpression
 
-  private lazy val notUnaryLogicalExpression: PackratParser[UnaryLogicalExpression] =
-    (Not ~> expression) ^^ (expression => UnaryLogicalExpression(expression))
+  private lazy val notUnaryLogicalExpression: PackratParser[NotExpression] =
+    (Not ~> expression) ^^ (expression => NotExpression(expression))
 
   private lazy val tupledLogicalExpression: PackratParser[TupledLogicalExpression] =
     andTupledLogicalExpression | orTupledLogicalExpression
@@ -196,7 +196,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val nullableExpression: PackratParser[Expression] =
     (dimension <~ Is) ~ (Not ?) ~ Null ^^ {
-      case dim ~ Some(_) ~ _ => UnaryLogicalExpression(NullableExpression(dim))
+      case dim ~ Some(_) ~ _ => NotExpression(NullableExpression(dim))
       case dim ~ None ~ _    => NullableExpression(dim)
     }
 
