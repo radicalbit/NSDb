@@ -25,14 +25,8 @@ object MetadataSpec extends MultiNodeConfig {
     |akka.loglevel = ERROR
     |akka.actor{
     | provider = "cluster"
-    | allow-java-serialization = off
-    |
-    | serializers = {
-    |   NSDbRaw = "io.radicalbit.nsdb.serialization.NSDbRawSerializer"
-    | }
     |
     | serialization-bindings {
-    |   "java.io.Serializable" = NSDbRaw
     |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
     | }
     |

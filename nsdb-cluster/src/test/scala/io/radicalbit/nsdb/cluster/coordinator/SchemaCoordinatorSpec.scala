@@ -36,8 +36,7 @@ class SchemaCoordinatorSpec
     with FlatSpecLike
     with Matchers
     with OneInstancePerTest
-    with BeforeAndAfter
-    with EitherValues {
+    with BeforeAndAfter {
 
   val probe = TestProbe()
   val schemaCoordinator =
@@ -110,7 +109,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23.5, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'left
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[UpdateSchemaFailed] shouldBe true
 
     probe.expectNoMessage(1 second)
 
@@ -126,7 +125,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    val schema = probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]].right.value.schema
+    val schema = probe.expectMsgType[SchemaUpdateResponse].asInstanceOf[SchemaUpdated].schema
     schema.fieldsMap.exists(_._1 == "timestamp") shouldBe true
     schema.fieldsMap.exists(_._1 == "value") shouldBe true
 
@@ -141,7 +140,7 @@ class SchemaCoordinatorSpec
     probe.send(schemaCoordinator,
                UpdateSchemaFromRecord("db", "namespace", "noDimensions", Bit(0, 23.5, Map.empty, Map.empty)))
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
   }
 
   "schemaCoordinator" should "return the same schema for a new schema included in the old one" in {
@@ -154,7 +153,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
@@ -168,7 +167,7 @@ class SchemaCoordinatorSpec
       schemaCoordinator,
       UpdateSchemaFromRecord("db", "namespace", "people", Bit(0, 2, Map("name" -> "john"), Map("country" -> "italy"))))
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
@@ -190,7 +189,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "people"))
 
@@ -209,7 +208,7 @@ class SchemaCoordinatorSpec
         Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
     )
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
 
     probe.send(schemaCoordinator, GetSchema("db", "namespace", "offices"))
 
@@ -285,7 +284,7 @@ class SchemaCoordinatorSpec
   "schemaCoordinator" should "update schemas in case of success in different namespaces" in {
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace, "people", surnameRecord))
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
 
     probe.send(schemaCoordinator, GetSchema(db, namespace, "people"))
 
@@ -297,7 +296,7 @@ class SchemaCoordinatorSpec
 
     probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace1, "people", nameRecord))
 
-    probe.expectMsgType[Either[UpdateSchemaFailed, SchemaUpdated]] shouldBe 'right
+    probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
 
     probe.send(schemaCoordinator, GetSchema(db, namespace, "people"))
 

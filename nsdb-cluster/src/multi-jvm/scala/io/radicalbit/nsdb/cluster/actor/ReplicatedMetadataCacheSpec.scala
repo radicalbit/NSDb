@@ -24,10 +24,7 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     |akka.actor{
     | provider = "cluster"
     |
-    | allow-java-serialization = off
-    |
     | serialization-bindings {
-    |   "java.io.Serializable" = none
     |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
     | }
     |

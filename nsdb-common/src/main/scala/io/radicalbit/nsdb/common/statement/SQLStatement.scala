@@ -20,9 +20,18 @@ import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization.{AggregationJsonDeserializer, AggregationJsonSerializer}
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization.{ComparisonOperatorJsonDeserializer, ComparisonOperatorJsonSerializer}
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization.{LogicalOperatorJsonDeserializer, LogicalOperatorJsonSerializer}
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization.{
+  AggregationJsonDeserializer,
+  AggregationJsonSerializer
+}
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization.{
+  ComparisonOperatorJsonDeserializer,
+  ComparisonOperatorJsonSerializer
+}
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization.{
+  LogicalOperatorJsonDeserializer,
+  LogicalOperatorJsonSerializer
+}
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
 /**
@@ -126,7 +135,6 @@ final case class NullableExpression(dimension: String) extends Expression
 @JsonSerialize(using = classOf[LogicalOperatorJsonSerializer])
 @JsonDeserialize(using = classOf[LogicalOperatorJsonDeserializer])
 sealed trait LogicalOperator
-
 
 /**
   * Logical operators that can be applied only to 2 expressions e.g. [[AndOperator]] and [[OrOperator]].

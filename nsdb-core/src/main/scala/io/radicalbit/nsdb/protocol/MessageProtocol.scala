@@ -21,7 +21,7 @@ import akka.dispatch.ControlMessage
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
-import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{AllFields, DeleteSQLStatement, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 
 /**
@@ -168,9 +168,20 @@ object MessageProtocol {
     case class NamespaceDeleted(db: String, namespace: String)                      extends NSDbSerializable
     case class DeleteNamespaceFailed(db: String, namespace: String, reason: String) extends NSDbSerializable
 
-    case class SchemaUpdated(db: String, namespace: String, metric: String, schema: Schema) extends NSDbSerializable
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[SchemaUpdated], name = "SchemaUpdated"),
+        new JsonSubTypes.Type(value = classOf[UpdateSchemaFailed], name = "UpdateSchemaFailed")
+      ))
+    sealed trait SchemaUpdateResponse
+    case class SchemaUpdated(db: String, namespace: String, metric: String, schema: Schema)
+        extends SchemaUpdateResponse
+        with NSDbSerializable
     case class UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])
-        extends NSDbSerializable
+        extends SchemaUpdateResponse
+        with NSDbSerializable
+
     case class SchemaDeleted(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class AllSchemasDeleted(db: String, namespace: String)             extends NSDbSerializable
 

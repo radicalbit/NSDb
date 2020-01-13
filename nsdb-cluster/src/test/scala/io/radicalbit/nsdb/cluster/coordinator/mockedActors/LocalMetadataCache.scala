@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 import akka.actor.Actor
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.model.Location
 
 import scala.collection.JavaConverters._
@@ -94,6 +94,6 @@ class LocalMetadataCache extends Actor {
 }
 
 object LocalMetadataCache {
-  case object DeleteAll
-  case object DeleteDone
+  case object DeleteAll  extends NSDbSerializable
+  case object DeleteDone extends NSDbSerializable
 }

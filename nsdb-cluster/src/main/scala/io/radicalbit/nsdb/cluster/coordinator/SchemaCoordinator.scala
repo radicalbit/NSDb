@@ -63,21 +63,21 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
                                    namespace: String,
                                    metric: String,
                                    oldSchema: Schema,
-                                   newSchema: Schema): Future[Either[UpdateSchemaFailed, SchemaUpdated]] =
+                                   newSchema: Schema): Future[SchemaUpdateResponse] =
     if (oldSchema == newSchema) {
-      Future(Right(SchemaUpdated(db, namespace, metric, newSchema)))
+      Future(SchemaUpdated(db, namespace, metric, newSchema))
     } else
       Schema.union(oldSchema, newSchema) match {
         case Success(unionSchema) =>
           (schemaCache ? PutSchemaInCache(db, namespace, metric, unionSchema))
             .map {
               case SchemaCached(_, _, _, _) =>
-                Right(SchemaUpdated(db, namespace, metric, unionSchema))
+                SchemaUpdated(db, namespace, metric, unionSchema)
               case msg =>
-                Left(UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg")))
+                UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from schema cache $msg"))
             }
         case Failure(t) =>
-          Future(Left(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))))
+          Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
       }
 
   override def receive: Receive = {
@@ -105,20 +105,19 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
                 (schemaCache ? PutSchemaInCache(db, namespace, metric, newSchema))
                   .map {
                     case SchemaCached(_, _, _, _) =>
-                      Right(SchemaUpdated(db, namespace, metric, newSchema))
+                      SchemaUpdated(db, namespace, metric, newSchema)
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
               case (Failure(t), _) =>
-                Future(Left(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage))))
+                Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
             }
           case e =>
             log.error("unexpected response from cache: expecting SchemaCached while got {}", e)
             Future(
-              Left(
-                GetSchemaFailed(db,
-                                namespace,
-                                metric,
-                                s"unexpected response from cache: expecting SchemaCached while got $e")))
+              GetSchemaFailed(db,
+                              namespace,
+                              metric,
+                              s"unexpected response from cache: expecting SchemaCached while got $e"))
         } pipeTo sender()
     case DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
@@ -141,7 +140,7 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
     case Migrate(inputPath) =>
       log.info("migrating schemas for {}", inputPath)
       val allSchemas = FileUtils.getSubDirs(inputPath).flatMap { db =>
-        FileUtils.getSubDirs(db).toList.map { namespace =>
+        FileUtils.getSubDirs(db).map { namespace =>
           val schemaIndexDir = createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "schemas"))
           new IndexUpgrader(schemaIndexDir).upgrade()
           val schemaIndex = new SchemaIndex(schemaIndexDir)
@@ -163,7 +162,10 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
                 (schemaCache ? GetSchemaFromCache(db, namespace, schema.metric))
                   .flatMap {
                     case SchemaCached(_, _, _, Some(oldSchema)) =>
-                      checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema)
+                      checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema).map {
+                        case msg: SchemaUpdated      => Right(msg)
+                        case msg: UpdateSchemaFailed => Left(msg)
+                      }
                     case SchemaCached(_, _, _, None) =>
                       (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
                         .map {

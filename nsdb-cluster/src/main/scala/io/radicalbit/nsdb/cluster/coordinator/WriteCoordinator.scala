@@ -163,10 +163,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] =
     (schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
-        case Right(SchemaUpdated(_, _, _, schema)) =>
+        case SchemaUpdated(_, _, _, schema) =>
           log.debug("Valid schema for the metric {} and the bit {}", metric, bit)
           op(schema)
-        case Left(UpdateSchemaFailed(_, _, _, errs)) =>
+        case UpdateSchemaFailed(_, _, _, errs) =>
           log.error("Invalid schema for the metric {} and the bit {}. Error are {}.", metric, bit, errs.mkString(","))
           Future(RecordRejected(db, namespace, metric, bit, Location.empty, errs, System.currentTimeMillis()))
       }

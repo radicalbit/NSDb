@@ -27,10 +27,8 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString("""
     |akka.loglevel = INFO
     |akka.actor{
-    | allow-java-serialization = off
     |
     | serialization-bindings {
-    |   "java.io.Serializable" = none
     |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
     | }
     |
