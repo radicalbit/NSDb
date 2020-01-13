@@ -16,40 +16,40 @@
 
 package io.radicalbit.nsdb.web
 
-import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
+import io.radicalbit.nsdb.common.protocol.Bit
 import org.json4s.JsonAST.{JDouble, JField, JInt, JLong}
 import org.json4s.{CustomSerializer, JObject, JString, JsonAST}
 
-object BitSerializer {
-
-  private def extractJValue(nsdbType: NSDbType): JsonAST.JValue = {
-    nsdbType match {
-      case NSDbDoubleType(rawValue) => JDouble(rawValue)
-      case NSDbIntType(rawValue)    => JInt(rawValue)
-      case NSDbLongType(rawValue)   => JLong(rawValue)
-      case NSDbStringType(rawValue) => JString(rawValue)
-    }
-  }
-
-  case object BitSerializer
-      extends CustomSerializer[Bit](
-        _ =>
-          (
-            {
-              case _ => ???
-            }, {
-              case bit: Bit =>
-                JObject(
-                  List(
-                    JField("timestamp", JLong(bit.timestamp)),
-                    JField("value", extractJValue(bit.value)),
-                    JField("dimensions",
-                           JObject(bit.dimensions.map { case (k, v)   => JField(k, extractJValue(v)) }.toList)),
-                    JField("tags", JObject(bit.tags.map { case (k, v) => JField(k, extractJValue(v)) }.toList))
-                  )
+/**
+  * Custom serializer for bit that unbox all the raw values
+  */
+case object BitSerializer
+    extends CustomSerializer[Bit](
+      _ =>
+        (
+          {
+            case _ =>
+              throw new IllegalAccessException(
+                "BitSerializer can be used only for serialization and not for deserialization")
+          }, {
+            case bit: Bit =>
+              def extractJValue(nsdbType: NSDbType): JsonAST.JValue = {
+                nsdbType match {
+                  case NSDbDoubleType(rawValue) => JDouble(rawValue)
+                  case NSDbIntType(rawValue)    => JInt(rawValue)
+                  case NSDbLongType(rawValue)   => JLong(rawValue)
+                  case NSDbStringType(rawValue) => JString(rawValue)
+                }
+              }
+              JObject(
+                List(
+                  JField("timestamp", JLong(bit.timestamp)),
+                  JField("value", extractJValue(bit.value)),
+                  JField("dimensions",
+                         JObject(bit.dimensions.map { case (k, v)   => JField(k, extractJValue(v)) }.toList)),
+                  JField("tags", JObject(bit.tags.map { case (k, v) => JField(k, extractJValue(v)) }.toList))
                 )
-            }
-        ))
-
-}
+              )
+          }
+      ))

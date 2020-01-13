@@ -47,6 +47,7 @@ object CapacityWriteNodesSelectionLogic {
     * @return the specified metric selector
     * @throws IllegalArgumentException the configuration is not among the allowed values.
     */
+  @throws[IllegalArgumentException]
   def fromConfigValue(configValue: String): CapacityMetricsSelector = {
     configValue match {
       case "heap" => HeapMetricsSelector

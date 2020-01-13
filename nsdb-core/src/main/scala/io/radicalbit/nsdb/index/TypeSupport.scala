@@ -125,7 +125,7 @@ object IndexType {
   private val supportedType = Seq(INT(), BIGINT(), DECIMAL(), VARCHAR())
 
   def fromRawField(rawField: RawField): Try[TypedField] =
-    supportedType.find(_.actualType == rawField.value.concreteManifest) match {
+    supportedType.find(_.actualType == rawField.value.runtimeManifest) match {
       case Some(indexType) => Success(TypedField(rawField.name, rawField.fieldClassType, indexType, rawField.value))
       case None =>
         Failure(

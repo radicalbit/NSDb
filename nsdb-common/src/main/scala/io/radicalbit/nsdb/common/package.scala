@@ -21,10 +21,23 @@ package io.radicalbit.nsdb
   */
 package object common {
 
+  /**
+    * Encapsulates raw types.
+    * Direct children (i.e. supported types) are:
+    * - [[NSDbNumericType]] encapsulates a numeric type.
+    * - [[NSDbStringType]] for String values.
+    */
   sealed trait NSDbType {
+
+    /**
+      * @return the raw Value (the Any Type will be specialized in children definition)
+      */
     def rawValue: Any
 
-    def concreteManifest: Manifest[_]
+    /**
+      * @return the type runtime manifest
+      */
+    def runtimeManifest: Manifest[_]
   }
 
   object NSDbType {
@@ -34,6 +47,11 @@ package object common {
     implicit def NSDbTypeDouble(value: Double): NSDbType = NSDbType(value)
     implicit def NSDbTypeString(value: String): NSDbType = NSDbType(value)
 
+    /**
+      * Factory method to instantiate a [[NSDbType]] from a supported raw type.
+      * @throws IllegalArgumentException if the raw value is not supported.
+      */
+    @throws[IllegalArgumentException]
     def apply(rawValue: Any): NSDbType = {
       rawValue match {
         case v: Int    => NSDbIntType(v)
@@ -45,6 +63,13 @@ package object common {
     }
   }
 
+  /**
+    * Encapsulates numeric raw types.
+    * Direct children (i.e. supported types) are:
+    * - [[NSDbIntType]] for [[Int]] values.
+    * - [[NSDbLongType]] for [[Long]] values.
+    * - [[NSDbDoubleType]] for [[Double]] values
+    */
   sealed trait NSDbNumericType extends NSDbType
 
   object NSDbNumericType {
@@ -53,6 +78,11 @@ package object common {
     implicit def NSDbNumericTypeInt(value: Int): NSDbNumericType       = NSDbNumericType(value)
     implicit def NSDbNumericTypeDouble(value: Double): NSDbNumericType = NSDbNumericType(value)
 
+    /**
+      * Factory method to instantiate a [[NSDbNumericType]] from a supported raw type.
+      * @throws IllegalArgumentException if the raw value is not supported.
+      */
+    @throws[IllegalArgumentException]
     def apply(rawValue: Any): NSDbNumericType = {
       rawValue match {
         case v: Int    => NSDbIntType(v)
@@ -65,16 +95,16 @@ package object common {
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
-    def concreteManifest: Manifest[_] = manifest[Int]
+    def runtimeManifest: Manifest[_] = manifest[Int]
   }
   case class NSDbLongType(rawValue: Long) extends NSDbNumericType {
-    def concreteManifest: Manifest[_] = manifest[Long]
+    def runtimeManifest: Manifest[_] = manifest[Long]
   }
   case class NSDbDoubleType(rawValue: Double) extends NSDbNumericType {
-    def concreteManifest: Manifest[_] = manifest[Double]
+    def runtimeManifest: Manifest[_] = manifest[Double]
   }
   case class NSDbStringType(rawValue: String) extends NSDbType {
-    def concreteManifest: Manifest[_] = manifest[String]
+    def runtimeManifest: Manifest[_] = manifest[String]
   }
 
 }
