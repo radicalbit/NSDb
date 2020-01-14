@@ -79,6 +79,7 @@ object SqlStatementSerialization {
 
       override def deserialize(p: JsonParser, ctxt: DeserializationContext): LogicalOperator = {
         p.getText match {
+          case "NotOperator" => NotOperator
           case "AndOperator" => AndOperator
           case "OrOperator"  => OrOperator
         }

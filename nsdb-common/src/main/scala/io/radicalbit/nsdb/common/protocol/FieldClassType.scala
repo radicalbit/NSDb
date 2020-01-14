@@ -38,12 +38,6 @@ case object TagFieldType       extends FieldClassType
 class FieldClassTypeJsonSerializer extends StdSerializer[FieldClassType](classOf[FieldClassType]) {
 
   override def serialize(value: FieldClassType, gen: JsonGenerator, provider: SerializerProvider): Unit =
-//    val strValue = value match {
-//      case TimestampFieldType => "TimestampFieldType"
-//      case ValueFieldType     => "ValueFieldType"
-//      case DimensionFieldType => "DimensionFieldType"
-//      case TagFieldType       => "TagFieldType"
-//    }
     gen.writeString(value.toString)
 
 }

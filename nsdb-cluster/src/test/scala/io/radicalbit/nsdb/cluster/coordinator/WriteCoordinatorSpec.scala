@@ -30,7 +30,7 @@ import scala.concurrent.duration._
 class WriteCoordinatorSpec
     extends TestKit(
       ActorSystem(
-        "nsdb-test",
+        "WriteCoordinatorSpec",
         ConfigFactory
           .load()
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
