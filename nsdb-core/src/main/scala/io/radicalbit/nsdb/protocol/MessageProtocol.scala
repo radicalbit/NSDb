@@ -21,7 +21,7 @@ import akka.dispatch.ControlMessage
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
-import io.radicalbit.nsdb.common.statement.{AllFields, DeleteSQLStatement, ListFields, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 
 /**

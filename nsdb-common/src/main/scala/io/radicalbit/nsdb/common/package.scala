@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb
 
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
-import io.radicalbit.nsdb.common.statement.{AllFields, ListFields}
 
 /**
   * Contains some useful type aliases.
