@@ -86,7 +86,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     dimensions.map {
       case (n, t, v) =>
         val i = Class.forName(t).newInstance().asInstanceOf[IndexType[_]]
-        n -> i.deserialize(v).asInstanceOf[NSDbType]
+        n -> i.deserialize(v)
     }.toMap
 
   /**
@@ -168,7 +168,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
       case `unaryLogicalExpressionClassName` =>
         val expClass = readByteBuffer.read
         val exp      = createExpression(expClass)
-        clazz.getConstructor(classOf[Expression]).newInstance(exp)
+        clazz.getConstructor(classOf[Expression], classOf[LogicalOperator]).newInstance(exp, NotOperator)
 
       case `tupleLogicalExpressionClassName` =>
         val expClass1 = readByteBuffer.read
@@ -219,7 +219,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         writeBuffer.write(value.toString)
       case NullableExpression(dimension) =>
         writeBuffer.write(dimension)
-      case NotExpression(expression1) =>
+      case NotExpression(expression1, _) =>
         extractExpression(expression1)
       case TupledLogicalExpression(expression1, tupledLogicalOperator, expression2) =>
         extractExpression(expression1)
