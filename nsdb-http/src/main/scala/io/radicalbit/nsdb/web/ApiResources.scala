@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
 import io.radicalbit.nsdb.web.validation.FieldErrorInfo
+import org.json4s.Formats
 import spray.json._
 
 import scala.concurrent.ExecutionContext
@@ -126,7 +127,8 @@ class ApiResources(val publisherActor: ActorRef,
                    val metadataCoordinator: ActorRef,
                    val authenticationProvider: NSDBAuthProvider)(override implicit val timeout: Timeout,
                                                                  implicit val logger: LoggingAdapter,
-                                                                 override implicit val ec: ExecutionContext)
+                                                                 override implicit val ec: ExecutionContext,
+                                                                 override implicit val formats: Formats)
     extends CommandApi
     with QueryApi
     with QueryValidationApi
