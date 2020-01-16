@@ -133,13 +133,15 @@ class ClusterListener() extends Actor with ActorLogging {
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
 
+      log.info("trying to get metadatacoordinator {}", s"/user/guardian_$selfNodeName")
       (context.actorSelection(s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
         .map {
           case NodeChildActorsGot(metadataCoordinator, _, _, _) =>
+            log.info("trying to remove fro mmetadatacoordinator {}", metadataCoordinator)
             (metadataCoordinator ? RemoveNodeMetadata(createNodeName(member))).map {
-              case Right(NodeMetadataRemoved(nodeName)) =>
+              case NodeMetadataRemoved(nodeName) =>
                 log.info(s"metadata successfully removed for node $nodeName")
-              case Left(RemoveNodeMetadataFailed(nodeName)) =>
+              case RemoveNodeMetadataFailed(nodeName) =>
                 log.error(s"RemoveNodeMetadataFailed for node $nodeName")
             }
 
