@@ -107,8 +107,10 @@ object FakeReadCoordinator {
   }
 
   def bitsParametrized(from: Long, to: Long): Seq[Bit] =
-    Seq(Bit(from, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
-        Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map("country" -> "country")))
+    Seq(
+      Bit(from, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
+      Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map("country" -> "country"))
+    )
   val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
                  Bit(2, 3, Map("name" -> "name", "number" -> 2), Map("country" -> "country")))
 }

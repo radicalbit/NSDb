@@ -15,8 +15,8 @@
  */
 
 package io.radicalbit.nsdb.client.rpc.converter
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 
 /**
@@ -29,52 +29,43 @@ object GrpcBitConverters {
       GrpcBit(
         timestamp = bit.timestamp,
         value = bit.value match {
-          case v: java.lang.Long                         => GrpcBit.Value.LongValue(v)
-          case v: java.lang.Double                       => GrpcBit.Value.DecimalValue(v)
-          case v: java.lang.Float                        => GrpcBit.Value.DecimalValue(v.doubleValue())
-          case v: java.lang.Integer                      => GrpcBit.Value.LongValue(v.longValue())
-          case v: java.math.BigDecimal if v.scale() == 0 => GrpcBit.Value.LongValue(v.longValue())
-          case v: java.math.BigDecimal                   => GrpcBit.Value.DecimalValue(v.doubleValue())
+          case NSDbLongType(v)   => GrpcBit.Value.LongValue(v)
+          case NSDbDoubleType(v) => GrpcBit.Value.DecimalValue(v)
+          case NSDbIntType(v)    => GrpcBit.Value.LongValue(v.longValue())
         },
         dimensions = bit.dimensions.map {
-          case (k, v: java.lang.Double)  => (k, Dimension(Dimension.Value.DecimalValue(v)))
-          case (k, v: java.lang.Float)   => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
-          case (k, v: java.lang.Long)    => (k, Dimension(Dimension.Value.LongValue(v)))
-          case (k, v: java.lang.Integer) => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
-            (k, Dimension(Dimension.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) => (k, Dimension(Dimension.Value.DecimalValue(v.doubleValue())))
-          case (k, v)                       => (k, Dimension(Dimension.Value.StringValue(v.toString)))
+          case (k, NSDbDoubleType(v)) => (k, Dimension(Dimension.Value.DecimalValue(v)))
+          case (k, NSDbLongType(v))   => (k, Dimension(Dimension.Value.LongValue(v)))
+          case (k, NSDbIntType(v))    => (k, Dimension(Dimension.Value.LongValue(v.longValue())))
+          case (k, NSDbStringType(v)) => (k, Dimension(Dimension.Value.StringValue(v)))
+          case (k, v)                 => (k, Dimension(Dimension.Value.StringValue(v.toString)))
         },
         tags = bit.tags.map {
-          case (k, v: java.lang.Double)  => (k, Tag(Tag.Value.DecimalValue(v)))
-          case (k, v: java.lang.Float)   => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
-          case (k, v: java.lang.Long)    => (k, Tag(Tag.Value.LongValue(v)))
-          case (k, v: java.lang.Integer) => (k, Tag(Tag.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) if v.scale() == 0 =>
-            (k, Tag(Tag.Value.LongValue(v.longValue())))
-          case (k, v: java.math.BigDecimal) => (k, Tag(Tag.Value.DecimalValue(v.doubleValue())))
-          case (k, v)                       => (k, Tag(Tag.Value.StringValue(v.toString)))
+          case (k, NSDbDoubleType(v)) => (k, Tag(Tag.Value.DecimalValue(v)))
+          case (k, NSDbLongType(v))   => (k, Tag(Tag.Value.LongValue(v)))
+          case (k, NSDbIntType(v))    => (k, Tag(Tag.Value.LongValue(v.longValue())))
+          case (k, NSDbStringType(v)) => (k, Tag(Tag.Value.StringValue(v)))
+          case (k, v)                 => (k, Tag(Tag.Value.StringValue(v.toString)))
         }
       )
   }
 
   implicit class GrpcBitConverter(bit: GrpcBit) {
-    private def valueFor(v: GrpcBit.Value): JSerializable = v match {
-      case _: GrpcBit.Value.DecimalValue => v.decimalValue.get
-      case _: GrpcBit.Value.LongValue    => v.longValue.get
+    private def valueFor(v: GrpcBit.Value): NSDbNumericType = v match {
+      case _: GrpcBit.Value.DecimalValue => NSDbNumericType(v.decimalValue.get)
+      case _: GrpcBit.Value.LongValue    => NSDbNumericType(v.longValue.get)
     }
 
-    private def dimensionFor(v: Dimension.Value): JSerializable = v match {
-      case _: Dimension.Value.DecimalValue => v.decimalValue.get
-      case _: Dimension.Value.LongValue    => v.longValue.get
-      case _                               => v.stringValue.get
+    private def dimensionFor(v: Dimension.Value): NSDbType = v match {
+      case _: Dimension.Value.DecimalValue => NSDbType(v.decimalValue.get)
+      case _: Dimension.Value.LongValue    => NSDbType(v.longValue.get)
+      case _                               => NSDbType(v.stringValue.get)
     }
 
-    private def tagFor(v: Tag.Value): JSerializable = v match {
-      case _: Tag.Value.DecimalValue => v.decimalValue.get
-      case _: Tag.Value.LongValue    => v.longValue.get
-      case _                         => v.stringValue.get
+    private def tagFor(v: Tag.Value): NSDbType = v match {
+      case _: Tag.Value.DecimalValue => NSDbType(v.decimalValue.get)
+      case _: Tag.Value.LongValue    => NSDbType(v.longValue.get)
+      case _                         => NSDbType(v.stringValue.get)
     }
 
     def asBit: Bit =

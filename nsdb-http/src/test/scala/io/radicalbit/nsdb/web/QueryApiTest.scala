@@ -68,7 +68,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
         override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
         fixed timestamp in order to make the test time-independent
      */
-    override implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializersForTesting
+    override implicit val formats
+      : Formats                            = DefaultFormats ++ CustomSerializers.customSerializersForTesting + BitSerializer
     override implicit val timeout: Timeout = 5 seconds
   }
 

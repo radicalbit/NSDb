@@ -21,8 +21,90 @@ package io.radicalbit.nsdb
   */
 package object common {
 
-  type JSerializable = java.io.Serializable
+  /**
+    * Encapsulates raw types.
+    * Direct children (i.e. supported types) are:
+    * - [[NSDbNumericType]] encapsulates a numeric type.
+    * - [[NSDbStringType]] for String values.
+    */
+  sealed trait NSDbType {
 
-  type JLong   = java.lang.Long
-  type JDouble = java.lang.Double
+    /**
+      * @return the raw Value (the Any Type will be specialized in children definition)
+      */
+    def rawValue: Any
+
+    /**
+      * @return the type runtime manifest
+      */
+    def runtimeManifest: Manifest[_]
+  }
+
+  object NSDbType {
+
+    implicit def NSDbTypeLong(value: Long): NSDbType     = NSDbType(value)
+    implicit def NSDbTypeInt(value: Int): NSDbType       = NSDbType(value)
+    implicit def NSDbTypeDouble(value: Double): NSDbType = NSDbType(value)
+    implicit def NSDbTypeString(value: String): NSDbType = NSDbType(value)
+
+    /**
+      * Factory method to instantiate a [[NSDbType]] from a supported raw type.
+      * @throws IllegalArgumentException if the raw value is not supported.
+      */
+    @throws[IllegalArgumentException]
+    def apply(rawValue: Any): NSDbType = {
+      rawValue match {
+        case v: Int    => NSDbIntType(v)
+        case v: Long   => NSDbLongType(v)
+        case v: Double => NSDbDoubleType(v)
+        case v: String => NSDbStringType(v)
+        case v         => throw new IllegalArgumentException(s"rawValue $v of class ${v.getClass} is not a valid NSDbType")
+      }
+    }
+  }
+
+  /**
+    * Encapsulates numeric raw types.
+    * Direct children (i.e. supported types) are:
+    * - [[NSDbIntType]] for [[Int]] values.
+    * - [[NSDbLongType]] for [[Long]] values.
+    * - [[NSDbDoubleType]] for [[Double]] values
+    */
+  sealed trait NSDbNumericType extends NSDbType
+
+  object NSDbNumericType {
+
+    implicit def NSDbNumericTypeLong(value: Long): NSDbNumericType     = NSDbNumericType(value)
+    implicit def NSDbNumericTypeInt(value: Int): NSDbNumericType       = NSDbNumericType(value)
+    implicit def NSDbNumericTypeDouble(value: Double): NSDbNumericType = NSDbNumericType(value)
+
+    /**
+      * Factory method to instantiate a [[NSDbNumericType]] from a supported raw type.
+      * @throws IllegalArgumentException if the raw value is not supported.
+      */
+    @throws[IllegalArgumentException]
+    def apply(rawValue: Any): NSDbNumericType = {
+      rawValue match {
+        case v: Int    => NSDbIntType(v)
+        case v: Long   => NSDbLongType(v)
+        case v: Double => NSDbDoubleType(v)
+        case v =>
+          throw new IllegalArgumentException(s"rawValue $v of class ${v.getClass} is not a valid NSDbNumericType")
+      }
+    }
+  }
+
+  case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
+    def runtimeManifest: Manifest[_] = manifest[Int]
+  }
+  case class NSDbLongType(rawValue: Long) extends NSDbNumericType {
+    def runtimeManifest: Manifest[_] = manifest[Long]
+  }
+  case class NSDbDoubleType(rawValue: Double) extends NSDbNumericType {
+    def runtimeManifest: Manifest[_] = manifest[Double]
+  }
+  case class NSDbStringType(rawValue: String) extends NSDbType {
+    def runtimeManifest: Manifest[_] = manifest[String]
+  }
+
 }

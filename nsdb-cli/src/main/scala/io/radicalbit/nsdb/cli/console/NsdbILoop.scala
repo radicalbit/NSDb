@@ -21,10 +21,10 @@ import java.io.BufferedReader
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.requestCommand.{
@@ -226,14 +226,14 @@ class NsdbILoop(host: Option[String],
           r =>
             Bit(
               r.timestamp,
-              r.value.value.asInstanceOf[JSerializable],
+              NSDbNumericType(r.value.value),
               r.dimensions.map {
                 case (k, dim) =>
-                  (k, dim.value.value.asInstanceOf[JSerializable])
+                  (k, NSDbType(dim.value.value))
               },
               r.tags.map {
                 case (k, dim) =>
-                  (k, dim.value.value.asInstanceOf[JSerializable])
+                  (k, NSDbType(dim.value.value))
               }
           ))
       )

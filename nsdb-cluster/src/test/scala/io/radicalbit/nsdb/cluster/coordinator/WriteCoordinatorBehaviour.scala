@@ -82,7 +82,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
     TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "localhost", writeCoordinatorActor))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
-  val record2 = Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
+  val record2 =
+    Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
 
   def defaultBehaviour {
     "write records" in within(5.seconds) {

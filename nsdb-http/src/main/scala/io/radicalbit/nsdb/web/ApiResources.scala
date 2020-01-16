@@ -23,7 +23,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.util.Timeout
 import com.typesafe.config.Config
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -36,8 +36,36 @@ import scala.concurrent.ExecutionContext
 
 object Formats extends DefaultJsonProtocol with SprayJsonSupport {
 
-  implicit object JSerializableJsonFormat extends RootJsonFormat[JSerializable] {
-    def write(c: JSerializable) = c match {
+  implicit object NSDbTypeJsonFormat extends RootJsonFormat[NSDbType] {
+    def write(c: NSDbType): JsValue = c match {
+      case NSDbDoubleType(v) => JsNumber(v)
+      case NSDbLongType(v)   => JsNumber(v)
+      case NSDbIntType(v)    => JsNumber(v)
+      case NSDbStringType(v) => JsString(v.toString)
+    }
+    def read(value: JsValue): NSDbType = value match {
+      case JsNumber(v) if v.scale > 0   => NSDbDoubleType(v.doubleValue)
+      case JsNumber(v) if v.isValidLong => NSDbLongType(v.longValue)
+      case JsNumber(v) if v.isValidInt  => NSDbIntType(v.intValue)
+      case JsString(v)                  => NSDbStringType(v)
+    }
+  }
+
+  implicit object NSDbNumericTypeJsonFormat extends RootJsonFormat[NSDbNumericType] {
+    def write(c: NSDbNumericType): JsValue = c match {
+      case NSDbDoubleType(v) => JsNumber(v)
+      case NSDbLongType(v)   => JsNumber(v)
+      case NSDbIntType(v)    => JsNumber(v)
+    }
+    def read(value: JsValue): NSDbNumericType = value match {
+      case JsNumber(v) if v.scale > 0   => NSDbDoubleType(v.doubleValue)
+      case JsNumber(v) if v.isValidLong => NSDbLongType(v.longValue)
+      case JsNumber(v) if v.isValidInt  => NSDbIntType(v.intValue)
+    }
+  }
+
+  implicit object JSerializableJsonFormat extends RootJsonFormat[java.io.Serializable] {
+    def write(c: java.io.Serializable) = c match {
       case v: java.lang.Double  => JsNumber(v)
       case v: java.lang.Long    => JsNumber(v)
       case v: java.lang.Integer => JsNumber(v)

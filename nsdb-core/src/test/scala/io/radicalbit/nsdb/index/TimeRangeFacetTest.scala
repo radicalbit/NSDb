@@ -21,8 +21,8 @@ import java.util.UUID
 
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.LongPoint
-import org.apache.lucene.facet.{FacetResult, FacetsCollector}
 import org.apache.lucene.facet.range.{LongRange, LongRangeFacetCounts}
+import org.apache.lucene.facet.{FacetResult, FacetsCollector}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.MMapDirectory

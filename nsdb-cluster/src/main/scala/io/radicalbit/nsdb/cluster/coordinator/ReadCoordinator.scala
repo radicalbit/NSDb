@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
@@ -196,14 +196,15 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                 case Right(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                     if fields.lengthCompare(1) == 0 && fields.head.count =>
                   gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
-                    val recordCount = seq.map(_.value.asInstanceOf[Int]).sum
+                    val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
                     val count       = if (recordCount <= limit) recordCount else limit
 
-                    Seq(
-                      Bit(timestamp = 0,
-                          value = count,
-                          dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                          tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)))
+                    Seq(Bit(
+                      timestamp = 0,
+                      value = NSDbNumericType(count),
+                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
+                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
+                    ))
                   })
 
                 case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
@@ -215,7 +216,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                   gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { values =>
                     Bit(
                       timestamp = 0,
-                      value = 0,
+                      value = NSDbNumericType(0),
                       dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
                       tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
                     )
@@ -224,21 +225,33 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                 case Right(ParsedAggregatedQuery(_, _, _, InternalCountSimpleAggregation(_, _), _, _)) =>
                   gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
                     values =>
-                      Bit(0, values.map(_.value.asInstanceOf[Long]).sum, values.head.dimensions, values.head.tags)
+                      Bit(0,
+                          NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                          values.head.dimensions,
+                          values.head.tags)
                   }
 
                 case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
                   gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
                     values =>
-                      val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
-                      implicit val numeric: Numeric[JSerializable] = v.numeric
+                      val v                = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+                      implicit val numeric = v.numeric
                       aggregationType match {
                         case InternalMaxSimpleAggregation(_, _) =>
-                          Bit(0, values.map(_.value).max, values.head.dimensions, values.head.tags)
+                          Bit(0,
+                              NSDbNumericType(values.map(_.value.rawValue).max),
+                              values.head.dimensions,
+                              values.head.tags)
                         case InternalMinSimpleAggregation(_, _) =>
-                          Bit(0, values.map(_.value).min, values.head.dimensions, values.head.tags)
+                          Bit(0,
+                              NSDbNumericType(values.map(_.value.rawValue).min),
+                              values.head.dimensions,
+                              values.head.tags)
                         case InternalSumSimpleAggregation(_, _) =>
-                          Bit(0, values.map(_.value).sum, values.head.dimensions, values.head.tags)
+                          Bit(0,
+                              NSDbNumericType(values.map(_.value.rawValue).sum),
+                              values.head.dimensions,
+                              values.head.tags)
                       }
                   }
                 case Right(
@@ -263,8 +276,12 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                   gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
                     res
                       .groupBy(_.timestamp)
-                      .mapValues(v =>
-                        Bit(v.head.timestamp, v.map(_.value.asInstanceOf[Long]).sum, v.head.dimensions, v.head.tags))
+                      .mapValues(
+                        v =>
+                          Bit(v.head.timestamp,
+                              NSDbNumericType(v.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                              v.head.dimensions,
+                              v.head.tags))
                       .values
                       .toSeq
                   }
@@ -286,11 +303,16 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                                                           condition)
 
                   gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                    val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
-                    implicit val numeric: Numeric[JSerializable] = v.numeric
+                    val v                              = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+                    implicit val numeric: Numeric[Any] = v.numeric
                     res
                       .groupBy(_.timestamp)
-                      .mapValues(v => Bit(v.head.timestamp, v.map(_.value).sum, v.head.dimensions, v.head.tags))
+                      .mapValues(
+                        v =>
+                          Bit(v.head.timestamp,
+                              NSDbNumericType(v.map(_.value.rawValue).sum),
+                              v.head.dimensions,
+                              v.head.tags))
                       .values
                       .toSeq
                   }
@@ -312,21 +334,25 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                                                           condition)
 
                   gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                    val v                                        = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_, _]]
-                    implicit val numeric: Numeric[JSerializable] = v.numeric
+                    val v                              = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+                    implicit val numeric: Numeric[Any] = v.numeric
                     res
                       .groupBy(_.timestamp)
-                      .mapValues(v =>
-                        if (aggregationType == InternalMaxTemporalAggregation)
-                          Bit(v.head.timestamp, v.map(_.value).max, v.head.dimensions, v.head.tags)
-                        else {
-                          val nonZeroValues: Seq[JSerializable] =
-                            v.collect { case x if x.value != numeric.zero => x.value }
-                          Bit(v.head.timestamp,
-                              if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min,
-                              v.head.dimensions,
-                              v.head.tags)
-                      })
+                      .mapValues(
+                        v =>
+                          if (aggregationType == InternalMaxTemporalAggregation)
+                            Bit(v.head.timestamp,
+                                NSDbNumericType(v.map(_.value.rawValue).max),
+                                v.head.dimensions,
+                                v.head.tags)
+                          else {
+                            val nonZeroValues: Seq[Any] =
+                              v.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
+                            Bit(v.head.timestamp,
+                                NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
+                                v.head.dimensions,
+                                v.head.tags)
+                        })
                       .values
                       .toSeq
                   }

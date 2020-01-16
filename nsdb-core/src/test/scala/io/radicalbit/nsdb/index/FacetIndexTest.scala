@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.index
 
 import java.util.UUID
 
+import io.radicalbit.nsdb.common.NSDbStringType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.document.LongPoint
@@ -250,22 +251,22 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     res.foreach {
       case bit =>
         bit.tags.headOption match {
-          case Some(("tag", "tag_12")) => 12 * 3 shouldBe bit.value
-          case Some(("tag", v: String)) =>
-            v.split("_")(1).toInt * 4 shouldBe bit.value
+          case Some(("tag", NSDbStringType("tag_12"))) => 12 * 3 shouldBe bit.value.rawValue
+          case Some(("tag", NSDbStringType(v))) =>
+            v.split("_")(1).toInt * 4 shouldBe bit.value.rawValue
         }
     }
 
     val surnameGroups =
       facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR())
     surnameGroups.size shouldBe 26
-    surnameGroups.head.value shouldBe 4
-    surnameGroups.last.value shouldBe 1
+    surnameGroups.head.value.rawValue shouldBe 4
+    surnameGroups.last.value.rawValue shouldBe 1
 
     val cityGroups =
       facetIndexes.facetSumIndex.result(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), Some(INT()))
     cityGroups.size shouldBe 1
-    cityGroups.head.value shouldBe 1225
+    cityGroups.head.value.rawValue shouldBe 1225
   }
 
   "FacetIndexSum" should "supports a simple sum" in {
@@ -300,12 +301,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
       .result(LongPoint.newRangeQuery("timestamp", 0, 100), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
 
     res1.size shouldBe 1
-    res1.head.value shouldBe 200
+    res1.head.value.rawValue shouldBe 200
 
     val res2 = facetIndexes.facetSumIndex
       .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
     res2.size shouldBe 1
-    res2.head.value shouldBe 100
+    res2.head.value.rawValue shouldBe 100
   }
 
   "FacetIndex" should "supports sum on double values" in {
@@ -341,9 +342,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     res.size shouldBe 6
     res.foreach { bit =>
       bit.tags.headOption match {
-        case Some(("tag", "tag_0"))   => Math.abs(bit.value.asInstanceOf[Double] - 10.8d) should be < 1e-7
-        case Some(("tag", "tag_5"))   => Math.abs(bit.value.asInstanceOf[Double] - 1.2d) should be < 1e-7
-        case Some(("tag", v: String)) => Math.abs(bit.value.asInstanceOf[Double] - 12.0d) should be < 1e-7
+        case Some(("tag", NSDbStringType("tag_0"))) =>
+          Math.abs(bit.value.rawValue.asInstanceOf[Double] - 10.8d) should be < 1e-7
+        case Some(("tag", NSDbStringType("tag_5"))) =>
+          Math.abs(bit.value.rawValue.asInstanceOf[Double] - 1.2d) should be < 1e-7
+        case Some(("tag", NSDbStringType(v))) =>
+          Math.abs(bit.value.rawValue.asInstanceOf[Double] - 12.0d) should be < 1e-7
       }
     }
   }

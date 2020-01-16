@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
-import io.radicalbit.nsdb.common.JSerializable
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.model.Location
@@ -55,7 +55,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
 
-  lazy val passivateAfter = FiniteDuration(
+  lazy val passivateAfter: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
     TimeUnit.NANOSECONDS)
 
@@ -132,10 +132,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     .map { facetResult =>
                       Bit(
                         facetResult.lowerBound,
-                        facetResult.value.longValue(),
-                        Map[String, JSerializable](
-                          ("lowerBound", facetResult.lowerBound),
-                          ("upperBound", facetResult.upperBound)
+                        NSDbNumericType(facetResult.value.longValue()),
+                        Map[String, NSDbType](
+                          ("lowerBound", NSDbType(facetResult.lowerBound)),
+                          ("upperBound", NSDbType(facetResult.upperBound))
                         ),
                         Map.empty
                       )
@@ -162,11 +162,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                       Bit(
                         facetResult.lowerBound,
                         if (valueFieldType.isInstanceOf[DECIMAL])
-                          facetResult.value.doubleValue()
-                        else facetResult.value.longValue(),
-                        Map[String, JSerializable](
-                          ("lowerBound", facetResult.lowerBound),
-                          ("upperBound", facetResult.upperBound)
+                          NSDbNumericType(facetResult.value.doubleValue())
+                        else NSDbNumericType(facetResult.value.longValue()),
+                        Map[String, NSDbType](
+                          ("lowerBound", NSDbType(facetResult.lowerBound)),
+                          ("upperBound", NSDbType(facetResult.upperBound))
                         ),
                         Map.empty
                       )
@@ -193,11 +193,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                       Bit(
                         facetResult.lowerBound,
                         if (valueFieldType.isInstanceOf[DECIMAL])
-                          facetResult.value.doubleValue()
-                        else facetResult.value.longValue(),
-                        Map[String, JSerializable](
-                          ("lowerBound", facetResult.lowerBound),
-                          ("upperBound", facetResult.upperBound)
+                          NSDbNumericType(facetResult.value.doubleValue())
+                        else NSDbNumericType(facetResult.value.longValue()),
+                        Map[String, NSDbType](
+                          ("lowerBound", NSDbType(facetResult.lowerBound)),
+                          ("upperBound", NSDbType(facetResult.upperBound))
                         ),
                         Map.empty
                       )

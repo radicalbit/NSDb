@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbIntType, NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.document.Field
 import org.apache.lucene.facet._
@@ -42,10 +42,9 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
   override def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): Try[Long] = {
 
     def facetWrite(f: Field, path: String, c: FacetsConfig): Field = bit.value match {
-      case x: java.lang.Integer => new IntAssociationFacetField(x, f.name, path)
-      case x: java.lang.Long    => new LongAssociationFacetField(x, f.name, path)
-      case x: java.lang.Float   => new FloatAssociationFacetField(x, f.name, path)
-      case x: java.lang.Double  => new DoubleAssociationFacetField(x, f.name, path)
+      case NSDbIntType(rawValue)    => new IntAssociationFacetField(rawValue, f.name, path)
+      case NSDbLongType(rawValue)   => new LongAssociationFacetField(rawValue, f.name, path)
+      case NSDbDoubleType(rawValue) => new DoubleAssociationFacetField(rawValue, f.name, path)
     }
 
     def setupConfig(fields: Seq[Field]): FacetsConfig = {
@@ -107,13 +106,13 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
           Bit(
             timestamp = 0,
             value = lv.value match {
-              case x: java.lang.Integer => x.intValue()
-              case x: java.lang.Long    => x.longValue()
-              case x: java.lang.Float   => x.floatValue()
-              case x: java.lang.Double  => x.doubleValue()
+              case x: java.lang.Integer => NSDbNumericType(x.intValue())
+              case x: java.lang.Long    => NSDbNumericType(x.longValue())
+              case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
+              case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
             },
-            dimensions = Map.empty[String, JSerializable],
-            tags = Map(groupField -> groupFieldIndexType.cast(lv.label).asInstanceOf[JSerializable])
+            dimensions = Map.empty[String, NSDbType],
+            tags = Map(groupField -> NSDbType(groupFieldIndexType.cast(lv.label)))
         ))
         .toSeq)
   }

@@ -405,7 +405,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(readRes.records.size == 1)
 
-      assert(readRes.records.head.asBit.value == 6L)
+      assert(readRes.records.head.asBit.value.rawValue == 6L)
     }
   }
 
@@ -465,7 +465,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
       assert(readRes.records.size == 1)
-      assert(readRes.records.head.asBit == Bit(10, 6, Map.empty, Map("name" -> "Frankie")))
+      assert(readRes.records.head.asBit == Bit(10, 6L, Map.empty, Map("name" -> "Frankie")))
     }
   }
 
@@ -619,11 +619,11 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit(0L, 2, Map.empty, Map("name" -> "John")),
-          Bit(0L, 1, Map.empty, Map("name" -> "J")),
-          Bit(0L, 1, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 1, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 1, Map.empty, Map("name" -> "Bill"))
+          Bit(0L, 2L, Map.empty, Map("name" -> "John")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Bill"))
         ))
 
       val sumQuery = nsdb
@@ -654,7 +654,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       var readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-      assert(readRes.records.map(_.asBit.value.asInstanceOf[Long]) == Seq(6, 5, 4, 3, 3))
+      assert(readRes.records.map(_.asBit.value.rawValue) == Seq(6, 5, 4, 3, 3))
 
       val doubleQuery = nsdb
         .db(db)
@@ -663,7 +663,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       readRes = Await.result(nsdb.execute(doubleQuery), 10.seconds)
 
-      assert(readRes.records.map(_.asBit.value.asInstanceOf[Double]) == Seq(3.0, 1.5, 1.5, 1.5))
+      assert(readRes.records.map(_.asBit.value.rawValue) == Seq(3.0, 1.5, 1.5, 1.5))
     }
   }
 
@@ -680,7 +680,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) ==
-          Seq(Bit(0L, 1, Map.empty, Map("age" -> 20)), Bit(0L, 5, Map.empty, Map("age" -> 15))))
+          Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 5L, Map.empty, Map("age" -> 15L))))
     }
   }
 
@@ -717,9 +717,9 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit(0L, 3, Map.empty, Map("height" -> 30.5)),
-          Bit(0L, 2, Map.empty, Map("height" -> 32.0)),
-          Bit(0L, 1, Map.empty, Map("height" -> 31.0))
+          Bit(0L, 3L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 2L, Map.empty, Map("height" -> 32.0)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0))
         ))
     }
   }
@@ -737,9 +737,9 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit(0L, 5, Map.empty, Map("height" -> 30.5)),
-          Bit(0L, 1, Map.empty, Map("height" -> 31.0)),
-          Bit(0L, 2, Map.empty, Map("height" -> 32.0))
+          Bit(0L, 5L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 2L, Map.empty, Map("height" -> 32.0))
         ))
     }
   }

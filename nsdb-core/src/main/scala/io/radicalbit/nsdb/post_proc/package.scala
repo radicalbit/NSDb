@@ -15,7 +15,7 @@
  */
 
 package io.radicalbit.nsdb
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement, TemporalGroupByAggregation}
 import io.radicalbit.nsdb.model.Schema
@@ -45,10 +45,10 @@ package object post_proc {
           case _ =>
             val sortedResults = statement.order.map { order =>
               val o = schema.fieldsMap(order.dimension).indexType.ord
-              implicit val ord: Ordering[JSerializable] =
+              implicit val ord: Ordering[Any] =
                 if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
                 else o
-              seq.sortBy(_.fields(statement.order.get.dimension)._1)
+              seq.sortBy(_.fields(statement.order.get.dimension)._1.rawValue)
             } getOrElse seq
             statement.limit.map(_.value).map(v => Right(sortedResults.take(v))) getOrElse Right(sortedResults)
         }
@@ -65,12 +65,10 @@ package object post_proc {
     * @param extract the function defining how to extract the field from a given bit.
     * @return
     */
-  def retrieveField(values: Seq[Bit],
-                    field: String,
-                    extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
+  def retrieveField(values: Seq[Bit], field: String, extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
     values.headOption
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
-      .getOrElse(Map.empty[String, JSerializable])
+      .getOrElse(Map.empty[String, NSDbType])
 
   /**
     * This is a utility method in charge to associate a dimension or a tag with the given count.
@@ -81,11 +79,9 @@ package object post_proc {
     * @param extract the function defining how to extract the field from a given bit.
     * @return
     */
-  def retrieveCount(values: Seq[Bit],
-                    count: Int,
-                    extract: Bit => Map[String, JSerializable]): Map[String, JSerializable] =
+  def retrieveCount(values: Seq[Bit], count: Int, extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
     values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count.asInstanceOf[JSerializable])))
-      .getOrElse(Map.empty[String, JSerializable])
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
+      .getOrElse(Map.empty[String, NSDbType])
 
 }

@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.JSerializable
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, TagFieldType}
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
@@ -80,21 +80,21 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
             }
         }
         .map {
-          case f if f.numericValue() != null => f.name() -> f.numericValue()
-          case f                             => f.name() -> f.stringValue()
+          case f if f.numericValue() != null => f.name() -> NSDbType(f.numericValue())
+          case f                             => f.name() -> NSDbType(f.stringValue())
         }
     }
 
-    val dimensions: Map[String, JSerializable] = extractFields(schema, document, fields, DimensionFieldType).toMap
-    val tags: Map[String, JSerializable]       = extractFields(schema, document, fields, TagFieldType).toMap
+    val dimensions: Map[String, NSDbType] = extractFields(schema, document, fields, DimensionFieldType).toMap
+    val tags: Map[String, NSDbType]       = extractFields(schema, document, fields, TagFieldType).toMap
 
-    val aggregated: Map[String, JSerializable] =
-      fields.filter(_.count).map(_.toString -> document.getField("_count").numericValue()).toMap
+    val aggregated: Map[String, NSDbType] =
+      fields.filter(_.count).map(_.toString -> NSDbType(document.getField("_count").numericValue())).toMap
 
     val value = document.getField(_valueField).numericValue()
     Bit(
       timestamp = document.getField(_keyField).numericValue().longValue(),
-      value = value,
+      value = NSDbNumericType(value),
       dimensions = dimensions,
       tags = tags ++ aggregated
     )
