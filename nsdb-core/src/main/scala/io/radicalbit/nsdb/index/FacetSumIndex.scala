@@ -45,10 +45,6 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
       case NSDbIntType(rawValue)    => new IntAssociationFacetField(rawValue, f.name, path)
       case NSDbLongType(rawValue)   => new LongAssociationFacetField(rawValue, f.name, path)
       case NSDbDoubleType(rawValue) => new DoubleAssociationFacetField(rawValue, f.name, path)
-//      case x: java.lang.Integer => new IntAssociationFacetField(x, f.name, path)
-//      case x: java.lang.Long    => new LongAssociationFacetField(x, f.name, path)
-//      case x: java.lang.Float   => new FloatAssociationFacetField(x, f.name, path)
-//      case x: java.lang.Double  => new DoubleAssociationFacetField(x, f.name, path)
     }
 
     def setupConfig(fields: Seq[Field]): FacetsConfig = {
