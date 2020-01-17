@@ -88,8 +88,11 @@ object MessageProtocol {
         extends NSDbSerializable
 
     case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)     extends NSDbSerializable
+    case class UnsubscribeMetricsDataActor(nodeName: String)                    extends NSDbSerializable
     case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String) extends NSDbSerializable
+    case class UnSubscribeCommitLogCoordinator(nodeName: String)                extends NSDbSerializable
     case class SubscribePublisher(actor: ActorRef, nodeName: String)            extends NSDbSerializable
+    case class UnSubscribePublisher(nodeName: String)                           extends NSDbSerializable
 
     case object GetConnectedDataNodes extends NSDbSerializable
 

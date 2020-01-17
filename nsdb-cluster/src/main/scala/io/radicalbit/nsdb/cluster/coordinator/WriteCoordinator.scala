@@ -431,6 +431,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         log.info(s"subscribed publisher actor for node $nodeName")
       }
       sender() ! PublisherSubscribed(actor, nodeName)
+
+    case UnSubscribeCommitLogCoordinator(nodeName) =>
+      commitLogCoordinators -= nodeName
+      log.info(s"unsubscribed commit log actor for node $nodeName")
+    case UnSubscribePublisher(nodeName) =>
+      publishers -= nodeName
+      log.info(s"unsubscribed publisher actor for node $nodeName")
+
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case MapInput(_, db, namespace, metric, _) if ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>

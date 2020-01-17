@@ -129,15 +129,13 @@ class ClusterListener() extends Actor with ActorLogging {
             log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
     case UnreachableMember(member) =>
-      log.debug("Member detected as unreachable: {}", member)
-    case MemberRemoved(member, previousStatus) =>
-      log.info("Member is Removed: {} after {}", member.address, previousStatus)
+      log.info("Member detected as unreachable: {}", member)
 
-      log.info("trying to get metadatacoordinator {}", s"/user/guardian_$selfNodeName")
+      log.info("trying to get metadata coordinator {}", s"/user/guardian_$selfNodeName")
       (context.actorSelection(s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
         .map {
-          case NodeChildActorsGot(metadataCoordinator, _, _, _) =>
-            log.info("trying to remove fro mmetadatacoordinator {}", metadataCoordinator)
+          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) =>
+            log.info("trying to remove from metadata coordinator {}", metadataCoordinator)
             (metadataCoordinator ? RemoveNodeMetadata(createNodeName(member))).map {
               case NodeMetadataRemoved(nodeName) =>
                 log.info(s"metadata successfully removed for node $nodeName")
@@ -145,10 +143,18 @@ class ClusterListener() extends Actor with ActorLogging {
                 log.error(s"RemoveNodeMetadataFailed for node $nodeName")
             }
 
+            readCoordinator ! UnsubscribeMetricsDataActor(createNodeName(member))
+            writeCoordinator ! UnSubscribeCommitLogCoordinator(createNodeName(member))
+            writeCoordinator ! UnSubscribePublisher(createNodeName(member))
+            metadataCoordinator ! UnsubscribeMetricsDataActor(createNodeName(member))
+            metadataCoordinator ! UnSubscribeCommitLogCoordinator(createNodeName(member))
+
           case unknownResponse =>
             log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
 
+    case MemberRemoved(member, previousStatus) =>
+      log.info("Member is Removed: {} after {}", member.address, previousStatus)
     case _: MemberEvent => // ignore
     case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
       log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")
