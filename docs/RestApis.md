@@ -42,7 +42,7 @@ Filter elements are combined through `AND` operator.
     "queryString": "[string]",
     "from": "[optional timestamp in epoch format]",
     "to": "[optional timestamp in epoch format]",
-    "filters": "[ optional array of Filter] "
+    "filters": "[optional array of Filter]"
 }
 ```
 Filter object is defines as below:
@@ -154,6 +154,49 @@ Filter object is defines as below:
 **Code** : `500 INTERNAL SERVER ERROR`
 
 **Content** : `Error message`
+
+## Parsed Query
+
+Adding a `parsed = true` parameter in the request body, the query response will be enriched with the destructured query.
+
+**Data example**
+
+```json
+{
+  "db": "db",
+  "namespace": "namespace",
+  "metric": "metric",
+  "queryString": "select count(*) from metric",
+  "parsed": true
+}
+```
+
+The response will be a json array with `records` object as result and `parsed` for the destructured query
+
+```json
+{
+  "records": [{
+    "timestamp": 0,
+    "value": 1,
+    "dimensions": {},
+    "tags": {
+      "count(*)": 1
+    }
+  }],
+  "parsed" : {
+    "db" : "db",
+    "namespace" : "namespace",
+    "metric" : "metric",
+    "distinct" : false,
+    "fields" : {
+      "fields" : [ {
+        "name" : "*",
+        "aggregation" : "count"
+      } ]
+    }
+  }
+}
+```
 
 # Query Validate APIs
 
