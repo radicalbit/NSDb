@@ -44,7 +44,7 @@ sealed trait Expression
   * Simple Not expression.
   * @param expression the expression to negate.
   */
-final case class NotExpression(expression: Expression) extends Expression
+final case class NotExpression(expression: Expression, operator: LogicalOperator = NotOperator) extends Expression
 
 /**
   * A couple of simple expressions having a [[TupledLogicalOperator]] applied.
@@ -106,6 +106,7 @@ sealed trait LogicalOperator
 sealed trait TupledLogicalOperator extends LogicalOperator
 case object AndOperator            extends TupledLogicalOperator
 case object OrOperator             extends TupledLogicalOperator
+case object NotOperator            extends LogicalOperator
 
 /**
   * Comparison operators to be used in [[ComparisonExpression]].

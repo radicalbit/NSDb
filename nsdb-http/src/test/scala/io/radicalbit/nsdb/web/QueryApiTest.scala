@@ -52,6 +52,12 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
+  /*
+        override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
+        fixed timestamp in order to make the test time-independent
+   */
+  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializersForTesting + BitSerializer
+
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
@@ -64,21 +70,15 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
     override def readCoordinator: ActorRef = readCoordinatorActor
-    /*
-        override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
-        fixed timestamp in order to make the test time-independent
-     */
-    override implicit val formats
-      : Formats                            = DefaultFormats ++ CustomSerializers.customSerializersForTesting + BitSerializer
     override implicit val timeout: Timeout = 5 seconds
   }
 
   val testRoutes = Route.seal(
-    emptyQueryApi.queryApi()(system.log)
+    emptyQueryApi.queryApi()(system.log, formats)
   )
 
   val testSecuredRoutes = Route.seal(
-    secureQueryApi.queryApi()(system.log)
+    secureQueryApi.queryApi()(system.log, formats)
   )
 
   "QueryApi" should "not allow get" in {

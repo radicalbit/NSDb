@@ -39,9 +39,9 @@ object TimeRangeManager {
           case LessThanOperator         => List(Interval.openUpper(0, value))
           case LessOrEqualToOperator    => List(Interval.closed(0, value))
         }
-      case Some(RangeExpression("timestamp", ComparisonValue(v1: Long), ComparisonValue(v2: Long))) =>
-        List(Interval.closed(v1, v2))
-      case Some(NotExpression(expression)) => extractTimeRange(Some(expression)).flatMap(i => ~i)
+      case Some(RangeExpression("timestamp", ComparisonValue(v1), ComparisonValue(v2))) =>
+        List(Interval.closed(v1.toString.toLong, v2.toString.toLong))
+      case Some(NotExpression(expression, _)) => extractTimeRange(Some(expression)).flatMap(i => ~i)
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
         if (intervals.isEmpty)

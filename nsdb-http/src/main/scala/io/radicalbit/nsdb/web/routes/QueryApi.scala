@@ -32,12 +32,10 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
-import io.radicalbit.nsdb.web.BitSerializer
-import io.radicalbit.nsdb.web.CustomSerializers
 import io.swagger.annotations._
 import javax.ws.rs.Path
 import org.json4s.jackson.Serialization.write
-import org.json4s.{DefaultFormats, Formats}
+import org.json4s.Formats
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -115,7 +113,6 @@ trait QueryApi {
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
-  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer
 
   @ApiModel(description = "Query Response")
   case class QueryResponse(
@@ -140,7 +137,7 @@ trait QueryApi {
       new ApiResponse(code = 500, message = "Internal server error"),
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
-  def queryApi()(implicit logger: LoggingAdapter): Route = {
+  def queryApi()(implicit logger: LoggingAdapter, format: Formats): Route = {
     path("query") {
       post {
         entity(as[QueryBody]) { qb =>

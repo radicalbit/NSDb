@@ -28,7 +28,6 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.security.NsdbSecurity
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
-import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -44,8 +43,6 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
   import VersionHeader._
 
   def config: Config
-
-  implicit val formats = DefaultFormats
 
   implicit lazy val materializer = ActorMaterializer()
   implicit lazy val dispatcher   = system.dispatcher

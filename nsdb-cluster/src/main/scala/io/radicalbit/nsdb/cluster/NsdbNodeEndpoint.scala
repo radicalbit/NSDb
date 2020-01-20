@@ -21,7 +21,8 @@ import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
 import io.radicalbit.nsdb.security.NsdbSecurity
-import io.radicalbit.nsdb.web.WebResources
+import io.radicalbit.nsdb.web.{BitSerializer, CustomSerializers, WebResources}
+import org.json4s.{DefaultFormats, Formats}
 
 /**
   * Class responsible to instantiate all the node endpoints (e.g. grpc, http and ws).
@@ -40,6 +41,8 @@ class NsdbNodeEndpoint(readCoordinator: ActorRef,
   new GrpcEndpoint(readCoordinator = readCoordinator,
                    writeCoordinator = writeCoordinator,
                    metadataCoordinator = metadataCoordinator)
+
+  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer
 
   initWebEndpoint(writeCoordinator, readCoordinator, metadataCoordinator, publisher)
 
