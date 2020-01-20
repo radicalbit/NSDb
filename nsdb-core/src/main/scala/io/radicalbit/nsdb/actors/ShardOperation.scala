@@ -16,7 +16,8 @@
 
 package io.radicalbit.nsdb.actors
 
-import io.radicalbit.nsdb.common.protocol.Bit
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
 
@@ -30,7 +31,15 @@ import io.radicalbit.nsdb.model.{Location, Schema}
   *
   * - [[WriteShardOperation writes]] add a record to a shard.
   */
-sealed trait ShardOperation {
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[DeleteShardRecordOperation], name = "DeleteShardRecordOperation"),
+    new JsonSubTypes.Type(value = classOf[DeleteShardQueryOperation], name = "DeleteShardQueryOperation"),
+    new JsonSubTypes.Type(value = classOf[WriteShardOperation], name = "WriteShardOperation")
+  )
+)
+sealed trait ShardOperation extends NSDbSerializable {
 
   /**
     * operation namespace.

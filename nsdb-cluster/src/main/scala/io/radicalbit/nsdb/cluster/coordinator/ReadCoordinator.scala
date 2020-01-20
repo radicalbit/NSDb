@@ -102,6 +102,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                 uniqueLocationsByNode: Map[String, Seq[Location]],
                                 ranges: Seq[TimeRange] = Seq.empty)(
       postProcFun: Seq[Bit] => Seq[Bit]): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
+    log.debug("gathering node results for locations {}", uniqueLocationsByNode)
     Future
       .sequence(metricsDataActors.map {
         case (nodeName, actor) =>
@@ -111,6 +112,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                          ranges)
       })
       .map { e =>
+        log.debug("gathered {} from locations {}", e, uniqueLocationsByNode)
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
           Left(SelectStatementFailed(statement, errs.map(_.reason).mkString(",")))
@@ -185,6 +187,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         ))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
+            log.debug("found schema {} and locations", schema, locations)
             val filteredLocations = filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
             val uniqueLocationsByNode =

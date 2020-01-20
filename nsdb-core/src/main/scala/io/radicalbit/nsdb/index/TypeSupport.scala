@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common._
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.exception.TypeNotSupportedException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.{RawField, TypedField}
@@ -51,6 +52,14 @@ trait TypeSupport {
   *
   * @tparam T corresponding raw type.
   */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[BIGINT], name = "BIGINT"),
+    new JsonSubTypes.Type(value = classOf[DECIMAL], name = "DECIMAL"),
+    new JsonSubTypes.Type(value = classOf[INT], name = "INT"),
+    new JsonSubTypes.Type(value = classOf[VARCHAR], name = "VARCHAR")
+  ))
 sealed trait IndexType[T] extends Serializable {
 
   /**
@@ -110,7 +119,7 @@ sealed trait IndexType[T] extends Serializable {
   *
   * - [[DECIMAL]] for 64 bit floating point numbers.
   *
-  * @tparam T corresponding java type.
+  * @tparam T corresponding raw type.
   */
 sealed abstract class NumericType[T] extends IndexType[T] {
 

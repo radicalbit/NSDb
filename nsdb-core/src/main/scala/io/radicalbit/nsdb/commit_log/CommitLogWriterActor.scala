@@ -16,8 +16,9 @@
 
 package io.radicalbit.nsdb.commit_log
 
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, Expression}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -26,6 +27,18 @@ import scala.util.{Failure, Success, Try}
 
 object CommitLogWriterActor {
 
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  @JsonSubTypes(
+    Array(
+      new JsonSubTypes.Type(value = classOf[ReceivedEntryAction], name = "ReceivedEntryAction"),
+      new JsonSubTypes.Type(value = classOf[AccumulatedEntryAction], name = "AccumulatedEntryAction"),
+      new JsonSubTypes.Type(value = classOf[PersistedEntryAction], name = "PersistedEntryAction"),
+      new JsonSubTypes.Type(value = classOf[RejectedEntryAction], name = "RejectedEntryAction"),
+      new JsonSubTypes.Type(value = classOf[EvictShardAction], name = "EvictShardAction"),
+      new JsonSubTypes.Type(value = classOf[DeleteAction], name = "DeleteAction"),
+      new JsonSubTypes.Type(value = classOf[DeleteNamespaceAction], name = "DeleteNamespaceAction"),
+      new JsonSubTypes.Type(value = classOf[DeleteMetricAction], name = "DeleteMetricAction")
+    ))
   sealed trait CommitLogAction
 
   sealed trait BitEntryAction extends CommitLogAction {
@@ -42,10 +55,10 @@ object CommitLogWriterActor {
   case class RejectedEntryAction(bit: Bit)                        extends BitEntryAction
   case class EvictShardAction(location: Location)                 extends LocationEntryAction
   case class DeleteAction(deleteSQLStatement: DeleteSQLStatement) extends CommitLogAction
-  case object DeleteNamespaceAction                               extends CommitLogAction
-  case object DeleteMetricAction                                  extends CommitLogAction
+  case class DeleteNamespaceAction()                              extends CommitLogAction
+  case class DeleteMetricAction()                                 extends CommitLogAction
 
-  sealed trait CommitLogProtocol
+  sealed trait CommitLogProtocol extends NSDbSerializable
 
   sealed trait CommitLogRequest  extends CommitLogProtocol
   sealed trait CommitLogResponse extends CommitLogProtocol
@@ -57,6 +70,7 @@ object CommitLogWriterActor {
                               action: CommitLogAction,
                               location: Location)
       extends CommitLogRequest
+      with NSDbSerializable
 
   case class WriteToCommitLogSucceeded(db: String, namespace: String, ts: Long, metric: String, location: Location)
       extends CommitLogResponse
@@ -231,13 +245,13 @@ trait CommitLogWriterActor extends ActorPathLogging {
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction, location) =>
+    case WriteToCommitLog(db, namespace, metric, timestamp, DeleteMetricAction(), location) =>
       createEntry(DeleteMetricEntry(db, namespace, metric, timestamp)) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
         case Failure(ex) =>
           sender() ! WriteToCommitLogFailed(db, namespace, timestamp, metric, ex.getMessage)
       }
-    case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction, location) =>
+    case WriteToCommitLog(db, namespace, _, timestamp, DeleteNamespaceAction(), location) =>
       createEntry(DeleteNamespaceEntry(db, namespace, timestamp)) match {
         case Success(_) => sender() ! WriteToCommitLogSucceeded(db, namespace, timestamp, "", location)
         case Failure(ex) =>

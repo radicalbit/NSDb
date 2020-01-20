@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb
 
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
+
 /**
   * Contains some useful type aliases.
   */
@@ -27,6 +29,14 @@ package object common {
     * - [[NSDbNumericType]] encapsulates a numeric type.
     * - [[NSDbStringType]] for String values.
     */
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  @JsonSubTypes(
+    Array(
+      new JsonSubTypes.Type(value = classOf[NSDbDoubleType], name = "NSDbDoubleType"),
+      new JsonSubTypes.Type(value = classOf[NSDbLongType], name = "NSDbLongType"),
+      new JsonSubTypes.Type(value = classOf[NSDbIntType], name = "NSDbIntType"),
+      new JsonSubTypes.Type(value = classOf[NSDbStringType], name = "NSDbStringType")
+    ))
   sealed trait NSDbType {
 
     /**
@@ -70,6 +80,13 @@ package object common {
     * - [[NSDbLongType]] for [[Long]] values.
     * - [[NSDbDoubleType]] for [[Double]] values
     */
+  @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+  @JsonSubTypes(
+    Array(
+      new JsonSubTypes.Type(value = classOf[NSDbDoubleType], name = "NSDbDoubleType"),
+      new JsonSubTypes.Type(value = classOf[NSDbLongType], name = "NSDbLongType"),
+      new JsonSubTypes.Type(value = classOf[NSDbIntType], name = "NSDbIntType")
+    ))
   sealed trait NSDbNumericType extends NSDbType
 
   object NSDbNumericType {

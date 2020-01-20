@@ -60,14 +60,14 @@ object ExpressionParser {
 
   private def nullableExpression(schema: Map[String, SchemaField], field: String) = {
     val query = schema.get(field) match {
-      case Some(SchemaField(_, _, _: INT)) =>
+      case Some(SchemaField(_, _, INT())) =>
         Try(IntPoint.newRangeQuery(field, Int.MinValue, Int.MaxValue))
-      case Some(SchemaField(_, _, _: BIGINT)) =>
+      case Some(SchemaField(_, _, BIGINT())) =>
         Try(LongPoint.newRangeQuery(field, Long.MinValue, Long.MaxValue))
-      case Some(SchemaField(_, _, _: DECIMAL)) =>
+      case Some(SchemaField(_, _, DECIMAL())) =>
         Try(DoublePoint.newRangeQuery(field, Double.MinValue, Double.MaxValue))
-      case Some(SchemaField(_, _, _: VARCHAR)) => Try(new WildcardQuery(new Term(field, "*")))
-      case None                                => Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(field)))
+      case Some(SchemaField(_, _, VARCHAR())) => Try(new WildcardQuery(new Term(field, "*")))
+      case None                               => Failure(new InvalidStatementException(StatementParserErrors.notExistingDimension(field)))
     }
     // Used to apply negation due to the fact Lucene does not support nullable fields, query the values' range and apply negation
     query.map { qq =>

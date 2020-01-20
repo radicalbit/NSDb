@@ -25,7 +25,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.Coordinates
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
 import scala.concurrent.Future
@@ -39,7 +39,7 @@ object ReplicatedMetadataCache {
     * @param namespace metric name.
     * @param metric metric name.
     */
-  case class MetricLocationsCacheKey(db: String, namespace: String, metric: String)
+  case class MetricLocationsCacheKey(db: String, namespace: String, metric: String) extends NSDbSerializable
 
   /**
     * Cache key for the metric info.
@@ -47,7 +47,7 @@ object ReplicatedMetadataCache {
     * @param namespace metric name.
     * @param metric metric name.
     */
-  case class MetricInfoCacheKey(db: String, namespace: String, metric: String)
+  case class MetricInfoCacheKey(db: String, namespace: String, metric: String) extends NSDbSerializable
 
   private final case class MetricLocationsRequest(key: MetricLocationsCacheKey, replyTo: ActorRef)
   private final case class MetricLocationsInNodeRequest(db: String,
@@ -63,11 +63,13 @@ object ReplicatedMetadataCache {
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
 
   final case class PutLocationInCache(db: String, namespace: String, metric: String, value: Location)
-  final case class GetLocationsFromCache(db: String, namespace: String, metric: String)
+      extends NSDbSerializable
+  final case class GetLocationsFromCache(db: String, namespace: String, metric: String) extends NSDbSerializable
   final case class GetLocationsInNodeFromCache(db: String, namespace: String, metric: String, nodeName: String)
-  final case object GetDbsFromCache
-  final case class GetNamespacesFromCache(db: String)
-  final case class GetMetricsFromCache(db: String, namespace: String)
+      extends NSDbSerializable
+  final case object GetDbsFromCache                                   extends NSDbSerializable
+  final case class GetNamespacesFromCache(db: String)                 extends NSDbSerializable
+  final case class GetMetricsFromCache(db: String, namespace: String) extends NSDbSerializable
 
   sealed trait AddLocationResponse
 
@@ -83,37 +85,41 @@ object ReplicatedMetadataCache {
       extends AddLocationResponse
 
   final case class LocationsCached(db: String, namespace: String, metric: String, value: Seq[Location])
-  final case class EvictLocation(db: String, namespace: String, location: Location)
-  final case class EvictLocationsInNode(nodeName: String)
+      extends NSDbSerializable
+  final case class EvictLocation(db: String, namespace: String, location: Location) extends NSDbSerializable
+  final case class EvictLocationsInNode(nodeName: String)                           extends NSDbSerializable
 
-  final case class LocationEvicted(db: String, namespace: String, location: Location)
-  final case class EvictLocationFailed(db: String, namespace: String, location: Location)
-  final case class LocationsInNodeEvicted(nodeName: String)
-  final case class EvictLocationsInNodeFailed(nodeName: String)
+  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends NSDbSerializable
+  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
+  final case class LocationsInNodeEvicted(nodeName: String)                               extends NSDbSerializable
+  final case class EvictLocationsInNodeFailed(nodeName: String)                           extends NSDbSerializable
 
-  final case class PutMetricInfoInCache(metricInfo: MetricInfo)
-  final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo)
+  final case class PutMetricInfoInCache(metricInfo: MetricInfo)                          extends NSDbSerializable
+  final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo) extends NSDbSerializable
 
   final case class MetricInfoCached(db: String, namespace: String, metric: String, value: Option[MetricInfo])
-  final case class AllMetricInfoGot(metricInfo: Set[MetricInfo])              extends ControlMessage
-  final case class AllMetricInfoWithRetentionGot(metricInfo: Set[MetricInfo]) extends ControlMessage
+      extends NSDbSerializable
+  final case class AllMetricInfoGot(metricInfo: Set[MetricInfo]) extends ControlMessage with NSDbSerializable
+  final case class AllMetricInfoWithRetentionGot(metricInfo: Set[MetricInfo])
+      extends ControlMessage
+      with NSDbSerializable
 
-  final case class GetMetricInfoFromCache(db: String, namespace: String, metric: String)
-  final case object GetAllMetricInfoWithRetention
+  final case class GetMetricInfoFromCache(db: String, namespace: String, metric: String) extends NSDbSerializable
+  final case object GetAllMetricInfoWithRetention                                        extends NSDbSerializable
 
   final case class CacheError(error: String)
 
-  final case class DbsFromCacheGot(dbs: Set[String])
-  final case class NamespacesFromCacheGot(db: String, namespaces: Set[String])
-  final case class MetricsFromCacheGot(db: String, namespace: String, metrics: Set[String])
+  final case class DbsFromCacheGot(dbs: Set[String])                                        extends NSDbSerializable
+  final case class NamespacesFromCacheGot(db: String, namespaces: Set[String])              extends NSDbSerializable
+  final case class MetricsFromCacheGot(db: String, namespace: String, metrics: Set[String]) extends NSDbSerializable
 
-  final case class DropMetricFromCache(db: String, namespace: String, metric: String)
-  final case class DropNamespaceFromCache(db: String, namespace: String)
+  final case class DropMetricFromCache(db: String, namespace: String, metric: String) extends NSDbSerializable
+  final case class DropNamespaceFromCache(db: String, namespace: String)              extends NSDbSerializable
 
-  final case class MetricFromCacheDropped(db: String, namespace: String, metric: String)
-  final case class DropMetricFromCacheFailed(db: String, namespace: String, metric: String)
-  final case class NamespaceFromCacheDropped(db: String, namespace: String)
-  final case class DropNamespaceFromCacheFailed(db: String, namespace: String)
+  final case class MetricFromCacheDropped(db: String, namespace: String, metric: String)    extends NSDbSerializable
+  final case class DropMetricFromCacheFailed(db: String, namespace: String, metric: String) extends NSDbSerializable
+  final case class NamespaceFromCacheDropped(db: String, namespace: String)                 extends NSDbSerializable
+  final case class DropNamespaceFromCacheFailed(db: String, namespace: String)              extends NSDbSerializable
 }
 
 /**

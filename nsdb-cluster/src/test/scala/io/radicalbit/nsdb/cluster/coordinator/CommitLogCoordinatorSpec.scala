@@ -98,7 +98,7 @@ class CommitLogCoordinatorSpec
                                                      "namespace3",
                                                      "metric3",
                                                      1L,
-                                                     DeleteMetricAction,
+                                                     DeleteMetricAction(),
                                                      Location("metric", "", 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }
@@ -109,7 +109,7 @@ class CommitLogCoordinatorSpec
                                                      "namespace4",
                                                      "",
                                                      1L,
-                                                     DeleteNamespaceAction,
+                                                     DeleteNamespaceAction(),
                                                      Location("metric", "", 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }

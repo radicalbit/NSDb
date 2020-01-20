@@ -24,7 +24,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites, PersistedBit, PersistedBits}
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.index.AllFacetIndexes
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.statement.StatementParser
@@ -214,17 +214,18 @@ class MetricPerformerActor(val basePath: String,
 
 object MetricPerformerActor {
 
-  private case object PerformRetry
+  private case object PerformRetry extends NSDbSerializable
 
-  case class PerformShardWrites(opBufferMap: Map[String, ShardOperation])
+  case class PerformShardWrites(opBufferMap: Map[String, ShardOperation]) extends NSDbSerializable
 
   /**
     * This message is sent back to localWriteCoordinator in order to write on commit log related entries
     * @param persistedBits [[Seq]] of [[PersistedBit]]
     */
-  case class PersistedBits(persistedBits: Seq[PersistedBit])
+  case class PersistedBits(persistedBits: Seq[PersistedBit]) extends NSDbSerializable
   case class PersistedBit(db: String, namespace: String, metric: String, timestamp: Long, bit: Bit, location: Location)
-  case object PersistedBitsAck
+      extends NSDbSerializable
+  case object PersistedBitsAck extends NSDbSerializable
 
   def props(basePath: String, db: String, namespace: String, localCommitLogCoordinator: ActorRef): Props =
     Props(new MetricPerformerActor(basePath, db, namespace, localCommitLogCoordinator))

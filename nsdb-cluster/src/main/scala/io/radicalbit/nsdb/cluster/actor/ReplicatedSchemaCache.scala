@@ -25,6 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
@@ -41,11 +42,11 @@ object ReplicatedSchemaCache {
     * @param namespace location namespace.
     * @param metric location metric.
     */
-  case class SchemaKey(db: String, namespace: String, metric: String)
+  case class SchemaKey(db: String, namespace: String, metric: String) extends NSDbSerializable
 
-  private final case class SchemaRequest(key: SchemaKey, replyTo: ActorRef)
+  private final case class SchemaRequest(key: SchemaKey, replyTo: ActorRef) extends NSDbSerializable
 
-  private final case class NamespaceRequest(db: String, namespace: String, replyTo: ActorRef)
+  private final case class NamespaceRequest(db: String, namespace: String, replyTo: ActorRef) extends NSDbSerializable
 }
 
 /**

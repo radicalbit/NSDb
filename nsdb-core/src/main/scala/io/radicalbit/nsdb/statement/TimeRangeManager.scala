@@ -31,8 +31,9 @@ object TimeRangeManager {
 
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {
-      case Some(EqualityExpression("timestamp", ComparisonValue(value: Long))) => List(Interval.point(value))
-      case Some(ComparisonExpression("timestamp", operator: ComparisonOperator, ComparisonValue(value: Long))) =>
+      case Some(EqualityExpression("timestamp", ComparisonValue(value))) => List(Interval.point(value.toString.toLong))
+      case Some(ComparisonExpression("timestamp", operator: ComparisonOperator, ComparisonValue(rawValue))) =>
+        val value = rawValue.toString.toLong
         operator match {
           case GreaterThanOperator      => List(Interval.fromBounds(Open(value), Unbound()))
           case GreaterOrEqualToOperator => List(Interval.fromBounds(Closed(value), Unbound()))

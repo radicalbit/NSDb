@@ -18,8 +18,9 @@ package io.radicalbit.nsdb.protocol
 
 import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 
@@ -32,62 +33,71 @@ object MessageProtocol {
     * commands executed among NSDb actors.
     */
   object Commands {
-    case object GetDbs                                   extends ControlMessage
-    case class GetNamespaces(db: String)                 extends ControlMessage
-    case class GetMetrics(db: String, namespace: String) extends ControlMessage
-    case class GetSchema(db: String, namespace: String, metric: String)
+    case object GetDbs                                                  extends ControlMessage with NSDbSerializable
+    case class GetNamespaces(db: String)                                extends ControlMessage with NSDbSerializable
+    case class GetMetrics(db: String, namespace: String)                extends ControlMessage with NSDbSerializable
+    case class GetSchema(db: String, namespace: String, metric: String) extends NSDbSerializable
 
-    case class GetMetricInfo(db: String, namespace: String, metric: String)
+    case class GetMetricInfo(db: String, namespace: String, metric: String) extends NSDbSerializable
 
-    case class PutSchemaInCache(db: String, namespace: String, metric: String, schema: Schema)
-    case class GetSchemaFromCache(db: String, namespace: String, metric: String)
-    case class EvictSchema(db: String, namespace: String, metric: String)
+    case class PutSchemaInCache(db: String, namespace: String, metric: String, schema: Schema) extends NSDbSerializable
+    case class GetSchemaFromCache(db: String, namespace: String, metric: String)               extends NSDbSerializable
+    case class EvictSchema(db: String, namespace: String, metric: String)                      extends NSDbSerializable
 
-    case class ValidateStatement(selectStatement: SelectSQLStatement)
-    case class ExecuteStatement(selectStatement: SelectSQLStatement)
+    case class ValidateStatement(selectStatement: SelectSQLStatement) extends NSDbSerializable
+    case class ExecuteStatement(selectStatement: SelectSQLStatement)  extends NSDbSerializable
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       locations: Seq[Location],
                                       ranges: Seq[TimeRange] = Seq.empty)
+        extends NSDbSerializable
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])
-    case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit)
+        extends NSDbSerializable
+    case class MapInput(ts: Long, db: String, namespace: String, metric: String, record: Bit) extends NSDbSerializable
     case class PublishRecord(db: String, namespace: String, metric: String, record: Bit, schema: Schema)
-    case class ExecuteDeleteStatement(statement: DeleteSQLStatement)
+        extends NSDbSerializable
+    case class ExecuteDeleteStatement(statement: DeleteSQLStatement) extends NSDbSerializable
     case class ExecuteDeleteStatementInShards(statement: DeleteSQLStatement, schema: Schema, keys: Seq[Location])
-    case class EvictShard(db: String, namespace: String, location: Location)
+        extends NSDbSerializable
+    case class EvictShard(db: String, namespace: String, location: Location) extends NSDbSerializable
 
-    case class DropMetric(db: String, namespace: String, metric: String)
+    case class DropMetric(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class DropMetricWithLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
-    case class DeleteNamespace(db: String, namespace: String)
+        extends NSDbSerializable
+    case class DeleteNamespace(db: String, namespace: String) extends NSDbSerializable
 
     case class UpdateSchemaFromRecord(db: String, namespace: String, metric: String, record: Bit)
-    case class UpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema)
-    case class DeleteSchema(db: String, namespace: String, metric: String)
-    case class DeleteAllSchemas(db: String, namespace: String)
+        extends NSDbSerializable
+    case class UpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema) extends NSDbSerializable
+    case class DeleteSchema(db: String, namespace: String, metric: String)                    extends NSDbSerializable
+    case class DeleteAllSchemas(db: String, namespace: String)                                extends NSDbSerializable
 
     case class GetCountWithLocations(db: String, namespace: String, metric: String, locations: Seq[Location])
-    case class AddRecordToShard(db: String, namespace: String, location: Location, bit: Bit)
+        extends NSDbSerializable
+    case class AddRecordToShard(db: String, namespace: String, location: Location, bit: Bit) extends NSDbSerializable
     case class DeleteRecordFromShard(db: String, namespace: String, shardKey: Location, bit: Bit)
-    case class DeleteAllMetrics(db: String, namespace: String)
+        extends NSDbSerializable
+    case class DeleteAllMetrics(db: String, namespace: String) extends NSDbSerializable
 
-    case object GetNodeChildActors
+    case object GetNodeChildActors extends NSDbSerializable
     case class NodeChildActorsGot(metadataCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   readCoordinator: ActorRef,
                                   publisher: ActorRef)
+        extends NSDbSerializable
 
-    case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)
-    case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String)
-    case class SubscribePublisher(actor: ActorRef, nodeName: String)
+    case class SubscribeMetricsDataActor(actor: ActorRef, nodeName: String)     extends NSDbSerializable
+    case class SubscribeCommitLogCoordinator(actor: ActorRef, nodeName: String) extends NSDbSerializable
+    case class SubscribePublisher(actor: ActorRef, nodeName: String)            extends NSDbSerializable
 
-    case object GetConnectedDataNodes
+    case object GetConnectedDataNodes extends NSDbSerializable
 
-    case object GetMetricsDataActors
-    case object GetCommitLogCoordinators
-    case object GetPublishers
+    case object GetMetricsDataActors     extends NSDbSerializable
+    case object GetCommitLogCoordinators extends NSDbSerializable
+    case object GetPublishers            extends NSDbSerializable
 
-    case class Migrate(inputPath: String)
+    case class Migrate(inputPath: String) extends NSDbSerializable
   }
 
   /**
@@ -95,32 +105,44 @@ object MessageProtocol {
     */
   object Events {
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[MetricNotFound], name = "MetricNotFound"),
+        new JsonSubTypes.Type(value = classOf[Generic], name = "Generic")
+      ))
     sealed trait ErrorCode
-    case class MetricNotFound(metric: String) extends ErrorCode
-    case object Generic                       extends ErrorCode
+    case class MetricNotFound(metric: String) extends ErrorCode with NSDbSerializable
+    case class Generic()                      extends ErrorCode with NSDbSerializable
 
-    case class DbsGot(dbs: Set[String])
-    case class NamespacesGot(db: String, namespaces: Set[String])
-    case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
-    case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String)
+    case class DbsGot(dbs: Set[String])                                                         extends NSDbSerializable
+    case class NamespacesGot(db: String, namespaces: Set[String])                               extends NSDbSerializable
+    case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema]) extends NSDbSerializable
+    case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String)   extends NSDbSerializable
     case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
+        extends NSDbSerializable
     case class SchemaCached(db: String, namespace: String, metric: String, schema: Option[Schema])
-    case class MetricsGot(db: String, namespace: String, metrics: Set[String])
+        extends NSDbSerializable
+    case class MetricsGot(db: String, namespace: String, metrics: Set[String]) extends NSDbSerializable
 
-    case class SelectStatementValidated(statement: SelectSQLStatement)
+    case class SelectStatementValidated(statement: SelectSQLStatement) extends NSDbSerializable
     case class SelectStatementValidationFailed(statement: SelectSQLStatement,
                                                reason: String,
-                                               errorCode: ErrorCode = Generic)
+                                               errorCode: ErrorCode = Generic())
+        extends NSDbSerializable
 
-    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit])
-    case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic)
+    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit]) extends NSDbSerializable
+    case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic())
+        extends NSDbSerializable
 
     sealed trait WriteCoordinatorResponse {
       def location: Location = Location.empty
       def timestamp: Long    = System.currentTimeMillis()
     }
 
-    case class InputMapped(db: String, namespace: String, metric: String, record: Bit) extends WriteCoordinatorResponse
+    case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
+        extends WriteCoordinatorResponse
+        with NSDbSerializable
     case class RecordAdded(db: String,
                            namespace: String,
                            metric: String,
@@ -128,6 +150,7 @@ object MessageProtocol {
                            override val location: Location,
                            override val timestamp: Long)
         extends WriteCoordinatorResponse
+        with NSDbSerializable
     case class RecordRejected(db: String,
                               namespace: String,
                               metric: String,
@@ -136,32 +159,47 @@ object MessageProtocol {
                               reasons: List[String],
                               override val timestamp: Long)
         extends WriteCoordinatorResponse
+        with NSDbSerializable
 
-    case class DeleteStatementExecuted(db: String, namespace: String, metric: String)
+    case class DeleteStatementExecuted(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
-    case class MetricDropped(db: String, namespace: String, metric: String)
-    case class NamespaceDeleted(db: String, namespace: String)
-    case class DeleteNamespaceFailed(db: String, namespace: String, reason: String)
+        extends NSDbSerializable
+    case class MetricDropped(db: String, namespace: String, metric: String)         extends NSDbSerializable
+    case class NamespaceDeleted(db: String, namespace: String)                      extends NSDbSerializable
+    case class DeleteNamespaceFailed(db: String, namespace: String, reason: String) extends NSDbSerializable
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[SchemaUpdated], name = "SchemaUpdated"),
+        new JsonSubTypes.Type(value = classOf[UpdateSchemaFailed], name = "UpdateSchemaFailed")
+      ))
+    sealed trait SchemaUpdateResponse
     case class SchemaUpdated(db: String, namespace: String, metric: String, schema: Schema)
+        extends SchemaUpdateResponse
+        with NSDbSerializable
     case class UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])
-    case class SchemaDeleted(db: String, namespace: String, metric: String)
-    case class AllSchemasDeleted(db: String, namespace: String)
+        extends SchemaUpdateResponse
+        with NSDbSerializable
 
-    case class CountGot(db: String, namespace: String, metric: String, count: Int)
-    case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit)
-    case class AllMetricsDeleted(db: String, namespace: String)
-    case class ShardEvicted(db: String, namespace: String, location: Location)
+    case class SchemaDeleted(db: String, namespace: String, metric: String) extends NSDbSerializable
+    case class AllSchemasDeleted(db: String, namespace: String)             extends NSDbSerializable
+
+    case class CountGot(db: String, namespace: String, metric: String, count: Int)       extends NSDbSerializable
+    case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit) extends NSDbSerializable
+    case class AllMetricsDeleted(db: String, namespace: String)                          extends NSDbSerializable
+    case class ShardEvicted(db: String, namespace: String, location: Location)           extends NSDbSerializable
     case class EvictedShardFailed(db: String, namespace: String, location: Location, reason: String)
-    case class CheckForOutDatedShards(db: String, namespace: String, location: Seq[Location])
+        extends NSDbSerializable
+    case class CheckForOutDatedShards(db: String, namespace: String, location: Seq[Location]) extends NSDbSerializable
 
-    case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String)
-    case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)
-    case class PublisherSubscribed(actor: ActorRef, nodeName: String)
+    case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String) extends NSDbSerializable
+    case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)     extends NSDbSerializable
+    case class PublisherSubscribed(actor: ActorRef, nodeName: String)            extends NSDbSerializable
 
-    case class ConnectedDataNodesGot(nodes: Seq[String])
+    case class ConnectedDataNodesGot(nodes: Seq[String]) extends NSDbSerializable
 
-    case class MigrationStarted(inputPath: String)
+    case class MigrationStarted(inputPath: String) extends NSDbSerializable
   }
 
 }

@@ -60,7 +60,7 @@ class MockedMetadataCoordinator extends Actor with ActorLogging {
 class WriteCoordinatorErrorsSpec
     extends TestKit(
       ActorSystem(
-        "nsdb-test",
+        "WriteCoordinatorErrorsSpec",
         ConfigFactory
           .load()
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))

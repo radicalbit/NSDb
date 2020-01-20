@@ -23,7 +23,11 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
     |akka.loglevel = ERROR
     |akka.actor{
     | provider = "cluster"
-    | allow-java-serialization = on
+    |
+    | serialization-bindings {
+    |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
+    | }
+    |
     | control-aware-dispatcher {
     |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
     |   }

@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.common.model
 
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+
 /**
   * Metric Info.
   *
@@ -26,3 +28,4 @@ package io.radicalbit.nsdb.common.model
   * @param retention     period in which data is stored for the metric, 0 means infinite.
   */
 case class MetricInfo(db: String, namespace: String, metric: String, shardInterval: Long, retention: Long = 0)
+    extends NSDbSerializable

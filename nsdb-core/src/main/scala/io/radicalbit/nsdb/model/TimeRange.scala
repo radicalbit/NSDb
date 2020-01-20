@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.model
 
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open}
@@ -28,7 +29,8 @@ import spire.math.interval.{Closed, Open}
   * @param lowerInclusive True if the lower bound is inclusive.
   * @param upperInclusive True if the upper bound is inclusive.
   */
-case class TimeRange(lowerBound: Long, upperBound: Long, lowerInclusive: Boolean, upperInclusive: Boolean) {
+case class TimeRange(lowerBound: Long, upperBound: Long, lowerInclusive: Boolean, upperInclusive: Boolean)
+    extends NSDbSerializable {
 
   def interval: Interval[Long] =
     Interval.fromBounds(if (lowerInclusive) Closed(lowerBound) else Open(lowerBound),

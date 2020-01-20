@@ -25,7 +25,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Command._
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{SelectSQLStatement, SimpleGroupByAggregation, TemporalGroupByAggregation}
 import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -174,15 +174,20 @@ object PublisherActor {
   object Command {
     case class SubscribeBySqlStatement(actor: ActorRef, queryString: String, query: SelectSQLStatement)
         extends ControlMessage
-    case class Unsubscribe(actor: ActorRef) extends ControlMessage
+        with NSDbSerializable
+    case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
   }
 
   object Events {
-    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit]) extends ControlMessage
-    case class SubscriptionByQueryStringFailed(queryString: String, reason: String)          extends ControlMessage
-    case class SubscriptionByQuidFailed(quid: String, reason: String)                        extends ControlMessage
-    case class Unsubscribed(actor: ActorRef)                                                 extends ControlMessage
+    case class SubscribedByQueryString(queryString: String, quid: String, records: Seq[Bit])
+        extends ControlMessage
+        with NSDbSerializable
+    case class SubscriptionByQueryStringFailed(queryString: String, reason: String)
+        extends ControlMessage
+        with NSDbSerializable
+    case class SubscriptionByQuidFailed(quid: String, reason: String) extends ControlMessage with NSDbSerializable
+    case class Unsubscribed(actor: ActorRef)                          extends ControlMessage with NSDbSerializable
 
-    case class RecordsPublished(quid: String, metric: String, records: Seq[Bit])
+    case class RecordsPublished(quid: String, metric: String, records: Seq[Bit]) extends NSDbSerializable
   }
 }
