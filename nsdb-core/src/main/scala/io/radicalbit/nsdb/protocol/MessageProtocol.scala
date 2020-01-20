@@ -200,6 +200,10 @@ object MessageProtocol {
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)     extends NSDbSerializable
     case class PublisherSubscribed(actor: ActorRef, nodeName: String)            extends NSDbSerializable
 
+    case class CommitLogCoordinatorUnSubscribed(nodeName: String) extends NSDbSerializable
+    case class MetricsDataActorUnSubscribed(nodeName: String)     extends NSDbSerializable
+    case class PublisherUnSubscribed(nodeName: String)            extends NSDbSerializable
+
     case class ConnectedDataNodesGot(nodes: Seq[String]) extends NSDbSerializable
 
     case class MigrationStarted(inputPath: String) extends NSDbSerializable

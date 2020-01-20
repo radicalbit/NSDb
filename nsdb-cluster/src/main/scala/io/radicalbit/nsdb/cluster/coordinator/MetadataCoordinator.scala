@@ -385,10 +385,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
     case UnsubscribeMetricsDataActor(nodeName) =>
       metricsDataActors -= nodeName
       log.info(s"metric data actor removed for node $nodeName")
+      sender() ! MetricsDataActorUnSubscribed(nodeName)
     case UnSubscribeCommitLogCoordinator(nodeName) =>
       commitLogCoordinators -= nodeName
       log.info(s"unsubscribed commit log actor for node $nodeName")
-
+      sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case GetDbs =>
       (metadataCache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]

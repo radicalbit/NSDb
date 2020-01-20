@@ -38,6 +38,11 @@ import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
+  CommitLogCoordinatorUnSubscribed,
+  MetricsDataActorUnSubscribed,
+  PublisherUnSubscribed
+}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -131,27 +136,27 @@ class ClusterListener() extends Actor with ActorLogging {
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
 
-      log.info("trying to get metadata coordinator {}", s"/user/guardian_$selfNodeName")
-      (context.actorSelection(s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
-        .map {
-          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) =>
-            log.info("trying to remove from metadata coordinator {}", metadataCoordinator)
-            (metadataCoordinator ? RemoveNodeMetadata(createNodeName(member))).map {
-              case NodeMetadataRemoved(nodeName) =>
-                log.info(s"metadata successfully removed for node $nodeName")
-              case RemoveNodeMetadataFailed(nodeName) =>
-                log.error(s"RemoveNodeMetadataFailed for node $nodeName")
-            }
-
-            readCoordinator ! UnsubscribeMetricsDataActor(createNodeName(member))
-            writeCoordinator ! UnSubscribeCommitLogCoordinator(createNodeName(member))
-            writeCoordinator ! UnSubscribePublisher(createNodeName(member))
-            metadataCoordinator ! UnsubscribeMetricsDataActor(createNodeName(member))
-            metadataCoordinator ! UnSubscribeCommitLogCoordinator(createNodeName(member))
-
-          case unknownResponse =>
-            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
-        }
+      (for {
+        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
+          s"/user/guardian_$selfNodeName") ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        _ <- (readCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member))).mapTo[MetricsDataActorUnSubscribed]
+        _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(createNodeName(member)))
+          .mapTo[CommitLogCoordinatorUnSubscribed]
+        _ <- (writeCoordinator ? UnSubscribePublisher(createNodeName(member))).mapTo[PublisherUnSubscribed]
+        _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member)))
+          .mapTo[MetricsDataActorUnSubscribed]
+        _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(createNodeName(member)))
+          .mapTo[MetricsDataActorUnSubscribed]
+        _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(createNodeName(member)))
+          .mapTo[CommitLogCoordinatorUnSubscribed]
+        removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(createNodeName(member)))
+          .mapTo[RemoveNodeMetadataResponse]
+      } yield removeNodeMetadataResponse).map {
+        case NodeMetadataRemoved(nodeName) =>
+          log.info(s"metadata successfully removed for node $nodeName")
+        case RemoveNodeMetadataFailed(nodeName) =>
+          log.error(s"RemoveNodeMetadataFailed for node $nodeName")
+      }
 
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
