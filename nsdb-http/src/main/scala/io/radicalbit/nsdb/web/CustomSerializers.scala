@@ -32,8 +32,6 @@ object CustomSerializers {
     EqualityExpressionSerializer
   )
 
-  val customSerializersForTesting = customSerializers ++ List(RelativeComparisonSerializerForTesting)
-
   case object AggregationSerializer
       extends CustomSerializer[Aggregation](_ =>
         ({
@@ -169,24 +167,4 @@ object CustomSerializers {
                 )
               ))
         }))
-
-  case object RelativeComparisonSerializerForTesting
-      extends CustomSerializer[RelativeComparisonValue[_]](_ =>
-        ({
-          case JObject(
-              List(JField("value", JLong(0L)),
-                   JField("operator", JString(operator)),
-                   JField("quantity", JLong(quantity)),
-                   JField("unitMeasure", JString(unitMeasure)))) =>
-            RelativeComparisonValue(0L, operator, quantity, unitMeasure)
-        }, {
-          case RelativeComparisonValue(_, operator, quantity: Long, unitMeasure) =>
-            JObject(
-              List(JField("value", JLong(0L)),
-                   JField("operator", JString(operator)),
-                   JField("quantity", JLong(quantity)),
-                   JField("unitMeasure", JString(unitMeasure))))
-
-        }))
-
 }

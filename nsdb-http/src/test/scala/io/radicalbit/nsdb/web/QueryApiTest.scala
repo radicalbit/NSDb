@@ -53,10 +53,11 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
   /*
-        override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
-        fixed timestamp in order to make the test time-independent
+        add to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
+        fixed timestamp (0L) in order to make the unit test time-independent
    */
-  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializersForTesting + BitSerializer
+  implicit val formats
+    : Formats = DefaultFormats ++ CustomSerializers.customSerializers + CustomSerializerForTest + BitSerializer
 
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
@@ -286,14 +287,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a very simple query and return the parsed query" in {
     val q =
-      QueryBody("db",
-        "namespace",
-        "metric",
-        "select count(*) from metric",
-        None,
-        None,
-        None,
-        Some(true))
+      QueryBody("db", "namespace", "metric", "select count(*) from metric", None, None, None, Some(true))
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
