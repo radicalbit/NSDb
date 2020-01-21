@@ -27,11 +27,10 @@ object CustomSerializers {
     ComparisonOperatorSerializer,
     LogicalOperatorSerializer,
     OrderOperatorSerializer,
+    NullableExpressionSerializer,
     LikeExpressionSerializer,
     EqualityExpressionSerializer
   )
-
-  val customSerializersForTesting = customSerializers ++ List(RelativeComparisonSerializerForTesting)
 
   case object AggregationSerializer
       extends CustomSerializer[Aggregation](_ =>
@@ -76,11 +75,13 @@ object CustomSerializers {
             logical.toLowerCase match {
               case "and" => AndOperator
               case "or"  => OrOperator
+              case "not" => NotOperator
             }
           case JNull => null
         }, {
           case AndOperator => JString("and")
           case OrOperator  => JString("or")
+          case NotOperator => JString("not")
         }))
 
   case object OrderOperatorSerializer
@@ -102,7 +103,7 @@ object CustomSerializers {
   case object NullableExpressionSerializer
       extends CustomSerializer[NullableExpression](_ =>
         ({
-          case JObject(List(JField(_, JString(dimension)), JField(_, JString("like")))) => NullableExpression(dimension)
+          case JObject(List(JField(_, JString(dimension)), JField(_, JString("null")))) => NullableExpression(dimension)
         }, {
           case NullableExpression(dimension) =>
             JObject(List(JField("dimension", JString(dimension)), JField("comparison", JString("null"))))
@@ -113,7 +114,7 @@ object CustomSerializers {
         ({
           case JObject(
               List(JField("dimension", JString(dimension)),
-                   JField("comparison", JString("null")),
+                   JField("comparison", JString("like")),
                    JField("value", JString(value)))) =>
             LikeExpression(dimension, value)
         }, {
@@ -166,24 +167,4 @@ object CustomSerializers {
                 )
               ))
         }))
-
-  case object RelativeComparisonSerializerForTesting
-      extends CustomSerializer[RelativeComparisonValue[_]](_ =>
-        ({
-          case JObject(
-              List(JField("value", JLong(0L)),
-                   JField("operator", JString(operator)),
-                   JField("quantity", JLong(quantity)),
-                   JField("unitMeasure", JString(unitMeasure)))) =>
-            RelativeComparisonValue(0L, operator, quantity, unitMeasure)
-        }, {
-          case RelativeComparisonValue(_, operator, quantity: Long, unitMeasure) =>
-            JObject(
-              List(JField("value", JLong(0L)),
-                   JField("operator", JString(operator)),
-                   JField("quantity", JLong(quantity)),
-                   JField("unitMeasure", JString(unitMeasure))))
-
-        }))
-
 }

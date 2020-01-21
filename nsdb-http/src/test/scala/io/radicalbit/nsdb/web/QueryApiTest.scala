@@ -53,10 +53,11 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
   /*
-        override formats with custom serializer for testing purposes that serializes relative timestamp (now) with a fake
-        fixed timestamp in order to make the test time-independent
+        adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
+        fixed timestamp (0L) in order to make the unit test time-independent
    */
-  implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializersForTesting + BitSerializer
+  implicit val formats
+    : Formats = DefaultFormats ++ CustomSerializers.customSerializers + CustomSerializerForTest + BitSerializer
 
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
@@ -278,6 +279,191 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      "country" : "country"
           |    }
           |  } ]
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a very simple query and return the parsed query" in {
+    val q =
+      QueryBody("db", "namespace", "metric", "select count(*) from metric", None, None, None, Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a not null condition and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select count(*) from metric where name is not null limit 1",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
+          |    },
+          |    "condition" : {
+          |      "expression" : {
+          |        "expression" : {
+          |          "dimension" : "name",
+          |          "comparison" : "null"
+          |        },
+          |        "operator" : "not"
+          |      }
+          |    },
+          |    "limit" : {
+          |      "value" : 1
+          |    }
+          |  }
+          |}""".stripMargin
+
+    }
+  }
+
+  "QueryApi called with optional parameter parsed = true" should
+    "correctly query the db with a null condition and return the parsed query" in {
+    val q =
+      QueryBody("db",
+                "namespace",
+                "metric",
+                "select count(*) from metric where name is null limit 1",
+                None,
+                None,
+                None,
+                Some(true))
+
+    Post("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ],
+          |  "parsed" : {
+          |    "db" : "db",
+          |    "namespace" : "namespace",
+          |    "metric" : "metric",
+          |    "distinct" : false,
+          |    "fields" : {
+          |      "fields" : [ {
+          |        "name" : "*",
+          |        "aggregation" : "count"
+          |      } ]
+          |    },
+          |    "condition" : {
+          |      "expression" : {
+          |        "dimension" : "name",
+          |        "comparison" : "null"
+          |      }
+          |    },
+          |    "limit" : {
+          |      "value" : 1
+          |    }
+          |  }
           |}""".stripMargin
 
     }
