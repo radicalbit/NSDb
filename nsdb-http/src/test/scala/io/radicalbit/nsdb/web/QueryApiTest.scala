@@ -53,7 +53,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
   /*
-        add to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
+        adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
         fixed timestamp (0L) in order to make the unit test time-independent
    */
   implicit val formats

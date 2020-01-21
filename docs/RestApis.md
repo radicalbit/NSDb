@@ -157,7 +157,7 @@ Filter object is defines as below:
 
 ## Parsed Query
 
-Adding a `parsed = true` parameter in the request body, the query response will be enriched with the destructured query.
+Adding a `parsed = true` parameter in the request body, the query response will be enriched with the tokenized query.
 
 **Data example**
 
@@ -171,7 +171,7 @@ Adding a `parsed = true` parameter in the request body, the query response will 
 }
 ```
 
-The response will be a json array with `records` object as result and `parsed` for the destructured query
+The response will be a json array with `records` object as result and `parsed` for the tokenized query
 
 ```json
 {
