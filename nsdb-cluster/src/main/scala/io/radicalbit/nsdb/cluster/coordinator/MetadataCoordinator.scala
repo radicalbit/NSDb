@@ -381,6 +381,15 @@ class MetadataCoordinator(clusterListener: ActorRef,
         log.info(s"subscribed commit log actor for node $nodeName")
       }
       sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
+
+    case UnsubscribeMetricsDataActor(nodeName) =>
+      metricsDataActors -= nodeName
+      log.info(s"metric data actor removed for node $nodeName")
+      sender() ! MetricsDataActorUnSubscribed(nodeName)
+    case UnSubscribeCommitLogCoordinator(nodeName) =>
+      commitLogCoordinators -= nodeName
+      log.info(s"unsubscribed commit log actor for node $nodeName")
+      sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case GetDbs =>
       (metadataCache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
@@ -477,6 +486,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         }
         .pipeTo(sender)
     case RemoveNodeMetadata(nodeName) =>
+      log.info(s"remove locations for node $nodeName")
       (metadataCache ? EvictLocationsInNode(nodeName))
         .map {
           case Left(EvictLocationsInNodeFailed(_)) => RemoveNodeMetadataFailed(nodeName)
@@ -575,8 +585,9 @@ object MetadataCoordinator {
 
     case class MetricInfosMigrated(infos: Seq[MetricInfo]) extends NSDbSerializable
 
-    case class NodeMetadataRemoved(nodeName: String)      extends NSDbSerializable
-    case class RemoveNodeMetadataFailed(nodeName: String) extends NSDbSerializable
+    trait RemoveNodeMetadataResponse                      extends NSDbSerializable
+    case class NodeMetadataRemoved(nodeName: String)      extends RemoveNodeMetadataResponse
+    case class RemoveNodeMetadataFailed(nodeName: String) extends RemoveNodeMetadataResponse
   }
 
   def props(clusterListener: ActorRef,
