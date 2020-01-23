@@ -33,7 +33,7 @@ object StatementParser {
     * Parses a [[DeleteSQLStatement]] into a [[ParsedQuery]].
     *
     * @param statement the statement to be parsed.
-    * @param schema metric'groupFieldType schema.
+    * @param schema    metric'groupFieldType schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
   def parseStatement(statement: DeleteSQLStatement, schema: Schema): Try[ParsedQuery] = {
@@ -44,9 +44,9 @@ object StatementParser {
   /**
     * Retrieves internal [[InternalSimpleAggregationType]] based on provided into the query.
     *
-    * @param groupField group by field.
+    * @param groupField     group by field.
     * @param aggregateField field to apply the aggregation to.
-    * @param agg aggregation clause in query (min, max, sum, count).
+    * @param agg            aggregation clause in query (min, max, sum, count).
     * @return an instance of [[InternalSimpleAggregationType]] based on the given parameters.
     */
   private def aggregationType(groupField: String,
@@ -62,8 +62,9 @@ object StatementParser {
 
   /**
     * Parses a [[SelectSQLStatement]] into a [[ParsedQuery]].
+    *
     * @param statement the select statement to be parsed.
-    * @param schema metric's schema.
+    * @param schema    metric's schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Either[String, ParsedQuery] = {
@@ -202,7 +203,8 @@ object StatementParser {
 
   /**
     * Simple query field.
-    * @param name field to be returned into query results.
+    *
+    * @param name  field to be returned into query results.
     * @param count if the number of occurrences of that field must be returned or not. i.e. if the initial query specifies count(field) as a projection.
     */
   case class SimpleField(name: String, count: Boolean = false) {
@@ -213,13 +215,14 @@ object StatementParser {
 
   /**
     * Internal query without aggregations.
+    *
     * @param namespace query namespace.
-    * @param metric query metric.
-    * @param q lucene's [[Query]]
-    * @param distinct true if results must be distinct, false otherwise.
-    * @param limit results limit.
-    * @param fields subset of fields to be included in the results .
-    * @param sort lucene [[Sort]] clause. None if no sort has been supplied.
+    * @param metric    query metric.
+    * @param q         lucene's [[Query]]
+    * @param distinct  true if results must be distinct, false otherwise.
+    * @param limit     results limit.
+    * @param fields    subset of fields to be included in the results .
+    * @param sort      lucene [[Sort]] clause. None if no sort has been supplied.
     */
   case class ParsedSimpleQuery(namespace: String,
                                metric: String,
@@ -260,13 +263,16 @@ object StatementParser {
 
   /**
     * Internal query that maps a sql delete statement.
+    *
     * @param namespace query namespace.
-    * @param metric query metric.
-    * @param q lucene's [[Query]]
+    * @param metric    query metric.
+    * @param q         lucene's [[Query]]
     */
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
 
-  sealed trait InternalSimpleAggregationType {
+  sealed trait InternalAggregation
+
+  sealed trait InternalSimpleAggregationType extends InternalAggregation {
 
     def groupField: String
 
@@ -275,27 +281,34 @@ object StatementParser {
 
   case class InternalCountSimpleAggregation(override val groupField: String, override val aggregateField: String)
       extends InternalSimpleAggregationType
+
   case class InternalMaxSimpleAggregation(override val groupField: String, override val aggregateField: String)
       extends InternalSimpleAggregationType
+
   case class InternalMinSimpleAggregation(override val groupField: String, override val aggregateField: String)
       extends InternalSimpleAggregationType
+
   case class InternalSumSimpleAggregation(override val groupField: String, override val aggregateField: String)
       extends InternalSimpleAggregationType
+
+  sealed trait InternalTemporalAggregation extends InternalAggregation
+
+  object InternalTemporalAggregation {
+    def apply(aggregation: Aggregation): InternalTemporalAggregation =
+      aggregation match {
+        case CountAggregation => InternalCountTemporalAggregation
+        case MaxAggregation   => InternalMaxTemporalAggregation
+        case MinAggregation   => InternalMinTemporalAggregation
+        case SumAggregation   => InternalSumTemporalAggregation
+      }
+  }
+
+  case object InternalCountTemporalAggregation extends InternalTemporalAggregation
+
+  case object InternalSumTemporalAggregation extends InternalTemporalAggregation
+
+  case object InternalMaxTemporalAggregation extends InternalTemporalAggregation
+
+  case object InternalMinTemporalAggregation extends InternalTemporalAggregation
+
 }
-
-sealed trait InternalTemporalAggregation
-
-object InternalTemporalAggregation {
-  def apply(aggregation: Aggregation): InternalTemporalAggregation =
-    aggregation match {
-      case CountAggregation => InternalCountTemporalAggregation
-      case MaxAggregation   => InternalMaxTemporalAggregation
-      case MinAggregation   => InternalMinTemporalAggregation
-      case SumAggregation   => InternalSumTemporalAggregation
-    }
-}
-
-case object InternalCountTemporalAggregation extends InternalTemporalAggregation
-case object InternalSumTemporalAggregation   extends InternalTemporalAggregation
-case object InternalMaxTemporalAggregation   extends InternalTemporalAggregation
-case object InternalMinTemporalAggregation   extends InternalTemporalAggregation

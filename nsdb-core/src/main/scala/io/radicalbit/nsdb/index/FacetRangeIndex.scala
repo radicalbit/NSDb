@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.FacetRangeIndex.FacetRangeResult
 import io.radicalbit.nsdb.model.TimeRange
-import io.radicalbit.nsdb.statement._
+import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.facet.range._
 import org.apache.lucene.facet.{Facets, FacetsCollector}
 import org.apache.lucene.search.{IndexSearcher, Query}

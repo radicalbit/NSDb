@@ -17,11 +17,16 @@
 package io.radicalbit.nsdb
 import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement, TemporalGroupByAggregation}
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementFailed
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{ExecuteSelectStatementResponse, SelectStatementExecuted}
+import io.radicalbit.nsdb.statement.StatementParser.{
+  InternalAggregation,
+  InternalCountSimpleAggregation,
+  InternalTemporalAggregation
+}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 package object post_proc {
 
@@ -30,30 +35,39 @@ package object post_proc {
     * @param chainedResults sequence of chained partial results.
     * @param statement the initial sql statement.
     * @param schema metric's schema.
+    * @param aggregationType aggregation type (temporal, count, sum etc.)
     * @return the final result obtained from the manipulation of the partials.
     */
-  def applyOrderingWithLimit(
-      chainedResults: Future[Either[SelectStatementFailed, Seq[Bit]]],
-      statement: SelectSQLStatement,
-      schema: Schema)(implicit ec: ExecutionContext): Future[Either[SelectStatementFailed, Seq[Bit]]] = {
-    chainedResults.map {
-      case Right(seq) =>
-        statement.groupBy match {
-          case Some(TemporalGroupByAggregation(_, _, _)) =>
-            val sortedResults = seq.sortBy(_.timestamp)
-            statement.limit.map(_.value).map(v => Right(sortedResults.takeRight(v))) getOrElse Right(sortedResults)
-          case _ =>
-            val sortedResults = statement.order.map { order =>
-              val o = schema.fieldsMap(order.dimension).indexType.ord
-              implicit val ord: Ordering[Any] =
-                if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
-                else o
-              seq.sortBy(_.fields(statement.order.get.dimension)._1.rawValue)
-            } getOrElse seq
-            statement.limit.map(_.value).map(v => Right(sortedResults.take(v))) getOrElse Right(sortedResults)
-        }
-      case l @ Left(_) => l
+  def applyOrderingWithLimit(chainedResults: Seq[Bit],
+                             statement: SelectSQLStatement,
+                             schema: Schema,
+                             aggregationType: Option[InternalAggregation] = None)(
+      implicit ec: ExecutionContext): ExecuteSelectStatementResponse = {
+    val sortedResults = aggregationType match {
+      case Some(_: InternalTemporalAggregation) =>
+        val sortedResults = chainedResults.sortBy(_.timestamp)
+        statement.limit.map(_.value).map(v => sortedResults.takeRight(v)) getOrElse sortedResults
+      case Some(InternalCountSimpleAggregation(_, _)) if statement.order.exists(_.dimension == "value") =>
+        implicit val ord: Ordering[Any] =
+          (if (statement.order.get.isInstanceOf[DescOrderOperator]) Ordering[Long].reverse
+           else Ordering[Long]).asInstanceOf[Ordering[Any]]
+        val sortedResults = chainedResults.sortBy(_.value.rawValue)
+        statement.limit.map(_.value).map(v => sortedResults.take(v)) getOrElse sortedResults
+      case _ =>
+        val sortedResults = statement.order.map { order =>
+          val o = schema.fieldsMap(order.dimension).indexType.ord
+          implicit val ord: Ordering[Any] =
+            if (statement.order.get.isInstanceOf[DescOrderOperator]) o.reverse
+            else o
+          chainedResults.sortBy(_.fields(statement.order.get.dimension)._1.rawValue)
+        } getOrElse chainedResults
+        statement.limit.map(_.value).map(v => sortedResults.take(v)) getOrElse sortedResults
     }
+    statement.limit
+      .map(_.value)
+      .map(v => SelectStatementExecuted(statement, sortedResults.take(v))) getOrElse SelectStatementExecuted(
+      statement,
+      sortedResults)
   }
 
   /**
