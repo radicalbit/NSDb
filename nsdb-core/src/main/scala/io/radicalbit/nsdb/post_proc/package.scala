@@ -19,7 +19,11 @@ import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{ExecuteSelectStatementResponse, SelectStatementExecuted}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
+  ExecuteSelectStatementResponse,
+  SelectStatementExecuted,
+  SelectStatementFailed
+}
 import io.radicalbit.nsdb.statement.StatementParser.{
   InternalAggregation,
   InternalCountSimpleAggregation,
@@ -38,11 +42,11 @@ package object post_proc {
     * @param aggregationType aggregation type (temporal, count, sum etc.)
     * @return the final result obtained from the manipulation of the partials.
     */
-  def applyOrderingWithLimit(chainedResults: Seq[Bit],
-                             statement: SelectSQLStatement,
-                             schema: Schema,
-                             aggregationType: Option[InternalAggregation] = None)(
-      implicit ec: ExecutionContext): ExecuteSelectStatementResponse = {
+  def applyOrderingWithLimit(
+      chainedResults: Seq[Bit],
+      statement: SelectSQLStatement,
+      schema: Schema,
+      aggregationType: Option[InternalAggregation] = None)(implicit ec: ExecutionContext): Seq[Bit] = {
     val sortedResults = aggregationType match {
       case Some(_: InternalTemporalAggregation) =>
         val sortedResults = chainedResults.sortBy(_.timestamp)
@@ -65,10 +69,27 @@ package object post_proc {
     }
     statement.limit
       .map(_.value)
-      .map(v => SelectStatementExecuted(statement, sortedResults.take(v))) getOrElse SelectStatementExecuted(
-      statement,
-      sortedResults)
+      .map(v => sortedResults.take(v)) getOrElse sortedResults
   }
+
+  /**
+    * Applies, if needed, ordering and limiting to a sequence of chained partial results.
+    * @param chainedResults sequence of chained partial results.
+    * @param statement the initial sql statement.
+    * @param schema metric's schema.
+    * @param aggregationType aggregation type (temporal, count, sum etc.)
+    * @return the final result obtained from the manipulation of the partials.
+    */
+  def limitAndOrder(chainedResults: ExecuteSelectStatementResponse,
+                    statement: SelectSQLStatement,
+                    schema: Schema,
+                    aggregationType: Option[InternalAggregation] = None)(
+      implicit ec: ExecutionContext): ExecuteSelectStatementResponse =
+    chainedResults match {
+      case SelectStatementExecuted(statement, values) =>
+        SelectStatementExecuted(statement, applyOrderingWithLimit(values, statement, schema, aggregationType))
+      case e: SelectStatementFailed => e
+    }
 
   /**
     * This is a utility method to extract dimensions or tags from a Bit sequence in a functional way without having

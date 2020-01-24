@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatemen
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.post_proc.applyOrderingWithLimit
+import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -292,10 +292,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           }
 
           shardResults
-            .map {
-              case SelectStatementExecuted(statement, values) => applyOrderingWithLimit(values, statement, schema)
-              case e                                          => e
-            }
+            .map(limitAndOrder(_, statement, schema))
             .pipeTo(sender)
 
         case Right(ParsedAggregatedQuery(_, _, _, agg @ InternalCountSimpleAggregation(_, _), _, _)) =>
@@ -311,11 +308,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
 
           shardResults
-            .map {
-              case SelectStatementExecuted(statement, values) =>
-                applyOrderingWithLimit(values, statement, schema, Some(agg))
-              case e => e
-            }
+            .map(limitAndOrder(_, statement, schema, Some(agg)))
             .pipeTo(sender)
 
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
@@ -337,10 +330,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
 
           rawResult
-            .map {
-              case SelectStatementExecuted(statement, values) => applyOrderingWithLimit(values, statement, schema)
-              case e                                          => e
-            }
+            .map(limitAndOrder(_, statement, schema))
             .pipeTo(sender)
 
         case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _)) =>
@@ -348,11 +338,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             actorsForLocations(locations)
 
           gatherShardResults(statement, actors, msg)()
-            .map {
-              case SelectStatementExecuted(statement, values) =>
-                applyOrderingWithLimit(values, statement, schema, Some(aggregationType))
-              case e => e
-            }
+            .map(limitAndOrder(_, statement, schema, Some(aggregationType)))
             .pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)

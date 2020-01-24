@@ -97,11 +97,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
-  private def gatherNodeResults(statement: SelectSQLStatement,
-                                schema: Schema,
-                                uniqueLocationsByNode: Map[String, Seq[Location]],
-                                ranges: Seq[TimeRange] = Seq.empty)(
-      postProcFun: Seq[Bit] => ExecuteSelectStatementResponse): Future[ExecuteSelectStatementResponse] = {
+  private def gatherNodeResults(
+      statement: SelectSQLStatement,
+      schema: Schema,
+      uniqueLocationsByNode: Map[String, Seq[Location]],
+      ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
     Future
       .sequence(metricsDataActors.map {
@@ -111,13 +111,15 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                          uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
                                          ranges)
       })
-      .map { e =>
-        log.debug("gathered {} from locations {}", e, uniqueLocationsByNode)
-        val errs = e.collect { case a: SelectStatementFailed => a }
+      .map { rawResponses =>
+        log.debug("gathered {} from locations {}", rawResponses, uniqueLocationsByNode)
+        val errs = rawResponses.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
           SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
         } else
-          postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values))
+          SelectStatementExecuted(
+            statement,
+            postProcFun(rawResponses.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
       }
       .recover {
         case t =>
@@ -134,17 +136,15 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
     * @return the grouped results.
     */
-  private def gatherAndGroupNodeResults(
-      statement: SelectSQLStatement,
-      groupBy: String,
-      schema: Schema,
-      uniqueLocationsByNode: Map[String, Seq[Location]])(aggregationFunction: Seq[Bit] => Bit)(
-      postProcFunction: Seq[Bit] => ExecuteSelectStatementResponse = applyOrderingWithLimit(_, statement, schema))
-    : Future[ExecuteSelectStatementResponse] =
+  private def gatherAndGroupNodeResults(statement: SelectSQLStatement,
+                                        groupBy: String,
+                                        schema: Schema,
+                                        uniqueLocationsByNode: Map[String, Seq[Location]])(
+      aggregationFunction: Seq[Bit] => Bit): Future[ExecuteSelectStatementResponse] =
     gatherNodeResults(statement, schema, uniqueLocationsByNode) {
       case seq if uniqueLocationsByNode.size > 1 =>
-        postProcFunction(seq.groupBy(_.tags(groupBy)).map(m => aggregationFunction(m._2)).toSeq)
-      case seq => postProcFunction(seq)
+        seq.groupBy(_.tags(groupBy)).map(m => aggregationFunction(m._2)).toSeq
+      case seq => seq
     }
 
   override def receive: Receive = {
@@ -186,11 +186,12 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     case ExecuteStatement(statement) =>
       val startTime = System.currentTimeMillis()
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
-      Future
-        .sequence(Seq(
-          schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
-          metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
-        ))
+      val selectStatementResponse: Future[ExecuteSelectStatementResponse] = Future
+        .sequence(
+          Seq(
+            schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
+            metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
+          ))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
             log.debug("found schema {} and locations", schema, locations)
@@ -232,7 +233,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                     dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
                     tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
                   )
-                }()
+                }
 
               case Right(ParsedAggregatedQuery(_, _, _, agg @ InternalCountSimpleAggregation(_, _), _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
@@ -241,9 +242,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                         NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
                         values.head.dimensions,
                         values.head.tags)
-                } { values =>
-                  applyOrderingWithLimit(values, statement, schema, Some(agg))
-                }
+                }.map(limitAndOrder(_, statement, schema, Some(agg)))
 
               case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
@@ -267,9 +266,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                             values.head.dimensions,
                             values.head.tags)
                     }
-                } { values =>
-                  applyOrderingWithLimit(values, statement, schema)
-                }
+                }.map(limitAndOrder(_, statement, schema))
               case Right(
                   ParsedTemporalAggregatedQuery(_,
                                                 _,
@@ -403,10 +400,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
             log.error(t, s"Error in Execute Statement $statement")
             Future(SelectStatementFailed(statement, "Generic error occurred"))
         }
-        .pipeToWithEffect(sender()) { _ =>
-          if (perfLogger.isDebugEnabled)
-            perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
-        }
+
+      selectStatementResponse.pipeToWithEffect(sender()) { _ =>
+        if (perfLogger.isDebugEnabled)
+          perfLogger.debug("executed statement {} in {} millis", statement, System.currentTimeMillis() - startTime)
+      }
   }
 }
 
