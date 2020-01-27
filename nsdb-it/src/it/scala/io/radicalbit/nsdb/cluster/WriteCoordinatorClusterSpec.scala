@@ -23,6 +23,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters.GrpcBitConverter
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.minicluster.converters.BitConverters.{ApiBitConverter, BitConverter}
 import io.radicalbit.nsdb.test.MiniClusterSpec
 
 import scala.concurrent.duration._

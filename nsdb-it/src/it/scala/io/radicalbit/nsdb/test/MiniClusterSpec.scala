@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.test
 
 import java.time.Duration
 
+import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
