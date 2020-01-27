@@ -120,10 +120,10 @@ lazy val `nsdb-cluster` = project
     dockerRepository := Some("weareradicalbit"),
     defaultLinuxInstallLocation in Docker := s"/opt/${(packageName in Docker).value}",
     dockerCommands := Seq(
-      Cmd("FROM", "openjdk:8-jre-alpine"),
+      Cmd("FROM", "adoptopenjdk/openjdk8:alpine-slim"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
-      Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
       Cmd("RUN", "apk add", "--no-cache", "bash"),
+      Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
       Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
