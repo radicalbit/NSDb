@@ -123,6 +123,7 @@ lazy val `nsdb-cluster` = project
       Cmd("FROM", "openjdk:8-jre-alpine"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
       Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
+      Cmd("RUN", "apk add", "--no-cache", "bash"),
       Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
