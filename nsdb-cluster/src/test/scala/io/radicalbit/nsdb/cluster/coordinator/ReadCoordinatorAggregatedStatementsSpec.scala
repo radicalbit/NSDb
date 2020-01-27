@@ -248,6 +248,28 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
 
       }
 
+      "execute a count successfully with asc ordering over numerical dimension" in within(5.seconds) {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = DoubleMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name")),
+              order = Some(AscOrderOperator("value")),
+              limit = Some(LimitOperator(2))
+            )
+          )
+        )
+
+        awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values.map(_.value.rawValue) shouldBe Seq(1, 1)
+      }
+
       "execute it successfully with asc ordering over numerical dimension" in within(5.seconds) {
         probe.send(
           readCoordinatorActor,

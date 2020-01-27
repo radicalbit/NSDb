@@ -134,9 +134,17 @@ object MessageProtocol {
                                                errorCode: ErrorCode = Generic())
         extends NSDbSerializable
 
-    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit]) extends NSDbSerializable
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[SelectStatementExecuted], name = "SelectStatementExecuted"),
+        new JsonSubTypes.Type(value = classOf[SelectStatementFailed], name = "SelectStatementFailed")
+      ))
+    trait ExecuteSelectStatementResponse extends NSDbSerializable
+    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit])
+        extends ExecuteSelectStatementResponse
     case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic())
-        extends NSDbSerializable
+        extends ExecuteSelectStatementResponse
 
     sealed trait WriteCoordinatorResponse {
       def location: Location = Location.empty
