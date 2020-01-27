@@ -23,7 +23,6 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters.GrpcBitConverter
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.minicluster.converters.BitConverters.ApiBitConverter
 import io.radicalbit.nsdb.test.MiniClusterSpec
 
 import scala.concurrent.duration._
@@ -97,8 +96,6 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
                   dimensions = Map("city" -> "Mouseton", "gender" -> "F"),
                   value = 2,
                   tags = Map.empty)
-
-    import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 
     val apiBit = bit.asApiBit("root", "registry", "people")
 

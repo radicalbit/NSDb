@@ -20,7 +20,6 @@ import akka.cluster.{Cluster, MemberStatus}
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.common.protocol._
-import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 import io.radicalbit.nsdb.test.MiniClusterSpec
 
 import scala.concurrent.duration._

@@ -321,7 +321,7 @@ object Dependencies {
 
   object It {
     lazy val libraries = Seq(
-      scalatest.core % Test
+      scalatest.core % "it,test"
     )
   }
 

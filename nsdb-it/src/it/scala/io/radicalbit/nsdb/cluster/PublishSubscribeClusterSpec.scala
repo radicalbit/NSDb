@@ -38,8 +38,6 @@ import akka.cluster.{Cluster, MemberStatus}
 import akka.util.Timeout
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
-import io.radicalbit.nsdb.minicluster.ws.WebSocketClient
 import io.radicalbit.nsdb.test.MiniClusterSpec
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
