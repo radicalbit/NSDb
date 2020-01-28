@@ -32,7 +32,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest w
 
   "LocationsIndex" should "write and read properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -57,7 +57,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest w
 
   "LocationsIndex" should "get a single location for a metric" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 

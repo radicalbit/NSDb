@@ -53,7 +53,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   lazy val directory: Directory =
-    createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
+    getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
 
   lazy val index = new TimeSeriesIndex(directory)
 

@@ -28,5 +28,5 @@ class TemporaryIndex extends AbstractStructuredIndex with DirectorySupport {
 
   override def indexStorageStrategy: StorageStrategy = StorageStrategy.Memory
 
-  override lazy val directory: Directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+  override lazy val directory: Directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 }

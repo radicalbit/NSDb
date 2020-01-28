@@ -42,21 +42,21 @@ trait DirectorySupport {
     * @param path the root path.
     * @return the mmap directory.
     */
-  def createMmapDirectory(path: Path): MMapDirectory = new MMapDirectory(path)
+  private def createMmapDirectory(path: Path): MMapDirectory = new MMapDirectory(path)
 
   /**
     * Creates an file system directory.
     * @param path the root path.
     * @return the file system directory.
     */
-  def createFileSystemDirectory(path: Path): NIOFSDirectory = new NIOFSDirectory(path)
+  private def createFileSystemDirectory(path: Path): NIOFSDirectory = new NIOFSDirectory(path)
 
   /**
     * Creates an hybrid Lucene Directory subclass that Maps in memory all the files with primaries extensions, all other files are served through NIOFS.
     * @param path the root path.
     * @return the hybrid directory.
     */
-  def createHybridDirectory(path: Path): FileSwitchDirectory =
+  private def createHybridDirectory(path: Path): FileSwitchDirectory =
     new FileSwitchDirectory(PRIMARY_EXTENSIONS.asJava, new MMapDirectory(path), new NIOFSDirectory(path), true) {
 
       /**

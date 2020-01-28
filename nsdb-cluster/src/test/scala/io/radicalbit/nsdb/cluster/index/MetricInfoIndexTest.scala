@@ -30,7 +30,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
   "MetricInfoIndex" should "write and read properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val metricInfoIndex = new MetricInfoIndex(directory)
 
@@ -56,7 +56,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
   "MetricInfoIndex" should "write and delete properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val metricInfoIndex = new MetricInfoIndex(directory)
 

@@ -55,7 +55,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
 
   "SchemaIndex" should "write and read properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val schemaIndex = new SchemaIndex(directory)
 
@@ -110,7 +110,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
           "field2" -> SchemaField("field2", DimensionFieldType, VARCHAR()))
     )
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val schemaIndex = new SchemaIndex(directory)
 
@@ -135,7 +135,7 @@ class SchemaIndexTest extends FlatSpec with Matchers with OneInstancePerTest wit
 
   "SchemaIndex" should "drop schema" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val schemaIndex = new SchemaIndex(directory)
 
