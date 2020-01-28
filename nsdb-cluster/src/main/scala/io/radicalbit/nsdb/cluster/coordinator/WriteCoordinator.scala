@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.Locatio
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
@@ -74,7 +75,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
   override lazy val indexStorageStrategy: StorageStrategy =
-    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   lazy val consistencyLevel: Int =
     context.system.settings.config.getInt("nsdb.cluster.consistency-level")

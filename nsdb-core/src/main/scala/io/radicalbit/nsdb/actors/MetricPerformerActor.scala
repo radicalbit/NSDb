@@ -23,6 +23,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites, PersistedBit, PersistedBits}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.index.AllFacetIndexes
@@ -59,7 +60,7 @@ class MetricPerformerActor(val basePath: String,
   private val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
 
   override lazy val indexStorageStrategy: StorageStrategy =
-    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   private val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 

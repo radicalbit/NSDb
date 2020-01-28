@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index._
@@ -49,7 +50,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     with DirectorySupport {
 
   override lazy val indexStorageStrategy: StorageStrategy =
-    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   lazy val directory: Directory =
     createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))

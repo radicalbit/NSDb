@@ -23,6 +23,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.Schema
@@ -46,7 +47,7 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
   import context.dispatcher
 
   override lazy val indexStorageStrategy: StorageStrategy =
-    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   /**
     * Checks if a newSchema is compatible with an oldSchema. If schemas are compatible, the metric schema will be updated.

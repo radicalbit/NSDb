@@ -24,9 +24,9 @@ import org.apache.lucene.store.Directory
 /**
   * Concrete implementation of [[AbstractStructuredIndex]] which store data in memory.
   */
-class TemporaryIndex(override val indexStorageStrategy: StorageStrategy)
-    extends AbstractStructuredIndex
-    with DirectorySupport {
-  override lazy val directory: Directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+class TemporaryIndex extends AbstractStructuredIndex with DirectorySupport {
 
+  override def indexStorageStrategy: StorageStrategy = StorageStrategy.Memory
+
+  override lazy val directory: Directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 }

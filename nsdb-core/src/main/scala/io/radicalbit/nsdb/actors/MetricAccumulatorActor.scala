@@ -25,6 +25,7 @@ import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.index.StorageStrategy
 import io.radicalbit.nsdb.model.Location
@@ -60,7 +61,7 @@ class MetricAccumulatorActor(val basePath: String,
   implicit val dispatcher: ExecutionContextExecutor = context.system.dispatcher
 
   override lazy val indexStorageStrategy: StorageStrategy =
-    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   /**
     * Actor responsible for the actual writes into indexes.

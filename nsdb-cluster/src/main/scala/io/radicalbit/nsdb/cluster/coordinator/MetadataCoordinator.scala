@@ -38,6 +38,7 @@ import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
@@ -70,7 +71,7 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
   import context.dispatcher
 
   override lazy val indexStorageStrategy: StorageStrategy =
-    StorageStrategy.withValue(context.system.settings.config.getString("nsdb.index.storage-strategy"))
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   lazy val defaultShardingInterval: Long =
     config.getDuration("nsdb.sharding.interval").toMillis
