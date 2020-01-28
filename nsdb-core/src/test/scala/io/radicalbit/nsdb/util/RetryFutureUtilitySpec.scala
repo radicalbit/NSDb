@@ -16,9 +16,9 @@
 
 package io.radicalbit.nsdb.util
 
-import akka.actor.{ActorSystem, Scheduler}
+import akka.actor.{ActorSystem, Scheduler, Status}
 import akka.event.{Logging, LoggingAdapter}
-import akka.testkit.TestKit
+import akka.testkit.{TestKit, TestProbe}
 import org.scalatest.{Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -40,14 +40,29 @@ class RetryFutureUtilitySpec
   private def future(flag: Boolean) =
     if (flag) Future.successful("Success") else Future.failed(new RuntimeException("Failure"))
 
-  "RetryFutureUtility" must {
+  "retry function in RetryFutureUtility" must {
 
-    "return success whether, after retries, the future is eventually successful" in {
+    "successfully returns whether, after retries, the future is eventually successful" in {
       Await.result(future(true).retry(delay, retries), Duration.Inf) shouldBe "Success"
     }
 
     "thrown an Exception whether, after retries, the future eventually returns an Exception" in {
       an[RuntimeException] shouldBe thrownBy(Await.result(future(false).retry(delay, retries), Duration.Inf))
+    }
+  }
+
+  "pipeTo function in RetryFutureUtility" must {
+
+    "returns a successful future and send the content of it through pipe" in {
+      val testProbe = TestProbe("actor-test")
+      future(true).pipeTo(delay, retries, testProbe.testActor)
+      testProbe.expectMsg("Success")
+    }
+
+    "return a failed future and send a status failure through pipe" in {
+      val testProbe = TestProbe("actor-test")
+      future(false).pipeTo(delay, retries, testProbe.testActor)
+      testProbe.expectMsgAllClassOf(classOf[Status.Failure])
     }
   }
 }

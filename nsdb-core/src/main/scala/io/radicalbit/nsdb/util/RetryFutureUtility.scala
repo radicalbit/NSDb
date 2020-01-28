@@ -16,12 +16,13 @@
 
 package io.radicalbit.nsdb.util
 
-import akka.actor.Scheduler
+import akka.actor.{Actor, ActorRef, Scheduler, Status}
 import akka.event.LoggingAdapter
 import akka.pattern.after
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 trait RetryFutureUtility {
   implicit class RetryFuturePolicy[T](f: => Future[T]) {
@@ -29,6 +30,17 @@ trait RetryFutureUtility {
               retries: Int)(implicit ec: ExecutionContext, s: Scheduler, log: LoggingAdapter): Future[T] =
       f recoverWith {
         case t if retries > 0 => log.info(s"$t. Retrying..."); after(delay, s)(retry(delay, retries - 1))
+      }
+  }
+
+  implicit class PipeToRetryFuture[T](f: => Future[T]) {
+    def pipeTo(delay: FiniteDuration, retries: Int, recipient: ActorRef)(implicit ec: ExecutionContext,
+                                                                         s: Scheduler,
+                                                                         log: LoggingAdapter,
+                                                                         sender: ActorRef = Actor.noSender) =
+      f.retry(delay, retries) andThen {
+        case Success(r) ⇒ recipient ! r
+        case Failure(f) ⇒ recipient ! Status.Failure(f)
       }
   }
 }
