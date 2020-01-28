@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Radicalbit S.r.l.
+ * Copyright 2018-2020 Radicalbit S.r.l.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,16 @@ syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
 
-message MigrateRequest {
+message RestoreRequest {
   string sourcePath = 1;
 }
 
-message MigrateResponse {
-  bool startedSuccessfully = 1;
-  string errorMsg = 2;
-  string sourcePath = 3;
+message RestoreResponse {
+  bool completedSuccessfully = 1;
+  string path = 2;
+  string errorMsg = 3;
 }
 
-
-service Migration {
-  rpc Migrate(MigrateRequest) returns (MigrateResponse);
+service Restore {
+  rpc Restore(RestoreRequest) returns (RestoreResponse);
 }
-

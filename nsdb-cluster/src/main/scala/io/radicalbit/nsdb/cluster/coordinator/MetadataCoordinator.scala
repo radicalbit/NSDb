@@ -493,36 +493,38 @@ class MetadataCoordinator(clusterListener: ActorRef,
           case Right(LocationsInNodeEvicted(_))    => NodeMetadataRemoved(nodeName)
         }
         .pipeTo(sender())
-    case Migrate(inputPath) =>
-      val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
-        FileUtils.getSubDirs(db).flatMap { namespace =>
-          val metricInfoDirectory =
-            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata", "info"))
+//    case Migrate(inputPath) =>
+//      val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
+//        FileUtils.getSubDirs(db).flatMap { namespace =>
+//          val metricInfoDirectory =
+//            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata", "info"))
+//
+//          Try {
+//            new IndexUpgrader(metricInfoDirectory).upgrade()
+//          }.recover {
+//            case _: IndexNotFoundException => //do nothing
+//          }
+//
+//          val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
+//          val metricInfos = metricInfoIndex.all
+//            .map(e => Coordinates(db.getName, namespace.getName, e.metric) -> e)
+//
+//          metricInfoIndex.close()
+//
+//          metricInfos
+//        }
+//      }
+//
+//      Future
+//        .sequence(allMetadata.map {
+//          case (Coordinates(_, _, _), metricInfo) =>
+//            (metadataCache ? PutMetricInfoInCache(metricInfo))
+//              .mapTo[MetricInfoCached]
+//        })
+//        .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
+//        .pipeTo(sender())
 
-          Try {
-            new IndexUpgrader(metricInfoDirectory).upgrade()
-          }.recover {
-            case _: IndexNotFoundException => //do nothing
-          }
-
-          val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
-          val metricInfos = metricInfoIndex.all
-            .map(e => Coordinates(db.getName, namespace.getName, e.metric) -> e)
-
-          metricInfoIndex.close()
-
-          metricInfos
-        }
-      }
-
-      Future
-        .sequence(allMetadata.map {
-          case (Coordinates(_, _, _), metricInfo) =>
-            (metadataCache ? PutMetricInfoInCache(metricInfo))
-              .mapTo[MetricInfoCached]
-        })
-        .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
-        .pipeTo(sender())
+      case ExecuteRestoreMetadata(path: String) =>
 
   }
 
@@ -563,6 +565,8 @@ object MetadataCoordinator {
     case object CheckOutdatedLocations extends NSDbSerializable
 
     case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
+
+      case class ExecuteRestoreMetadata(path: String) extends NSDbSerializable
   }
 
   object events {
@@ -588,6 +592,8 @@ object MetadataCoordinator {
     trait RemoveNodeMetadataResponse                      extends NSDbSerializable
     case class NodeMetadataRemoved(nodeName: String)      extends RemoveNodeMetadataResponse
     case class RemoveNodeMetadataFailed(nodeName: String) extends RemoveNodeMetadataResponse
+
+      case class MetadataRestored(path: String) extends NSDbSerializable
   }
 
   def props(clusterListener: ActorRef,

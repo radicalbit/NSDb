@@ -43,7 +43,7 @@ object NsdbRestore extends App {
     } text "the remote port"
     opt[String]("path").required() action { (x, c) =>
       c.copy(sourcePath = x)
-    } text "path of the file to restore"
+    } text "path of the metadata file to restore"
   }
 
   parser.parse(args, Params(None, None, "")) foreach { params =>

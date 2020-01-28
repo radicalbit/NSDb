@@ -25,25 +25,22 @@ import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{CreateDump, DumpCreated, Restore, Restored}
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{ExecuteRestoreMetadata, MetadataRestored}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
-import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
-import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse}
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
 import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
-import io.radicalbit.nsdb.rpc.migration.MigrationGrpc.Migration
-import io.radicalbit.nsdb.rpc.migration.{MigrateRequest, MigrateResponse}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
@@ -56,10 +53,11 @@ import io.radicalbit.nsdb.rpc.responseCommand.{
   MetricsGot => GrpcMetricsGot
 }
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
+import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
+import io.radicalbit.nsdb.rpc.restore.{RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.Duration
@@ -92,9 +90,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   override protected[this] def health: Health = GrpcEndpointServiceHealth
 
-  override protected[this] def dump: Dump = GrpcEndpointServiceDump
+  override protected[this] def restore: Restore = GrpcEndpointServiceDump
 
-  override protected[this] def migration: Migration = MigrationServiceDump
+//  override protected[this] def migration: Migration = MigrationServiceDump
 
   override protected[this] val interface: String = system.settings.config.getString(GrpcInterface)
 
@@ -120,20 +118,20 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       Future.successful(HealthCheckResponse(ServingStatus.SERVING))
   }
 
-  protected[this] object GrpcEndpointServiceDump extends Dump {
-    override def createDump(request: DumpRequest): Future[DumpResponse] = {
-      log.debug(s"Sending to WriteCoordinator dump request for: ${request.targets.mkString(",")}")
-      (writeCoordinator ? CreateDump(request.destPath, request.targets)).map {
-        case DumpCreated(inputPath) => DumpResponse(startedSuccessfully = true, dumpPath = inputPath)
-        case msg =>
-          log.error("got {} from dump request", msg)
-          DumpResponse(startedSuccessfully = false, errorMsg = "unknown response from write coordinator")
-      }
-    }
+  protected[this] object GrpcEndpointServiceDump extends Restore {
+//    override def createDump(request: DumpRequest): Future[DumpResponse] = {
+//      log.debug(s"Sending to WriteCoordinator dump request for: ${request.targets.mkString(",")}")
+//      (writeCoordinator ? CreateDump(request.destPath, request.targets)).map {
+//        case DumpCreated(inputPath) => DumpResponse(startedSuccessfully = true, dumpPath = inputPath)
+//        case msg =>
+//          log.error("got {} from dump request", msg)
+//          DumpResponse(startedSuccessfully = false, errorMsg = "unknown response from write coordinator")
+//      }
+//    }
 
     override def restore(request: RestoreRequest): Future[RestoreResponse] = {
-      (writeCoordinator ? Restore(request.sourcePath)).map {
-        case Restored(path) => RestoreResponse(startedSuccessfully = true, path)
+      (writeCoordinator ? ExecuteRestoreMetadata(request.sourcePath)).map {
+        case MetadataRestored(path) => RestoreResponse(startedSuccessfully = true, path)
         case msg =>
           log.error("got {} from restore request", msg)
           RestoreResponse(startedSuccessfully = false,
