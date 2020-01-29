@@ -1,9 +1,10 @@
-sudo: required
 language: scala
 scala:
   - 2.12.12
 jdk:
   - openjdk8
+services:
+  - docker
 before_cache:
   - find $HOME/.ivy2 -name "ivydata-*.properties" -print -delete
   - find $HOME/.sbt  -name "*.lock"               -print -delete
@@ -12,13 +13,78 @@ cache:
     - $HOME/.ivy2/cache
     - $HOME/.sbt
     - $HOME/.custom-cache
-script:
-  - sbt -jvm-opts .jvmopts-travis clean coverage fixCheck test coverageReport coverageAggregate
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
-  - >
-    test "${TRAVIS_PULL_REQUEST}" = 'false' &&
-    test "${TRAVIS_REPO_SLUG}" = 'radicalbit/NSDb' &&
-    test "${TRAVIS_JDK_VERSION}" = 'oraclejdk8' &&
-    sh "$TRAVIS_BUILD_DIR/travis-credentials.sh" &&
-    sbt +publish
+stages:
+  - name: styling
+  - name: test
+  - name: coverage
+  - name: Image Creation Test
+  - name: push
+    if: (((branch = master OR branch =~ ^branch-) AND type = push) OR (tag IS present)) AND NOT fork
+jobs:
+  include:
+    - stage: "styling"
+      script: sbt clean fixCheck scalafmtCheck test:scalafmtCheck multi-jvm:scalafmtCheck
+    - stage: "test"
+      name: "Unit tests"
+      script: sbt -jvm-opts .jvmopts-travis coverage test
+      workspaces:
+        create:
+          name: testCoverage
+          paths:
+            - nsdb-common/target/scala-2.12/scoverage-data/*
+            - nsdb-rpc/target/scala-2.12/scoverage-data/*
+            - nsdb-scala-api/target/scala-2.12/scoverage-data/*
+            - nsdb-java-api/target/scala-2.12/scoverage-data/*
+            - nsdb-core/target/scala-2.12/scoverage-data/*
+            - nsdb-sql/target/scala-2.12/scoverage-data/*
+            - nsdb-cluster/target/scala-2.12/scoverage-data/*
+            - nsdb-http/target/scala-2.12/scoverage-data/*
+            - nsdb-security/target/scala-2.12/scoverage-data/*
+            - nsdb-cli/target/scala-2.12/scoverage-data/*
+    - script: sbt -jvm-opts .jvmopts-travis coverage multi-jvm:test
+      name: "MultiJvm Test"
+      workspaces:
+        create:
+          name: multiJvmCoverage
+          paths:
+            - nsdb-common/target/scala-2.12/scoverage-data/*
+            - nsdb-rpc/target/scala-2.12/scoverage-data/*
+            - nsdb-scala-api/target/scala-2.12/scoverage-data/*
+            - nsdb-java-api/target/scala-2.12/scoverage-data/*
+            - nsdb-core/target/scala-2.12/scoverage-data/*
+            - nsdb-sql/target/scala-2.12/scoverage-data/*
+            - nsdb-cluster/target/scala-2.12/scoverage-data/*
+            - nsdb-http/target/scala-2.12/scoverage-data/*
+            - nsdb-security/target/scala-2.12/scoverage-data/*
+            - nsdb-cli/target/scala-2.12/scoverage-data/*
+    - script: sbt -jvm-opts .jvmopts-travis coverage it:test
+      name: "Integration Tests"
+      workspaces:
+        create:
+          name: itCoverage
+          paths:
+            - nsdb-common/target/scala-2.12/scoverage-data/*
+            - nsdb-rpc/target/scala-2.12/scoverage-data/*
+            - nsdb-scala-api/target/scala-2.12/scoverage-data/*
+            - nsdb-java-api/target/scala-2.12/scoverage-data/*
+            - nsdb-core/target/scala-2.12/scoverage-data/*
+            - nsdb-sql/target/scala-2.12/scoverage-data/*
+            - nsdb-cluster/target/scala-2.12/scoverage-data/*
+            - nsdb-http/target/scala-2.12/scoverage-data/*
+            - nsdb-security/target/scala-2.12/scoverage-data/*
+            - nsdb-cli/target/scala-2.12/scoverage-data/*
+    - stage: "coverage"
+      script:
+        - sbt compile coverageReport coverageAggregate
+      name: "Coverage"
+      workspaces:
+        use:
+          - testCoverage
+          - multiJvmCoverage
+          - itCoverage
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)
+    - stage: "Image Creation Test"
+      script: sbt docker:publishLocal
+    - stage: "push"
+      script: $TRAVIS_BUILD_DIR/travis-credentials.sh && sbt publish && docker login -u $DOCKER_USER -p $DOCKER_PASSWORD && sbt docker:publish

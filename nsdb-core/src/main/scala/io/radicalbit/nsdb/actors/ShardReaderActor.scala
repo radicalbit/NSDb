@@ -28,8 +28,8 @@ import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
+import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
-import io.radicalbit.nsdb.statement.{InternalCountTemporalAggregation, InternalSumTemporalAggregation, StatementParser}
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.store.Directory
 

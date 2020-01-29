@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd}
 import Path.relativeTo
-
 lazy val root = project
   .in(file("."))
   .settings(
@@ -40,17 +38,14 @@ lazy val root = project
     `nsdb-perf`,
     `nsdb-it`
   )
-
 lazy val packageDist   = taskKey[File]("create universal package and move it to package folder")
 lazy val packageDeb    = taskKey[File]("create debian package and move it to package folder")
 lazy val packageRpm    = taskKey[File]("create RPM package and move it to package folder")
-
 addCommandAlias("fix", "all compile:scalafix test:scalafix")
 addCommandAlias("fixCheck", "; compile:scalafix --check ; test:scalafix --check")
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
-
 lazy val `nsdb-common` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -62,7 +57,6 @@ lazy val `nsdb-common` = project
   )
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Common.libraries)
-
 lazy val `nsdb-core` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -70,7 +64,6 @@ lazy val `nsdb-core` = project
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
   .dependsOn(`nsdb-common`)
-
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -78,7 +71,6 @@ lazy val `nsdb-http` = project
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
   .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
-
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -90,7 +82,6 @@ lazy val `nsdb-rpc` = project
   .settings(LicenseHeader.settings: _*)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`nsdb-sql`)
-
 lazy val `nsdb-cluster` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -98,22 +89,6 @@ lazy val `nsdb-cluster` = project
   .settings(libraryDependencies ++= Dependencies.Cluster.libraries)
   .enablePlugins(MultiJvmPlugin)
   .configs(MultiJvm)
-  .settings(
-    compile in MultiJvm := ((compile in MultiJvm) triggeredBy (compile in Test)).value,
-    executeTests in Test := {
-      import sbt.protocol.testing.TestResult.Failed
-      val testResults      = (executeTests in Test).value
-      val multiNodeResults = (executeTests in MultiJvm).value
-      val overall =
-        if (multiNodeResults.overall == Failed)
-          multiNodeResults.overall
-        else
-          testResults.overall
-      Tests.Output(overall,
-                   testResults.events ++ multiNodeResults.events,
-                   testResults.summaries ++ multiNodeResults.summaries)
-    }
-  )
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(scriptClasspath in bashScriptDefines += "../ext-lib/*")
@@ -123,7 +98,6 @@ lazy val `nsdb-cluster` = project
   .settings(
     /* Docker Settings - to create, run as:
        $ sbt `project nsdb-cluster` docker:publishLocal
-
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
      */
@@ -131,25 +105,24 @@ lazy val `nsdb-cluster` = project
     mappings in Docker ++= {
       val confDir = baseDirectory.value / "src/main/resources"
       val confResources = ((confDir ** "*" --- confDir) pair (relativeTo(confDir), false)).filterNot{case (_,name) => name.contains("application")}
-
       for {
         (file, relativePath) <- confResources
       } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
     },
     mappings in Docker ++= {
       val scriptDir = baseDirectory.value / "../docker-scripts"
-
       for {
         (file, relativePath) <- (scriptDir ** "*" --- scriptDir) pair (relativeTo(scriptDir), false)
       } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
     },
     version in Docker := version.value,
     maintainer in Docker := organization.value,
-    dockerRepository := Some("tools.radicalbit.io"),
+    dockerRepository := Some("weareradicalbit"),
     defaultLinuxInstallLocation in Docker := s"/opt/${(packageName in Docker).value}",
     dockerCommands := Seq(
-      Cmd("FROM", "tools.radicalbit.io/service-java-base:1.0"),
+      Cmd("FROM", "adoptopenjdk/openjdk8:alpine-slim"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
+      Cmd("RUN", "apk add", "--no-cache", "bash"),
       Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
       Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
@@ -162,7 +135,6 @@ lazy val `nsdb-cluster` = project
   .settings(
     /* Debian Settings - to create, run as:
        $ sbt `project nsdb-cluster` debian:packageBin
-
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/debian.html
      */
@@ -181,7 +153,6 @@ lazy val `nsdb-cluster` = project
   .settings(
     /* RPM Settings - to create, run as:
        $ sbt `project nsdb-cluster` rpm:packageBin
-
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
      */
@@ -203,7 +174,6 @@ lazy val `nsdb-cluster` = project
   .settings(
     /* Universal Settings - to create, run as:
        $ sbt `project nsdb-cluster` universal:packageBin
-
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/universal.html
      */
@@ -211,7 +181,6 @@ lazy val `nsdb-cluster` = project
     mappings in Universal ++= {
       val confDir = baseDirectory.value / "src/main/resources"
       val confResources = ((confDir ** "*" --- confDir) pair (relativeTo(confDir), false)).filterNot{case (_,name) => name.contains("application")}
-
       for {
         (file, relativePath) <- confResources
       } yield file -> s"conf/$relativePath"
@@ -229,7 +198,6 @@ lazy val `nsdb-cluster` = project
     }
   )
   .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
-
 lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -237,7 +205,6 @@ lazy val `nsdb-security` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-common`)
-
 lazy val `nsdb-sql` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -245,7 +212,6 @@ lazy val `nsdb-sql` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-common`)
-
 lazy val `nsdb-java-api` = project
   .settings(Commons.settings: _*)
   .settings(crossPaths := false)
@@ -254,7 +220,6 @@ lazy val `nsdb-java-api` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
-
 lazy val `nsdb-scala-api` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -262,7 +227,6 @@ lazy val `nsdb-scala-api` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
-
 lazy val `nsdb-cli` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -272,7 +236,6 @@ lazy val `nsdb-cli` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
-
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -280,19 +243,17 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .enablePlugins(GatlingPlugin)
-
 lazy val `nsdb-it` = (project in file("nsdb-it"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.It.libraries)
+  .configs(IntegrationTest)
+  .settings(Defaults.itSettings)
   .dependsOn(`nsdb-cluster`)
   .dependsOn(`nsdb-scala-api`)
-
 scalafmtOnCompile in ThisBuild := true
-
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
-
 fork in test := false
