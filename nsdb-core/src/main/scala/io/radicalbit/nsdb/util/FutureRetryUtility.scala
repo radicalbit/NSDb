@@ -24,6 +24,9 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+/**
+ * Utility Component for handling future retry mechanism
+ */
 trait FutureRetryUtility {
 
   implicit class FutureRetry[T](f: => Future[T]) {
