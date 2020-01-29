@@ -16,26 +16,19 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props, Stash}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.{
-  NamespaceSchemaDeleted,
-  SchemaMigrated,
-  SchemaMigrationFailed
-}
-import io.radicalbit.nsdb.cluster.util.FileUtils
+import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
-import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex}
+import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.lucene.index.IndexUpgrader
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
@@ -137,61 +130,6 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
           case _ => NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
-    case Migrate(inputPath) =>
-      log.info("migrating schemas for {}", inputPath)
-      val allSchemas = FileUtils.getSubDirs(inputPath).flatMap { db =>
-        FileUtils.getSubDirs(db).map { namespace =>
-          val schemaIndexDir = createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "schemas"))
-          new IndexUpgrader(schemaIndexDir).upgrade()
-          val schemaIndex = new SchemaIndex(schemaIndexDir)
-          val schemas     = schemaIndex.all
-          schemaIndex.close()
-          (db.getName, namespace.getName, schemas)
-        }
-      }
-
-      import cats.instances.either._
-      import cats.instances.list._
-      import cats.syntax.traverse._
-
-      Future
-        .sequence(allSchemas.map {
-          case (db, namespace, schemas) =>
-            Future.sequence(schemas.map {
-              schema =>
-                (schemaCache ? GetSchemaFromCache(db, namespace, schema.metric))
-                  .flatMap {
-                    case SchemaCached(_, _, _, Some(oldSchema)) =>
-                      checkAndUpdateSchema(db, namespace, schema.metric, oldSchema, schema).map {
-                        case msg: SchemaUpdated      => Right(msg)
-                        case msg: UpdateSchemaFailed => Left(msg)
-                      }
-                    case SchemaCached(_, _, _, None) =>
-                      (schemaCache ? PutSchemaInCache(db, namespace, schema.metric, schema))
-                        .map {
-                          case SchemaCached(_, _, _, _) =>
-                            Right(SchemaUpdated(db, namespace, schema.metric, schema))
-                          case msg =>
-                            Left(
-                              UpdateSchemaFailed(db,
-                                                 namespace,
-                                                 schema.metric,
-                                                 List(s"Unknown response from cache $msg")))
-                        }
-                    case _ =>
-                      Future(
-                        Left(UpdateSchemaFailed(db, namespace, schema.metric, List(s"Unknown response from cache"))))
-                  }
-            })
-        })
-        .map(_.flatten.sequence)
-        .map {
-          case Right(seq) => SchemaMigrated(seq.map(e => (Coordinates(e.db, e.namespace, e.metric), e.schema)))
-          case Left(UpdateSchemaFailed(db: String, namespace: String, metric: String, errors: List[String])) =>
-            SchemaMigrationFailed(db, namespace, metric, errors)
-        }
-        .pipeTo(sender())
-
   }
 }
 

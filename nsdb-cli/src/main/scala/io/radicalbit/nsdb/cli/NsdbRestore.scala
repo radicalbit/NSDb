@@ -17,10 +17,9 @@
 package io.radicalbit.nsdb.cli
 
 import io.radicalbit.nsdb.client.rpc.GRPCClient
-import io.radicalbit.nsdb.rpc.dump.{RestoreRequest, RestoreResponse}
+import io.radicalbit.nsdb.rpc.restore.RestoreRequest
 
 import scala.concurrent.Await
-import scala.util.{Failure, Success}
 
 object NsdbRestore extends App {
 
@@ -43,7 +42,7 @@ object NsdbRestore extends App {
     } text "the remote port"
     opt[String]("path").required() action { (x, c) =>
       c.copy(sourcePath = x)
-    } text "path of the metadata file to restore"
+    } text "path of the metadata folder to restore"
   }
 
   parser.parse(args, Params(None, None, "")) foreach { params =>
@@ -51,14 +50,9 @@ object NsdbRestore extends App {
 
     val clientGrpc = new GRPCClient(host = params.host.getOrElse("127.0.0.1"), port = params.port.getOrElse(7817))
 
-    Await.ready(clientGrpc.checkConnection(), 5.seconds).value.get match {
-      case Success(_) =>
-        val response: RestoreResponse = Await.result(clientGrpc.restore(RestoreRequest(params.sourcePath)), 10.seconds)
-        if (response.startedSuccessfully) println("Restore process started successfully")
-        else sys.error(response.errorMsg)
-      case Failure(_) => sys.error(s"instance is not available at the moment.")
-    }
-
+    val response = Await.result(clientGrpc.restore(RestoreRequest(params.sourcePath)), 10.seconds)
+    if (response.completedSuccessfully) println("Restore metadata process completed successfully")
+    else sys.error(response.errorMsg)
   }
 
 }

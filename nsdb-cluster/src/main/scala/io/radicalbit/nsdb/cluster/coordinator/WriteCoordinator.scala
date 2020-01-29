@@ -16,14 +16,10 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.io.File
-import java.nio.file.Paths
 import java.time.Duration
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props, Stash}
-import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
@@ -32,35 +28,26 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   ExecuteDeleteStatementInternalInLocations
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
-  AddLocation,
   GetLocations,
   GetWriteLocations
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.SchemaMigrated
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
-import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
-import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
+import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
-import org.apache.commons.io.{FileUtils => ApacheFileUtils}
-import org.apache.lucene.document.LongPoint
-import org.apache.lucene.index.{IndexUpgrader, IndexWriter}
-import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 object WriteCoordinator {
 

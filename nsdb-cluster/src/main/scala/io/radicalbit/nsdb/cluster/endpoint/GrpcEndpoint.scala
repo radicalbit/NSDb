@@ -23,9 +23,12 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.client.rpc.GRPCServer
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{MetricInfoFailed, MetricInfoPut}
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator.{ExecuteRestoreMetadata, MetadataRestored}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{ExecuteRestoreMetadata, PutMetricInfo}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
+  MetadataRestored,
+  MetricInfoFailed,
+  MetricInfoPut
+}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -90,9 +93,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   override protected[this] def health: Health = GrpcEndpointServiceHealth
 
-  override protected[this] def restore: Restore = GrpcEndpointServiceDump
-
-//  override protected[this] def migration: Migration = MigrationServiceDump
+  override protected[this] def restore: Restore = GrpcEndpointServiceRestore
 
   override protected[this] val interface: String = system.settings.config.getString(GrpcInterface)
 
@@ -118,26 +119,25 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
       Future.successful(HealthCheckResponse(ServingStatus.SERVING))
   }
 
-  protected[this] object GrpcEndpointServiceDump extends Restore {
-//    override def createDump(request: DumpRequest): Future[DumpResponse] = {
-//      log.debug(s"Sending to WriteCoordinator dump request for: ${request.targets.mkString(",")}")
-//      (writeCoordinator ? CreateDump(request.destPath, request.targets)).map {
-//        case DumpCreated(inputPath) => DumpResponse(startedSuccessfully = true, dumpPath = inputPath)
-//        case msg =>
-//          log.error("got {} from dump request", msg)
-//          DumpResponse(startedSuccessfully = false, errorMsg = "unknown response from write coordinator")
-//      }
-//    }
-
+  protected[this] object GrpcEndpointServiceRestore extends Restore {
     override def restore(request: RestoreRequest): Future[RestoreResponse] = {
-      (writeCoordinator ? ExecuteRestoreMetadata(request.sourcePath)).map {
-        case MetadataRestored(path) => RestoreResponse(startedSuccessfully = true, path)
-        case msg =>
-          log.error("got {} from restore request", msg)
-          RestoreResponse(startedSuccessfully = false,
-                          errorMsg = "unknown response from write coordinator",
-                          path = request.sourcePath)
-      }
+      log.info(s"executing restore metadata for request $request")
+      (metadataCoordinator ? ExecuteRestoreMetadata(request.sourcePath))
+        .map {
+          case MetadataRestored(path) => RestoreResponse(completedSuccessfully = true, path)
+          case msg =>
+            log.error("got {} from restore request", msg)
+            RestoreResponse(completedSuccessfully = false,
+                            errorMsg = "unknown response received",
+                            path = request.sourcePath)
+        }
+        .recover {
+          case t: Throwable =>
+            log.error("error occurred in restore metadata", t)
+            RestoreResponse(completedSuccessfully = false,
+                            errorMsg = s"unknown error occurred ${t.getMessage}",
+                            path = request.sourcePath)
+        }
     }
   }
 
@@ -147,7 +147,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
   protected[this] object InitMetricService extends InitMetric {
     override def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
 
-      Try { (Duration(request.shardInterval).toMillis, Duration(request.retention).toMillis) } match {
+      Try {
+        (Duration(request.shardInterval).toMillis, Duration(request.retention).toMillis)
+      } match {
         case Success((interval, retention)) =>
           (metadataCoordinator ? PutMetricInfo(
             MetricInfo(request.db, request.namespace, request.metric, interval, retention)))
@@ -486,21 +488,7 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
           )
       }
     }
-  }
 
-  protected[this] object MigrationServiceDump extends Migration {
-    override def migrate(request: MigrateRequest): Future[MigrateResponse] = {
-      (writeCoordinator ? Migrate(
-        request.sourcePath
-      )).map {
-        case MigrationStarted(path) => MigrateResponse(startedSuccessfully = true, path)
-        case msg =>
-          log.error("got {} from migration request", msg)
-          MigrateResponse(startedSuccessfully = false,
-                          errorMsg = s"unknown response from write coordinator $msg",
-                          sourcePath = request.sourcePath)
-      }
-    }
   }
 
 }

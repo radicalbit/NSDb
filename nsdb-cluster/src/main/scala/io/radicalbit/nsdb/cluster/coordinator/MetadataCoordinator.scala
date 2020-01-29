@@ -16,14 +16,16 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
+import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
+import akka.cluster.ddata.{DistributedData, LmdbDurableStore}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
@@ -32,13 +34,11 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
-import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.Location
@@ -46,13 +46,11 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
-import org.apache.lucene.store.Directory
 
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Random, Try}
+import scala.util.{Random, Success}
 
 /**
   * Actor that handles locations (shards) for metrics.
@@ -493,42 +491,24 @@ class MetadataCoordinator(clusterListener: ActorRef,
           case Right(LocationsInNodeEvicted(_))    => NodeMetadataRemoved(nodeName)
         }
         .pipeTo(sender())
-//    case Migrate(inputPath) =>
-//      val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
-//        FileUtils.getSubDirs(db).flatMap { namespace =>
-//          val metricInfoDirectory =
-//            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata", "info"))
-//
-//          Try {
-//            new IndexUpgrader(metricInfoDirectory).upgrade()
-//          }.recover {
-//            case _: IndexNotFoundException => //do nothing
-//          }
-//
-//          val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
-//          val metricInfos = metricInfoIndex.all
-//            .map(e => Coordinates(db.getName, namespace.getName, e.metric) -> e)
-//
-//          metricInfoIndex.close()
-//
-//          metricInfos
-//        }
-//      }
-//
-//      Future
-//        .sequence(allMetadata.map {
-//          case (Coordinates(_, _, _), metricInfo) =>
-//            (metadataCache ? PutMetricInfoInCache(metricInfo))
-//              .mapTo[MetricInfoCached]
-//        })
-//        .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
-//        .pipeTo(sender())
+    case ExecuteRestoreMetadata(path: String) =>
+      val temporaryDurableStore = context.actorOf(LmdbDurableStore.props(ConfigFactory.parseString(s"""
+           |lmdb {
+           |write-behind-interval = off
+           |map-size = 100 MiB
+           |dir = $path
+           |}
+           |""".stripMargin)))
 
-      case ExecuteRestoreMetadata(path: String) =>
-
+      (temporaryDurableStore ? LoadAll).andThen {
+        case msg @ Success(LoadData(data)) =>
+          log.info(s"restoring ${data.size} metadata entries")
+          DistributedData(context.system).replicator ! msg
+          sender() ! MetadataRestored(path)
+        case e => log.error(s"unexpected response while trying to restore metadata $e")
+      }
   }
 
-  private def getMetricInfoIndex(directory: Directory): MetricInfoIndex = new MetricInfoIndex(directory)
 }
 
 object MetadataCoordinator {
@@ -566,7 +546,7 @@ object MetadataCoordinator {
 
     case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
 
-      case class ExecuteRestoreMetadata(path: String) extends NSDbSerializable
+    case class ExecuteRestoreMetadata(path: String) extends NSDbSerializable
   }
 
   object events {
@@ -593,7 +573,7 @@ object MetadataCoordinator {
     case class NodeMetadataRemoved(nodeName: String)      extends RemoveNodeMetadataResponse
     case class RemoveNodeMetadataFailed(nodeName: String) extends RemoveNodeMetadataResponse
 
-      case class MetadataRestored(path: String) extends NSDbSerializable
+    case class MetadataRestored(path: String) extends NSDbSerializable
   }
 
   def props(clusterListener: ActorRef,
