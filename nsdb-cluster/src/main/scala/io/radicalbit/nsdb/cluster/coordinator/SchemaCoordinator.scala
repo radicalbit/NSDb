@@ -78,7 +78,6 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .map {
           case SchemaCached(_, _, _, schemaOpt) => SchemaGot(db, namespace, metric, schemaOpt)
-
           case e =>
             log.error(s"unexpected response from cache: expecting SchemaCached while got {}", e)
             GetSchemaFailed(db,

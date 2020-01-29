@@ -62,14 +62,15 @@ class MetadataCoordinatorSpec
 
   val probe                = TestProbe()
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
+  val schemaCache = system.actorOf(Props[FakeSchemaCache])
   val schemaCoordinator =
-    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schemacoordinator")
+    system.actorOf(SchemaCoordinator.props(schemaCache), "schemacoordinator")
   val metricsDataActorProbe = TestProbe()
   val metadataCache         = system.actorOf(Props[LocalMetadataCache])
   val clusterListener       = system.actorOf(Props[ClusterListener])
 
   val metadataCoordinator =
-    system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCoordinator, probe.ref))
+    system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCache, probe.ref))
 
   val db        = "testDb"
   val namespace = "testNamespace"

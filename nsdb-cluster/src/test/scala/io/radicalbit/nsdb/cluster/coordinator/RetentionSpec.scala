@@ -92,8 +92,8 @@ class RetentionSpec
   )
 
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
-  val schemaCoordinator =
-    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schema-coordinator")
+  val schemaCache = system.actorOf(Props[FakeSchemaCache])
+  val schemaCoordinator = system.actorOf(SchemaCoordinator.props(schemaCache), "schema-coordinator")
   val localMetadataCache = system.actorOf(Props[LocalMetadataCache])
   val metadataCoordinator =
     system.actorOf(

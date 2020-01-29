@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
-import akka.cluster.ddata.Replicator.{Update, WriteAll}
 import akka.cluster.ddata._
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, MemberStatus}
@@ -61,7 +60,7 @@ import scala.util.Random
   */
 class MetadataCoordinator(clusterListener: ActorRef,
                           metadataCache: ActorRef,
-                          schemaCoordinator: ActorRef,
+                          schemaCache: ActorRef,
                           mediator: ActorRef)
     extends ActorPathLogging
     with DirectorySupport {
@@ -218,9 +217,9 @@ class MetadataCoordinator(clusterListener: ActorRef,
       statement: DeleteSQLStatement,
       location: Location): Future[Either[DeleteStatementFailed, DeleteStatementExecuted]] = {
 
-    (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+    (schemaCache ? GetSchemaFromCache(statement.db, statement.namespace, statement.metric))
       .flatMap {
-        case SchemaGot(_, _, _, Some(schema)) =>
+        case SchemaCached(_, _, _, Some(schema)) =>
           metricsDataActors.get(location.node) match {
             case Some(dataActor) =>
               (dataActor ? ExecuteDeleteStatementInternalInLocations(statement, schema, Seq(location))).map {
@@ -502,32 +501,25 @@ class MetadataCoordinator(clusterListener: ActorRef,
            |  dir = $path
            |}
            |""".stripMargin)),
-        name = s"restorer_${path.replaceAll("/", "_")}"
+        name = s"metadata_restorer_${path.replaceAll("/", "_")}"
       )
 
       (temporaryDurableStoreActor ? LoadAll)
         .map {
-          case msg @ LoadData(data) =>
+          case LoadData(data) =>
             log.info(s"restoring $data")
             log.info(s"restoring ${data.size} metadata entries")
-            val replicator = DistributedData.get(context.system).replicator
-
-            import scala.concurrent.duration._
-            val writeDuration = 5.seconds
-
-            implicit val address: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
             data.foreach {
-              case (key @ "coordinates-cache", envelope: DurableStore.DurableDataEnvelope) =>
-                envelope.data.asInstanceOf[ORSet[Coordinates]].elements.foreach { coordinates =>
-                  replicator ! Update(ORSetKey[Coordinates](key), ORSet.empty[Coordinates], WriteAll(writeDuration))(
-                    _ :+ coordinates)
+              case ("coordinates-cache", envelope: DurableStore.DurableDataEnvelope) =>
+                envelope.data.asInstanceOf[ORSet[Coordinates]].elements.foreach {
+                  case Coordinates(db, namespace, metric) =>
+                  metadataCache ! PutCoordinateInCache(db, namespace, metric)
                 }
               case (key, envelope) if key.startsWith("schema-cache") =>
                 envelope.data.asInstanceOf[LWWMap[SchemaKey, Schema]].entries.foreach {
-                  case (schemaKey, schema) =>
-                    replicator ! Update(LWWMapKey[SchemaKey, Schema](key), LWWMap(), WriteAll(writeDuration))(
-                      _ :+ (schemaKey -> schema))
+                  case ( SchemaKey(db, namespace, metric), schema) =>
+                  schemaCache ! PutSchemaInCache(db, namespace, metric, schema)
                 }
               case (key, _) => log.debug(s"cache key $key not supported")
             }
@@ -613,7 +605,7 @@ object MetadataCoordinator {
 
   def props(clusterListener: ActorRef,
             metadataCache: ActorRef,
-            schemaCoordinator: ActorRef,
+            schemaCache: ActorRef,
             mediator: ActorRef): Props =
-    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCoordinator, mediator))
+    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache, mediator))
 }
