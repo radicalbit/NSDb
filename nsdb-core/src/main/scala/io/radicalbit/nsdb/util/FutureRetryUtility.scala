@@ -24,16 +24,17 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-trait RetryFutureUtility {
-  implicit class RetryFuturePolicy[T](f: => Future[T]) {
+trait FutureRetryUtility {
+
+  implicit class FutureRetry[T](f: => Future[T]) {
     def retry(delay: FiniteDuration,
               retries: Int)(implicit ec: ExecutionContext, s: Scheduler, log: LoggingAdapter): Future[T] =
       f recoverWith {
-        case t if retries > 0 => log.info(s"$t. Retrying..."); after(delay, s)(retry(delay, retries - 1))
+        case t if retries > 0 => log.warning("{}. Retrying...", t); after(delay, s)(retry(delay, retries - 1))
       }
   }
 
-  implicit class PipeToRetryFuture[T](f: => Future[T]) {
+  implicit class PipeToFutureRetry[T](f: => Future[T]) {
     def pipeTo(delay: FiniteDuration, retries: Int, recipient: ActorRef)(implicit ec: ExecutionContext,
                                                                          s: Scheduler,
                                                                          log: LoggingAdapter,

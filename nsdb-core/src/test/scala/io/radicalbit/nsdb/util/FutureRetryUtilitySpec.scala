@@ -21,15 +21,16 @@ import akka.event.{Logging, LoggingAdapter}
 import akka.testkit.{TestKit, TestProbe}
 import org.scalatest.{Matchers, WordSpecLike}
 
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class RetryFutureUtilitySpec
+class FutureRetryUtilitySpec
     extends TestKit(ActorSystem("MySpec"))
     with WordSpecLike
     with Matchers
-    with RetryFutureUtility {
+    with FutureRetryUtility {
 
   implicit val schedule: Scheduler    = system.scheduler
   implicit val logger: LoggingAdapter = Logging.getLogger(system, this)
@@ -40,7 +41,7 @@ class RetryFutureUtilitySpec
   private def future(flag: Boolean) =
     if (flag) Future.successful("Success") else Future.failed(new RuntimeException("Failure"))
 
-  "retry function in RetryFutureUtility" must {
+  "retry function in FutureRetryUtility" must {
 
     "successfully returns whether, after retries, the future is eventually successful" in {
       Await.result(future(true).retry(delay, retries), Duration.Inf) shouldBe "Success"
@@ -49,9 +50,19 @@ class RetryFutureUtilitySpec
     "thrown an Exception whether, after retries, the future eventually returns an Exception" in {
       an[RuntimeException] shouldBe thrownBy(Await.result(future(false).retry(delay, retries), Duration.Inf))
     }
+
+    "consider the number of retries" in {
+      val q = mutable.Queue(0)
+      def future = {
+        val nRetries = q.dequeue()
+        if (nRetries < 2) { q.enqueue(nRetries + 1); Future.failed(new RuntimeException) }
+        else { q.enqueue(nRetries + 1); Future.successful(nRetries) }
+      }
+      Await.result(future.retry(delay, retries), Duration.Inf) shouldBe 2
+    }
   }
 
-  "pipeTo function in RetryFutureUtility" must {
+  "pipeTo function in FutureRetryUtility" must {
 
     "returns a successful future and send the content of it through pipe" in {
       val testProbe = TestProbe("actor-test")
