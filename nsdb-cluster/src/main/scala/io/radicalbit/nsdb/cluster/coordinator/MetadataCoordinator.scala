@@ -20,7 +20,8 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
-import akka.cluster.ddata.{DistributedData, LmdbDurableStore}
+import akka.cluster.ddata.Replicator.{Update, WriteAll}
+import akka.cluster.ddata._
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
@@ -30,6 +31,7 @@ import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIA
 import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
+import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -38,10 +40,10 @@ import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.DirectorySupport
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
@@ -50,7 +52,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Random, Success}
+import scala.util.Random
 
 /**
   * Actor that handles locations (shards) for metrics.
@@ -492,21 +494,52 @@ class MetadataCoordinator(clusterListener: ActorRef,
         }
         .pipeTo(sender())
     case ExecuteRestoreMetadata(path: String) =>
-      val temporaryDurableStore = context.actorOf(LmdbDurableStore.props(ConfigFactory.parseString(s"""
+      val temporaryDurableStoreActor = context.actorOf(
+        LmdbDurableStore.props(ConfigFactory.parseString(s"""
            |lmdb {
-           |write-behind-interval = off
-           |map-size = 100 MiB
-           |dir = $path
+           |  write-behind-interval = off
+           |  map-size = 100 MiB
+           |  dir = $path
            |}
-           |""".stripMargin)))
+           |""".stripMargin)),
+        name = s"restorer_${path.replaceAll("/", "_")}"
+      )
 
-      (temporaryDurableStore ? LoadAll).andThen {
-        case msg @ Success(LoadData(data)) =>
-          log.info(s"restoring ${data.size} metadata entries")
-          DistributedData(context.system).replicator ! msg
-          sender() ! MetadataRestored(path)
-        case e => log.error(s"unexpected response while trying to restore metadata $e")
-      }
+      (temporaryDurableStoreActor ? LoadAll)
+        .map {
+          case msg @ LoadData(data) =>
+            log.info(s"restoring $data")
+            log.info(s"restoring ${data.size} metadata entries")
+            val replicator = DistributedData.get(context.system).replicator
+
+            import scala.concurrent.duration._
+            val writeDuration = 5.seconds
+
+            implicit val address: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
+
+            data.foreach {
+              case (key @ "coordinates-cache", envelope: DurableStore.DurableDataEnvelope) =>
+                envelope.data.asInstanceOf[ORSet[Coordinates]].elements.foreach { coordinates =>
+                  replicator ! Update(ORSetKey[Coordinates](key), ORSet.empty[Coordinates], WriteAll(writeDuration))(
+                    _ :+ coordinates)
+                }
+              case (key, envelope) if key.startsWith("schema-cache") =>
+                envelope.data.asInstanceOf[LWWMap[SchemaKey, Schema]].entries.foreach {
+                  case (schemaKey, schema) =>
+                    replicator ! Update(LWWMapKey[SchemaKey, Schema](key), LWWMap(), WriteAll(writeDuration))(
+                      _ :+ (schemaKey -> schema))
+                }
+              case (key, _) => log.debug(s"cache key $key not supported")
+            }
+
+            MetadataRestored(path)
+          case e =>
+            val reason = s"unexpected response while trying to restore metadata $e"
+            log.error(reason)
+            temporaryDurableStoreActor ! PoisonPill
+            RestoreMetadataFailed(path, reason)
+        }
+        .pipeTo(sender())
   }
 
 }
@@ -573,7 +606,9 @@ object MetadataCoordinator {
     case class NodeMetadataRemoved(nodeName: String)      extends RemoveNodeMetadataResponse
     case class RemoveNodeMetadataFailed(nodeName: String) extends RemoveNodeMetadataResponse
 
-    case class MetadataRestored(path: String) extends NSDbSerializable
+    trait RestoreMetadataResponse                                  extends NSDbSerializable
+    case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
+    case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
   }
 
   def props(clusterListener: ActorRef,
