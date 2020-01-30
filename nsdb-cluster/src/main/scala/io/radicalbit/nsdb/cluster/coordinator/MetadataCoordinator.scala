@@ -505,7 +505,7 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
       (temporaryDurableStoreActor ? LoadAll)
         .map {
           case LoadData(data) =>
-            log.info(s"restoring $data")
+            log.debug(s"restoring $data")
             log.info(s"restoring ${data.size} metadata entries")
 
             data.foreach {
