@@ -72,9 +72,10 @@ object ReplicatedMetadataCache {
   final case class GetNamespacesFromCache(db: String)                 extends NSDbSerializable
   final case class GetMetricsFromCache(db: String, namespace: String) extends NSDbSerializable
 
-  sealed trait AddCoordinateResponse extends NSDbSerializable
+  sealed trait AddCoordinateResponse                                               extends NSDbSerializable
   final case class CoordinateCached(db: String, namespace: String, metric: String) extends AddCoordinateResponse
-  final case class PutCoordinateInCacheFailed(db: String, namespace: String, metric: String) extends AddCoordinateResponse
+  final case class PutCoordinateInCacheFailed(db: String, namespace: String, metric: String)
+      extends AddCoordinateResponse
 
   sealed trait AddLocationResponse
 
@@ -185,14 +186,14 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   def receive: Receive = {
     case PutCoordinateInCache(db, namespace, metric) =>
-      (replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(
-        _ :+ Coordinates(db, namespace, metric))).map {
-        case UpdateSuccess(_, _) =>
-          CoordinateCached(db, namespace, metric)
-        case e =>
-          log.error(s"error in put coordinate in cache $e")
-          PutCoordinateInCacheFailed(db, namespace, metric)
-      }
+      (replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(_ :+ Coordinates(db, namespace, metric)))
+        .map {
+          case UpdateSuccess(_, _) =>
+            CoordinateCached(db, namespace, metric)
+          case e =>
+            log.error(s"error in put coordinate in cache $e")
+            PutCoordinateInCacheFailed(db, namespace, metric)
+        }
     case PutLocationInCache(db, namespace, metric, location) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       (for {

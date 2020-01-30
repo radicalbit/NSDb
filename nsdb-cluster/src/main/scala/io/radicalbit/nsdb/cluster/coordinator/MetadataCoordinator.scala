@@ -58,10 +58,7 @@ import scala.util.Random
   * @param clusterListener actor that collects cluster metrics.
   * @param metadataCache cluster aware metrics location cache.
   */
-class MetadataCoordinator(clusterListener: ActorRef,
-                          metadataCache: ActorRef,
-                          schemaCache: ActorRef,
-                          mediator: ActorRef)
+class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
     with DirectorySupport {
   private val cluster = Cluster(context.system)
@@ -238,6 +235,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
               Future(Right(DeleteStatementExecuted(statement.db, statement.namespace, statement.metric)))
           }
         case _ =>
+          log.warning("trying to evict a metric with locations and without schema")
           Future(
             Left(
               DeleteStatementFailed(statement.db,
@@ -514,14 +512,18 @@ class MetadataCoordinator(clusterListener: ActorRef,
               case ("coordinates-cache", envelope: DurableStore.DurableDataEnvelope) =>
                 envelope.data.asInstanceOf[ORSet[Coordinates]].elements.foreach {
                   case Coordinates(db, namespace, metric) =>
-                  metadataCache ! PutCoordinateInCache(db, namespace, metric)
+                    metadataCache ! PutCoordinateInCache(db, namespace, metric)
+                }
+              case ("all-metric-info-cache", envelope: DurableStore.DurableDataEnvelope) =>
+                envelope.data.asInstanceOf[ORSet[MetricInfo]].elements.foreach { info: MetricInfo =>
+                  metadataCache ! PutMetricInfoInCache(info)
                 }
               case (key, envelope) if key.startsWith("schema-cache") =>
                 envelope.data.asInstanceOf[LWWMap[SchemaKey, Schema]].entries.foreach {
-                  case ( SchemaKey(db, namespace, metric), schema) =>
-                  schemaCache ! PutSchemaInCache(db, namespace, metric, schema)
+                  case (SchemaKey(db, namespace, metric), schema) =>
+                    schemaCache ! PutSchemaInCache(db, namespace, metric, schema)
                 }
-              case (key, _) => log.debug(s"cache key $key not supported")
+              case (key, _) => log.debug(s"cache key $key not required for restoring")
             }
 
             MetadataRestored(path)
@@ -603,9 +605,6 @@ object MetadataCoordinator {
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
   }
 
-  def props(clusterListener: ActorRef,
-            metadataCache: ActorRef,
-            schemaCache: ActorRef,
-            mediator: ActorRef): Props =
+  def props(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef): Props =
     Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache, mediator))
 }

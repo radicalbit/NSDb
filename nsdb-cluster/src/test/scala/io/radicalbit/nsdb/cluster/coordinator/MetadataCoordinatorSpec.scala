@@ -62,7 +62,7 @@ class MetadataCoordinatorSpec
 
   val probe                = TestProbe()
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
-  val schemaCache = system.actorOf(Props[FakeSchemaCache])
+  val schemaCache          = system.actorOf(Props[FakeSchemaCache])
   val schemaCoordinator =
     system.actorOf(SchemaCoordinator.props(schemaCache), "schemacoordinator")
   val metricsDataActorProbe = TestProbe()
