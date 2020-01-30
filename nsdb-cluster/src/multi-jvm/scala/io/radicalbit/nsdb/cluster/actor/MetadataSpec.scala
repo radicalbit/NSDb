@@ -14,7 +14,13 @@ import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
 import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetDbs, GetMetricInfo, GetMetrics, GetNamespaces, GetSchema}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
+  GetDbs,
+  GetMetricInfo,
+  GetMetrics,
+  GetNamespaces,
+  GetSchema
+}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{DbsGot, MetricInfoGot, MetricsGot, NamespacesGot, SchemaGot}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
@@ -133,18 +139,18 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   "Metadata system" must {
 
-    "join cluster" in  {
+    "join cluster" in {
       join(node1, node1)
       join(node2, node1)
 
-      awaitAssert{
+      awaitAssert {
         cluster.state.members.count(_.status == MemberStatus.Up) shouldBe 2
       }
 
       enterBarrier("joined")
     }
 
-    "add location from different nodes" in  {
+    "add location from different nodes" in {
 
       runOn(node1) {
         val selfMember = cluster.selfMember
@@ -163,9 +169,9 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       enterBarrier("after-add-locations")
     }
 
-    "add metric info from different nodes" in  {
+    "add metric info from different nodes" in {
 
-      val metricInfo = MetricInfo("db", "namespace","metric", 100, 30)
+      val metricInfo = MetricInfo("db", "namespace", "metric", 100, 30)
 
       runOn(node1) {
         val selfMember = cluster.selfMember
@@ -181,7 +187,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       enterBarrier("after-add-metrics-info")
     }
-    
+
     "restore values from a metadata dump" in {
 
       runOn(node1) {
@@ -209,12 +215,12 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
         awaitAssert {
           metadataCoordinator ! GetNamespaces("testDb")
-          expectMsg(NamespacesGot("testDb",Set("testNamespace", "testNamespace2")))
+          expectMsg(NamespacesGot("testDb", Set("testNamespace", "testNamespace2")))
         }
 
         awaitAssert {
           metadataCoordinator ! GetNamespaces("testDbWithInfo")
-          expectMsg(NamespacesGot("testDbWithInfo",Set("testNamespaceWithInfo")))
+          expectMsg(NamespacesGot("testDbWithInfo", Set("testNamespaceWithInfo")))
         }
 
         awaitAssert {
@@ -235,67 +241,126 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       def checkMetricInfoes(metadataCoordinator: ActorSelection) = {
         awaitAssert {
-          metadataCoordinator ! GetMetricInfo("testDb", "testNamespace","people")
-          expectMsg(MetricInfoGot("testDb", "testNamespace","people", None))
+          metadataCoordinator ! GetMetricInfo("testDb", "testNamespace", "people")
+          expectMsg(MetricInfoGot("testDb", "testNamespace", "people", None))
 
-          metadataCoordinator ! GetMetricInfo("testDb", "testNamespace","animals")
-          expectMsg(MetricInfoGot("testDb", "testNamespace","animals", None))
+          metadataCoordinator ! GetMetricInfo("testDb", "testNamespace", "animals")
+          expectMsg(MetricInfoGot("testDb", "testNamespace", "animals", None))
         }
 
         awaitAssert {
-          metadataCoordinator ! GetMetricInfo("testDb", "testNamespace2","animals")
-          expectMsg(MetricInfoGot("testDb", "testNamespace2","animals", None))
+          metadataCoordinator ! GetMetricInfo("testDb", "testNamespace2", "animals")
+          expectMsg(MetricInfoGot("testDb", "testNamespace2", "animals", None))
         }
 
         awaitAssert {
-          metadataCoordinator ! GetMetricInfo("testDbWithInfo", "testNamespaceWithInfo","people")
-          expectMsg(MetricInfoGot("testDbWithInfo", "testNamespaceWithInfo","people", Some(MetricInfo("testDbWithInfo", "testNamespaceWithInfo","people",172800000,86400000))))
+          metadataCoordinator ! GetMetricInfo("testDbWithInfo", "testNamespaceWithInfo", "people")
+          expectMsg(
+            MetricInfoGot("testDbWithInfo",
+                          "testNamespaceWithInfo",
+                          "people",
+                          Some(MetricInfo("testDbWithInfo", "testNamespaceWithInfo", "people", 172800000, 86400000))))
         }
       }
 
       def checkSchemas(schemaCoordinator: ActorSelection) = {
-        awaitAssert{
+        awaitAssert {
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "people")
-          expectMsg(SchemaGot("testDb", "testNamespace", "people",
-            Some(
-              Schema("people",Map("city" -> SchemaField("city",DimensionFieldType,VARCHAR()), "timestamp" -> SchemaField("timestamp",TimestampFieldType,BIGINT()), "bigDecimalLong" -> SchemaField("bigDecimalLong",DimensionFieldType,BIGINT()), "bigDecimalDouble" -> SchemaField("bigDecimalDouble",DimensionFieldType,DECIMAL()), "value" -> SchemaField("value",ValueFieldType,DECIMAL()), "gender" -> SchemaField("gender",TagFieldType,VARCHAR())))
-            )
-          ))
+          expectMsg(
+            SchemaGot(
+              "testDb",
+              "testNamespace",
+              "people",
+              Some(
+                Schema(
+                  "people",
+                  Map(
+                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
+                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
+                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
+                    "value"            -> SchemaField("value", ValueFieldType, DECIMAL()),
+                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
+                  )
+                )
+              )
+            ))
 
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "animals")
-          expectMsg(SchemaGot("testDb", "testNamespace", "animals",
-            Some(
-              Schema("animals",Map("city" -> SchemaField("city",DimensionFieldType,VARCHAR()), "timestamp" -> SchemaField("timestamp",TimestampFieldType,BIGINT()), "bigDecimalLong" -> SchemaField("bigDecimalLong",DimensionFieldType,BIGINT()), "bigDecimalDouble" -> SchemaField("bigDecimalDouble",DimensionFieldType,DECIMAL()), "value" -> SchemaField("value",ValueFieldType,BIGINT()), "gender" -> SchemaField("gender",TagFieldType,VARCHAR())))
-            )
-          ))
+          expectMsg(
+            SchemaGot(
+              "testDb",
+              "testNamespace",
+              "animals",
+              Some(
+                Schema(
+                  "animals",
+                  Map(
+                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
+                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
+                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
+                    "value"            -> SchemaField("value", ValueFieldType, BIGINT()),
+                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
+                  )
+                )
+              )
+            ))
         }
 
-        awaitAssert{
+        awaitAssert {
           schemaCoordinator ! GetSchema("testDb", "testNamespace2", "animals")
-          expectMsg(SchemaGot("testDb", "testNamespace2", "animals",
-            Some(
-              Schema("animals",Map("city" -> SchemaField("city",DimensionFieldType,VARCHAR()), "timestamp" -> SchemaField("timestamp",TimestampFieldType,BIGINT()), "bigDecimalLong" -> SchemaField("bigDecimalLong",DimensionFieldType,BIGINT()), "bigDecimalDouble" -> SchemaField("bigDecimalDouble",DimensionFieldType,DECIMAL()), "value" -> SchemaField("value",ValueFieldType,BIGINT()), "gender" -> SchemaField("gender",TagFieldType,VARCHAR())))
-            )
-          ))
+          expectMsg(
+            SchemaGot(
+              "testDb",
+              "testNamespace2",
+              "animals",
+              Some(
+                Schema(
+                  "animals",
+                  Map(
+                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
+                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
+                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
+                    "value"            -> SchemaField("value", ValueFieldType, BIGINT()),
+                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
+                  )
+                )
+              )
+            ))
         }
 
-        awaitAssert{
+        awaitAssert {
           schemaCoordinator ! GetSchema("testDbWithInfo", "testNamespaceWithInfo", "people")
-          expectMsg(SchemaGot("testDbWithInfo", "testNamespaceWithInfo", "people",
-            Some(
-              Schema("people",Map("city" -> SchemaField("city",DimensionFieldType,VARCHAR()), "timestamp" -> SchemaField("timestamp",TimestampFieldType,BIGINT()), "bigDecimalLong" -> SchemaField("bigDecimalLong",DimensionFieldType,BIGINT()), "bigDecimalDouble" -> SchemaField("bigDecimalDouble",DimensionFieldType,DECIMAL()), "value" -> SchemaField("value",ValueFieldType,BIGINT()), "gender" -> SchemaField("gender",TagFieldType,VARCHAR())))
-            )
-          ))
+          expectMsg(
+            SchemaGot(
+              "testDbWithInfo",
+              "testNamespaceWithInfo",
+              "people",
+              Some(
+                Schema(
+                  "people",
+                  Map(
+                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
+                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
+                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
+                    "value"            -> SchemaField("value", ValueFieldType, BIGINT()),
+                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
+                  )
+                )
+              )
+            ))
         }
       }
 
       runOn(node1) {
         val selfMember = cluster.selfMember
-        val nodeName = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
         val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
-        val schemaCoordinator = system.actorSelection(s"user/guardian_$nodeName/schema-coordinator_$nodeName")
-
+        val schemaCoordinator   = system.actorSelection(s"user/guardian_$nodeName/schema-coordinator_$nodeName")
 
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
@@ -305,11 +370,10 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       runOn(node2) {
         val selfMember = cluster.selfMember
-        val nodeName = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
         val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
-        val schemaCoordinator = system.actorSelection(s"user/guardian_$nodeName/schema-coordinator_$nodeName")
-
+        val schemaCoordinator   = system.actorSelection(s"user/guardian_$nodeName/schema-coordinator_$nodeName")
 
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
