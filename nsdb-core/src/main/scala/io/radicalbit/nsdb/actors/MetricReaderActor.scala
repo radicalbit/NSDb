@@ -29,7 +29,6 @@ import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatemen
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -291,11 +290,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             )
           }
 
-          shardResults
-            .map(limitAndOrder(_, statement, schema))
-            .pipeTo(sender)
-
-        case Right(ParsedAggregatedQuery(_, _, _, agg @ InternalCountSimpleAggregation(_, _), _, _)) =>
+          shardResults.pipeTo(sender)
+        case Right(ParsedAggregatedQuery(_, _, _, _ : InternalCountSimpleAggregation, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
@@ -307,10 +303,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                   values.head.tags)
             }
 
-          shardResults
-            .map(limitAndOrder(_, statement, schema, Some(agg)))
-            .pipeTo(sender)
-
+          shardResults.pipeTo(sender)
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
@@ -329,17 +322,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               }
             }
 
-          rawResult
-            .map(limitAndOrder(_, statement, schema))
-            .pipeTo(sender)
-
-        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _)) =>
+          rawResult.pipeTo(sender)
+        case Right(_ : ParsedTemporalAggregatedQuery) =>
           val actors =
             actorsForLocations(locations)
 
-          gatherShardResults(statement, actors, msg)()
-            .map(limitAndOrder(_, statement, schema, Some(aggregationType)))
-            .pipeTo(sender)
+          gatherShardResults(statement, actors, msg)().pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)
         case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")
