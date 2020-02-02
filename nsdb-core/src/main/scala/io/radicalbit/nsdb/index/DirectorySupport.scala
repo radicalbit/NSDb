@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Path
 
 import org.apache.lucene.store.{Directory, FileSwitchDirectory, MMapDirectory, NIOFSDirectory}
-import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import org.apache.lucene.store.MMapDirectory
