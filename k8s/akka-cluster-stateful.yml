@@ -29,7 +29,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: nsdb
-          image: tools.radicalbit.io/nsdb:1.0.0-SNAPSHOT
+          image: weareradicalbit/nsdb:1.0.0-SNAPSHOT
           imagePullPolicy: IfNotPresent
           #health
           readinessProbe:
