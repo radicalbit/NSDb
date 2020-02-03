@@ -92,16 +92,13 @@ class RetentionSpec
   )
 
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
-  val schemaCoordinator =
-    system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schema-coordinator")
-  val localMetadataCache = system.actorOf(Props[LocalMetadataCache])
+  val schemaCache          = system.actorOf(Props[FakeSchemaCache])
+  val schemaCoordinator    = system.actorOf(SchemaCoordinator.props(schemaCache), "schema-coordinator")
+  val localMetadataCache   = system.actorOf(Props[LocalMetadataCache])
   val metadataCoordinator =
     system.actorOf(
       MetadataCoordinator
-        .props(system.actorOf(Props[ClusterListener]),
-               localMetadataCache,
-               schemaCoordinator,
-               system.actorOf(Props.empty))
+        .props(system.actorOf(Props[ClusterListener]), localMetadataCache, schemaCache, system.actorOf(Props.empty))
         .withDispatcher("akka.actor.control-aware-dispatcher"),
       "metadata-coordinator"
     )
@@ -202,9 +199,7 @@ class RetentionSpec
 
         recordsToTest.foreach { r =>
           probe.send(writeCoordinator, MapInput(r.timestamp, db, namespace, metricWithRetention, r))
-          awaitAssert {
-            probe.expectMsgType[InputMapped]
-          }
+          probe.expectMsgType[InputMapped]
         }
 
         awaitAssert {
@@ -212,7 +207,7 @@ class RetentionSpec
             readCoordinatorActor,
             selectAllOrderByTimestamp(metricWithRetention)
           )
-          probe.expectMsgType[SelectStatementExecuted].values.size should be(9)
+          probe.expectMsgType[SelectStatementExecuted].values.size should be(recordsToTest.size)
         }
 
         awaitAssert {

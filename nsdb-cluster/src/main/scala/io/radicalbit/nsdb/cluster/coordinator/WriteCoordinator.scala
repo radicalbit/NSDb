@@ -16,14 +16,10 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.io.File
-import java.nio.file.Paths
 import java.time.Duration
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props, Stash}
-import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
@@ -31,48 +27,29 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
-  AddLocation,
-  GetLocations,
-  GetWriteLocations
-}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
-import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.SchemaMigrated
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
-import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
-import io.radicalbit.nsdb.cluster.{NsdbPerfLogger, createNodeName}
+import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.{Bit, Coordinates}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
-import io.radicalbit.nsdb.index.{DirectorySupport, SchemaIndex, TimeSeriesIndex}
+import io.radicalbit.nsdb.index.DirectorySupport
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.rpc.dump.DumpTarget
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
-import org.apache.commons.io.{FileUtils => ApacheFileUtils}
-import org.apache.lucene.document.LongPoint
-import org.apache.lucene.index.{IndexUpgrader, IndexWriter}
-import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.zeroturnaround.zip.ZipUtil
 
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 object WriteCoordinator {
 
   def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
     Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
-
-  case class Restore(path: String)
-  case class Restored(path: String)
-
-  case class CreateDump(inputPath: String, targets: Seq[DumpTarget])
-  case class DumpCreated(inputPath: String)
 
   case class AckPendingMetric(db: String, namespace: String, metric: String)
 }
@@ -587,167 +564,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         _ <- (schemaCoordinator ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted]
       } yield MetricDropped(db, namespace, metric)
       chain.pipeTo(sender())
-    case Restore(path: String) =>
-      log.info("restoring dump at path {}", path)
-      val tmpPath = s"/tmp/nsdbDump/${UUID.randomUUID().toString}"
-
-      sender ! Restored(path)
-
-      FileUtils.unzip(path, tmpPath)
-      val dbs = FileUtils.getSubDirs(tmpPath)
-      dbs.foreach { db =>
-        val namespaces = FileUtils.getSubDirs(db)
-        namespaces.foreach { namespace =>
-          val metrics = FileUtils.getSubDirs(namespace)
-          metrics.foreach { metric =>
-            val schemaIndex = new SchemaIndex(createMmapDirectory(Paths.get(metric.getAbsolutePath, "schemas")))
-            schemaIndex.getSchema(metric.getName).foreach { schema =>
-              log.debug("restoring metric {}", metric.getName)
-              val metricsIndex = new TimeSeriesIndex(createMmapDirectory(metric.toPath))
-              val minTimestamp = metricsIndex
-                .query(schema,
-                       new MatchAllDocsQuery(),
-                       Seq.empty,
-                       1,
-                       Some(new Sort(new SortField("timestamp", SortField.Type.LONG, false))))(identity)
-                .head
-                .timestamp
-              val maxTimestamp = metricsIndex
-                .query(schema,
-                       new MatchAllDocsQuery(),
-                       Seq.empty,
-                       1,
-                       Some(new Sort(new SortField("timestamp", SortField.Type.LONG, true))))(identity)
-                .head
-                .timestamp
-              var currentTimestamp = minTimestamp
-              var upBound          = currentTimestamp + shardingInterval.toMillis
-
-              while (currentTimestamp <= maxTimestamp) {
-
-                val cluster  = Cluster(context.system)
-                val nodeName = createNodeName(cluster.selfMember)
-                val loc      = Location(metric.getName, nodeName, currentTimestamp, upBound)
-
-                log.debug(s"restoring dump from metric ${metric.getName} and location $loc")
-
-                metadataCoordinator ! (AddLocation(db.getName, namespace.getName, loc), ActorRef.noSender)
-                metricsIndex
-                  .query(schema,
-                         LongPoint.newRangeQuery("timestamp", currentTimestamp, upBound),
-                         Seq.empty,
-                         Int.MaxValue,
-                         None) { bit =>
-                    updateSchema(db.getName, namespace.getName, metric.getName, bit) { _ =>
-                      accumulateRecord(db.getName, namespace.getName, metric.getName, bit, loc)
-                    }
-                  }
-                currentTimestamp = upBound
-                upBound = currentTimestamp + shardingInterval.toMillis
-                System.gc()
-                System.runFinalization()
-                log.info("path {} restored", path)
-                sender() ! Restored(path)
-              }
-            }
-          }
-        }
-      }
-    case CreateDump(destPath, targets) =>
-      log.info(s"Starting dump with destination : $destPath and targets : ${targets.mkString(",")}")
-
-      val basePath       = context.system.settings.config.getString(StorageIndexPath)
-      val dumpIdentifier = UUID.randomUUID().toString
-      val tmpPath        = s"/tmp/nsdbDump/$dumpIdentifier"
-
-      sender ! DumpCreated(destPath)
-
-      targets
-        .groupBy(_.db)
-        .foreach {
-          case (db, dbTargets) =>
-            val namespaces = dbTargets.map(_.namespace)
-            namespaces.foreach { namespace =>
-              FileUtils
-                .getSubDirs(Paths.get(basePath, db, namespace, "shards").toFile)
-                .groupBy(_.getName.split("_").toList.head)
-                .foreach {
-                  case (metricName, dirNames) =>
-                    (schemaCoordinator ? GetSchema(db, namespace, metricName))
-                      .foreach {
-                        case SchemaGot(_, _, _, Some(schema)) =>
-                          val schemasDir =
-                            createMmapDirectory(Paths.get(basePath, db, namespace, "schemas", metricName))
-                          val schemaIndex  = new SchemaIndex(schemasDir)
-                          val schemaWriter = schemaIndex.getWriter
-                          schemaIndex.write(schema)(schemaWriter)
-                          schemaWriter.close()
-
-                          val dumpMetricIndex =
-                            new TimeSeriesIndex(createMmapDirectory(Paths.get(tmpPath, db, namespace, metricName)))
-                          dirNames.foreach { dirMetric =>
-                            val shardWriter: IndexWriter = dumpMetricIndex.getWriter
-                            val shardsDir =
-                              createMmapDirectory(Paths.get(basePath, db, namespace, "shards", dirMetric.getName))
-                            val shardIndex = new TimeSeriesIndex(shardsDir)
-                            shardIndex.all(schema, bit => dumpMetricIndex.write(bit)(shardWriter))
-                            shardWriter.close()
-                            System.gc()
-                            System.runFinalization()
-                          }
-                        case _ => log.error("No schema found for metric {}", metricName)
-                      }
-                }
-            }
-        }
-
-      ZipUtil.pack(Paths.get(tmpPath).toFile, new File(s"$destPath/$dumpIdentifier.zip"))
-      ApacheFileUtils.deleteDirectory(Paths.get(tmpPath).toFile)
-      log.info(s"Dump with identifier $dumpIdentifier completed")
-
-    case msg @ Migrate(inputPath) =>
-      log.info("starting migrate at path {}", inputPath)
-
-      sender ! MigrationStarted(inputPath)
-
-      for {
-        _              <- metadataCoordinator ? msg
-        schemaMigrated <- (schemaCoordinator ? msg).mapTo[SchemaMigrated]
-        accumulated <- {
-
-          val schemaMap = schemaMigrated.schemas.toMap
-
-          Future.sequence(
-            FileUtils
-              .getSubDirs(inputPath)
-              .flatMap { db =>
-                FileUtils.getSubDirs(db).toList.map {
-                  namespace =>
-                    FileUtils.getSubDirs(Paths.get(namespace.getAbsolutePath, "shards")).flatMap {
-                      shard =>
-                        val metric   = shard.getName.split("_").headOption
-                        val shardDir = createMmapDirectory(Paths.get(shard.getAbsolutePath))
-                        new IndexUpgrader(shardDir).upgrade()
-
-                        val shardIndex = new TimeSeriesIndex(shardDir)
-
-                        val schemaOpt =
-                          metric.flatMap(m => schemaMap.get(Coordinates(db.getName, namespace.getName, m)))
-
-                        schemaOpt
-                          .map(s => shardIndex.all(s, b => (s.metric, b)))
-                          .getOrElse(Seq.empty)
-                          .map {
-                            case (metric, bit) =>
-                              self ? MapInput(bit.timestamp, db.getName, namespace.getName, metric, bit)
-                          }
-                    }
-                }
-              }
-              .flatten)
-        }
-      } yield accumulated
-
     case msg => log.info(s"Receive Unhandled message $msg")
   }
 }

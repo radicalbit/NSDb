@@ -62,6 +62,7 @@ object ReplicatedMetadataCache {
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
 
+  final case class PutCoordinateInCache(db: String, namespace: String, metric: String) extends NSDbSerializable
   final case class PutLocationInCache(db: String, namespace: String, metric: String, value: Location)
       extends NSDbSerializable
   final case class GetLocationsFromCache(db: String, namespace: String, metric: String) extends NSDbSerializable
@@ -70,6 +71,11 @@ object ReplicatedMetadataCache {
   final case object GetDbsFromCache                                   extends NSDbSerializable
   final case class GetNamespacesFromCache(db: String)                 extends NSDbSerializable
   final case class GetMetricsFromCache(db: String, namespace: String) extends NSDbSerializable
+
+  sealed trait AddCoordinateResponse                                               extends NSDbSerializable
+  final case class CoordinateCached(db: String, namespace: String, metric: String) extends AddCoordinateResponse
+  final case class PutCoordinateInCacheFailed(db: String, namespace: String, metric: String)
+      extends AddCoordinateResponse
 
   sealed trait AddLocationResponse
 
@@ -179,6 +185,15 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
   import context.dispatcher
 
   def receive: Receive = {
+    case PutCoordinateInCache(db, namespace, metric) =>
+      (replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(_ :+ Coordinates(db, namespace, metric)))
+        .map {
+          case UpdateSuccess(_, _) =>
+            CoordinateCached(db, namespace, metric)
+          case e =>
+            log.error(s"error in put coordinate in cache $e")
+            PutCoordinateInCacheFailed(db, namespace, metric)
+        }
     case PutLocationInCache(db, namespace, metric, location) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       (for {

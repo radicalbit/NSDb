@@ -99,8 +99,6 @@ object MessageProtocol {
     case object GetMetricsDataActors     extends NSDbSerializable
     case object GetCommitLogCoordinators extends NSDbSerializable
     case object GetPublishers            extends NSDbSerializable
-
-    case class Migrate(inputPath: String) extends NSDbSerializable
   }
 
   /**

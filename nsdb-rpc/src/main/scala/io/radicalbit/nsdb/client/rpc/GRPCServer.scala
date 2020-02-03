@@ -21,14 +21,12 @@ import java.net.InetSocketAddress
 import com.google.common.net.InetAddresses
 import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
-import io.radicalbit.nsdb.rpc.dump.DumpGrpc
-import io.radicalbit.nsdb.rpc.dump.DumpGrpc.Dump
 import io.radicalbit.nsdb.rpc.health.HealthGrpc
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc.InitMetric
-import io.radicalbit.nsdb.rpc.migration.MigrationGrpc
-import io.radicalbit.nsdb.rpc.migration.MigrationGrpc.Migration
+import io.radicalbit.nsdb.rpc.restore.RestoreGrpc
+import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
@@ -56,11 +54,9 @@ trait GRPCServer {
 
   protected[this] def health: Health
 
-  protected[this] def dump: Dump
+  protected[this] def restore: Restore
 
   protected[this] def parserSQL: SQLStatementParser
-
-  protected[this] def migration: Migration
 
   sys.addShutdownHook {
     System.err.println("Shutting down gRPC server since JVM is shutting down")
@@ -68,14 +64,13 @@ trait GRPCServer {
     System.err.println("Server shut down")
   }
 
-  lazy val server = NettyServerBuilder
+  lazy val server: Server = NettyServerBuilder
     .forAddress(new InetSocketAddress(InetAddresses.forString(interface), port))
     .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
     .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
     .addService(InitMetricGrpc.bindService(initMetricService, executionContextExecutor))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
-    .addService(DumpGrpc.bindService(dump, executionContextExecutor))
-    .addService(MigrationGrpc.bindService(migration, executionContextExecutor))
+    .addService(RestoreGrpc.bindService(restore, executionContextExecutor))
     .build
 
   def start(): Try[Server] = Try(server.start())
