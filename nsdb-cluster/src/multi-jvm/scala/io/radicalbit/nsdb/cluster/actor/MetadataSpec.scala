@@ -23,7 +23,7 @@ object MetadataSpec extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     |akka.loglevel = ERROR
-    |akka.actor{
+    |akka.actor {
     | provider = "cluster"
     |
     | serialization-bindings {
@@ -35,7 +35,7 @@ object MetadataSpec extends MultiNodeConfig {
     |   }
     |}
     |akka.log-dead-letters-during-shutdown = off
-    |nsdb{
+    |nsdb {
     |
     |  grpc {
     |    interface = "0.0.0.0"

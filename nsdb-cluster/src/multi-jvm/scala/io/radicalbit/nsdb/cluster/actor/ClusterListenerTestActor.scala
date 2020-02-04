@@ -9,7 +9,7 @@ import akka.remote.RemoteScope
 import io.radicalbit.nsdb.cluster.PubSubTopics.NODE_GUARDIANS_TOPIC
 import io.radicalbit.nsdb.cluster.createNodeName
 
-class ClusterListenerTestActor()  extends Actor with ActorLogging {
+class ClusterListenerTestActor extends Actor with ActorLogging {
 
   private lazy val cluster             = Cluster(context.system)
   private lazy val mediator = DistributedPubSub(context.system).mediator

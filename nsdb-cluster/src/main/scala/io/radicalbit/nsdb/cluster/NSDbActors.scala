@@ -27,10 +27,8 @@ import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
 
-import scala.concurrent.ExecutionContextExecutor
-
 /**
-  * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[GrpcEndpoint]] based on coordinators
+  * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint]] based on coordinators
   */
 trait NSDbActors {
 
@@ -38,8 +36,6 @@ trait NSDbActors {
 
   implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
-
-  implicit lazy val executionContext: ExecutionContextExecutor = system.dispatcher
 
   def initTopLevelActors(): Unit = {
     AkkaManagement(system).start()
@@ -52,13 +48,13 @@ trait NSDbActors {
       name = "databaseActorGuardian"
     )
 
-    DistributedData(system).replicator
-
     system.actorOf(
       ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
                                   settings = ClusterSingletonProxySettings(system)),
       name = "databaseActorGuardianProxy"
     )
+
+    DistributedData(system).replicator
 
     system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
   }
