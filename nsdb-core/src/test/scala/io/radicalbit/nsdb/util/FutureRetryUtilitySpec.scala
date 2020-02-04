@@ -55,8 +55,9 @@ class FutureRetryUtilitySpec
       val q = mutable.Queue(0)
       def future = {
         val nRetries = q.dequeue()
-        if (nRetries < 2) { q.enqueue(nRetries + 1); Future.failed(new RuntimeException) }
-        else { q.enqueue(nRetries + 1); Future.successful(nRetries) }
+        if (nRetries < 2) { q.enqueue(nRetries + 1); Future.failed(new RuntimeException) } else {
+          q.enqueue(nRetries + 1); Future.successful(nRetries)
+        }
       }
       Await.result(future.retry(delay, retries), Duration.Inf) shouldBe 2
     }

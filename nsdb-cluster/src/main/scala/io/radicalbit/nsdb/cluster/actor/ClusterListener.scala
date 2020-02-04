@@ -119,8 +119,6 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
     case MemberUp(member) if member == cluster.selfMember =>
       log.info("Member is Up: {}", member.address)
 
-      val nodeName = createNodeName(member)
-
       val nodeActorsGuardian = createNodeActorsGuardian()
 
       (nodeActorsGuardian ? GetNodeChildActors)
