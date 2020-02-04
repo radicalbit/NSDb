@@ -19,7 +19,7 @@ import scala.util.{Failure, Success}
 
 object ClusterListenerSpecConfig extends MultiNodeConfig {
   val node1 = role("node-1")
-//  val node2 = role("node-2")
+  val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
   |akka.loglevel = ERROR
@@ -29,7 +29,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
 }
 
 class ClusterListenerSpecMultiJvmNode1 extends ClusterListenerSpec
-//class ClusterListenerSpecMultiJvmNode2 extends ClusterListenerSpec
+class ClusterListenerSpecMultiJvmNode2 extends ClusterListenerSpec
 
 sealed trait TestType
 case object SuccessTest extends TestType
@@ -43,7 +43,7 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
     case AddLocations("failure", namespace, locations) =>
       sender() ! AddLocationsFailed("failure", namespace, locations)
     case _ =>
-      log.debug("Unhandled message on purpose")
+      log.warning("Unhandled message on purpose")
   }
 }
 
@@ -106,6 +106,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val resultActor = TestProbe("resultActor")
       cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, SuccessTest)))
       cluster.join(node(node1).address)
+      cluster.join(node(node2).address)
       enterBarrier(5 seconds, "1")
       resultActor.expectMsg("Success")
     }
@@ -114,6 +115,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val resultActor = TestProbe("resultActor")
       cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)))
       cluster.join(node(node1).address)
+      cluster.join(node(node2).address)
       enterBarrier(5 seconds, "1")
       resultActor.expectMsg("Failure1")
     }
@@ -122,8 +124,9 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val resultActor = TestProbe("resultActor")
       cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, TimeoutTest)))
       cluster.join(node(node1).address)
+      cluster.join(node(node2).address)
       enterBarrier(5 seconds, "1")
-      resultActor.expectMsg(10 seconds, "Failure2")
+      resultActor.expectMsg(15 seconds, "Failure2")
     }
   }
 

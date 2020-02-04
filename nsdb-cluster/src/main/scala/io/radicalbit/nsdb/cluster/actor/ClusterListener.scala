@@ -24,6 +24,7 @@ import akka.cluster.ClusterEvent._
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, Metric, NodeMetrics}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
+import akka.event.LoggingAdapter
 import akka.pattern.ask
 import akka.remote.RemoteScope
 import akka.util.Timeout
@@ -43,6 +44,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   MetricsDataActorUnSubscribed,
   PublisherUnSubscribed
 }
+import io.radicalbit.nsdb.util.FutureRetryUtility
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -52,7 +54,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
   */
-class ClusterListener extends Actor with ActorLogging {
+class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
 
   import context.dispatcher
 
@@ -132,6 +134,9 @@ class ClusterListener extends Actor with ActorLogging {
               case LocationWithCoordinates(database, namespace, _) => (database, namespace)
             }
 
+            implicit val scheduler: Scheduler = context.system.scheduler
+            implicit val _log: LoggingAdapter = log
+
             val f: Future[(List[LocationsAdded], List[AddLocationsFailed])] =
               Future
                 .sequence {
@@ -143,6 +148,7 @@ class ClusterListener extends Actor with ActorLogging {
                   }
                 }
                 .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+                .retry(2 seconds, 3)
 
             handleF(f, readCoordinator, writeCoordinator, metadataCoordinator, publisherActor, member)
           case unknownResponse =>
