@@ -98,22 +98,16 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
   protected def retrieveLocationsToAdd() =
     FileUtils.getLocationsFromFilesystem(indexPath, selfNodeName)
 
-  protected def handleF(f: Future[(List[LocationsAdded], List[AddLocationsFailed])],
-                        readCoordinator: ActorRef,
-                        writeCoordinator: ActorRef,
-                        metadataCoordinator: ActorRef,
-                        publisherActor: ActorRef,
-                        member: Member) =
-    f onComplete {
-      case Success((_, failures)) if failures.isEmpty =>
-        new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
-      case Success((_, failures)) =>
-        log.error(s" failures $failures")
-        cluster.leave(member.address)
-      case Failure(ex) =>
-        log.error(s" failure", ex)
-        cluster.leave(member.address)
-    }
+  protected def onSuccessBehaviour(readCoordinator: ActorRef,
+                                   writeCoordinator: ActorRef,
+                                   metadataCoordinator: ActorRef,
+                                   publisherActor: ActorRef): Unit =
+    new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
+
+  protected def onFailureBehaviour(member: Member, error: Any) = {
+    log.error("received wrong response {}", error)
+    cluster.leave(member.address)
+  }
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
@@ -135,20 +129,23 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
             implicit val scheduler: Scheduler = context.system.scheduler
             implicit val _log: LoggingAdapter = log
 
-            val f: Future[(List[LocationsAdded], List[AddLocationsFailed])] =
-              Future
-                .sequence {
-                  locationsGroupedBy.map {
-                    case ((db, namespace), locations) =>
-                      metadataCoordinator ? AddLocations(db, namespace, locations.map {
-                        case LocationWithCoordinates(_, _, location) => location
-                      })
-                  }
+            Future
+              .sequence {
+                locationsGroupedBy.map {
+                  case ((db, namespace), locations) =>
+                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
+                      case LocationWithCoordinates(_, _, location) => location
+                    })
                 }
-                .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-                .retry(2 seconds, 3)
-
-            handleF(f, readCoordinator, writeCoordinator, metadataCoordinator, publisherActor, member)
+              }
+              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+              .retry(2 seconds, 2)
+              .onComplete {
+                case Success((_, failures)) if failures.isEmpty =>
+                  onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
+                case e =>
+                  onFailureBehaviour(member, e)
+              }
           case unknownResponse =>
             log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
