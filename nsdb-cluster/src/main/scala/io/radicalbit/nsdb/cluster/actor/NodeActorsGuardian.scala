@@ -73,7 +73,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val metadataCoordinator =
     context.actorOf(
       MetadataCoordinator
-        .props(clusterListener, metadataCache, schemaCoordinator, mediator)
+        .props(clusterListener, metadataCache, schemaCache, mediator)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       name = s"metadata-coordinator_$nodeName"

@@ -16,53 +16,49 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor._
+import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
+import akka.cluster.ddata._
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
+import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.index.MetricInfoIndex
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
-import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.DirectorySupport
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.lucene.index.{IndexNotFoundException, IndexUpgrader}
-import org.apache.lucene.store.Directory
 
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Random, Try}
+import scala.util.Random
 
 /**
   * Actor that handles locations (shards) for metrics.
   * @param clusterListener actor that collects cluster metrics.
   * @param metadataCache cluster aware metrics location cache.
   */
-class MetadataCoordinator(clusterListener: ActorRef,
-                          metadataCache: ActorRef,
-                          schemaCoordinator: ActorRef,
-                          mediator: ActorRef)
+class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef)
     extends ActorPathLogging
     with DirectorySupport {
   private val cluster = Cluster(context.system)
@@ -218,9 +214,9 @@ class MetadataCoordinator(clusterListener: ActorRef,
       statement: DeleteSQLStatement,
       location: Location): Future[Either[DeleteStatementFailed, DeleteStatementExecuted]] = {
 
-    (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
+    (schemaCache ? GetSchemaFromCache(statement.db, statement.namespace, statement.metric))
       .flatMap {
-        case SchemaGot(_, _, _, Some(schema)) =>
+        case SchemaCached(_, _, _, Some(schema)) =>
           metricsDataActors.get(location.node) match {
             case Some(dataActor) =>
               (dataActor ? ExecuteDeleteStatementInternalInLocations(statement, schema, Seq(location))).map {
@@ -239,6 +235,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
               Future(Right(DeleteStatementExecuted(statement.db, statement.namespace, statement.metric)))
           }
         case _ =>
+          log.warning("trying to evict a metric with locations and without schema")
           Future(
             Left(
               DeleteStatementFailed(statement.db,
@@ -493,40 +490,52 @@ class MetadataCoordinator(clusterListener: ActorRef,
           case Right(LocationsInNodeEvicted(_))    => NodeMetadataRemoved(nodeName)
         }
         .pipeTo(sender())
-    case Migrate(inputPath) =>
-      val allMetadata: Seq[(Coordinates, MetricInfo)] = FileUtils.getSubDirs(inputPath).flatMap { db =>
-        FileUtils.getSubDirs(db).flatMap { namespace =>
-          val metricInfoDirectory =
-            createMmapDirectory(Paths.get(inputPath, db.getName, namespace.getName, "metadata", "info"))
+    case ExecuteRestoreMetadata(path: String) =>
+      val temporaryDurableStoreActor = context.actorOf(
+        LmdbDurableStore.props(ConfigFactory.parseString(s"""
+           |lmdb {
+           |  write-behind-interval = off
+           |  map-size = 100 MiB
+           |  dir = $path
+           |}
+           |""".stripMargin)),
+        name = s"metadata_restorer_${path.replaceAll("/", "_")}"
+      )
 
-          Try {
-            new IndexUpgrader(metricInfoDirectory).upgrade()
-          }.recover {
-            case _: IndexNotFoundException => //do nothing
-          }
+      (temporaryDurableStoreActor ? LoadAll)
+        .map {
+          case LoadData(data) =>
+            log.debug(s"restoring $data")
+            log.info(s"restoring ${data.size} metadata entries")
 
-          val metricInfoIndex = getMetricInfoIndex(metricInfoDirectory)
-          val metricInfos = metricInfoIndex.all
-            .map(e => Coordinates(db.getName, namespace.getName, e.metric) -> e)
+            data.foreach {
+              case ("coordinates-cache", envelope: DurableStore.DurableDataEnvelope) =>
+                envelope.data.asInstanceOf[ORSet[Coordinates]].elements.foreach {
+                  case Coordinates(db, namespace, metric) =>
+                    metadataCache ! PutCoordinateInCache(db, namespace, metric)
+                }
+              case ("all-metric-info-cache", envelope: DurableStore.DurableDataEnvelope) =>
+                envelope.data.asInstanceOf[ORSet[MetricInfo]].elements.foreach { info: MetricInfo =>
+                  metadataCache ! PutMetricInfoInCache(info)
+                }
+              case (key, envelope) if key.startsWith("schema-cache") =>
+                envelope.data.asInstanceOf[LWWMap[SchemaKey, Schema]].entries.foreach {
+                  case (SchemaKey(db, namespace, metric), schema) =>
+                    schemaCache ! PutSchemaInCache(db, namespace, metric, schema)
+                }
+              case (key, _) => log.debug(s"cache key $key not required for restoring")
+            }
 
-          metricInfoIndex.close()
-
-          metricInfos
+            MetadataRestored(path)
+          case e =>
+            val reason = s"unexpected response while trying to restore metadata $e"
+            log.error(reason)
+            temporaryDurableStoreActor ! PoisonPill
+            RestoreMetadataFailed(path, reason)
         }
-      }
-
-      Future
-        .sequence(allMetadata.map {
-          case (Coordinates(_, _, _), metricInfo) =>
-            (metadataCache ? PutMetricInfoInCache(metricInfo))
-              .mapTo[MetricInfoCached]
-        })
-        .map(seq => MetricInfosMigrated(seq.flatMap(_.value)))
         .pipeTo(sender())
-
   }
 
-  private def getMetricInfoIndex(directory: Directory): MetricInfoIndex = new MetricInfoIndex(directory)
 }
 
 object MetadataCoordinator {
@@ -563,6 +572,8 @@ object MetadataCoordinator {
     case object CheckOutdatedLocations extends NSDbSerializable
 
     case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
+
+    case class ExecuteRestoreMetadata(path: String) extends NSDbSerializable
   }
 
   object events {
@@ -588,11 +599,12 @@ object MetadataCoordinator {
     trait RemoveNodeMetadataResponse                      extends NSDbSerializable
     case class NodeMetadataRemoved(nodeName: String)      extends RemoveNodeMetadataResponse
     case class RemoveNodeMetadataFailed(nodeName: String) extends RemoveNodeMetadataResponse
+
+    trait RestoreMetadataResponse                                  extends NSDbSerializable
+    case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
+    case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
   }
 
-  def props(clusterListener: ActorRef,
-            metadataCache: ActorRef,
-            schemaCoordinator: ActorRef,
-            mediator: ActorRef): Props =
-    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCoordinator, mediator))
+  def props(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef): Props =
+    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache, mediator))
 }

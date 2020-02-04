@@ -17,16 +17,15 @@
 package io.radicalbit.nsdb.client.rpc
 
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
-import io.radicalbit.nsdb.rpc.dump._
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
-import io.radicalbit.nsdb.rpc.migration.{MigrateRequest, MigrateResponse, MigrationGrpc}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestCommand.{DescribeMetric, ShowMetrics, ShowNamespaces}
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseCommand.{DescribeMetricResponse, MetricsGot, Namespaces}
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
+import io.radicalbit.nsdb.rpc.restore.{RestoreGrpc, RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
 import org.slf4j.LoggerFactory
 
@@ -43,25 +42,19 @@ class GRPCClient(host: String, port: Int) {
 
   private val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
   private val stubHealth              = HealthGrpc.stub(channel)
-  private val stubDump                = DumpGrpc.stub(channel)
+  private val stubRestore             = RestoreGrpc.stub(channel)
   private val stubSql                 = NSDBServiceSQLGrpc.stub(channel)
   private val stubCommand             = NSDBServiceCommandGrpc.stub(channel)
   private val stubInit                = InitMetricGrpc.stub(channel)
-  private val stubMigration           = MigrationGrpc.stub(channel)
 
   def checkConnection(): Future[HealthCheckResponse] = {
     log.debug("checking connection")
     stubHealth.check(HealthCheckRequest("whatever"))
   }
 
-  def createDump(request: DumpRequest): Future[DumpResponse] = {
-    log.debug("creating dump")
-    stubDump.createDump(request)
-  }
-
   def restore(request: RestoreRequest): Future[RestoreResponse] = {
     log.debug("creating dump")
-    stubDump.restore(request)
+    stubRestore.restore(request)
   }
 
   def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
@@ -94,8 +87,4 @@ class GRPCClient(host: String, port: Int) {
     stubCommand.describeMetric(request)
   }
 
-  def migrate(request: MigrateRequest): Future[MigrateResponse] = {
-    log.debug("Preparing of command migrate with request {}", request)
-    stubMigration.migrate(request)
-  }
 }
