@@ -8,7 +8,7 @@ import akka.testkit.{ImplicitSender, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsAdded
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetNodeChildActors, NodeChildActorsGot}
 import io.radicalbit.rtsae.STMultiNodeSpec
@@ -37,6 +37,8 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
   def receive: Receive = {
     case AddLocations("success", namespace, locations) =>
       sender() ! LocationsAdded("success", namespace, locations)
+    case AddLocations("failure", namespace, locations) =>
+      sender() ! AddLocationsFailed("failure", namespace, locations)
     case _ =>
       log.warning("Unhandled message on purpose")
   }

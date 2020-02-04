@@ -49,7 +49,7 @@ import io.radicalbit.nsdb.util.FutureRetryUtility
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
@@ -139,7 +139,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
                 }
               }
               .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-              .retry(2 seconds, 2)
+              .retry(2 seconds, 2)(_._2.isEmpty)
               .onComplete {
                 case Success((_, failures)) if failures.isEmpty =>
                   onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)

@@ -30,19 +30,25 @@ import scala.util.{Failure, Success}
 trait FutureRetryUtility {
 
   implicit class FutureRetry[T](f: => Future[T]) {
-    def retry(delay: FiniteDuration,
-              retries: Int)(implicit ec: ExecutionContext, s: Scheduler, log: LoggingAdapter): Future[T] =
-      f recoverWith {
-        case t if retries > 0 => log.warning("{}. Retrying...", t); after(delay, s)(retry(delay, retries - 1))
+    def retry(delay: FiniteDuration, retries: Int)(
+        wasSuccessful: T => Boolean)(implicit ec: ExecutionContext, s: Scheduler, log: LoggingAdapter): Future[T] =
+      (for {
+        a <- f
+        result <- if (wasSuccessful(a) || retries < 1) Future(a)
+        else { log.warning("{}. Retrying...", a); after(delay, s)(retry(delay, retries - 1)(wasSuccessful)) }
+      } yield result) recoverWith {
+        case t if retries > 0 =>
+          log.warning("{}. Retrying...", t); after(delay, s)(retry(delay, retries - 1)(wasSuccessful))
       }
   }
 
   implicit class PipeToFutureRetry[T](f: => Future[T]) {
-    def pipeTo(delay: FiniteDuration, retries: Int, recipient: ActorRef)(implicit ec: ExecutionContext,
-                                                                         s: Scheduler,
-                                                                         log: LoggingAdapter,
-                                                                         sender: ActorRef = Actor.noSender) =
-      f.retry(delay, retries) andThen {
+    def pipeTo(delay: FiniteDuration, retries: Int, recipient: ActorRef)(wasSuccessful: T => Boolean = _ => true)(
+        implicit ec: ExecutionContext,
+        s: Scheduler,
+        log: LoggingAdapter,
+        sender: ActorRef = Actor.noSender) =
+      f.retry(delay, retries)(wasSuccessful) andThen {
         case Success(r) ⇒ recipient ! r
         case Failure(f) ⇒ recipient ! Status.Failure(f)
       }
