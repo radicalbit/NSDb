@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.cluster.{Cluster, Member}
 import akka.cluster.ClusterEvent._
-import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, Metric, NodeMetrics}
+import akka.cluster.metrics.{ClusterMetricsChanged, Metric, NodeMetrics}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.event.LoggingAdapter
@@ -59,9 +59,9 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
 
   import context.dispatcher
 
-  private lazy val cluster             = Cluster(context.system)
+  private lazy val cluster = Cluster(context.system)
 //  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
-  private lazy val selfNodeName        = createNodeName(cluster.selfMember)
+  private lazy val selfNodeName = createNodeName(cluster.selfMember)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
