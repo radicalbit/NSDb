@@ -82,7 +82,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
   /**
     * Retry policy
     */
-  private val delay   = 2 seconds
+  private val delay   = 1 seconds
   private val retries = 2
 
   override def preStart(): Unit = {

@@ -119,7 +119,9 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
 
   def initialParticipants: Int = roles.size
 
-  val cluster = Cluster(system)
+  private val cluster = Cluster(system)
+
+  private val maxAwaitTime = 15 seconds
 
   "ClusterListener" must {
     "successfully create a NsdbNodeEndpoint when a new member in the cluster is Up" in {
@@ -128,7 +130,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
-      resultActor.expectMsg("Success")
+      resultActor.expectMsg(maxAwaitTime, "Success")
     }
 
     "return a failure and leave the cluster" in {
@@ -137,7 +139,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
-      resultActor.expectMsg(15 seconds,"Failure")
+      resultActor.expectMsg(maxAwaitTime,"Failure")
     }
 
     "correctly handle 'UnreachableMember' msg" in  {
@@ -145,7 +147,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val clusterListener =
         cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)), name = "clusterListener")
       clusterListener ! UnreachableMember(cluster.selfMember)
-      resultActor.expectMsg(15 seconds,"Failure")
+      resultActor.expectMsg(maxAwaitTime,"Failure")
     }
   }
 
