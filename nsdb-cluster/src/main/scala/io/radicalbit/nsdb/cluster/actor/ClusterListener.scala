@@ -79,6 +79,12 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
     */
   private val nsdbMetrics: mutable.Map[String, Set[NodeMetrics]] = mutable.Map.empty
 
+  /**
+    * Retry policy
+    */
+  private val delay   = 2 seconds
+  private val retries = 2
+
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
@@ -149,7 +155,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
                 }
               }
               .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-              .retry(2 seconds, 2)(_._2.isEmpty)
+              .retry(delay, retries)(_._2.isEmpty)
               .onComplete {
                 case Success((_, failures)) if failures.isEmpty =>
                   onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
@@ -163,6 +169,9 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
       log.info("Member detected as unreachable: {}", member)
 
       val nodeName = createNodeName(member)
+
+      implicit val scheduler: Scheduler = context.system.scheduler
+      implicit val _log: LoggingAdapter = log
 
       (for {
         NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (selectNodeActorsGuardian ? GetNodeChildActors)
@@ -179,7 +188,9 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
           .mapTo[CommitLogCoordinatorUnSubscribed]
         removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
           .mapTo[RemoveNodeMetadataResponse]
-      } yield removeNodeMetadataResponse).map(onRemoveNodeMetadataResponse)
+      } yield removeNodeMetadataResponse)
+        .retry(delay, retries)(_.isInstanceOf[NodeMetadataRemoved])
+        .map(onRemoveNodeMetadataResponse)
 
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)

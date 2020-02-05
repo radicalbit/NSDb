@@ -23,7 +23,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
   val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
-  |akka.loglevel = INFO
+  |akka.loglevel = ERROR
   |akka.actor.provider = "cluster"
   |""".stripMargin))
 
@@ -44,7 +44,7 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
       sender() ! AddLocationsFailed("failure", namespace, locations)
     case UnsubscribeMetricsDataActor(nodeName) => sender() ! MetricsDataActorUnSubscribed(nodeName)
     case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
-    case RemoveNodeMetadata(nodeName) => sender() ! NodeMetadataRemoved(nodeName)
+    case RemoveNodeMetadata(nodeName) => sender() ! RemoveNodeMetadataFailed(nodeName)
     case _ =>
       log.warning("Unhandled message on purpose")
   }
@@ -108,10 +108,8 @@ class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit
     context.actorSelection(nodeActorsGuardianForTest.path)
 
   override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {
-    case NodeMetadataRemoved(nodeName) =>
-      resultActor ! "Success"
-    case RemoveNodeMetadataFailed(nodeName) =>
-      log.error(s"RemoveNodeMetadataFailed for node $nodeName")
+    case NodeMetadataRemoved(_) => //ignore
+    case RemoveNodeMetadataFailed(_) => resultActor ! "Failure"
   }
 }
 
@@ -147,7 +145,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val clusterListener =
         cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)), name = "clusterListener")
       clusterListener ! UnreachableMember(cluster.selfMember)
-      resultActor.expectMsg("Success")
+      resultActor.expectMsg(15 seconds,"Failure")
     }
   }
 
