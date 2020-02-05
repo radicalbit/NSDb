@@ -95,7 +95,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
       name = s"guardian_$selfNodeName"
     )
 
-  protected def retrieveLocationsToAdd() =
+  protected def retrieveLocationsToAdd: List[LocationWithCoordinates] =
     FileUtils.getLocationsFromFilesystem(indexPath, selfNodeName)
 
   protected def onSuccessBehaviour(readCoordinator: ActorRef,
@@ -104,9 +104,19 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
                                    publisherActor: ActorRef): Unit =
     new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
 
-  protected def onFailureBehaviour(member: Member, error: Any) = {
+  protected def onFailureBehaviour(member: Member, error: Any): Unit = {
     log.error("received wrong response {}", error)
     cluster.leave(member.address)
+  }
+
+  protected def selectNodeActorsGuardian: ActorSelection =
+    context.actorSelection(s"/user/guardian_$selfNodeName")
+
+  protected def onRemoveNodeMetadataResponse: RemoveNodeMetadataResponse => Unit = {
+    case NodeMetadataRemoved(nodeName) =>
+      log.info(s"metadata successfully removed for node $nodeName")
+    case RemoveNodeMetadataFailed(nodeName) =>
+      log.error(s"RemoveNodeMetadataFailed for node $nodeName")
   }
 
   def receive: Receive = {
@@ -120,7 +130,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
           case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
 
-            val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd()
+            val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd
 
             val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
               case LocationWithCoordinates(database, namespace, _) => (database, namespace)
@@ -155,8 +165,8 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
       val nodeName = createNodeName(member)
 
       (for {
-        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
-          s"/user/guardian_$selfNodeName") ? GetNodeChildActors).mapTo[NodeChildActorsGot]
+        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (selectNodeActorsGuardian ? GetNodeChildActors)
+          .mapTo[NodeChildActorsGot]
         _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
         _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
           .mapTo[CommitLogCoordinatorUnSubscribed]
@@ -169,12 +179,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
           .mapTo[CommitLogCoordinatorUnSubscribed]
         removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
           .mapTo[RemoveNodeMetadataResponse]
-      } yield removeNodeMetadataResponse).map {
-        case NodeMetadataRemoved(nodeName) =>
-          log.info(s"metadata successfully removed for node $nodeName")
-        case RemoveNodeMetadataFailed(nodeName) =>
-          log.error(s"RemoveNodeMetadataFailed for node $nodeName")
-      }
+      } yield removeNodeMetadataResponse).map(onRemoveNodeMetadataResponse)
 
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)

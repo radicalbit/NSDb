@@ -1,16 +1,19 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, ActorSystem, Props}
+import akka.cluster.ClusterEvent.UnreachableMember
 import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
 import akka.cluster.{Cluster, Member}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, NodeMetadataRemoved, RemoveNodeMetadataFailed}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetNodeChildActors, NodeChildActorsGot}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
@@ -20,7 +23,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
   val node2 = role("node-2")
 
   commonConfig(ConfigFactory.parseString("""
-  |akka.loglevel = ERROR
+  |akka.loglevel = INFO
   |akka.actor.provider = "cluster"
   |""".stripMargin))
 
@@ -39,15 +42,32 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
       sender() ! LocationsAdded("success", namespace, locations)
     case AddLocations("failure", namespace, locations) =>
       sender() ! AddLocationsFailed("failure", namespace, locations)
+    case UnsubscribeMetricsDataActor(nodeName) => sender() ! MetricsDataActorUnSubscribed(nodeName)
+    case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
+    case RemoveNodeMetadata(nodeName) => sender() ! NodeMetadataRemoved(nodeName)
     case _ =>
       log.warning("Unhandled message on purpose")
   }
 }
 
+class ReadCoordinatorForTest extends Actor with ActorLogging {
+  def receive: Receive = {
+    case UnsubscribeMetricsDataActor(nodeName) => sender() ! MetricsDataActorUnSubscribed(nodeName)
+  }
+}
+
+class WriteCoordinatorForTest extends Actor with ActorLogging {
+  def receive: Receive = {
+    case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
+    case UnSubscribePublisher(nodeName) => sender() ! PublisherUnSubscribed(nodeName)
+    case UnsubscribeMetricsDataActor(nodeName) => sender() ! MetricsDataActorUnSubscribed(nodeName)
+  }
+}
+
 class NodeActorsGuardianForTest(implicit system: ActorSystem) extends Actor with ActorLogging {
   private lazy val metaDataCoordinator = context.actorOf(Props(new MetaDataCoordinatorForTest))
-  private lazy val writeCoordinator    = TestProbe("writeCoordinator").testActor
-  private lazy val readCoordinator     = TestProbe("readCoordinator").testActor
+  private lazy val writeCoordinator    = context.actorOf(Props(new WriteCoordinatorForTest))
+  private lazy val readCoordinator     = context.actorOf(Props(new ReadCoordinatorForTest))
   private lazy val publisherActor      = TestProbe("publisherActor").testActor
 
   def receive: Receive = {
@@ -59,12 +79,15 @@ class NodeActorsGuardianForTest(implicit system: ActorSystem) extends Actor with
 class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit system: ActorSystem)
     extends ClusterListener {
 
+  val nodeActorsGuardianForTest =
+    context.actorOf(Props(new NodeActorsGuardianForTest))
+
   override val defaultTimeout = Timeout(1.seconds)
 
   override def receive: Receive = super.receive orElse {
     case SubscribeAck(subscribe) => log.info("subscribe {}", subscribe)
   }
-  override def createNodeActorsGuardian(): ActorRef = context.actorOf(Props(new NodeActorsGuardianForTest))
+  override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
 
   override def retrieveLocationsToAdd(): List[LocationWithCoordinates] = testType match {
     case SuccessTest =>
@@ -79,6 +102,16 @@ class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit
 
   override protected def onFailureBehaviour(member: Member, error: Any): Unit = {
     resultActor ! "Failure"
+  }
+
+  override def selectNodeActorsGuardian: ActorSelection =
+    context.actorSelection(nodeActorsGuardianForTest.path)
+
+  override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {
+    case NodeMetadataRemoved(nodeName) =>
+      resultActor ! "Success"
+    case RemoveNodeMetadataFailed(nodeName) =>
+      log.error(s"RemoveNodeMetadataFailed for node $nodeName")
   }
 }
 
@@ -96,7 +129,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, SuccessTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
-      enterBarrier(5 seconds, "1")
+      enterBarrier(5 seconds, "nodes joined")
       resultActor.expectMsg("Success")
     }
 
@@ -105,8 +138,16 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
-      enterBarrier(5 seconds, "1")
+      enterBarrier(5 seconds, "nodes joined")
       resultActor.expectMsg(15 seconds,"Failure")
+    }
+
+    "correctly handle 'UnreachableMember' msg" in  {
+      val resultActor = TestProbe("resultActor")
+      val clusterListener =
+        cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)), name = "clusterListener")
+      clusterListener ! UnreachableMember(cluster.selfMember)
+      resultActor.expectMsg("Success")
     }
   }
 
