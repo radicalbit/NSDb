@@ -60,7 +60,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
   import context.dispatcher
 
   private lazy val cluster             = Cluster(context.system)
-  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
+//  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
   private lazy val selfNodeName        = createNodeName(cluster.selfMember)
 
   private val mediator = DistributedPubSub(context.system).mediator
@@ -89,7 +89,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
-    clusterMetricSystem.subscribe(self)
+//    clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
 
   }
