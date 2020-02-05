@@ -92,7 +92,7 @@ class NodeActorsGuardianForTest(implicit system: ActorSystem) extends Actor with
 }
 
 class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit system: ActorSystem)
-    extends ClusterListener {
+    extends ClusterListener(false) {
 
   val nodeActorsGuardianForTest =
     context.actorOf(Props(new NodeActorsGuardianForTest))

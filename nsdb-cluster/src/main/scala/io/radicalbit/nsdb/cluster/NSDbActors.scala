@@ -56,6 +56,7 @@ trait NSDbActors {
 
     DistributedData(system).replicator
 
-    system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
+    system.actorOf(ClusterListener.props(true),
+                   name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
   }
 }

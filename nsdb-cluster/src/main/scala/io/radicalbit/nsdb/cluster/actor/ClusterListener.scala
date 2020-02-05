@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.cluster.{Cluster, Member}
 import akka.cluster.ClusterEvent._
-import akka.cluster.metrics.{ClusterMetricsChanged, Metric, NodeMetrics}
+import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, Metric, NodeMetrics}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.event.LoggingAdapter
@@ -55,12 +55,13 @@ import scala.util.{Success, Try}
 /**
   * Actor subscribed to akka cluster events. It creates all the actors needed when a node joins the cluster
   */
-class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
+class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with ActorLogging with FutureRetryUtility {
 
   import context.dispatcher
 
   private lazy val cluster = Cluster(context.system)
-//  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
+  private lazy val clusterMetricSystem =
+    if (enableClusterMetricsExtension) Some(ClusterMetricsExtension(context.system)) else None
   private lazy val selfNodeName = createNodeName(cluster.selfMember)
 
   private val mediator = DistributedPubSub(context.system).mediator
@@ -89,7 +90,7 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
-//    clusterMetricSystem.subscribe(self)
+    clusterMetricSystem.foreach(_.subscribe(self))
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
 
   }
@@ -249,5 +250,7 @@ object ClusterListener {
     * @param nodeMetrics one entry contains all the metrics for a single node.
     */
   case class NodeMetricsGot(nodeMetrics: Set[NodeMetrics]) extends NSDbSerializable
+
+  def props(enableClusterMetricsExtension: Boolean) = Props(new ClusterListener(enableClusterMetricsExtension))
 
 }
