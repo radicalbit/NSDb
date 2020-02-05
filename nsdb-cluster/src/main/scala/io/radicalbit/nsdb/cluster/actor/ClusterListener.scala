@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.nio.file.{Files, NoSuchFileException, Paths}
+import java.util.concurrent.TimeUnit
 
 import akka.actor._
 import akka.cluster.{Cluster, Member}
@@ -82,8 +83,8 @@ class ClusterListener extends Actor with ActorLogging with FutureRetryUtility {
   /**
     * Retry policy
     */
-  private val delay   = 1 seconds
-  private val retries = 2
+  private lazy val delay   = FiniteDuration(config.getDuration(retryPolicyDelay, TimeUnit.SECONDS), TimeUnit.SECONDS)
+  private lazy val retries = config.getInt(retryPolicyNRetries)
 
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])

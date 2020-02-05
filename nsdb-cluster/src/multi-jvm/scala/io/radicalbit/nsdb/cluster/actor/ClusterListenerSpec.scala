@@ -10,10 +10,19 @@ import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, NodeMetadataRemoved, RemoveNodeMetadataFailed}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
+  AddLocationsFailed,
+  LocationsAdded,
+  NodeMetadataRemoved,
+  RemoveNodeMetadataFailed
+}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
+  CommitLogCoordinatorUnSubscribed,
+  MetricsDataActorUnSubscribed,
+  PublisherUnSubscribed
+}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
@@ -25,6 +34,12 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
   commonConfig(ConfigFactory.parseString("""
   |akka.loglevel = ERROR
   |akka.actor.provider = "cluster"
+  |nsdb {
+  | retry-policy {
+  |    delay = 1 second
+  |    n-retries = 2
+  |  }
+  |}
   |""".stripMargin))
 
 }
@@ -42,9 +57,9 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
       sender() ! LocationsAdded("success", namespace, locations)
     case AddLocations("failure", namespace, locations) =>
       sender() ! AddLocationsFailed("failure", namespace, locations)
-    case UnsubscribeMetricsDataActor(nodeName) => sender() ! MetricsDataActorUnSubscribed(nodeName)
+    case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
     case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
-    case RemoveNodeMetadata(nodeName) => sender() ! RemoveNodeMetadataFailed(nodeName)
+    case RemoveNodeMetadata(nodeName)              => sender() ! RemoveNodeMetadataFailed(nodeName)
     case _ =>
       log.warning("Unhandled message on purpose")
   }
@@ -59,8 +74,8 @@ class ReadCoordinatorForTest extends Actor with ActorLogging {
 class WriteCoordinatorForTest extends Actor with ActorLogging {
   def receive: Receive = {
     case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
-    case UnSubscribePublisher(nodeName) => sender() ! PublisherUnSubscribed(nodeName)
-    case UnsubscribeMetricsDataActor(nodeName) => sender() ! MetricsDataActorUnSubscribed(nodeName)
+    case UnSubscribePublisher(nodeName)            => sender() ! PublisherUnSubscribed(nodeName)
+    case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
   }
 }
 
@@ -96,7 +111,10 @@ class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit
       List(LocationWithCoordinates("failure", "namespace", Location("metric", "node", 0L, 1L)))
   }
 
-  override def onSuccessBehaviour(readCoordinator: ActorRef, writeCoordinator: ActorRef, metadataCoordinator: ActorRef, publisherActor: ActorRef): Unit = {
+  override def onSuccessBehaviour(readCoordinator: ActorRef,
+                                  writeCoordinator: ActorRef,
+                                  metadataCoordinator: ActorRef,
+                                  publisherActor: ActorRef): Unit = {
     resultActor ! "Success"
   }
 
@@ -108,7 +126,7 @@ class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit
     context.actorSelection(nodeActorsGuardianForTest.path)
 
   override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {
-    case NodeMetadataRemoved(_) => //ignore
+    case NodeMetadataRemoved(_)      => //ignore
     case RemoveNodeMetadataFailed(_) => resultActor ! "Failure"
   }
 }
@@ -121,8 +139,6 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
 
   private val cluster = Cluster(system)
 
-  private val maxAwaitTime = 15 seconds
-
   "ClusterListener" must {
     "successfully create a NsdbNodeEndpoint when a new member in the cluster is Up" in {
       val resultActor = TestProbe("resultActor")
@@ -130,7 +146,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
-      resultActor.expectMsg(maxAwaitTime, "Success")
+      awaitAssert(resultActor.expectMsg("Success"))
     }
 
     "return a failure and leave the cluster" in {
@@ -139,15 +155,15 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
-      resultActor.expectMsg(maxAwaitTime,"Failure")
+      awaitAssert(resultActor.expectMsg("Failure"))
     }
 
-    "correctly handle 'UnreachableMember' msg" in  {
+    "correctly handle 'UnreachableMember' msg" in {
       val resultActor = TestProbe("resultActor")
       val clusterListener =
-        cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)), name = "clusterListener")
-      clusterListener ! UnreachableMember(cluster.selfMember)
-      resultActor.expectMsg(maxAwaitTime,"Failure")
+        cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)),
+                               name = "clusterListener")
+      awaitAssert { clusterListener ! UnreachableMember(cluster.selfMember); resultActor.expectMsg("Failure") }
     }
   }
 
