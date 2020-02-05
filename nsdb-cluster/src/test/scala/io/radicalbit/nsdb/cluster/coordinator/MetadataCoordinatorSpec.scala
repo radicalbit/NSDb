@@ -67,7 +67,7 @@ class MetadataCoordinatorSpec
     system.actorOf(SchemaCoordinator.props(schemaCache), "schemacoordinator")
   val metricsDataActorProbe = TestProbe()
   val metadataCache         = system.actorOf(Props[LocalMetadataCache])
-  val clusterListener       = system.actorOf(Props[ClusterListener])
+  val clusterListener       = system.actorOf(ClusterListener.props(true))
 
   val metadataCoordinator =
     system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCache, probe.ref))
