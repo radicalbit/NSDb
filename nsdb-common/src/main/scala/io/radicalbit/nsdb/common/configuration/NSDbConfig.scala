@@ -32,6 +32,7 @@ object NSDbConfig {
     final val CommitLogBufferSize = "nsdb.commit-log.buffer-size"
 
     final val StorageIndexPath = "nsdb.storage.index-path"
+    final val StorageStrategy  = "nsdb.storage.strategy"
 
     final val GrpcInterface = "nsdb.grpc.interface"
     final val GrpcPort      = "nsdb.grpc.port"

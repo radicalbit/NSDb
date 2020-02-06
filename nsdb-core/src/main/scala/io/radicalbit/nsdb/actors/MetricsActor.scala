@@ -92,7 +92,7 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     shards.getOrElse(
       location, {
         val directory =
-          createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
+          getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
         val newIndex = new TimeSeriesIndex(directory)
         shards += (location -> newIndex)
         newIndex
@@ -120,7 +120,11 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     shardsAccess += (location -> System.currentTimeMillis())
     facetIndexShards.getOrElse(
       location, {
-        val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
+        val facetIndexes = new AllFacetIndexes(basePath = basePath,
+                                               db = db,
+                                               namespace = namespace,
+                                               location = location,
+                                               indexStorageStrategy = indexStorageStrategy)
         facetIndexShards += (location -> facetIndexes)
         facetIndexes
       }

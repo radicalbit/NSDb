@@ -20,14 +20,17 @@ import java.nio.file.Files
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.index.DirectorySupport
+import io.radicalbit.nsdb.index.StorageStrategy.Memory
+import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
 
+  override def indexStorageStrategy: StorageStrategy = Memory
+
   "MetricInfoIndex" should "write and read properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val metricInfoIndex = new MetricInfoIndex(directory)
 
@@ -53,7 +56,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
 
   "MetricInfoIndex" should "write and delete properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     val metricInfoIndex = new MetricInfoIndex(directory)
 

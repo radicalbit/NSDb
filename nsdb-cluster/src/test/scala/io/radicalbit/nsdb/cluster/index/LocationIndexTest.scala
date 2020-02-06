@@ -19,7 +19,8 @@ package io.radicalbit.nsdb.cluster.index
 import java.nio.file.Files
 import java.util.UUID
 
-import io.radicalbit.nsdb.index.DirectorySupport
+import io.radicalbit.nsdb.index.StorageStrategy.Memory
+import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
@@ -27,9 +28,11 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
 
+  override def indexStorageStrategy: StorageStrategy = Memory
+
   "LocationsIndex" should "write and read properly" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -54,7 +57,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest w
 
   "LocationsIndex" should "get a single location for a metric" in {
 
-    lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+    lazy val directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 
     implicit val writer = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer))
 
@@ -84,5 +87,4 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest w
       Location(s"metric_0", s"node_0", 9, 10)
     )
   }
-
 }

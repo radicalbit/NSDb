@@ -29,13 +29,16 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
   val nodeName = "node1"
 
+  val indexStorageStrategy = StorageStrategy.Memory
+
   "FacetIndex" should "write and read properly on disk" in {
     val facetIndexes =
       new AllFacetIndexes(
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -82,7 +85,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -125,7 +129,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -167,7 +172,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -212,7 +218,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -275,7 +282,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter
@@ -315,7 +323,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         basePath = "target",
         db = "test_index",
         namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue)
+        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
+        indexStorageStrategy = indexStorageStrategy
       )
 
     implicit val writer     = facetIndexes.newIndexWriter

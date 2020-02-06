@@ -23,9 +23,12 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites, PersistedBit, PersistedBits}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.index.AllFacetIndexes
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.{AllFacetIndexes, StorageStrategy}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -55,6 +58,9 @@ class MetricPerformerActor(val basePath: String,
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   private val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
+
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   private val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
@@ -153,7 +159,11 @@ class MetricPerformerActor(val basePath: String,
           val facetIndexes                 = getOrCreatefacetIndexesFor(loc)
           implicit val writer: IndexWriter = index.getWriter
 
-          val facets            = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = loc)
+          val facets = new AllFacetIndexes(basePath = basePath,
+                                           db = db,
+                                           namespace = namespace,
+                                           location = loc,
+                                           indexStorageStrategy = indexStorageStrategy)
           val facetsIndexWriter = facets.newIndexWriter
           val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
 

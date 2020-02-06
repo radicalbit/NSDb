@@ -18,6 +18,9 @@ package io.radicalbit.nsdb.index
 
 import java.nio.file.Path
 
+import org.apache.lucene.store.{Directory, FileSwitchDirectory, MMapDirectory, NIOFSDirectory}
+
+import scala.collection.JavaConverters._
 import org.apache.lucene.store.MMapDirectory
 
 /**
@@ -25,6 +28,53 @@ import org.apache.lucene.store.MMapDirectory
   */
 trait DirectorySupport {
 
-  def createMmapDirectory(path: Path): MMapDirectory = new MMapDirectory(path)
+  def indexStorageStrategy: StorageStrategy
+
+  /**
+    * extensions for norms, docvaules and term dictionaries
+    */
+  private val PRIMARY_EXTENSIONS = Set("nvd", "dvd", "tim")
+
+  /**
+    * Creates an in memory directory.
+    * The memory allocated is off heap (mmap).
+    * @param path the root path.
+    * @return the mmap directory.
+    */
+  private def createMmapDirectory(path: Path): MMapDirectory = new MMapDirectory(path)
+
+  /**
+    * Creates an file system directory.
+    * @param path the root path.
+    * @return the file system directory.
+    */
+  private def createFileSystemDirectory(path: Path): NIOFSDirectory = new NIOFSDirectory(path)
+
+  /**
+    * Creates an hybrid Lucene Directory subclass that Maps in memory all the files with primaries extensions, all other files are served through NIOFS.
+    * @param path the root path.
+    * @return the hybrid directory.
+    */
+  private def createHybridDirectory(path: Path): FileSwitchDirectory =
+    new FileSwitchDirectory(PRIMARY_EXTENSIONS.asJava, new MMapDirectory(path), new NIOFSDirectory(path), true) {
+
+      /**
+        * to avoid listall() call twice.
+        */
+      override def listAll(): Array[String] = getPrimaryDir.listAll()
+    }
+
+  /**
+    * Creates a Directory based on the configured [StorageStrategy].
+    * @param path the root path.
+    * @return the directory.
+    */
+  def getDirectory(path: Path): Directory = {
+    indexStorageStrategy match {
+      case StorageStrategy.Hybrid     => createHybridDirectory(path)
+      case StorageStrategy.Memory     => createMmapDirectory(path)
+      case StorageStrategy.FileSystem => createFileSystemDirectory(path)
+    }
+  }
 
 }

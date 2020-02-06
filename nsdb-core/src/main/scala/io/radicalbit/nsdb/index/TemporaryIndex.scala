@@ -19,9 +19,14 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Files
 import java.util.UUID
 
+import org.apache.lucene.store.Directory
+
 /**
   * Concrete implementation of [[AbstractStructuredIndex]] which store data in memory.
   */
 class TemporaryIndex extends AbstractStructuredIndex with DirectorySupport {
-  override lazy val directory = createMmapDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+
+  override def indexStorageStrategy: StorageStrategy = StorageStrategy.Memory
+
+  override lazy val directory: Directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
 }

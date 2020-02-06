@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index._
@@ -48,12 +49,16 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     extends ActorPathLogging
     with DirectorySupport {
 
+  override lazy val indexStorageStrategy: StorageStrategy =
+    StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
+
   lazy val directory: Directory =
-    createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
+    getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}"))
 
   lazy val index = new TimeSeriesIndex(directory)
 
-  lazy val facetIndexes = new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location)
+  lazy val facetIndexes =
+    new AllFacetIndexes(basePath = basePath, db = db, namespace = namespace, location = location, indexStorageStrategy)
 
   lazy val passivateAfter: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,

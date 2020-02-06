@@ -30,14 +30,18 @@ import org.apache.lucene.util.InfoStream
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-class AllFacetIndexes(basePath: String, db: String, namespace: String, location: Location)
+class AllFacetIndexes(basePath: String,
+                      db: String,
+                      namespace: String,
+                      location: Location,
+                      override val indexStorageStrategy: StorageStrategy)
     extends LazyLogging
     with DirectorySupport {
 
   private val directory =
-    createMmapDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet"))
+    getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet"))
 
-  private val taxoDirectory = createMmapDirectory(
+  private val taxoDirectory = getDirectory(
     Paths
       .get(basePath, db, namespace, "shards", s"${location.shardName}", "facet", "taxo"))
 
