@@ -85,9 +85,9 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
 
-  private def getShardStartIstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
+  private def getShardStartInstant(timestamp: Long, shardInterval: Long) = (timestamp / shardInterval) * shardInterval
 
-  private def getShardEndIstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
+  private def getShardEndInstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
 
   private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) =
     Future
@@ -435,8 +435,8 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
                   shardInterval <- getShardInterval(db, namespace, metric)
                   nodeMetrics   <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
                   addLocationResult <- {
-                    val start = getShardStartIstant(timestamp, shardInterval)
-                    val end   = getShardEndIstant(start, shardInterval)
+                    val start = getShardStartInstant(timestamp, shardInterval)
+                    val end   = getShardEndInstant(start, shardInterval)
 
                     val nodes =
                       if (nodeMetrics.nodeMetrics.nonEmpty)

@@ -39,26 +39,27 @@ class FutureRetryUtilitySpec
   private final val retries: Int          = 3
 
   private def future(flag: Boolean) =
-    if (flag) Future.successful("Success") else Future.failed(new RuntimeException("Failure"))
+    if (flag) Future.successful(3) else Future.failed(new RuntimeException("Failure"))
 
   "retry function in FutureRetryUtility" must {
 
     "successfully returns whether, after retries, the future is eventually successful" in {
-      Await.result(future(true).retry(delay, retries), Duration.Inf) shouldBe "Success"
+      Await.result(future(true).retry(delay, retries)(_ > 2), Duration.Inf) shouldBe 3
     }
 
     "thrown an Exception whether, after retries, the future eventually returns an Exception" in {
-      an[RuntimeException] shouldBe thrownBy(Await.result(future(false).retry(delay, retries), Duration.Inf))
+      an[RuntimeException] shouldBe thrownBy(Await.result(future(false).retry(delay, retries)(_ => true), Duration.Inf))
     }
 
     "consider the number of retries" in {
       val q = mutable.Queue(0)
       def future = {
         val nRetries = q.dequeue()
-        if (nRetries < 2) { q.enqueue(nRetries + 1); Future.failed(new RuntimeException) }
-        else { q.enqueue(nRetries + 1); Future.successful(nRetries) }
+        if (nRetries < 2) { q.enqueue(nRetries + 1); Future.failed(new RuntimeException) } else {
+          q.enqueue(nRetries + 1); Future.successful(nRetries)
+        }
       }
-      Await.result(future.retry(delay, retries), Duration.Inf) shouldBe 2
+      Await.result(future.retry(delay, retries)(_ > 2), Duration.Inf) shouldBe 3
     }
   }
 
@@ -66,13 +67,13 @@ class FutureRetryUtilitySpec
 
     "returns a successful future and send the content of it through pipe" in {
       val testProbe = TestProbe("actor-test")
-      future(true).pipeTo(delay, retries, testProbe.testActor)
-      testProbe.expectMsg("Success")
+      future(true).pipeTo(delay, retries, testProbe.testActor)()
+      testProbe.expectMsg(3)
     }
 
     "return a failed future and send a status failure through pipe" in {
       val testProbe = TestProbe("actor-test")
-      future(false).pipeTo(delay, retries, testProbe.testActor)
+      future(false).pipeTo(delay, retries, testProbe.testActor)()
       testProbe.expectMsgAllClassOf(classOf[Status.Failure])
     }
   }

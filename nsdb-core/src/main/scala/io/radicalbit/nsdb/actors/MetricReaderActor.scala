@@ -291,7 +291,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           }
 
           shardResults.pipeTo(sender)
-        case Right(ParsedAggregatedQuery(_, _, _, _ : InternalCountSimpleAggregation, _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, _: InternalCountSimpleAggregation, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
@@ -323,7 +323,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
 
           rawResult.pipeTo(sender)
-        case Right(_ : ParsedTemporalAggregatedQuery) =>
+        case Right(_: ParsedTemporalAggregatedQuery) =>
           val actors =
             actorsForLocations(locations)
 

@@ -31,11 +31,11 @@ package object cluster {
     * @param nodeName the node name [host]_[port]
     */
   def createAddress(nodeName: String): Address = {
-    val splittedNodeName = nodeName.split("_")
+    val splitNodeName = nodeName.split("_")
     Address("nsdb",
             "NSDb",
-            Option(splittedNodeName(0)).getOrElse("noHost"),
-            Option(splittedNodeName(1)).map(_.toInt).getOrElse(0))
+            Option(splitNodeName(0)).getOrElse("noHost"),
+            Option(splitNodeName(1)).map(_.toInt).getOrElse(0))
   }
 
   final object PubSubTopics {

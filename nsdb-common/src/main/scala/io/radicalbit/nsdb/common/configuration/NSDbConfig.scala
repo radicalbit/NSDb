@@ -44,6 +44,9 @@ object NSDbConfig {
     final val ClusterMode = "nsdb.cluster.mode"
 
     final val MonitoringEnabled = "nsdb.monitoring.enabled"
+
+    final val retryPolicyDelay    = "nsdb.retry-policy.delay"
+    final val retryPolicyNRetries = "nsdb.retry-policy.n-retries"
   }
 
   object LowLevel {

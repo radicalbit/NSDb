@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{ActorRef, ActorSelection, Props}
+import akka.actor.{ActorSelection, Props}
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.{Cluster, MemberStatus}
 import akka.remote.testconductor.RoleName
@@ -14,14 +14,8 @@ import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
 import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
-  GetDbs,
-  GetMetricInfo,
-  GetMetrics,
-  GetNamespaces,
-  GetSchema
-}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{DbsGot, MetricInfoGot, MetricsGot, NamespacesGot, SchemaGot}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.Await
@@ -33,7 +27,7 @@ object MetadataSpec extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     |akka.loglevel = ERROR
-    |akka.actor{
+    |akka.actor {
     | provider = "cluster"
     |
     | serialization-bindings {
@@ -45,7 +39,7 @@ object MetadataSpec extends MultiNodeConfig {
     |   }
     |}
     |akka.log-dead-letters-during-shutdown = off
-    |nsdb{
+    |nsdb {
     |
     |  grpc {
     |    interface = "0.0.0.0"
