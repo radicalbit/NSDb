@@ -79,19 +79,18 @@ class WriteCoordinatorForTest extends Actor with ActorLogging {
   }
 }
 
-class NodeActorsGuardianForTest(implicit system: ActorSystem) extends Actor with ActorLogging {
+class NodeActorsGuardianForTest extends Actor with ActorLogging {
   private lazy val metaDataCoordinator = context.actorOf(Props(new MetaDataCoordinatorForTest))
   private lazy val writeCoordinator    = context.actorOf(Props(new WriteCoordinatorForTest))
   private lazy val readCoordinator     = context.actorOf(Props(new ReadCoordinatorForTest))
-  private lazy val publisherActor      = TestProbe("publisherActor").testActor
 
   def receive: Receive = {
     case GetNodeChildActors =>
-      sender() ! NodeChildActorsGot(metaDataCoordinator, writeCoordinator, readCoordinator, publisherActor)
+      sender() ! NodeChildActorsGot(metaDataCoordinator, writeCoordinator, readCoordinator, ActorRef.noSender)
   }
 }
 
-class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit system: ActorSystem)
+class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)
     extends ClusterListener(false) {
 
   val nodeActorsGuardianForTest =
@@ -121,9 +120,6 @@ class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)(implicit
   override protected def onFailureBehaviour(member: Member, error: Any): Unit = {
     resultActor ! "Failure"
   }
-
-  override def selectNodeActorsGuardian: ActorSelection =
-    context.actorSelection(nodeActorsGuardianForTest.path)
 
   override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {
     case NodeMetadataRemoved(_)      => //ignore

@@ -59,10 +59,9 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
 
   import context.dispatcher
 
-  private lazy val cluster = Cluster(context.system)
-  private lazy val clusterMetricSystem =
-    if (enableClusterMetricsExtension) Some(ClusterMetricsExtension(context.system)) else None
-  private lazy val selfNodeName = createNodeName(cluster.selfMember)
+  private lazy val cluster             = Cluster(context.system)
+  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
+  private lazy val selfNodeName        = createNodeName(cluster.selfMember)
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -90,7 +89,7 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
-    clusterMetricSystem.foreach(_.subscribe(self))
+    if (enableClusterMetricsExtension) clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
 
   }
@@ -116,9 +115,6 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
     log.error("received wrong response {}", error)
     cluster.leave(member.address)
   }
-
-  protected def selectNodeActorsGuardian: ActorSelection =
-    context.actorSelection(s"/user/guardian_$selfNodeName")
 
   protected def onRemoveNodeMetadataResponse: RemoveNodeMetadataResponse => Unit = {
     case NodeMetadataRemoved(nodeName) =>
@@ -157,7 +153,9 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
                 }
               }
               .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-              .retry(delay, retries)(_._2.isEmpty)
+              .retry(delay, retries) {
+                case (_, addLocationsFailedList) => addLocationsFailedList.isEmpty
+              }
               .onComplete {
                 case Success((_, failures)) if failures.isEmpty =>
                   onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
@@ -176,7 +174,8 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
       implicit val _log: LoggingAdapter = log
 
       (for {
-        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (selectNodeActorsGuardian ? GetNodeChildActors)
+        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
+          s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
           .mapTo[NodeChildActorsGot]
         _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
         _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
