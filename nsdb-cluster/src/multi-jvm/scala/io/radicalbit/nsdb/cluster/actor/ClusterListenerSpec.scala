@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ClusterEvent.UnreachableMember
 import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
 import akka.cluster.{Cluster, Member}
@@ -10,39 +10,13 @@ import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{
-  AddLocationsFailed,
-  LocationsAdded,
-  NodeMetadataRemoved,
-  RemoveNodeMetadataFailed
-}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, NodeMetadataRemoved, RemoveNodeMetadataFailed}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
-  CommitLogCoordinatorUnSubscribed,
-  MetricsDataActorUnSubscribed,
-  PublisherUnSubscribed
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.rtsae.STMultiNodeSpec
 
 import scala.concurrent.duration._
-
-object ClusterListenerSpecConfig extends MultiNodeConfig {
-  val node1 = role("node-1")
-  val node2 = role("node-2")
-
-  commonConfig(ConfigFactory.parseString("""
-  |akka.loglevel = ERROR
-  |akka.actor.provider = "cluster"
-  |nsdb {
-  | retry-policy {
-  |    delay = 1 second
-  |    n-retries = 2
-  |  }
-  |}
-  |""".stripMargin))
-
-}
 
 class ClusterListenerSpecMultiJvmNode1 extends ClusterListenerSpec
 class ClusterListenerSpecMultiJvmNode2 extends ClusterListenerSpec
@@ -125,6 +99,23 @@ class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)
     case NodeMetadataRemoved(_)      => //ignore
     case RemoveNodeMetadataFailed(_) => resultActor ! "Failure"
   }
+}
+
+object ClusterListenerSpecConfig extends MultiNodeConfig {
+  val node1 = role("node-1")
+  val node2 = role("node-2")
+
+  commonConfig(ConfigFactory.parseString("""
+                                           |akka.loglevel = ERROR
+                                           |akka.actor.provider = "cluster"
+                                           |nsdb {
+                                           | retry-policy {
+                                           |    delay = 1 second
+                                           |    n-retries = 2
+                                           |  }
+                                           |}
+                                           |""".stripMargin))
+
 }
 
 class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with STMultiNodeSpec with ImplicitSender {
