@@ -1,21 +1,15 @@
-package io.radicalbit.nsdb
+package io.radicalbit.nsdb.split_brain
 
 import akka.cluster.Cluster
+import io.radicalbit.nsdb.split_brain.configs.SplitBrainThreeNodeSpecConfig
 
 import scala.concurrent.duration._
-
-object SplitBrainThreeNodeSpecConfig extends SplitBrainSpecConfig {
-  val node1 = role("node-1")
-  val node2 = role("node-2")
-  val node3 = role("node-3")
-
-}
 
 class SplitBrainThreeNodesSpecMultiJvmNode1 extends SplitBrainThreeNodesSpec
 class SplitBrainThreeNodesSpecMultiJvmNode2 extends SplitBrainThreeNodesSpec
 class SplitBrainThreeNodesSpecMultiJvmNode3 extends SplitBrainThreeNodesSpec
 
-class SplitBrainThreeNodesSpec extends SplitBrainSpec(SplitBrainThreeNodeSpecConfig) {
+class SplitBrainThreeNodesSpec() extends SplitBrainSpec(SplitBrainThreeNodeSpecConfig) {
 
   import SplitBrainThreeNodeSpecConfig._
 
@@ -55,13 +49,13 @@ class SplitBrainThreeNodesSpec extends SplitBrainSpec(SplitBrainThreeNodeSpecCon
       enterBarrier("links-failed")
 
       runOn(side1: _*) {
-        assertLeader(side1: _*)
-        assertUnreachable(side2: _*)
+        awaitLeader(side1: _*)
+        awaitAssert(side2.foreach(role => cluster.down(addressOf(role)))) // manually healing the cluster
+        awaitExistingMembers(side1:_*) // the new cluster is composed only by side1 nodes
       }
 
-      runOn(side2: _*) {
-        assertLeader(side2: _*)
-        assertUnreachable(side1: _*)
+      runOn(side2:_*) {
+        an[java.lang.AssertionError] shouldBe thrownBy(awaitSelfDowning(5 seconds)) // demonstrating that isolated node doesn't down by itself
       }
       enterBarrier("3 nodes split-brain")
     }

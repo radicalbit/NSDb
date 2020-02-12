@@ -1,31 +1,24 @@
-package io.radicalbit.nsdb
+package io.radicalbit.nsdb.split_brain
 
 import akka.cluster.Cluster
+import io.radicalbit.nsdb.split_brain.configs.SplitBrainFiveNodesResolutionSpecConfig
 
 import scala.concurrent.duration._
 
-object SplitBrainFiveNodeSpecConfig extends SplitBrainSpecConfig {
-  val node1 = role("node-1")
-  val node2 = role("node-2")
-  val node3 = role("node-3")
-  val node4 = role("node-4")
-  val node5 = role("node-5")
-}
+class SplitBrainFiveNodesResolutionSpecMultiJvmNode1 extends SplitBrainFiveNodesResolutionSpec
+class SplitBrainFiveNodesResolutionSpecMultiJvmNode2 extends SplitBrainFiveNodesResolutionSpec
+class SplitBrainFiveNodesResolutionSpecMultiJvmNode3 extends SplitBrainFiveNodesResolutionSpec
+class SplitBrainFiveNodesResolutionSpecMultiJvmNode4 extends SplitBrainFiveNodesResolutionSpec
+class SplitBrainFiveNodesResolutionSpecMultiJvmNode5 extends SplitBrainFiveNodesResolutionSpec
 
-class SplitBrainFiveNodesSpecMultiJvmNode1 extends SplitBrainFiveNodesSpec
-class SplitBrainFiveNodesSpecMultiJvmNode2 extends SplitBrainFiveNodesSpec
-class SplitBrainFiveNodesSpecMultiJvmNode3 extends SplitBrainFiveNodesSpec
-class SplitBrainFiveNodesSpecMultiJvmNode4 extends SplitBrainFiveNodesSpec
-class SplitBrainFiveNodesSpecMultiJvmNode5 extends SplitBrainFiveNodesSpec
+class SplitBrainFiveNodesResolutionSpec extends SplitBrainSpec(SplitBrainFiveNodesResolutionSpecConfig) {
 
-class SplitBrainFiveNodesSpec extends SplitBrainSpec(SplitBrainFiveNodeSpecConfig) {
-
-  import SplitBrainFiveNodeSpecConfig._
+  import SplitBrainFiveNodesResolutionSpecConfig._
 
   val side1 = Vector(node1, node2)
   val side2 = Vector(node3, node4, node5)
 
-  "SplitBrainFiveNodesSpec" must {
+  "SplitBrainFiveNodesResolutionSpec" must {
     "start node-1" in within(30 seconds) {
       runOn(node1) {
         Cluster(system).join(addressOf(node1))
@@ -67,22 +60,23 @@ class SplitBrainFiveNodesSpec extends SplitBrainSpec(SplitBrainFiveNodeSpecConfi
       enterBarrier("node-5-up")
     }
 
-    "handle split brain scenario" in within(60 seconds) {
+    "solve split brain scenario" in within(60 seconds) {
       runOn(node1) {
         for (role1 <- side1; role2 <- side2) switchOffConnection(role1, role2)
       }
       enterBarrier("links-failed")
 
-      runOn(side1: _*) {
-        assertLeader(side1: _*)
-        assertUnreachable(side2: _*)
+      runOn(side2: _*) {
+        awaitForSurvivors(side2: _*)
+        awaitForAllLeaving(side1: _*)
+        awaitLeader(side2: _*)
       }
 
-      runOn(side2: _*) {
-        assertLeader(side2: _*)
-        assertUnreachable(side1: _*)
+      runOn(side1: _*) {
+        awaitSelfDowning()
       }
-      enterBarrier("5 nodes split-brain")
+
+      enterBarrier("5 nodes split-brain solved")
     }
   }
 }
