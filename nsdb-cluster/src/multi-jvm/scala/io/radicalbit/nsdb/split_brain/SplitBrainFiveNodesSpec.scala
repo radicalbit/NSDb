@@ -11,7 +11,7 @@ class SplitBrainFiveNodesSpecMultiJvmNode3 extends SplitBrainFiveNodesSpec
 class SplitBrainFiveNodesSpecMultiJvmNode4 extends SplitBrainFiveNodesSpec
 class SplitBrainFiveNodesSpecMultiJvmNode5 extends SplitBrainFiveNodesSpec
 
-class SplitBrainFiveNodesSpec extends SplitBrainSpec(SplitBrainFiveNodesSpecConfig) {
+class SplitBrainFiveNodesSpec extends MultiNodeSpecBase(SplitBrainFiveNodesSpecConfig) {
 
   import SplitBrainFiveNodesSpecConfig._
 

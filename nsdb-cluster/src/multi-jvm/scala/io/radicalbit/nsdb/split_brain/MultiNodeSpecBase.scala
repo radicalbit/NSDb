@@ -16,7 +16,7 @@ import scala.concurrent.duration.Duration
  * The functions have been implemented inspired by the lithium plugin multi jvm tests
  * @param config
  */
-abstract class SplitBrainSpec(config: MultiNodeConfig)
+abstract class MultiNodeSpecBase(config: MultiNodeConfig)
     extends MultiNodeSpec(config)
     with STMultiNodeSpec
     with ImplicitSender {

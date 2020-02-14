@@ -9,7 +9,7 @@ class SplitBrainThreeNodesSpecMultiJvmNode1 extends SplitBrainThreeNodesSpec
 class SplitBrainThreeNodesSpecMultiJvmNode2 extends SplitBrainThreeNodesSpec
 class SplitBrainThreeNodesSpecMultiJvmNode3 extends SplitBrainThreeNodesSpec
 
-class SplitBrainThreeNodesSpec() extends SplitBrainSpec(SplitBrainThreeNodeSpecConfig) {
+class SplitBrainThreeNodesSpec() extends MultiNodeSpecBase(SplitBrainThreeNodeSpecConfig) {
 
   import SplitBrainThreeNodeSpecConfig._
 
