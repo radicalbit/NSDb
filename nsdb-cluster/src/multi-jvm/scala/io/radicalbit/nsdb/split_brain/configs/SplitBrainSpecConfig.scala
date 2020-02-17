@@ -63,7 +63,6 @@ trait SplitBrainResolutionSpecConfig {
         |com.swissborg.lithium {
         |  active-strategy = "keep-majority"
         |  stable-after = 30s
-        |  keep-majority.role = ""
         |}
         |""".stripMargin)
 
