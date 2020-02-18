@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.1"
+    lazy val version   = "2.6.3"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -136,7 +136,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.4.0"
+    lazy val version     = "8.4.1"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -151,17 +151,17 @@ object Dependencies {
     lazy val core      = namespace %% "scalatest" % version
   }
 
-  object junit {
-    lazy val version   = "4.12"
-    lazy val namespace = "junit"
-    lazy val junit     = namespace % "junit" % version
-  }
-
-  object junitInterface {
-    lazy val version        = "0.11"
-    lazy val namespace      = "com.novocode"
-    lazy val junitInterface = namespace % "junit-interface" % version
-  }
+//  object junit {
+//    lazy val version   = "4.12"
+//    lazy val namespace = "junit"
+//    lazy val junit     = namespace % "junit" % version
+//  }
+//
+//  object junitInterface {
+//    lazy val version        = "0.11"
+//    lazy val namespace      = "com.novocode"
+//    lazy val junitInterface = namespace % "junit-interface" % version
+//  }
 
   object gRPC {
     lazy val version         = scalapb.compiler.Version.grpcJavaVersion
