@@ -111,6 +111,12 @@ object Dependencies {
     lazy val sigarLoader = namespace % "sigar-loader" % sigarVersion
   }
 
+  object lithium {
+    lazy val version   = "0.10.0"
+    lazy val namespace = "com.swissborg"
+    lazy val core =  namespace %% "lithium" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
+  }
+
   object swagger {
     lazy val version     = "1.5.19"
     lazy val namespace   = "io.swagger"
@@ -252,6 +258,7 @@ object Dependencies {
       akka_management.cluster_http,
       akka_discovery.kubernetes_api,
       akka.distributedData,
+      lithium.core,
       scala_logging.scala_logging,
       akka.slf4j,
       kamon.bundle,
