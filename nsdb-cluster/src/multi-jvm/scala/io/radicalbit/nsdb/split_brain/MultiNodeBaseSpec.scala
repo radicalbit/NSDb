@@ -14,7 +14,7 @@ import scala.concurrent.duration.Duration
 /**
   * Base class for split brain test
   * The functions names have been inspired by the lithium plugin multi jvm tests
-  * @param config
+  * @param config multi node configuration
   */
 abstract class MultiNodeBaseSpec(config: MultiNodeConfig)
     extends MultiNodeSpec(config)
