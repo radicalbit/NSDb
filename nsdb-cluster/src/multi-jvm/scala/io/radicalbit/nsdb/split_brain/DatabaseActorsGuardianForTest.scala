@@ -6,6 +6,9 @@ object DatabaseActorsGuardianForTest {
   case object WhoAreYou
 }
 
+/**
+ * Mock Database Actor Guardian for test
+ */
 class DatabaseActorsGuardianForTest extends DatabaseActorsGuardian {
 
   import DatabaseActorsGuardianForTest._

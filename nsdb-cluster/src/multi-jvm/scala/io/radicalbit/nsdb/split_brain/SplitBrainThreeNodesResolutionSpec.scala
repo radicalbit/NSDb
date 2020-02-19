@@ -9,7 +9,10 @@ class SplitBrainThreeNodesResolutionSpecMultiJvmNode1 extends SplitBrainThreeNod
 class SplitBrainThreeNodesResolutionSpecMultiJvmNode2 extends SplitBrainThreeNodesResolutionSpec
 class SplitBrainThreeNodesResolutionSpecMultiJvmNode3 extends SplitBrainThreeNodesResolutionSpec
 
-class SplitBrainThreeNodesResolutionSpec extends MultiNodeSpecBase(SplitBrainThreeNodesResolutionSpecConfig) {
+/**
+ * Test Class in which split brain is reproduced and solved with a cluster of three nodes
+ */
+class SplitBrainThreeNodesResolutionSpec extends MultiNodeBaseSpec(SplitBrainThreeNodesResolutionSpecConfig) {
 
   import SplitBrainThreeNodesResolutionSpecConfig._
 
@@ -20,7 +23,7 @@ class SplitBrainThreeNodesResolutionSpec extends MultiNodeSpecBase(SplitBrainThr
     "start node-1" in within(30 seconds) {
       runOn(node1) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1)
+        awaitClusterNodesForUp(node1)
       }
 
       enterBarrier("node-1-up")
@@ -29,7 +32,7 @@ class SplitBrainThreeNodesResolutionSpec extends MultiNodeSpecBase(SplitBrainThr
     "start node-2" in within(30 seconds) {
       runOn(node2) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2)
+        awaitClusterNodesForUp(node1, node2)
       }
       enterBarrier("node-2-up")
     }
@@ -37,7 +40,7 @@ class SplitBrainThreeNodesResolutionSpec extends MultiNodeSpecBase(SplitBrainThr
     "start node-3" in within(30 seconds) {
       runOn(node3) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2, node3)
+        awaitClusterNodesForUp(node1, node2, node3)
       }
       enterBarrier("node-3-up")
     }
@@ -49,13 +52,13 @@ class SplitBrainThreeNodesResolutionSpec extends MultiNodeSpecBase(SplitBrainThr
       enterBarrier("links-failed")
 
       runOn(side1: _*) {
-        awaitForSurvivors(side1: _*)
-        awaitForAllLeaving(side2: _*)
-        awaitLeader(side1: _*)
+        awaitSurvivorsNodes(side1: _*)
+        awaitAllLeavingNodes(side2: _*)
+        awaitClusterLeader(side1: _*)
       }
 
       runOn(side2: _*) {
-        awaitSelfDowning()
+        awaitSelfDowningNode()
       }
       enterBarrier("3 nodes split-brain solved")
     }

@@ -9,7 +9,10 @@ class SplitBrainThreeNodesSpecMultiJvmNode1 extends SplitBrainThreeNodesSpec
 class SplitBrainThreeNodesSpecMultiJvmNode2 extends SplitBrainThreeNodesSpec
 class SplitBrainThreeNodesSpecMultiJvmNode3 extends SplitBrainThreeNodesSpec
 
-class SplitBrainThreeNodesSpec() extends MultiNodeSpecBase(SplitBrainThreeNodeSpecConfig) {
+/**
+ * Test Class in which split brain is reproduced with a cluster of three nodes
+ */
+class SplitBrainThreeNodesSpec() extends MultiNodeBaseSpec(SplitBrainThreeNodeSpecConfig) {
 
   import SplitBrainThreeNodeSpecConfig._
 
@@ -20,7 +23,7 @@ class SplitBrainThreeNodesSpec() extends MultiNodeSpecBase(SplitBrainThreeNodeSp
     "start node-1" in within(30 seconds) {
       runOn(node1) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1)
+        awaitClusterNodesForUp(node1)
       }
 
       enterBarrier("node-1-up")
@@ -29,7 +32,7 @@ class SplitBrainThreeNodesSpec() extends MultiNodeSpecBase(SplitBrainThreeNodeSp
     "start node-2" in within(30 seconds) {
       runOn(node2) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2)
+        awaitClusterNodesForUp(node1, node2)
       }
       enterBarrier("node-2-up")
     }
@@ -37,7 +40,7 @@ class SplitBrainThreeNodesSpec() extends MultiNodeSpecBase(SplitBrainThreeNodeSp
     "start node-3" in within(30 seconds) {
       runOn(node3) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2, node3)
+        awaitClusterNodesForUp(node1, node2, node3)
       }
       enterBarrier("node-3-up")
     }
@@ -49,13 +52,13 @@ class SplitBrainThreeNodesSpec() extends MultiNodeSpecBase(SplitBrainThreeNodeSp
       enterBarrier("links-failed")
 
       runOn(side1: _*) {
-        awaitLeader(side1: _*)
+        awaitClusterLeader(side1: _*)
         awaitAssert(side2.foreach(role => cluster.down(addressOf(role)))) // manually healing the cluster
         awaitExistingMembers(side1:_*) // the new cluster is composed only by side1 nodes
       }
 
       runOn(side2:_*) {
-        an[java.lang.AssertionError] shouldBe thrownBy(awaitSelfDowning(5 seconds)) // demonstrating that isolated node doesn't down by itself
+        an[java.lang.AssertionError] shouldBe thrownBy(awaitSelfDowningNode(5 seconds)) // demonstrating that isolated node doesn't down by itself
       }
       enterBarrier("3 nodes split-brain")
     }

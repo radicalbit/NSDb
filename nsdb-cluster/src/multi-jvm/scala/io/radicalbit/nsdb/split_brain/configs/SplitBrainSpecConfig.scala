@@ -3,6 +3,9 @@ package io.radicalbit.nsdb.split_brain.configs
 import akka.remote.testkit.MultiNodeConfig
 import com.typesafe.config.ConfigFactory
 
+/**
+ * Component defining three cluster nodes for test
+ */
 trait ThreeNodeClusterSpecConfig {
   _: MultiNodeConfig =>
 
@@ -11,6 +14,9 @@ trait ThreeNodeClusterSpecConfig {
   val node3 = role("node-3")
 }
 
+/**
+ * Component defining five cluster nodes for test
+ */
 trait FiveNodeClusterSpecConfig {
   _: MultiNodeConfig =>
 
@@ -21,6 +27,9 @@ trait FiveNodeClusterSpecConfig {
   val node5 = role("node-5")
 }
 
+/**
+ * Component defining base akka cluster config for test
+ */
 trait NSDbBaseSpecConfig {
   this: MultiNodeConfig =>
 
@@ -54,6 +63,9 @@ trait NSDbBaseSpecConfig {
 
 }
 
+/**
+ * Component defining split brain resolver plugin config for test
+ */
 trait SplitBrainResolutionSpecConfig {
 
   protected val splitBrainResolverConfig =
@@ -68,6 +80,9 @@ trait SplitBrainResolutionSpecConfig {
 
 }
 
+/**
+ * Component defining serialization config
+ */
 trait NSDbBaseSpecWithSerializationConfig {
 
   protected val serializationConfig =

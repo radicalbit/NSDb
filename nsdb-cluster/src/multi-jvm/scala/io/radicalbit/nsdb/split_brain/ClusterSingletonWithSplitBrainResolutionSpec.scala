@@ -14,7 +14,10 @@ class ClusterSingletonWithSplitBrainResolutionSpecMultiJvmNode3 extends ClusterS
 class ClusterSingletonWithSplitBrainResolutionSpecMultiJvmNode4 extends ClusterSingletonWithSplitBrainResolutionSpec
 class ClusterSingletonWithSplitBrainResolutionSpecMultiJvmNode5 extends ClusterSingletonWithSplitBrainResolutionSpec
 
-abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpecBase(ClusterSingletonWithSplitBrainResolutionSpecConfig) {
+/**
+ * Split Brain resolved scenario with Cluster Singleton
+ */
+abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBaseSpec(ClusterSingletonWithSplitBrainResolutionSpecConfig) {
 
   import ClusterSingletonWithSplitBrainResolutionSpecConfig._
 
@@ -42,7 +45,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpe
     "start node-1" in within(30 seconds) {
       runOn(node1) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1)
+        awaitClusterNodesForUp(node1)
       }
 
       enterBarrier("node-1-up")
@@ -51,7 +54,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpe
     "start node-2" in within(30 seconds) {
       runOn(node2) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2)
+        awaitClusterNodesForUp(node1, node2)
       }
       enterBarrier("node-2-up")
     }
@@ -59,7 +62,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpe
     "start node-3" in within(30 seconds) {
       runOn(node3) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2, node3)
+        awaitClusterNodesForUp(node1, node2, node3)
       }
       enterBarrier("node-3-up")
     }
@@ -67,7 +70,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpe
     "start node-4" in within(30 seconds) {
       runOn(node4) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2, node3, node4)
+        awaitClusterNodesForUp(node1, node2, node3, node4)
       }
       enterBarrier("node-4-up")
     }
@@ -75,7 +78,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpe
     "start node-5" in within(30 seconds) {
       runOn(node5) {
         Cluster(system).join(addressOf(node1))
-        waitForUp(node1, node2, node3, node4, node5)
+        awaitClusterNodesForUp(node1, node2, node3, node4, node5)
       }
       enterBarrier("node-5-up")
     }
@@ -87,12 +90,12 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeSpe
       enterBarrier("split-created")
 
       runOn(side2:_*) {
-        awaitForSurvivors(side2:_*)
-        awaitForAllLeaving(side1: _*)
+        awaitSurvivorsNodes(side2:_*)
+        awaitAllLeavingNodes(side1: _*)
       }
 
       runOn(side1: _*) {
-        awaitSelfDowning()
+        awaitSelfDowningNode()
       }
       enterBarrier("singleton-msg-side2-cluster")
 
