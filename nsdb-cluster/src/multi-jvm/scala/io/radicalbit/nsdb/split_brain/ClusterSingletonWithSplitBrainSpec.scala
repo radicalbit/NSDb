@@ -43,7 +43,7 @@ abstract class ClusterSingletonWithSplitBrainSpec
         )
 
       dbActorGuardian ! WhoAreYou
-      expectMsgType[ActorPath] === ActorPath.fromString("akka://MultiNodeSpecBase/user/databaseActorGuardian/singleton")
+      expectMsgType[ActorPath] === ActorPath.fromString("akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton")
     }
   }
 

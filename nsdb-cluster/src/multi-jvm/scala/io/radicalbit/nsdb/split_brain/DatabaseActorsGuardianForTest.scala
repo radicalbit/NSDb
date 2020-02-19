@@ -1,9 +1,10 @@
 package io.radicalbit.nsdb.split_brain
 
 import io.radicalbit.nsdb.cluster.actor.DatabaseActorsGuardian
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 
 object DatabaseActorsGuardianForTest {
-  case object WhoAreYou
+  case object WhoAreYou extends NSDbSerializable
 }
 
 /**
