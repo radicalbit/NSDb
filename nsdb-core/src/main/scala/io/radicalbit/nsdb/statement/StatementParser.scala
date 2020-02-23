@@ -291,6 +291,12 @@ object StatementParser {
   case class InternalSumSimpleAggregation(override val groupField: String, override val aggregateField: String)
       extends InternalSimpleAggregationType
 
+  case class InternalFirstSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
+
+  case class InternalLastSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
+
   sealed trait InternalTemporalAggregation extends InternalAggregation
 
   object InternalTemporalAggregation {

@@ -164,6 +164,8 @@ sealed trait Aggregation
 case object CountAggregation extends Aggregation
 case object MaxAggregation   extends Aggregation
 case object MinAggregation   extends Aggregation
+case object FirstAggregation extends Aggregation
+case object LastAggregation  extends Aggregation
 case object SumAggregation   extends Aggregation
 
 /**
