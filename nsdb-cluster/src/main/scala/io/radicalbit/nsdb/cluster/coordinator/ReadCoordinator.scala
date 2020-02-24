@@ -265,6 +265,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                             NSDbNumericType(values.map(_.value.rawValue).sum),
                             values.head.dimensions,
                             values.head.tags)
+                      case InternalFirstSimpleAggregation(_, _) =>
+                        values.minBy(_.timestamp)
+                      case InternalLastSimpleAggregation(_, _) =>
+                        values.maxBy(_.timestamp)
                     }
                 }.map(limitAndOrder(_, statement, schema))
               case Right(

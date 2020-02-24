@@ -57,6 +57,8 @@ object StatementParser {
       case MaxAggregation   => InternalMaxSimpleAggregation(groupField, aggregateField)
       case MinAggregation   => InternalMinSimpleAggregation(groupField, aggregateField)
       case SumAggregation   => InternalSumSimpleAggregation(groupField, aggregateField)
+      case FirstAggregation => InternalFirstSimpleAggregation(groupField, aggregateField)
+      case LastAggregation  => InternalLastSimpleAggregation(groupField, aggregateField)
     }
   }
 
@@ -130,7 +132,7 @@ object StatementParser {
                 statement.namespace,
                 statement.metric,
                 exp.q,
-                aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg), // FIXME: from sql parser aggregation to internal parser aggregation
+                aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg),
                 sortOpt,
                 limitOpt
               ))
