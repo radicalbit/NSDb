@@ -151,18 +151,6 @@ object Dependencies {
     lazy val core      = namespace %% "scalatest" % version
   }
 
-//  object junit {
-//    lazy val version   = "4.12"
-//    lazy val namespace = "junit"
-//    lazy val junit     = namespace % "junit" % version
-//  }
-//
-//  object junitInterface {
-//    lazy val version        = "0.11"
-//    lazy val namespace      = "com.novocode"
-//    lazy val junitInterface = namespace % "junit-interface" % version
-//  }
-
   object gRPC {
     lazy val version         = scalapb.compiler.Version.grpcJavaVersion
     lazy val namespace       = "io.grpc"
