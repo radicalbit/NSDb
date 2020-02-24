@@ -742,7 +742,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
-      "parse it successfully with count(*)" in {
+      "parse it successfully with sum(*)" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -765,6 +765,58 @@ class StatementParserSpec extends WordSpec with Matchers {
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
               new InternalSumSimpleAggregation("name", "value")
+            ))
+        )
+      }
+      "parse it successfully with first(*)" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(FirstAggregation)))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
+            groupBy = Some(SimpleGroupByAggregation("name"))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              new InternalFirstSimpleAggregation("name", "value")
+            ))
+        )
+      }
+      "parse it successfully with last(*)" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(LastAggregation)))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
+            groupBy = Some(SimpleGroupByAggregation("name"))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              new InternalLastSimpleAggregation("name", "value")
             ))
         )
       }

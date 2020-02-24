@@ -60,7 +60,7 @@ object AggregationMetric {
   val name = "aggregationMetric"
 
   val testRecords: List[Bit] = List(
-    Bit(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(1L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
     Bit(4L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
     Bit(2L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
     Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
@@ -546,11 +546,59 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select sum(value) from ${LongMetric.name} where timestamp >= 2 group by name")
+        .query(s"select sum(value) from ${LongMetric.name} where timestamp >= 3 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
-      assert(readRes.records.size == 5)
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 4L, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 5L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 6L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 3L, Map.empty, Map("name" -> "J"))
+        ))
+    }
+  }
+
+  test("receive a select containing a LTE selection and a group by using first aggregation functions") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select first(value) from ${LongMetric.name} where timestamp <= 8 group by name order by name")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(6L, 4L, Map.empty, Map("name" -> "Bill")),
+          Bit(8L, 5L, Map.empty, Map("name" -> "Frank")),
+          Bit(4L, 3L, Map.empty, Map("name" -> "J")),
+          Bit(1L, 1L, Map.empty, Map("name" -> "John"))
+        ))
+    }
+  }
+
+  test("receive a select containing a LTE selection and a group by using last aggregation functions") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select last(value) from ${LongMetric.name} where timestamp <= 8 group by name order by name")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(6L, 4L, Map.empty, Map("name" -> "Bill")),
+          Bit(8L, 5L, Map.empty, Map("name" -> "Frank")),
+          Bit(4L, 3L, Map.empty, Map("name" -> "J")),
+          Bit(2L, 2L, Map.empty, Map("name" -> "John"))
+        ))
     }
   }
 
@@ -704,6 +752,40 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select containing a group by on long dimension with first and last aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val firstQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select first(value) from ${AggregationMetric.name} group by age order by age")
+
+      val firstResponse = Await.result(nsdb.execute(firstQuery), 10.seconds)
+
+      assert(
+        firstResponse.records.map(_.asBit) ==
+          Seq(
+            Bit(1L, 2L, Map.empty, Map("age" -> 15L)),
+            Bit(4L, 2L, Map.empty, Map("age" -> 20L))
+          ))
+
+      val lastQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select last(value) from ${AggregationMetric.name} group by age order by age")
+
+      val lastResponse = Await.result(nsdb.execute(lastQuery), 10.seconds)
+
+      assert(
+        lastResponse.records.map(_.asBit) ==
+          Seq(
+            Bit(10L, 1L, Map.empty, Map("age" -> 15L)),
+            Bit(4L, 2L, Map.empty, Map("age" -> 20L))
+          ))
+    }
+  }
+
   test("receive a select containing a group by on double dimension with count aggregation") {
     nodes.foreach { n =>
       val nsdb =
@@ -740,6 +822,41 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
           Bit(0L, 5L, Map.empty, Map("height" -> 30.5)),
           Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
           Bit(0L, 2L, Map.empty, Map("height" -> 32.0))
+        ))
+    }
+  }
+
+  test("receive a select containing a group by on double dimension with last and first aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val firstRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select first(value) from ${AggregationMetric.name} group by height order by height")
+
+      val firstResponse = Await.result(nsdb.execute(firstRequest), 10.seconds)
+
+      assert(
+        firstResponse.records.map(_.asBit) == Seq(
+          Bit(1L, 2L, Map.empty, Map("height" -> 30.5)),
+          Bit(6L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(8L, 1L, Map.empty, Map("height" -> 32.0))
+        ))
+
+      val lastRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select last(value) from ${AggregationMetric.name} group by height order by height")
+
+      val lastResponse = Await.result(nsdb.execute(lastRequest), 10.seconds)
+
+      assert(
+        lastResponse.records.map(_.asBit) == Seq(
+          Bit(4L, 2L, Map.empty, Map("height" -> 30.5)),
+          Bit(6L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(10L, 1L, Map.empty, Map("height" -> 32.0))
         ))
     }
   }
