@@ -174,6 +174,14 @@ SELECT MAX(value) FROM metric GROUP BY dimension_name
 ```sql
 SELECT SUM(value) FROM metric GROUP BY dimension_name
 ```
+- `FIRST` retrieve the oldest record for each group (i.e. the record with the min timestamp).
+```sql
+SELECT FIRST(value) FROM metric GROUP BY dimension_name
+```
+- `LAST` retrieve the youngest record for each group (i.e. the record with the max timestamp).
+```sql
+SELECT LAST(value) FROM metric GROUP BY dimension_name
+```
 
 #### Interval Group By
 Another peculiarity of a time series database is to allow grouping by time intervals.
