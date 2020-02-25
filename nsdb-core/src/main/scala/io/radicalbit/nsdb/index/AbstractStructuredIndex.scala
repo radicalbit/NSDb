@@ -64,7 +64,6 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     }
   }
 
-//  private def convertField(field: IndexableField)
   def toRecord(schema: Schema, document: Document, fields: Seq[SimpleField]): Bit = {
 
     def extractFields(schema: Schema, document: Document, fields: Seq[SimpleField], fieldClassType: FieldClassType) = {
