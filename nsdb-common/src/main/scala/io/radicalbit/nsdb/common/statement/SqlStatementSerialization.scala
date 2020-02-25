@@ -61,6 +61,8 @@ object SqlStatementSerialization {
           case "MaxAggregation"   => MaxAggregation
           case "MinAggregation"   => MinAggregation
           case "SumAggregation"   => SumAggregation
+          case "FirstAggregation" => FirstAggregation
+          case "LastAggregation"  => LastAggregation
         }
       }
     }

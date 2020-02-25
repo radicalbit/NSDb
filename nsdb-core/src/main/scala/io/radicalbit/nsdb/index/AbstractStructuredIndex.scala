@@ -16,8 +16,8 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, TagFieldType}
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
@@ -25,7 +25,8 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.queryparser.classic.QueryParser
-import org.apache.lucene.search.{IndexSearcher, MatchAllDocsQuery, Query, Sort}
+import org.apache.lucene.search._
+import org.apache.lucene.search.grouping.{AllGroupHeadsCollector, TermGroupSelector}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -185,4 +186,46 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
       doc.getField(_countField).numericValue().intValue()
     }.headOption.getOrElse(0)
 
+  private def getFirstLastGroupBy(query: Query, schema: Schema, groupTagName: String, last: Boolean): Seq[Bit] = {
+    val groupCollector = schema.fieldsMap(groupTagName).indexType match {
+      case VARCHAR() => new TermGroupSelector(groupTagName)
+      case _         => new TermGroupSelector(s"${groupTagName}_str")
+    }
+
+    val collector = AllGroupHeadsCollector.newCollector(groupCollector,
+                                                        new Sort(new SortField("timestamp", SortField.Type.LONG, last)))
+    val searcher = this.getSearcher
+    searcher.search(query, collector)
+
+    collector.retrieveGroupHeads().toSeq.map { id =>
+      val doc = searcher.doc(id)
+      Bit(
+        timestamp = doc.getField("timestamp").numericValue().longValue(),
+        value = NSDbNumericType(doc.getField("value").numericValue()),
+        dimensions = Map.empty,
+        tags = Map(doc.getField(groupTagName) match {
+          case f if f.numericValue() != null => f.name() -> NSDbType(f.numericValue())
+          case f                             => f.name() -> NSDbType(f.stringValue())
+        })
+      )
+    }
+  }
+
+  /**
+    * Group query results by groupTagName and return oldest value (min timestamp)
+    * @param query query to be executed before grouping.
+    * @param schema bit schema.
+    * @param groupTagName tag used to group by.
+    */
+  def getFirstGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
+    getFirstLastGroupBy(query, schema, groupTagName, last = false)
+
+  /**
+    * Group query results by groupTagName and return most recent value (max timestamp)
+    * @param query query to be executed before grouping.
+    * @param schema bit schema.
+    * @param groupTagName tag used to group by.
+    */
+  def getLastGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
+    getFirstLastGroupBy(query, schema, groupTagName, last = true)
 }

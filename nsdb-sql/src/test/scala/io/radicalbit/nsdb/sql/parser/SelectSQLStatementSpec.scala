@@ -72,7 +72,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                fields = ListFields(List(Field("name", None)))))
         )
       }
-      "parse it successfully with an aggregated field" in {
+      "parse it successfully with a count aggregated field" in {
         parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people") should be(
           Success(
             SelectSQLStatement(db = "db",
@@ -80,6 +80,36 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                metric = "people",
                                distinct = false,
                                fields = ListFields(List(Field("value", Some(CountAggregation))))))
+        )
+      }
+      "parse it successfully with a sum aggregated field" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT sum(value) FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("value", Some(SumAggregation))))))
+        )
+      }
+      "parse it successfully with a first aggregated field" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT first(value) FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("value", Some(FirstAggregation))))))
+        )
+      }
+      "parse it successfully with a last aggregated field" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT last(value) FROM people") should be(
+          Success(
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("value", Some(LastAggregation))))))
         )
       }
       "parse it successfully with an aggregated *" in {

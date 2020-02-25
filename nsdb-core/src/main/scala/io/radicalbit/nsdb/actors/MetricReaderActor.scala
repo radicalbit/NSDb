@@ -319,6 +319,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                   Bit(0, NSDbNumericType(values.map(_.value.rawValue).min), values.head.dimensions, values.head.tags)
                 case InternalSumSimpleAggregation(_, _) =>
                   Bit(0, NSDbNumericType(values.map(_.value.rawValue).sum), values.head.dimensions, values.head.tags)
+                case InternalFirstSimpleAggregation(_, _) =>
+                  values.minBy(_.timestamp)
+                case InternalLastSimpleAggregation(_, _) =>
+                  values.maxBy(_.timestamp)
               }
             }
 

@@ -154,9 +154,12 @@ case class INT() extends NumericType[Int] {
   def actualType = manifest[Int]
   def ord        = Ordering[Int].asInstanceOf[Ordering[Any]]
   override def indexField(fieldName: String, value: NSDbType): Seq[Field] =
-    Seq(new IntPoint(fieldName, cast(value.rawValue)),
-        new NumericDocValuesField(fieldName, cast(value.rawValue)),
-        new StoredField(fieldName, cast(value.rawValue)))
+    Seq(
+      new IntPoint(fieldName, cast(value.rawValue)),
+      new NumericDocValuesField(fieldName, cast(value.rawValue)),
+      new StoredField(fieldName, cast(value.rawValue)),
+      new SortedDocValuesField(s"${fieldName}_str", new BytesRef(s"${value.rawValue}_str"))
+    )
   override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
       new IntPoint(fieldName, cast(value.rawValue)),
@@ -176,7 +179,8 @@ case class BIGINT() extends NumericType[Long] {
     Seq(
       new LongPoint(fieldName, cast(value.rawValue)),
       new NumericDocValuesField(fieldName, cast(value.rawValue)),
-      new StoredField(fieldName, cast(value.rawValue))
+      new StoredField(fieldName, cast(value.rawValue)),
+      new SortedDocValuesField(s"${fieldName}_str", new BytesRef(s"${value.rawValue}_str"))
     )
   override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(
@@ -196,7 +200,8 @@ case class DECIMAL() extends NumericType[Double] {
     Seq(
       new DoublePoint(fieldName, cast(value.rawValue)),
       new DoubleDocValuesField(fieldName, cast(value.rawValue)),
-      new StoredField(fieldName, cast(value.rawValue))
+      new StoredField(fieldName, cast(value.rawValue)),
+      new SortedDocValuesField(s"${fieldName}_str", new BytesRef(s"${value.rawValue}_str"))
     )
   override def facetField(fieldName: String, value: NSDbType): Seq[Field] =
     Seq(

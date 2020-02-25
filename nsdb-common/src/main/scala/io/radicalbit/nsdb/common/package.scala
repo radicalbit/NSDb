@@ -48,6 +48,11 @@ package object common {
       * @return the type runtime manifest
       */
     def runtimeManifest: Manifest[_]
+
+    /**
+      * convert to a [[NSDbStringType]]
+      */
+    def toStringType: NSDbStringType = NSDbStringType(rawValue.toString)
   }
 
   object NSDbType {
@@ -87,7 +92,15 @@ package object common {
       new JsonSubTypes.Type(value = classOf[NSDbLongType], name = "NSDbLongType"),
       new JsonSubTypes.Type(value = classOf[NSDbIntType], name = "NSDbIntType")
     ))
-  sealed trait NSDbNumericType extends NSDbType
+  sealed trait NSDbNumericType extends NSDbType {
+    private def compare(other: NSDbNumericType) =
+      new java.math.BigDecimal(this.rawValue.toString).compareTo(new java.math.BigDecimal(other.rawValue.toString))
+
+    def >(other: NSDbNumericType): Boolean  = compare(other) == 1
+    def >=(other: NSDbNumericType): Boolean = compare(other) == 1 || compare(other) == 0
+    def <(other: NSDbNumericType): Boolean  = compare(other) == -1
+    def <=(other: NSDbNumericType): Boolean = compare(other) == -1 || compare(other) == 0
+  }
 
   object NSDbNumericType {
 
