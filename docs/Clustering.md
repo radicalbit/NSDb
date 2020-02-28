@@ -3,8 +3,8 @@
 ## Architecture
 
 NSDb has been designed to be a cluster, which means that even if only a single instance is running, it is a cluster of one node.  
-The cluster is fully functional but is at risk of data loss in the event of a failure, because all the shards are store on the single node and no replica shards are allocated.
-Adding a node to a cluster has the purpose to increase its capacity and reliability. 
+Using only one node, no replicas are allocated, therefore fault tolerance and high availability are not enabled. 
+Adding nodes to the cluster has the purpose to enable those two features increasing its capacity and reliability.
 
 NSDb cluster is a Multi-master replication distributed system, that is an application which allows data to be stored in a set of members, 
 and updated by any of them. 
@@ -17,7 +17,7 @@ As mentioned in the overall architectural documentation, NSDb strongly relies on
 It does this using gossip protocols and an automatic failure detector.   
 
 
-Before going on on the topic, it's mandatory to introduce two key concepts:
+Before going on on the topic, it's mandatory to introduce three key concepts:
 - **Shard**: a folder in a cluster node's file system that contains all the Lucene indexes necessary to execute all the supported kind of queries
 - **Metadata**: all the information used to connote a metric and a query response (e.g. schemas, shards locations)
 - **Location**: a specific metadata that defines a shard and that contains the timestamp boundaries and the node identifier
