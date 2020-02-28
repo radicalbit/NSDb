@@ -122,7 +122,7 @@ lazy val `nsdb-cluster` = project
     dockerCommands := Seq(
       Cmd("FROM", "adoptopenjdk/openjdk8:alpine-slim"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
-      Cmd("RUN", "apk add", "--no-cache", "bash"),
+      Cmd("RUN", "apk add", "--no-cache", "bash", "udev"),
       Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
       Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
