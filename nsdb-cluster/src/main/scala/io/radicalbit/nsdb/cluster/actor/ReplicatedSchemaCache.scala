@@ -25,6 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
+import io.radicalbit.nsdb.cluster.logic.WriteConsistencyLogic
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -52,7 +53,7 @@ object ReplicatedSchemaCache {
 /**
   * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
   */
-class ReplicatedSchemaCache extends ActorPathLogging {
+class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic {
 
   import akka.cluster.ddata.Replicator._
 
@@ -69,8 +70,6 @@ class ReplicatedSchemaCache extends ActorPathLogging {
   private def namespaceKey(db: String, namespace: String): LWWMapKey[SchemaKey, Schema] =
     LWWMapKey(s"schema-cache-${math.abs((db + namespace).hashCode) % 100}")
 
-  private val writeDuration = 5.seconds
-
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
@@ -79,7 +78,7 @@ class ReplicatedSchemaCache extends ActorPathLogging {
   def receive: Receive = {
     case PutSchemaInCache(db, namespace, metric, value) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ :+ (key -> value)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), writeConsistency)(_ :+ (key -> value)))
         .map {
           case UpdateSuccess(_, _) =>
             SchemaCached(db, namespace, metric, Some(value))
@@ -88,7 +87,7 @@ class ReplicatedSchemaCache extends ActorPathLogging {
         .pipeTo(sender())
     case EvictSchema(db, namespace, metric) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), WriteAll(writeDuration))(_ remove (address, key)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), writeConsistency)(_ remove (address, key)))
         .map(_ => SchemaCached(db, namespace, metric, None))
         .pipeTo(sender)
     case DeleteNamespaceSchema(db, namespace) =>

@@ -16,9 +16,20 @@
 
 package io.radicalbit.nsdb.cluster.logic
 
+import akka.actor.Actor
 import akka.cluster.ddata.Replicator.{WriteAll, WriteConsistency, WriteMajority}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+
+trait WriteConsistencyLogic { this: Actor =>
+  private val config = context.system.settings.config
+
+  private val writeDuration = 5.seconds
+
+  protected val writeConsistency: WriteConsistency =
+    WriteConsistencyLogic.fromConfigValue(config.getString("nsdb.cluster.write-consistency"))(writeDuration)
+}
 
 object WriteConsistencyLogic {
 

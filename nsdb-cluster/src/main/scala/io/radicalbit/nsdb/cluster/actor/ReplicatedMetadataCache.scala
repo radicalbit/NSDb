@@ -132,14 +132,12 @@ object ReplicatedMetadataCache {
 /**
   * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
   */
-class ReplicatedMetadataCache extends Actor with ActorLogging {
+class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsistencyLogic {
 
   import ReplicatedMetadataCache._
   import akka.cluster.ddata.Replicator._
 
   val replicator: ActorRef = DistributedData(context.system).replicator
-
-  private val config = context.system.settings.config
 
   implicit val address: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
@@ -180,15 +178,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     */
   private val coordinatesKey: ORSetKey[Coordinates] = ORSetKey("coordinates-cache")
 
-  private val writeDuration = 5.seconds
-
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
   import context.dispatcher
-
-  private val writeConsistency: WriteConsistency =
-    WriteConsistencyLogic.fromConfigValue(config.getString("nsdb.cluster.write-consistency"))(writeDuration)
 
   def receive: Receive = {
     case PutCoordinateInCache(db, namespace, metric) =>
