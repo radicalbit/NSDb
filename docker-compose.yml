@@ -17,7 +17,7 @@ version: '3'
 services:
 
     nsdb:
-      image: tools.radicalbit.io/nsdb:0.7.0-SNAPSHOT
+      image: weareradicalbit/nsdb:1.0.0-SNAPSHOT
       volumes:
         - ./nsdb-cluster/src/main/resources:/opt/nsdb-cluster/conf
         - ./data:/opt/nsdb/data
@@ -27,3 +27,7 @@ services:
         - 9443:9443
         - 9000:9000
         - 7817:7817
+        - 8558:8558
+      environment:
+        SHARD_INTERVAL: "30d"
+        MONITORING_ENABLED: "true"
