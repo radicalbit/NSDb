@@ -68,7 +68,7 @@ Usage example:
 ```sql
 SELECT  DISTINCT dimension FROM metric
 ```
-> NOTE: projecting only a **single** dimension is allowed when `DISTINCT` operator is used-
+> NOTE: projecting only a **single** dimension is allowed when `DISTINCT` operator is used.
 
 ### WHERE clause
 The `WHERE` clause allows to define a boolean condition, based on which data are filtered.
@@ -251,7 +251,7 @@ the 10 oldest ones.
 
 ## The Insert Statement
 
-NSDb allows bit insertion making use of  Insert statement, whose syntax is similar to standard SQL insert.
+NSDb allows bit insertion making use of Insert statement, whose syntax is similar to standard SQL insert.
 By the way there are some small differences meant in time-series concept that introduces value and timestamp fields.
 
 ### Simple Syntax
@@ -263,7 +263,7 @@ By the way there are some small differences meant in time-series concept that in
  Value field is assigned using `VAL` clause , that accepts a numerical value.
  Timestamp index definition is not mandatory, but it can be defined using `TS` clause.
 
- > NOTE: , if  `TS` clause's value is not defined, it is assigned the epoch-timestamp of the istant the insertion is performed .
+ > NOTE: if  `TS` clause's value is not defined, it is assigned the epoch-timestamp of the istant the insertion is performed .
 
 ### Examples
 
@@ -273,7 +273,7 @@ INSERT INTO metric DIM ( dimension_1 = 1, dimension_2 = myStringValue ) VAL = 1
 ```sql
 INSERT INTO metric DIM ( dimension_1 = 1, dimension_2 = 'my String Value' ) VAL = 1
 ```
-> NOTE: , user can define VARCHAR dimensions' values wrapping them inside `' '`, this notation is mandatory in case of strings with spaces.
+> NOTE: user can define VARCHAR dimensions' values wrapping them inside `' '`, this notation is mandatory in case of strings with spaces.
 
 ```sql
 INSERT INTO metric TS = 1522232017 DIM ( dimension_1 = 1, dimension_2 = 'myStringValue' ) VAL = 1.5
@@ -286,7 +286,7 @@ Delete statement allows Bits deletion defining `WHERE` clause to express the con
 DELETE FROM <metric_name> WHERE <where_clause>
 ```
 
-> NOTE: :`WHERE` clause must be qualified to express deletion condition. To delete all bits belonging to a specific metric user must use `DELETE METRIC` NSDb command or the tricky query `DELETE FROM <metric_name> WHERE timestamp > 0` which works assuming that the metric describes a non-relativistic physics phenomenon.
+> NOTE: `WHERE` clause must be qualified to express deletion condition. To delete all bits belonging to a specific metric user must use `DELETE METRIC` NSDb command or the tricky query `DELETE FROM <metric_name> WHERE timestamp > 0` which works assuming that the metric describes a non-relativistic physics phenomenon.
 
 ### Examples
 ```sql

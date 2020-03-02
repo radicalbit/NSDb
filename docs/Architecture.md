@@ -115,7 +115,3 @@ sharding {
 ```
 
 according to which, shards will be created.
-
-
-### Clustering and replication
-Coming soon!

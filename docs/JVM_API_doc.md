@@ -49,7 +49,7 @@ errors = ""
 ```
 
 ## Write API
-The `NSDB` class  exposes a `write` method performing ` io.radicalbit.nsdb.api.java.NSDB.Bit` insetion into the specified metric.
+The `NSDB` class  exposes a `write` method performing ` io.radicalbit.nsdb.api.java.NSDB.Bit` insert into the specified metric.
 The record to be inserted must of class `Bit`. Bit's parameters are defined using build pattern.
 Insert operation returns `io.radicalbit.nsdb.api.java.InsertResult` wrapped into a java `CompletableFuture`. `InsertResult` contains a `Boolean` describing request's success or failure and in case of failure the list of errors.
 
