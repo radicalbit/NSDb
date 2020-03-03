@@ -236,7 +236,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                 }.map(limitAndOrder(_, statement, schema))
 
               case Right(ParsedAggregatedQuery(_, _, _, agg @ InternalCountSimpleAggregation(_, _), _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
+                gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
                   values =>
                     Bit(0,
                         NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
@@ -245,9 +245,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                 }.map(limitAndOrder(_, statement, schema, Some(agg)))
 
               case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get.dimension, schema, uniqueLocationsByNode) {
+                gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
                   values =>
-                    val v                = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+                    val v                = schema.value.indexType.asInstanceOf[NumericType[_]]
                     implicit val numeric = v.numeric
                     aggregationType match {
                       case InternalMaxSimpleAggregation(_, _) =>
@@ -325,7 +325,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                                                         condition)
 
                 gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                  val v                              = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+                  val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
                   implicit val numeric: Numeric[Any] = v.numeric
                   applyOrderingWithLimit(
                     res
@@ -361,7 +361,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                                                                         condition)
 
                 gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                  val v                              = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+                  val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
                   implicit val numeric: Numeric[Any] = v.numeric
                   applyOrderingWithLimit(
                     res

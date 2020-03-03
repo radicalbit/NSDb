@@ -23,8 +23,10 @@ object StatementParserErrors {
   lazy val MORE_FIELDS_DISTINCT    = "cannot execute a select distinct projecting more than one dimension"
   lazy val NO_GROUP_BY_AGGREGATION =
     "cannot execute a query with aggregation different than count without a groupField by"
+  lazy val SIMPLE_AGGREGATION_NOT_ON_TAG =
+    "cannot execute a groupBy query grouping by a field that is not a tag"
   lazy val AGGREGATION_NOT_ON_VALUE =
-    "cannot execute a groupField by query performing an aggregation on dimension different from value"
+    "cannot execute a groupBy query performing an aggregation on dimension different from value"
   lazy val SORT_DIMENSION_NOT_IN_GROUP =
     "cannot sort groupField by query result by a dimension not in groupField"
   def notExistingDimension(dim: String)       = s"dimension $dim does not exist"

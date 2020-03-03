@@ -107,7 +107,7 @@ object StatementParser {
           case (_, Failure(exception), _) => Left(exception.getMessage)
           // Trying to order by a dimension not in group by clause
           case (false, Success(Seq(Field(_, Some(_)))), Some(group))
-              if sortOpt.isDefined && !Seq("value", group.dimension).contains(sortOpt.get.getSort.head.getField) =>
+              if sortOpt.isDefined && !Seq("value", group.field).contains(sortOpt.get.getSort.head.getField) =>
             Left(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP)
           // Match temporal count aggregation
           case (false,
@@ -126,21 +126,23 @@ object StatementParser {
               )
             )
           case (false, Success(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
-              if schema.fieldsMap.get(group.dimension).isDefined && (fieldName == "value" || fieldName == "*") =>
+              if schema.tags.get(group.field).isDefined && (fieldName == "value" || fieldName == "*") =>
             Right(
               ParsedAggregatedQuery(
                 statement.namespace,
                 statement.metric,
                 exp.q,
-                aggregationType(groupField = group.dimension, aggregateField = "value", agg = agg),
+                aggregationType(groupField = group.field, aggregateField = "value", agg = agg),
                 sortOpt,
                 limitOpt
               ))
-          case (false, Success(Seq(Field(_, Some(_)))), Some(group))
-              if schema.fieldsMap.get(group.dimension).isDefined =>
+          case (false, Success(Seq(Field(fieldName, Some(_)))), Some(_: SimpleGroupByAggregation))
+              if fieldName == "value" || fieldName == "*" =>
+            Left(StatementParserErrors.SIMPLE_AGGREGATION_NOT_ON_TAG)
+          case (false, Success(Seq(Field(_, Some(_)))), Some(group)) if schema.tags.get(group.field).isDefined =>
             Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
           case (false, Success(Seq(Field(_, Some(_)))), Some(group)) =>
-            Left(StatementParserErrors.notExistingDimension(group.dimension))
+            Left(StatementParserErrors.notExistingDimension(group.field))
           case (_, Success(List(Field(_, None))), Some(_)) =>
             Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
           case (_, Success(Nil), Some(_)) =>
