@@ -46,6 +46,7 @@ object MetadataSpec extends MultiNodeConfig {
     |    port = 7817
     |  }
     |
+    |  global.timeout = 30 seconds
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds
@@ -54,6 +55,8 @@ object MetadataSpec extends MultiNodeConfig {
     |  publisher.scheduler.interval = 5 seconds
     |  write.scheduler.interval = 15 seconds
     |  retention.check.interval = 1 seconds
+    |
+    |  cluster.metadata-write-consistency = "all"
     |
     |  sharding {
     |    interval = 1d

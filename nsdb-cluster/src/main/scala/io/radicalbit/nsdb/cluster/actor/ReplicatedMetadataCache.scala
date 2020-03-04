@@ -23,6 +23,7 @@ import akka.cluster.ddata._
 import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.logic.WriteConsistencyLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
@@ -131,7 +132,7 @@ object ReplicatedMetadataCache {
 /**
   * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
   */
-class ReplicatedMetadataCache extends Actor with ActorLogging {
+class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsistencyLogic {
 
   import ReplicatedMetadataCache._
   import akka.cluster.ddata.Replicator._
@@ -177,8 +178,6 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     */
   private val coordinatesKey: ORSetKey[Coordinates] = ORSetKey("coordinates-cache")
 
-  private val writeDuration = 5.seconds
-
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
@@ -186,7 +185,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
 
   def receive: Receive = {
     case PutCoordinateInCache(db, namespace, metric) =>
-      (replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(_ :+ Coordinates(db, namespace, metric)))
+      (replicator ? Update(coordinatesKey, ORSet(), writeConsistency)(_ :+ Coordinates(db, namespace, metric)))
         .map {
           case UpdateSuccess(_, _) =>
             CoordinateCached(db, namespace, metric)
@@ -197,7 +196,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     case PutLocationInCache(db, namespace, metric, location) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       (for {
-        loc <- (replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(_ :+ location))
+        loc <- (replicator ? Update(metricLocationsKey(metricKey), ORSet(), writeConsistency)(_ :+ location))
           .map {
             case UpdateSuccess(_, _) =>
               LocationCached(db, namespace, metric, location)
@@ -205,10 +204,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
               log.error(s"error in put location in cache $e")
               PutLocationInCacheFailed(db, namespace, metric, location)
           }
-        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), WriteAll(writeDuration))(
+        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), writeConsistency)(
           _ :+ LocationWithCoordinates(db, namespace, location))
-        _ <- replicator ? Update(coordinatesKey, ORSet(), WriteAll(writeDuration))(
-          _ :+ Coordinates(db, namespace, metric))
+        _ <- replicator ? Update(coordinatesKey, ORSet(), writeConsistency)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
@@ -222,9 +220,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
                 Future(MetricInfoAlreadyExisting(key, metricInfo))
               case None =>
                 (for {
-                  _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
-                  res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
-                    _ :+ (key -> metricInfo))
+                  _   <- replicator ? Update(allMetricInfoKey, ORSet(), writeConsistency)(_ :+ metricInfo)
+                  res <- replicator ? Update(metricInfoKey(key), LWWMap(), writeConsistency)(_ :+ (key -> metricInfo))
                 } yield res)
                   .map {
                     case UpdateSuccess(_, _) =>
@@ -234,9 +231,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
             }
           case NotFound(_, _) =>
             (for {
-              _ <- replicator ? Update(allMetricInfoKey, ORSet(), WriteAll(writeDuration))(_ :+ metricInfo)
-              res <- replicator ? Update(metricInfoKey(key), LWWMap(), WriteAll(writeDuration))(
-                _ :+ (key -> metricInfo))
+              _   <- replicator ? Update(allMetricInfoKey, ORSet(), writeConsistency)(_ :+ metricInfo)
+              res <- replicator ? Update(metricInfoKey(key), LWWMap(), writeConsistency)(_ :+ (key -> metricInfo))
             } yield res)
               .map {
                 case UpdateSuccess(_, _) =>
@@ -249,8 +245,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging {
     case EvictLocation(db, namespace, loc @ Location(metric, node, from, to)) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       val f = for {
-        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), WriteAll(writeDuration))(_ remove loc)
-        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), WriteAll(writeDuration))(
+        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), writeConsistency)(_ remove loc)
+        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), writeConsistency)(
           _ remove LocationWithCoordinates(db, namespace, loc))
       } yield remove
       f.map {
