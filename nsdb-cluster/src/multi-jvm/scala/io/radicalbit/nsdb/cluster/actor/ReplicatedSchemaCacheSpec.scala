@@ -26,7 +26,7 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
 
   commonConfig(ConfigFactory.parseString("""
     |akka.loglevel = INFO
-    |akka.actor{
+    |akka.actor {
     |
     | serialization-bindings {
     |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
@@ -38,14 +38,17 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
     |   }
     |}
     |akka.log-dead-letters-during-shutdown = off
-    |nsdb{
+    |nsdb {
     |
+    |  global.timeout = 30 seconds
     |  read-coordinator.timeout = 10 seconds
     |  namespace-schema.timeout = 10 seconds
     |  namespace-data.timeout = 10 seconds
     |  publisher.timeout = 10 seconds
     |  publisher.scheduler.interval = 5 seconds
     |  write.scheduler.interval = 15 seconds
+    |
+    |  cluster.metadata-write-consistency = "all"
     |
     |  write-coordinator.timeout = 5 seconds
     |  metadata-coordinator.timeout = 5 seconds
