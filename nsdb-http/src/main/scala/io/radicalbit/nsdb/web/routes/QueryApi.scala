@@ -177,7 +177,7 @@ trait QueryApi {
                       logger.error("unknown response received {}", r)
                       complete(HttpResponse(InternalServerError, entity = "unknown response"))
                     case Failure(ex) =>
-                      logger.error(ex,s"error while trying to execute $statement")
+                      logger.error(ex, s"error while trying to execute $statement")
                       complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
