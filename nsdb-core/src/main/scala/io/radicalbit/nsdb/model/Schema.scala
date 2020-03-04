@@ -16,9 +16,8 @@
 
 package io.radicalbit.nsdb.model
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import io.radicalbit.nsdb.common.NSDbType
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, NSDbSerializable, TagFieldType}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
 import scala.util.{Failure, Success, Try}
@@ -58,13 +57,11 @@ case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) 
   /**
     * filters tags from fieldsMap
     */
-  @JsonIgnore
   lazy val tags: Map[String, SchemaField] = fieldsMap.filter { case (_, field) => field.fieldClassType == TagFieldType }
 
   /**
     * filters tags from fieldsMap
     */
-  @JsonIgnore
   lazy val dimensions: Map[String, SchemaField] = fieldsMap.filter {
     case (_, field) => field.fieldClassType == DimensionFieldType
   }
@@ -72,8 +69,8 @@ case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) 
   /**
     * extract value from fieldsMap
     */
-  @JsonIgnore
-  lazy val value: SchemaField = fieldsMap("value")
+  lazy val value: SchemaField =
+    fieldsMap("value")
 
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
