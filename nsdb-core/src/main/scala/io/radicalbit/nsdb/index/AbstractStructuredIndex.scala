@@ -186,14 +186,27 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
       doc.getField(_countField).numericValue().intValue()
     }.headOption.getOrElse(0)
 
-  private def getFirstLastGroupBy(query: Query, schema: Schema, groupTagName: String, last: Boolean): Seq[Bit] = {
+  private def getSortFieldType(schema: Schema, field: String): SortField.Type =
+    Try(schema.fieldsMap(field).indexType).toOption match {
+      case Some(DECIMAL()) => SortField.Type.FLOAT
+      case Some(VARCHAR()) => SortField.Type.STRING
+      case _               => SortField.Type.LONG // timestamp
+    }
+
+  private def getFirstLastMaxMinGroupBy(query: Query,
+                                        schema: Schema,
+                                        groupTagName: String,
+                                        last: Boolean,
+                                        sortField: String): Seq[Bit] = {
     val groupCollector = schema.fieldsMap(groupTagName).indexType match {
       case VARCHAR() => new TermGroupSelector(groupTagName)
       case _         => new TermGroupSelector(s"${groupTagName}_str")
     }
 
-    val collector = AllGroupHeadsCollector.newCollector(groupCollector,
-                                                        new Sort(new SortField("timestamp", SortField.Type.LONG, last)))
+    val collector = AllGroupHeadsCollector.newCollector(
+      groupCollector,
+      new Sort(new SortField(sortField, getSortFieldType(schema, sortField), last)))
+
     val searcher = this.getSearcher
     searcher.search(query, collector)
 
@@ -218,7 +231,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @param groupTagName tag used to group by.
     */
   def getFirstGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
-    getFirstLastGroupBy(query, schema, groupTagName, last = false)
+    getFirstLastMaxMinGroupBy(query, schema, groupTagName, last = false, "timestamp")
 
   /**
     * Group query results by groupTagName and return most recent value (max timestamp)
@@ -226,6 +239,28 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @param schema bit schema.
     * @param groupTagName tag used to group by.
     */
-  def getLastGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
-    getFirstLastGroupBy(query, schema, groupTagName, last = true)
+  def getLastGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] = {
+    println(schema)
+    getFirstLastMaxMinGroupBy(query, schema, groupTagName, last = true, "timestamp")
+  }
+
+  /**
+    *
+    * @param query
+    * @param schema
+    * @param groupTagName
+    * @return
+    */
+  def getMaxGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
+    getFirstLastMaxMinGroupBy(query, schema, groupTagName, last = true, "value")
+
+  /**
+    *
+    * @param query
+    * @param schema
+    * @param groupTagName
+    * @return
+    */
+  def getMinGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
+    getFirstLastMaxMinGroupBy(query, schema, groupTagName, last = false, "value")
 }

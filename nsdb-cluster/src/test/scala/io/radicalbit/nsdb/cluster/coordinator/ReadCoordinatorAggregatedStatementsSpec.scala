@@ -461,5 +461,53 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(10L, 1L, Map.empty, Map("height" -> 32.0))
       )
     }
+    "execute it successfully with max aggregation" in within(5.seconds) {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = AggregationMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            groupBy = Some(SimpleGroupByAggregation("height")),
+            order = Some(AscOrderOperator("height"))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0L, 2L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 1L, Map.empty, Map("height" -> 32.0))
+      )
+    }
+    "execute it successfully with min aggregation" in within(5.seconds) {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = AggregationMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MinAggregation)))),
+            groupBy = Some(SimpleGroupByAggregation("height")),
+            order = Some(AscOrderOperator("height"))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0L, 1L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 1L, Map.empty, Map("height" -> 32.0))
+      )
+    }
   }
 }
