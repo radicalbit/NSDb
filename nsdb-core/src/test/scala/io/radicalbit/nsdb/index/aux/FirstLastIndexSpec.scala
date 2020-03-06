@@ -31,30 +31,26 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest {
 
-  private val BigIntValueSchema = Schema(
-    "testMetric",
-    Map(
-      "dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-      "tag1"      -> SchemaField("tag1", TagFieldType, VARCHAR()),
-      "tag2"      -> SchemaField("tag2", TagFieldType, BIGINT()),
-      "tag3"      -> SchemaField("tag3", TagFieldType, DECIMAL()),
-      "value"     -> SchemaField("value", TagFieldType, BIGINT()),
-      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT())
-    )
-  )
+  private val BigIntValueSchema = Schema("testMetric",
+                                         Bit(0,
+                                             0,
+                                             Map("dimension" -> "dimension"),
+                                             Map(
+                                               "tag1" -> "tag1",
+                                               "tag2" -> "tag2",
+                                               "tag3" -> "tag3"
+                                             )))
 
-  private val DecimalValueSchema = Schema(
-    "testMetric",
-    Map(
-      "dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-      "tag1"      -> SchemaField("tag1", TagFieldType, VARCHAR()),
-      "tag2"      -> SchemaField("tag2", TagFieldType, BIGINT()),
-      "tag3"      -> SchemaField("tag3", TagFieldType, DECIMAL()),
-      "value"     -> SchemaField("value", TagFieldType, DECIMAL()),
-      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT())
-    )
-  )
-
+  private val DecimalValueSchema = Schema("testMetric",
+                                          Bit(0,
+                                              1.1,
+                                              Map("dimension" -> "dimension"),
+                                              Map(
+                                                "tag1" -> "tag1",
+                                                "tag2" -> "tag2",
+                                                "tag3" -> "tag3"
+                                              )))
+  
   "TimeSeriesIndex" should "return last values properly for a bigint value" in {
 
     val timeSeriesIndex =

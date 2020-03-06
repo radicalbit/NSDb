@@ -61,10 +61,9 @@ class MetricAccumulatorActorSpec()
       MetricAccumulatorActor.props(basePath, db, namespace, metricsReaderActor, system.actorOf(Props.empty)),
       probeActor)
 
-  val schema =
-    Schema("",
-           Map("dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-               "tag"       -> SchemaField("tag", TagFieldType, VARCHAR())))
+  val dummyBit = Bit(0, 0, Map("dimension" -> "d"), Map("tag" -> "t"))
+
+  val schema = Schema("", dummyBit)
 
   private val location = Location("testMetric", nodeName, 0, 0)
 

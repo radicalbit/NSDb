@@ -97,8 +97,8 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
         parse(firstSubscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
 
         val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
-        publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit).get)
-        publisherActor ! PublishRecord("db", "registry", "animals", bit, Schema("people", bit).get)
+        publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit))
+        publisherActor ! PublishRecord("db", "registry", "animals", bit, Schema("people", bit))
 
         val firstRecordsPublished = wsClient.expectMessage().asTextMessage.getStrictText
 
