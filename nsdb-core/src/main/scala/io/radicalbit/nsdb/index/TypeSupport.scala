@@ -112,7 +112,7 @@ sealed trait IndexType[T] extends Serializable {
     * Convert the current type to [[SortField.Type]]
     * @return
     */
-  def toSortType: SortField.Type
+  def sortType: SortField.Type
 
 }
 
@@ -179,7 +179,7 @@ case class INT() extends NumericType[Int] {
 
   override def cast(value: Any): Int = value.toString.toInt
 
-  lazy val toSortType: SortField.Type = SortField.Type.INT
+  lazy val sortType: SortField.Type = SortField.Type.INT
 }
 case class BIGINT() extends NumericType[Long] {
   def actualType = manifest[Long]
@@ -202,7 +202,7 @@ case class BIGINT() extends NumericType[Long] {
 
   override def cast(value: Any): Long = value.toString.toLong
 
-  lazy val toSortType: SortField.Type = SortField.Type.LONG
+  lazy val sortType: SortField.Type = SortField.Type.LONG
 }
 case class DECIMAL() extends NumericType[Double] {
   def actualType = manifest[Double]
@@ -225,7 +225,7 @@ case class DECIMAL() extends NumericType[Double] {
 
   override def cast(value: Any): Double = value.toString.toDouble
 
-  lazy val toSortType: SortField.Type = SortField.Type.DOUBLE
+  lazy val sortType: SortField.Type = SortField.Type.DOUBLE
 }
 case class VARCHAR() extends IndexType[String] {
   def actualType = manifest[String]
@@ -244,5 +244,5 @@ case class VARCHAR() extends IndexType[String] {
 
   override def cast(value: Any): String = value.toString
 
-  lazy val toSortType: SortField.Type = SortField.Type.STRING
+  lazy val sortType: SortField.Type = SortField.Type.STRING
 }

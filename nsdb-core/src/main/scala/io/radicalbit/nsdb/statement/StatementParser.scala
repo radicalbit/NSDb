@@ -70,7 +70,7 @@ object StatementParser {
     */
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Either[String, ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
-      val sortType = schema.fieldsMap.get(order.dimension).map(_.indexType.toSortType).getOrElse(SortField.Type.DOC)
+      val sortType = schema.fieldsMap.get(order.dimension).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
       new Sort(new SortField(order.dimension, sortType, order.isInstanceOf[DescOrderOperator]))
     })
 
