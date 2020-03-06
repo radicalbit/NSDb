@@ -31,7 +31,7 @@ trait DirectorySupport {
   def indexStorageStrategy: StorageStrategy
 
   /**
-    * extensions for norms, docvaules and term dictionaries
+    * extensions for norms, doc values and term dictionaries
     */
   private val PRIMARY_EXTENSIONS = Set("nvd", "dvd", "tim")
 

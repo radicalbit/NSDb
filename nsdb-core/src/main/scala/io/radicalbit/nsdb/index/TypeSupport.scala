@@ -23,6 +23,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.{RawField, TypedField}
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
+import org.apache.lucene.search.SortField
 import org.apache.lucene.util.BytesRef
 
 import scala.util.{Failure, Success, Try}
@@ -107,6 +108,12 @@ sealed trait IndexType[T] extends Serializable {
     */
   def cast(value: Any): T
 
+  /**
+    * Convert the current type to [[SortField.Type]]
+    * @return
+    */
+  def toSortType: SortField.Type
+
 }
 
 /**
@@ -171,6 +178,8 @@ case class INT() extends NumericType[Int] {
   override def numeric: Numeric[Any] = implicitly[Numeric[Int]].asInstanceOf[Numeric[Any]]
 
   override def cast(value: Any): Int = value.toString.toInt
+
+  lazy val toSortType: SortField.Type = SortField.Type.INT
 }
 case class BIGINT() extends NumericType[Long] {
   def actualType = manifest[Long]
@@ -192,6 +201,8 @@ case class BIGINT() extends NumericType[Long] {
   override def numeric: Numeric[Any] = implicitly[Numeric[Long]].asInstanceOf[Numeric[Any]]
 
   override def cast(value: Any): Long = value.toString.toLong
+
+  lazy val toSortType: SortField.Type = SortField.Type.LONG
 }
 case class DECIMAL() extends NumericType[Double] {
   def actualType = manifest[Double]
@@ -213,6 +224,8 @@ case class DECIMAL() extends NumericType[Double] {
   override def numeric: Numeric[Any] = implicitly[Numeric[Double]].asInstanceOf[Numeric[Any]]
 
   override def cast(value: Any): Double = value.toString.toDouble
+
+  lazy val toSortType: SortField.Type = SortField.Type.DOUBLE
 }
 case class VARCHAR() extends IndexType[String] {
   def actualType = manifest[String]
@@ -230,4 +243,6 @@ case class VARCHAR() extends IndexType[String] {
   def deserialize(value: Array[Byte]) = NSDbStringType(new String(value))
 
   override def cast(value: Any): String = value.toString
+
+  lazy val toSortType: SortField.Type = SortField.Type.STRING
 }

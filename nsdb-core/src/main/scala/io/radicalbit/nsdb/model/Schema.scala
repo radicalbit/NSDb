@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.model
 
 import io.radicalbit.nsdb.common.NSDbType
-import io.radicalbit.nsdb.common.protocol.{Bit, FieldClassType}
 import io.radicalbit.nsdb.common.protocol.{Bit, FieldClassType, NSDbSerializable}
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
