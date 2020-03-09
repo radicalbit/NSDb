@@ -112,14 +112,19 @@ class MetricPerformerActor(val basePath: String,
               }
             //FIXME add compensation logic here as well
             case DeleteShardQueryOperation(_, _, statement, schema) =>
-              (for {
-                parsedQuery      <- StatementParser.parseStatement(statement, schema)
-                _                <- index.delete(parsedQuery.q)(writer)
-                facetIndexResult <- facetIndexes.delete(parsedQuery.q)(facetsIndexWriter).head
-              } yield facetIndexResult).recover {
-                case t: Throwable =>
-                  log.error(t, s"error during delete by statement $statement")
+              StatementParser.parseStatement(statement, schema) match {
+                case Right(parsedQuery) =>
+                  (for {
+                    _                <- index.delete(parsedQuery.q)(writer)
+                    facetIndexResult <- facetIndexes.delete(parsedQuery.q)(facetsIndexWriter).head
+                  } yield facetIndexResult).recover {
+                    case t: Throwable =>
+                      log.error(t, s"error during delete by statement $statement")
+                  }
+                case Left(errorMessage) =>
+                  log.error(s"delete statement $statement is not valid: $errorMessage")
               }
+
           }
 
           writer.flush()

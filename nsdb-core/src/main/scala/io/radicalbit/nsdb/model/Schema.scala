@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.model
 
 import io.radicalbit.nsdb.common.NSDbType
-import io.radicalbit.nsdb.common.protocol.{Bit, FieldClassType, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
 
 import scala.util.{Failure, Success, Try}
@@ -52,7 +52,26 @@ case class SchemaField(name: String, fieldClassType: FieldClassType, indexType: 
   * @param metric the metric.
   * @param fieldsMap a map of [[SchemaField]] keyed by field name
   */
-case class Schema(metric: String, fieldsMap: Map[String, SchemaField]) extends NSDbSerializable {
+case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) extends NSDbSerializable {
+
+  /**
+    * filters tags from fieldsMap
+    */
+  lazy val tags: Map[String, SchemaField] = fieldsMap.filter { case (_, field) => field.fieldClassType == TagFieldType }
+
+  /**
+    * filters tags from fieldsMap
+    */
+  lazy val dimensions: Map[String, SchemaField] = fieldsMap.filter {
+    case (_, field) => field.fieldClassType == DimensionFieldType
+  }
+
+  /**
+    * extract value from fieldsMap
+    */
+  lazy val value: SchemaField =
+    fieldsMap("value")
+
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
       val otherSchema = obj.asInstanceOf[Schema]

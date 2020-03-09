@@ -229,14 +229,14 @@ final case class RelativeComparisonValue[T](override val value: T, operator: Str
     new JsonSubTypes.Type(value = classOf[TemporalGroupByAggregation], name = "TemporalGroupByAggregation")
   ))
 sealed trait GroupByAggregation {
-  def dimension: String
+  def field: String
 }
 
 /**
   * Class that represent a simple Group By clause.
-  * @param dimension the dimension to apply the aggregation to
+  * @param field (tag) the field to apply the aggregation to
   */
-final case class SimpleGroupByAggregation(dimension: String) extends GroupByAggregation
+final case class SimpleGroupByAggregation(field: String) extends GroupByAggregation
 
 /**
   * Temporal aggregation.
@@ -246,7 +246,7 @@ final case class SimpleGroupByAggregation(dimension: String) extends GroupByAggr
   */
 final case class TemporalGroupByAggregation(interval: Long, quantity: Long, unitMeasure: String)
     extends GroupByAggregation {
-  override val dimension: String = "timestamp"
+  override val field: String = "timestamp"
 }
 
 /**

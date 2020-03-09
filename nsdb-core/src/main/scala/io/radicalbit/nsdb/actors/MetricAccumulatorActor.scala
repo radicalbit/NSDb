@@ -214,13 +214,13 @@ class MetricAccumulatorActor(val basePath: String,
       sender ! RecordDeleted(db, ns, key.metric, bit)
     case ExecuteDeleteStatementInShards(statement, schema, keys) =>
       StatementParser.parseStatement(statement, schema) match {
-        case Success(ParsedDeleteQuery(ns, metric, q)) =>
+        case Right(ParsedDeleteQuery(ns, metric, q)) =>
           keys.foreach { key =>
             opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, statement, schema))
           }
           sender() ! DeleteStatementExecuted(db, namespace, metric)
-        case Failure(ex) =>
-          sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, ex.getMessage)
+        case Left(errorMessage) =>
+          sender() ! DeleteStatementFailed(db = db, namespace = namespace, metric = statement.metric, errorMessage)
       }
     case msg @ Refresh(writeIds, keys) =>
       garbageCollectIndexes()
