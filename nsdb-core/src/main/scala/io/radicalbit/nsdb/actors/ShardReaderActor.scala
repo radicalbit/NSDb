@@ -86,15 +86,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               facetIndexes.facetCountIndex
                 .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), sort, limit)) =>
-          handleNoIndexResults(
-            Try(
-              facetIndexes.facetSumIndex
-                .result(q,
-                        groupField,
-                        sort,
-                        limit,
-                        schema.fieldsMap(groupField).indexType,
-                        Some(schema.fieldsMap("value").indexType))))
+          handleNoIndexResults(Try(facetIndexes.facetSumIndex
+            .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType, Some(schema.value.indexType))))
         case Right(ParsedAggregatedQuery(_, _, q, InternalFirstSimpleAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalLastSimpleAggregation(groupField, _), _, _)) =>
@@ -124,7 +117,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     }
                 }))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
-          val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
+          val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(
               facetIndexes.facetRangeIndex
@@ -151,7 +144,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     }
                 }))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
-          val valueFieldType: IndexType[_] = schema.fieldsMap("value").indexType
+          val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(
               facetIndexes.facetRangeIndex
