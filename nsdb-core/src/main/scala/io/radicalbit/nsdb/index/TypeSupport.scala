@@ -179,7 +179,7 @@ case class INT() extends NumericType[Int] {
 
   override def cast(value: Any): Int = value.toString.toInt
 
-  lazy val sortType: SortField.Type = SortField.Type.INT
+  val sortType: SortField.Type = SortField.Type.INT
 }
 case class BIGINT() extends NumericType[Long] {
   def actualType = manifest[Long]
@@ -202,7 +202,7 @@ case class BIGINT() extends NumericType[Long] {
 
   override def cast(value: Any): Long = value.toString.toLong
 
-  lazy val sortType: SortField.Type = SortField.Type.LONG
+  val sortType: SortField.Type = SortField.Type.LONG
 }
 case class DECIMAL() extends NumericType[Double] {
   def actualType = manifest[Double]
@@ -225,7 +225,7 @@ case class DECIMAL() extends NumericType[Double] {
 
   override def cast(value: Any): Double = value.toString.toDouble
 
-  lazy val sortType: SortField.Type = SortField.Type.DOUBLE
+  val sortType: SortField.Type = SortField.Type.DOUBLE
 }
 case class VARCHAR() extends IndexType[String] {
   def actualType = manifest[String]
@@ -244,5 +244,5 @@ case class VARCHAR() extends IndexType[String] {
 
   override def cast(value: Any): String = value.toString
 
-  lazy val sortType: SortField.Type = SortField.Type.STRING
+  val sortType: SortField.Type = SortField.Type.STRING
 }

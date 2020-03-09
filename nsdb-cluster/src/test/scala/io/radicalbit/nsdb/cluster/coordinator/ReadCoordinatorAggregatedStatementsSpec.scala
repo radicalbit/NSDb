@@ -354,8 +354,8 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
         }.values shouldBe Seq(
-          Bit(0L, 6L, Map.empty, Map("age" -> 15L)),
-          Bit(0L, 2L, Map.empty, Map("age" -> 20L))
+          Bit(0L, 13L, Map.empty, Map("age" -> 15L)),
+          Bit(0L, 3L, Map.empty, Map("age"  -> 20L))
         )
       }
     }
@@ -406,9 +406,9 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       awaitAssert {
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
-        Bit(0L, 5L, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
-        Bit(0L, 2L, Map.empty, Map("height" -> 32.0))
+        Bit(0L, 6L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 5L, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 5L, Map.empty, Map("height" -> 32.0))
       )
     }
 
@@ -432,7 +432,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
         Bit(2L, 1L, Map.empty, Map("height" -> 30.5)),
-        Bit(6L, 1L, Map.empty, Map("height" -> 31.0)),
+        Bit(6L, 5L, Map.empty, Map("height" -> 31.0)),
         Bit(8L, 1L, Map.empty, Map("height" -> 32.0))
       )
     }
@@ -456,12 +456,12 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       awaitAssert {
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
-        Bit(4L, 2L, Map.empty, Map("height"  -> 30.5)),
-        Bit(6L, 1L, Map.empty, Map("height"  -> 31.0)),
-        Bit(10L, 1L, Map.empty, Map("height" -> 32.0))
+        Bit(4L, 3L, Map.empty, Map("height"  -> 30.5)),
+        Bit(6L, 5L, Map.empty, Map("height"  -> 31.0)),
+        Bit(10L, 4L, Map.empty, Map("height" -> 32.0))
       )
     }
-    "execute it successfully with max aggregation" in within(5.seconds) {
+    "execute it successfully with max aggregation with ordering" in within(5.seconds) {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -480,12 +480,12 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       awaitAssert {
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
-        Bit(0L, 2L, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
-        Bit(0L, 1L, Map.empty, Map("height" -> 32.0))
+        Bit(0L, 3L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 5L, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 4L, Map.empty, Map("height" -> 32.0))
       )
     }
-    "execute it successfully with min aggregation" in within(5.seconds) {
+    "execute it successfully with min aggregation with ordering" in within(5.seconds) {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -505,8 +505,57 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
         Bit(0L, 1L, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 5L, Map.empty, Map("height" -> 31.0)),
         Bit(0L, 1L, Map.empty, Map("height" -> 32.0))
+      )
+    }
+
+    "execute it successfully with max aggregation with ordering and limiting" in within(5.seconds) {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = AggregationMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            groupBy = Some(SimpleGroupByAggregation("height")),
+            order = Some(AscOrderOperator("height")),
+            limit = Some(LimitOperator(2))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0L, 3L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
+      )
+    }
+    "execute it successfully with min aggregation with ordering and limiting" in within(5.seconds) {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = AggregationMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MinAggregation)))),
+            groupBy = Some(SimpleGroupByAggregation("height")),
+            order = Some(AscOrderOperator("height")),
+            limit = Some(LimitOperator(2))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0L, 1L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
       )
     }
   }
