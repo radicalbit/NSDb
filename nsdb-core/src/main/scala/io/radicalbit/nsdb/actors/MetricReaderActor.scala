@@ -296,7 +296,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             actorsForLocations(locations)
 
           val shardResults =
-            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
+            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.field, msg) { values =>
               Bit(0,
                   NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
                   values.head.dimensions,
@@ -309,8 +309,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             actorsForLocations(locations)
 
           val rawResult =
-            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.dimension, msg) { values =>
-              val v                              = schema.fieldsMap("value").indexType.asInstanceOf[NumericType[_]]
+            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.field, msg) { values =>
+              val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
               implicit val numeric: Numeric[Any] = v.numeric
               aggregationType match {
                 case InternalMaxSimpleAggregation(_, _) =>

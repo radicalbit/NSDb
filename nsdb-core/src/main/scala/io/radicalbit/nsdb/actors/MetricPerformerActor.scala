@@ -26,8 +26,6 @@ import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShar
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
-import io.radicalbit.nsdb.index.AllFacetIndexes
-import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.{AllFacetIndexes, StorageStrategy}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.statement.StatementParser
@@ -114,14 +112,19 @@ class MetricPerformerActor(val basePath: String,
               }
             //FIXME add compensation logic here as well
             case DeleteShardQueryOperation(_, _, statement, schema) =>
-              (for {
-                parsedQuery      <- StatementParser.parseStatement(statement, schema)
-                _                <- index.delete(parsedQuery.q)(writer)
-                facetIndexResult <- facetIndexes.delete(parsedQuery.q)(facetsIndexWriter).head
-              } yield facetIndexResult).recover {
-                case t: Throwable =>
-                  log.error(t, s"error during delete by statement $statement")
+              StatementParser.parseStatement(statement, schema) match {
+                case Right(parsedQuery) =>
+                  (for {
+                    _                <- index.delete(parsedQuery.q)(writer)
+                    facetIndexResult <- facetIndexes.delete(parsedQuery.q)(facetsIndexWriter).head
+                  } yield facetIndexResult).recover {
+                    case t: Throwable =>
+                      log.error(t, s"error during delete by statement $statement")
+                  }
+                case Left(errorMessage) =>
+                  log.error(s"delete statement $statement is not valid: $errorMessage")
               }
+
           }
 
           writer.flush()

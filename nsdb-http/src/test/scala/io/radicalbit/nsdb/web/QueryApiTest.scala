@@ -528,7 +528,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
       QueryBody("db",
                 "namespace",
                 "metric",
-                "select sum(value) from metric group by name limit 2 ",
+                "select sum(value) from metric group by country limit 2 ",
                 None,
                 None,
                 None,
@@ -574,7 +574,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      } ]
           |    },
           |    "groupBy" : {
-          |      "dimension" : "name"
+          |      "field" : "country"
           |    },
           |    "limit" : {
           |      "value" : 2
@@ -591,7 +591,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
       QueryBody("db",
                 "namespace",
                 "metric",
-                "select min(value) from metric group by name limit 3 ",
+                "select min(value) from metric group by country limit 3 ",
                 None,
                 None,
                 None,
@@ -637,7 +637,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      } ]
           |    },
           |    "groupBy" : {
-          |      "dimension" : "name"
+          |      "field" : "country"
           |    },
           |    "limit" : {
           |      "value" : 3
@@ -654,7 +654,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
       QueryBody("db",
                 "namespace",
                 "metric",
-                "select max(value) from metric group by name limit 4",
+                "select max(value) from metric group by country limit 4",
                 None,
                 None,
                 None,
@@ -700,7 +700,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      } ]
           |    },
           |    "groupBy" : {
-          |      "dimension" : "name"
+          |      "field" : "country"
           |    },
           |    "limit" : {
           |      "value" : 4
@@ -1236,7 +1236,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
         "db",
         "namespace",
         "metric",
-        "select count(*) from metric where timestamp > now - 2d or name = 'a' and timestamp < 3 group by timestamp",
+        "select count(*) from metric where timestamp > now - 2d or name = 'a' and timestamp < 3 group by country",
         None,
         None,
         None,
@@ -1313,7 +1313,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      }
           |    },
           |    "groupBy" : {
-          |      "dimension" : "timestamp"
+          |      "field" : "country"
           |    }
           |  }
           |}""".stripMargin
@@ -1328,7 +1328,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
         "db",
         "namespace",
         "metric",
-        "select count(*) from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or name = 'a' and timestamp < 3 group by timestamp",
+        "select count(*) from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or name = 'a' and timestamp < 3 group by country",
         None,
         None,
         None,
@@ -1428,7 +1428,7 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |      }
           |    },
           |    "groupBy" : {
-          |      "dimension" : "timestamp"
+          |      "field" : "country"
           |    }
           |  }
           |}""".stripMargin

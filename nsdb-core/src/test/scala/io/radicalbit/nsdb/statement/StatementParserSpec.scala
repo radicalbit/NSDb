@@ -35,7 +35,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       "value"        -> SchemaField("value", ValueFieldType, DECIMAL()),
       "name"         -> SchemaField("name", DimensionFieldType, VARCHAR()),
       "surname"      -> SchemaField("surname", DimensionFieldType, VARCHAR()),
-      "amount"       -> SchemaField("amount", DimensionFieldType, DECIMAL()),
+      "amount"       -> SchemaField("amount", TagFieldType, DECIMAL()),
       "creationDate" -> SchemaField("creationDate", DimensionFieldType, BIGINT()),
       "city"         -> SchemaField("city", TagFieldType, VARCHAR()),
       "country"      -> SchemaField("country", TagFieldType, VARCHAR()),
@@ -79,9 +79,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                                fields = ListFields(List(Field("address", None))),
                                limit = Some(LimitOperator(4))),
             schema
-          )
-          .isLeft shouldBe true
-        //FIXME check what's inside left
+          ) shouldBe Left(StatementParserErrors.notExistingDimensions(List("address")))
       }
     }
 
@@ -96,8 +94,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                                fields = AllFields(),
                                limit = Some(LimitOperator(4))),
             schema
-          )
-          .isLeft shouldBe true
+          ) shouldBe Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
       }
     }
 
@@ -161,8 +158,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               limit = Some(LimitOperator(4))
             ),
             schema
-          )
-          .isLeft shouldBe true
+          ) shouldBe Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
       }
 
       "parse it successfully with mixed aggregated and simple" in {
@@ -206,8 +202,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               limit = Some(LimitOperator(4))
             ),
             schema
-          )
-          .isLeft shouldBe true
+          ) shouldBe Left(StatementParserErrors.NO_GROUP_BY_AGGREGATION)
       }
     }
 
@@ -318,7 +313,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail on a int vs a DECIMAL()" in {
-        val result = StatementParser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -330,8 +325,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(4))
           ),
           schema
-        )
-        result.isLeft shouldBe true
+        ) shouldBe Left(StatementParserErrors.uncompatibleOperator("equality", "BIGINT"))
       }
       "parse it successfully on a number vs a string" in {
         StatementParser.parseStatement(
@@ -417,7 +411,7 @@ class StatementParserSpec extends WordSpec with Matchers {
         )
       }
       "fail on a int vs a DECIMAL()" in {
-        val result = StatementParser.parseStatement(
+        StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -429,8 +423,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(4))
           ),
           schema
-        )
-        result.isLeft shouldBe true
+        ) shouldBe Left(StatementParserErrors.uncompatibleOperator("equality", "BIGINT"))
       }
     }
 
@@ -729,7 +722,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 RangeExpression(dimension = "timestamp",
                                 value1 = AbsoluteComparisonValue(2L),
                                 value2 = AbsoluteComparisonValue(4L)))),
-            groupBy = Some(SimpleGroupByAggregation("name"))
+            groupBy = Some(SimpleGroupByAggregation("age"))
           ),
           schema
         ) should be(
@@ -738,7 +731,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumSimpleAggregation("name", "value")
+              new InternalSumSimpleAggregation("age", "value")
             ))
         )
       }
@@ -755,7 +748,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 RangeExpression(dimension = "timestamp",
                                 value1 = AbsoluteComparisonValue(2L),
                                 value2 = AbsoluteComparisonValue(4L)))),
-            groupBy = Some(SimpleGroupByAggregation("name"))
+            groupBy = Some(SimpleGroupByAggregation("country"))
           ),
           schema
         ) should be(
@@ -764,7 +757,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumSimpleAggregation("name", "value")
+              new InternalSumSimpleAggregation("country", "value")
             ))
         )
       }
@@ -781,7 +774,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 RangeExpression(dimension = "timestamp",
                                 value1 = AbsoluteComparisonValue(2L),
                                 value2 = AbsoluteComparisonValue(4L)))),
-            groupBy = Some(SimpleGroupByAggregation("name"))
+            groupBy = Some(SimpleGroupByAggregation("age"))
           ),
           schema
         ) should be(
@@ -790,7 +783,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalFirstSimpleAggregation("name", "value")
+              new InternalFirstSimpleAggregation("age", "value")
             ))
         )
       }
@@ -807,7 +800,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 RangeExpression(dimension = "timestamp",
                                 value1 = AbsoluteComparisonValue(2L),
                                 value2 = AbsoluteComparisonValue(4L)))),
-            groupBy = Some(SimpleGroupByAggregation("name"))
+            groupBy = Some(SimpleGroupByAggregation("country"))
           ),
           schema
         ) should be(
@@ -816,7 +809,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalLastSimpleAggregation("name", "value")
+              new InternalLastSimpleAggregation("country", "value")
             ))
         )
       }
@@ -836,7 +829,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 RangeExpression(dimension = "timestamp",
                                 value1 = AbsoluteComparisonValue(2L),
                                 value2 = AbsoluteComparisonValue(4L)))),
-            groupBy = Some(SimpleGroupByAggregation("name")),
+            groupBy = Some(SimpleGroupByAggregation("country")),
             order = Some(DescOrderOperator(dimension = "value")),
             limit = Some(LimitOperator(5))
           ),
@@ -847,7 +840,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new InternalMaxSimpleAggregation("name", "value"),
+              new InternalMaxSimpleAggregation("country", "value"),
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
@@ -1051,7 +1044,7 @@ class StatementParserSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a group by on a dimension of type different from VARCHAR()" should {
+    "receive a group by on a tag of type different from VARCHAR()" should {
       "succeed" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -1098,10 +1091,27 @@ class StatementParserSpec extends WordSpec with Matchers {
               limit = Some(LimitOperator(5))
             ),
             schema
-          )
-          .isLeft shouldBe true
+          ) shouldBe Left(StatementParserErrors.notExistingDimension("name"))
       }
+    }
 
+    "receive a group by with group field different than a tag" should {
+      "fail" in {
+        StatementParser
+          .parseStatement(
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+              condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
+              groupBy = Some(SimpleGroupByAggregation("name")),
+              limit = Some(LimitOperator(5))
+            ),
+            schema
+          ) shouldBe Left(StatementParserErrors.SIMPLE_AGGREGATION_NOT_ON_TAG)
+      }
     }
 
     "receive a temporal group by" should {
