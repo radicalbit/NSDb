@@ -731,7 +731,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumSimpleAggregation("age", "value")
+              InternalSumSimpleAggregation("age", "value")
             ))
         )
       }
@@ -757,7 +757,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalSumSimpleAggregation("country", "value")
+              InternalSumSimpleAggregation("country", "value")
             ))
         )
       }
@@ -783,7 +783,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalFirstSimpleAggregation("age", "value")
+              InternalFirstSimpleAggregation("age", "value")
             ))
         )
       }
@@ -809,7 +809,59 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              new InternalLastSimpleAggregation("country", "value")
+              InternalLastSimpleAggregation("country", "value")
+            ))
+        )
+      }
+      "parse it successfully with max(*)" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MaxAggregation)))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
+            groupBy = Some(SimpleGroupByAggregation("country"))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              InternalMaxSimpleAggregation("country", "value")
+            ))
+        )
+      }
+      "parse it successfully with min(*)" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
+            groupBy = Some(SimpleGroupByAggregation("country"))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              InternalMinSimpleAggregation("country", "value")
             ))
         )
       }
@@ -840,7 +892,7 @@ class StatementParserSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              new InternalMaxSimpleAggregation("country", "value"),
+              InternalMaxSimpleAggregation("country", "value"),
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
@@ -1068,7 +1120,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
                      BooleanClause.Occur.MUST_NOT)
                 .build(),
-              new InternalSumSimpleAggregation("amount", "value"),
+              InternalSumSimpleAggregation("amount", "value"),
               None,
               Some(5)
             ))

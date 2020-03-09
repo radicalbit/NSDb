@@ -20,7 +20,7 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.NSDbType
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType, TimestampFieldType}
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, TimeSeriesIndex, VARCHAR}
 import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import org.apache.lucene.document.LongPoint
@@ -39,6 +39,7 @@ class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest 
       "tag2"      -> SchemaField("tag2", TagFieldType, BIGINT()),
       "tag3"      -> SchemaField("tag3", TagFieldType, DECIMAL()),
       "value"     -> SchemaField("value", TagFieldType, BIGINT()),
+      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT())
     )
   )
 
@@ -50,6 +51,7 @@ class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest 
       "tag2"      -> SchemaField("tag2", TagFieldType, BIGINT()),
       "tag3"      -> SchemaField("tag3", TagFieldType, DECIMAL()),
       "value"     -> SchemaField("value", TagFieldType, DECIMAL()),
+      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT())
     )
   )
 
