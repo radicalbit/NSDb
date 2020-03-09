@@ -61,11 +61,11 @@ object AggregationMetric {
 
   val testRecords: List[Bit] = List(
     Bit(1L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(4L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
-    Bit(2L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(4L, 4L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
+    Bit(2L, 3L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
     Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
     Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(10L, 1L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+    Bit(10L, 2L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
   )
 
 }
@@ -746,8 +746,42 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       assert(
         readRes.records.map(_.asBit) ==
           Seq(
-            Bit(0L, 6L, Map.empty, Map("age" -> 15L)),
-            Bit(0L, 2L, Map.empty, Map("age" -> 20L))
+            Bit(0L, 9L, Map.empty, Map("age" -> 15L)),
+            Bit(0L, 4L, Map.empty, Map("age" -> 20L))
+          ))
+    }
+  }
+
+  test("receive a select containing a group by on long dimension with max and min aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val maxQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select max(value) from ${AggregationMetric.name} group by age order by age")
+
+      val maxResponse = Await.result(nsdb.execute(maxQuery), 10.seconds)
+
+      assert(
+        maxResponse.records.map(_.asBit) ==
+          Seq(
+            Bit(0L, 3L, Map.empty, Map("age" -> 15L)),
+            Bit(0L, 4L, Map.empty, Map("age" -> 20L))
+          ))
+
+      val minQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select min(value) from ${AggregationMetric.name} group by age order by age")
+
+      val minResponse = Await.result(nsdb.execute(minQuery), 10.seconds)
+
+      assert(
+        minResponse.records.map(_.asBit) ==
+          Seq(
+            Bit(0L, 1L, Map.empty, Map("age" -> 15L)),
+            Bit(0L, 4L, Map.empty, Map("age" -> 20L))
           ))
     }
   }
@@ -767,7 +801,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         firstResponse.records.map(_.asBit) ==
           Seq(
             Bit(1L, 2L, Map.empty, Map("age" -> 15L)),
-            Bit(4L, 2L, Map.empty, Map("age" -> 20L))
+            Bit(4L, 4L, Map.empty, Map("age" -> 20L))
           ))
 
       val lastQuery = nsdb
@@ -780,8 +814,8 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       assert(
         lastResponse.records.map(_.asBit) ==
           Seq(
-            Bit(10L, 1L, Map.empty, Map("age" -> 15L)),
-            Bit(4L, 2L, Map.empty, Map("age" -> 20L))
+            Bit(10L, 2L, Map.empty, Map("age" -> 15L)),
+            Bit(4L, 4L, Map.empty, Map("age" -> 20L))
           ))
     }
   }
@@ -819,9 +853,44 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit(0L, 5L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 9L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 3L, Map.empty, Map("height" -> 32.0))
+        ))
+    }
+  }
+
+  test("receive a select containing a group by on double dimension with max and min aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val maxRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select max(value) from ${AggregationMetric.name} group by height order by height")
+
+      val maxResponse = Await.result(nsdb.execute(maxRequest), 10.seconds)
+
+      assert(
+        maxResponse.records.map(_.asBit) == Seq(
+          Bit(0L, 4L, Map.empty, Map("height" -> 30.5)),
           Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
           Bit(0L, 2L, Map.empty, Map("height" -> 32.0))
+        ))
+
+      val minRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select min(value) from ${AggregationMetric.name} group by height order by height")
+
+      val minResponse = Await.result(nsdb.execute(minRequest), 10.seconds)
+
+      assert(
+        minResponse.records.map(_.asBit) == Seq(
+          Bit(0L, 2L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 32.0))
         ))
     }
   }
@@ -854,9 +923,9 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         lastResponse.records.map(_.asBit) == Seq(
-          Bit(4L, 2L, Map.empty, Map("height" -> 30.5)),
+          Bit(4L, 4L, Map.empty, Map("height" -> 30.5)),
           Bit(6L, 1L, Map.empty, Map("height" -> 31.0)),
-          Bit(10L, 1L, Map.empty, Map("height" -> 32.0))
+          Bit(10L, 2L, Map.empty, Map("height" -> 32.0))
         ))
     }
   }

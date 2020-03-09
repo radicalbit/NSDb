@@ -17,8 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.Schema
 import org.apache.lucene.search._
 
 /**
@@ -68,17 +67,8 @@ object StatementParser {
     */
   def parseStatement(statement: SelectSQLStatement, schema: Schema): Either[String, ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
-      schema.fieldsMap.get(order.dimension) match {
-        case Some(SchemaField(_, _, VARCHAR())) =>
-          new Sort(new SortField(order.dimension, SortField.Type.STRING, order.isInstanceOf[DescOrderOperator]))
-        case Some(SchemaField(_, _, BIGINT())) =>
-          new Sort(new SortField(order.dimension, SortField.Type.LONG, order.isInstanceOf[DescOrderOperator]))
-        case Some(SchemaField(_, _, INT())) =>
-          new Sort(new SortField(order.dimension, SortField.Type.INT, order.isInstanceOf[DescOrderOperator]))
-        case Some(SchemaField(_, _, DECIMAL())) =>
-          new Sort(new SortField(order.dimension, SortField.Type.DOUBLE, order.isInstanceOf[DescOrderOperator]))
-        case _ => new Sort(new SortField(order.dimension, SortField.Type.DOC, order.isInstanceOf[DescOrderOperator]))
-      }
+      val sortType = schema.fieldsMap.get(order.dimension).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
+      new Sort(new SortField(order.dimension, sortType, order.isInstanceOf[DescOrderOperator]))
     })
 
     val expParsed = ExpressionParser.parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
