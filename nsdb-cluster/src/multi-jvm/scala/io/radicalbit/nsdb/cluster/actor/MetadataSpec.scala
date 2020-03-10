@@ -158,7 +158,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           5.seconds)
 
         awaitAssert {
-          metadataCoordinator ! AddLocation("db", "namespace", Location("metric", "node-1", 0, 1))
+          metadataCoordinator ! AddLocations("db", "namespace", Seq(Location("metric", "node-1", 0, 1)))
           expectMsg(LocationsAdded("db", "namespace", Seq(Location("metric", "node-1", 0, 1))))
         }
       }

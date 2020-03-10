@@ -23,7 +23,7 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.model.Location
@@ -138,12 +138,12 @@ abstract class AbstractReadCoordinatorSpec
       schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, LongMetric.name, LongMetric.testRecords.head),
       10 seconds)
 
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(LongMetric.name))), 10 seconds)
     LongMetric.recordsShard1.foreach(r => {
-      Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(LongMetric.name)), 10 seconds)
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(LongMetric.name)), 10 seconds)
     })
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(LongMetric.name))), 10 seconds)
     LongMetric.recordsShard2.foreach(r => {
-      Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(LongMetric.name)), 10 seconds)
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(LongMetric.name)), 10 seconds)
     })
 
@@ -159,12 +159,12 @@ abstract class AbstractReadCoordinatorSpec
       schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, DoubleMetric.name, DoubleMetric.testRecords.head),
       10 seconds)
 
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(DoubleMetric.name))), 10 seconds)
     DoubleMetric.recordsShard1.foreach(r => {
-      Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(DoubleMetric.name)), 10 seconds)
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(DoubleMetric.name)), 10 seconds)
     })
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(DoubleMetric.name))), 10 seconds)
     DoubleMetric.recordsShard2.foreach(r => {
-      Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(DoubleMetric.name)), 10 seconds)
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)), 10 seconds)
     })
 
@@ -184,13 +184,13 @@ abstract class AbstractReadCoordinatorSpec
                                                             AggregationMetric.testRecords.head),
                  10 seconds)
 
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(AggregationMetric.name))), 10 seconds)
     AggregationMetric.recordsShard1.foreach(r => {
-      Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(AggregationMetric.name)), 10 seconds)
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
                    10 seconds)
     })
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(AggregationMetric.name))), 10 seconds)
     AggregationMetric.recordsShard2.foreach(r => {
-      Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(AggregationMetric.name)), 10 seconds)
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
                    10 seconds)
     })

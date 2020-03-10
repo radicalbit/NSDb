@@ -25,6 +25,7 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
@@ -89,7 +90,9 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
 
   private def getShardEndInstant(startShard: Long, shardInterval: Long) = startShard + shardInterval
 
-  private def performAddLocationIntoCache(db: String, namespace: String, locations: Seq[Location]) =
+  private def performAddLocationIntoCache(db: String,
+                                          namespace: String,
+                                          locations: Seq[Location]): Future[AddLocationsResponse] =
     Future
       .sequence(
         locations.map(location =>
@@ -426,48 +429,54 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
         .map(l => LocationsGot(db, namespace, metric, l.value))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
-        .flatMap {
-          case LocationsCached(_, _, _, values) =>
-            values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
-              case Nil =>
-                for {
-                  shardInterval <- getShardInterval(db, namespace, metric)
-                  nodeMetrics   <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
-                  addLocationResult <- {
-                    val start = getShardStartInstant(timestamp, shardInterval)
-                    val end   = getShardEndInstant(start, shardInterval)
+      val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
+      if (clusterAliveMembers.size < replicationFactor)
+        sender ! GetWriteLocationsFailed(db, namespace, metric, timestamp, "")
+      else {
+        val chain: Future[GetWriteLocationsResponse] = (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+          .flatMap {
+            case LocationsCached(_, _, _, values) =>
+              values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
+                case Nil =>
+                  for {
+                    shardInterval <- getShardInterval(db, namespace, metric)
+                    nodeMetrics   <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
+                    addLocationResult <- {
+                      val start = getShardStartInstant(timestamp, shardInterval)
+                      val end   = getShardEndInstant(start, shardInterval)
 
-                    val nodes =
-                      if (nodeMetrics.nodeMetrics.nonEmpty)
-                        new CapacityWriteNodesSelectionLogic(
-                          CapacityWriteNodesSelectionLogic.fromConfigValue(
-                            config.getString("nsdb.cluster.metrics-selector")))
-                          .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                      else {
-                        Random
-                          .shuffle(cluster.state.members.filter(_.status == MemberStatus.Up))
-                          .take(replicationFactor)
-                          .map(createNodeName)
-                      }
+                      val nodes =
+                        if (nodeMetrics.nodeMetrics.nonEmpty)
+                          new CapacityWriteNodesSelectionLogic(
+                            CapacityWriteNodesSelectionLogic.fromConfigValue(
+                              config.getString("nsdb.cluster.metrics-selector")))
+                            .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                        else {
+                          Random
+                            .shuffle(clusterAliveMembers)
+                            .take(replicationFactor)
+                            .map(createNodeName)
+                        }
 
-                    val locations = nodes.map(Location(metric, _, start, end)).toSeq
-                    performAddLocationIntoCache(db, namespace, locations)
-                  }
-                } yield
-                  addLocationResult match {
-                    case LocationsAdded(_, _, locs) => LocationsGot(db, namespace, metric, locs)
-                    case e =>
-                      log.error(s"unexpected result while trying to add locations in cache $e")
-                      GetWriteLocationsFailed(db, namespace, metric, timestamp)
-                  }
-              case s => Future(LocationsGot(db, namespace, metric, s))
-            }
-          case _ =>
-            Future(LocationsGot(db, namespace, metric, Seq.empty))
-        } pipeTo sender()
-    case AddLocation(db, namespace, location) =>
-      performAddLocationIntoCache(db, namespace, Seq(location)).pipeTo(sender)
+                      val locations = nodes.map(Location(metric, _, start, end)).toSeq
+                      performAddLocationIntoCache(db, namespace, locations)
+                    }
+                  } yield
+                    addLocationResult match {
+                      case LocationsAdded(_, _, locs) => WriteLocationsGot(db, namespace, metric, locs)
+                      case _: AddLocationsFailed =>
+                        val errorMessage = s"unexpected error while trying to add locations in cache "
+                        log.error(errorMessage)
+                        GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage)
+                    }
+                case s => Future(WriteLocationsGot(db, namespace, metric, s))
+              }
+            case e =>
+              val errorMessage = s"unexpected result while trying to get locations in cache $e"
+              Future(GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage))
+          }
+        chain pipeTo sender()
+      }
     case AddLocations(db, namespace, locations) =>
       performAddLocationIntoCache(db, namespace, locations).pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
@@ -564,7 +573,6 @@ object MetadataCoordinator {
     case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
         extends NSDbSerializable
-    case class AddLocation(db: String, namespace: String, location: Location)        extends NSDbSerializable
     case class AddLocations(db: String, namespace: String, locations: Seq[Location]) extends NSDbSerializable
     case class DeleteMetricMetadata(db: String,
                                     namespace: String,
@@ -584,14 +592,34 @@ object MetadataCoordinator {
 
     case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
         extends NSDbSerializable
-    case class GetWriteLocationsFailed(db: String, namespace: String, metric: String, timestamp: Long)
-        extends NSDbSerializable
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[WriteLocationsGot], name = "WriteLocationsGot"),
+        new JsonSubTypes.Type(value = classOf[GetWriteLocationsFailed], name = "GetWriteLocationsFailed")
+      ))
+    sealed trait GetWriteLocationsResponse extends NSDbSerializable
+    case class WriteLocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
+        extends GetWriteLocationsResponse
+    case class GetWriteLocationsFailed(db: String, namespace: String, metric: String, timestamp: Long, reason: String)
+        extends GetWriteLocationsResponse
+
     case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)
         extends NSDbSerializable
-    case class LocationAdded(db: String, namespace: String, location: Location)            extends NSDbSerializable
-    case class AddLocationFailed(db: String, namespace: String, location: Location)        extends NSDbSerializable
-    case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])     extends NSDbSerializable
-    case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location]) extends NSDbSerializable
+    case class LocationAdded(db: String, namespace: String, location: Location)     extends NSDbSerializable
+    case class AddLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[LocationsAdded], name = "LocationsAdded"),
+        new JsonSubTypes.Type(value = classOf[AddLocationsFailed], name = "AddLocationsFailed")
+      ))
+    sealed trait AddLocationsResponse                                                      extends NSDbSerializable
+    case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])     extends AddLocationsResponse
+    case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location]) extends AddLocationsResponse
+
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
         extends NSDbSerializable
 

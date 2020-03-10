@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   ExecuteDeleteStatementInternalInLocations
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -164,20 +164,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     */
   def getMetadataLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Seq[Location] => Future[Any]): Future[Any] =
-    (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).flatMap {
-      case LocationsGot(_, _, _, locations) =>
+    (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).mapTo[GetWriteLocationsResponse].flatMap {
+      case WriteLocationsGot(_, _, _, locations) =>
         log.debug(s"received locations for metric $metric, $locations")
         op(locations)
-      case _ =>
-        log.error(s"no location found for bit $bit")
-        Future(
-          RecordRejected(db,
-                         namespace,
-                         metric,
-                         bit,
-                         Location.empty,
-                         List(s"no location found for bit $bit"),
-                         System.currentTimeMillis()))
+      case GetWriteLocationsFailed(db, namespace, metric, timestamp, reason) =>
+        val errorMessage = s"no location found for bit $bit:\n $reason"
+        log.error(errorMessage)
+        Future(RecordRejected(db, namespace, metric, bit, Location.empty, List(reason), timestamp))
     }
 
   /**
