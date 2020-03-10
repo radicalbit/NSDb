@@ -2,8 +2,8 @@ package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ClusterEvent.UnreachableMember
+import akka.cluster.Member
 import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
-import akka.cluster.{Cluster, Member}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import akka.util.Timeout
@@ -123,8 +123,6 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
   import ClusterListenerSpecConfig._
 
   def initialParticipants: Int = roles.size
-
-  private val cluster = Cluster(system)
 
   "ClusterListener" must {
     "successfully create a NsdbNodeEndpoint when a new member in the cluster is Up" in {

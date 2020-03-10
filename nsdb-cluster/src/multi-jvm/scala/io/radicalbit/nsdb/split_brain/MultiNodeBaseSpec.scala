@@ -23,8 +23,6 @@ abstract class MultiNodeBaseSpec(config: MultiNodeConfig)
 
   def initialParticipants: Int = roles.size
 
-  protected lazy val cluster: Cluster = Cluster(system)
-
   private val addresses: Map[RoleName, Address] = roles.map(r => r -> node(r).address).toMap
 
   protected def addressOf(roleName: RoleName): Address = addresses(roleName)

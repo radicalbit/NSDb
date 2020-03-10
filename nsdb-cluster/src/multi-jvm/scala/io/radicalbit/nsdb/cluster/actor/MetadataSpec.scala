@@ -1,9 +1,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.{ActorSelection, Props}
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.{Cluster, MemberStatus}
-import akka.remote.testconductor.RoleName
+import akka.cluster.MemberStatus
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import akka.util.Timeout
@@ -12,7 +10,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
-import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
+import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, IndexType, VARCHAR}
 import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -56,7 +54,11 @@ object MetadataSpec extends MultiNodeConfig {
     |  write.scheduler.interval = 15 seconds
     |  retention.check.interval = 1 seconds
     |
-    |  cluster.metadata-write-consistency = "all"
+    |  cluster {
+    |    metadata-write-consistency = "all"
+    |    replication-factor = 2
+    |    consistency-level = 2
+    |  }
     |
     |  sharding {
     |    interval = 1d
@@ -114,10 +116,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   override def initialParticipants = roles.size
 
-  val cluster = Cluster(system)
-
-  val mediator = DistributedPubSub(system).mediator
-
   val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
   implicit val timeout: Timeout = Timeout(5.seconds)
@@ -125,14 +123,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   system.actorOf(Props[ClusterListenerTestActor], name = "clusterListener")
 
   lazy val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
-
-  def join(from: RoleName, to: RoleName): Unit = {
-    runOn(from) {
-
-      cluster join node(to).address
-    }
-    enterBarrier(from.name + "-joined")
-  }
 
   "Metadata system" must {
 
@@ -253,54 +243,35 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         awaitAssert {
           metadataCoordinator ! GetMetricInfo("testDbWithInfo", "testNamespaceWithInfo", "people")
           expectMsg(
-            MetricInfoGot("testDbWithInfo",
-                          "testNamespaceWithInfo",
-                          "people",
+            MetricInfoGot("testDbWithInfo", "testNamespaceWithInfo", "people",
                           Some(MetricInfo("testDbWithInfo", "testNamespaceWithInfo", "people", 172800000, 86400000))))
         }
       }
 
       def checkSchemas(schemaCoordinator: ActorSelection) = {
+
+        def fieldsMap(valueType: IndexType[_]) = Map(
+          "city" -> SchemaField("city", DimensionFieldType, VARCHAR()),
+          "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
+          "bigDecimalLong" -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
+          "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
+          "value" -> SchemaField("value", ValueFieldType, valueType),
+          "gender" -> SchemaField("gender", TagFieldType, VARCHAR())
+        )
+
         awaitAssert {
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "people")
           expectMsg(
             SchemaGot(
-              "testDb",
-              "testNamespace",
-              "people",
-              Some(
-                Schema(
-                  "people",
-                  Map(
-                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
-                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
-                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
-                    "value"            -> SchemaField("value", ValueFieldType, DECIMAL()),
-                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
-                  )
-                )
-              )
+              "testDb", "testNamespace", "people",
+              Some(Schema("people", fieldsMap(DECIMAL())))
             ))
 
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "animals")
           expectMsg(
             SchemaGot(
-              "testDb",
-              "testNamespace",
-              "animals",
-              Some(
-                Schema(
-                  "animals",
-                  Map(
-                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
-                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
-                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
-                    "value"            -> SchemaField("value", ValueFieldType, BIGINT()),
-                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
-                  )
-                )
+              "testDb", "testNamespace", "animals",
+              Some(Schema("animals", fieldsMap(BIGINT()))
               )
             ))
         }
@@ -309,22 +280,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           schemaCoordinator ! GetSchema("testDb", "testNamespace2", "animals")
           expectMsg(
             SchemaGot(
-              "testDb",
-              "testNamespace2",
-              "animals",
-              Some(
-                Schema(
-                  "animals",
-                  Map(
-                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
-                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
-                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
-                    "value"            -> SchemaField("value", ValueFieldType, BIGINT()),
-                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
-                  )
-                )
-              )
+              "testDb", "testNamespace2", "animals",
+              Some(Schema("animals", fieldsMap(BIGINT())))
             ))
         }
 
@@ -332,22 +289,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           schemaCoordinator ! GetSchema("testDbWithInfo", "testNamespaceWithInfo", "people")
           expectMsg(
             SchemaGot(
-              "testDbWithInfo",
-              "testNamespaceWithInfo",
-              "people",
-              Some(
-                Schema(
-                  "people",
-                  Map(
-                    "city"             -> SchemaField("city", DimensionFieldType, VARCHAR()),
-                    "timestamp"        -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-                    "bigDecimalLong"   -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
-                    "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
-                    "value"            -> SchemaField("value", ValueFieldType, BIGINT()),
-                    "gender"           -> SchemaField("gender", TagFieldType, VARCHAR())
-                  )
-                )
-              )
+              "testDbWithInfo", "testNamespaceWithInfo", "people",
+              Some(Schema("people", fieldsMap(BIGINT())))
             ))
         }
       }
