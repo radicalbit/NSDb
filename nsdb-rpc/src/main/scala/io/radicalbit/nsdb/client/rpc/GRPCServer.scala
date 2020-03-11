@@ -59,9 +59,9 @@ trait GRPCServer {
   protected[this] def parserSQL: SQLStatementParser
 
   sys.addShutdownHook {
-    System.err.println("Shutting down gRPC server since JVM is shutting down")
+    System.err.println(s"Shutting down gRPC server at interface $interface and port $port since JVM is shutting down")
     stop()
-    System.err.println("Server shut down")
+    System.err.println(s"Server at interface $interface and port $port shut down")
   }
 
   lazy val server: Server = NettyServerBuilder
@@ -75,5 +75,5 @@ trait GRPCServer {
 
   def start(): Try[Server] = Try(server.start())
 
-  def stop(): Try[Server] = Try(server.shutdown())
+  def stop(): Unit = server.shutdownNow().awaitTermination()
 }

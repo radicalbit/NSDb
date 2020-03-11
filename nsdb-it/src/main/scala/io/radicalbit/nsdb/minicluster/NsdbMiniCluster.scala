@@ -49,8 +49,6 @@ trait NsdbMiniCluster extends LazyLogging {
     nodes.foreach(_.start())
   }
 
-  def stop(): Unit = {
-    nodes.foreach(n => n.stop())
-    nodes.foreach(n => n.stop())
-  }
+  def stop(): Unit = nodes.foreach(n => n.stop())
+
 }
