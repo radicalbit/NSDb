@@ -6,6 +6,7 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -321,6 +322,43 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       }
 
+    }
+
+    "get write locations" in {
+
+      val selfMember = cluster.selfMember
+      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+
+      val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
+
+      awaitAssert{
+        val reply = expectMsgType[WriteLocationsGot]
+        reply.db shouldBe "db"
+        reply.namespace shouldBe "namespace"
+        reply.metric shouldBe "metric"
+        reply.locations.size shouldBe 2
+      }
+
+      enterBarrier("after-get-write-locations")
+
+      cluster.leave(node(node2).address)
+      awaitAssert {
+        cluster.state.members.count(_.status == MemberStatus.Up) shouldBe 1
+      }
+
+      enterBarrier("one-node-up")
+
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
+
+      awaitAssert{
+        val reply = expectMsgType[GetWriteLocationsFailed]
+        reply.db shouldBe "db"
+        reply.namespace shouldBe "namespace"
+        reply.metric shouldBe "metric"
+        reply.reason shouldBe MetadataCoordinator.notEnoughReplicasErrorMessage(1, 2)
+      }
     }
   }
 }

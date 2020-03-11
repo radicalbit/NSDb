@@ -431,7 +431,12 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
       if (clusterAliveMembers.size < replicationFactor)
-        sender ! GetWriteLocationsFailed(db, namespace, metric, timestamp, "")
+        sender ! GetWriteLocationsFailed(
+          db,
+          namespace,
+          metric,
+          timestamp,
+          MetadataCoordinator.notEnoughReplicasErrorMessage(clusterAliveMembers.size, replicationFactor))
       else {
         val chain: Future[GetWriteLocationsResponse] = (metadataCache ? GetLocationsFromCache(db, namespace, metric))
           .flatMap {
@@ -552,6 +557,14 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
 }
 
 object MetadataCoordinator {
+
+  /**
+    * Compose an error message in case that active replicas are not enough.
+    * @param activeReplicas the number of active replicas
+    * @param replicationFactor the minimun amount of active replicas needed
+    */
+  def notEnoughReplicasErrorMessage(activeReplicas: Int, replicationFactor: Int) =
+    s"cannot get write locations: number of active replicas is $activeReplicas while the replication fatro is $replicationFactor"
 
   /**
     * Generates a delete statement given a threshold. The delete statement involves records older than the threshold.
