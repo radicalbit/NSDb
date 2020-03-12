@@ -95,18 +95,6 @@ class MetadataCoordinatorSpec
   }
 
   "MetadataCoordinator" should {
-    "add a Location" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 60000L)))
-      val locationAdded = awaitAssert {
-        probe.expectMsgType[LocationsAdded]
-      }
-
-      locationAdded.db shouldBe db
-      locationAdded.namespace shouldBe namespace
-      locationAdded.locations.size shouldBe 1
-      locationAdded.locations.head shouldBe Location(metric, "node_01", 0L, 60000L)
-    }
-
     "add multiple locations for a metric" in {
 
       val locations = Seq(Location(metric, "node_01", 0L, 30000L),
@@ -129,12 +117,12 @@ class MetadataCoordinatorSpec
     }
 
     "retrieve a Location for a metric" in {
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_01", 0L, 30000L)))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(Location(metric, "node_01", 0L, 30000L))))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, Location(metric, "node_02", 0L, 30000L)))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(Location(metric, "node_02", 0L, 30000L))))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -165,22 +153,22 @@ class MetadataCoordinatorSpec
       val loc12 = Location(metric, "node_01", 30000L, 60000L)
       val loc22 = Location(metric, "node_02", 30000L, 60000L)
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, loc11))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc11)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, loc21))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc21)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, loc12))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc12)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocation(db, namespace, loc22))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc22)))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -203,7 +191,7 @@ class MetadataCoordinatorSpec
 
       awaitAssert {
         probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
-        val locationGot = probe.expectMsgType[LocationsGot]
+        val locationGot = probe.expectMsgType[WriteLocationsGot]
         locationGot.db shouldBe db
         locationGot.namespace shouldBe namespace
         locationGot.metric shouldBe metric
@@ -215,7 +203,7 @@ class MetadataCoordinatorSpec
 
       awaitAssert {
         probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001))
-        val locationGot_2 = probe.expectMsgType[LocationsGot]
+        val locationGot_2 = probe.expectMsgType[WriteLocationsGot]
         locationGot_2.db shouldBe db
         locationGot_2.namespace shouldBe namespace
         locationGot_2.metric shouldBe metric
@@ -227,7 +215,7 @@ class MetadataCoordinatorSpec
 
       awaitAssert {
         probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002))
-        val locationGot_3 = probe.expectMsgType[LocationsGot]
+        val locationGot_3 = probe.expectMsgType[WriteLocationsGot]
         locationGot_3.db shouldBe db
         locationGot_3.namespace shouldBe namespace
         locationGot_3.metric shouldBe metric
@@ -255,7 +243,7 @@ class MetadataCoordinatorSpec
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
       val locationGot = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        probe.expectMsgType[WriteLocationsGot]
       }
 
       locationGot.db shouldBe db
@@ -268,7 +256,7 @@ class MetadataCoordinatorSpec
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 101))
       val locationGot_2 = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        probe.expectMsgType[WriteLocationsGot]
       }
 
       locationGot_2.db shouldBe db
@@ -281,7 +269,7 @@ class MetadataCoordinatorSpec
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 202))
       val locationGot_3 = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        probe.expectMsgType[WriteLocationsGot]
       }
 
       locationGot_3.db shouldBe db
@@ -352,7 +340,7 @@ class MetadataCoordinatorSpec
       )
 
       locations.foreach { loc =>
-        probe.send(metadataCoordinator, AddLocation(db, namespace, loc))
+        probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc)))
         awaitAssert {
           probe.expectMsgType[LocationsAdded]
         }

@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocation
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Location
@@ -72,7 +72,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
   override def beforeAll = {
     import scala.concurrent.duration._
-    implicit val timeout = Timeout(5.second)
+    implicit val timeout: Timeout = Timeout(5.second)
 
     Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
 
@@ -108,8 +108,11 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                                                             TemporalDoubleMetric.testRecords.head),
                  10 seconds)
 
-    Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(TemporalLongMetric.name)), 10 seconds)
-    Await.result(metadataCoordinator ? AddLocation(db, namespace, location1(TemporalDoubleMetric.name)), 10 seconds)
+    Await.result(
+      metadataCoordinator ? AddLocations(db,
+                                         namespace,
+                                         Seq(location1(TemporalLongMetric.name), location1(TemporalDoubleMetric.name))),
+      10 seconds)
 
     TemporalLongMetric.recordsShard1
       .foreach(r => {
@@ -122,8 +125,11 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
                      10 seconds)
       })
 
-    Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(TemporalLongMetric.name)), 10 seconds)
-    Await.result(metadataCoordinator ? AddLocation(db, namespace, location2(TemporalDoubleMetric.name)), 10 seconds)
+    Await.result(
+      metadataCoordinator ? AddLocations(db,
+                                         namespace,
+                                         Seq(location2(TemporalLongMetric.name), location2(TemporalDoubleMetric.name))),
+      10 seconds)
 
     TemporalLongMetric.recordsShard2
       .foreach(r => {

@@ -24,9 +24,12 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils.partitionResponses
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+
+import scala.concurrent.Future
 
 class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
 
@@ -81,15 +84,30 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
 
       (cache ? PutLocationInCache(db, namespace, location.metric, location))
         .map {
-          case LocationCached(_, _, _, loc) => LocationsGot(db, namespace, metric, Seq(loc))
-          case _                            => GetWriteLocationsFailed(db, namespace, metric, timestamp)
+          case LocationCached(_, _, _, loc) => WriteLocationsGot(db, namespace, metric, Seq(loc))
+          case e =>
+            GetWriteLocationsFailed(db,
+                                    namespace,
+                                    metric,
+                                    timestamp,
+                                    s"unexpected response while trying to put metadata in cache $e")
         }
         .pipeTo(sender())
-    case AddLocation(db, namespace, location) =>
-      (cache ? PutLocationInCache(db, namespace, location.metric, location))
-        .map {
-          case LocationCached(_, _, _, loc) => LocationsGot(db, namespace, location.metric, Seq(loc))
-          case _                            => GetWriteLocationsFailed(db, namespace, location.metric, location.from)
+    case AddLocations(db, namespace, locations) =>
+      Future
+        .sequence(
+          locations.map(location =>
+            (cache ? PutLocationInCache(db, namespace, location.metric, location))
+              .mapTo[AddLocationResponse]))
+        .flatMap { responses =>
+          val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =
+            partitionResponses[LocationCached, PutLocationInCacheFailed](responses)
+
+          if (successResponses.size == responses.size) {
+            Future(LocationsAdded(db, namespace, successResponses.map(_.value)))
+          } else {
+            Future(AddLocationsFailed(db, namespace, errorResponses.map(_.location)))
+          }
         }
         .pipeTo(sender())
     case GetMetricInfo(db, namespace, metric) =>

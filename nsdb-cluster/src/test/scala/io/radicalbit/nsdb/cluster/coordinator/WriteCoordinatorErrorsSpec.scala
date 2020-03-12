@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationsGot, WriteLocationsGot}
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -53,7 +53,7 @@ class MockedMetadataCoordinator extends Actor with ActorLogging {
       val locationNode1 = Location(metric, "node1", timestamp, timestamp + shardingInterval.toMillis)
       val locationNode2 = Location(metric, "node2", timestamp, timestamp + shardingInterval.toMillis)
 
-      sender() ! LocationsGot(db, namespace, metric, Seq(locationNode1, locationNode2))
+      sender() ! WriteLocationsGot(db, namespace, metric, Seq(locationNode1, locationNode2))
   }
 }
 

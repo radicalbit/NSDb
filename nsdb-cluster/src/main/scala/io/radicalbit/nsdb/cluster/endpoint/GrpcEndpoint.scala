@@ -105,7 +105,11 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
     case Success(_) =>
       log.info("GrpcEndpoint started on interface {} on port {}", interface, port)
       system.registerOnTermination {
+        log.error("Shutting down gRPC server at interface {} and port {} since Actor System is shutting down",
+                  interface,
+                  port)
         stop()
+        log.error("Server at interface {} and port {} shut down", interface, port)
       }
     case Failure(ex) =>
       log.error(s"error in starting Grpc endpoint on interface $interface and port $port", ex)
