@@ -32,8 +32,6 @@ trait NSDBAkkaMiniCluster { this: NSDbConfigProvider with NSDbActors =>
     initTopLevelActors()
   }
 
-  def stop(): Unit = {
-    Await.result(system.terminate(), 10.seconds)
-    Await.result(system.whenTerminated, 10.seconds)
-  }
+  def stop(): Unit = Await.result(system.terminate(), 10.seconds)
+
 }

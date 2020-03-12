@@ -109,10 +109,6 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     waitIndexing()
   }
 
-  override def afterAll(): Unit = {
-    stop()
-  }
-
   test("join cluster") {
     eventually {
       assert(

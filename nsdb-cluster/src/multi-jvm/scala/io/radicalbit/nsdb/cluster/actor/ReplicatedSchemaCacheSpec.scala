@@ -1,10 +1,8 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.Props
-import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
 import akka.cluster.ddata.Replicator.{GetReplicaCount, ReplicaCount}
-import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
@@ -78,16 +76,7 @@ class ReplicatedSchemaCacheSpec
 
   override def initialParticipants = roles.size
 
-  val cluster         = Cluster(system)
   val replicatedCache = system.actorOf(Props[ReplicatedSchemaCache])
-
-  def join(from: RoleName, to: RoleName): Unit = {
-    runOn(from) {
-      cluster join node(to).address
-    }
-
-    enterBarrier(from.name + "-joined")
-  }
 
   val db        = "db"
   val namespace = "namespace"
