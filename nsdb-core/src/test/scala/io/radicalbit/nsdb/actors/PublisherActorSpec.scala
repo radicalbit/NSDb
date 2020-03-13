@@ -20,10 +20,9 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events._
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, VARCHAR}
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._

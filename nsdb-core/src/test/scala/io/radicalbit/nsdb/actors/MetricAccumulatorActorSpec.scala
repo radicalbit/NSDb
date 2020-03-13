@@ -24,9 +24,8 @@ import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
-import io.radicalbit.nsdb.index.VARCHAR
-import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}

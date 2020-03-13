@@ -20,9 +20,9 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.NSDbType
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType, TimestampFieldType}
-import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, TimeSeriesIndex, VARCHAR}
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.TimeSeriesIndex
+import io.radicalbit.nsdb.model.Schema
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
@@ -37,8 +37,8 @@ class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest 
                                              Map("dimension" -> "dimension"),
                                              Map(
                                                "tag1" -> "tag1",
-                                               "tag2" -> "tag2",
-                                               "tag3" -> "tag3"
+                                               "tag2" -> 0L,
+                                               "tag3" -> 0
                                              )))
 
   private val DecimalValueSchema = Schema("testMetric",
@@ -47,10 +47,10 @@ class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest 
                                               Map("dimension" -> "dimension"),
                                               Map(
                                                 "tag1" -> "tag1",
-                                                "tag2" -> "tag2",
-                                                "tag3" -> "tag3"
+                                                "tag2" -> 0L,
+                                                "tag3" -> 0
                                               )))
-  
+
   "TimeSeriesIndex" should "return last values properly for a bigint value" in {
 
     val timeSeriesIndex =

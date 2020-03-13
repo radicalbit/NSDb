@@ -52,7 +52,7 @@ case class SchemaField(name: String, fieldClassType: FieldClassType, indexType: 
   * @param metric the metric.
   * @param fieldsMap a map of [[SchemaField]] keyed by field name
   */
-case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) extends NSDbSerializable {
+class Schema private (val metric: String, val fieldsMap: Map[String, SchemaField]) extends NSDbSerializable {
 
   /**
     * filters tags from fieldsMap
@@ -80,8 +80,6 @@ case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) 
 }
 
 object Schema extends TypeSupport {
-
-  private def apply(metric: String, fieldsMap: Map[String, SchemaField]) = new Schema(metric, fieldsMap)
 
   /**
     * Creates a schema by analyzing a [[Bit]] structure.

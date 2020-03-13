@@ -21,8 +21,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol._
-import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
@@ -186,7 +185,7 @@ class SchemaCoordinatorSpec
     val schema = probe.expectMsgType[SchemaGot]
     schema.metric shouldBe "offices"
     schema.schema shouldBe Some(
-      unionSchema.copy(metric = "offices")
+      Schema(metric = "offices", mergedRecord)
     )
 
     probe.send(
@@ -228,7 +227,7 @@ class SchemaCoordinatorSpec
     existingGot.schema shouldBe Some(
       Schema(
         "people",
-        dummyBit
+        nameRecord
       ))
 
     probe.send(schemaCoordinator, GetSchema(db, namespace1, "people"))
@@ -238,7 +237,7 @@ class SchemaCoordinatorSpec
     existingGot1.schema shouldBe Some(
       Schema(
         "people",
-        dummyBit
+        surnameRecord
       ))
   }
 
