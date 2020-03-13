@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.FacetRangeIndex.FacetRangeResult
 import io.radicalbit.nsdb.model.TimeRange
@@ -29,13 +30,16 @@ import org.apache.lucene.search.{IndexSearcher, Query}
   */
 class FacetRangeIndex {
 
+  final val lowerBoundField = "lowerBound"
+  final val upperBoundField = "upperBound"
+
   def executeRangeFacet(searcher: IndexSearcher,
                         query: Query,
                         aggregationType: InternalTemporalAggregation,
                         rangeFieldName: String,
                         valueFieldName: String,
                         valueFieldType: Option[IndexType[_]],
-                        ranges: Seq[TimeRange])(postProcFun: Seq[FacetRangeResult] => Seq[Bit]): Seq[Bit] = {
+                        ranges: Seq[TimeRange]): Seq[Bit] = {
     val luceneRanges = ranges.map(r =>
       new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
     val fc = new FacetsCollector
@@ -55,12 +59,31 @@ class FacetRangeIndex {
       case (InternalMinTemporalAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
     }
-    postProcFun {
+    toRecord(valueFieldType) {
       facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.map { lv =>
         val structuredLabel = lv.label.split("-").map(_.toLong)
         FacetRangeResult(structuredLabel(0), structuredLabel(1), lv.value)
       }
     }
+  }
+
+  private def toRecord(valueFieldType: Option[IndexType[_]]): Seq[FacetRangeResult] => Seq[Bit] = { facetResultSeq =>
+    facetResultSeq
+      .map { facetResult =>
+        Bit(
+          facetResult.lowerBound,
+          valueFieldType.fold(NSDbNumericType(facetResult.value.longValue())) { typez =>
+            if (typez.isInstanceOf[DECIMAL])
+              NSDbNumericType(facetResult.value.doubleValue())
+            else NSDbNumericType(facetResult.value.longValue())
+          },
+          Map[String, NSDbType](
+            (lowerBoundField, NSDbType(facetResult.lowerBound)),
+            (upperBoundField, NSDbType(facetResult.upperBound))
+          ),
+          Map.empty
+        )
+      }
   }
 
 }

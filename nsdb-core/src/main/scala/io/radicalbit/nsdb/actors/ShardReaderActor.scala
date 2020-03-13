@@ -23,7 +23,6 @@ import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.model.Location
@@ -76,18 +75,23 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       log.debug("executing statement in metric shard reader actor {}", statement)
       val results: Try[Seq[Bit]] = StatementParser.parseStatement(statement, schema) match {
         case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
-          handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)(identity)))
-        case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, sort)) if fields.lengthCompare(1) == 0 =>
+          statement.getTimeOrdering match {
+            case Some(_) =>
+              handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
+            case None =>
+              handleNoIndexResults(Try(index.query(schema, q, fields, Int.MaxValue, None)))
+          }
+        case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
-            Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, sort, limit)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), sort, limit)) =>
+            Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, None, limit)))
+        case Right(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), _, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.facetCountIndex
-                .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), sort, limit)) =>
+                .result(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
+        case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), _, limit)) =>
           handleNoIndexResults(Try(facetIndexes.facetSumIndex
-            .result(q, groupField, sort, limit, schema.fieldsMap(groupField).indexType, Some(schema.value.indexType))))
+            .result(q, groupField, None, limit, schema.fieldsMap(groupField).indexType, Some(schema.value.indexType))))
         case Right(ParsedAggregatedQuery(_, _, q, InternalFirstSimpleAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalLastSimpleAggregation(groupField, _), _, _)) =>
@@ -106,20 +110,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                    "timestamp",
                                    "value",
                                    None,
-                                   globalRanges.filter(_.intersect(location))) { facetResultSeq =>
-                  facetResultSeq
-                    .map { facetResult =>
-                      Bit(
-                        facetResult.lowerBound,
-                        NSDbNumericType(facetResult.value.longValue()),
-                        Map[String, NSDbType](
-                          ("lowerBound", NSDbType(facetResult.lowerBound)),
-                          ("upperBound", NSDbType(facetResult.upperBound))
-                        ),
-                        Map.empty
-                      )
-                    }
-                }))
+                                   globalRanges.filter(_.intersect(location)))))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
@@ -131,22 +122,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                    "timestamp",
                                    "value",
                                    Some(valueFieldType),
-                                   globalRanges.filter(_.intersect(location))) { facetResultSeq =>
-                  facetResultSeq
-                    .map { facetResult =>
-                      Bit(
-                        facetResult.lowerBound,
-                        if (valueFieldType.isInstanceOf[DECIMAL])
-                          NSDbNumericType(facetResult.value.doubleValue())
-                        else NSDbNumericType(facetResult.value.longValue()),
-                        Map[String, NSDbType](
-                          ("lowerBound", NSDbType(facetResult.lowerBound)),
-                          ("upperBound", NSDbType(facetResult.upperBound))
-                        ),
-                        Map.empty
-                      )
-                    }
-                }))
+                                   globalRanges.filter(_.intersect(location)))))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
@@ -158,22 +134,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                    "timestamp",
                                    "value",
                                    Some(valueFieldType),
-                                   globalRanges.filter(_.intersect(location))) { facetResultSeq =>
-                  facetResultSeq
-                    .map { facetResult =>
-                      Bit(
-                        facetResult.lowerBound,
-                        if (valueFieldType.isInstanceOf[DECIMAL])
-                          NSDbNumericType(facetResult.value.doubleValue())
-                        else NSDbNumericType(facetResult.value.longValue()),
-                        Map[String, NSDbType](
-                          ("lowerBound", NSDbType(facetResult.lowerBound)),
-                          ("upperBound", NSDbType(facetResult.upperBound))
-                        ),
-                        Map.empty
-                      )
-                    }
-                }))
+                                   globalRanges.filter(_.intersect(location)))))
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           Failure(new RuntimeException(s"$aggregationType is not currently supported."))
         case Right(_) =>

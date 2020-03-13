@@ -49,8 +49,10 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     }
     metricWriter.close()
 
-    timeSeriesIndex.query(schema, "dimension", "dimension_*", Seq.empty, 100)(identity).size shouldBe 100
-    timeSeriesIndex.query(schema, "tag", "tag_*", Seq.empty, 100)(identity).size shouldBe 100
+    timeSeriesIndex
+      .query(schema, new WildcardQuery(new Term("dimension", "dimension_*")), Seq.empty, 100, None)
+      .size shouldBe 100
+    timeSeriesIndex.query(schema, new WildcardQuery(new Term("tag", "tag_*")), Seq.empty, 100, None).size shouldBe 100
   }
 
   "TimeSeriesIndex" should "support values containing dashes" in {
@@ -131,7 +133,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     writer.close()
 
     val queryExist  = LongPoint.newExactQuery("timestamp", timestamp)
-    val resultExist = timeSeriesIndex.query(schema, queryExist, Seq.empty, 100, None)(identity)
+    val resultExist = timeSeriesIndex.query(schema, queryExist, Seq.empty, 100, None)
     resultExist.size shouldBe 1
 
     val deleteWriter = timeSeriesIndex.getWriter
@@ -142,7 +144,7 @@ class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     timeSeriesIndex.refresh()
 
     val query  = LongPoint.newExactQuery("timestamp", timestamp)
-    val result = timeSeriesIndex.query(schema, query, Seq.empty, 100, None)(identity)
+    val result = timeSeriesIndex.query(schema, query, Seq.empty, 100, None)
 
     result.size shouldBe 0
 
