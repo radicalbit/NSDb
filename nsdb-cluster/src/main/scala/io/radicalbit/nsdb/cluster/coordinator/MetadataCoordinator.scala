@@ -36,7 +36,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, WriteNodesSelectionLogic}
+import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig

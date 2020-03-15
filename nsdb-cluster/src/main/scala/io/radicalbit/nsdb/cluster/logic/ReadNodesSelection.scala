@@ -29,9 +29,9 @@ trait ReadNodesSelection {
 
   /**
     * Returns all the unique locations grouped by node.
-    * @param locations all the locations for a metric (replicas included).
+    * @param locationsWithReplicas all the locations for a metric (replicas included).
     */
-  def getUniqueLocationsByNode(locations: Seq[Location]): Map[String, Seq[Location]]
+  def getUniqueLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]]
 
 }
 
