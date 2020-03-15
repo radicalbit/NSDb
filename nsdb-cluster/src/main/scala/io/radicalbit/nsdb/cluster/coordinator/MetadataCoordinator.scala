@@ -36,7 +36,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
-import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
+import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, WriteNodesSelectionLogic}
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
@@ -60,7 +60,11 @@ import scala.util.Random
   * @param clusterListener actor that collects cluster metrics.
   * @param metadataCache cluster aware metrics location cache.
   */
-class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef)
+class MetadataCoordinator(clusterListener: ActorRef,
+                          metadataCache: ActorRef,
+                          schemaCache: ActorRef,
+                          mediator: ActorRef,
+                          writeNodesSelectionLogic: WriteNodesSelectionLogic)
     extends ActorPathLogging
     with DirectorySupport {
   private val cluster = Cluster(context.system)
@@ -426,7 +430,7 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
     case GetLocations(db, namespace, metric) =>
       (metadataCache ? GetLocationsFromCache(db, namespace, metric))
         .mapTo[LocationsCached]
-        .map(l => LocationsGot(db, namespace, metric, l.value))
+        .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
@@ -452,10 +456,7 @@ class MetadataCoordinator(clusterListener: ActorRef, metadataCache: ActorRef, sc
 
                       val nodes =
                         if (nodeMetrics.nodeMetrics.nonEmpty)
-                          new CapacityWriteNodesSelectionLogic(
-                            CapacityWriteNodesSelectionLogic.fromConfigValue(
-                              config.getString("nsdb.cluster.metrics-selector")))
-                            .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                          writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
                         else {
                           Random
                             .shuffle(clusterAliveMembers)
@@ -650,6 +651,10 @@ object MetadataCoordinator {
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
   }
 
-  def props(clusterListener: ActorRef, metadataCache: ActorRef, schemaCache: ActorRef, mediator: ActorRef): Props =
-    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache, mediator))
+  def props(clusterListener: ActorRef,
+            metadataCache: ActorRef,
+            schemaCache: ActorRef,
+            mediator: ActorRef,
+            writeNodesSelectionLogic: WriteNodesSelectionLogic): Props =
+    Props(new MetadataCoordinator(clusterListener, metadataCache, schemaCache, mediator, writeNodesSelectionLogic))
 }
