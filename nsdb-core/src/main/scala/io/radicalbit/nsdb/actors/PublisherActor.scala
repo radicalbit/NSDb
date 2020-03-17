@@ -142,7 +142,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               temporaryIndex.write(record)
               writer.close()
               if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
-                    .query(schema, parsedQuery.q, parsedQuery.fields, 1, None)(identity)
+                    .query(schema, parsedQuery.q, parsedQuery.fields, 1, None)
                     .lengthCompare(1) == 0)
                 subscribedActorsByQueryId
                   .get(id)

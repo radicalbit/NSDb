@@ -148,7 +148,7 @@ object StatementParser {
                 statement.metric,
                 exp.q,
                 distinct = false,
-                limitOpt.getOrElse(Integer.MAX_VALUE),
+                limitOpt getOrElse Int.MaxValue,
                 List(SimpleField(name, count = true)),
                 sortOpt
               )
