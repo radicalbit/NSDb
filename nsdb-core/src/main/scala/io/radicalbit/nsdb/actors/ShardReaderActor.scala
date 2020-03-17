@@ -79,7 +79,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             case Some(_) =>
               handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
             case None =>
-              handleNoIndexResults(Try(index.query(schema, q, fields, Int.MaxValue, None)))
+              if (limit == Int.MaxValue) handleNoIndexResults(Try(index.query(schema, q, fields, limit, None)))
+              else handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
           }
         case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
