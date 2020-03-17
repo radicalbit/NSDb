@@ -20,9 +20,9 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.NSDbType
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType, TimestampFieldType}
-import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, TimeSeriesIndex, VARCHAR}
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.index.TimeSeriesIndex
+import io.radicalbit.nsdb.model.Schema
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
@@ -31,29 +31,25 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest {
 
-  private val BigIntValueSchema = Schema(
-    "testMetric",
-    Map(
-      "dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-      "tag1"      -> SchemaField("tag1", TagFieldType, VARCHAR()),
-      "tag2"      -> SchemaField("tag2", TagFieldType, BIGINT()),
-      "tag3"      -> SchemaField("tag3", TagFieldType, DECIMAL()),
-      "value"     -> SchemaField("value", TagFieldType, BIGINT()),
-      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT())
-    )
-  )
+  private val BigIntValueSchema = Schema("testMetric",
+                                         Bit(0,
+                                             0,
+                                             Map("dimension" -> "dimension"),
+                                             Map(
+                                               "tag1" -> "tag1",
+                                               "tag2" -> 0L,
+                                               "tag3" -> 0
+                                             )))
 
-  private val DecimalValueSchema = Schema(
-    "testMetric",
-    Map(
-      "dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-      "tag1"      -> SchemaField("tag1", TagFieldType, VARCHAR()),
-      "tag2"      -> SchemaField("tag2", TagFieldType, BIGINT()),
-      "tag3"      -> SchemaField("tag3", TagFieldType, DECIMAL()),
-      "value"     -> SchemaField("value", TagFieldType, DECIMAL()),
-      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT())
-    )
-  )
+  private val DecimalValueSchema = Schema("testMetric",
+                                          Bit(0,
+                                              1.1,
+                                              Map("dimension" -> "dimension"),
+                                              Map(
+                                                "tag1" -> "tag1",
+                                                "tag2" -> 0L,
+                                                "tag3" -> 0
+                                              )))
 
   "TimeSeriesIndex" should "return last values properly for a bigint value" in {
 

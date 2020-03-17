@@ -10,9 +10,9 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
-import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, IndexType, VARCHAR}
-import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
+import io.radicalbit.nsdb.common.protocol._
+import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, NumericType}
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.rtsae.STMultiNodeSpec
@@ -251,29 +251,26 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       def checkSchemas(schemaCoordinator: ActorSelection) = {
 
-        def fieldsMap(valueType: IndexType[_]) = Map(
-          "city" -> SchemaField("city", DimensionFieldType, VARCHAR()),
-          "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          "bigDecimalLong" -> SchemaField("bigDecimalLong", DimensionFieldType, BIGINT()),
-          "bigDecimalDouble" -> SchemaField("bigDecimalDouble", DimensionFieldType, DECIMAL()),
-          "value" -> SchemaField("value", ValueFieldType, valueType),
-          "gender" -> SchemaField("gender", TagFieldType, VARCHAR())
-        )
+        def dummyBit(valueType: NumericType[_]): Bit =
+          Bit(0, valueType.zero, Map(
+            "city"             -> "city",
+            "bigDecimalLong"   -> 0L,
+            "bigDecimalDouble" -> 1.1)
+            , Map("gender"           -> "gender"))
 
         awaitAssert {
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "people")
           expectMsg(
             SchemaGot(
               "testDb", "testNamespace", "people",
-              Some(Schema("people", fieldsMap(DECIMAL())))
+              Some(Schema("people", dummyBit(DECIMAL())))
             ))
 
           schemaCoordinator ! GetSchema("testDb", "testNamespace", "animals")
           expectMsg(
             SchemaGot(
               "testDb", "testNamespace", "animals",
-              Some(Schema("animals", fieldsMap(BIGINT()))
-              )
+              Some(Schema("animals", dummyBit(BIGINT())))
             ))
         }
 
@@ -282,7 +279,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           expectMsg(
             SchemaGot(
               "testDb", "testNamespace2", "animals",
-              Some(Schema("animals", fieldsMap(BIGINT())))
+              Some(Schema("animals", dummyBit(BIGINT())))
             ))
         }
 
@@ -291,7 +288,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           expectMsg(
             SchemaGot(
               "testDbWithInfo", "testNamespaceWithInfo", "people",
-              Some(Schema("people", fieldsMap(BIGINT())))
+              Some(Schema("people", dummyBit(BIGINT())))
             ))
         }
       }

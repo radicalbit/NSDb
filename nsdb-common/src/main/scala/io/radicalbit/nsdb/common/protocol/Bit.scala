@@ -18,6 +18,9 @@ package io.radicalbit.nsdb.common.protocol
 
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
+/**
+  * Placeholder traits used for serialization purposes
+  */
 trait NSDbSerializable
 
 /**

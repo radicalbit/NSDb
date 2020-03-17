@@ -21,8 +21,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol._
-import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
@@ -51,27 +50,15 @@ class SchemaCoordinatorSpec
   val nameRecord    = Bit(0, 1, Map("name"    -> "name"), Map("city"       -> "milano"))
   val surnameRecord = Bit(0, 1, Map("surname" -> "surname"), Map("country" -> "italy"))
 
-  val baseSchema = Schema(
-    "people",
-    Map(
-      "name"      -> SchemaField("name", DimensionFieldType, VARCHAR()),
-      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-      "value"     -> SchemaField("value", ValueFieldType, INT()),
-      "city"      -> SchemaField("city", TagFieldType, VARCHAR())
-    )
-  )
+  val mergedRecord =
+    Bit(0, 1, Map("name" -> "name", "surname" -> "surname"), Map("city" -> "milano", "country" -> "italy"))
 
-  val unionSchema = Schema(
-    "people",
-    Map(
-      "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-      "value"     -> SchemaField("value", ValueFieldType, INT()),
-      "name"      -> SchemaField("name", DimensionFieldType, VARCHAR()),
-      "surname"   -> SchemaField("surname", DimensionFieldType, VARCHAR()),
-      "city"      -> SchemaField("city", TagFieldType, VARCHAR()),
-      "country"   -> SchemaField("country", TagFieldType, VARCHAR())
-    )
-  )
+  val baseSchema = Schema("people", nameRecord)
+
+  val unionSchema = Schema("people", mergedRecord)
+
+  private val dummyBit: Bit =
+    Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy"))
 
   before {
     implicit val timeout = Timeout(10 seconds)
@@ -114,15 +101,10 @@ class SchemaCoordinatorSpec
     probe.expectNoMessage(1 second)
 
   }
-
   "schemaCoordinator" should "update schemas coming from a record" in {
     probe.send(
       schemaCoordinator,
-      UpdateSchemaFromRecord(
-        "db",
-        "namespace",
-        "people",
-        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+      UpdateSchemaFromRecord("db", "namespace", "people", dummyBit)
     )
 
     val schema = probe.expectMsgType[SchemaUpdateResponse].asInstanceOf[SchemaUpdated].schema
@@ -146,11 +128,7 @@ class SchemaCoordinatorSpec
   "schemaCoordinator" should "return the same schema for a new schema included in the old one" in {
     probe.send(
       schemaCoordinator,
-      UpdateSchemaFromRecord(
-        "db",
-        "namespace",
-        "people",
-        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+      UpdateSchemaFromRecord("db", "namespace", "people", dummyBit)
     )
 
     probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
@@ -182,11 +160,7 @@ class SchemaCoordinatorSpec
 
     probe.send(
       schemaCoordinator,
-      UpdateSchemaFromRecord(
-        "db",
-        "namespace",
-        "people",
-        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+      UpdateSchemaFromRecord("db", "namespace", "people", dummyBit)
     )
 
     probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
@@ -201,11 +175,7 @@ class SchemaCoordinatorSpec
 
     probe.send(
       schemaCoordinator,
-      UpdateSchemaFromRecord(
-        "db",
-        "namespace",
-        "offices",
-        Bit(0, 23, Map("name" -> "john", "surname" -> "doe"), Map("city" -> "milano", "country" -> "italy")))
+      UpdateSchemaFromRecord("db", "namespace", "offices", dummyBit)
     )
 
     probe.expectMsgType[SchemaUpdateResponse].isInstanceOf[SchemaUpdated] shouldBe true
@@ -215,7 +185,7 @@ class SchemaCoordinatorSpec
     val schema = probe.expectMsgType[SchemaGot]
     schema.metric shouldBe "offices"
     schema.schema shouldBe Some(
-      unionSchema.copy(metric = "offices")
+      Schema(metric = "offices", mergedRecord)
     )
 
     probe.send(
@@ -257,12 +227,7 @@ class SchemaCoordinatorSpec
     existingGot.schema shouldBe Some(
       Schema(
         "people",
-        Map(
-          "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          "value"     -> SchemaField("value", ValueFieldType, INT()),
-          "name"      -> SchemaField("name", DimensionFieldType, VARCHAR()),
-          "city"      -> SchemaField("city", TagFieldType, VARCHAR())
-        )
+        nameRecord
       ))
 
     probe.send(schemaCoordinator, GetSchema(db, namespace1, "people"))
@@ -272,12 +237,7 @@ class SchemaCoordinatorSpec
     existingGot1.schema shouldBe Some(
       Schema(
         "people",
-        Map(
-          "timestamp" -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-          "value"     -> SchemaField("value", ValueFieldType, INT()),
-          "surname"   -> SchemaField("surname", DimensionFieldType, VARCHAR()),
-          "country"   -> SchemaField("country", TagFieldType, VARCHAR())
-        )
+        surnameRecord
       ))
   }
 

@@ -134,6 +134,7 @@ sealed abstract class NumericType[T] extends IndexType[T] {
     * Returns a [[Numeric]] to be used for arithmetic operations
     */
   def numeric: Numeric[Any]
+  def zero: NSDbNumericType
 }
 
 object IndexType {
@@ -177,6 +178,8 @@ case class INT() extends NumericType[Int] {
 
   override def numeric: Numeric[Any] = implicitly[Numeric[Int]].asInstanceOf[Numeric[Any]]
 
+  override def zero: NSDbNumericType = NSDbNumericType(0)
+
   override def cast(value: Any): Int = value.toString.toInt
 
   val sortType: SortField.Type = SortField.Type.INT
@@ -200,6 +203,8 @@ case class BIGINT() extends NumericType[Long] {
 
   override def numeric: Numeric[Any] = implicitly[Numeric[Long]].asInstanceOf[Numeric[Any]]
 
+  override def zero: NSDbNumericType = NSDbNumericType(0L)
+
   override def cast(value: Any): Long = value.toString.toLong
 
   val sortType: SortField.Type = SortField.Type.LONG
@@ -222,6 +227,8 @@ case class DECIMAL() extends NumericType[Double] {
   def deserialize(value: Array[Byte]): NSDbDoubleType = NSDbDoubleType(new String(value).toDouble)
 
   override def numeric: Numeric[Any] = implicitly[Numeric[Double]].asInstanceOf[Numeric[Any]]
+
+  override def zero: NSDbNumericType = NSDbNumericType(0.0)
 
   override def cast(value: Any): Double = value.toString.toDouble
 

@@ -94,18 +94,17 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
       (schemaCache ? GetSchemaFromCache(db, namespace, metric))
         .flatMap {
           case SchemaCached(_, _, _, schemaOpt) =>
-            (Schema(metric, record), schemaOpt) match {
-              case (Success(newSchema), Some(oldSchema)) =>
+            val newSchema = Schema(metric, record)
+            schemaOpt match {
+              case Some(oldSchema) =>
                 checkAndUpdateSchema(db, namespace, metric, oldSchema, newSchema)
-              case (Success(newSchema), None) =>
+              case None =>
                 (schemaCache ? PutSchemaInCache(db, namespace, metric, newSchema))
                   .map {
                     case SchemaCached(_, _, _, _) =>
                       SchemaUpdated(db, namespace, metric, newSchema)
                     case msg => UpdateSchemaFailed(db, namespace, metric, List(s"Unknown response from cache $msg"))
                   }
-              case (Failure(t), _) =>
-                Future(UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)))
             }
           case e =>
             log.error("unexpected response from cache: expecting SchemaCached while got {}", e)
@@ -114,7 +113,8 @@ class SchemaCoordinator(schemaCache: ActorRef) extends ActorPathLogging with Sta
                               namespace,
                               metric,
                               s"unexpected response from cache: expecting SchemaCached while got $e"))
-        } pipeTo sender()
+        }
+        .recover { case t => UpdateSchemaFailed(db, namespace, metric, List(t.getMessage)) } pipeTo sender()
     case DeleteSchema(db, namespace, metric) =>
       (schemaCache ? EvictSchema(db, namespace, metric))
         .map {
