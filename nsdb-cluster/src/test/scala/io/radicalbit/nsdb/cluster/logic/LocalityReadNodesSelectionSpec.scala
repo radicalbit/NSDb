@@ -35,7 +35,7 @@ class LocalityReadNodesSelectionSpec extends WordSpec with Matchers {
         testLocations("this", 10, 19) ++
         testLocations("that2", 10, 19)
 
-      val uniqueLocations = localityReadNodesSelection.getUniqueLocationsByNode(completelyLocalLocations)
+      val uniqueLocations = localityReadNodesSelection.getDistinctLocationsByNode(completelyLocalLocations)
       uniqueLocations.keySet shouldBe Set("this")
       uniqueLocations("this").sortBy(_.from) shouldBe testLocations("this", 0, 9) ++ testLocations("this", 10, 19)
     }
@@ -50,7 +50,7 @@ class LocalityReadNodesSelectionSpec extends WordSpec with Matchers {
         testLocations("that2", 20, 29) ++
         testLocations("that2", 30, 39)
 
-      val uniqueLocations = localityReadNodesSelection.getUniqueLocationsByNode(scatteredLocations)
+      val uniqueLocations = localityReadNodesSelection.getDistinctLocationsByNode(scatteredLocations)
       uniqueLocations.keySet shouldBe Set("this", "that", "that2")
       uniqueLocations("this").sortBy(_.from) shouldBe testLocations("this", 0, 9)
       uniqueLocations("that").sortBy(_.from) shouldBe testLocations("that", 10, 19) ++ testLocations("that", 20, 29)

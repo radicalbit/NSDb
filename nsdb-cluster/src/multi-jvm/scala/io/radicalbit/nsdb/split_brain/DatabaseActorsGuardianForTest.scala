@@ -17,6 +17,6 @@ class DatabaseActorsGuardianForTest extends DatabaseActorsGuardian {
   override def receive: Receive = {
     case WhoAreYou =>
       log.info("Received msg WhoAreYou")
-      sender() ! self.path
+      sender() ! self.path.toString
   }
 }

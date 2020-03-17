@@ -23,15 +23,15 @@ import spire.math.Interval
 import spire.implicits._
 
 /**
-  * contains the method to select unique locations
+  * contains the method to select distinct locations
   */
 trait ReadNodesSelection {
 
   /**
-    * Returns all the unique locations grouped by node.
+    * Returns all the distinct locations grouped by node.
     * @param locationsWithReplicas all the locations for a metric (replicas included).
     */
-  def getUniqueLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]]
+  def getDistinctLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]]
 
 }
 

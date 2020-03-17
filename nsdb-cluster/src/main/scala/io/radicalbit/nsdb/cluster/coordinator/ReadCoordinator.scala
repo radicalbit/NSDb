@@ -190,7 +190,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
               ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
             val uniqueLocationsByNode: Map[String, Seq[Location]] =
-              readNodesSelection.getUniqueLocationsByNode(filteredLocations)
+              readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
             StatementParser.parseStatement(statement, schema) match {
               //pure count(*) query

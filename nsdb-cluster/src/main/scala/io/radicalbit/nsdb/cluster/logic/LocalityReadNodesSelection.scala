@@ -24,7 +24,7 @@ import io.radicalbit.nsdb.model.Location
   */
 class LocalityReadNodesSelection(localNode: String) extends ReadNodesSelection {
 
-  override def getUniqueLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]] = {
+  override def getDistinctLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]] = {
     locationsWithReplicas
       .groupBy(l => (l.from, l.to))
       .collect {
