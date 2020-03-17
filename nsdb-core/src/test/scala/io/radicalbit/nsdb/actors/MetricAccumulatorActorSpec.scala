@@ -24,9 +24,8 @@ import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
-import io.radicalbit.nsdb.index.VARCHAR
-import io.radicalbit.nsdb.model.{Location, Schema, SchemaField}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
@@ -61,10 +60,9 @@ class MetricAccumulatorActorSpec()
       MetricAccumulatorActor.props(basePath, db, namespace, metricsReaderActor, system.actorOf(Props.empty)),
       probeActor)
 
-  val schema =
-    Schema("",
-           Map("dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-               "tag"       -> SchemaField("tag", TagFieldType, VARCHAR())))
+  val dummyBit = Bit(0, 0, Map("dimension" -> "d"), Map("tag" -> "t"))
+
+  val schema = Schema("", dummyBit)
 
   private val location = Location("testMetric", nodeName, 0, 0)
 

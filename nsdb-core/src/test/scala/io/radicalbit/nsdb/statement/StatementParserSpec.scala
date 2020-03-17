@@ -16,10 +16,9 @@
 
 package io.radicalbit.nsdb.statement
 
-import io.radicalbit.nsdb.common.protocol.{DimensionFieldType, TagFieldType, TimestampFieldType, ValueFieldType}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{SumAggregation => SqlSumAggregation, _}
-import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, LongPoint}
 import org.apache.lucene.index.Term
@@ -30,17 +29,10 @@ class StatementParserSpec extends WordSpec with Matchers {
 
   val schema = Schema(
     "people",
-    Map(
-      "timestamp"    -> SchemaField("timestamp", TimestampFieldType, BIGINT()),
-      "value"        -> SchemaField("value", ValueFieldType, DECIMAL()),
-      "name"         -> SchemaField("name", DimensionFieldType, VARCHAR()),
-      "surname"      -> SchemaField("surname", DimensionFieldType, VARCHAR()),
-      "amount"       -> SchemaField("amount", TagFieldType, DECIMAL()),
-      "creationDate" -> SchemaField("creationDate", DimensionFieldType, BIGINT()),
-      "city"         -> SchemaField("city", TagFieldType, VARCHAR()),
-      "country"      -> SchemaField("country", TagFieldType, VARCHAR()),
-      "age"          -> SchemaField("age", TagFieldType, INT())
-    )
+    Bit(0,
+        1.1,
+        Map("name"   -> "name", "surname" -> "surname", "creationDate" -> 0L),
+        Map("amount" -> 1.1, "city"       -> "city", "country"         -> "country", "age" -> 0))
   )
 
   "A statement parser instance" when {

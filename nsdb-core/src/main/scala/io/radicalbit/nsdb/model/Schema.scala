@@ -52,7 +52,7 @@ case class SchemaField(name: String, fieldClassType: FieldClassType, indexType: 
   * @param metric the metric.
   * @param fieldsMap a map of [[SchemaField]] keyed by field name
   */
-case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) extends NSDbSerializable {
+class Schema private (val metric: String, val fieldsMap: Map[String, SchemaField]) extends NSDbSerializable {
 
   /**
     * filters tags from fieldsMap
@@ -69,8 +69,7 @@ case class Schema private (metric: String, fieldsMap: Map[String, SchemaField]) 
   /**
     * extract value from fieldsMap
     */
-  lazy val value: SchemaField =
-    fieldsMap("value")
+  lazy val value: SchemaField = fieldsMap("value")
 
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
@@ -88,13 +87,14 @@ object Schema extends TypeSupport {
     * @param bit the bit to be used to create the schema.
     * @return the resulting [[Schema]]. If bit contains invalid fields the result will be a [[scala.util.Failure]]
     */
-  def apply(metric: String, bit: Bit): Try[Schema] = {
-    validateSchemaTypeSupport(bit).map(
-      fieldsMap =>
-        Schema(
-          metric,
-          fieldsMap.mapValues(field => SchemaField(field.name, field.fieldClassType, field.indexType)).map(identity)))
-  }
+  def apply(metric: String, bit: Bit): Schema =
+    validateSchemaTypeSupport(bit)
+      .map(
+        fieldsMap =>
+          new Schema(
+            metric,
+            fieldsMap.mapValues(field => SchemaField(field.name, field.fieldClassType, field.indexType)).map(identity)))
+      .get
 
   /**
     * Assemblies, if possible, the union schema from 2 given schemas.
@@ -116,7 +116,7 @@ object Schema extends TypeSupport {
     if (notCompatibleFields.nonEmpty)
       Failure(new RuntimeException(notCompatibleFields.mkString(",")))
     else {
-      val schema = Schema(secondSchema.metric, firstSchema.fieldsMap ++ secondSchema.fieldsMap)
+      val schema = new Schema(secondSchema.metric, firstSchema.fieldsMap ++ secondSchema.fieldsMap)
       Success(schema)
     }
   }

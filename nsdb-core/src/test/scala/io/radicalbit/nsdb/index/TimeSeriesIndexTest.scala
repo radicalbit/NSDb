@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.index
 import java.nio.file.Paths
 import java.util.UUID
 
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, TagFieldType}
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.model.Schema
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
@@ -29,9 +29,7 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
-  private val schema = Schema("",
-                              Map("dimension" -> SchemaField("dimension", DimensionFieldType, VARCHAR()),
-                                  "tag"       -> SchemaField("tag", TagFieldType, VARCHAR())))
+  private val schema = Schema("", Bit(0, 0, Map("dimension" -> "d"), Map("tag" -> "t")))
 
   "TimeSeriesIndex" should "write and read properly on disk" in {
 

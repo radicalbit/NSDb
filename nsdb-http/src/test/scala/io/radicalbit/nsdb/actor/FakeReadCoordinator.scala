@@ -17,17 +17,16 @@
 package io.radicalbit.nsdb.actor
 
 import akka.actor.Actor
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
-import io.radicalbit.nsdb.index.{BIGINT, INT, VARCHAR}
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 
 class FakeReadCoordinator extends Actor {
-  import FakeReadCoordinator._
   import FakeReadCoordinator.Data._
+  import FakeReadCoordinator._
 
   override def receive: Receive = {
     case GetDbs =>
@@ -52,18 +51,14 @@ class FakeReadCoordinator extends Actor {
       }
     case ExecuteStatement(statement)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
-      StatementParser.parseStatement(
-        statement,
-        Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
+      StatementParser.parseStatement(statement, Schema("metric", bits.head)) match {
         case Right(_) =>
           val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
           sender ! SelectStatementExecuted(statement, bitsParametrized(e.value1.value, e.value2.value))
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }
     case ExecuteStatement(statement) =>
-      StatementParser.parseStatement(
-        statement,
-        Schema("metric", bits.head).getOrElse(Schema("metric", Map.empty[String, SchemaField]))) match {
+      StatementParser.parseStatement(statement, Schema("metric", bits.head)) match {
         case Right(_) =>
           sender ! SelectStatementExecuted(statement, bits)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
@@ -78,30 +73,20 @@ object FakeReadCoordinator {
     val namespaces = Set("namespace1", "namespace2")
     val metrics    = Set("metric1", "metric2")
 
+    val dummyBit = Bit(0, 0, Map("dim1" -> "dime1", "dim2" -> 1, "dim3" -> 1L), Map.empty)
+
     val schemas = Map(
       "metric1" -> Schema(
         "metric1",
-        Map(
-          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
-          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
-          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
-        )
+        dummyBit
       ),
       "metricWithoutInfo" -> Schema(
         "metricWithoutInfo",
-        Map(
-          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
-          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
-          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
-        )
+        dummyBit
       ),
       "metric2" -> Schema(
         "metric2",
-        Map(
-          "dim1" -> SchemaField("dim1", DimensionFieldType, VARCHAR()),
-          "dim2" -> SchemaField("dim2", DimensionFieldType, INT()),
-          "dim3" -> SchemaField("dim3", DimensionFieldType, BIGINT())
-        )
+        dummyBit
       )
     )
   }
