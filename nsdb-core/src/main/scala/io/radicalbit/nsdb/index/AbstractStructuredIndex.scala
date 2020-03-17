@@ -21,10 +21,8 @@ import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.StatementParser.SimpleField
-import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
-import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.search._
 import org.apache.lucene.search.grouping.{AllGroupHeadsCollector, TermGroupSelector}
 
@@ -113,43 +111,16 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @param fields sequence of fields that must be included in the result.
     * @param limit results limit.
     * @param sort optional lucene [[Sort]].
-    * @param f function to obtain an element B from an element T.
-    * @tparam B return type.
     * @return the query results as a list of entries.
     */
-  def query[B](schema: Schema, query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(
-      f: Bit => B): Seq[B] = {
-    if (fields.nonEmpty && fields.forall(_.count)) {
+  def query(schema: Schema, query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[Bit] = {
+    if (fields.nonEmpty && fields.forall(_.count))
       executeCountQuery(this.getSearcher, query, limit) { doc =>
-        f(toRecord(schema, doc, fields))
-      }
-    } else
+        toRecord(schema, doc, fields)
+      } else
       executeQuery(this.getSearcher, query, limit, sort) { doc =>
-        f(toRecord(schema: Schema, doc, fields))
+        toRecord(schema: Schema, doc, fields)
       }
-  }
-
-  /**
-    * Returns all the entries where `field` = `value`
-    * @param field the field name to use to filter data.
-    * @param value the value to check the field with.
-    * @param fields sequence of fields that must be included in the result.
-    * @param limit results limit.
-    * @param sort optional lucene [[Sort]].
-    * @param f function to obtain an element B from an element T.
-    * @tparam B return type.
-    * @return the manipulated Seq.
-    */
-  def query[B](schema: Schema,
-               field: String,
-               value: String,
-               fields: Seq[SimpleField],
-               limit: Int,
-               sort: Option[Sort] = None)(f: Bit => B): Seq[B] = {
-    val parser = new QueryParser(field, new StandardAnalyzer())
-    val q      = parser.parse(value)
-
-    query(schema, q, fields, limit, sort)(f)
   }
 
   /**
@@ -157,23 +128,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @return all the entries.
     */
   def all(schema: Schema): Seq[Bit] = {
-    Try { query(schema, new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity) } match {
+    Try { query(schema, new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[Bit]) => docs
       case Failure(_)              => Seq.empty
-    }
-  }
-
-  /**
-    * Returns all entries applying the defined callback function
-    *
-    * @param f the callback function
-    * @tparam B return type of f
-    * @return all entries
-    */
-  def all[B](schema: Schema, f: Bit => B): Seq[B] = {
-    Try { query(schema, new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(f) } match {
-      case Success(docs: Seq[B]) => docs
-      case Failure(_)            => Seq.empty
     }
   }
 
