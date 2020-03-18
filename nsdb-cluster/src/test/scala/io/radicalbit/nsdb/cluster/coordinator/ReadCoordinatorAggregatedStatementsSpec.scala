@@ -558,5 +558,31 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
       )
     }
+
+    "a" in within(5 seconds) {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = AggregationMetric.name,
+            distinct = false,
+            fields = AllFields(),
+            condition = None,
+            groupBy = None,
+            order = Some(DescOrderOperator("value")),
+            limit = None // Some(LimitOperator(2))
+          )
+        )
+      )
+
+      val result =
+        awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values
+
+      result.foreach(println)
+    }
   }
 }

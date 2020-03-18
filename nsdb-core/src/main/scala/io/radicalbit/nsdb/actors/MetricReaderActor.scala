@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatemen
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.post_proc.postProcessingTemporalQueryResult
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -327,11 +328,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
 
           rawResult.pipeTo(sender)
-        case Right(_: ParsedTemporalAggregatedQuery) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 
-          gatherShardResults(statement, actors, msg)().pipeTo(sender)
+          gatherShardResults(statement, actors, msg)(
+            postProcessingTemporalQueryResult(schema, statement, aggregationType)).pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)
         case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")
