@@ -153,10 +153,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
-  private def gatherShardResults(statement: SelectSQLStatement,
-                                 actors: Seq[(Location, ActorRef)],
-                                 msg: ExecuteSelectStatement)(
-      postProcFun: Seq[Bit] => Seq[Bit] = identity): Future[ExecuteSelectStatementResponse] = {
+  private def gatherShardResults(
+      statement: SelectSQLStatement,
+      actors: Seq[(Location, ActorRef)],
+      msg: ExecuteSelectStatement)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
     Future
       .sequence(actors.map {
         case (_, actor) =>
@@ -167,9 +167,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
           SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-        } else
-          SelectStatementExecuted(statement,
-                                  postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
+        } else {
+          val mergeResults = e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
+          SelectStatementExecuted(statement, if (msg.isSingleNode) postProcFun(mergeResults) else mergeResults)
+        }
       }
   }
 
@@ -182,9 +183,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @param msg the original [[ExecuteSelectStatement]] command
     * @return a single sequence of results obtained from different shards.
     */
-  private def retrieveAndOrderPlainResults(actors: Seq[(Location, ActorRef)],
-                                           parsedStatement: ParsedSimpleQuery,
-                                           msg: ExecuteSelectStatement): Future[ExecuteSelectStatementResponse] = {
+  private def retrieveAndOrderPlainResults(
+      actors: Seq[(Location, ActorRef)],
+      parsedStatement: ParsedSimpleQuery,
+      msg: ExecuteSelectStatement)(postProcess: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
 
     val statement = msg.selectStatement
     if (statement.getTimeOrdering.isDefined || statement.order.isEmpty) {
@@ -192,9 +194,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       val eventuallyOrderedActors =
         statement.getTimeOrdering.map(actors.sortBy(_._1.from)(_)).getOrElse(actors)
 
-      gatherShardResults(statement, eventuallyOrderedActors, msg) { seq =>
-        seq.take(parsedStatement.limit)
-      }
+      gatherShardResults(statement, eventuallyOrderedActors, msg)(postProcess)
 
     } else {
 
@@ -238,44 +238,46 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _, _) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
-        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
+        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _))
+            if fields.lengthCompare(1) == 0 && fields.head.count =>
           val actors =
             actorsForLocations(locations)
 
-          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg)
+          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg) { seq =>
+            val updatedSeq = seq.take(parsedStatement.limit)
 
-          orderedResults
-            .map {
-              case SelectStatementExecuted(_, seq) =>
-                if (fields.lengthCompare(1) == 0 && fields.head.count) {
-                  val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
-                  val count       = if (recordCount <= limit) recordCount else limit
+            val recordCount = updatedSeq.map(_.value.rawValue.asInstanceOf[Int]).sum
+            val count       = if (recordCount <= limit) recordCount else limit
 
-                  val bits = Seq(
-                    Bit(
-                      timestamp = 0,
-                      value = NSDbNumericType(count),
-                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
-                    ))
+            Seq(
+              Bit(
+                timestamp = 0,
+                value = NSDbNumericType(count),
+                dimensions = retrieveCount(updatedSeq, count, (bit: Bit) => bit.dimensions),
+                tags = retrieveCount(updatedSeq, count, (bit: Bit) => bit.tags)
+              ))
 
-                  SelectStatementExecuted(statement, bits)
-                } else {
-                  SelectStatementExecuted(
-                    statement,
-                    seq.map(
-                      b =>
-                        if (b.tags.contains("count(*)"))
-                          b.copy(tags = b.tags + ("count(*)" -> NSDbType(seq.size)))
-                        else b)
-                  )
-                }
-              case err: SelectStatementFailed => err
-            }
-            .pipeTo(sender)
+          }
+          orderedResults.pipeTo(sender)
+        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
+          val actors =
+            actorsForLocations(locations)
+
+          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg) { seq =>
+            seq
+              .take(parsedStatement.limit)
+              .map(
+                b =>
+                  if (b.tags.contains("count(*)"))
+                    b.copy(tags = b.tags + ("count(*)" -> NSDbType(seq.size)))
+                  else b)
+          }
+
+          orderedResults.pipeTo(sender)
+
         case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 

@@ -105,15 +105,19 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
     val filteredMetricsDataActors =
       metricsDataActors.collect {
-        case (str, ref) if uniqueLocationsByNode.isDefinedAt(str) => str -> ref
+        case (nodeName, ref) if uniqueLocationsByNode.isDefinedAt(nodeName) => nodeName -> ref
       }
+
+    val isSingleNode = uniqueLocationsByNode.keys.size == 1
+
     Future
       .sequence(filteredMetricsDataActors.map {
         case (nodeName, actor) =>
           actor ? ExecuteSelectStatement(statement,
                                          schema,
                                          uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
-                                         ranges)
+                                         ranges,
+                                         isSingleNode)
       })
       .map { rawResponses =>
         log.debug("gathered {} from locations {}", rawResponses, uniqueLocationsByNode)
@@ -125,7 +129,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
             rawResponses.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
           SelectStatementExecuted(
             statement,
-            if (uniqueLocationsByNode.keys.size == 1) combinedResponsesFromNodes
+            if (isSingleNode) combinedResponsesFromNodes
             else postProcFun(combinedResponsesFromNodes)
           )
         }
@@ -211,7 +215,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
             StatementParser.parseStatement(statement, schema) match {
               //pure count(*) query
-              case Right(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
+              case Right(ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                   if fields.lengthCompare(1) == 0 && fields.head.count =>
                 gatherNodeResults(statement, schema, uniqueLocationsByNode) { seq =>
                   val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
