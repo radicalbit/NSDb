@@ -31,7 +31,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
-import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
+import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -103,8 +103,12 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
       uniqueLocationsByNode: Map[String, Seq[Location]],
       ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
+    val filteredMetricsDataActors =
+      metricsDataActors.collect {
+        case (str, ref) if uniqueLocationsByNode.isDefinedAt(str) => str -> ref
+      }
     Future
-      .sequence(metricsDataActors.map {
+      .sequence(filteredMetricsDataActors.map {
         case (nodeName, actor) =>
           actor ? ExecuteSelectStatement(statement,
                                          schema,
@@ -209,7 +213,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
               //pure count(*) query
               case Right(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                   if fields.lengthCompare(1) == 0 && fields.head.count =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
+                gatherNodeResults(statement, schema, uniqueLocationsByNode) { seq =>
                   val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
                   val count       = if (recordCount <= limit) recordCount else limit
                   applyOrderingWithLimit(
@@ -222,7 +226,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
                     statement,
                     schema
                   )
-                })
+                }
 
               case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
                 gatherNodeResults(statement, schema, uniqueLocationsByNode)(
