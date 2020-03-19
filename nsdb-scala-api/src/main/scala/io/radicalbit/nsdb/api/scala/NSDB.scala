@@ -138,7 +138,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
   /**
     * Closes the connection. Here any allocated resources must be released.
     */
-  def close(): Unit = {}
+  def close(): Unit = client.close()
 }
 
 /**
@@ -175,7 +175,7 @@ case class Namespace(db: String, name: String) {
     * @param queryString raw query.
     * @return auxiliary [[SQLStatement]] case class.
     */
-  def query(queryString: String) = SQLStatement(db = db, namespace = name, sQLStatement = queryString)
+  def query(queryString: String): SQLStatement = SQLStatement(db = db, namespace = name, sQLStatement = queryString)
 
 }
 

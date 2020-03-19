@@ -74,7 +74,7 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
     case GetLocations(db, namespace, metric) =>
       (cache ? GetLocationsFromCache(db, namespace, metric))
         .mapTo[LocationsCached]
-        .map(l => LocationsGot(db, namespace, metric, l.value))
+        .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val start = getShardStartIstant(timestamp, defaultShardingInterval)

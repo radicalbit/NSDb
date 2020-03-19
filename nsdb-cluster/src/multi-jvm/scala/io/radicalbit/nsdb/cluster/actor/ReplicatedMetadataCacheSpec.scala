@@ -353,7 +353,7 @@ class ReplicatedMetadataCacheSpec
       awaitAssert {
         replicatedCache ! GetLocationsFromCache("db", "namespace", metric)
         val cached = expectMsgType[LocationsCached]
-        cached.value.size shouldBe 11
+        cached.locations.size shouldBe 11
       }
 
       enterBarrier("after-bulk-add")
@@ -463,16 +463,16 @@ class ReplicatedMetadataCacheSpec
 
       awaitAssert {
         replicatedCache ! GetLocationsFromCache(db, namespace, metric)
-        expectMsgType[LocationsCached].value.size shouldBe 22
+        expectMsgType[LocationsCached].locations.size shouldBe 22
       }
 
       awaitAssert {
         replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, "node10")
-        expectMsgType[LocationsCached].value.size shouldBe 11
+        expectMsgType[LocationsCached].locations.size shouldBe 11
       }
       awaitAssert {
         replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, "node20")
-        expectMsgType[LocationsCached].value.size shouldBe 11
+        expectMsgType[LocationsCached].locations.size shouldBe 11
       }
 
       runOn(node2) {
@@ -482,7 +482,7 @@ class ReplicatedMetadataCacheSpec
 
       awaitAssert {
         replicatedCache ! GetLocationsFromCache(db, namespace, metric)
-        expectMsgType[LocationsCached].value.size shouldBe 11
+        expectMsgType[LocationsCached].locations.size shouldBe 11
       }
 
       runOn(node1) {
@@ -492,7 +492,7 @@ class ReplicatedMetadataCacheSpec
 
       awaitAssert {
         replicatedCache ! GetLocationsFromCache(db, namespace, metric)
-        expectMsgType[LocationsCached].value.size shouldBe 0
+        expectMsgType[LocationsCached].locations.size shouldBe 0
       }
 
       enterBarrier("after-node-evict")

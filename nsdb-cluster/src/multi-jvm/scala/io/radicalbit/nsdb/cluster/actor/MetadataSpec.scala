@@ -56,6 +56,7 @@ object MetadataSpec extends MultiNodeConfig {
     |  retention.check.interval = 1 seconds
     |
     |  cluster {
+    |    metrics-selector = disk
     |    metadata-write-consistency = "all"
     |    replication-factor = 2
     |    consistency-level = 2
