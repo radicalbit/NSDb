@@ -19,12 +19,16 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Props, Stash}
+import akka.actor.{ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
+  AddRecordToLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
+import io.radicalbit.nsdb.cluster.actor.SequentialFuture
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
@@ -37,7 +41,6 @@ import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -59,7 +62,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     extends ActorPathLogging
     with DirectorySupport
     with NsdbPerfLogger
-    {
+    with SequentialFuture {
 
   import akka.pattern.ask
 
@@ -409,26 +412,32 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
-        updateSchema(db, namespace, metric, bit) { schema =>
-          val consistentLocations = locations.take(consistencyLevel)
-          val eventualLocations   = locations.diff(consistentLocations)
 
-          val accumulatedResponses = writeOperation(consistentLocations, db, namespace, metric, startTime, bit, schema)
+      sequential {
+        getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+          updateSchema(db, namespace, metric, bit) { schema =>
+            val consistentLocations = locations.take(consistencyLevel)
+            val eventualLocations   = locations.diff(consistentLocations)
 
-          // Send write requests for eventual consistent location iff consistent locations had accumulated the data
-          accumulatedResponses.flatMap {
-            case _: InputMapped =>
-              writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema, publish = false)
-            case r: RecordRejected =>
-              // It does nothing for responses not included in consistency level
-              log.error(
-                s"Eventual writes are not performed due to error during consistent write operations ${r.reasons.mkString("")}")
-              Future(r)
+            val accumulatedResponses =
+              writeOperation(consistentLocations, db, namespace, metric, startTime, bit, schema)
+
+            // Send write requests for eventual consistent location iff consistent locations had accumulated the data
+            accumulatedResponses.flatMap {
+              case _: InputMapped =>
+                writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema, publish = false)
+              case r: RecordRejected =>
+                // It does nothing for responses not included in consistency level
+                log.error(
+                  s"Eventual writes are not performed due to error during consistent write operations ${r.reasons
+                    .mkString("")}")
+                Future(r)
+            }
+
+            accumulatedResponses
           }
-
-          accumulatedResponses
         }
+
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
@@ -470,18 +479,19 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         _ <- schemaCoordinator ? msg
       } yield NamespaceDeleted(db, namespace)
 
-      chain.pipeTo(sender())
+      sequential(chain).pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       //FIXME add cluster aware deletion
-      writeCommitLog(
-        db,
-        namespace,
-        System.currentTimeMillis(),
-        metric,
-        commitLogCoordinators.keys.head,
-        DeleteAction(statement),
-        Location(metric, commitLogCoordinators.keys.head, 0, 0)
-      ).flatMap {
+      sequential {
+        writeCommitLog(
+          db,
+          namespace,
+          System.currentTimeMillis(),
+          metric,
+          commitLogCoordinators.keys.head,
+          DeleteAction(statement),
+          Location(metric, commitLogCoordinators.keys.head, 0, 0)
+        ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
@@ -509,7 +519,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
             context.system.terminate()
         }
-        .pipeTo(sender())
+      }.pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       val chain = for {
         locations <- (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations)
@@ -540,7 +550,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         _ <- metadataCoordinator ? DropMetric(db, namespace, metric)
         _ <- (schemaCoordinator ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted]
       } yield MetricDropped(db, namespace, metric)
-      chain.pipeTo(sender())
+      sequential(chain).pipeTo(sender())
     case msg => log.info(s"Receive Unhandled message $msg")
   }
 }
