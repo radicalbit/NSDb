@@ -24,13 +24,9 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
-  AddRecordToLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
@@ -52,7 +48,6 @@ object WriteCoordinator {
   def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
     Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
 
-  case class AckPendingMetric(db: String, namespace: String, metric: String)
 }
 
 /**
@@ -64,7 +59,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     extends ActorPathLogging
     with DirectorySupport
     with NsdbPerfLogger
-    with Stash {
+    {
 
   import akka.pattern.ask
 
@@ -86,13 +81,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
   private val publishers: mutable.Map[String, ActorRef]            = mutable.Map.empty
-
-  /**
-    * This mutable state is aimed to store metric for which the actor is waiting for CommitLog ack
-    * If a metric, identified according to its "coordinates" in [[AckPendingMetric]], is contained in this Set
-    * the coming request for the latter will be stashed until CL acks are received.
-    */
-  private val ackPendingMetrics: mutable.Set[AckPendingMetric] = mutable.Set.empty
 
   /**
     * Performs an ask to every namespace actor subscribed.
@@ -162,7 +150,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     * @param op code executed in case of success.
     * @return [[LocationsGot]] if communication with metadata coordinator succeeds, RecordRejected otherwise
     */
-  def getMetadataLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
+  def getWriteLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Seq[Location] => Future[Any]): Future[Any] =
     (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).mapTo[GetWriteLocationsResponse].flatMap {
       case WriteLocationsGot(_, _, _, locations) =>
@@ -277,8 +265,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       partitionResponses[RecordAdded, RecordRejected](responses)
 
     if (succeedResponses.size == responses.size) {
-      unstashAll()
-      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       if (publish)
         publishers.foreach {
           case (_, publisherActor) =>
@@ -338,7 +324,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                System.currentTimeMillis())))
         }
 
-      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       commitLogRejection
     }
   }
@@ -421,16 +406,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       sender() ! PublisherUnSubscribed(nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case MapInput(_, db, namespace, metric, _) if ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
-      // Case covering request for a metric waiting for commit-log ack
-      log.debug(s"Stashed message due to async ack from commit-log for metric $metric")
-      stash()
-    case MapInput(ts, db, namespace, metric, bit)
-        if !ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
-      // Case covering request for a metric not waiting for commit-log ack
+    case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+      getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
           val consistentLocations = locations.take(consistencyLevel)
           val eventualLocations   = locations.diff(consistentLocations)
