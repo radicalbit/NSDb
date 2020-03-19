@@ -28,9 +28,10 @@ import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -60,6 +61,10 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
 
   private val indexBasePath = config.getString(StorageIndexPath)
 
+  private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
+    CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
+  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeName)
+
   private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
   private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
 
@@ -73,7 +78,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val metadataCoordinator =
     context.actorOf(
       MetadataCoordinator
-        .props(clusterListener, metadataCache, schemaCache, mediator)
+        .props(clusterListener, metadataCache, schemaCache, mediator, writeNodesSelectionLogic)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       name = s"metadata-coordinator_$nodeName"
@@ -82,7 +87,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val readCoordinator =
     context.actorOf(
       ReadCoordinator
-        .props(metadataCoordinator, schemaCoordinator, mediator)
+        .props(metadataCoordinator, schemaCoordinator, mediator, readNodesSelection)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$nodeName"

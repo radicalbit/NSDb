@@ -116,10 +116,20 @@ object MessageProtocol {
     case class MetricNotFound(metric: String) extends ErrorCode with NSDbSerializable
     case class Generic()                      extends ErrorCode with NSDbSerializable
 
-    case class DbsGot(dbs: Set[String])                                                         extends NSDbSerializable
-    case class NamespacesGot(db: String, namespaces: Set[String])                               extends NSDbSerializable
-    case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema]) extends NSDbSerializable
-    case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String)   extends NSDbSerializable
+    case class DbsGot(dbs: Set[String])                           extends NSDbSerializable
+    case class NamespacesGot(db: String, namespaces: Set[String]) extends NSDbSerializable
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[GetSchemaResponse], name = "GetSchemaResponse"),
+        new JsonSubTypes.Type(value = classOf[GetSchemaFailed], name = "GetSchemaFailed")
+      ))
+    trait GetSchemaResponse extends NSDbSerializable
+    case class SchemaGot(db: String, namespace: String, metric: String, schema: Option[Schema])
+        extends GetSchemaResponse
+    case class GetSchemaFailed(db: String, namespace: String, metric: String, reason: String) extends GetSchemaResponse
+
     case class MetricInfoGot(db: String, namespace: String, metric: String, metricInfo: Option[MetricInfo])
         extends NSDbSerializable
     case class SchemaCached(db: String, namespace: String, metric: String, schema: Option[Schema])

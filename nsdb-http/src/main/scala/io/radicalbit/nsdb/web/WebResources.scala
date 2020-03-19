@@ -65,18 +65,15 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
 
         val http: Future[Http.ServerBinding] =
           if (isSSLEnabled) {
-            val port = config.getInt("nsdb.http.https-port")
-            logger.info(s"Cluster Apis started with https protocol on port $port")
-            httpExt.bindAndHandle(
-              withCors(withNSDbVersion(api)),
-              config.getString(HttpInterface),
-              config.getInt(HttpsPort),
-              connectionContext = serverContext
-            )
+            val interface = config.getString(HttpInterface)
+            val port      = config.getInt(HttpsPort)
+            logger.info(s"Cluster Apis started with https protocol at interface $interface on port $port")
+            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port, connectionContext = serverContext)
           } else {
-            val port = config.getInt(HttpPort)
-            logger.info(s"Cluster Apis started with http protocol on port $port")
-            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), config.getString(HttpInterface), port)
+            val interface = config.getString(HttpInterface)
+            val port      = config.getInt(HttpPort)
+            logger.info(s"Cluster Apis started with http protocol at interface $interface and port $port")
+            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port)
           }
 
         scala.sys.addShutdownHook {
