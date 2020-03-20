@@ -72,6 +72,8 @@ object AggregationMetric {
 
 class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
+  override val replicationFactor: Int = 1
+
   val db        = "db"
   val namespace = "registry"
 
