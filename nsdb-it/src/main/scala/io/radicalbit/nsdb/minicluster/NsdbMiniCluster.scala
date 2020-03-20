@@ -28,10 +28,11 @@ trait NsdbMiniCluster extends LazyLogging {
   protected[this] val instanceId = { UUID.randomUUID }
 
   protected[this] val startingHostname = "127.0.0."
-  protected[this] val rootFolder       = s"target/minicluster/$instanceId/"
 
+  protected[this] def rootFolder: String
   protected[this] def nodesNumber: Int
   protected[this] def passivateAfter: Duration
+  protected[this] def replicationFactor: Int
 
   lazy val nodes: Set[NSDbMiniClusterNode] =
     (for {
@@ -40,7 +41,9 @@ trait NsdbMiniCluster extends LazyLogging {
       new NSDbMiniClusterNode(
         hostname = s"$startingHostname${i + 1}",
         storageDir = s"$rootFolder/data$i",
-        passivateAfter = passivateAfter
+        passivateAfter = passivateAfter,
+        replicationFactor = replicationFactor,
+        consistencyLevel = 1
       )).toSet
 
   def start(cleanup: Boolean = false): Unit = {

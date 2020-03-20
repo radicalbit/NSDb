@@ -26,7 +26,9 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
 
-  val nodesNumber: Int
+  val nodesNumber: Int = 3
+  val replicationFactor: Int = 2
+  val rootFolder: String = s"target/minicluster/$instanceId/"
 
   implicit val formats = DefaultFormats
 
