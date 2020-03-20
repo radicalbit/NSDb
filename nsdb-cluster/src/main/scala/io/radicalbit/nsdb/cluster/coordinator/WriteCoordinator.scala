@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
-import io.radicalbit.nsdb.cluster.actor.SequentialFuture
+import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
@@ -62,7 +62,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     extends ActorPathLogging
     with DirectorySupport
     with NsdbPerfLogger
-    with SequentialFuture {
+    with SequentialFutureProcessing {
 
   import akka.pattern.ask
 
