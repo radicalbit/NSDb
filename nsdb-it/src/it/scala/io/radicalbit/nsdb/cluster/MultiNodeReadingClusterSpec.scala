@@ -23,6 +23,9 @@ object CustomMetric {
   )
 }
 
+/**
+ * TODO: we need to have a better test coverage here
+ */
 class MultiNodeReadingClusterSpec extends MiniClusterSpec {
 
   import CustomMetric._

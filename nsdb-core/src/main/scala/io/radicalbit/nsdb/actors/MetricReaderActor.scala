@@ -277,7 +277,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               case err: SelectStatementFailed => err
             }
             .pipeTo(sender)
-
         case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
