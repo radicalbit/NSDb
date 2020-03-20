@@ -95,9 +95,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
     val filteredMetricsDataActors =
-      metricsDataActors.collect {
-        case (nodeName, ref) if uniqueLocationsByNode.isDefinedAt(nodeName) => nodeName -> ref
-      }
+      metricsDataActors.filter { case (nodeName, _) => uniqueLocationsByNode.isDefinedAt(nodeName) }
 
     val isSingleNode = uniqueLocationsByNode.keys.size == 1
 
