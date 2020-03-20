@@ -27,17 +27,13 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementI
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
+import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
-  GetMetricInfo,
-  SubscribeCommitLogCoordinator,
-  SubscribeMetricsDataActor,
-  UpdateSchemaFromRecord
-}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricInfoGot
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Matchers, WordSpecLike}
+import org.scalatest._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -60,6 +56,9 @@ class MetadataCoordinatorSpec
 
   import io.radicalbit.nsdb.cluster.coordinator.mockedActors.LocalMetadataCache._
 
+  val writeNodesSelection = new CapacityWriteNodesSelectionLogic(
+    CapacityWriteNodesSelectionLogic.fromConfigValue(system.settings.config.getString("nsdb.cluster.metrics-selector")))
+
   val probe                = TestProbe()
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
   val schemaCache          = system.actorOf(Props[FakeSchemaCache])
@@ -70,7 +69,8 @@ class MetadataCoordinatorSpec
   val clusterListener       = system.actorOf(ClusterListener.props(true))
 
   val metadataCoordinator =
-    system.actorOf(MetadataCoordinator.props(clusterListener, metadataCache, schemaCache, probe.ref))
+    system.actorOf(
+      MetadataCoordinator.props(clusterListener, metadataCache, schemaCache, probe.ref, writeNodesSelection))
 
   val db        = "testDb"
   val namespace = "testNamespace"

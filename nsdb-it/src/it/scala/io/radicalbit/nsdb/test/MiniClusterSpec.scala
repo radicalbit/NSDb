@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.test
 
 import java.time.Duration
+import java.util.logging.{Level, Logger}
 
 import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
 import org.json4s.DefaultFormats
@@ -25,6 +26,8 @@ import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
+
+  Logger.getLogger("io.grpc.internal").setLevel(Level.OFF)
 
   val nodesNumber: Int = 3
   val replicationFactor: Int = 2

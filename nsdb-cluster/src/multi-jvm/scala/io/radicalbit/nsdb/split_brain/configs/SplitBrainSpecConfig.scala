@@ -88,7 +88,6 @@ trait NSDbBaseSpecWithSerializationConfig {
   protected val serializationConfig =
     ConfigFactory.parseString("""
         |akka.actor {
-        |  allow-java-serialization = on
         |  serialization-bindings {
         |    "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
         |  }

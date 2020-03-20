@@ -25,6 +25,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
+import io.radicalbit.nsdb.cluster.logic.LocalityReadNodesSelection
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -106,6 +107,9 @@ abstract class AbstractReadCoordinatorSpec
   val basePath  = "target/test_index/ReadCoordinatorShardSpec"
   val db        = "db"
   val namespace = "registry"
+
+  val readNodesSelection = new LocalityReadNodesSelection("notImportant")
+
   val schemaCoordinator =
     system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])), "schema-coordinator")
   val metadataCoordinator =
@@ -114,7 +118,8 @@ abstract class AbstractReadCoordinatorSpec
     system.actorOf(MetricsDataActor.props(basePath, "node1", Actor.noSender))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
-                                                                  system.actorOf(Props.empty))
+                                                                  system.actorOf(Props.empty),
+                                                                  readNodesSelection)
 
   override def beforeAll = {
     import scala.concurrent.duration._

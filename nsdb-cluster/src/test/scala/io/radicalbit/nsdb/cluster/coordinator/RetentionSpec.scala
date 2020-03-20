@@ -31,6 +31,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMe
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetricInfoPut
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
 import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement.{AscOrderOperator, ListFields, SelectSQLStatement}
@@ -91,6 +92,10 @@ class RetentionSpec
     Bit(currentTime + (retention * 5) + 10, 9L, Map("surname"  -> "Doe"), Map("name" -> "Frankie"))
   )
 
+  val writeNodesSelection = new CapacityWriteNodesSelectionLogic(
+    CapacityWriteNodesSelectionLogic.fromConfigValue(system.settings.config.getString("nsdb.cluster.metrics-selector")))
+  val readSelectionLogic = new LocalityReadNodesSelection("notImportant")
+
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
   val schemaCache          = system.actorOf(Props[FakeSchemaCache])
   val schemaCoordinator    = system.actorOf(SchemaCoordinator.props(schemaCache), "schema-coordinator")
@@ -101,7 +106,8 @@ class RetentionSpec
         .props(system.actorOf(ClusterListener.props(true)),
                localMetadataCache,
                schemaCache,
-               system.actorOf(Props.empty))
+               system.actorOf(Props.empty),
+               writeNodesSelection)
         .withDispatcher("akka.actor.control-aware-dispatcher"),
       "metadata-coordinator"
     )
@@ -110,7 +116,8 @@ class RetentionSpec
                    "write-coordinator")
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
-                                                                  system.actorOf(Props.empty))
+                                                                  system.actorOf(Props.empty),
+                                                                  readSelectionLogic)
 
   implicit val timeout = Timeout(5.second)
 

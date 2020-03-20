@@ -26,9 +26,10 @@ import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
+import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{Expression, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 import io.radicalbit.nsdb.post_proc._
@@ -38,8 +39,6 @@ import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.statement._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
-import spire.implicits._
-import spire.math.Interval
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -50,7 +49,10 @@ import scala.concurrent.duration.FiniteDuration
   * @param metadataCoordinator  [[MetadataCoordinator]] the metadata coordinator.
   * @param schemaCoordinator [[SchemaCoordinator]] the metrics schema actor.
   */
-class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef)
+class ReadCoordinator(metadataCoordinator: ActorRef,
+                      schemaCoordinator: ActorRef,
+                      mediator: ActorRef,
+                      readNodesSelection: ReadNodesSelection)
     extends ActorPathLogging
     with NsdbPerfLogger {
 
@@ -76,17 +78,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
     context.system.scheduler.schedule(FiniteDuration(0, "ms"), interval) {
       mediator ! Publish(NODE_GUARDIANS_TOPIC, GetMetricsDataActors)
       log.debug("readcoordinator data actor : {}", metricsDataActors.size)
-    }
-  }
-
-  private def filterLocationsThroughTime(expression: Option[Expression], locations: Seq[Location]): Seq[Location] = {
-    val intervals = TimeRangeManager.extractTimeRange(expression)
-    locations.filter {
-      case key if intervals.nonEmpty =>
-        intervals
-          .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
-          .foldLeft(false)((x, y) => x || y)
-      case _ => true
     }
   }
 
@@ -208,10 +199,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
             log.debug("found schema {} and locations", schema, locations)
-            val filteredLocations = filterLocationsThroughTime(statement.condition.map(_.expression), locations)
+            val filteredLocations: Seq[Location] =
+              ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
-            val uniqueLocationsByNode =
-              filteredLocations.groupBy(l => (l.from, l.to)).map(_._2.head).toSeq.groupBy(_.node)
+            val uniqueLocationsByNode: Map[String, Seq[Location]] =
+              readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
             StatementParser.parseStatement(statement, schema) match {
               //pure count(*) query
@@ -324,7 +316,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef
 
 object ReadCoordinator {
 
-  def props(metadataCoordinator: ActorRef, schemaActor: ActorRef, mediator: ActorRef): Props =
-    Props(new ReadCoordinator(metadataCoordinator, schemaActor, mediator: ActorRef))
+  def props(metadataCoordinator: ActorRef,
+            schemaActor: ActorRef,
+            mediator: ActorRef,
+            readNodesSelection: ReadNodesSelection): Props =
+    Props(new ReadCoordinator(metadataCoordinator, schemaActor, mediator: ActorRef, readNodesSelection))
 
 }

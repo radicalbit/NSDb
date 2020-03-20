@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.client.rpc
 
+import java.util.concurrent.TimeUnit
+
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
@@ -86,5 +88,7 @@ class GRPCClient(host: String, port: Int) {
     log.debug("Preparing of command describe metric for namespace: {} ", request.namespace)
     stubCommand.describeMetric(request)
   }
+
+  def close(): Unit = channel.shutdownNow().awaitTermination(10, TimeUnit.SECONDS)
 
 }

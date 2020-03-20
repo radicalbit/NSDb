@@ -30,7 +30,6 @@ import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 
 object ReplicatedMetadataCache {
 
@@ -91,7 +90,7 @@ object ReplicatedMetadataCache {
   final case class PutLocationInCacheFailed(db: String, namespace: String, metric: String, location: Location)
       extends AddLocationResponse
 
-  final case class LocationsCached(db: String, namespace: String, metric: String, value: Seq[Location])
+  final case class LocationsCached(db: String, namespace: String, metric: String, locations: Seq[Location])
       extends NSDbSerializable
   final case class EvictLocation(db: String, namespace: String, location: Location) extends NSDbSerializable
   final case class EvictLocationsInNode(nodeName: String)                           extends NSDbSerializable
@@ -312,7 +311,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
       replicator ! Get(coordinatesKey, ReadLocal, request = Some(MetricRequest(db, namespace, sender())))
     case DropMetricFromCache(db, namespace, metric) =>
       (for {
-        locations <- (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.value)
+        locations <- (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.locations)
         dropLocationsResult <- Future.sequence {
           locations.map(location => self ? EvictLocation(db, namespace, location))
         }
@@ -348,7 +347,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
           Future
             .sequence {
               metrics.metrics.map(metric =>
-                (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.value))
+                (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.locations))
             }
             .map(_.flatten)
         }

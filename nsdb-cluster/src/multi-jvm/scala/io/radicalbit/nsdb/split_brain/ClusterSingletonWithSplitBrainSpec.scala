@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.split_brain
 
-import akka.actor.{ActorPath, PoisonPill, Props}
+import akka.actor.{PoisonPill, Props}
 import akka.cluster.Cluster
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.remote.testconductor.RoleName
@@ -43,7 +43,7 @@ abstract class ClusterSingletonWithSplitBrainSpec
         )
 
       dbActorGuardian ! WhoAreYou
-      expectMsgType[ActorPath] === ActorPath.fromString("akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton")
+      expectMsgType[String] === "akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton"
     }
   }
 
