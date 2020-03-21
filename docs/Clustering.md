@@ -47,14 +47,13 @@ The number of replicas (stored in different nodes) that the system must manage i
 ```$
 nsdb.cluster {
     replication-factor = 2
-    consistency-level = 1
 }
 ```
 
-Write process is eventually consistent. 
-Briefly, there is an acknowledge process that is performed synchronously at every write request; if it went without errors, a positive response is returned to the client. 
-Users can configure a finer grained tuning by specifying the number of replicas that must be acknowledged before returning a write response, i.e. **consistency level**.
-The remaining replicas, the difference between replication factor and consistency level will be written asynchronously.
+Write process is eventually consistent, which means that the effects of a write operation are visible after a certain time interval. 
+Briefly, there is an acknowledge process that is performed synchronously at every write request; during this phase, 
+the number of replicas specified in the above configuration are retrieved if existing or created from scratch and, 
+if it went without errors, a positive response is returned to the caller. 
  
 
 ## Metric System

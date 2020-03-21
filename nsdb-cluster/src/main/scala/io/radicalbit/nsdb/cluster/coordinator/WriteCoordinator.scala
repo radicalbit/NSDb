@@ -78,9 +78,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   override lazy val indexStorageStrategy: StorageStrategy =
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
-  lazy val consistencyLevel: Int =
-    context.system.settings.config.getInt("nsdb.cluster.consistency-level")
-
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
   private val publishers: mutable.Map[String, ActorRef]            = mutable.Map.empty
@@ -412,32 +409,12 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-
       sequential {
         getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
           updateSchema(db, namespace, metric, bit) { schema =>
-            val consistentLocations = locations.take(consistencyLevel)
-            val eventualLocations   = locations.diff(consistentLocations)
-
-            val accumulatedResponses =
-              writeOperation(consistentLocations, db, namespace, metric, startTime, bit, schema)
-
-            // Send write requests for eventual consistent location iff consistent locations had accumulated the data
-            accumulatedResponses.flatMap {
-              case _: InputMapped =>
-                writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema, publish = false)
-              case r: RecordRejected =>
-                // It does nothing for responses not included in consistency level
-                log.error(
-                  s"Eventual writes are not performed due to error during consistent write operations ${r.reasons
-                    .mkString("")}")
-                Future(r)
-            }
-
-            accumulatedResponses
+            writeOperation(locations, db, namespace, metric, startTime, bit, schema)
           }
         }
-
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
