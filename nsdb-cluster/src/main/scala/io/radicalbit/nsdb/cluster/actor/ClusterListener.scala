@@ -34,6 +34,7 @@ import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.actor.ClusterListener.{DiskOccupationChanged, GetNodeMetrics, NodeMetricsGot}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
@@ -158,8 +159,6 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
       (nodeActorsGuardian ? GetNodeChildActors)
         .map {
           case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
-            mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
-
             val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd
 
             val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
@@ -184,6 +183,8 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
               }
               .onComplete {
                 case Success((_, failures)) if failures.isEmpty =>
+                  mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
+                  NSDbClusterSnapshot(context.system).addNodeName(selfNodeName)
                   onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
                 case e =>
                   onFailureBehaviour(member, e)
@@ -191,12 +192,25 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
           case unknownResponse =>
             log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
+    case MemberUp(member) =>
+      NSDbClusterSnapshot(context.system).addNodeName(createNodeName(member))
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
-      unsubscribeNode(createNodeName(member))
+
+      val nodeName = createNodeName(member)
+
+      unsubscribeNode(nodeName)
+
+      NSDbClusterSnapshot(context.system).removeNodeName(nodeName)
+
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
-      unsubscribeNode(createNodeName(member))
+
+      val nodeName = createNodeName(member)
+
+      unsubscribeNode(nodeName)
+
+      NSDbClusterSnapshot(context.system).removeNodeName(nodeName)
     case _: MemberEvent => // ignore
     case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
       log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")
@@ -252,6 +266,6 @@ object ClusterListener {
     */
   case class NodeMetricsGot(nodeMetrics: Set[NodeMetrics]) extends NSDbSerializable
 
-  def props(enableClusterMetricsExtension: Boolean) = Props(new ClusterListener(enableClusterMetricsExtension))
+  def props(enableClusterMetricsExtension: Boolean): Props = Props(new ClusterListener(enableClusterMetricsExtension))
 
 }

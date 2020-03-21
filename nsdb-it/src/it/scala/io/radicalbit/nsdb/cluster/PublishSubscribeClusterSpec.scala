@@ -56,13 +56,7 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
                           value = 2,
                           tags = Map.empty)
 
-  test("join cluster") {
-    eventually {
-      assert(
-        Cluster(nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == nodes.size)
-    }
-  }
+  healthCheck()
 
   test("subscribe to a query and receive real time updates") {
     val firstNode = nodes.head

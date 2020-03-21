@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
-import akka.cluster.{Cluster, MemberStatus}
 import akka.util.Timeout
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters.GrpcBitConverter
@@ -33,13 +32,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
-  test("join cluster") {
-    eventually {
-      assert(
-        Cluster(nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == nodes.size)
-    }
-  }
+  healthCheck()
 
   test("add record from first node") {
 

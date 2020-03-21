@@ -164,8 +164,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       metricsDataActors -= nodeName
       log.info(s"metric data actor removed for node $nodeName")
       sender ! MetricsDataActorUnSubscribed(nodeName)
-    case GetConnectedDataNodes =>
-      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case GetDbs =>
       metadataCoordinator forward GetDbs
     case msg @ GetNamespaces(_) =>

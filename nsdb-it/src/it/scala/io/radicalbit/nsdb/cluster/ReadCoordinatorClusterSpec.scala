@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster
 
-import akka.cluster.{Cluster, MemberStatus}
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.common.protocol._
@@ -96,6 +95,8 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     super.beforeAll()
 
+    healthCheck()
+
     val firstNode = nodes.head
 
     val nsdbConnection =
@@ -129,14 +130,6 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     waitIndexing()
     waitIndexing()
-  }
-
-  test("join cluster") {
-    eventually {
-      assert(
-        Cluster(nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == nodes.size)
-    }
   }
 
   test("receive a select projecting a wildcard with a limit") {
