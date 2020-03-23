@@ -29,7 +29,9 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   Logger.getLogger("io.grpc.internal").setLevel(Level.OFF)
 
-  val nodesNumber: Int
+  val nodesNumber: Int = 3
+  val replicationFactor: Int = 2
+  val rootFolder: String = s"target/minicluster/$instanceId"
 
   implicit val formats = DefaultFormats
 
@@ -39,6 +41,7 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   override def beforeAll(): Unit = {
     start(true)
+    waitIndexing()
   }
 
   override def afterAll(): Unit = {

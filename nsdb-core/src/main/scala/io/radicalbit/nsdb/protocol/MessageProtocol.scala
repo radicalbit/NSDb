@@ -49,7 +49,8 @@ object MessageProtocol {
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       locations: Seq[Location],
-                                      ranges: Seq[TimeRange] = Seq.empty)
+                                      ranges: Seq[TimeRange] = Seq.empty,
+                                      isSingleNode: Boolean)
         extends NSDbSerializable
 
     case class FlatInput(ts: Long, db: String, namespace: String, metric: String, data: Array[Byte])

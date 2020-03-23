@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatemen
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.post_proc.postProcessingTemporalQueryResult
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -152,10 +153,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
-  private def gatherShardResults(statement: SelectSQLStatement,
-                                 actors: Seq[(Location, ActorRef)],
-                                 msg: ExecuteSelectStatement)(
-      postProcFun: Seq[Bit] => Seq[Bit] = identity): Future[ExecuteSelectStatementResponse] = {
+  private def gatherShardResults(
+      statement: SelectSQLStatement,
+      actors: Seq[(Location, ActorRef)],
+      msg: ExecuteSelectStatement)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
 
     def recursiveTask(index: Int, previousFuture: Future[Seq[Any]]): Future[Seq[Any]] = {
       previousFuture.flatMap { previousResults =>
@@ -182,9 +183,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
           SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-        } else
-        SelectStatementExecuted(statement,
-                                  postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
+        } else {
+        val mergeResults = e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
+          SelectStatementExecuted(statement, postProcFun(mergeResults))
+        }
       }
   }
 
@@ -253,7 +255,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _, _) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
@@ -343,11 +345,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
 
           rawResult.pipeTo(sender)
-        case Right(_: ParsedTemporalAggregatedQuery) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 
-          gatherShardResults(statement, actors, msg)().pipeTo(sender)
+          gatherShardResults(statement, actors, msg)(
+            postProcessingTemporalQueryResult(schema, statement, aggregationType)).pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)
         case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")

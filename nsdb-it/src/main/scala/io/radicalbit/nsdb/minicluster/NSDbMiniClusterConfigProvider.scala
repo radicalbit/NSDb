@@ -26,6 +26,7 @@ trait NSDbMiniClusterConfigProvider extends NSDbConfigProvider {
   def hostname: String
   def storageDir: String
   def passivateAfter: Duration
+  def replicationFactor: Int
 
   override lazy val userDefinedConfig: Config =
     ConfigFactory
@@ -34,6 +35,7 @@ trait NSDbMiniClusterConfigProvider extends NSDbConfigProvider {
       .withValue("nsdb.grpc.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.http.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.storage.base-path", ConfigValueFactory.fromAnyRef(storageDir))
+      .withValue("nsdb.cluster.replication-factor", ConfigValueFactory.fromAnyRef(replicationFactor))
       .resolve()
 
   override lazy val lowLevelTemplateConfig: Config =

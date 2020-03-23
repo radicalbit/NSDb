@@ -64,7 +64,6 @@ class WriteCoordinatorErrorsSpec
         ConfigFactory
           .load()
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
-          .withValue("nsdb.cluster.consistency-level", ConfigValueFactory.fromAnyRef(2))
       ))
     with ImplicitSender
     with WordSpecLike
