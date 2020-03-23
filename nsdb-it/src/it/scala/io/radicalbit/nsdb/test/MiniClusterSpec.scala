@@ -31,7 +31,7 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   val nodesNumber: Int = 3
   val replicationFactor: Int = 2
-  val rootFolder: String = s"target/minicluster/$instanceId/"
+  val rootFolder: String = s"target/minicluster/$instanceId"
 
   implicit val formats = DefaultFormats
 
@@ -41,7 +41,6 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   override def beforeAll(): Unit = {
     start(true)
-    waitIndexing()
     waitIndexing()
   }
 

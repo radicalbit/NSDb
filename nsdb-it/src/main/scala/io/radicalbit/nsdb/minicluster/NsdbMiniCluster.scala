@@ -42,8 +42,7 @@ trait NsdbMiniCluster extends LazyLogging {
         hostname = s"$startingHostname${i + 1}",
         storageDir = s"$rootFolder/data$i",
         passivateAfter = passivateAfter,
-        replicationFactor = replicationFactor,
-        consistencyLevel = 1
+        replicationFactor = replicationFactor
       )).toSet
 
   def start(cleanup: Boolean = false): Unit = {

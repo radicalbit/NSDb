@@ -59,7 +59,6 @@ object MetadataSpec extends MultiNodeConfig {
     |    metrics-selector = disk
     |    metadata-write-consistency = "all"
     |    replication-factor = 2
-    |    consistency-level = 2
     |  }
     |
     |  sharding {
