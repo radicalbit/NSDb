@@ -28,7 +28,7 @@ trait NsdbMiniCluster extends LazyLogging {
   protected[this] val instanceId = { UUID.randomUUID }
 
   protected[this] val startingHostname = "127.0.0."
-  protected[this] val rootFolder       = s"target/minicluster/$instanceId/"
+  protected[this] val rootFolder       = s"target/minicluster/$instanceId"
 
   protected[this] def nodesNumber: Int
   protected[this] def passivateAfter: Duration

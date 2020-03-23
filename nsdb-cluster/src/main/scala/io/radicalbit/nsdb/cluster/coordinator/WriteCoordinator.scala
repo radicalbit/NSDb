@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Props, Stash}
+import akka.actor.{ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
@@ -28,9 +28,9 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
   AddRecordToLocation,
   ExecuteDeleteStatementInternalInLocations
 }
+import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.coordinator.WriteCoordinator._
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
@@ -41,7 +41,6 @@ import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -52,7 +51,6 @@ object WriteCoordinator {
   def props(metadataCoordinator: ActorRef, schemaCoordinator: ActorRef, mediator: ActorRef): Props =
     Props(new WriteCoordinator(metadataCoordinator, schemaCoordinator, mediator))
 
-  case class AckPendingMetric(db: String, namespace: String, metric: String)
 }
 
 /**
@@ -64,7 +62,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     extends ActorPathLogging
     with DirectorySupport
     with NsdbPerfLogger
-    with Stash {
+    with SequentialFutureProcessing {
 
   import akka.pattern.ask
 
@@ -80,19 +78,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   override lazy val indexStorageStrategy: StorageStrategy =
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
-  lazy val consistencyLevel: Int =
-    context.system.settings.config.getInt("nsdb.cluster.consistency-level")
-
   private val metricsDataActors: mutable.Map[String, ActorRef]     = mutable.Map.empty
   private val commitLogCoordinators: mutable.Map[String, ActorRef] = mutable.Map.empty
   private val publishers: mutable.Map[String, ActorRef]            = mutable.Map.empty
-
-  /**
-    * This mutable state is aimed to store metric for which the actor is waiting for CommitLog ack
-    * If a metric, identified according to its "coordinates" in [[AckPendingMetric]], is contained in this Set
-    * the coming request for the latter will be stashed until CL acks are received.
-    */
-  private val ackPendingMetrics: mutable.Set[AckPendingMetric] = mutable.Set.empty
 
   /**
     * Performs an ask to every namespace actor subscribed.
@@ -162,7 +150,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     * @param op code executed in case of success.
     * @return [[LocationsGot]] if communication with metadata coordinator succeeds, RecordRejected otherwise
     */
-  def getMetadataLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
+  def getWriteLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Seq[Location] => Future[Any]): Future[Any] =
     (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).mapTo[GetWriteLocationsResponse].flatMap {
       case WriteLocationsGot(_, _, _, locations) =>
@@ -277,8 +265,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       partitionResponses[RecordAdded, RecordRejected](responses)
 
     if (succeedResponses.size == responses.size) {
-      unstashAll()
-      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       if (publish)
         publishers.foreach {
           case (_, publisherActor) =>
@@ -338,7 +324,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                System.currentTimeMillis())))
         }
 
-      ackPendingMetrics -= AckPendingMetric(db, namespace, metric)
       commitLogRejection
     }
   }
@@ -421,34 +406,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       sender() ! PublisherUnSubscribed(nodeName)
     case GetConnectedDataNodes =>
       sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
-    case MapInput(_, db, namespace, metric, _) if ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
-      // Case covering request for a metric waiting for commit-log ack
-      log.debug(s"Stashed message due to async ack from commit-log for metric $metric")
-      stash()
-    case MapInput(ts, db, namespace, metric, bit)
-        if !ackPendingMetrics.contains(AckPendingMetric(db, namespace, metric)) =>
-      // Case covering request for a metric not waiting for commit-log ack
+    case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      getMetadataLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
-        updateSchema(db, namespace, metric, bit) { schema =>
-          val consistentLocations = locations.take(consistencyLevel)
-          val eventualLocations   = locations.diff(consistentLocations)
-
-          val accumulatedResponses = writeOperation(consistentLocations, db, namespace, metric, startTime, bit, schema)
-
-          // Send write requests for eventual consistent location iff consistent locations had accumulated the data
-          accumulatedResponses.flatMap {
-            case _: InputMapped =>
-              writeOperation(eventualLocations, db, namespace, metric, startTime, bit, schema, publish = false)
-            case r: RecordRejected =>
-              // It does nothing for responses not included in consistency level
-              log.error(
-                s"Eventual writes are not performed due to error during consistent write operations ${r.reasons.mkString("")}")
-              Future(r)
+      sequential {
+        getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+          updateSchema(db, namespace, metric, bit) { schema =>
+            writeOperation(locations, db, namespace, metric, startTime, bit, schema)
           }
-
-          accumulatedResponses
         }
       }.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)
@@ -491,18 +456,19 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         _ <- schemaCoordinator ? msg
       } yield NamespaceDeleted(db, namespace)
 
-      chain.pipeTo(sender())
+      sequential(chain).pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       //FIXME add cluster aware deletion
-      writeCommitLog(
-        db,
-        namespace,
-        System.currentTimeMillis(),
-        metric,
-        commitLogCoordinators.keys.head,
-        DeleteAction(statement),
-        Location(metric, commitLogCoordinators.keys.head, 0, 0)
-      ).flatMap {
+      sequential {
+        writeCommitLog(
+          db,
+          namespace,
+          System.currentTimeMillis(),
+          metric,
+          commitLogCoordinators.keys.head,
+          DeleteAction(statement),
+          Location(metric, commitLogCoordinators.keys.head, 0, 0)
+        ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
               Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
@@ -530,7 +496,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
             log.error(s"Failed to write to commit-log for: $msg with reason: $reason")
             context.system.terminate()
         }
-        .pipeTo(sender())
+      }.pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       val chain = for {
         locations <- (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations)
@@ -561,7 +527,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         _ <- metadataCoordinator ? DropMetric(db, namespace, metric)
         _ <- (schemaCoordinator ? DeleteSchema(db, namespace, metric)).mapTo[SchemaDeleted]
       } yield MetricDropped(db, namespace, metric)
-      chain.pipeTo(sender())
+      sequential(chain).pipeTo(sender())
     case msg => log.info(s"Receive Unhandled message $msg")
   }
 }

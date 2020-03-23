@@ -39,6 +39,7 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   override def beforeAll(): Unit = {
     start(true)
+    waitIndexing()
   }
 
   override def afterAll(): Unit = {
