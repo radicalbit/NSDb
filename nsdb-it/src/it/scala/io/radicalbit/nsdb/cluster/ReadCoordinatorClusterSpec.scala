@@ -107,6 +107,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     }
 
     waitIndexing()
+    waitIndexing()
   }
 
   test("join cluster") {

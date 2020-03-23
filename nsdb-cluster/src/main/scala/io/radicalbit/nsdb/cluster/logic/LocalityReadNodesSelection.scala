@@ -27,7 +27,7 @@ class LocalityReadNodesSelection(localNode: String) extends ReadNodesSelection {
   override def getDistinctLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]] = {
     locationsWithReplicas
       .groupBy(l => (l.from, l.to))
-      .collect {
+      .map {
         case ((_, _), locations) if locations.size > 1 =>
           locations.find(_.node == localNode).getOrElse(locations.minBy(_.node))
         case ((_, _), locations) => locations.minBy(_.node)
