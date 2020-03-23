@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
+import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
@@ -523,7 +524,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0, 4, Map.empty, Map("count(*)" -> 4))
+          Bit(0, 4, Map.empty, Map("count(*)" -> NSDbLongType(4)))
         )
       }
 

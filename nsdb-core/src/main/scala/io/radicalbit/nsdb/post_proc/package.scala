@@ -15,15 +15,17 @@
  */
 
 package io.radicalbit.nsdb
-import io.radicalbit.nsdb.common.NSDbType
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   ExecuteSelectStatementResponse,
   SelectStatementExecuted,
   SelectStatementFailed
 }
+import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{
   InternalAggregation,
   InternalCountSimpleAggregation,
@@ -118,5 +120,43 @@ package object post_proc {
     values.headOption
       .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
       .getOrElse(Map.empty[String, NSDbType])
+
+  def postProcessingTemporalQueryResult(
+      schema: Schema,
+      statement: SelectSQLStatement,
+      aggr: InternalTemporalAggregation)(implicit ec: ExecutionContext): Seq[Bit] => Seq[Bit] = { res =>
+    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    implicit val numeric: Numeric[Any] = v.numeric
+    applyOrderingWithLimit(
+      res
+        .groupBy(_.timestamp)
+        .mapValues(
+          v =>
+            aggr match {
+              case StatementParser.InternalCountTemporalAggregation =>
+                Bit(v.head.timestamp,
+                    NSDbNumericType(v.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                    v.head.dimensions,
+                    v.head.tags)
+              case StatementParser.InternalSumTemporalAggregation =>
+                Bit(v.head.timestamp, NSDbNumericType(v.map(_.value.rawValue).sum), v.head.dimensions, v.head.tags)
+              case StatementParser.InternalMaxTemporalAggregation =>
+                Bit(v.head.timestamp, NSDbNumericType(v.map(_.value.rawValue).max), v.head.dimensions, v.head.tags)
+              case StatementParser.InternalMinTemporalAggregation =>
+                val nonZeroValues: Seq[Any] =
+                  v.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
+                Bit(v.head.timestamp,
+                    NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
+                    v.head.dimensions,
+                    v.head.tags)
+          }
+        )
+        .values
+        .toSeq,
+      statement,
+      schema,
+      Some(aggr)
+    )
+  }
 
 }
