@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
-import io.radicalbit.nsdb.post_proc.{applyOrderingWithLimit, _}
+import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -83,7 +83,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
   /**
     * Gathers results from every shard actor and elaborate them.
-    * @param statement the Sql statement to be executed againt every actor.
+    * @param statement the Sql statement to be executed against every actor.
     * @param schema Metric's schema.
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
@@ -94,23 +94,36 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       uniqueLocationsByNode: Map[String, Seq[Location]],
       ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
+    val filteredMetricsDataActors =
+      metricsDataActors.filter { case (nodeName, _) => uniqueLocationsByNode.isDefinedAt(nodeName) }
+
+    val isSingleNode = uniqueLocationsByNode.keys.size == 1
+
+    log.debug(s"isSingleNode: $isSingleNode")
+
     Future
-      .sequence(metricsDataActors.map {
+      .sequence(filteredMetricsDataActors.map {
         case (nodeName, actor) =>
           actor ? ExecuteSelectStatement(statement,
                                          schema,
                                          uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
-                                         ranges)
+                                         ranges,
+                                         isSingleNode)
       })
       .map { rawResponses =>
         log.debug("gathered {} from locations {}", rawResponses, uniqueLocationsByNode)
         val errs = rawResponses.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
           SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-        } else
+        } else {
+          val combinedResponsesFromNodes =
+            rawResponses.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
           SelectStatementExecuted(
             statement,
-            postProcFun(rawResponses.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
+            if (isSingleNode) combinedResponsesFromNodes
+            else postProcFun(combinedResponsesFromNodes)
+          )
+        }
       }
       .recover {
         case t =>
@@ -194,9 +207,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
             StatementParser.parseStatement(statement, schema) match {
               //pure count(*) query
-              case Right(_ @ParsedSimpleQuery(_, _, _, false, limit, fields, _))
+              case Right(ParsedSimpleQuery(_, _, _, false, limit, fields, _))
                   if fields.lengthCompare(1) == 0 && fields.head.count =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode)(seq => {
+                gatherNodeResults(statement, schema, uniqueLocationsByNode) { seq =>
                   val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
                   val count       = if (recordCount <= limit) recordCount else limit
                   applyOrderingWithLimit(
@@ -209,7 +222,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     statement,
                     schema
                   )
-                })
+                }
 
               case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
                 gatherNodeResults(statement, schema, uniqueLocationsByNode)(
@@ -263,123 +276,20 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                         values.maxBy(_.timestamp)
                     }
                 }.map(limitAndOrder(_, statement, schema))
-              case Right(
-                  ParsedTemporalAggregatedQuery(_,
-                                                _,
-                                                _,
-                                                rangeLength,
-                                                agg @ InternalCountTemporalAggregation,
-                                                condition,
-                                                _,
-                                                _)) =>
+              case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregationType, condition, _, _)) =>
                 val sortedLocations = filteredLocations.sortBy(_.from)
 
                 val globalRanges: Seq[TimeRange] =
-                  if (sortedLocations.isEmpty) Seq.empty
+                  if (sortedLocations.isEmpty) Seq.empty[TimeRange]
                   else
                     TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
                                                                           sortedLocations.head.from,
                                                                           rangeLength,
                                                                           condition)
 
-                gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                  applyOrderingWithLimit(
-                    res
-                      .groupBy(_.timestamp)
-                      .mapValues(
-                        v =>
-                          Bit(v.head.timestamp,
-                              NSDbNumericType(v.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                              v.head.dimensions,
-                              v.head.tags))
-                      .values
-                      .toSeq,
-                    statement,
-                    schema,
-                    Some(agg)
-                  )
-                }
-              case Right(
-                  ParsedTemporalAggregatedQuery(_,
-                                                _,
-                                                _,
-                                                rangeLength,
-                                                agg @ InternalSumTemporalAggregation,
-                                                condition,
-                                                _,
-                                                _)) =>
-                val sortedLocations = filteredLocations.sortBy(_.from)
+                gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
+                  postProcessingTemporalQueryResult(schema, statement, aggregationType))
 
-                val globalRanges: Seq[TimeRange] =
-                  TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
-                                                                        sortedLocations.head.from,
-                                                                        rangeLength,
-                                                                        condition)
-
-                gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                  val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
-                  implicit val numeric: Numeric[Any] = v.numeric
-                  applyOrderingWithLimit(
-                    res
-                      .groupBy(_.timestamp)
-                      .mapValues(
-                        v =>
-                          Bit(v.head.timestamp,
-                              NSDbNumericType(v.map(_.value.rawValue).sum),
-                              v.head.dimensions,
-                              v.head.tags))
-                      .values
-                      .toSeq,
-                    statement,
-                    schema,
-                    Some(agg)
-                  )
-                }
-              case Right(
-                  ParsedTemporalAggregatedQuery(_,
-                                                _,
-                                                _,
-                                                rangeLength,
-                                                aggregationType, //min or max
-                                                condition,
-                                                _,
-                                                _)) =>
-                val sortedLocations = filteredLocations.sortBy(_.from)
-
-                val globalRanges: Seq[TimeRange] =
-                  TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
-                                                                        sortedLocations.head.from,
-                                                                        rangeLength,
-                                                                        condition)
-
-                gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges) { res =>
-                  val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
-                  implicit val numeric: Numeric[Any] = v.numeric
-                  applyOrderingWithLimit(
-                    res
-                      .groupBy(_.timestamp)
-                      .mapValues(
-                        v =>
-                          if (aggregationType == InternalMaxTemporalAggregation)
-                            Bit(v.head.timestamp,
-                                NSDbNumericType(v.map(_.value.rawValue).max),
-                                v.head.dimensions,
-                                v.head.tags)
-                          else {
-                            val nonZeroValues: Seq[Any] =
-                              v.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
-                            Bit(v.head.timestamp,
-                                NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
-                                v.head.dimensions,
-                                v.head.tags)
-                        })
-                      .values
-                      .toSeq,
-                    statement,
-                    schema,
-                    Some(aggregationType)
-                  )
-                }
               case Left(_) =>
                 Future(SelectStatementFailed(statement, "Select Statement not valid"))
               case _ =>

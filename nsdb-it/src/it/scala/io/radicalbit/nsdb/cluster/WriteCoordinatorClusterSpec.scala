@@ -31,8 +31,6 @@ import scala.concurrent.{Await, ExecutionContext}
 
 class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
-  override val nodesNumber: Int = 3
-
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
   test("join cluster") {

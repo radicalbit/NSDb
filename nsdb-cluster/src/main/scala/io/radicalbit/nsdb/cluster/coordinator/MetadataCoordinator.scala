@@ -458,13 +458,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
                         if (nodeMetrics.nodeMetrics.nonEmpty)
                           writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
                         else {
-                          Random
-                            .shuffle(clusterAliveMembers)
-                            .take(replicationFactor)
-                            .map(createNodeName)
+                          Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
                         }
 
-                      val locations = nodes.map(Location(metric, _, start, end)).toSeq
+                      val locations = nodes.map(Location(metric, _, start, end))
                       performAddLocationIntoCache(db, namespace, locations)
                     }
                   } yield
