@@ -74,8 +74,8 @@ class MetricPerformerActor(val basePath: String,
           val facetIndexes        = getOrCreatefacetIndexesFor(loc)
           val writer: IndexWriter = index.getWriter
 
-          val facetsIndexWriter = facetIndexes.newIndexWriter
-          val facetsTaxoWriter  = facetIndexes.newDirectoryTaxonomyWriter
+          val facetsIndexWriter = facetIndexes.getIndexWriter
+          val facetsTaxoWriter  = facetIndexes.getTaxonomyWriter
 
           ops.foreach {
             case op @ WriteShardOperation(_, _, bit) =>
@@ -167,8 +167,8 @@ class MetricPerformerActor(val basePath: String,
                                            namespace = namespace,
                                            location = loc,
                                            indexStorageStrategy = indexStorageStrategy)
-          val facetsIndexWriter = facets.newIndexWriter
-          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+          val facetsIndexWriter = facets.getIndexWriter
+          val facetsTaxoWriter  = facets.getTaxonomyWriter
 
           /**
             * compensate the failed action

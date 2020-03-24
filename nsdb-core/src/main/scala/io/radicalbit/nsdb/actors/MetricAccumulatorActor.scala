@@ -141,7 +141,7 @@ class MetricAccumulatorActor(val basePath: String,
       }
       facetIndexShards.foreach {
         case (k, indexes) =>
-          implicit val writer: IndexWriter = indexes.newIndexWriter
+          implicit val writer: IndexWriter = indexes.getIndexWriter
           indexes.deleteAll()
           writer.close()
           facetIndexShards -= k
@@ -163,7 +163,7 @@ class MetricAccumulatorActor(val basePath: String,
       }
       facetsShardsFromLocations(locations).foreach {
         case (key, Some(indexes)) =>
-          implicit val writer: IndexWriter = indexes.newIndexWriter
+          implicit val writer: IndexWriter = indexes.getIndexWriter
           indexes.deleteAll()
           writer.close()
           indexes.refresh()
