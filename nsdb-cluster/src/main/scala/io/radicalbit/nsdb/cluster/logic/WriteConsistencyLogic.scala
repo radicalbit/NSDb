@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.logic
 import java.util.concurrent.TimeUnit
 
 import akka.actor.Actor
-import akka.cluster.ddata.Replicator.{WriteAll, WriteConsistency, WriteMajority}
+import akka.cluster.ddata.Replicator.{WriteAll, WriteConsistency, WriteLocal, WriteMajority}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -32,12 +32,13 @@ trait WriteConsistencyLogic { this: Actor =>
   /**
     * Provides a Write Consistency policy from a config value.
     */
-  protected lazy val writeConsistency: WriteConsistency = {
+  protected lazy val metadataWriteConsistency: WriteConsistency = {
     val configValue = config.getString("nsdb.cluster.metadata-write-consistency")
 
     configValue match {
       case "all"      => WriteAll(timeout)
       case "majority" => WriteMajority(timeout)
+      case "local" => WriteLocal
       case wrongConfigValue =>
         throw new IllegalArgumentException(s"$wrongConfigValue is not a valid value for metadata-write-consistency")
     }

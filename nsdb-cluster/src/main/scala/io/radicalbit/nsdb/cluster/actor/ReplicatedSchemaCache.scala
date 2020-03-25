@@ -78,7 +78,7 @@ class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic 
   def receive: Receive = {
     case PutSchemaInCache(db, namespace, metric, value) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), writeConsistency)(_ :+ (key -> value)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), metadataWriteConsistency)(_ :+ (key -> value)))
         .map {
           case UpdateSuccess(_, _) =>
             SchemaCached(db, namespace, metric, Some(value))
@@ -87,7 +87,7 @@ class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic 
         .pipeTo(sender())
     case EvictSchema(db, namespace, metric) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), writeConsistency)(_ remove (address, key)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), metadataWriteConsistency)(_ remove (address, key)))
         .map(_ => SchemaCached(db, namespace, metric, None))
         .pipeTo(sender)
     case DeleteNamespaceSchema(db, namespace) =>

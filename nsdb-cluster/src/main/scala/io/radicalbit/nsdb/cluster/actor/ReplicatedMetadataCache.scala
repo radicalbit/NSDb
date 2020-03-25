@@ -184,7 +184,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
 
   def receive: Receive = {
     case PutCoordinateInCache(db, namespace, metric) =>
-      (replicator ? Update(coordinatesKey, ORSet(), writeConsistency)(_ :+ Coordinates(db, namespace, metric)))
+      (replicator ? Update(coordinatesKey, ORSet(), metadataWriteConsistency)(_ :+ Coordinates(db, namespace, metric)))
         .map {
           case UpdateSuccess(_, _) =>
             CoordinateCached(db, namespace, metric)
@@ -195,7 +195,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
     case PutLocationInCache(db, namespace, metric, location) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       (for {
-        loc <- (replicator ? Update(metricLocationsKey(metricKey), ORSet(), writeConsistency)(_ :+ location))
+        loc <- (replicator ? Update(metricLocationsKey(metricKey), ORSet(), metadataWriteConsistency)(_ :+ location))
           .map {
             case UpdateSuccess(_, _) =>
               LocationCached(db, namespace, metric, location)
@@ -203,9 +203,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
               log.error(s"error in put location in cache $e")
               PutLocationInCacheFailed(db, namespace, metric, location)
           }
-        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), writeConsistency)(
+        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), metadataWriteConsistency)(
           _ :+ LocationWithCoordinates(db, namespace, location))
-        _ <- replicator ? Update(coordinatesKey, ORSet(), writeConsistency)(_ :+ Coordinates(db, namespace, metric))
+        _ <- replicator ? Update(coordinatesKey, ORSet(), metadataWriteConsistency)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
     case PutMetricInfoInCache(metricInfo @ MetricInfo(db, namespace, metric, _, _)) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
@@ -219,8 +219,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
                 Future(MetricInfoAlreadyExisting(key, metricInfo))
               case None =>
                 (for {
-                  _   <- replicator ? Update(allMetricInfoKey, ORSet(), writeConsistency)(_ :+ metricInfo)
-                  res <- replicator ? Update(metricInfoKey(key), LWWMap(), writeConsistency)(_ :+ (key -> metricInfo))
+                  _   <- replicator ? Update(allMetricInfoKey, ORSet(), metadataWriteConsistency)(_ :+ metricInfo)
+                  res <- replicator ? Update(metricInfoKey(key), LWWMap(), metadataWriteConsistency)(_ :+ (key -> metricInfo))
                 } yield res)
                   .map {
                     case UpdateSuccess(_, _) =>
@@ -230,8 +230,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
             }
           case NotFound(_, _) =>
             (for {
-              _   <- replicator ? Update(allMetricInfoKey, ORSet(), writeConsistency)(_ :+ metricInfo)
-              res <- replicator ? Update(metricInfoKey(key), LWWMap(), writeConsistency)(_ :+ (key -> metricInfo))
+              _   <- replicator ? Update(allMetricInfoKey, ORSet(), metadataWriteConsistency)(_ :+ metricInfo)
+              res <- replicator ? Update(metricInfoKey(key), LWWMap(), metadataWriteConsistency)(_ :+ (key -> metricInfo))
             } yield res)
               .map {
                 case UpdateSuccess(_, _) =>
@@ -244,8 +244,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConsiste
     case EvictLocation(db, namespace, loc @ Location(metric, node, from, to)) =>
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       val f = for {
-        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), writeConsistency)(_ remove loc)
-        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), writeConsistency)(
+        remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), metadataWriteConsistency)(_ remove loc)
+        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), metadataWriteConsistency)(
           _ remove LocationWithCoordinates(db, namespace, loc))
       } yield remove
       f.map {
