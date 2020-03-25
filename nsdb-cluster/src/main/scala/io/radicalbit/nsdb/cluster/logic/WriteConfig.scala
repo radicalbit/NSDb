@@ -23,7 +23,7 @@ import akka.cluster.ddata.Replicator.{WriteAll, WriteConsistency, WriteLocal, Wr
 
 import scala.concurrent.duration.FiniteDuration
 
-trait WriteConsistencyLogic { this: Actor =>
+trait WriteConfig { this: Actor =>
   private val config = context.system.settings.config
 
   private lazy val timeout: FiniteDuration =
@@ -35,12 +35,30 @@ trait WriteConsistencyLogic { this: Actor =>
   protected lazy val metadataWriteConsistency: WriteConsistency = {
     val configValue = config.getString("nsdb.cluster.metadata-write-consistency")
 
-    configValue match {
+    configValue.toLowerCase match {
       case "all"      => WriteAll(timeout)
       case "majority" => WriteMajority(timeout)
-      case "local" => WriteLocal
+      case "local"    => WriteLocal
       case wrongConfigValue =>
         throw new IllegalArgumentException(s"$wrongConfigValue is not a valid value for metadata-write-consistency")
+    }
+  }
+
+  /**
+    * Parallel write-processing guarantees higher throughput while serial write-processing preserves the order of the operations.
+    */
+  sealed trait WriteProcessing
+  case object Parallel extends WriteProcessing
+  case object Serial   extends WriteProcessing
+
+  protected lazy val writeProcessing: WriteProcessing = {
+    val configValue = config.getString("nsdb.cluster.write-processing")
+
+    configValue.toLowerCase match {
+      case "parallel" => Parallel
+      case "serial"   => Serial
+      case wrongConfigValue =>
+        throw new IllegalArgumentException(s"$wrongConfigValue is not a valid value for write-processing")
     }
   }
 }

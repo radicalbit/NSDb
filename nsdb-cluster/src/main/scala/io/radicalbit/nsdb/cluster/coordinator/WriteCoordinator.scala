@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
@@ -31,6 +31,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
 import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.logic.WriteConfig
 import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
@@ -62,7 +63,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     extends ActorPathLogging
     with DirectorySupport
     with NsdbPerfLogger
-    with SequentialFutureProcessing {
+    with SequentialFutureProcessing
+    with WriteConfig
+    with Stash {
 
   import akka.pattern.ask
 
@@ -328,14 +331,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     }
   }
 
-  def writeOperation(locations: Seq[Location],
-                     db: String,
-                     namespace: String,
-                     metric: String,
-                     timestamp: Long,
-                     bit: Bit,
-                     schema: Schema,
-                     publish: Boolean = true): Future[WriteCoordinatorResponse] = {
+  def accumulateOperation(locations: Seq[Location],
+                          db: String,
+                          namespace: String,
+                          metric: String,
+                          timestamp: Long,
+                          bit: Bit,
+                          schema: Schema,
+                          publish: Boolean = true): Future[WriteCoordinatorResponse] = {
     val commitLogResponses: Future[Seq[CommitLogResponse]] =
       Future
         .sequence(locations.map { loc =>
@@ -409,16 +412,26 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
-      sequential {
-        getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
-          updateSchema(db, namespace, metric, bit) { schema =>
-            writeOperation(locations, db, namespace, metric, startTime, bit, schema)
-          }
+
+      val writeOperation = getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
+        updateSchema(db, namespace, metric, bit) { schema =>
+          accumulateOperation(locations, db, namespace, metric, startTime, bit, schema)
         }
-      }.pipeToWithEffect(sender()) { _ =>
+      }
+
+      val writeOperationEffect: Any => Unit = { _ =>
         if (perfLogger.isDebugEnabled)
           perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
       }
+
+      writeProcessing match {
+        case Parallel =>
+          import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
+          writeOperation.pipeToWithEffect(sender()) { writeOperationEffect }
+        case Serial =>
+          sequential(writeOperation).pipeToWithEffect(sender()) { writeOperationEffect }
+      }
+
     case msg @ DeleteNamespace(db, namespace) =>
       val chain = for {
         metrics <- (metadataCoordinator ? GetMetrics(db, namespace)).mapTo[MetricsGot].map(_.metrics)

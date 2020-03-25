@@ -25,7 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
-import io.radicalbit.nsdb.cluster.logic.WriteConsistencyLogic
+import io.radicalbit.nsdb.cluster.logic.WriteConfig
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -53,7 +53,7 @@ object ReplicatedSchemaCache {
 /**
   * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
   */
-class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic {
+class ReplicatedSchemaCache extends ActorPathLogging with WriteConfig {
 
   import akka.cluster.ddata.Replicator._
 
