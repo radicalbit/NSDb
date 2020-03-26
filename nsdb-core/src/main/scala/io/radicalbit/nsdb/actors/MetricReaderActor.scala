@@ -180,14 +180,14 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                .recoverWith { case t => Future(SelectStatementFailed(statement, t.getMessage)) }
          })
      }).map { e =>
-        val errs = e.collect { case a: SelectStatementFailed => a }
-        if (errs.nonEmpty) {
-          SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-        } else {
+      val errs = e.collect { case a: SelectStatementFailed => a }
+      if (errs.nonEmpty) {
+        SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
+      } else {
         val mergeResults = e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
-          SelectStatementExecuted(statement, postProcFun(mergeResults))
-        }
+        SelectStatementExecuted(statement, postProcFun(mergeResults))
       }
+    }
   }
 
   /**
