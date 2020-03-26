@@ -119,19 +119,23 @@ class MetadataCoordinator(clusterListener: ActorRef,
       }
 
   /**
-    * Retrieve the actual shard interval for a metric. If a custom interval has been configured, it will be returned,
+    * Retrieve the actual custom info for a metric. If a custom interval has been configured, it will be returned,
     * otherwise the default interval (gather from the global conf file) will be used
     * @param db the db.
     * @param namespace the namespace.
     * @param metric the metric.
-    * @return the actual shard interval.
+    * @return the actual [[MetricInfo]].
     */
-  private def getShardInterval(db: String, namespace: String, metric: String): Future[Long] =
+  private def getMetricInfo(db: String, namespace: String, metric: String)(
+      post: MetricInfo => Future[Any]): Future[Any] =
     (metadataCache ? GetMetricInfoFromCache(db, namespace, metric))
+      .mapTo[MetricInfoCached]
       .flatMap {
-        case MetricInfoCached(_, _, _, Some(MetricInfo(_, _, _, shardInterval, _))) if shardInterval > 0 =>
-          Future(shardInterval)
-        case _ => Future(defaultShardingInterval)
+        case MetricInfoCached(_, _, _, Some(info @ MetricInfo(_, _, _, shardInterval, _))) if shardInterval > 0 =>
+          post(info)
+        case MetricInfoCached(_, _, _, Some(MetricInfo(_, _, _, _, retention))) =>
+          post(MetricInfo(db, namespace, metric, defaultShardingInterval, retention))
+        case _ => post(MetricInfo(db, namespace, metric, defaultShardingInterval))
       }
 
   override def preStart(): Unit = {
@@ -442,43 +446,49 @@ class MetadataCoordinator(clusterListener: ActorRef,
           timestamp,
           MetadataCoordinator.notEnoughReplicasErrorMessage(clusterAliveMembers.size, replicationFactor))
       else {
-        val chain: Future[GetWriteLocationsResponse] = (metadataCache ? GetLocationsFromCache(db, namespace, metric))
-          .flatMap {
-            case LocationsCached(_, _, _, values) =>
-              values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
-                case Nil =>
-                  for {
-                    shardInterval <- getShardInterval(db, namespace, metric)
-                    nodeMetrics   <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
-                    addLocationResult <- {
-                      val start = getShardStartInstant(timestamp, shardInterval)
-                      val end   = getShardEndInstant(start, shardInterval)
+        val currentTime = System.currentTimeMillis()
+        getMetricInfo(db, namespace, metric) { metricInfo =>
+          val retention = metricInfo.retention
+          if (retention > 0 && timestamp < currentTime - retention || timestamp > currentTime + retention)
+            Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
+          else {
+            (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+              .flatMap {
+                case LocationsCached(_, _, _, values) =>
+                  values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
+                    case Nil =>
+                      for {
+                        nodeMetrics <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]
+                        addLocationResult <- {
+                          val start = getShardStartInstant(timestamp, metricInfo.shardInterval)
+                          val end   = getShardEndInstant(start, metricInfo.shardInterval)
 
-                      val nodes =
-                        if (nodeMetrics.nodeMetrics.nonEmpty)
-                          writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                        else {
-                          Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
+                          val nodes =
+                            if (nodeMetrics.nodeMetrics.nonEmpty)
+                              writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                            else {
+                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
+                            }
+
+                          val locations = nodes.map(Location(metric, _, start, end))
+                          performAddLocationIntoCache(db, namespace, locations)
                         }
-
-                      val locations = nodes.map(Location(metric, _, start, end))
-                      performAddLocationIntoCache(db, namespace, locations)
-                    }
-                  } yield
-                    addLocationResult match {
-                      case LocationsAdded(_, _, locs) => WriteLocationsGot(db, namespace, metric, locs)
-                      case _: AddLocationsFailed =>
-                        val errorMessage = s"unexpected error while trying to add locations in cache "
-                        log.error(errorMessage)
-                        GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage)
-                    }
-                case s => Future(WriteLocationsGot(db, namespace, metric, s))
+                      } yield
+                        addLocationResult match {
+                          case LocationsAdded(_, _, locs) => WriteLocationsGot(db, namespace, metric, locs)
+                          case _: AddLocationsFailed =>
+                            val errorMessage = s"unexpected error while trying to add locations in cache "
+                            log.error(errorMessage)
+                            GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage)
+                        }
+                    case s => Future(WriteLocationsGot(db, namespace, metric, s))
+                  }
+                case e =>
+                  val errorMessage = s"unexpected result while trying to get locations in cache $e"
+                  Future(GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage))
               }
-            case e =>
-              val errorMessage = s"unexpected result while trying to get locations in cache $e"
-              Future(GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage))
           }
-        chain pipeTo sender()
+        } pipeTo sender()
       }
     case AddLocations(db, namespace, locations) =>
       performAddLocationIntoCache(db, namespace, locations).pipeTo(sender)
@@ -614,6 +624,12 @@ object MetadataCoordinator {
     case class WriteLocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
         extends GetWriteLocationsResponse
     case class GetWriteLocationsFailed(db: String, namespace: String, metric: String, timestamp: Long, reason: String)
+        extends GetWriteLocationsResponse
+    case class GetWriteLocationsBeyondRetention(db: String,
+                                                namespace: String,
+                                                metric: String,
+                                                timestamp: Long,
+                                                retention: Long)
         extends GetWriteLocationsResponse
 
     case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)

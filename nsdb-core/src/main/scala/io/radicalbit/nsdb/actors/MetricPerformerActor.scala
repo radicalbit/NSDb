@@ -16,6 +16,8 @@
 
 package io.radicalbit.nsdb.actors
 
+import java.nio.file.{Files, Paths}
+import java.util.Comparator
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
@@ -61,6 +63,15 @@ class MetricPerformerActor(val basePath: String,
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
   private val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
+
+//  private def deleteLocation(location: Location): Unit = {
+//    val path = Paths.get(basePath, db, namespace, "shards", s"${location.shardName}")
+//    log.info("Trying to delete path {}", path)
+//    Files.walk(path).sorted(Comparator.reverseOrder()).iterator().asScala.foreach {
+//      case path if path.toFile.exists() => path.toFile.delete()
+//      case _                            => //do nothing
+//    }
+//  }
 
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>

@@ -378,9 +378,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         actor ! PoisonPill
         actors -= location
       }
-    case Refresh(_, keys) =>
-      keys.foreach { key =>
-        getShardReaderActor(key).foreach(_ ! RefreshShard)
+    case Refresh(_, locations) =>
+      log.info(s"refreshing locations $locations")
+      locations.foreach { location =>
+        getShardReaderActor(location).foreach(_ ! RefreshShard)
       }
   }
 

@@ -159,6 +159,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       case WriteLocationsGot(_, _, _, locations) =>
         log.debug(s"received locations for metric $metric, $locations")
         op(locations)
+      case GetWriteLocationsBeyondRetention(_, _, _, _, retention) =>
+        log.warning(
+          s"bit $bit will not be written because its timestamp is beyond retention of $retention. Sending positive response.")
+        Future(InputMapped(db, namespace, metric, bit))
       case GetWriteLocationsFailed(db, namespace, metric, timestamp, reason) =>
         val errorMessage = s"no location found for bit $bit:\n $reason"
         log.error(errorMessage)
