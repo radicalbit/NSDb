@@ -158,20 +158,26 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       actors: Seq[(Location, ActorRef)],
       msg: ExecuteSelectStatement)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
 
-    def recursiveTask(index: Int, previousFuture: Future[Seq[Any]]): Future[Seq[Any]] = {
+    /**
+      * Retrieve each shard actor bits result at a time checking condition at each iteration
+      * function called when time ordering and limit condition are present
+      * @param index
+      * @param previousFuture
+      */
+    def iterativeShardActorsResult(index: Int, previousFuture: Future[Seq[Any]]): Future[Seq[Any]] = {
       previousFuture.flatMap { previousResults =>
         val parsedPreviousResults = previousResults.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
         if ((index < actors.size - 1) && parsedPreviousResults.size < statement.limit.get.value) {
           val currentFuture = (actors(index)._2 ? msg.copy(locations = actors.map(_._1))).recoverWith {
             case t => Future(SelectStatementFailed(statement, t.getMessage))
           }
-          recursiveTask(index + 1, currentFuture.map(previousResults :+ _))
+          iterativeShardActorsResult(index + 1, currentFuture.map(previousResults :+ _))
         } else previousFuture
       }
     }
 
     (if ((statement.getTimeOrdering.isDefined || statement.order.isEmpty) && statement.limit.isDefined)
-       recursiveTask(0, Future(Seq.empty[Any]))
+       iterativeShardActorsResult(0, Future(Seq.empty[Any]))
      else {
        Future
          .sequence(actors.map {
