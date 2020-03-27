@@ -161,8 +161,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     /**
       * Retrieve each shard actor bits result at a time checking condition at each iteration
       * function called when time ordering and limit condition are present
-      * @param index
-      * @param previousFuture
+      * @param index for iterate the shard actors
+      * @param previousFuture future containing the incremental previous results
       */
     def iterativeShardActorsResult(index: Int, previousFuture: Future[Seq[Any]]): Future[Seq[Any]] = {
       previousFuture.flatMap { previousResults =>
