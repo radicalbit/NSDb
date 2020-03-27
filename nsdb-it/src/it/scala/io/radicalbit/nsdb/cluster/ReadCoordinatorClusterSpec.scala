@@ -159,6 +159,27 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select projecting a wildcard with a limit and a ordering when ordered by timestamp and where condition") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select * from ${LongMetric.name} where name = 'John' order by timestamp limit 2")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 2)
+        assert(readRes.records.map(_.asBit) == LongMetric.testRecords.take(2)/*.reverse.takeRight(2)*/)
+      }
+    }
+  }
+
   test("execute it successfully when ordered by value") {
     nodes.foreach { n =>
       val nsdb =

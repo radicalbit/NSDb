@@ -157,21 +157,42 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       statement: SelectSQLStatement,
       actors: Seq[(Location, ActorRef)],
       msg: ExecuteSelectStatement)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
-    Future
-      .sequence(actors.map {
-        case (_, actor) =>
-          (actor ? msg.copy(locations = actors.map(_._1)))
-            .recoverWith { case t => Future(SelectStatementFailed(statement, t.getMessage)) }
-      })
-      .map { e =>
-        val errs = e.collect { case a: SelectStatementFailed => a }
-        if (errs.nonEmpty) {
-          SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-        } else {
-          val mergeResults = e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
-          SelectStatementExecuted(statement, postProcFun(mergeResults))
-        }
+
+    /**
+      * Retrieve each shard actor bits result at a time checking condition at each iteration
+      * function called when time ordering and limit condition are present
+      * @param index for iterate the shard actors
+      * @param previousFuture future containing the incremental previous results
+      */
+    def iterativeShardActorsResult(index: Int, previousFuture: Future[Seq[Any]]): Future[Seq[Any]] = {
+      previousFuture.flatMap { previousResults =>
+        val parsedPreviousResults = previousResults.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
+        if ((index < actors.size) && parsedPreviousResults.size < statement.limit.get.value) {
+          val currentFuture = (actors(index)._2 ? msg.copy(locations = actors.map(_._1))).recoverWith {
+            case t => Future(SelectStatementFailed(statement, t.getMessage))
+          }
+          iterativeShardActorsResult(index + 1, currentFuture.map(previousResults :+ _))
+        } else previousFuture
       }
+    }
+
+    (if ((statement.getTimeOrdering.isDefined || statement.order.isEmpty) && statement.limit.isDefined)
+       iterativeShardActorsResult(0, Future(Seq.empty[Any]))
+     else {
+       Future
+         .sequence(actors.map {
+           case (_, actor) =>
+             (actor ? msg.copy(locations = actors.map(_._1)))
+               .recoverWith { case t => Future(SelectStatementFailed(statement, t.getMessage)) }
+         })
+     }).map { e =>
+      val errs = e.collect { case a: SelectStatementFailed => a }
+      if (errs.nonEmpty) {
+        SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
+      } else
+        SelectStatementExecuted(statement, postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
+
+    }
   }
 
   /**
@@ -239,7 +260,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _, _) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
