@@ -167,10 +167,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         val errs = e.collect { case a: SelectStatementFailed => a }
         if (errs.nonEmpty) {
           SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-        } else {
-          val mergeResults = e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
-          SelectStatementExecuted(statement, postProcFun(mergeResults))
-        }
+        } else
+          SelectStatementExecuted(statement,
+                                  postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
       }
   }
 
@@ -239,7 +238,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _, _) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
