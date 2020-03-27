@@ -167,7 +167,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     def iterativeShardActorsResult(index: Int, previousFuture: Future[Seq[Any]]): Future[Seq[Any]] = {
       previousFuture.flatMap { previousResults =>
         val parsedPreviousResults = previousResults.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
-        if ((index < actors.size - 1) && parsedPreviousResults.size < statement.limit.get.value) {
+        if ((index < actors.size) && parsedPreviousResults.size < statement.limit.get.value) {
           val currentFuture = (actors(index)._2 ? msg.copy(locations = actors.map(_._1))).recoverWith {
             case t => Future(SelectStatementFailed(statement, t.getMessage))
           }
