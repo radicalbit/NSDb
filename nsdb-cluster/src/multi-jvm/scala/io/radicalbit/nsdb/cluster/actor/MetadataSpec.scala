@@ -331,6 +331,14 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
 
       awaitAssert{
+        expectMsgType[GetWriteLocationsBeyondRetention]
+      }
+
+      val currentTime = System.currentTimeMillis()
+
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
+
+      awaitAssert{
         val reply = expectMsgType[WriteLocationsGot]
         reply.db shouldBe "db"
         reply.namespace shouldBe "namespace"
@@ -347,7 +355,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       enterBarrier("one-node-up")
 
-      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
 
       awaitAssert{
         val reply = expectMsgType[GetWriteLocationsFailed]

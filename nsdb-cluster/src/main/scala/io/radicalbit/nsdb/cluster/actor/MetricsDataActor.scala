@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
@@ -26,14 +25,12 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
-import io.radicalbit.nsdb.util.{FileUtils => NSDbFileUtils}
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.commons.io.FileUtils
 
 import scala.concurrent.{ExecutionContext, Future}
 

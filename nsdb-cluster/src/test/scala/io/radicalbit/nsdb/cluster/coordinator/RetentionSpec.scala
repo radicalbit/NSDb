@@ -22,7 +22,10 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{AllMetricInfoWithRetentionGot, GetAllMetricInfoWithRetention}
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
+  AllMetricInfoWithRetentionGot,
+  GetAllMetricInfoWithRetention
+}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetricsDataActor}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetricInfoPut
@@ -180,9 +183,7 @@ class RetentionSpec
           Bit(currentTime + retention - 500, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
           Bit(currentTime + retention - 300, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
           Bit(currentTime + retention - 200, 6L, Map("surname"  -> "Doe"), Map("name" -> "Frankie")),
-          Bit(currentTime + retention - 100, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-          Bit(currentTime + retention - 20, 8L, Map("surname"   -> "Doe"), Map("name" -> "Frank")),
-          Bit(currentTime + retention - 10, 9L, Map("surname"   -> "Doe"), Map("name" -> "Frankie"))
+          Bit(currentTime + retention - 100, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill"))
         )
 
         val retention = 2000
@@ -207,26 +208,6 @@ class RetentionSpec
         recordsToTest.foreach { r =>
           probe.send(writeCoordinator, MapInput(r.timestamp, db, namespace, metricWithRetention, r))
           probe.expectMsgType[InputMapped]
-        }
-
-        awaitAssert {
-          probe.send(
-            readCoordinatorActor,
-            selectAllOrderByTimestamp(metricWithRetention)
-          )
-          val result = probe.expectMsgType[SelectStatementExecuted]
-          result.values.size shouldBe 9
-          result.values should be(recordsToTest)
-        }
-
-        awaitAssert {
-          probe.send(
-            readCoordinatorActor,
-            selectAllOrderByTimestamp(metricWithRetention)
-          )
-          val result = probe.expectMsgType[SelectStatementExecuted]
-          result.values.size shouldBe 8
-          result.values should be(recordsToTest.takeRight(8))
         }
 
         awaitAssert {
@@ -285,7 +266,6 @@ class RetentionSpec
             selectAllOrderByTimestamp(metricWithRetention)
           )
           val result = probe.expectMsgType[SelectStatementExecuted].values
-          println(result.size)
           result.size shouldBe 2
           result shouldBe recordsToTest.takeRight(2)
         }
