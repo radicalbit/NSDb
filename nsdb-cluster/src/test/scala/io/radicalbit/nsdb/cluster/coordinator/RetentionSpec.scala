@@ -22,11 +22,8 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{AllMetricInfoWithRetentionGot, GetAllMetricInfoWithRetention}
 import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetricsDataActor}
-import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
-  AllMetricInfoWithRetentionGot,
-  GetAllMetricInfoWithRetention
-}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetricInfoPut
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
@@ -51,8 +48,8 @@ class RetentionSpec
           .withValue("akka.remote.artery.canonical.port", ConfigValueFactory.fromAnyRef(2654))
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
-          .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("1s"))
-          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("2s"))
+          .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("20ms"))
+          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("30ms"))
       ))
     with ImplicitSender
     with WordSpecLike
@@ -78,18 +75,6 @@ class RetentionSpec
     Bit(12L, 7L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
     Bit(14L, 8L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
     Bit(16L, 9L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
-  )
-
-  def currentRecords(currentTime: Long, retention: Long): Seq[Bit] = Seq(
-    Bit(currentTime + retention - 3000, 1L, Map("surname"      -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime + retention - 1500, 2L, Map("surname"      -> "Doe"), Map("name" -> "John")),
-    Bit(currentTime + (retention * 2) - 700, 3L, Map("surname" -> "D"), Map("name"   -> "J")),
-    Bit(currentTime + (retention * 2) - 500, 4L, Map("surname" -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime + (retention * 3) - 200, 5L, Map("surname" -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime + (retention * 3) - 100, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
-    Bit(currentTime + (retention * 3) - 50, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(currentTime + (retention * 4) - 10, 8L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(currentTime + (retention * 5) + 10, 9L, Map("surname"  -> "Doe"), Map("name" -> "Frankie"))
   )
 
   val writeNodesSelection = new CapacityWriteNodesSelectionLogic(
@@ -188,6 +173,18 @@ class RetentionSpec
 
       "delete outdated records" in {
 
+        def currentRecords(currentTime: Long, retention: Long): Seq[Bit] = Seq(
+          Bit(currentTime + retention - 3000, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
+          Bit(currentTime + retention - 1500, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
+          Bit(currentTime + retention - 700, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
+          Bit(currentTime + retention - 500, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+          Bit(currentTime + retention - 300, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+          Bit(currentTime + retention - 200, 6L, Map("surname"  -> "Doe"), Map("name" -> "Frankie")),
+          Bit(currentTime + retention - 100, 7L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+          Bit(currentTime + retention - 20, 8L, Map("surname"   -> "Doe"), Map("name" -> "Frank")),
+          Bit(currentTime + retention - 10, 9L, Map("surname"   -> "Doe"), Map("name" -> "Frankie"))
+        )
+
         val retention = 2000
 
         val retentionMetricInfo = MetricInfo(db, namespace, metricWithRetention, 5000, retention)
@@ -217,7 +214,9 @@ class RetentionSpec
             readCoordinatorActor,
             selectAllOrderByTimestamp(metricWithRetention)
           )
-          probe.expectMsgType[SelectStatementExecuted].values.size should be(recordsToTest.size)
+          val result = probe.expectMsgType[SelectStatementExecuted]
+          result.values.size shouldBe 9
+          result.values should be(recordsToTest)
         }
 
         awaitAssert {
@@ -226,6 +225,17 @@ class RetentionSpec
             selectAllOrderByTimestamp(metricWithRetention)
           )
           val result = probe.expectMsgType[SelectStatementExecuted]
+          result.values.size shouldBe 8
+          result.values should be(recordsToTest.takeRight(8))
+        }
+
+        awaitAssert {
+          probe.send(
+            readCoordinatorActor,
+            selectAllOrderByTimestamp(metricWithRetention)
+          )
+          val result = probe.expectMsgType[SelectStatementExecuted]
+          result.values.size shouldBe 7
           result.values shouldBe recordsToTest.takeRight(7)
         }
 
@@ -235,6 +245,17 @@ class RetentionSpec
             selectAllOrderByTimestamp(metricWithRetention)
           )
           val result = probe.expectMsgType[SelectStatementExecuted]
+          result.values.size shouldBe 6
+          result.values shouldBe recordsToTest.takeRight(6)
+        }
+
+        awaitAssert {
+          probe.send(
+            readCoordinatorActor,
+            selectAllOrderByTimestamp(metricWithRetention)
+          )
+          val result = probe.expectMsgType[SelectStatementExecuted]
+          result.values.size shouldBe 5
           result.values shouldBe recordsToTest.takeRight(5)
         }
 
@@ -243,8 +264,9 @@ class RetentionSpec
             readCoordinatorActor,
             selectAllOrderByTimestamp(metricWithRetention)
           )
-          val result = probe.expectMsgType[SelectStatementExecuted]
-          result.values shouldBe recordsToTest.takeRight(2)
+          val result = probe.expectMsgType[SelectStatementExecuted].values
+          result.size shouldBe 4
+          result shouldBe recordsToTest.takeRight(4)
         }
 
         awaitAssert {
@@ -252,8 +274,9 @@ class RetentionSpec
             readCoordinatorActor,
             selectAllOrderByTimestamp(metricWithRetention)
           )
-          val result = probe.expectMsgType[SelectStatementExecuted]
-          result.values shouldBe recordsToTest.takeRight(1)
+          val result = probe.expectMsgType[SelectStatementExecuted].values
+          result.size shouldBe 3
+          result shouldBe recordsToTest.takeRight(3)
         }
 
         awaitAssert {
@@ -261,8 +284,29 @@ class RetentionSpec
             readCoordinatorActor,
             selectAllOrderByTimestamp(metricWithRetention)
           )
-          val result = probe.expectMsgType[SelectStatementExecuted]
-          result.values shouldBe Seq()
+          val result = probe.expectMsgType[SelectStatementExecuted].values
+          println(result.size)
+          result.size shouldBe 2
+          result shouldBe recordsToTest.takeRight(2)
+        }
+
+        awaitAssert {
+          probe.send(
+            readCoordinatorActor,
+            selectAllOrderByTimestamp(metricWithRetention)
+          )
+          val result = probe.expectMsgType[SelectStatementExecuted].values
+          result.size shouldBe 1
+          result shouldBe recordsToTest.takeRight(1)
+        }
+
+        awaitAssert {
+          probe.send(
+            readCoordinatorActor,
+            selectAllOrderByTimestamp(metricWithRetention)
+          )
+          val result = probe.expectMsgType[SelectStatementExecuted].values
+          result shouldBe Seq()
         }
 
       }

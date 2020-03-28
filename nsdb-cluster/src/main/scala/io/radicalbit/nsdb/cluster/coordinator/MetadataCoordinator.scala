@@ -155,9 +155,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
       metadataCache ! GetAllMetricInfoWithRetention
     }
 
-    context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval * 10) {
-      self ! CheckOutdatedLocations
-    }
   }
 
   /**
@@ -288,27 +285,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
   }
 
   override def receive: Receive = {
-    case CheckOutdatedLocations =>
-      (metadataCache ? GetAllMetricInfoWithRetention).mapTo[AllMetricInfoWithRetentionGot].foreach {
-        case AllMetricInfoWithRetentionGot(metricInfos) =>
-          metricInfos.foreach {
-            case MetricInfo(db, namespace, metric, _, _) =>
-              (metadataCache ? GetLocationsFromCache(db, namespace, metric))
-                .mapTo[LocationsCached]
-                .foreach {
-                  case LocationsCached(db, namespace, _, locations) =>
-                    //check for outdated locations still written on disk
-                    locations.groupBy(_.node).foreach {
-                      case (node, locations) =>
-                        metricsDataActors.get(node) match {
-                          case Some(metricDataActor) =>
-                            metricDataActor ! CheckForOutDatedShards(db, namespace, locations)
-                          case None => log.debug("no metrics data actor found for node {}", node)
-                        }
-                    }
-                }
-          }
-      }
     case AllMetricInfoWithRetentionGot(metricInfoes) =>
       log.debug(s"check for retention for {}", metricInfoes)
       metricInfoes.foreach {
@@ -601,8 +577,6 @@ object MetadataCoordinator {
                                     occurredOn: Long = System.currentTimeMillis)
         extends NSDbSerializable
     case class PutMetricInfo(metricInfo: MetricInfo) extends NSDbSerializable
-
-    case object CheckOutdatedLocations extends NSDbSerializable
 
     case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
 

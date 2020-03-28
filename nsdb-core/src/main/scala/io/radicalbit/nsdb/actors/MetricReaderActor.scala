@@ -379,7 +379,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         actors -= location
       }
     case Refresh(_, locations) =>
-      log.info(s"refreshing locations $locations")
+      log.debug(s"refreshing locations $locations")
       locations.foreach { location =>
         getShardReaderActor(location).foreach(_ ! RefreshShard)
       }

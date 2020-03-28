@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.{Files, Paths}
-import java.util.Comparator
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
@@ -189,8 +187,8 @@ class MetricPerformerActor(val basePath: String,
               Try((Seq(index.delete(bit)) ++ facetIndexes.delete(bit)).map(_.get))
             case WriteShardOperation(_, _, bit) =>
               Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get))
-            case _ => Success(Seq(0l)) //do nothing for now. Return Success
-          }).getOrElse(Success(Seq(0l)))
+            case _ => Success(Seq(0L)) //do nothing for now. Return Success
+          }).getOrElse(Success(Seq(0L)))
 
           compensation match {
             case Success(_) =>

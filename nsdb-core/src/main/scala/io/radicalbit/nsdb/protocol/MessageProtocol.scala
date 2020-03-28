@@ -210,7 +210,6 @@ object MessageProtocol {
     case class ShardEvicted(db: String, namespace: String, location: Location)           extends NSDbSerializable
     case class EvictedShardFailed(db: String, namespace: String, location: Location, reason: String)
         extends NSDbSerializable
-    case class CheckForOutDatedShards(db: String, namespace: String, location: Seq[Location]) extends NSDbSerializable
 
     case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String) extends NSDbSerializable
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)     extends NSDbSerializable

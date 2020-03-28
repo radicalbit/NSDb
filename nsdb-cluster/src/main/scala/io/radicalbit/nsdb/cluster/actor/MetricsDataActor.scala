@@ -119,24 +119,6 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
       getOrCreateAccumulator(db, namespace) forward msg
     case msg @ EvictShard(db, namespace, _) =>
       getOrCreateAccumulator(db, namespace) forward msg
-    case CheckForOutDatedShards(db, namespace, locations) =>
-      val locationGrouped = locations.groupBy(_.metric)
-
-      val shardPath = Option(Paths.get(basePath, db, namespace, "shards"))
-
-      locationGrouped.foreach {
-        case (metric, locations) =>
-          val locationShardsName = locations.map(_.shardName)
-
-          val outdatedSeq = NSDbFileUtils
-            .getMetricshards(shardPath, metric)
-            .toSeq
-            .filterNot(f => locationShardsName.contains(f.getName))
-          outdatedSeq.foreach { outdated =>
-            FileUtils.deleteDirectory(outdated)
-          }
-      }
-
     case msg @ GetCountWithLocations(db, namespace, _, _) =>
       getOrCreateReader(db, namespace) forward msg
     case msg @ ExecuteSelectStatement(statement, _, _, _) =>
