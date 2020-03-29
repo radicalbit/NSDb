@@ -289,14 +289,15 @@ class MetadataCoordinator(clusterListener: ActorRef,
       log.debug(s"check for retention for {}", metricInfoes)
       metricInfoes.foreach {
         case MetricInfo(db, namespace, metric, _, retention) =>
-          val threshold = System.currentTimeMillis() - retention
+          val currentTime = System.currentTimeMillis()
 
           (metadataCache ? GetLocationsFromCache(db, namespace, metric))
             .mapTo[LocationsCached]
             .map {
               case LocationsCached(_, _, _, locations) =>
+                log.error(s"checking locations $locations at time $currentTime and retention $retention")
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
-                  TimeRangeManager.getLocationsToEvict(locations, threshold)
+                  TimeRangeManager.getLocationsToEvict(locations, retention, currentTime)
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
@@ -335,7 +336,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             namespace,
                             System.currentTimeMillis(),
                             location,
-                            deleteStatementFromThreshold(db, namespace, location.metric, threshold))))
+                            deleteStatementFromThreshold(db, namespace, location.metric, currentTime - retention))))
                     .map { responses =>
                       manageErrors[WriteToCommitLogSucceeded, WriteToCommitLogFailed](responses) { errors =>
                         log.error("errors during delete locations from cache {}", errors)
@@ -346,9 +347,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
                 commitLogResponses.flatMap { _ =>
                   Future.sequence(
-                    locationsToPartiallyEvict.map(location =>
-                      partiallyEvictPerform(deleteStatementFromThreshold(db, namespace, location.metric, threshold),
-                                            location))
+                    locationsToPartiallyEvict.map(
+                      location =>
+                        partiallyEvictPerform(
+                          deleteStatementFromThreshold(db, namespace, location.metric, currentTime - retention),
+                          location))
                   )
 
                   Future.sequence(
