@@ -52,7 +52,7 @@ class RetentionSpec
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
           .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("20ms"))
-          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("1ms"))
+          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("50ms"))
       ))
     with ImplicitSender
     with WordSpecLike
@@ -178,7 +178,7 @@ class RetentionSpec
 
         def currentRecords(currentTime: Long, retention: Long): Seq[Bit] = Seq(
           Bit(currentTime + retention - 3000, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
-          Bit(currentTime + retention - 1500, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
+          Bit(currentTime + retention - 1000, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
           Bit(currentTime + retention - 700, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
           Bit(currentTime + retention - 500, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
           Bit(currentTime + retention - 300, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
@@ -268,16 +268,6 @@ class RetentionSpec
           val result = probe.expectMsgType[SelectStatementExecuted].values
           result.size shouldBe 2
           result shouldBe recordsToTest.takeRight(2)
-        }
-
-        awaitAssert {
-          probe.send(
-            readCoordinatorActor,
-            selectAllOrderByTimestamp(metricWithRetention)
-          )
-          val result = probe.expectMsgType[SelectStatementExecuted].values
-          result.size shouldBe 1
-          result shouldBe recordsToTest.takeRight(1)
         }
 
         awaitAssert {

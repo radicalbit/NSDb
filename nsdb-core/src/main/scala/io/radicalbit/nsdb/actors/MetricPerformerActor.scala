@@ -62,15 +62,6 @@ class MetricPerformerActor(val basePath: String,
 
   private val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
-//  private def deleteLocation(location: Location): Unit = {
-//    val path = Paths.get(basePath, db, namespace, "shards", s"${location.shardName}")
-//    log.info("Trying to delete path {}", path)
-//    Files.walk(path).sorted(Comparator.reverseOrder()).iterator().asScala.foreach {
-//      case path if path.toFile.exists() => path.toFile.delete()
-//      case _                            => //do nothing
-//    }
-//  }
-
   def receive: Receive = {
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.location)
@@ -142,8 +133,6 @@ class MetricPerformerActor(val basePath: String,
           facetsTaxoWriter.close()
           facetsIndexWriter.close()
       }
-
-      garbageCollectIndexes()
 
       val persistedBits = performedBitOperations
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)

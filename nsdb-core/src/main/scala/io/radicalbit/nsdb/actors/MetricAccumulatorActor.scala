@@ -173,14 +173,7 @@ class MetricAccumulatorActor(val basePath: String,
       metricsRetention += (metric -> retention)
     case msg @ EvictShard(_, _, location) =>
       Try {
-//        shards.get(location).foreach(_.close())
-//        facetIndexShards.get(location).foreach(_.close())
-//
-//        shards -= location
-//        facetIndexShards -= location
-
         releaseLocation(location)
-
         deleteLocation(location)
       } match {
         case Success(_) =>
