@@ -52,7 +52,7 @@ class RetentionSpec
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
           .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("20ms"))
-          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("30ms"))
+          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("1ms"))
       ))
     with ImplicitSender
     with WordSpecLike

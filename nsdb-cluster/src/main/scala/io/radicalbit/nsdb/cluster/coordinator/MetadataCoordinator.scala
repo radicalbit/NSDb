@@ -295,7 +295,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
             .mapTo[LocationsCached]
             .map {
               case LocationsCached(_, _, _, locations) =>
-                log.error(s"checking locations $locations at time $currentTime and retention $retention")
+                log.debug(s"checking locations $locations at time $currentTime and retention $retention")
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
                   TimeRangeManager.getLocationsToEvict(locations, retention, currentTime)
 

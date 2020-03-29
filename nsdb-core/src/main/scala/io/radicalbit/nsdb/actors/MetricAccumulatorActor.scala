@@ -99,12 +99,6 @@ class MetricAccumulatorActor(val basePath: String,
     )
   }
 
-  private def deleteLocation(location: Location): Unit = {
-    val path = Paths.get(basePath, db, namespace, "shards", s"${location.shardName}")
-    if (path.toFile.exists())
-      FileUtils.deleteDirectory(path.toFile)
-  }
-
   /**
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
@@ -175,10 +169,17 @@ class MetricAccumulatorActor(val basePath: String,
 
       readerActor ! Broadcast(msg)
       sender() ! MetricDropped(db, namespace, metric)
+    case DisseminateRetention(_, _, metric, retention) =>
+      metricsRetention += (metric -> retention)
     case msg @ EvictShard(_, _, location) =>
       Try {
-        shards -= location
-        facetIndexShards -= location
+//        shards.get(location).foreach(_.close())
+//        facetIndexShards.get(location).foreach(_.close())
+//
+//        shards -= location
+//        facetIndexShards -= location
+
+        releaseLocation(location)
 
         deleteLocation(location)
       } match {

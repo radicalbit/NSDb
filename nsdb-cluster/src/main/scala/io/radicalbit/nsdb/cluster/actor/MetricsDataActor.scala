@@ -42,7 +42,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoordinator: ActorRef)
     extends ActorPathLogging {
 
-  lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
+  lazy val readParallelism: ReadParallelism = ReadParallelism(
+    context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
     * Gets or creates reader child actor of class [[MetricReaderActor]] to handle read requests
@@ -113,6 +114,8 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
     case msg @ DropMetricWithLocations(db, namespace, _, _) =>
+      getOrCreateAccumulator(db, namespace) forward msg
+    case msg @ DisseminateRetention(db, namespace, _, _) =>
       getOrCreateAccumulator(db, namespace) forward msg
     case msg @ EvictShard(db, namespace, _) =>
       getOrCreateAccumulator(db, namespace) forward msg
