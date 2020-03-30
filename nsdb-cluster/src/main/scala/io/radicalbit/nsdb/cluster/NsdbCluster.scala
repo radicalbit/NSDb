@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.cluster
 import akka.actor.ActorSystem
 
 /**
-  * Run a concrete Nsdb cluster node according to the configuration provided in `confDir` folder or into the classpath
+  * Run a concrete NSDb cluster node according to the configuration provided in `confDir` folder or into the classpath
   */
 object NsdbCluster extends App with ProductionCluster {
   initMonitoring()

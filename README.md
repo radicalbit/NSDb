@@ -16,7 +16,7 @@ NSDb is distributed under the [Apache 2](http://www.apache.org/licenses/LICENSE-
 
 * Optimized time series management
 * Focus on read performance [(doc)](docs/Architecture.md)
-* High availability and clustering [(doc)](docs/Architecture.md)
+* High availability and clustering [(doc)](docs/Clustering.md)
 * Ad-hoc publish-subscribe streaming feature (using WebSockets) [(doc)](docs/Websocket.md)
 * SQL like query language [(doc)](docs/SQL_doc.md)
 * Fluent Java / Scala Api [(doc)](docs/JVM_API_doc.md)

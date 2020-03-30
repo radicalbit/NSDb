@@ -67,6 +67,9 @@ object MessageProtocol {
         extends NSDbSerializable
     case class DeleteNamespace(db: String, namespace: String) extends NSDbSerializable
 
+    case class DisseminateRetention(db: String, namespace: String, metric: String, retention: Long)
+        extends NSDbSerializable
+
     case class UpdateSchemaFromRecord(db: String, namespace: String, metric: String, record: Bit)
         extends NSDbSerializable
     case class UpdateSchema(db: String, namespace: String, metric: String, newSchema: Schema) extends NSDbSerializable
@@ -210,7 +213,6 @@ object MessageProtocol {
     case class ShardEvicted(db: String, namespace: String, location: Location)           extends NSDbSerializable
     case class EvictedShardFailed(db: String, namespace: String, location: Location, reason: String)
         extends NSDbSerializable
-    case class CheckForOutDatedShards(db: String, namespace: String, location: Seq[Location]) extends NSDbSerializable
 
     case class CommitLogCoordinatorSubscribed(actor: ActorRef, nodeName: String) extends NSDbSerializable
     case class MetricsDataActorSubscribed(actor: ActorRef, nodeName: String)     extends NSDbSerializable

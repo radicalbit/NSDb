@@ -25,7 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache._
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.commands.DeleteNamespaceSchema
 import io.radicalbit.nsdb.cluster.coordinator.SchemaCoordinator.events.NamespaceSchemaDeleted
-import io.radicalbit.nsdb.cluster.logic.WriteConsistencyLogic
+import io.radicalbit.nsdb.cluster.logic.WriteConfig
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -53,7 +53,7 @@ object ReplicatedSchemaCache {
 /**
   * cluster aware cache to store metric's locations based on [[akka.cluster.ddata.Replicator]]
   */
-class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic {
+class ReplicatedSchemaCache extends ActorPathLogging with WriteConfig {
 
   import akka.cluster.ddata.Replicator._
 
@@ -78,7 +78,7 @@ class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic 
   def receive: Receive = {
     case PutSchemaInCache(db, namespace, metric, value) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), writeConsistency)(_ :+ (key -> value)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), metadataWriteConsistency)(_ :+ (key -> value)))
         .map {
           case UpdateSuccess(_, _) =>
             SchemaCached(db, namespace, metric, Some(value))
@@ -87,7 +87,7 @@ class ReplicatedSchemaCache extends ActorPathLogging with WriteConsistencyLogic 
         .pipeTo(sender())
     case EvictSchema(db, namespace, metric) =>
       val key = SchemaKey(db, namespace, metric)
-      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), writeConsistency)(_ remove (address, key)))
+      (replicator ? Update(namespaceKey(db, namespace), LWWMap(), metadataWriteConsistency)(_ remove (address, key)))
         .map(_ => SchemaCached(db, namespace, metric, None))
         .pipeTo(sender)
     case DeleteNamespaceSchema(db, namespace) =>

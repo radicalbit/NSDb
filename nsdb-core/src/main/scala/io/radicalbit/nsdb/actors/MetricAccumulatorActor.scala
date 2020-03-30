@@ -99,12 +99,6 @@ class MetricAccumulatorActor(val basePath: String,
     )
   }
 
-  private def deleteLocation(location: Location): Unit = {
-    val path = Paths.get(basePath, db, namespace, "shards", s"${location.shardName}")
-    if (path.toFile.exists())
-      FileUtils.deleteDirectory(path.toFile)
-  }
-
   /**
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
@@ -141,7 +135,7 @@ class MetricAccumulatorActor(val basePath: String,
       }
       facetIndexShards.foreach {
         case (k, indexes) =>
-          implicit val writer: IndexWriter = indexes.newIndexWriter
+          implicit val writer: IndexWriter = indexes.getIndexWriter
           indexes.deleteAll()
           writer.close()
           facetIndexShards -= k
@@ -163,7 +157,7 @@ class MetricAccumulatorActor(val basePath: String,
       }
       facetsShardsFromLocations(locations).foreach {
         case (key, Some(indexes)) =>
-          implicit val writer: IndexWriter = indexes.newIndexWriter
+          implicit val writer: IndexWriter = indexes.getIndexWriter
           indexes.deleteAll()
           writer.close()
           indexes.refresh()
@@ -175,11 +169,11 @@ class MetricAccumulatorActor(val basePath: String,
 
       readerActor ! Broadcast(msg)
       sender() ! MetricDropped(db, namespace, metric)
+    case DisseminateRetention(_, _, metric, retention) =>
+      metricsRetention += (metric -> retention)
     case msg @ EvictShard(_, _, location) =>
       Try {
-        shards -= location
-        facetIndexShards -= location
-
+        releaseLocation(location)
         deleteLocation(location)
       } match {
         case Success(_) =>

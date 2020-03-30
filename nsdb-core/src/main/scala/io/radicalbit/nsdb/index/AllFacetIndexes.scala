@@ -54,9 +54,9 @@ class AllFacetIndexes(basePath: String,
   private val facetIndexes: Set[FacetIndex] = Set(facetCountIndex, facetSumIndex)
 
   /**
-    * @return the [[org.apache.lucene.facet.taxonomy.TaxonomyWriter]]
+    * @return the [[org.apache.lucene.index.IndexWriter]]
     */
-  def newIndexWriter: IndexWriter =
+  def getIndexWriter: IndexWriter =
     new IndexWriter(
       directory,
       new IndexWriterConfig(new StandardAnalyzer)
@@ -64,7 +64,10 @@ class AllFacetIndexes(basePath: String,
         .setMergedSegmentWarmer(new SimpleMergedSegmentWarmer(InfoStream.NO_OUTPUT))
     )
 
-  def newDirectoryTaxonomyWriter: DirectoryTaxonomyWriter = new DirectoryTaxonomyWriter(taxoDirectory)
+  /**
+    * @return the [[org.apache.lucene.facet.taxonomy.TaxonomyWriter]]
+    */
+  def getTaxonomyWriter: DirectoryTaxonomyWriter = new DirectoryTaxonomyWriter(taxoDirectory)
 
   def write(bit: Bit)(implicit writer: IndexWriter, taxonomyWriter: DirectoryTaxonomyWriter): Try[Long] = {
 
