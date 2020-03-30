@@ -41,8 +41,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -89,8 +89,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -133,8 +133,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -176,8 +176,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -196,7 +196,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
       .result(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR())
       .size shouldBe 100
 
-    val deleteWriter = facetIndexes.newIndexWriter
+    val deleteWriter = facetIndexes.getIndexWriter
 
     facetIndexes.delete(
       Bit(timestamp = 100,
@@ -222,8 +222,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val factor = i / 4
@@ -286,8 +286,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -327,8 +327,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
         indexStorageStrategy = indexStorageStrategy
       )
 
-    implicit val writer     = facetIndexes.newIndexWriter
-    implicit val taxoWriter = facetIndexes.newDirectoryTaxonomyWriter
+    implicit val writer     = facetIndexes.getIndexWriter
+    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val factor: Double = 1.2d

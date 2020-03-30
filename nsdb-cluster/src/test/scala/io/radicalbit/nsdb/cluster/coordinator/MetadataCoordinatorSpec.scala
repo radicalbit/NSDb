@@ -356,7 +356,9 @@ class MetadataCoordinatorSpec
         probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
         val locationsGot = probe.expectMsgType[LocationsGot]
         locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(2)
+      }
 
+      awaitAssert {
         val deleteCommand = metricsDataActorProbe.expectMsgType[ExecuteDeleteStatementInternalInLocations]
         deleteCommand.locations shouldBe Seq(locations.takeRight(2).head)
       }

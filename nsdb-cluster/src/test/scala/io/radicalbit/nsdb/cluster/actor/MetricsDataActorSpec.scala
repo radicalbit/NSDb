@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -25,7 +24,6 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
-import io.radicalbit.nsdb.cluster.util.FileUtils
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -163,42 +161,6 @@ class MetricsDataActorSpec()
     }
 
     expectNoMessage(interval)
-
-  }
-
-  "metricsDataActor" should "delete outdated locations" in within(5.seconds) {
-    val namespaceToCheck = "namespaceToCheck"
-
-    val record = Bit(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
-
-    val locationToEvict    = Location("metricToCheck", "testNode", 0, 100)
-    val locationNotToEvict = Location("metricToCheck", "testNode", 100, 200)
-
-    probe.send(metricsDataActor, AddRecordToLocation(db, namespaceToCheck, record, locationToEvict))
-    awaitAssert {
-      probe.expectMsgType[RecordAdded]
-    }
-    probe.send(metricsDataActor, AddRecordToLocation(db, namespaceToCheck, record, locationNotToEvict))
-    awaitAssert {
-      probe.expectMsgType[RecordAdded]
-    }
-
-    expectNoMessage(interval)
-
-    awaitAssert {
-      FileUtils
-        .getSubDirs(Paths.get(basePath, db, namespaceToCheck, "shards"))
-        .map(_.getName)
-        .sortBy(identity) shouldBe Seq(locationToEvict.shardName, locationNotToEvict.shardName)
-    }
-
-    probe.send(metricsDataActor, CheckForOutDatedShards(db, namespaceToCheck, Seq(locationNotToEvict)))
-    awaitAssert {
-      FileUtils
-        .getSubDirs(Paths.get(basePath, db, namespaceToCheck, "shards"))
-        .map(_.getName)
-        .sortBy(identity) shouldBe Seq(locationNotToEvict.shardName)
-    }
 
   }
 

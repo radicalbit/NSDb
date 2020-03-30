@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
@@ -26,14 +25,12 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
-import io.radicalbit.nsdb.cluster.util.{FileUtils => NSDbFileUtils}
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import org.apache.commons.io.FileUtils
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -45,7 +42,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoordinator: ActorRef)
     extends ActorPathLogging {
 
-  lazy val readParallelism = ReadParallelism(context.system.settings.config.getConfig("nsdb.read.parallelism"))
+  lazy val readParallelism: ReadParallelism = ReadParallelism(
+    context.system.settings.config.getConfig("nsdb.read.parallelism"))
 
   /**
     * Gets or creates reader child actor of class [[MetricReaderActor]] to handle read requests
@@ -117,26 +115,10 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
         .pipeTo(sender())
     case msg @ DropMetricWithLocations(db, namespace, _, _) =>
       getOrCreateAccumulator(db, namespace) forward msg
+    case msg @ DisseminateRetention(db, namespace, _, _) =>
+      getOrCreateAccumulator(db, namespace) forward msg
     case msg @ EvictShard(db, namespace, _) =>
       getOrCreateAccumulator(db, namespace) forward msg
-    case CheckForOutDatedShards(db, namespace, locations) =>
-      val locationGrouped = locations.groupBy(_.metric)
-
-      val shardPath = Option(Paths.get(basePath, db, namespace, "shards"))
-
-      locationGrouped.foreach {
-        case (metric, locations) =>
-          val locationShardsName = locations.map(_.shardName)
-
-          val outdatedSeq = NSDbFileUtils
-            .getMetricshards(shardPath, metric)
-            .toSeq
-            .filterNot(f => locationShardsName.contains(f.getName))
-          outdatedSeq.foreach { outdated =>
-            FileUtils.deleteDirectory(outdated)
-          }
-      }
-
     case msg @ GetCountWithLocations(db, namespace, _, _) =>
       getOrCreateReader(db, namespace) forward msg
     case msg @ ExecuteSelectStatement(statement, _, _, _) =>

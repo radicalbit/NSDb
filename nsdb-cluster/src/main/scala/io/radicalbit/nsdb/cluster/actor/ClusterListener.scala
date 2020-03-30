@@ -35,7 +35,7 @@ import io.radicalbit.nsdb.cluster.actor.ClusterListener.{DiskOccupationChanged, 
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
-import io.radicalbit.nsdb.cluster.util.{ErrorManagementUtils, FileUtils}
+import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.model.LocationWithCoordinates
@@ -45,7 +45,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   MetricsDataActorUnSubscribed,
   PublisherUnSubscribed
 }
-import io.radicalbit.nsdb.util.FutureRetryUtility
+import io.radicalbit.nsdb.util.{FileUtils, FutureRetryUtility}
 
 import scala.collection.mutable
 import scala.concurrent.Future

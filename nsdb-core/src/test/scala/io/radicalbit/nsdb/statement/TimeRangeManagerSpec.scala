@@ -343,7 +343,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
 
     "executing getLocationsToEvict" should {
 
-      "filter locations given a threshold" in {
+      "filter locations given a retention" in {
         val locationSequence = Seq(
           Location("metric", "node", 0, 5),
           Location("metric", "node", 6, 10),
@@ -352,9 +352,9 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           Location("metric", "node", 21, 25)
         )
 
-        TimeRangeManager.getLocationsToEvict(locationSequence, 15) shouldBe (
-          Seq(Location("metric", "node", 0, 5), Location("metric", "node", 6, 10)),
-          Seq(Location("metric", "node", 11, 15))
+        TimeRangeManager.getLocationsToEvict(locationSequence, 6, 10) shouldBe (
+          Seq(Location("metric", "node", 16, 20), Location("metric", "node", 21, 25)),
+          Seq(Location("metric", "node", 0, 5), Location("metric", "node", 6, 10), Location("metric", "node", 11, 15))
         )
 
       }

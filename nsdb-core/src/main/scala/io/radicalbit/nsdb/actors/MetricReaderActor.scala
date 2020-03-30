@@ -108,15 +108,15 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
       .map(_.toSet)
       .getOrElse(Set.empty)
-      .filter(_.split("_").length == 3)
-      .map(_.split("_"))
       .foreach {
-        case Array(metric, from, to) =>
-          val location = Location(metric, nodeName, from.toLong, to.toLong)
+        case shardName if shardName.split("_").length == 3 =>
+          val Array(metric, from, to) = shardName.split("_")
+          val location                = Location(metric, nodeName, from.toLong, to.toLong)
           val shardActor =
             context.actorOf(ShardReaderActor.props(basePath, db, namespace, location), actorName(location))
           context.watch(shardActor)
           actors += (location -> shardActor)
+        case _ => //do nothing
       }
   }
 
@@ -378,9 +378,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         actor ! PoisonPill
         actors -= location
       }
-    case Refresh(_, keys) =>
-      keys.foreach { key =>
-        getShardReaderActor(key).foreach(_ ! RefreshShard)
+    case Refresh(_, locations) =>
+      log.debug(s"refreshing locations $locations")
+      locations.foreach { location =>
+        getShardReaderActor(location).foreach(_ ! RefreshShard)
       }
   }
 

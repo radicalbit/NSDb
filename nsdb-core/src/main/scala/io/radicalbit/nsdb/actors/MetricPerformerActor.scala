@@ -74,8 +74,8 @@ class MetricPerformerActor(val basePath: String,
           val facetIndexes        = getOrCreatefacetIndexesFor(loc)
           val writer: IndexWriter = index.getWriter
 
-          val facetsIndexWriter = facetIndexes.newIndexWriter
-          val facetsTaxoWriter  = facetIndexes.newDirectoryTaxonomyWriter
+          val facetsIndexWriter = facetIndexes.getIndexWriter
+          val facetsTaxoWriter  = facetIndexes.getTaxonomyWriter
 
           ops.foreach {
             case op @ WriteShardOperation(_, _, bit) =>
@@ -134,8 +134,6 @@ class MetricPerformerActor(val basePath: String,
           facetsIndexWriter.close()
       }
 
-      garbageCollectIndexes()
-
       val persistedBits = performedBitOperations
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
       (localCommitLogCoordinator ? PersistedBits(persistedBits)).recover {
@@ -167,8 +165,8 @@ class MetricPerformerActor(val basePath: String,
                                            namespace = namespace,
                                            location = loc,
                                            indexStorageStrategy = indexStorageStrategy)
-          val facetsIndexWriter = facets.newIndexWriter
-          val facetsTaxoWriter  = facets.newDirectoryTaxonomyWriter
+          val facetsIndexWriter = facets.getIndexWriter
+          val facetsTaxoWriter  = facets.getTaxonomyWriter
 
           /**
             * compensate the failed action
@@ -178,8 +176,8 @@ class MetricPerformerActor(val basePath: String,
               Try((Seq(index.delete(bit)) ++ facetIndexes.delete(bit)).map(_.get))
             case WriteShardOperation(_, _, bit) =>
               Try(Seq(index.write(bit), facets.write(bit)(facetsIndexWriter, facetsTaxoWriter)).map(_.get))
-            case _ => Success(Seq(0l)) //do nothing for now. Return Success
-          }).getOrElse(Success(Seq(0l)))
+            case _ => Success(Seq(0L)) //do nothing for now. Return Success
+          }).getOrElse(Success(Seq(0L)))
 
           compensation match {
             case Success(_) =>

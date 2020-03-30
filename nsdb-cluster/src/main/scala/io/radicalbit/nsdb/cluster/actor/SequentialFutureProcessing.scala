@@ -33,7 +33,7 @@ import scala.util.{Failure, Success}
   * }}}
   *
   */
-trait SequentialFutureProcessing extends Stash { this: Actor =>
+trait SequentialFutureProcessing { this: Actor with Stash =>
 
   private val waitingBehaviour: Receive = {
     case Continue =>

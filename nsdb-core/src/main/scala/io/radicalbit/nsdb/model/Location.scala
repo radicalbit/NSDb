@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.model
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import spire.implicits._
 import spire.math.Interval
-import spire.math.interval.Closed
+import spire.math.interval.{Closed, Open}
 
 /**
   * Metric shard location.
@@ -33,6 +33,18 @@ case class Location(metric: String, node: String, from: Long, to: Long) extends 
   def shardName = s"${metric}_${from}_$to"
 
   def interval: Interval[Long] = Interval.fromBounds(Closed(from), Closed(to))
+
+  /**
+    * Checks if this Location contains the given timestamp.
+    * @param timestamp the timestamp to check.
+    */
+  def contains(timestamp: Long): Boolean = this.from <= timestamp && this.to >= timestamp
+
+  /**
+    * Checks if the location is beyond retention upper and lower bounds.
+    */
+  def isBeyond(retention: Long, currentTime: Long = System.currentTimeMillis()): Boolean =
+    !interval.intersects(Interval.fromBounds(Open(currentTime - retention), Open(currentTime + retention)))
 }
 
 object Location {

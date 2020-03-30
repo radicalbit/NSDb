@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.Actor
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.model.Location
+import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
@@ -67,7 +68,12 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
     */
   private[actors] val shardsAccess: mutable.Map[Location, Long] = mutable.Map.empty
 
-  lazy val passivateAfter = FiniteDuration(
+  /**
+    * Retentions in milliseconds disseminated.
+    */
+  private[actors] val metricsRetention: mutable.Map[String, Long] = mutable.Map.empty
+
+  lazy val passivateAfter: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.sharding.passivate-after").toNanos,
     TimeUnit.NANOSECONDS)
 
@@ -132,21 +138,44 @@ trait MetricsActor extends DirectorySupport { this: Actor =>
   }
 
   /**
+    * Releases all the resources associated to a Location.
+    * @param location the location to be released.
+    */
+  protected def releaseLocation(location: Location): Unit = {
+    shards.get(location).foreach { timeSeriesIndex =>
+      timeSeriesIndex.close()
+    }
+    shards -= location
+    facetIndexShards.get(location).foreach { facetIndex =>
+      facetIndex.close()
+    }
+    facetIndexShards -= location
+    shardsAccess -= location
+  }
+
+  /**
+    * delete a location from File System.
+    * @param location
+    */
+  protected def deleteLocation(location: Location): Unit = {
+    val path = Paths.get(basePath, db, namespace, "shards", s"${location.shardName}")
+    if (path.toFile.exists())
+      FileUtils.deleteDirectory(path.toFile)
+  }
+
+  /**
     * Convenience method to clean up indexes not being used for a configured amount of time
     */
   protected def garbageCollectIndexes(): Unit = {
-    val now = System.currentTimeMillis()
     shardsAccess.foreach {
-      case (location, lastAccess) if FiniteDuration(now - lastAccess, TimeUnit.MILLISECONDS) > passivateAfter =>
-        shards.get(location).foreach { timeSeriesIndex =>
-          timeSeriesIndex.close()
+      case (location, lastAccess)
+          if FiniteDuration(System.currentTimeMillis() - lastAccess, TimeUnit.MILLISECONDS) > passivateAfter =>
+        releaseLocation(location)
+        metricsRetention.get(location.metric).foreach {
+          case retention if location.isBeyond(retention) => deleteLocation(location)
+          case _                                         => //do nothing
         }
-        shards -= location
-        facetIndexShards.get(location).foreach { facetIndex =>
-          facetIndex.close()
-        }
-        facetIndexShards -= location
-        shardsAccess -= location
+        metricsRetention -= location.metric
       case _ => // do nothing
     }
   }

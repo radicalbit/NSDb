@@ -152,7 +152,8 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
     override def initMetric(request: InitMetricRequest): Future[InitMetricResponse] = {
 
       Try {
-        (Duration(request.shardInterval).toMillis, Duration(request.retention).toMillis)
+        (if (request.shardInterval.nonEmpty) Duration(request.shardInterval).toMillis else 0L,
+         if (request.retention.nonEmpty) Duration(request.retention).toMillis else 0L)
       } match {
         case Success((interval, retention)) =>
           (metadataCoordinator ? PutMetricInfo(

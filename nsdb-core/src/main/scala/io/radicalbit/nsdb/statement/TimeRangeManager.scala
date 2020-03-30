@@ -119,14 +119,13 @@ object TimeRangeManager {
     * Filters a sequence of [[Location]] given a threshold.
     * Locations that are older that the threshold are returned.
     * @param locations the location with coordinates to evict.
-    * @param threshold the lowest timestamp to keep.
+    * @param currentTime the current timestamp in milliseconds.
+    * @param retention the retention in milliseconds.
     * @return the location that must be completely evicted, and the locations that must be partially evicted.
     */
-  def getLocationsToEvict(locations: Seq[Location], threshold: Long): (Seq[Location], Seq[Location]) = {
-    (locations.filter { l =>
-      l.to < threshold
-    }, locations.filter { l =>
-      l.from <= threshold && l.to >= threshold
-    })
-  }
+  def getLocationsToEvict(locations: Seq[Location],
+                          retention: Long,
+                          currentTime: Long = System.currentTimeMillis()): (Seq[Location], Seq[Location]) =
+    locations.partition(_.isBeyond(retention, currentTime))
+
 }
