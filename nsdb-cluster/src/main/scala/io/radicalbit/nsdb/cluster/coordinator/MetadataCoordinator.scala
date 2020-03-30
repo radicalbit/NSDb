@@ -433,8 +433,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
           else {
             (metadataCache ? GetLocationsFromCache(db, namespace, metric))
               .flatMap {
-                case LocationsCached(_, _, _, values) =>
-                  values.filter(v => v.from <= timestamp && v.to >= timestamp) match {
+                case LocationsCached(_, _, _, locations) =>
+                  locations.filter(location => location.contains(timestamp)) match {
                     case Nil =>
                       for {
                         nodeMetrics <- (clusterListener ? GetNodeMetrics).mapTo[NodeMetricsGot]

@@ -35,6 +35,12 @@ case class Location(metric: String, node: String, from: Long, to: Long) extends 
   def interval: Interval[Long] = Interval.fromBounds(Closed(from), Closed(to))
 
   /**
+    * Checks if this Location contains the given timestamp.
+    * @param timestamp the timestamp to check.
+    */
+  def contains(timestamp: Long): Boolean = this.from <= timestamp && this.to >= timestamp
+
+  /**
     * Checks if the location is beyond retention upper and lower bounds.
     */
   def isBeyond(retention: Long, currentTime: Long = System.currentTimeMillis()): Boolean =
