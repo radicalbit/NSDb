@@ -16,13 +16,12 @@
 
 package io.radicalbit.nsdb.sql.parser
 
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
-import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 
-import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
-import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 import scala.language.postfixOps
+import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
 import scala.util.parsing.input.CharSequenceReader
 
 /**
@@ -47,7 +46,7 @@ import scala.util.parsing.input.CharSequenceReader
 final class SQLStatementParser extends RegexParsers with PackratParsers with RegexNSDb {
 
   implicit class InsensitiveString(str: String) {
-    def ignoreCase: PackratParser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
+    def ignoreCase: PackratParser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toUpperCase }
   }
 
   private val Insert           = "INSERT INTO" ignoreCase
@@ -207,7 +206,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
       case dim ~ None ~ _    => NullableExpression(dim)
     }
 
-  lazy val comparisonExpressionRule = comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
+  private lazy val comparisonExpressionRule = comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
 
   private def comparisonExpression(operator: String,
                                    comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[AnyVal]] =
@@ -294,12 +293,14 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private def query(db: String, namespace: String): PackratParser[SQLStatement] =
     selectQuery(db, namespace) | insertQuery(db, namespace) | deleteQuery(db, namespace) | dropStatement(db, namespace)
 
-  def parse(db: String, namespace: String, input: String): Try[SQLStatement] =
-    Try(parse(query(db, namespace), new PackratReader[Char](new CharSequenceReader(s"$input;")))) flatMap {
-      case Success(res, _) => ScalaSuccess(res)
+  def parse(db: String, namespace: String, input: String): SqlStatementParserResult = {
+    parse(query(db, namespace), new PackratReader[Char](new CharSequenceReader(s"$input;"))) match {
+      case Success(statement, _) => SqlStatementParserSuccess(input, statement)
       case Error(msg, next) =>
-        ScalaFailure(new InvalidStatementException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
+        SqlStatementParserFailure(input, s"$msg \n ${next.source.toString.takeRight(next.offset)}")
       case Failure(msg, next) =>
-        ScalaFailure(new InvalidStatementException(s"$msg \n ${next.source.toString.takeRight(next.offset)}"))
+        SqlStatementParserFailure(input, s"$msg \n ${next.source.toString.takeRight(next.offset)}")
     }
+  }
+
 }

@@ -26,11 +26,12 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.SQLStatement
+import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.swagger.annotations._
 import javax.ws.rs.Path
@@ -144,7 +145,7 @@ trait QueryApi {
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
             authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
               QueryEnriched(qb.db, qb.namespace, qb.queryString, qb.from, qb.to, qb.filters.getOrElse(Seq.empty)) match {
-                case Some(statement) =>
+                case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`,
@@ -160,7 +161,10 @@ trait QueryApi {
                       logger.error(ex, s"error while trying to execute $statement")
                       complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
-                case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
+                case SqlStatementParserSuccess(queryString, _) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement $queryString is not a select statement"))
+                case SqlStatementParserFailure(queryString, _) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
               }
             }
           }

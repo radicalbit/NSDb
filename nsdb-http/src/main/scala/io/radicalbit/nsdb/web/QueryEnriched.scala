@@ -17,36 +17,38 @@
 package io.radicalbit.nsdb.web
 
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
+import io.radicalbit.nsdb.sql.parser._
 import io.radicalbit.nsdb.web.routes.Filter
-
-import scala.util.Success
 
 object QueryEnriched {
 
   def apply(db: String,
             namespace: String,
-            queryString: String,
-            from: Option[Long],
-            to: Option[Long],
-            filters: Seq[Filter]) =
-    (new SQLStatementParser().parse(db, namespace, queryString), from, to, filters) match {
-      case (Success(statement: SelectSQLStatement), Some(from), Some(to), filters) if filters.nonEmpty =>
-        Some(
-          statement
-            .enrichWithTimeRange("timestamp", from, to)
-            .addConditions(filters.map(f => Filter.unapply(f).get)))
-      case (Success(statement: SelectSQLStatement), None, None, filters) if filters.nonEmpty =>
-        Some(
-          statement
-            .addConditions(filters.map(f => Filter.unapply(f).get)))
-      case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
-        Some(
-          statement
-            .enrichWithTimeRange("timestamp", from, to))
-      case (Success(statement: SelectSQLStatement), _, _, _) =>
-        Some(statement)
-      case _ => None
+            inputQueryString: String,
+            from: Option[Long] = None,
+            to: Option[Long] = None,
+            filters: Seq[Filter] = Seq.empty): SqlStatementParserResult =
+    (new SQLStatementParser().parse(db, namespace, inputQueryString), from, to, filters) match {
+      case (SqlStatementParserSuccess(queryString, statement: SelectSQLStatement), Some(from), Some(to), filters)
+          if filters.nonEmpty =>
+        SqlStatementParserSuccess(queryString,
+                                  statement
+                                    .enrichWithTimeRange("timestamp", from, to)
+                                    .addConditions(filters.map(f => Filter.unapply(f).get)))
+      case (SqlStatementParserSuccess(queryString, statement: SelectSQLStatement), None, None, filters)
+          if filters.nonEmpty =>
+        SqlStatementParserSuccess(queryString,
+                                  statement
+                                    .addConditions(filters.map(f => Filter.unapply(f).get)))
+      case (SqlStatementParserSuccess(queryString, statement: SelectSQLStatement), Some(from), Some(to), _) =>
+        SqlStatementParserSuccess(queryString,
+                                  statement
+                                    .enrichWithTimeRange("timestamp", from, to))
+      case (success @ SqlStatementParserSuccess(_, _: SelectSQLStatement), _, _, _) => success
+      case (SqlStatementParserSuccess(queryString, _), _, _, _) =>
+        SqlStatementParserFailure(queryString, "not a select statement")
+      case (failure: SqlStatementParserFailure, _, _, _) => failure
     }
 
 }

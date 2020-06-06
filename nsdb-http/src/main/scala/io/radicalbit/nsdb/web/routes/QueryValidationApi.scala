@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.swagger.annotations._
 import javax.ws.rs.Path
 import org.json4s.Formats
@@ -78,7 +79,7 @@ trait QueryValidationApi {
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
             authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
               new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString) match {
-                case Success(statement: SelectSQLStatement) =>
+                case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ValidateStatement(statement)) {
                     case Success(SelectStatementValidated(_)) =>
                       complete(HttpResponse(OK))
@@ -93,10 +94,10 @@ trait QueryValidationApi {
                       logger.error("", ex)
                       complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
-                case Success(_) =>
-                  complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is not a select statement"))
-                case Failure(exception) =>
-                  complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
+                case SqlStatementParserSuccess(queryString, _) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement ${queryString} is not a select statement"))
+                case SqlStatementParserFailure(queryString, _) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement ${queryString} is invalid"))
               }
             }
           }

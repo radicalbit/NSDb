@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.sql.parser
 
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
@@ -60,7 +61,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
         val statement = parser.parse(db = "db",
                                      namespace = "registry",
                                      input = "SELECT name FROM people WHERE (timestamp IN (now - 2 s, now + 4 s))")
-        statement.isSuccess shouldBe true
+        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
       }
     }
 
@@ -83,7 +84,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
           parser.parse(db = "db",
                        namespace = "registry",
                        input = "SELECT name FROM people WHERE (timestamp = now - 10s)")
-        statement.isSuccess shouldBe true
+        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
       }
     }
 
@@ -121,7 +122,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
           parser.parse(db = "db",
                        namespace = "registry",
                        input = "SELECT name FROM people WHERE (timestamp >= now - 10s)")
-        statement.isSuccess shouldBe true
+        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
       }
     }
 
@@ -152,7 +153,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
           namespace = "registry",
           input =
             "SELECT name FROM people WHERE timestamp < now + 30d and (timestamp > now - 2h) AND (timestamp = now + 4m)")
-        statement.isSuccess shouldBe true
+        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
       }
     }
 
