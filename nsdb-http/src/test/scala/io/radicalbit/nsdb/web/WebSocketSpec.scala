@@ -77,7 +77,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
         val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
 
         obj.isDefined shouldBe true
-        obj.get.reason shouldEqual "not a select query"
+        obj.get.reason shouldEqual "not a select statement"
       }
   }
 
@@ -173,7 +173,7 @@ class WebSocketSpec() extends FlatSpec with ScalatestRouteTest with Matchers wit
           parse(wsClient.expectMessage().asTextMessage.getStrictText).extractOpt[QuerystringRegistrationFailed]
 
         notSelect.isDefined shouldBe true
-        notSelect.get.reason shouldEqual "not a select query"
+        notSelect.get.reason shouldEqual "not a select statement"
 
         wsClient.sendMessage(
           """{"db":"db","namespace":"a","metric":"notAuthorizedMetric","queryString":"INSERT INTO people DIM(name=john) val=23"}""")

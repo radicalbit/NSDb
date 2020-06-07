@@ -37,10 +37,11 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
     "receive a select with a relative timestamp value" should {
 
       "parse it successfully using relative time in simple where equality condition" in {
-        val statement =
+        val result =
           parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = now - 10s")
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -56,13 +57,14 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully relative time in simple where comparison condition" in {
-        val statement =
+        val result =
           parser.parse(db = "db",
                        namespace = "registry",
                        input = "SELECT name FROM people WHERE timestamp >= now - 10s")
 
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -78,11 +80,12 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully relative time in simple where comparison condition (now)" in {
-        val statement =
+        val result =
           parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp < now")
 
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -95,15 +98,15 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully relative time with double comparison condition (AND)" in {
-        val statement =
+        val result =
           parser.parse(db = "db",
                        namespace = "registry",
                        input = "SELECT name FROM people WHERE timestamp < now AND age >= 18")
 
         val now = System.currentTimeMillis()
-
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val condition =
@@ -124,14 +127,14 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully relative time in complex comparison condition (AND/OR)" in {
-        val statement =
+        val result =
           parser.parse(
             db = "db",
             namespace = "registry",
             input = "SELECT name FROM people WHERE timestamp < now and timestamp > now - 2h OR timestamp = now + 4m")
-
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -166,12 +169,12 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
       "parse it successfully using relative time in complex where condition" in {
 
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input =
-                                       "SELECT name FROM people WHERE timestamp < now + 5s and timestamp > now - 8d")
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        val result = parser.parse(db = "db",
+                                  namespace = "registry",
+                                  input = "SELECT name FROM people WHERE timestamp < now + 5s and timestamp > now - 8d")
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -195,13 +198,14 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
       "parse it successfully using relative time in very complex where condition" in {
 
-        val statement = parser.parse(
+        val result = parser.parse(
           db = "db",
           namespace = "registry",
           input =
             "SELECT name FROM people WHERE timestamp < now + 30d and timestamp > now - 2h AND timestamp = now + 4m")
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -238,13 +242,14 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
       "parse it successfully using relative time in very complex where condition with brackets" in {
 
-        val statement = parser.parse(
+        val result = parser.parse(
           db = "db",
           namespace = "registry",
           input =
             "SELECT name FROM people WHERE (timestamp < now + 30d and timestamp > now - 2h) or timestamp = now + 4m")
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -282,12 +287,13 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully with a relative timestamp range condition" in {
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, now + 4 s)")
+        val result = parser.parse(db = "db",
+                                  namespace = "registry",
+                                  input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, now + 4 s)")
 
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -309,12 +315,13 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully with a relative timestamp range condition with unnecessary brackets" in {
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input = "SELECT name FROM people WHERE (timestamp IN (now - 2 s, now + 4 s))")
+        val result = parser.parse(db = "db",
+                                  namespace = "registry",
+                                  input = "SELECT name FROM people WHERE (timestamp IN (now - 2 s, now + 4 s))")
 
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
@@ -336,12 +343,13 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully with a mixed relative/absolute timestamp range condition" in {
-        val statement = parser.parse(db = "db",
-                                     namespace = "registry",
-                                     input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, 5)")
+        val result = parser.parse(db = "db",
+                                  namespace = "registry",
+                                  input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, 5)")
 
-        statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
-        statement.asInstanceOf[SqlStatementParserSuccess].statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
+        statement.isInstanceOf[SelectSQLStatement] shouldBe true
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
