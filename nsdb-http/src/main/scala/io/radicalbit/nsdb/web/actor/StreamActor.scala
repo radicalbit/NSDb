@@ -25,6 +25,7 @@ import io.radicalbit.nsdb.actors.PublisherActor.Commands._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryStringInternal
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
 import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
+import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -33,6 +34,7 @@ import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.radicalbit.nsdb.web.actor.StreamActor._
+import io.radicalbit.nsdb.web.routes.Filter
 
 import scala.collection.mutable
 
@@ -79,11 +81,16 @@ class StreamActor(clientAddress: String,
     * @param wsActor WebSocket actor reference.
     */
   def connected(wsActor: ActorRef): Receive = {
-    case msg @ RegisterQuery(db, namespace, metric, inputQueryString) =>
+    case msg @ RegisterQuery(db, namespace, metric, inputQueryString, from, to, filtersOpt) =>
       val checkAuthorization =
         authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
       if (checkAuthorization.success)
-        QueryEnriched(db, namespace, inputQueryString) match {
+        QueryEnriched(db,
+                      namespace,
+                      inputQueryString,
+                      from.map(_.rawValue),
+                      to.map(_.rawValue),
+                      filtersOpt.getOrElse(Seq.empty)) match {
           case SqlStatementParserSuccess(queryString, statement: SelectSQLStatement) =>
             publisher ! SubscribeBySqlStatement(self, db, namespace, metric, queryString, statement)
           case SqlStatementParserSuccess(queryString, _) =>
@@ -120,7 +127,13 @@ object StreamActor {
   case class OutgoingMessage(message: RealTimeOutGoingMessage) extends NSDbSerializable
 
   case object Terminate
-  case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String)
+  case class RegisterQuery(db: String,
+                           namespace: String,
+                           metric: String,
+                           queryString: String,
+                           from: Option[NSDbLongType] = None,
+                           to: Option[NSDbLongType] = None,
+                           filters: Option[Seq[Filter]] = None)
       extends Metric
       with NSDbSerializable
 
