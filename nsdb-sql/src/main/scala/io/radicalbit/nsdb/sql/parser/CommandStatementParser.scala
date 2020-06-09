@@ -16,11 +16,10 @@
 
 package io.radicalbit.nsdb.sql.parser
 
-import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 
 import scala.util.parsing.combinator.RegexParsers
-import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 
 /**
   * Parser combinator for cli commands.
@@ -37,7 +36,7 @@ import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 class CommandStatementParser(db: String) extends RegexParsers {
 
   implicit class InsensitiveString(str: String) {
-    def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toString.toUpperCase }
+    def ignoreCase: Parser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toUpperCase }
   }
 
   private val Describe   = "DESCRIBE" ignoreCase
@@ -57,23 +56,23 @@ class CommandStatementParser(db: String) extends RegexParsers {
     UseNamespace(ns)
   }
 
-  private def showMetrics(namespace: Option[String]) = Show ~ Metrics ^^ {
-    case _ if namespace.isDefined => ShowMetrics(db, namespace.get)
-    case _                        => sys.error("Please select a valid namespace to list the associated metrics.")
-  }
+  private def showMetrics(namespace: Option[String]) =
+    Show ~ Metrics ^? ({
+      case _ if namespace.isDefined => ShowMetrics(db, namespace.get)
+    }, _ => "Please select a valid namespace to list the associated metrics.")
 
-  private def describeMetric(namespace: Option[String]) = Describe ~> metric ^^ {
-    case m if namespace.isDefined => DescribeMetric(db, namespace = namespace.get, metric = m)
-    case _                        => sys.error("Please select a valid namespace to describe the given metric.")
-  }
+  private def describeMetric(namespace: Option[String]): Parser[DescribeMetric] =
+    Describe ~> metric ^? ({
+      case m if namespace.isDefined => DescribeMetric(db, namespace = namespace.get, metric = m)
+    }, _ => "Please select a valid namespace to describe the given metric.")
 
   private def commands(namespace: Option[String]) =
     showNamespaces | useNamespace | showMetrics(namespace) | describeMetric(namespace)
 
-  def parse(namespace: Option[String], input: String): Try[CommandStatement] =
-    Try(parse(commands(namespace), s"$input;")).flatMap {
-      case Success(res, _) => ScalaSuccess(res.asInstanceOf[CommandStatement])
-      case Error(msg, _)   => ScalaFailure(new InvalidStatementException(msg))
-      case Failure(msg, _) => ScalaFailure(new InvalidStatementException(msg))
+  def parse(namespace: Option[String], input: String): CommandStatementParserResult =
+    parse(commands(namespace), s"$input;") match {
+      case Success(res, _) => CommandStatementParserSuccess(input, res)
+      case Error(msg, _)   => CommandStatementParserFailure(input, msg)
+      case Failure(msg, _) => CommandStatementParserFailure(input, msg)
     }
 }
