@@ -167,6 +167,7 @@ case object MinAggregation   extends Aggregation
 case object FirstAggregation extends Aggregation
 case object LastAggregation  extends Aggregation
 case object SumAggregation   extends Aggregation
+case object AvgAggregation   extends Aggregation
 
 /**
   * Order operators in sql queries. Possible values are [[AscOrderOperator]] or [[DescOrderOperator]].

@@ -72,6 +72,36 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             )
           ))
       }
+      "parse it successfully if min(*) is provided" in {
+        val query = "SELECT min(*) FROM people group by name"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(MinAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          ))
+      }
+      "parse it successfully if avg(*) is provided" in {
+        val query = "SELECT avg(*) FROM people group by name"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          ))
+      }
     }
 
     "receive a select containing a range selection and a group by" should {
@@ -382,6 +412,31 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               ))),
               fields = ListFields(List(Field("*", Some(SumAggregation)))),
               groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
+            )
+          ))
+      }
+
+      "parse it successfully if an aggregation different from count and sum is provided " in {
+        val query = "SELECT avg(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 4d"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = GreaterThanOperator,
+                                                         value = AbsoluteComparisonValue(1)),
+                expression2 = ComparisonExpression[Long](dimension = "timestamp",
+                                                         comparison = LessThanOperator,
+                                                         value = AbsoluteComparisonValue(100)),
+                operator = AndOperator
+              ))),
+              fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+              groupBy = Some(TemporalGroupByAggregation(4 * 24 * 3600 * 1000, 4, "d"))
             )
           ))
       }
