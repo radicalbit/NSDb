@@ -21,8 +21,9 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Command.{SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.PublisherActor.Events._
+import io.radicalbit.nsdb.actors.PublisherActor.Commands._
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
+import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -83,22 +84,21 @@ class StreamActor(clientAddress: String,
       if (checkAuthorization.success)
         QueryEnriched(db, namespace, inputQueryString) match {
           case SqlStatementParserSuccess(queryString, statement: SelectSQLStatement) =>
-            publisher ! SubscribeBySqlStatement(self, queryString, statement)
+            publisher ! SubscribeBySqlStatement(self, db, namespace, metric, queryString, statement)
           case SqlStatementParserSuccess(queryString, _) =>
             wsActor ! OutgoingMessage(
-              QuerystringRegistrationFailed(db, namespace, metric, queryString, "not a select statement"))
+              SubscriptionByQueryStringFailed(db, namespace, metric, queryString, "not a select statement"))
           case SqlStatementParserFailure(queryString, error) =>
-            wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, error))
+            wsActor ! OutgoingMessage(SubscriptionByQueryStringFailed(db, namespace, metric, queryString, error))
         } else
         wsActor ! OutgoingMessage(
-          QuerystringRegistrationFailed(db,
-                                        namespace,
-                                        metric,
-                                        inputQueryString,
-                                        s"unauthorized ${checkAuthorization.failReason}"))
-    case msg @ (SubscribedByQueryString(_, _, _) | SubscriptionByQueryStringFailed(_, _) |
-        SubscriptionByQuidFailed(_, _)) =>
-      wsActor ! OutgoingMessage(msg.asInstanceOf[AnyRef])
+          SubscriptionByQueryStringFailed(db,
+                                          namespace,
+                                          metric,
+                                          inputQueryString,
+                                          s"unauthorized ${checkAuthorization.failReason}"))
+    case msg: SubscribedByQueryString         => wsActor ! OutgoingMessage(msg)
+    case msg: SubscriptionByQueryStringFailed => wsActor ! OutgoingMessage(msg)
     case msg @ RecordsPublished(_, _, _) =>
       buffer += msg
     case Terminate =>
@@ -109,26 +109,18 @@ class StreamActor(clientAddress: String,
       }
     case msg @ _ =>
       log.error(s"Unexpected message in ws : $msg")
-      wsActor ! OutgoingMessage("invalid message sent")
+      wsActor ! OutgoingMessage(ErrorResponse("invalid message sent"))
   }
 }
 
 object StreamActor {
-  case class Connect(outgoing: ActorRef)      extends NSDbSerializable
-  case class OutgoingMessage(message: AnyRef) extends NSDbSerializable
+  case class Connect(outgoing: ActorRef)                       extends NSDbSerializable
+  case class OutgoingMessage(message: RealTimeOutGoingMessage) extends NSDbSerializable
 
   case object Terminate
   case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String)
       extends Metric
       with NSDbSerializable
-  case class QuerystringRegistrationFailed(db: String,
-                                           namespace: String,
-                                           metric: String,
-                                           queryString: String,
-                                           reason: String)
-      extends NSDbSerializable
-  case class QuidRegistrationFailed(db: String, namespace: String, metric: String, quid: String, reason: String)
-      extends NSDbSerializable
 
   def props(clientAddress: String,
             publisherActor: ActorRef,

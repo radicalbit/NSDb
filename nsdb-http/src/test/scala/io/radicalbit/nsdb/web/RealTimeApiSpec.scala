@@ -22,13 +22,12 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryString
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, PublishRecord}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
-import io.radicalbit.nsdb.web.actor.StreamActor.QuerystringRegistrationFailed
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -69,14 +68,14 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
           wsClient.sendMessage(
             """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
-          wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
+          wsClient.expectMessage().asTextMessage.getStrictText shouldBe """{"error":"invalid message sent"}"""
 
           wsClient.sendMessage(
             """{"db":"db","namespace":"a","metric":"people","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
           val text = wsClient.expectMessage().asTextMessage.getStrictText
 
-          val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
+          val obj: Option[SubscriptionByQueryStringFailed] = parse(text).extractOpt[SubscriptionByQueryStringFailed]
 
           obj.isDefined shouldBe true
           obj.get.reason shouldEqual "not a select statement"
@@ -122,14 +121,14 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
           wsClient.sendMessage(
             """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
-          wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
+          wsClient.expectMessage().asTextMessage.getStrictText shouldBe """{"error":"invalid message sent"}"""
 
           wsClient.sendMessage(
             """{"db":"db","namespace":"a","metric":"people","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
           val text = wsClient.expectMessage().asTextMessage.getStrictText
 
-          val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
+          val obj: Option[SubscriptionByQueryStringFailed] = parse(text).extractOpt[SubscriptionByQueryStringFailed]
 
           obj.isDefined shouldBe true
           obj.get.reason shouldEqual "unauthorized header not provided"
@@ -151,7 +150,7 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
 
           val text = wsClient.expectMessage().asTextMessage.getStrictText
 
-          val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
+          val obj: Option[SubscriptionByQueryStringFailed] = parse(text).extractOpt[SubscriptionByQueryStringFailed]
 
           obj.isDefined shouldBe true
           obj.get.reason shouldEqual "unauthorized header not provided"
@@ -170,13 +169,13 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
           wsClient.sendMessage(
             """{"db":"db","namespace":"a","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
-          wsClient.expectMessage().asTextMessage.getStrictText shouldBe "\"invalid message sent\""
+          wsClient.expectMessage().asTextMessage.getStrictText shouldBe """{"error":"invalid message sent"}"""
 
           wsClient.sendMessage(
             """{"db":"db","namespace":"a","metric":"people","queryString":"INSERT INTO people DIM(name=john) val=23"}""")
 
-          val notSelect: Option[QuerystringRegistrationFailed] =
-            parse(wsClient.expectMessage().asTextMessage.getStrictText).extractOpt[QuerystringRegistrationFailed]
+          val notSelect: Option[SubscriptionByQueryStringFailed] =
+            parse(wsClient.expectMessage().asTextMessage.getStrictText).extractOpt[SubscriptionByQueryStringFailed]
 
           notSelect.isDefined shouldBe true
           notSelect.get.reason shouldEqual "not a select statement"
@@ -186,7 +185,7 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
 
           val text = wsClient.expectMessage().asTextMessage.getStrictText
 
-          val obj: Option[QuerystringRegistrationFailed] = parse(text).extractOpt[QuerystringRegistrationFailed]
+          val obj: Option[SubscriptionByQueryStringFailed] = parse(text).extractOpt[SubscriptionByQueryStringFailed]
 
           obj.isDefined shouldBe true
           obj.get.reason shouldEqual "unauthorized forbidden access to metric notAuthorizedMetric"

@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.actors.PublisherActor.Command.SubscribeBySqlStatement
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{RecordsPublished, SubscribedByQueryString}
+import io.radicalbit.nsdb.actors.PublisherActor.Commands.SubscribeBySqlStatement
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
@@ -135,7 +135,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
         limit = Some(LimitOperator(4))
       )
 
-      probe.send(publisherActor, SubscribeBySqlStatement(subscriber, "testQueryString", testSqlStatement))
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(subscriber, db, namespace, "testMetric", "testQueryString", testSqlStatement))
       probe.expectMsgType[SubscribedByQueryString]
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
       publisherActor.underlyingActor.queries.keys.size shouldBe 1
