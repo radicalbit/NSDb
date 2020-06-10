@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType}
 import org.apache.lucene.document._
 import org.apache.lucene.facet._
