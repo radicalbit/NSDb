@@ -246,6 +246,15 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                         values.head.tags)
                 }.map(limitAndOrder(_, statement, schema, Some(agg)))
 
+              case Right(ParsedAggregatedQuery(_, _, _, agg @ InternalAvgSimpleAggregation(_, _), _, _)) =>
+                gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
+                  values =>
+                    Bit(0,
+                        NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                        values.head.dimensions,
+                        values.head.tags)
+                }.map(limitAndOrder(_, statement, schema, Some(agg)))
+
               case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
                   values =>
