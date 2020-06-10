@@ -61,11 +61,11 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
     commonWrite(bit, setupConfig, facetWrite)
   }
 
-  override protected[this] def internalResult(query: Query,
-                                              groupField: String,
-                                              sort: Option[Sort],
-                                              limit: Option[Int],
-                                              valueIndexType: Option[IndexType[_]] = None): Option[FacetResult] =
+  override protected[index] def internalResult(query: Query,
+                                               groupField: String,
+                                               sort: Option[Sort],
+                                               limit: Option[Int],
+                                               valueIndexType: Option[IndexType[_]] = None): Option[FacetResult] =
     Try {
       val config = new FacetsConfig
       config.setMultiValued(groupField, true)
@@ -93,12 +93,12 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
       .toOption
       .flatten
 
-  override def result(query: Query,
-                      groupField: String,
-                      sort: Option[Sort],
-                      limit: Option[Int],
-                      groupFieldIndexType: IndexType[_],
-                      valueIndexType: Option[IndexType[_]]): Seq[Bit] = {
+  override protected[index] def result(query: Query,
+                                       groupField: String,
+                                       sort: Option[Sort],
+                                       limit: Option[Int],
+                                       groupFieldIndexType: IndexType[_],
+                                       valueIndexType: Option[IndexType[_]]): Seq[Bit] = {
     val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, limit, valueIndexType)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues

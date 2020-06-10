@@ -40,11 +40,11 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
 
   protected[this] def facetName(name: String): String = s"$facetNamePrefix$name"
 
-  protected[this] def internalResult(query: Query,
-                                     groupField: String,
-                                     sort: Option[Sort],
-                                     limit: Option[Int],
-                                     valueIndexType: Option[IndexType[_]] = None): Option[FacetResult]
+  protected[index] def internalResult(query: Query,
+                                      groupField: String,
+                                      sort: Option[Sort],
+                                      limit: Option[Int],
+                                      valueIndexType: Option[IndexType[_]] = None): Option[FacetResult]
 
   /**
     * @return a lucene [[IndexSearcher]] to be used in search operations.
@@ -71,12 +71,12 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
     * @param groupFieldIndexType the group field [[IndexType]].
     * @return query results.
     */
-  def result(query: Query,
-             groupField: String,
-             sort: Option[Sort],
-             limit: Option[Int],
-             groupFieldIndexType: IndexType[_],
-             valueIndexType: Option[IndexType[_]]): Seq[Bit]
+  protected[index] def result(query: Query,
+                              groupField: String,
+                              sort: Option[Sort],
+                              limit: Option[Int],
+                              groupFieldIndexType: IndexType[_],
+                              valueIndexType: Option[IndexType[_]]): Seq[Bit]
 
   override def validateRecord(bit: Bit): Try[immutable.Iterable[Field]] =
     validateSchemaTypeSupport(bit)
@@ -132,7 +132,7 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
     * @param limit results limit.
     * @return query results.
     */
-  def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
+  protected[index] def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
     val res = internalResult(query, field, sort, Some(limit))
     res.fold(Seq.empty[Bit])(_.labelValues
       .map(lv =>

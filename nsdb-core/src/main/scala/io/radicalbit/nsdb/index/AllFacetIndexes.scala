@@ -20,11 +20,14 @@ import java.nio.file.Paths
 
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.model.{Location, TimeRange}
+import io.radicalbit.nsdb.statement.StatementParser.InternalTemporalAggregation
 import org.apache.lucene.analysis.standard.StandardAnalyzer
+import org.apache.lucene.facet.{FacetResult, LabelAndValue}
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
-import org.apache.lucene.search.Query
+import org.apache.lucene.search.{IndexSearcher, Query, Sort}
 import org.apache.lucene.util.InfoStream
 
 import scala.annotation.tailrec
@@ -38,20 +41,107 @@ class AllFacetIndexes(basePath: String,
     extends LazyLogging
     with DirectorySupport {
 
-  private val directory =
-    getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet"))
-
+  private val directory = getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet"))
   private val taxoDirectory = getDirectory(
-    Paths
-      .get(basePath, db, namespace, "shards", s"${location.shardName}", "facet", "taxo"))
+    Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet", "taxo"))
 
-  val facetCountIndex = new FacetCountIndex(directory, taxoDirectory)
-
-  val facetSumIndex = new FacetSumIndex(directory, taxoDirectory)
-
-  val facetRangeIndex = new FacetRangeIndex
+  private val facetCountIndex = new FacetCountIndex(directory, taxoDirectory)
+  private val facetSumIndex   = new FacetSumIndex(directory, taxoDirectory)
+  private val facetRangeIndex = new FacetRangeIndex
 
   private val facetIndexes: Set[FacetIndex] = Set(facetCountIndex, facetSumIndex)
+
+  def executeSumAndCountFacet(query: Query,
+                              groupField: String,
+                              sort: Option[Sort],
+                              limit: Option[Int],
+                              indexType: IndexType[_],
+                              valueIndexType: Option[IndexType[_]] = None): Seq[Bit] = {
+
+    def turnToLabelAndValues(facetResult: Option[FacetResult]) =
+      facetResult
+        .map(_.labelValues.toList)
+        .getOrElse(List.empty[LabelAndValue])
+        .map(lav => lav.label -> lav.value)
+        .toMap
+
+    def combineSumAndCountLabelValues(keys: Set[String],
+                                      labelAndValuesSumAggr: Map[String, Number],
+                                      labelAndValuesCountAggr: Map[String, Number]) =
+      keys.map { key =>
+        (labelAndValuesSumAggr.get(key), labelAndValuesCountAggr.get(key)) match {
+          case (Some(sumValue), Some(countValue)) =>
+            key -> (sumValue, countValue)
+          case _ =>
+            throw new RuntimeException("No corresponding value either for sum or for count")
+        }
+      }.toMap
+
+    def combineSumAndCount(facetSumResult: Option[FacetResult],
+                           facetCountResult: Option[FacetResult]): Map[String, (Number, Number)] = {
+      val labelAndValuesSumAggr   = turnToLabelAndValues(facetSumResult)
+      val labelAndValuesCountAggr = turnToLabelAndValues(facetCountResult)
+      val keys                    = labelAndValuesSumAggr.keys.toSet ++ labelAndValuesCountAggr.keys.toSet
+      combineSumAndCountLabelValues(keys, labelAndValuesSumAggr, labelAndValuesCountAggr)
+    }
+
+    val facetSumResult   = facetSumIndex.internalResult(query, groupField, sort, limit, valueIndexType)
+    val facetCountResult = facetCountIndex.internalResult(query, groupField, sort, limit, valueIndexType)
+
+    combineSumAndCount(facetSumResult, facetCountResult).map {
+      case (str, (sum, count)) =>
+        Bit(
+          timestamp = 0,
+          value = NSDbNumericType(0),
+          dimensions = Map.empty,
+          tags = Map(
+            groupField -> NSDbType(indexType.cast(str)),
+            "sum" -> (sum match {
+              case x: java.lang.Integer => NSDbNumericType(x.intValue())
+              case x: java.lang.Long    => NSDbNumericType(x.longValue())
+              case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
+              case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
+            }),
+            "count" -> NSDbNumericType(count.longValue())
+          )
+        )
+    }.toSeq
+  }
+
+  def executeSumFacet(query: Query,
+                      groupField: String,
+                      sort: Option[Sort],
+                      limit: Option[Int],
+                      groupFieldIndexType: IndexType[_],
+                      valueIndexType: Option[IndexType[_]]): Seq[Bit] =
+    facetSumIndex.result(query, groupField, sort, limit, groupFieldIndexType, valueIndexType)
+
+  def executeCountFacet(query: Query,
+                        groupField: String,
+                        sort: Option[Sort],
+                        limit: Option[Int],
+                        indexType: IndexType[_],
+                        valueIndexType: Option[IndexType[_]] = None): Seq[Bit] =
+    facetCountIndex.result(query, groupField, sort, limit, indexType, valueIndexType)
+
+  def executeRangeFacet(searcher: IndexSearcher,
+                        query: Query,
+                        aggregationType: InternalTemporalAggregation,
+                        rangeFieldName: String,
+                        valueFieldName: String,
+                        valueFieldType: Option[IndexType[_]],
+                        ranges: Seq[TimeRange]): Seq[Bit] = facetRangeIndex.executeRangeFacet(
+    searcher,
+    query,
+    aggregationType,
+    rangeFieldName,
+    valueFieldName,
+    valueFieldType,
+    ranges
+  )
+
+  def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] =
+    facetCountIndex.getDistinctField(query, field, sort, limit)
 
   /**
     * @return the [[org.apache.lucene.index.IndexWriter]]

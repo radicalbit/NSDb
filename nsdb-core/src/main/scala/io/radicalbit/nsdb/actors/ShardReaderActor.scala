@@ -84,15 +84,28 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           }
         case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
-            Try(facetIndexes.facetCountIndex.getDistinctField(q, fields.map(_.name).head, None, limit)))
+            Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None, limit)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), _, limit)) =>
           handleNoIndexResults(
-            Try(
-              facetIndexes.facetCountIndex
-                .result(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
+            Try(facetIndexes.executeCountFacet(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), _, limit)) =>
-          handleNoIndexResults(Try(facetIndexes.facetSumIndex
-            .result(q, groupField, None, limit, schema.fieldsMap(groupField).indexType, Some(schema.value.indexType))))
+          handleNoIndexResults(
+            Try(
+              facetIndexes.executeSumFacet(q,
+                                           groupField,
+                                           None,
+                                           limit,
+                                           schema.fieldsMap(groupField).indexType,
+                                           Some(schema.value.indexType))))
+        case Right(ParsedAggregatedQuery(_, _, q, InternalAvgSimpleAggregation(groupField, _), _, _)) =>
+          handleNoIndexResults(
+            Try(
+              facetIndexes.executeSumAndCountFacet(q,
+                                                   groupField,
+                                                   None,
+                                                   None,
+                                                   schema.fieldsMap(groupField).indexType,
+                                                   Some(schema.value.indexType))))
         case Right(ParsedAggregatedQuery(_, _, q, InternalFirstSimpleAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalLastSimpleAggregation(groupField, _), _, _)) =>
@@ -104,7 +117,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
           handleNoIndexResults(
             Try(
-              facetIndexes.facetRangeIndex
+              facetIndexes
                 .executeRangeFacet(index.getSearcher,
                                    q,
                                    InternalCountTemporalAggregation,
@@ -116,7 +129,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(
-              facetIndexes.facetRangeIndex
+              facetIndexes
                 .executeRangeFacet(index.getSearcher,
                                    q,
                                    InternalSumTemporalAggregation,
@@ -128,7 +141,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(
-              facetIndexes.facetRangeIndex
+              facetIndexes
                 .executeRangeFacet(index.getSearcher,
                                    q,
                                    aggregationType,

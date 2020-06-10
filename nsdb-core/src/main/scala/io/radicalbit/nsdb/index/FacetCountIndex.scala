@@ -50,11 +50,11 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
     commonWrite(bit, _ => new FacetsConfig, facetWrite)
   }
 
-  override protected[this] def internalResult(query: Query,
-                                              groupField: String,
-                                              sort: Option[Sort],
-                                              limit: Option[Int],
-                                              valueIndexType: Option[IndexType[_]] = None): Option[FacetResult] = {
+  override protected[index] def internalResult(query: Query,
+                                               groupField: String,
+                                               sort: Option[Sort],
+                                               limit: Option[Int],
+                                               valueIndexType: Option[IndexType[_]] = None): Option[FacetResult] = {
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, facetName(groupField))
 
@@ -80,12 +80,12 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
     * @param indexType the group field [[IndexType]].
     * @return query results.
     */
-  override def result(query: Query,
-                      groupField: String,
-                      sort: Option[Sort],
-                      limit: Option[Int],
-                      indexType: IndexType[_],
-                      valueIndexType: Option[IndexType[_]] = None): Seq[Bit] = {
+  override protected[index] def result(query: Query,
+                                       groupField: String,
+                                       sort: Option[Sort],
+                                       limit: Option[Int],
+                                       indexType: IndexType[_],
+                                       valueIndexType: Option[IndexType[_]] = None): Seq[Bit] = {
     val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, limit, valueIndexType)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
