@@ -65,7 +65,7 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
                                                groupField: String,
                                                sort: Option[Sort],
                                                limit: Option[Int],
-                                               valueIndexType: Option[IndexType[_]] = None): Option[FacetResult] =
+                                               valueIndexType: IndexType[_]): Option[FacetResult] =
     Try {
       val config = new FacetsConfig
       config.setMultiValued(groupField, true)
@@ -78,9 +78,9 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
       FacetsCollector.search(getSearcher, query, actualLimit, fc)
 
       val facetsFolder = valueIndexType match {
-        case Some(_: INT)    => new TaxonomyFacetSumIntAssociations(facetName(groupField), getTaxoReader, config, fc)
-        case Some(_: BIGINT) => new TaxonomyFacetSumLongAssociations(facetName(groupField), getTaxoReader, config, fc)
-        case Some(_: DECIMAL) =>
+        case _: INT    => new TaxonomyFacetSumIntAssociations(facetName(groupField), getTaxoReader, config, fc)
+        case _: BIGINT => new TaxonomyFacetSumLongAssociations(facetName(groupField), getTaxoReader, config, fc)
+        case _: DECIMAL =>
           new TaxonomyFacetSumDoubleAssociations(facetName(groupField), getTaxoReader, config, fc)
       }
 
@@ -98,22 +98,18 @@ class FacetSumIndex(override val directory: Directory, override val taxoDirector
                                        sort: Option[Sort],
                                        limit: Option[Int],
                                        groupFieldIndexType: IndexType[_],
-                                       valueIndexType: Option[IndexType[_]]): Seq[Bit] = {
+                                       valueIndexType: IndexType[_]): Seq[Bit] = {
     val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, limit, valueIndexType)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
-        .map(lv =>
-          Bit(
-            timestamp = 0,
-            value = lv.value match {
-              case x: java.lang.Integer => NSDbNumericType(x.intValue())
-              case x: java.lang.Long    => NSDbNumericType(x.longValue())
-              case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
-              case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
-            },
-            dimensions = Map.empty[String, NSDbType],
-            tags = Map(groupField -> NSDbType(groupFieldIndexType.cast(lv.label)))
-        ))
+        .map(
+          lv =>
+            Bit(
+              timestamp = 0,
+              value = NSDbNumericType(lv.value),
+              dimensions = Map.empty[String, NSDbType],
+              tags = Map(groupField -> NSDbType(groupFieldIndexType.cast(lv.label)))
+          ))
         .toSeq)
   }
 }

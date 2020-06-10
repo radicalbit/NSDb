@@ -131,9 +131,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     case PublishRecord(db, namespace, metric, record, schema) =>
       queries.foreach {
         case (id, nsdbQuery)
-            if !nsdbQuery.aggregated && nsdbQuery.query.metric == metric && subscribedActorsByQueryId
-              .get(id)
-              .isDefined =>
+            if !nsdbQuery.aggregated && nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(id) =>
           val luceneQuery = StatementParser.parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
             case Right(parsedQuery: ParsedSimpleQuery) =>

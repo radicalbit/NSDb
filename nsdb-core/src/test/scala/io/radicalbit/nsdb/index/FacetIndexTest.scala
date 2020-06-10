@@ -91,7 +91,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     writer.close()
 
     val actualResult =
-      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, None, VARCHAR(), Some(DECIMAL()))
+      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, None, VARCHAR(), DECIMAL())
 
     val expectedResult = List(
       Bit(0,
@@ -243,7 +243,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
                                            Some(descSort),
                                            Some(100),
                                            VARCHAR(),
-                                           Some(INT()))
+                                           INT())
     res.size shouldBe 12
     res.foreach { bit =>
       bit.tags.headOption match {
@@ -260,7 +260,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     surnameGroups.last.value.rawValue shouldBe 1
 
     val cityGroups =
-      facetIndexes.executeSumFacet(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), Some(INT()))
+      facetIndexes.executeSumFacet(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), INT())
     cityGroups.size shouldBe 1
     cityGroups.head.value.rawValue shouldBe 1225
   }
@@ -287,7 +287,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
                                             Some(descSort),
                                             Some(100),
                                             VARCHAR(),
-                                            Some(BIGINT()))
+                                            BIGINT())
 
     res1.size shouldBe 1
     res1.head.value.rawValue shouldBe 200
@@ -297,7 +297,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
                                             Some(descSort),
                                             Some(100),
                                             VARCHAR(),
-                                            Some(BIGINT()))
+                                            BIGINT())
     res2.size shouldBe 1
     res2.head.value.rawValue shouldBe 100
   }
@@ -320,12 +320,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    val res = facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50),
-                                           "tag",
-                                           None,
-                                           None,
-                                           VARCHAR(),
-                                           Some(DECIMAL()))
+    val res =
+      facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), DECIMAL())
     res.size shouldBe 6
     res.foreach { bit =>
       bit.tags.headOption match {

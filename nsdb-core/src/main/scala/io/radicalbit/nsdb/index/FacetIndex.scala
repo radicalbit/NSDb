@@ -44,7 +44,7 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
                                       groupField: String,
                                       sort: Option[Sort],
                                       limit: Option[Int],
-                                      valueIndexType: Option[IndexType[_]] = None): Option[FacetResult]
+                                      valueIndexType: IndexType[_]): Option[FacetResult]
 
   /**
     * @return a lucene [[IndexSearcher]] to be used in search operations.
@@ -76,7 +76,7 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
                               sort: Option[Sort],
                               limit: Option[Int],
                               groupFieldIndexType: IndexType[_],
-                              valueIndexType: Option[IndexType[_]]): Seq[Bit]
+                              valueIndexType: IndexType[_]): Seq[Bit]
 
   override def validateRecord(bit: Bit): Try[immutable.Iterable[Field]] =
     validateSchemaTypeSupport(bit)
@@ -123,21 +123,4 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
         Failure(t)
     }
   }
-
-  /**
-    * Gets results from a distinct query. The distinct query can be run only using a single tag.
-    * @param query query to be executed against the facet index.
-    * @param field distinct field.
-    * @param sort optional lucene [[Sort]]
-    * @param limit results limit.
-    * @return query results.
-    */
-  protected[index] def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
-    val res = internalResult(query, field, sort, Some(limit))
-    res.fold(Seq.empty[Bit])(_.labelValues
-      .map(lv =>
-        Bit(timestamp = 0, value = NSDbNumericType(0), dimensions = Map.empty, tags = Map(field -> NSDbType(lv.label))))
-      .toSeq)
-  }
-
 }

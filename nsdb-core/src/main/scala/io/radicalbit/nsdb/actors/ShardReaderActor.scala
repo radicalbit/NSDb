@@ -96,7 +96,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                            None,
                                            limit,
                                            schema.fieldsMap(groupField).indexType,
-                                           Some(schema.value.indexType))))
+                                           schema.value.indexType)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalAvgSimpleAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(
             Try(
@@ -105,7 +105,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                                    None,
                                                    None,
                                                    schema.fieldsMap(groupField).indexType,
-                                                   Some(schema.value.indexType))))
+                                                   schema.value.indexType)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalFirstSimpleAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalLastSimpleAggregation(groupField, _), _, _)) =>
