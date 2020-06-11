@@ -36,13 +36,13 @@ class SumAndCountFacetCombiner(facetSumIndex: FacetSumIndex, facetCountIndex: Fa
     val facetCountResult = facetCountIndex.internalResult(query, groupField, sort, limit, valueIndexType)
 
     combineSumAndCount(facetSumResult, facetCountResult).map {
-      case (str, (sum, count)) =>
+      case (groupFieldValue, (sum, count)) =>
         Bit(
           timestamp = 0,
           value = NSDbNumericType(0),
-          dimensions = Map.empty,
+          dimensions = Map.empty[String, NSDbType],
           tags = Map(
-            groupField -> NSDbType(indexType.cast(str)),
+            groupField -> NSDbType(indexType.cast(groupFieldValue)),
             "sum"      -> NSDbNumericType(sum),
             "count"    -> NSDbNumericType(count.longValue())
           )
@@ -65,7 +65,7 @@ class SumAndCountFacetCombiner(facetSumIndex: FacetSumIndex, facetCountIndex: Fa
         case (Some(sumValue), Some(countValue)) =>
           key -> (sumValue, countValue)
         case _ =>
-          throw new RuntimeException("No corresponding value either for sum or for count")
+          throw new RuntimeException("No corresponding value either for sum or for count or both")
       }
     }.toMap
 
