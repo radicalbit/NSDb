@@ -22,7 +22,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{CommandStatementExecuted, _}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
@@ -39,7 +39,8 @@ import io.radicalbit.nsdb.rpc.responseCommand.{
   MetricsGot => GrpcMetricsGot
 }
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
-import io.radicalbit.nsdb.sql.parser.CommandStatementParser
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
+import io.radicalbit.nsdb.sql.parser._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -146,7 +147,10 @@ class NsdbILoop(host: Option[String],
     * @return [[Result]] to be printed on REPL
     */
   def sendParsedCommandStatement(statement: String): Try[Result] =
-    commandStatementParser.parse(currentNamespace, statement).map(x => sendCommand(x, statement))
+    commandStatementParser.parse(currentNamespace, statement) match {
+      case CommandStatementParserSuccess(_, parsedStatement) => Try(sendCommand(parsedStatement, statement))
+      case CommandStatementParserFailure(_, error)           => Failure(new RuntimeException(error))
+    }
 
   /**
     * If working namespace is defined, sends an async request containing the unparsed query statement to Nsdb server otherwise

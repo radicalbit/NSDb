@@ -31,11 +31,12 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
-import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
+import io.radicalbit.nsdb.web.QueryEnriched
 import io.swagger.annotations._
 import javax.ws.rs.Path
-import org.json4s.jackson.Serialization.write
 import org.json4s.Formats
+import org.json4s.jackson.Serialization.write
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
@@ -143,28 +144,8 @@ trait QueryApi {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
             authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-              val statementOpt =
-                (new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString), qb.from, qb.to, qb.filters) match {
-                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), Some(filters))
-                      if filters.nonEmpty =>
-                    Some(
-                      statement
-                        .enrichWithTimeRange("timestamp", from, to)
-                        .addConditions(filters.map(f => Filter.unapply(f).get)))
-                  case (Success(statement: SelectSQLStatement), None, None, Some(filters)) if filters.nonEmpty =>
-                    Some(
-                      statement
-                        .addConditions(filters.map(f => Filter.unapply(f).get)))
-                  case (Success(statement: SelectSQLStatement), Some(from), Some(to), _) =>
-                    Some(
-                      statement
-                        .enrichWithTimeRange("timestamp", from, to))
-                  case (Success(statement: SelectSQLStatement), _, _, _) =>
-                    Some(statement)
-                  case _ => None
-                }
-              statementOpt match {
-                case Some(statement) =>
+              QueryEnriched(qb.db, qb.namespace, qb.queryString, qb.from, qb.to, qb.filters.getOrElse(Seq.empty)) match {
+                case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`,
@@ -180,7 +161,10 @@ trait QueryApi {
                       logger.error(ex, s"error while trying to execute $statement")
                       complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
-                case None => complete(HttpResponse(BadRequest, entity = s"statement ${qb.queryString} is invalid"))
+                case SqlStatementParserSuccess(queryString, _) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement $queryString is not a select statement"))
+                case SqlStatementParserFailure(queryString, _) =>
+                  complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
               }
             }
           }

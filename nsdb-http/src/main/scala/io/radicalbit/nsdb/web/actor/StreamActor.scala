@@ -27,12 +27,12 @@ import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
-import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.web.QueryEnriched
 import io.radicalbit.nsdb.web.actor.StreamActor._
 
 import scala.collection.mutable
-import scala.util.{Failure, Success}
 
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
@@ -77,24 +77,24 @@ class StreamActor(clientAddress: String,
     * @param wsActor WebSocket actor reference.
     */
   def connected(wsActor: ActorRef): Receive = {
-    case msg @ RegisterQuery(db, namespace, metric, queryString) =>
+    case msg @ RegisterQuery(db, namespace, metric, inputQueryString) =>
       val checkAuthorization =
         authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
       if (checkAuthorization.success)
-        new SQLStatementParser().parse(db, namespace, queryString) match {
-          case Success(statement) if statement.isInstanceOf[SelectSQLStatement] =>
-            publisher ! SubscribeBySqlStatement(self, queryString, statement.asInstanceOf[SelectSQLStatement])
-          case Success(_) =>
+        QueryEnriched(db, namespace, inputQueryString) match {
+          case SqlStatementParserSuccess(queryString, statement: SelectSQLStatement) =>
+            publisher ! SubscribeBySqlStatement(self, queryString, statement)
+          case SqlStatementParserSuccess(queryString, _) =>
             wsActor ! OutgoingMessage(
-              QuerystringRegistrationFailed(db, namespace, metric, queryString, "not a select query"))
-          case Failure(ex) =>
-            wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, ex.getMessage))
+              QuerystringRegistrationFailed(db, namespace, metric, queryString, "not a select statement"))
+          case SqlStatementParserFailure(queryString, error) =>
+            wsActor ! OutgoingMessage(QuerystringRegistrationFailed(db, namespace, metric, queryString, error))
         } else
         wsActor ! OutgoingMessage(
           QuerystringRegistrationFailed(db,
                                         namespace,
                                         metric,
-                                        queryString,
+                                        inputQueryString,
                                         s"unauthorized ${checkAuthorization.failReason}"))
     case msg @ (SubscribedByQueryString(_, _, _) | SubscriptionByQueryStringFailed(_, _) |
         SubscriptionByQuidFailed(_, _)) =>

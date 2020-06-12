@@ -61,6 +61,7 @@ import io.radicalbit.nsdb.rpc.restore.{RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.Duration
@@ -347,10 +348,9 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
     ): Future[SQLStatementResponse] = {
       val requestDb        = request.db
       val requestNamespace = request.namespace
-      val sqlStatement     = parserSQL.parse(request.db, request.namespace, request.statement)
-      sqlStatement match {
+      parserSQL.parse(request.db, request.namespace, request.statement) match {
         // Parsing Success
-        case Success(statement) =>
+        case SqlStatementParserSuccess(_, statement) =>
           statement match {
             case select: SelectSQLStatement =>
               log.debug("Received a select request {}", select)
@@ -475,21 +475,13 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
           }
 
         //Parsing Failure
-        case Failure(exception: InvalidStatementException) =>
+        case SqlStatementParserFailure(_, error) =>
           Future.successful(
             SQLStatementResponse(db = request.db,
                                  namespace = request.namespace,
                                  completedSuccessfully = false,
                                  reason = "sql statement not valid",
-                                 message = exception.message)
-          )
-        case Failure(ex) =>
-          Future.successful(
-            SQLStatementResponse(db = request.db,
-                                 namespace = request.namespace,
-                                 completedSuccessfully = false,
-                                 reason = "internal error",
-                                 message = ex.getMessage)
+                                 message = error)
           )
       }
     }

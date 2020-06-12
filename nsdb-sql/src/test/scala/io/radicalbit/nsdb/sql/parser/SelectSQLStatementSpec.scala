@@ -17,9 +17,8 @@
 package io.radicalbit.nsdb.sql.parser
 
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.sql.parser.StatementParserResult.{SqlStatementParserFailure, SqlStatementParserSuccess}
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.util.Success
 
 class SelectSQLStatementSpec extends WordSpec with Matchers {
 
@@ -29,52 +28,58 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
 
     "receive a select projecting a wildcard" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT * FROM people") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = AllFields())))
+        val query = "SELECT * FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = false,
+                                                       fields = AllFields())))
       }
     }
 
     "receive a select projecting a wildcard with distinct" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT * FROM people") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = true,
-                               fields = AllFields())))
+        val query = "SELECT DISTINCT * FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = true,
+                                                       fields = AllFields())))
       }
     }
 
     "receive a select projecting a single field" should {
       "parse it successfully with a simple field" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = ListFields(List(Field("name", None)))))
+        val query = "SELECT name FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = false,
+                                                       fields = ListFields(List(Field("name", None)))))
         )
       }
       "parse it successfully with a simple field with distinct" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name FROM people") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = true,
-                               fields = ListFields(List(Field("name", None)))))
+        val query = "SELECT DISTINCT name FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = true,
+                                                       fields = ListFields(List(Field("name", None)))))
         )
       }
       "parse it successfully with a count aggregated field" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT count(value) FROM people") should be(
-          Success(
+        val query = "SELECT count(value) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
@@ -83,18 +88,21 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully with a sum aggregated field" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT sum(value) FROM people") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = ListFields(List(Field("value", Some(SumAggregation))))))
+        val query = "SELECT sum(value) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = false,
+                                                       fields = ListFields(List(Field("value", Some(SumAggregation))))))
         )
       }
       "parse it successfully with a first aggregated field" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT first(value) FROM people") should be(
-          Success(
+        val query = "SELECT first(value) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
@@ -103,8 +111,10 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully with a last aggregated field" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT last(value) FROM people") should be(
-          Success(
+        val query = "SELECT last(value) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
             SelectSQLStatement(db = "db",
                                namespace = "registry",
                                metric = "people",
@@ -113,382 +123,449 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
         )
       }
       "parse it successfully with an aggregated *" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT count(*) FROM people") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = ListFields(List(Field("*", Some(CountAggregation))))))
+        val query = "SELECT count(*) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = false,
+                                                       fields = ListFields(List(Field("*", Some(CountAggregation))))))
         )
       }
     }
 
     "receive a select projecting a list of fields" should {
       "parse it successfully only with simple fields" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname,creationDate FROM people") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None)))
-          )))
+        val query = "SELECT name,surname,creationDate FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None)))
+            )
+          ))
       }
 
       "parse it successfully only with simple fields and distinct" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT DISTINCT name,surname,creationDate FROM people") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = true,
-            fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None)))
-          )))
+        val query = "SELECT DISTINCT name,surname,creationDate FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = true,
+              fields = ListFields(List(Field("name", None), Field("surname", None), Field("creationDate", None)))
+            )
+          ))
       }
 
       "parse it successfully with mixed aggregated and simple" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT count(*),surname,sum(creationDate) FROM people") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("*", Some(CountAggregation)),
-                                     Field("surname", None),
-                                     Field("creationDate", Some(SumAggregation))))
-          )))
+        val query = "SELECT count(*),surname,sum(creationDate) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation)),
+                     Field("surname", None),
+                     Field("creationDate", Some(SumAggregation))))
+            )
+          ))
       }
     }
 
     "receive a select containing a range selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp IN (2,4)") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp",
-                                                       value1 = AbsoluteComparisonValue(2L),
-                                                       value2 = AbsoluteComparisonValue(4L))))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp IN (2,4)"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2L),
+                                          value2 = AbsoluteComparisonValue(4L))))
+            )
+          ))
       }
 
       "parse it successfully using decimal values" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp IN (2, 3.5)") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp",
-                                                       value1 = AbsoluteComparisonValue(2L),
-                                                       value2 = AbsoluteComparisonValue(3.5))))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp IN (2, 3.5)"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2L),
+                                          value2 = AbsoluteComparisonValue(3.5))))
+            )
+          ))
       }
     }
 
     "receive a select containing a = selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = 10") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition =
-              Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10L))))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp = 10"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition =
+                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10L))))
+            )
+          ))
       }
 
       "parse it successfully using decimals" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = 10.5") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition =
-              Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10.5))))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp = 10.5"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition =
+                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10.5))))
+            )
+          ))
       }
 
       "parse it successfully using string" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp = word_word") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition =
-              Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue("word_word"))))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp = word_word"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue("word_word"))))
+            )
+          ))
       }
     }
 
     "receive a select containing a like selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE name like $ame$") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(LikeExpression(dimension = "name", value = "$ame$")))
-          )))
+        val query = "SELECT name FROM people WHERE name like $ame$"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(LikeExpression(dimension = "name", value = "$ame$")))
+            )
+          ))
       }
 
       "parse it successfully with predicate containing special characters" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE name like $a_m-e$") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_m-e$")))
-          )))
+        val query = "SELECT name FROM people WHERE name like $a_m-e$"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_m-e$")))
+            )
+          ))
       }
     }
 
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name FROM people WHERE timestamp >= 10") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(ComparisonExpression(dimension = "timestamp",
-                                                            comparison = GreaterOrEqualToOperator,
-                                                            value = AbsoluteComparisonValue(10L))))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp >= 10"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(ComparisonExpression(dimension = "timestamp",
+                                               comparison = GreaterOrEqualToOperator,
+                                               value = AbsoluteComparisonValue(10L))))
+            )
+          ))
       }
     }
 
     "receive a select containing a GT AND a = selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT name FROM people WHERE timestamp > 2 AND timestamp = 4") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp",
-                                                 comparison = GreaterThanOperator,
-                                                 value = AbsoluteComparisonValue(2L)),
-              operator = AndOperator,
-              expression2 = EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(4L))
-            )))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp > 2 AND timestamp = 4"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterThanOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
+                operator = AndOperator,
+                expression2 = EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(4L))
+              )))
+            )
+          ))
       }
 
       "parse it successfully using decimal values" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT name FROM people WHERE timestamp > 2.4 AND timestamp = 4") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp",
-                                                 comparison = GreaterThanOperator,
-                                                 value = AbsoluteComparisonValue(2.4)),
-              operator = AndOperator,
-              expression2 = EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(4L))
-            )))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp > 2.4 AND timestamp = 4"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterThanOperator,
+                                                   value = AbsoluteComparisonValue(2.4)),
+                operator = AndOperator,
+                expression2 = EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(4L))
+              )))
+            )
+          ))
       }
 
     }
 
     "receive a select containing a GT AND a LTE selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT name FROM people WHERE timestamp > 2 AND timestamp <= 4") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp",
-                                                 comparison = GreaterThanOperator,
-                                                 value = AbsoluteComparisonValue(2L)),
-              operator = AndOperator,
-              expression2 = ComparisonExpression(dimension = "timestamp",
-                                                 comparison = LessOrEqualToOperator,
-                                                 value = AbsoluteComparisonValue(4L))
-            )))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp > 2 AND timestamp <= 4"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterThanOperator,
+                                                   value = AbsoluteComparisonValue(2L)),
+                operator = AndOperator,
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(4L))
+              )))
+            )
+          ))
       }
 
       "parse it successfully using decimal values" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT name FROM people WHERE timestamp > 2.5 AND timestamp <= 4.01") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(TupledLogicalExpression(
-              expression1 = ComparisonExpression(dimension = "timestamp",
-                                                 comparison = GreaterThanOperator,
-                                                 value = AbsoluteComparisonValue(2.5)),
-              operator = AndOperator,
-              expression2 = ComparisonExpression(dimension = "timestamp",
-                                                 comparison = LessOrEqualToOperator,
-                                                 value = AbsoluteComparisonValue(4.01))
-            )))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp > 2.5 AND timestamp <= 4.01"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(TupledLogicalExpression(
+                expression1 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = GreaterThanOperator,
+                                                   value = AbsoluteComparisonValue(2.5)),
+                operator = AndOperator,
+                expression2 = ComparisonExpression(dimension = "timestamp",
+                                                   comparison = LessOrEqualToOperator,
+                                                   value = AbsoluteComparisonValue(4.01))
+              )))
+            )
+          ))
       }
     }
 
     "receive a select containing a GTE OR a LT selection" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT name FROM people WHERE NOT timestamp >= 2 OR timestamp < 4") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(NotExpression(
-              expression = TupledLogicalExpression(
-                expression1 = ComparisonExpression(dimension = "timestamp",
-                                                   comparison = GreaterOrEqualToOperator,
-                                                   value = AbsoluteComparisonValue(2L)),
-                operator = OrOperator,
-                expression2 = ComparisonExpression(dimension = "timestamp",
-                                                   comparison = LessThanOperator,
-                                                   value = AbsoluteComparisonValue(4L))
-              )
-            )))
-          )))
+        val query = "SELECT name FROM people WHERE NOT timestamp >= 2 OR timestamp < 4"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(NotExpression(
+                  expression = TupledLogicalExpression(
+                    expression1 = ComparisonExpression(dimension = "timestamp",
+                                                       comparison = GreaterOrEqualToOperator,
+                                                       value = AbsoluteComparisonValue(2L)),
+                    operator = OrOperator,
+                    expression2 = ComparisonExpression(dimension = "timestamp",
+                                                       comparison = LessThanOperator,
+                                                       value = AbsoluteComparisonValue(4L))
+                  )
+                )))
+            )
+          ))
       }
     }
 
     "receive a select containing a ordering statement" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT * FROM people ORDER BY name") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = AllFields(),
-                               order = Some(AscOrderOperator("name")))))
+        val query = "SELECT * FROM people ORDER BY name"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = false,
+                                                       fields = AllFields(),
+                                                       order = Some(AscOrderOperator("name")))))
       }
     }
 
     "receive a select containing a limit statement" should {
       "parse it successfully" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT * FROM people LIMIT 10") should be(
-          Success(
-            SelectSQLStatement(db = "db",
-                               namespace = "registry",
-                               metric = "people",
-                               distinct = false,
-                               fields = AllFields(),
-                               limit = Some(LimitOperator(10)))))
+        val query = "SELECT * FROM people LIMIT 10"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(query,
+                                    SelectSQLStatement(db = "db",
+                                                       namespace = "registry",
+                                                       metric = "people",
+                                                       distinct = false,
+                                                       fields = AllFields(),
+                                                       limit = Some(LimitOperator(10)))))
       }
     }
 
     "receive a complex select containing a range selection a desc ordering statement and a limit statement" should {
       "parse it successfully" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "SELECT name FROM people WHERE timestamp IN (2,4) ORDER BY name DESC LIMIT 5") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp",
-                                                       value1 = AbsoluteComparisonValue(2),
-                                                       value2 = AbsoluteComparisonValue(4)))),
-            order = Some(DescOrderOperator(dimension = "name")),
-            limit = Some(LimitOperator(5))
-          )))
+        val query = "SELECT name FROM people WHERE timestamp IN (2,4) ORDER BY name DESC LIMIT 5"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2),
+                                          value2 = AbsoluteComparisonValue(4)))),
+              order = Some(DescOrderOperator(dimension = "name")),
+              limit = Some(LimitOperator(5))
+            )
+          ))
       }
       "parse it successfully ignoring case" in {
-        parser.parse(db = "db",
-                     namespace = "registry",
-                     input = "sElect name FrOm people where timestamp in (2,4) Order bY name dEsc limit 5") should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(RangeExpression(dimension = "timestamp",
-                                                       value1 = AbsoluteComparisonValue(2),
-                                                       value2 = AbsoluteComparisonValue(4)))),
-            order = Some(DescOrderOperator(dimension = "name")),
-            limit = Some(LimitOperator(5))
-          )))
+        val query = "sElect name FrOm people where timestamp in (2,4) Order bY name dEsc limit 5"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2),
+                                          value2 = AbsoluteComparisonValue(4)))),
+              order = Some(DescOrderOperator(dimension = "name")),
+              limit = Some(LimitOperator(5))
+            )
+          ))
       }
     }
 
     "receive a complex select containing 3 conditions a desc ordering statement and a limit statement" should {
       "parse it successfully" in {
-        parser.parse(
-          db = "db",
-          namespace = "registry",
-          input =
-            "SELECT name FROM people WHERE name like $an$ and surname = pippo and timestamp IN (2,4)  ORDER BY name DESC LIMIT 5"
-        ) should be(
-          Success(SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(TupledLogicalExpression(
-              LikeExpression("name", "$an$"),
-              AndOperator,
-              TupledLogicalExpression(
-                EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")),
+        val query =
+          "SELECT name FROM people WHERE name like $an$ and surname = pippo and timestamp IN (2,4)  ORDER BY name DESC LIMIT 5"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(TupledLogicalExpression(
+                LikeExpression("name", "$an$"),
                 AndOperator,
-                RangeExpression(dimension = "timestamp",
-                                value1 = AbsoluteComparisonValue(2),
-                                AbsoluteComparisonValue(4))
-              )
-            ))),
-            order = Some(DescOrderOperator(dimension = "name")),
-            limit = Some(LimitOperator(5))
-          )))
+                TupledLogicalExpression(
+                  EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")),
+                  AndOperator,
+                  RangeExpression(dimension = "timestamp",
+                                  value1 = AbsoluteComparisonValue(2),
+                                  AbsoluteComparisonValue(4))
+                )
+              ))),
+              order = Some(DescOrderOperator(dimension = "name")),
+              limit = Some(LimitOperator(5))
+            )
+          ))
       }
     }
 
     "receive a complex select containing a equality selection a desc ordering statement and a limit statement" in {
-      parser.parse(
-        db = "db",
-        namespace = "registry",
-        input = "select * from AreaOccupancy where name=MeetingArea order by timestamp desc limit 1") shouldBe
-        Success(
+      val query = "select * from AreaOccupancy where name=MeetingArea order by timestamp desc limit 1"
+      parser.parse(db = "db", namespace = "registry", input = query) shouldBe
+        SqlStatementParserSuccess(
+          query,
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -498,15 +575,15 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             condition = Some(Condition(EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
-          ))
+          )
+        )
     }
 
     "receive a select containing condition of nullable" in {
-      parser.parse(
-        db = "db",
-        namespace = "registry",
-        input = "select * from AreaOccupancy where name=MeetingArea and name is null order by timestamp desc limit 1") shouldBe
-        Success(
+      val query = "select * from AreaOccupancy where name=MeetingArea and name is null order by timestamp desc limit 1"
+      parser.parse(db = "db", namespace = "registry", input = query) shouldBe
+        SqlStatementParserSuccess(
+          query,
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -520,16 +597,16 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                         NullableExpression("name")))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
-          ))
+          )
+        )
     }
 
     "receive a select containing a condition of not nullable" in {
-      parser.parse(
-        db = "db",
-        namespace = "registry",
-        input =
-          "select * from AreaOccupancy where name=MeetingArea and name is not null order by timestamp desc limit 1") shouldBe
-        Success(
+      val query =
+        "select * from AreaOccupancy where name=MeetingArea and name is not null order by timestamp desc limit 1"
+      parser.parse(db = "db", namespace = "registry", input = query) shouldBe
+        SqlStatementParserSuccess(
+          query,
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
@@ -545,89 +622,99 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                 ))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
-          ))
+          )
+        )
     }
 
     "receive a select containing two conditions of not nullable" in {
-      parser.parse(
-        db = "db",
-        namespace = "registry",
-        input =
-          "select * from AreaOccupancy where name=MeetingArea and name is not null or floor is not null order by timestamp desc limit 1"
-      ) shouldBe
-        Success(
+      val query =
+        "select * from AreaOccupancy where name=MeetingArea and name is not null or floor is not null order by timestamp desc limit 1"
+      parser.parse(db = "db", namespace = "registry", input = query) shouldBe
+        SqlStatementParserSuccess(
+          query,
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
             metric = "AreaOccupancy",
             distinct = false,
             fields = AllFields(),
-            condition = Some(Condition(TupledLogicalExpression(
-              EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")),
-              AndOperator,
-              TupledLogicalExpression(
-                NotExpression(NullableExpression("name")),
-                OrOperator,
-                NotExpression(NullableExpression("floor"))
-              )
-            ))),
+            condition = Some(
+              Condition(TupledLogicalExpression(
+                EqualityExpression(dimension = "name", AbsoluteComparisonValue("MeetingArea")),
+                AndOperator,
+                TupledLogicalExpression(
+                  NotExpression(NullableExpression("name")),
+                  OrOperator,
+                  NotExpression(NullableExpression("floor"))
+                )
+              ))),
             order = Some(DescOrderOperator(dimension = "timestamp")),
             limit = Some(LimitOperator(1))
-          ))
+          )
+        )
     }
 
     "receive a select with where condition on string dimension with spaces" in {
-      parser.parse(db = "db",
-                   namespace = "registry",
-                   input = "select name from people where name = 'string spaced' limit 5") should be(
-        Success(SelectSQLStatement(
-          db = "db",
-          namespace = "registry",
-          metric = "people",
-          distinct = false,
-          fields = ListFields(List(Field("name", None))),
-          condition =
-            Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("string spaced")))),
-          limit = Some(LimitOperator(5))
-        )))
+      val query = "select name from people where name = 'string spaced' limit 5"
+      parser.parse(db = "db", namespace = "registry", input = query) should be(
+        SqlStatementParserSuccess(
+          query,
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition =
+              Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("string spaced")))),
+            limit = Some(LimitOperator(5))
+          )
+        ))
     }
 
     "receive a select with where condition on string dimension with one char" in {
-      parser.parse(db = "db", namespace = "registry", input = "select name from people where name = 'a' limit 5") should be(
-        Success(SelectSQLStatement(
-          db = "db",
-          namespace = "registry",
-          metric = "people",
-          distinct = false,
-          fields = ListFields(List(Field("name", None))),
-          condition = Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("a")))),
-          limit = Some(LimitOperator(5))
-        )))
+      val query = "select name from people where name = 'a' limit 5"
+      parser.parse(db = "db", namespace = "registry", input = query) should be(
+        SqlStatementParserSuccess(
+          query,
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("name", None))),
+            condition = Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("a")))),
+            limit = Some(LimitOperator(5))
+          )
+        ))
     }
 
     "receive random string sequences" should {
       "fail" in {
-        parser.parse(db = "db", namespace = "registry", input = "fkjdskjfdlsf") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "fkjdskjfdlsf") shouldBe a[SqlStatementParserFailure]
       }
     }
 
     "receive wrong fields" should {
       "fail" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name surname FROM people") shouldBe 'failure
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname age FROM people") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name surname FROM people") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname age FROM people") shouldBe a[
+          SqlStatementParserFailure]
       }
     }
 
     "receive query with distinct in wrong order " should {
       "fail" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT name, distinct surname FROM people") shouldBe 'failure
+        parser.parse(db = "db", namespace = "registry", input = "SELECT name, distinct surname FROM people") shouldBe a[
+          SqlStatementParserFailure]
       }
     }
 
     "receive a wrong metric without where clause" should {
       "fail" in {
         val f = parser.parse(db = "db", namespace = "registry", input = "SELECT name,surname FROM people cats dogs")
-        f shouldBe 'failure
+        f shouldBe a[SqlStatementParserFailure]
       }
     }
 
@@ -635,7 +722,8 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       "fail" in {
         parser.parse(db = "db",
                      namespace = "registry",
-                     input = "SELECT name,surname FROM people cats dogs WHERE timestamp > 10") shouldBe 'failure
+                     input = "SELECT name,surname FROM people cats dogs WHERE timestamp > 10") shouldBe a[
+          SqlStatementParserFailure]
       }
     }
   }

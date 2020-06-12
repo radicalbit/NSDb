@@ -55,6 +55,7 @@ object StatementParser {
       case SumAggregation   => InternalSumSimpleAggregation(groupField, aggregateField)
       case FirstAggregation => InternalFirstSimpleAggregation(groupField, aggregateField)
       case LastAggregation  => InternalLastSimpleAggregation(groupField, aggregateField)
+      case AvgAggregation   => InternalAvgSimpleAggregation(groupField, aggregateField)
     }
   }
 
@@ -300,6 +301,7 @@ object StatementParser {
         case MaxAggregation   => InternalMaxTemporalAggregation
         case MinAggregation   => InternalMinTemporalAggregation
         case SumAggregation   => InternalSumTemporalAggregation
+        case AvgAggregation   => InternalAvgTemporalAggregation
       }
   }
 
@@ -310,5 +312,7 @@ object StatementParser {
   case object InternalMaxTemporalAggregation extends InternalTemporalAggregation
 
   case object InternalMinTemporalAggregation extends InternalTemporalAggregation
+
+  case object InternalAvgTemporalAggregation extends InternalTemporalAggregation
 
 }
