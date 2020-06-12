@@ -93,6 +93,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), _, limit)) =>
           handleNoIndexResults(Try(facetIndexes.facetSumIndex
             .result(q, groupField, None, limit, schema.fieldsMap(groupField).indexType, Some(schema.value.indexType))))
+        case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), _, _)) =>
+          Failure(new RuntimeException("Unsupported query type yet"))
         case Right(ParsedAggregatedQuery(_, _, q, InternalFirstSimpleAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalLastSimpleAggregation(groupField, _), _, _)) =>

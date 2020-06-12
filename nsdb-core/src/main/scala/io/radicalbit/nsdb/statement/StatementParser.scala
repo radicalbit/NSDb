@@ -55,6 +55,7 @@ object StatementParser {
       case SumAggregation   => InternalSumSimpleAggregation(groupField, aggregateField)
       case FirstAggregation => InternalFirstSimpleAggregation(groupField, aggregateField)
       case LastAggregation  => InternalLastSimpleAggregation(groupField, aggregateField)
+      case AvgAggregation   => InternalAvgSimpleAggregation(groupField, aggregateField)
     }
   }
 
@@ -113,7 +114,7 @@ object StatementParser {
               )
             )
           case (false, Right(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
-              if schema.tags.get(group.field).isDefined && (fieldName == "value" || fieldName == "*") =>
+              if schema.tags.contains(group.field) && (fieldName == "value" || fieldName == "*") =>
             Right(
               ParsedAggregatedQuery(
                 statement.namespace,
@@ -126,7 +127,7 @@ object StatementParser {
           case (false, Right(Seq(Field(fieldName, Some(_)))), Some(_: SimpleGroupByAggregation))
               if fieldName == "value" || fieldName == "*" =>
             Left(StatementParserErrors.SIMPLE_AGGREGATION_NOT_ON_TAG)
-          case (false, Right(Seq(Field(_, Some(_)))), Some(group)) if schema.tags.get(group.field).isDefined =>
+          case (false, Right(Seq(Field(_, Some(_)))), Some(group)) if schema.tags.contains(group.field) =>
             Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
           case (false, Right(Seq(Field(_, Some(_)))), Some(group)) =>
             Left(StatementParserErrors.notExistingDimension(group.field))
@@ -288,6 +289,9 @@ object StatementParser {
   case class InternalLastSimpleAggregation(override val groupField: String, override val aggregateField: String)
       extends InternalSimpleAggregationType
 
+  case class InternalAvgSimpleAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalSimpleAggregationType
+
   sealed trait InternalTemporalAggregation extends InternalAggregation
 
   object InternalTemporalAggregation {
@@ -297,6 +301,7 @@ object StatementParser {
         case MaxAggregation   => InternalMaxTemporalAggregation
         case MinAggregation   => InternalMinTemporalAggregation
         case SumAggregation   => InternalSumTemporalAggregation
+        case AvgAggregation   => InternalAvgTemporalAggregation
       }
   }
 
@@ -307,5 +312,7 @@ object StatementParser {
   case object InternalMaxTemporalAggregation extends InternalTemporalAggregation
 
   case object InternalMinTemporalAggregation extends InternalTemporalAggregation
+
+  case object InternalAvgTemporalAggregation extends InternalTemporalAggregation
 
 }
