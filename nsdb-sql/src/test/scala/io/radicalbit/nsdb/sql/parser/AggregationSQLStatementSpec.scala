@@ -416,7 +416,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
           ))
       }
 
-      "parse it successfully if an aggregation different from count and sum is provided " in {
+      "parse it successfully if an avg aggregation is provided" in {
         val query = "SELECT avg(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 4d"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
