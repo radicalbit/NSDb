@@ -19,7 +19,8 @@ package io.radicalbit.nsdb.actors
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString, Unsubscribed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.RecordsPublished
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
@@ -73,7 +74,7 @@ class PublisherActorSpec
   "PublisherActor" should "make other actors subscribe and unsubscribe" in {
     probe.send(publisherActor,
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    probe.expectMsgType[SubscribedByQueryString]
+    probe.expectMsgType[SubscribedByQueryStringInternal]
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
@@ -90,7 +91,7 @@ class PublisherActorSpec
   "PublisherActor" should "subscribe more than once" in {
     probe.send(publisherActor,
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-//    val firstId = probe.expectMsgType[SubscribedByQueryString].quid
+    val firstId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
@@ -105,12 +106,12 @@ class PublisherActorSpec
                                        "anotherOne",
                                        "queryString",
                                        testSqlStatement.copy(metric = "anotherOne")))
-//    val secondId = probe.expectMsgType[SubscribedByQueryString].quid
+    val secondId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 2
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 2
-//    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(firstId) shouldBe true
-//    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(secondId) shouldBe true
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(firstId) shouldBe true
+    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(secondId) shouldBe true
     publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
     publisherActor.underlyingActor.subscribedActorsByQueryId.values.last shouldBe Set(probeActor)
   }
@@ -120,7 +121,7 @@ class PublisherActorSpec
     publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
     probe.send(publisherActor,
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    probe.expectMsgType[SubscribedByQueryString]
+    probe.expectMsgType[SubscribedByQueryStringInternal]
 
     publisherActor.underlyingActor.queries.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
@@ -138,12 +139,12 @@ class PublisherActorSpec
 
     probe.send(publisherActor,
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    probe.expectMsgType[SubscribedByQueryString]
+    probe.expectMsgType[SubscribedByQueryStringInternal]
 
     secondProbe.send(
       publisherActor,
       SubscribeBySqlStatement(secondProbe.ref, "db", "namespace", "metric", "queryString", testSqlStatement))
-    secondProbe.expectMsgType[SubscribedByQueryString]
+    secondProbe.expectMsgType[SubscribedByQueryStringInternal]
 
     probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
     val recordPublished = probe.expectMsgType[RecordsPublished]

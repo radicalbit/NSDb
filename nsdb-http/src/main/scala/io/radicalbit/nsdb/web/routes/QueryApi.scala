@@ -63,7 +63,7 @@ sealed trait Filter
 case object Filter {
   def unapply(arg: Filter): Option[(String, Option[NSDbType], String)] =
     arg match {
-      case byValue: FilterByValue             => Some((byValue.dimension, Some(NSDbType(byValue.value)), byValue.operator.toString))
+      case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
       case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
     }
 }

@@ -24,8 +24,9 @@ import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, Unsubscribed, _}
-import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscriptionByQueryStringFailed}
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{SelectSQLStatement, SimpleGroupByAggregation, TemporalGroupByAggregation}
 import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -117,7 +118,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(subscribedQueryId, Set.empty)
                 subscribedActorsByQueryId += (subscribedQueryId -> (previousRegisteredActors + actor))
                 queries += (subscribedQueryId                   -> NSDbQuery(subscribedQueryId, query))
-                SubscribedByQueryString(db, namespace, metric, queryString, e.values)
+                SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values)
               case SelectStatementFailed(_, reason, _) =>
                 SubscriptionByQueryStringFailed(db, namespace, metric, queryString, reason)
             }
@@ -126,7 +127,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
           log.debug(s"subscribing existing actor to query $queryString")
           (readCoordinator ? ExecuteStatement(query))
             .mapTo[SelectStatementExecuted]
-            .map(e => SubscribedByQueryString(db, namespace, metric, queryString, e.values))
+            .map(e => SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values))
             .pipeTo(sender())
         }
     case PublishRecord(db, namespace, metric, record, schema) =>
@@ -182,4 +183,15 @@ object PublisherActor {
     case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
   }
 
+  object Events {
+    case class Unsubscribed(actor: ActorRef) extends ControlMessage with NSDbSerializable
+    case class SubscribedByQueryStringInternal(db: String,
+                                               namespace: String,
+                                               metric: String,
+                                               queryString: String,
+                                               quid: String,
+                                               records: Seq[Bit])
+        extends ControlMessage
+        with NSDbSerializable
+  }
 }

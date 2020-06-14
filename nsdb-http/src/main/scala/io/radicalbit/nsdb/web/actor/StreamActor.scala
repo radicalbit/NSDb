@@ -22,6 +22,7 @@ import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
+import io.radicalbit.nsdb.actors.PublisherActor.Events.SubscribedByQueryStringInternal
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
 import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
@@ -97,7 +98,8 @@ class StreamActor(clientAddress: String,
                                           metric,
                                           inputQueryString,
                                           s"unauthorized ${checkAuthorization.failReason}"))
-    case msg: SubscribedByQueryString         => wsActor ! OutgoingMessage(msg)
+    case SubscribedByQueryStringInternal(db, namespace, metric, queryString, _, records) =>
+      wsActor ! OutgoingMessage(SubscribedByQueryString(db, namespace, metric, queryString, records))
     case msg: SubscriptionByQueryStringFailed => wsActor ! OutgoingMessage(msg)
     case msg @ RecordsPublished(_, _, _) =>
       buffer += msg

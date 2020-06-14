@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.actors
 
-import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 
@@ -39,7 +38,6 @@ object RealTimeProtocol {
                                                reason: String)
         extends ControlMessage
         with RealTimeOutGoingMessage
-    case class Unsubscribed(actor: ActorRef) extends ControlMessage with RealTimeOutGoingMessage
 
     case class RecordsPublished(quid: String, metric: String, records: Seq[Bit]) extends RealTimeOutGoingMessage
 
