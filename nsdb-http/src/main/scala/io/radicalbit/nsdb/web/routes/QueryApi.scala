@@ -92,16 +92,16 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
                      @(ApiModelProperty @field)(value = "sql query string") queryString: String,
                      @(ApiModelProperty @field)(value = "timestamp lower bound condition",
                                                 required = false,
-                                                dataType = "long") from: Option[Long],
+                                                dataType = "long") from: Option[Long] = None,
                      @(ApiModelProperty @field)(value = "timestamp upper bound condition",
                                                 required = false,
-                                                dataType = "long") to: Option[Long],
+                                                dataType = "long") to: Option[Long] = None,
                      @(ApiModelProperty @field)(
                        value = "filters definition, adding where condition",
                        required = false,
-                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]],
+                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]] = None,
                      @(ApiModelProperty @field)(value = "return parsed query", required = false, dataType = "boolean") parsed: Option[
-                       Boolean])
+                       Boolean] = None)
     extends Metric
 
 @Api(value = "/query", produces = "application/json")

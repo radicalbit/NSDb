@@ -16,58 +16,37 @@
 
 package io.radicalbit.nsdb.web
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.web.Formats._
-import io.radicalbit.nsdb.web.QueryApiTest.FakeWriteCoordinator
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
 
-object QueryApiTest {
-  class FakeWriteCoordinator extends Actor {
-    override def receive: Receive = {
-      case msg: MapInput => sender() ! InputMapped(msg.db, msg.namespace, msg.metric, msg.record)
-    }
-  }
-}
+class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
-class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
-
-  val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
-  val readCoordinatorActor: ActorRef  = system.actorOf(Props[FakeReadCoordinator])
+  val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 
   val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
   /*
-        adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
-        fixed timestamp (0L) in order to make the unit test time-independent
+      adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
+      fixed timestamp (0L) in order to make the unit test time-independent
    */
   implicit val formats
     : Formats = DefaultFormats ++ CustomSerializers.customSerializers + CustomSerializerForTest + BitSerializer
 
-  val secureQueryApi = new QueryApi {
-    override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
-
-    override def readCoordinator: ActorRef = readCoordinatorActor
-    override implicit val timeout: Timeout = 5 seconds
-
-  }
-
-  val emptyQueryApi = new QueryApi {
+  val queryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
     override def readCoordinator: ActorRef = readCoordinatorActor
@@ -75,227 +54,21 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   val testRoutes = Route.seal(
-    emptyQueryApi.queryApi()(system.log, formats)
+    queryApi.queryApi()(system.log, formats)
   )
 
-  val testSecuredRoutes = Route.seal(
-    secureQueryApi.queryApi()(system.log, formats)
-  )
-
-  "QueryApi" should "not allow get" in {
-    Get("/query") ~> testRoutes ~> check {
-      status shouldEqual MethodNotAllowed
-    }
-  }
-
-  "QueryApi" should "correctly query the db with a single filter over Long" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                None,
-                None,
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
-                None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
-
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
-
-    }
-
-  }
-
-  "QueryApi" should "correctly query the db with a single filter and with time range" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                Some(100),
-                Some(200),
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
-                None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
-
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
-
-    }
-
-  }
-
-  "QueryApi" should "correctly query the db with a single filter with compatible type" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                None,
-                None,
-                Some(Seq(FilterByValue("value", "1", FilterOperators.Equality))),
-                None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-    }
-
-  }
-
-  "QueryApi" should "fail with a single filter with incompatible type" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                None,
-                None,
-                Some(Seq(FilterByValue("value", "vd", FilterOperators.Equality))),
-                None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe InternalServerError
-    }
-  }
-
-  "QueryApi" should "correctly query the db with time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), None, None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
-
-      recordString shouldBe
-        """{
-        |  "records" : [ {
-        |    "timestamp" : 100,
-        |    "value" : 1,
-        |    "dimensions" : {
-        |      "name" : "name",
-        |      "number" : 2
-        |    },
-        |    "tags" : {
-        |      "country" : "country"
-        |    }
-        |  }, {
-        |    "timestamp" : 200,
-        |    "value" : 3,
-        |    "dimensions" : {
-        |      "name" : "name",
-        |      "number" : 2
-        |    },
-        |    "tags" : {
-        |      "country" : "country"
-        |    }
-        |  } ]
-        |}""".stripMargin
-
-    }
-
-  }
-
-  "QueryApi" should "correctly query the db without time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", None, None, None, None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
-
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
-
-    }
-  }
-
-  "QueryApi called with optional parameter parsed = true" should
+  "QueryParserApi" should {
     "correctly query the db with a very simple query and return the parsed query" in {
-    val q =
-      QueryBody("db", "namespace", "metric", "select count(*) from metric", None, None, None, Some(true))
+      val q =
+        QueryBody("db", "namespace", "metric", "select count(*) from metric", parsed = Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -331,28 +104,24 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a not null condition and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select count(*) from metric where name is not null limit 1",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select count(*) from metric where name is not null limit 1",
+                  parsed = Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -400,28 +169,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a null condition and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select count(*) from metric where name is null limit 1",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select count(*) from metric where name is null limit 1",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -466,21 +234,20 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple count aggregation query and return the parsed query" in {
-    val q =
-      QueryBody("db", "namespace", "metric", "select count(*) from metric limit 1", None, None, None, Some(true))
+      val q =
+        QueryBody("db", "namespace", "metric", "select count(*) from metric limit 1", None, None, None, Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -519,28 +286,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple sum aggregation query and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select sum(value) from metric group by country limit 2 ",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select sum(value) from metric group by country limit 2 ",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -582,28 +348,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple min aggregation query and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select min(value) from metric group by country limit 3 ",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select min(value) from metric group by country limit 3 ",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -645,28 +410,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple max aggregation query and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select max(value) from metric group by country limit 4",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select max(value) from metric group by country limit 4",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -708,28 +472,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query with asc order and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric order by timestamp limit 2",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric order by timestamp limit 2",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -767,28 +530,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query with desc order and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric order by timestamp desc limit 5",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric order by timestamp desc limit 5",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -826,28 +588,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query with 'and' condition return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric where timestamp > 0 and timestamp < 200  limit 2",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric where timestamp > 0 and timestamp < 200  limit 2",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -900,28 +661,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query with equality expression and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric where timestamp = 5 limit 2",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric where timestamp = 5 limit 2",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -962,30 +722,29 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query with some conditions and return the parsed query" in {
-    val q =
-      QueryBody(
-        "db",
-        "namespace",
-        "metric",
-        "select * from metric where timestamp > 1 and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
-        None,
-        None,
-        None,
-        Some(true)
-      )
+      val q =
+        QueryBody(
+          "db",
+          "namespace",
+          "metric",
+          "select * from metric where timestamp > 1 and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
+          None,
+          None,
+          None,
+          Some(true)
+        )
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
       |  "records" : [ {
       |    "timestamp" : 0,
       |    "value" : 1,
@@ -1063,30 +822,29 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
       |  }
       |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query with like condition and return the parsed query" in {
-    val q =
-      QueryBody(
-        "db",
-        "namespace",
-        "metric",
-        "select * from metric where name like $m$ and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
-        None,
-        None,
-        None,
-        Some(true)
-      )
+      val q =
+        QueryBody(
+          "db",
+          "namespace",
+          "metric",
+          "select * from metric where name like $m$ and timestamp < 2 and timestamp = 3 or timestamp >= 4 or timestamp <= 5",
+          None,
+          None,
+          None,
+          Some(true)
+        )
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -1162,28 +920,27 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a simple query relative value and return the parsed query" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric where timestamp > now - 2d",
-                None,
-                None,
-                None,
-                Some(true))
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric where timestamp > now - 2d",
+                  None,
+                  None,
+                  None,
+                  Some(true))
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -1226,30 +983,29 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a complex query return the parsed query" in {
-    val q =
-      QueryBody(
-        "db",
-        "namespace",
-        "metric",
-        "select count(*) from metric where timestamp > now - 2d or name = 'a' and timestamp < 3 group by country",
-        None,
-        None,
-        None,
-        Some(true)
-      )
+      val q =
+        QueryBody(
+          "db",
+          "namespace",
+          "metric",
+          "select count(*) from metric where timestamp > now - 2d or name = 'a' and timestamp < 3 group by country",
+          None,
+          None,
+          None,
+          Some(true)
+        )
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -1318,30 +1074,29 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a very complex query return the parsed query" in {
-    val q =
-      QueryBody(
-        "db",
-        "namespace",
-        "metric",
-        "select count(*) from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or name = 'a' and timestamp < 3 group by country",
-        None,
-        None,
-        None,
-        Some(true)
-      )
+      val q =
+        QueryBody(
+          "db",
+          "namespace",
+          "metric",
+          "select count(*) from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or name = 'a' and timestamp < 3 group by country",
+          None,
+          None,
+          None,
+          Some(true)
+        )
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -1433,31 +1188,30 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
+      }
     }
-  }
 
-  "QueryApi called with optional parameter parsed = true" should
     "correctly query the db with a very very complex query return the parsed query" in {
-    val q =
-      QueryBody(
-        "db",
-        "namespace",
-        "metric",
-        "select name, timestamp, value from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or " +
-          "name = 'a' or timestamp <= now - 1s and value >= 5 and timestamp < 3 limit 5",
-        None,
-        None,
-        None,
-        Some(true)
-      )
+      val q =
+        QueryBody(
+          "db",
+          "namespace",
+          "metric",
+          "select name, timestamp, value from metric where name like $m$ or timestamp in (now - 2h, 7) and timestamp > now - 2d or " +
+            "name = 'a' or timestamp <= now - 1s and value >= 5 and timestamp < 3 limit 5",
+          None,
+          None,
+          None,
+          Some(true)
+        )
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
+        recordString shouldBe
+          """{
           |  "records" : [ {
           |    "timestamp" : 0,
           |    "value" : 1,
@@ -1575,38 +1329,8 @@ class QueryApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
           |  }
           |}""".stripMargin
 
-    }
-  }
-
-  "Secured QueryApi" should "not allow a request without the security header" in {
-    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None, None)
-
-    Post("/query", q) ~> testSecuredRoutes ~> check {
-      status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized header not provided"
+      }
     }
 
-    Post("/query", q).withHeaders(RawHeader("wrong", "wrong")) ~> testSecuredRoutes ~> check {
-      status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized header not provided"
-    }
-
-  }
-
-  "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
-    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2), None, None)
-
-    Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
-      status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized forbidden access to metric notAuthorizedMetric"
-    }
-  }
-
-  "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(1), Some(2), None, None)
-
-    Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
-      status shouldBe OK
-    }
   }
 }
