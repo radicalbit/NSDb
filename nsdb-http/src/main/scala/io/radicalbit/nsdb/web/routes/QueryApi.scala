@@ -24,7 +24,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.NSDbType
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
@@ -71,7 +71,7 @@ case object Filter {
 @ApiModel(description = "Filter using operator", parent = classOf[Filter])
 case class FilterByValue(
     @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
-    @(ApiModelProperty @field)(value = "value of comparation") value: java.io.Serializable,
+    @(ApiModelProperty @field)(value = "value of comparation") value: NSDbType,
     @(ApiModelProperty @field)(
       value = "filter comparison operator",
       dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value
@@ -92,10 +92,10 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
                      @(ApiModelProperty @field)(value = "sql query string") queryString: String,
                      @(ApiModelProperty @field)(value = "timestamp lower bound condition",
                                                 required = false,
-                                                dataType = "long") from: Option[Long] = None,
+                                                dataType = "long") from: Option[NSDbLongType] = None,
                      @(ApiModelProperty @field)(value = "timestamp upper bound condition",
                                                 required = false,
-                                                dataType = "long") to: Option[Long] = None,
+                                                dataType = "long") to: Option[NSDbLongType] = None,
                      @(ApiModelProperty @field)(
                        value = "filters definition, adding where condition",
                        required = false,
@@ -144,7 +144,12 @@ trait QueryApi {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
             authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-              QueryEnriched(qb.db, qb.namespace, qb.queryString, qb.from, qb.to, qb.filters.getOrElse(Seq.empty)) match {
+              QueryEnriched(qb.db,
+                            qb.namespace,
+                            qb.queryString,
+                            qb.from.map(_.rawValue),
+                            qb.to.map(_.rawValue),
+                            qb.filters.getOrElse(Seq.empty)) match {
                 case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>

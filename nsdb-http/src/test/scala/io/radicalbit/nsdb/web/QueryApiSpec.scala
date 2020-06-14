@@ -23,6 +23,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
+import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.web.Formats._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
@@ -123,14 +124,16 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
 
   "QueryApi" should "correctly query the db with a single filter and with time range" in {
     val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                Some(100),
-                Some(200),
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
-                None)
+      QueryBody(
+        "db",
+        "namespace",
+        "metric",
+        "select * from metric limit 1",
+        Some(NSDbLongType(100)),
+        Some(NSDbLongType(200)),
+        Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
+        None
+      )
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -200,7 +203,14 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "QueryApi" should "correctly query the db with time range passed" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(100), Some(200), None, None)
+    val q = QueryBody("db",
+                      "namespace",
+                      "metric",
+                      "select * from metric limit 1",
+                      Some(NSDbLongType(100)),
+                      Some(NSDbLongType(200)),
+                      None,
+                      None)
 
     Post("/query", q) ~> testRoutes ~> check {
       status shouldBe OK
@@ -273,7 +283,14 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "Secured QueryApi" should "not allow a request without the security header" in {
-    val q = QueryBody("db", "namespace", "metric", "select from metric", Some(1), Some(2), None, None)
+    val q = QueryBody("db",
+                      "namespace",
+                      "metric",
+                      "select from metric",
+                      Some(NSDbLongType(1)),
+                      Some(NSDbLongType(2)),
+                      None,
+                      None)
 
     Post("/query", q) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -288,7 +305,14 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
-    val q = QueryBody("db", "namespace", "notAuthorizedMetric", "select from metric", Some(1), Some(2), None, None)
+    val q = QueryBody("db",
+                      "namespace",
+                      "notAuthorizedMetric",
+                      "select from metric",
+                      Some(NSDbLongType(1)),
+                      Some(NSDbLongType(2)),
+                      None,
+                      None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe Forbidden
@@ -297,7 +321,14 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
   }
 
   "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1", Some(1), Some(2), None, None)
+    val q = QueryBody("db",
+                      "namespace",
+                      "metric",
+                      "select * from metric limit 1",
+                      Some(NSDbLongType(1)),
+                      Some(NSDbLongType(2)),
+                      None,
+                      None)
 
     Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK

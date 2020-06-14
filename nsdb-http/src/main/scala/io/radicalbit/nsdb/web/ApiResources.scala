@@ -65,18 +65,12 @@ object Formats extends DefaultJsonProtocol with SprayJsonSupport {
     }
   }
 
-  implicit object JSerializableJsonFormat extends RootJsonFormat[java.io.Serializable] {
-    def write(c: java.io.Serializable) = c match {
-      case v: java.lang.Double  => JsNumber(v)
-      case v: java.lang.Long    => JsNumber(v)
-      case v: java.lang.Integer => JsNumber(v)
-      case v                    => JsString(v.toString)
-    }
-    def read(value: JsValue) = value match {
-      case JsNumber(v) if v.scale > 0   => new java.lang.Double(v.doubleValue)
-      case JsNumber(v) if v.isValidLong => new java.lang.Long(v.longValue)
-      case JsNumber(v) if v.isValidInt  => new java.lang.Integer(v.intValue)
-      case JsString(v)                  => v
+  implicit object NSDbLongTypeJsonFormat extends RootJsonFormat[NSDbLongType] {
+    def write(v: NSDbLongType): JsValue = JsNumber(v.rawValue)
+    def read(value: JsValue): NSDbLongType = value match {
+      case JsNumber(v) if v.isValidLong => NSDbLongType(v.longValue)
+      case JsNumber(v) if v.isValidInt  => NSDbLongType(v.longValue)
+      case v                            => deserializationError(s"value $v cannot be use as a long value")
     }
   }
 
