@@ -30,16 +30,16 @@ import org.apache.lucene.search.{IndexSearcher, Query}
   */
 class FacetRangeIndex {
 
-  final val lowerBoundField = "lowerBound"
-  final val upperBoundField = "upperBound"
+  private final val lowerBoundField = "lowerBound"
+  private final val upperBoundField = "upperBound"
 
-  def executeRangeFacet(searcher: IndexSearcher,
-                        query: Query,
-                        aggregationType: InternalTemporalAggregation,
-                        rangeFieldName: String,
-                        valueFieldName: String,
-                        valueFieldType: Option[IndexType[_]],
-                        ranges: Seq[TimeRange]): Seq[Bit] = {
+  protected[index] def executeRangeFacet(searcher: IndexSearcher,
+                                         query: Query,
+                                         aggregationType: InternalTemporalAggregation,
+                                         rangeFieldName: String,
+                                         valueFieldName: String,
+                                         valueFieldType: Option[IndexType[_]],
+                                         ranges: Seq[TimeRange]): Seq[Bit] = {
     val luceneRanges = ranges.map(r =>
       new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
     val fc = new FacetsCollector

@@ -20,11 +20,12 @@ import java.nio.file.Paths
 
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, TimeRange}
+import io.radicalbit.nsdb.statement.StatementParser.InternalTemporalAggregation
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
 import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
-import org.apache.lucene.search.Query
+import org.apache.lucene.search.{IndexSearcher, Query, Sort}
 import org.apache.lucene.util.InfoStream
 
 import scala.annotation.tailrec
@@ -38,20 +39,59 @@ class AllFacetIndexes(basePath: String,
     extends LazyLogging
     with DirectorySupport {
 
-  private val directory =
-    getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet"))
-
+  private val directory = getDirectory(Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet"))
   private val taxoDirectory = getDirectory(
-    Paths
-      .get(basePath, db, namespace, "shards", s"${location.shardName}", "facet", "taxo"))
+    Paths.get(basePath, db, namespace, "shards", s"${location.shardName}", "facet", "taxo"))
 
-  val facetCountIndex = new FacetCountIndex(directory, taxoDirectory)
-
-  val facetSumIndex = new FacetSumIndex(directory, taxoDirectory)
-
-  val facetRangeIndex = new FacetRangeIndex
+  private val facetSumIndex            = new FacetSumIndex(directory, taxoDirectory)
+  private val facetCountIndex          = new FacetCountIndex(directory, taxoDirectory)
+  private val facetRangeIndex          = new FacetRangeIndex
+  private val sumAndCountFacetCombiner = new SumAndCountFacetCombiner(facetSumIndex, facetCountIndex)
 
   private val facetIndexes: Set[FacetIndex] = Set(facetCountIndex, facetSumIndex)
+
+  def executeSumFacet(query: Query,
+                      groupField: String,
+                      sort: Option[Sort],
+                      limit: Option[Int],
+                      groupFieldIndexType: IndexType[_],
+                      valueIndexType: IndexType[_]): Seq[Bit] =
+    facetSumIndex.result(query, groupField, sort, limit, groupFieldIndexType, valueIndexType)
+
+  def executeCountFacet(query: Query,
+                        groupField: String,
+                        sort: Option[Sort],
+                        limit: Option[Int],
+                        indexType: IndexType[_],
+                        valueIndexType: IndexType[_] = BIGINT()): Seq[Bit] =
+    facetCountIndex.result(query, groupField, sort, limit, indexType, valueIndexType)
+
+  def executeRangeFacet(searcher: IndexSearcher,
+                        query: Query,
+                        aggregationType: InternalTemporalAggregation,
+                        rangeFieldName: String,
+                        valueFieldName: String,
+                        valueFieldType: Option[IndexType[_]],
+                        ranges: Seq[TimeRange]): Seq[Bit] = facetRangeIndex.executeRangeFacet(
+    searcher,
+    query,
+    aggregationType,
+    rangeFieldName,
+    valueFieldName,
+    valueFieldType,
+    ranges
+  )
+
+  def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] =
+    facetCountIndex.getDistinctField(query, field, sort, limit)
+
+  def executeSumAndCountFacet(query: Query,
+                              groupField: String,
+                              sort: Option[Sort],
+                              limit: Option[Int],
+                              indexType: IndexType[_],
+                              valueIndexType: IndexType[_]): Seq[Bit] =
+    sumAndCountFacetCombiner.executeSumAndCountFacet(query, groupField, sort, limit, indexType, valueIndexType)
 
   /**
     * @return the [[org.apache.lucene.index.IndexWriter]]

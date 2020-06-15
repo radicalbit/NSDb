@@ -50,11 +50,11 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
     commonWrite(bit, _ => new FacetsConfig, facetWrite)
   }
 
-  override protected[this] def internalResult(query: Query,
-                                              groupField: String,
-                                              sort: Option[Sort],
-                                              limit: Option[Int],
-                                              valueIndexType: Option[IndexType[_]] = None): Option[FacetResult] = {
+  override protected[index] def internalResult(query: Query,
+                                               groupField: String,
+                                               sort: Option[Sort],
+                                               limit: Option[Int],
+                                               valueIndexType: IndexType[_] = BIGINT()): Option[FacetResult] = {
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, facetName(groupField))
 
@@ -80,12 +80,12 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
     * @param indexType the group field [[IndexType]].
     * @return query results.
     */
-  override def result(query: Query,
-                      groupField: String,
-                      sort: Option[Sort],
-                      limit: Option[Int],
-                      indexType: IndexType[_],
-                      valueIndexType: Option[IndexType[_]] = None): Seq[Bit] = {
+  override protected[index] def result(query: Query,
+                                       groupField: String,
+                                       sort: Option[Sort],
+                                       limit: Option[Int],
+                                       indexType: IndexType[_],
+                                       valueIndexType: IndexType[_]): Seq[Bit] = {
     val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, limit, valueIndexType)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
@@ -98,5 +98,21 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
               tags = Map(groupField -> NSDbType(indexType.cast(lv.label)))
           ))
         .toSeq)
+  }
+
+  /**
+    * Gets results from a distinct query. The distinct query can be run only using a single tag.
+    * @param query query to be executed against the facet index.
+    * @param field distinct field.
+    * @param sort optional lucene [[Sort]]
+    * @param limit results limit.
+    * @return query results.
+    */
+  protected[index] def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
+    val res = internalResult(query, field, sort, Some(limit))
+    res.fold(Seq.empty[Bit])(_.labelValues
+      .map(lv =>
+        Bit(timestamp = 0, value = NSDbNumericType(0), dimensions = Map.empty, tags = Map(field -> NSDbType(lv.label))))
+      .toSeq)
   }
 }

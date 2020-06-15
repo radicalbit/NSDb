@@ -113,7 +113,7 @@ package object common {
       * @throws IllegalArgumentException if the raw value is not supported.
       */
     @throws[IllegalArgumentException]
-    def apply(rawValue: Any): NSDbNumericType = {
+    def apply(rawValue: Any): NSDbNumericType =
       rawValue match {
         case v: Int    => NSDbIntType(v)
         case v: Long   => NSDbLongType(v)
@@ -121,7 +121,14 @@ package object common {
         case v =>
           throw new IllegalArgumentException(s"rawValue $v of class ${v.getClass} is not a valid NSDbNumericType")
       }
-    }
+
+    def apply(rawValue: Number): NSDbNumericType =
+      rawValue match {
+        case x: java.lang.Integer => NSDbNumericType(x.intValue())
+        case x: java.lang.Long    => NSDbNumericType(x.longValue())
+        case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
+        case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
+      }
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
