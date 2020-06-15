@@ -27,17 +27,15 @@ import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.web.NSDbJsonProtocol._
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
-import org.json4s._
-import org.json4s.jackson.JsonMethods.parse
-import org.json4s.jackson.Serialization.write
+import spray.json._
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 trait WsResources {
-
-  implicit def formats: Formats
 
   implicit def system: ActorSystem
 
@@ -83,7 +81,7 @@ trait WsResources {
       Flow[Message]
         .map {
           case TextMessage.Strict(text) =>
-            parse(text).extractOpt[RegisterQuery] getOrElse s"Message $text not handled by receiver"
+            Try(text.parseJson.convertTo[RegisterQuery]).toOption getOrElse s"Message $text not handled by receiver"
           case _ => "Message not handled by receiver"
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))
@@ -100,7 +98,7 @@ trait WsResources {
         }
         .map {
           case OutgoingMessage(message) =>
-            TextMessage(write(message))
+            TextMessage(message.toJson.compactPrint)
         }
 
     Flow
