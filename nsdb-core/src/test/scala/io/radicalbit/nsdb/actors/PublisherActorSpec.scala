@@ -30,13 +30,6 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 
-class FakeReadCoordinatorActor extends Actor {
-  def receive: Receive = {
-    case ExecuteStatement(statement) =>
-      sender() ! SelectStatementExecuted(statement, values = Seq.empty)
-  }
-}
-
 class PublisherActorSpec
     extends TestKit(ActorSystem("PublisherActorSpec"))
     with ImplicitSender
@@ -45,12 +38,19 @@ class PublisherActorSpec
     with OneInstancePerTest
     with BeforeAndAfter {
 
+  class EmptyReadCoordinator extends Actor {
+    def receive: Receive = {
+      case ExecuteStatement(statement) =>
+        sender() ! SelectStatementExecuted(statement, values = Seq.empty)
+    }
+  }
+
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =
     TestActorRef[PublisherActor](
       PublisherActor.props(
-        system.actorOf(Props[FakeReadCoordinatorActor].withDispatcher("akka.actor.control-aware-dispatcher"))))
+        system.actorOf(Props[EmptyReadCoordinator].withDispatcher("akka.actor.control-aware-dispatcher"))))
 
   val testSqlStatement = SelectSQLStatement(
     db = "db",

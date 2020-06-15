@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.web
 import akka.actor.Props
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
+import io.radicalbit.nsdb.actor.EmptyReadCoordinator
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -39,7 +40,7 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
 
   val basePath = "target/test_index/WebSocketTest"
 
-  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
+  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[EmptyReadCoordinator])))
 
   val wsStandardResources = wsResources(publisherActor, new EmptyAuthorization)
 
