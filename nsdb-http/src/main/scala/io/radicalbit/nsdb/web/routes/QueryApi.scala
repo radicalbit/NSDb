@@ -24,7 +24,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.NSDbType
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
@@ -63,7 +63,7 @@ sealed trait Filter
 case object Filter {
   def unapply(arg: Filter): Option[(String, Option[NSDbType], String)] =
     arg match {
-      case byValue: FilterByValue             => Some((byValue.dimension, Some(NSDbType(byValue.value)), byValue.operator.toString))
+      case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
       case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
     }
 }
@@ -71,7 +71,7 @@ case object Filter {
 @ApiModel(description = "Filter using operator", parent = classOf[Filter])
 case class FilterByValue(
     @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
-    @(ApiModelProperty @field)(value = "value of comparation") value: java.io.Serializable,
+    @(ApiModelProperty @field)(value = "value of comparation") value: NSDbType,
     @(ApiModelProperty @field)(
       value = "filter comparison operator",
       dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value
@@ -92,16 +92,16 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
                      @(ApiModelProperty @field)(value = "sql query string") queryString: String,
                      @(ApiModelProperty @field)(value = "timestamp lower bound condition",
                                                 required = false,
-                                                dataType = "long") from: Option[Long],
+                                                dataType = "long") from: Option[NSDbLongType] = None,
                      @(ApiModelProperty @field)(value = "timestamp upper bound condition",
                                                 required = false,
-                                                dataType = "long") to: Option[Long],
+                                                dataType = "long") to: Option[NSDbLongType] = None,
                      @(ApiModelProperty @field)(
                        value = "filters definition, adding where condition",
                        required = false,
-                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]],
+                       dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]] = None,
                      @(ApiModelProperty @field)(value = "return parsed query", required = false, dataType = "boolean") parsed: Option[
-                       Boolean])
+                       Boolean] = None)
     extends Metric
 
 @Api(value = "/query", produces = "application/json")
@@ -144,7 +144,12 @@ trait QueryApi {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
             authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-              QueryEnriched(qb.db, qb.namespace, qb.queryString, qb.from, qb.to, qb.filters.getOrElse(Seq.empty)) match {
+              QueryEnriched(qb.db,
+                            qb.namespace,
+                            qb.queryString,
+                            qb.from.map(_.rawValue),
+                            qb.to.map(_.rawValue),
+                            qb.filters.getOrElse(Seq.empty)) match {
                 case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>

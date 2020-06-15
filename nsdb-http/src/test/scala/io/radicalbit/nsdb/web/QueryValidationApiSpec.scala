@@ -32,7 +32,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
-class QueryValidationApiTest extends FlatSpec with Matchers with ScalatestRouteTest {
+class QueryValidationApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
 
   val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 

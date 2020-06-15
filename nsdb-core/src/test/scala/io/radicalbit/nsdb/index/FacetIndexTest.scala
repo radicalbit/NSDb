@@ -18,8 +18,8 @@ package io.radicalbit.nsdb.index
 
 import java.util.UUID
 
-import io.radicalbit.nsdb.common.NSDbStringType
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
@@ -27,22 +27,19 @@ import org.scalatest.{Assertion, FlatSpec, Matchers, OneInstancePerTest}
 
 class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
-  val nodeName = "node1"
+  val facetIndexes =
+    new AllFacetIndexes(
+      basePath = "target",
+      db = "test_index",
+      namespace = "test_facet_index",
+      location = Location(metric = UUID.randomUUID.toString, node = "node1", from = 0, to = Long.MaxValue),
+      indexStorageStrategy = StorageStrategy.Memory
+    )
 
-  val indexStorageStrategy = StorageStrategy.Memory
+  implicit val writer     = facetIndexes.getIndexWriter
+  implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
   "FacetIndex" should "write and read properly on disk" in {
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -70,27 +67,58 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     def assert(fieldName: String, limit: Int, expectedCountSize: Int, expectedSizeDistinct: Int): Assertion = {
       val groups =
-        facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
-      val distinct = facetIndexes.facetCountIndex.getDistinctField(new MatchAllDocsQuery(), fieldName, None, limit)
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+      val distinct = facetIndexes.executeDistinctFieldCountIndex(new MatchAllDocsQuery(), fieldName, None, limit)
 
       groups.size shouldBe expectedCountSize
       distinct.size shouldBe expectedSizeDistinct
     }
   }
 
+  "FacetIndex" should "write and properly read on disk sum and count" in {
+    (1 to 100).foreach { i =>
+      val testData =
+        Bit(
+          timestamp = System.currentTimeMillis,
+          value = 22.5,
+          dimensions = Map("dimension" -> s"dimension_${i % 5}", "name"    -> s"name_$i"),
+          tags = Map("tag"             -> s"tag_${i       % 5}", "surname" -> s"surname_$i")
+        )
+      val w = facetIndexes.write(testData)
+      w.isSuccess shouldBe true
+    }
+    taxoWriter.close()
+    writer.close()
+
+    val actualResult =
+      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, None, VARCHAR(), DECIMAL())
+
+    val expectedResult = List(
+      Bit(0,
+          NSDbNumericType(0),
+          Map.empty[String, NSDbType],
+          Map("tag" -> NSDbStringType("tag_0"), "sum" -> NSDbDoubleType(450.0), "count" -> NSDbLongType(20))),
+      Bit(0,
+          NSDbNumericType(0),
+          Map.empty[String, NSDbType],
+          Map("tag" -> NSDbStringType("tag_1"), "sum" -> NSDbDoubleType(450.0), "count" -> NSDbLongType(20))),
+      Bit(0,
+          NSDbNumericType(0),
+          Map.empty[String, NSDbType],
+          Map("tag" -> NSDbStringType("tag_2"), "sum" -> NSDbDoubleType(450.0), "count" -> NSDbLongType(20))),
+      Bit(0,
+          NSDbNumericType(0),
+          Map.empty[String, NSDbType],
+          Map("tag" -> NSDbStringType("tag_3"), "sum" -> NSDbDoubleType(450.0), "count" -> NSDbLongType(20))),
+      Bit(0,
+          NSDbNumericType(0),
+          Map.empty[String, NSDbType],
+          Map("tag" -> NSDbStringType("tag_4"), "sum" -> NSDbDoubleType(450.0), "count" -> NSDbLongType(20)))
+    )
+    actualResult should contain theSameElementsAs expectedResult
+  }
+
   "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
-
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -114,28 +142,16 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     def assert(fieldName: String, limit: Int, expectedCountSize: Int): Assertion = {
       val contentGroups =
-        facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
       contentGroups.size shouldBe expectedCountSize
 
       val nameGroups =
-        facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
       nameGroups.size shouldBe expectedCountSize
     }
   }
 
   "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
-
     (1 to 100).foreach { i =>
       val testData =
         Bit(timestamp = i,
@@ -149,11 +165,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     writer.close()
 
     val contentGroups =
-      facetIndexes.facetCountIndex.result(LongPoint.newRangeQuery("timestamp", 0, 50),
-                                          "tag",
-                                          None,
-                                          Some(100),
-                                          VARCHAR())
+      facetIndexes.executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, Some(100), VARCHAR())
     contentGroups.size shouldBe 50
 
     assert(fieldName = "name", limit = 100, expectedCountSize = 0)
@@ -161,23 +173,12 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     def assert(fieldName: String, limit: Int, expectedCountSize: Int): Assertion = {
       val nameGroups =
-        facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
       nameGroups.size shouldBe expectedCountSize
     }
   }
 
   "FacetIndex" should "support delete" in {
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val testData =
@@ -191,10 +192,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 0
-    facetIndexes.facetCountIndex
-      .result(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR())
-      .size shouldBe 100
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "name", None, Some(100), VARCHAR()).size shouldBe 0
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 100
 
     val deleteWriter = facetIndexes.getIndexWriter
 
@@ -207,23 +206,10 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     deleteWriter.close()
     facetIndexes.refresh()
 
-    facetIndexes.facetCountIndex
-      .result(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR())
-      .size shouldBe 99
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 99
   }
 
   "FacetIndex" should "supports ordering and limiting on count and sum" in {
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val factor = i / 4
@@ -243,52 +229,43 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
-    facetIndexes.facetCountIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "dimension", Some(descSort), Some(100), VARCHAR())
+    facetIndexes
+      .executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "dimension", Some(descSort), Some(100), VARCHAR())
       .size shouldBe 0
-    facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR()).size shouldBe 0
+    facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "name", None, Some(50), VARCHAR()).size shouldBe 0
 
-    facetIndexes.facetCountIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR())
+    facetIndexes
+      .executeCountFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR())
       .size shouldBe 13
 
-    val res = facetIndexes.facetSumIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), Some(INT()))
+    val res = facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50),
+                                           "tag",
+                                           Some(descSort),
+                                           Some(100),
+                                           VARCHAR(),
+                                           INT())
     res.size shouldBe 12
-    res.foreach {
-      case bit =>
-        bit.tags.headOption match {
-          case Some(("tag", NSDbStringType("tag_12"))) => 12 * 3 shouldBe bit.value.rawValue
-          case Some(("tag", NSDbStringType(v))) =>
-            v.split("_")(1).toInt * 4 shouldBe bit.value.rawValue
-        }
+    res.foreach { bit =>
+      bit.tags.headOption match {
+        case Some(("tag", NSDbStringType("tag_12"))) => 12 * 3 shouldBe bit.value.rawValue
+        case Some(("tag", NSDbStringType(v))) =>
+          v.split("_")(1).toInt * 4 shouldBe bit.value.rawValue
+      }
     }
 
     val surnameGroups =
-      facetIndexes.facetCountIndex.result(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR())
+      facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(50), VARCHAR())
     surnameGroups.size shouldBe 26
     surnameGroups.head.value.rawValue shouldBe 4
     surnameGroups.last.value.rawValue shouldBe 1
 
     val cityGroups =
-      facetIndexes.facetSumIndex.result(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), Some(INT()))
+      facetIndexes.executeSumFacet(new MatchAllDocsQuery(), "city", None, Some(50), VARCHAR(), INT())
     cityGroups.size shouldBe 1
     cityGroups.head.value.rawValue shouldBe 1225
   }
 
   "FacetIndexSum" should "supports a simple sum" in {
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
-
     (1 to 100).foreach { i =>
       val testData =
         Bit(
@@ -305,30 +282,27 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
 
     val descSort = new Sort(new SortField("value", SortField.Type.INT, true))
 
-    val res1 = facetIndexes.facetSumIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 100), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
+    val res1 = facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 100),
+                                            "tag",
+                                            Some(descSort),
+                                            Some(100),
+                                            VARCHAR(),
+                                            BIGINT())
 
     res1.size shouldBe 1
     res1.head.value.rawValue shouldBe 200
 
-    val res2 = facetIndexes.facetSumIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", Some(descSort), Some(100), VARCHAR(), Some(BIGINT()))
+    val res2 = facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50),
+                                            "tag",
+                                            Some(descSort),
+                                            Some(100),
+                                            VARCHAR(),
+                                            BIGINT())
     res2.size shouldBe 1
     res2.head.value.rawValue shouldBe 100
   }
 
   "FacetIndex" should "supports sum on double values" in {
-    val facetIndexes =
-      new AllFacetIndexes(
-        basePath = "target",
-        db = "test_index",
-        namespace = "test_facet_index",
-        location = Location(metric = UUID.randomUUID.toString, node = nodeName, from = 0, to = Long.MaxValue),
-        indexStorageStrategy = indexStorageStrategy
-      )
-
-    implicit val writer     = facetIndexes.getIndexWriter
-    implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
     (1 to 100).foreach { i =>
       val factor: Double = 1.2d
@@ -346,8 +320,8 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     taxoWriter.close()
     writer.close()
 
-    val res = facetIndexes.facetSumIndex
-      .result(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), Some(DECIMAL()))
+    val res =
+      facetIndexes.executeSumFacet(LongPoint.newRangeQuery("timestamp", 0, 50), "tag", None, None, VARCHAR(), DECIMAL())
     res.size shouldBe 6
     res.foreach { bit =>
       bit.tags.headOption match {
