@@ -21,8 +21,24 @@ import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.sql.parser._
 import io.radicalbit.nsdb.web.routes.Filter
 
+/**
+  * Enriches an input query with:
+  * - a time range (from and to)
+  * - a sequence of [[Filter]]
+  */
 object QueryEnriched {
 
+  /**
+    * apply enrichment process (if provided)
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param inputQueryString the raw query string.
+    * @param from the lower time range boundary.
+    * @param to the upper time range boundary.
+    * @param filters a sequence of [[Filter]].
+    * @return the [[SqlStatementParserResult]] containing the enriched statement.
+    *         If no time range or filters are provided the original statement is returned.
+    */
   def apply(db: String,
             namespace: String,
             inputQueryString: String,

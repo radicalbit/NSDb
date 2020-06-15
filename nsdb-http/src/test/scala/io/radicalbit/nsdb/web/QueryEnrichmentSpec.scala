@@ -20,7 +20,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.web.routes._
 import org.scalatest.{Matchers, WordSpec}
 
-class QueryEnrichmentTest extends WordSpec with Matchers {
+class QueryEnrichmentSpec extends WordSpec with Matchers {
 
   "QueryEnrichment " when {
 
