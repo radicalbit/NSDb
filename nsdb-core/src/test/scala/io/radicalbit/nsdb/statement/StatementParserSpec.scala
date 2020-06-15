@@ -753,6 +753,32 @@ class StatementParserSpec extends WordSpec with Matchers {
             ))
         )
       }
+      "parse it successfully with avg(*)" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+            condition = Some(
+              Condition(
+                RangeExpression(dimension = "timestamp",
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))),
+            groupBy = Some(SimpleGroupByAggregation("country"))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedAggregatedQuery(
+              "registry",
+              "people",
+              LongPoint.newRangeQuery("timestamp", 2, 4),
+              InternalAvgSimpleAggregation("country", "value")
+            ))
+        )
+      }
       "parse it successfully with first(*)" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -1232,6 +1258,32 @@ class StatementParserSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               1000,
               InternalSumTemporalAggregation,
+              None
+            ))
+        )
+      }
+
+      "parse it when avg aggregation is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
+            limit = None
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1000,
+              InternalAvgTemporalAggregation,
               None
             ))
         )

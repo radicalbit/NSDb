@@ -96,6 +96,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val last = "LAST".ignoreCase ^^ { _ =>
     LastAggregation
   }
+  private val avg = "AVG".ignoreCase ^^ { _ =>
+    AvgAggregation
+  }
   private val group             = "GROUP BY" ignoreCase
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
@@ -111,7 +114,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val field = digits ^^ { e =>
     Field(e, None)
   }
-  private val aggField = ((sum | min | max | count | first | last) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ {
+  private val aggField = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ {
     e =>
       Field(e._2, Some(e._1))
   }
