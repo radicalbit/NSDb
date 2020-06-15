@@ -19,16 +19,20 @@ package io.radicalbit.nsdb.web
 import akka.actor.Props
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
-import io.radicalbit.nsdb.actor.EmptyReadCoordinator
+import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{
+  RecordsPublished,
+  SubscribedByQueryString,
+  SubscriptionByQueryStringFailed
+}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
+import io.radicalbit.nsdb.web.NSDbJsonProtocol.RealTimeOutGoingMessageWriter._
 import org.scalatest.{Matchers, WordSpec}
+import spray.json._
 
 import scala.concurrent.duration._
 
@@ -36,11 +40,9 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
 
   override def logger: LoggingAdapter = system.log
 
-  implicit val formats = DefaultFormats
-
   val basePath = "target/test_index/WebSocketTest"
 
-  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[EmptyReadCoordinator])))
+  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[FakeReadCoordinator])))
 
   val wsStandardResources = wsResources(publisherActor, new EmptyAuthorization)
 
@@ -57,10 +59,10 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
 
           wsClient.sendMessage(
             """{
-              |"db":"db",
-              |"namespace":"registry",
-              |"metric":"people",
-              |"queryString":"select * from people limit 1",
+              |"db":"db1",
+              |"namespace":"namespace1",
+              |"metric":"metric1",
+              |"queryString":"select * from metric1 limit 1",
               |"filters" : [{
               |"dimension": "value",
               |"value": 1,
@@ -70,15 +72,15 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
           )
 
           val firstSubscribed = wsClient.expectMessage().asTextMessage.getStrictText
-          parse(firstSubscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
+          noException should be thrownBy firstSubscribed.parseJson.convertTo[SubscribedByQueryString]
 
           val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
-          publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit))
+          publisherActor ! PublishRecord("db1", "namespace1", "metric1", bit, Schema("metric1", bit))
           publisherActor ! PublishRecord("db", "registry", "animals", bit, Schema("people", bit))
 
           val firstRecordsPublished = wsClient.expectMessage().asTextMessage.getStrictText
 
-          (parse(firstRecordsPublished) \ "records").extract[JArray].arr.size shouldBe 1
+          firstRecordsPublished.parseJson.convertTo[RecordsPublished].records.size shouldBe 1
           wsClient.expectNoMessage(5 seconds)
         }
     }
@@ -107,7 +109,7 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
           )
 
           val firstSubscribed = wsClient.expectMessage().asTextMessage.getStrictText
-          parse(firstSubscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
+          noException should be thrownBy firstSubscribed.parseJson.convertTo[SubscribedByQueryString]
 
           val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
           publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit))
@@ -115,7 +117,7 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
 
           val firstRecordsPublished = wsClient.expectMessage().asTextMessage.getStrictText
 
-          (parse(firstRecordsPublished) \ "records").extract[JArray].arr.size shouldBe 1
+          firstRecordsPublished.parseJson.convertTo[RecordsPublished].records.size shouldBe 1
           wsClient.expectNoMessage(5 seconds)
         }
     }
@@ -144,7 +146,7 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
           )
 
           val firstSubscribed = wsClient.expectMessage().asTextMessage.getStrictText
-          parse(firstSubscribed).extractOpt[SubscriptionByQueryStringFailed].isDefined shouldBe true
+          noException should be thrownBy firstSubscribed.parseJson.convertTo[SubscriptionByQueryStringFailed]
 
           wsClient.expectNoMessage(5 seconds)
         }
@@ -161,10 +163,10 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
 
           wsClient.sendMessage(
             """{
-                |"db":"db",
-                |"namespace":"registry",
-                |"metric":"people",
-                |"queryString":"select * from people limit 1",
+                |"db":"db1",
+                |"namespace":"namespace1",
+                |"metric":"metric1",
+                |"queryString":"select * from metric1 limit 1",
                 |"from": 0,
                 |"to": 100,
                 |"filters" : [{
@@ -176,15 +178,23 @@ class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers
           )
 
           val firstSubscribed = wsClient.expectMessage().asTextMessage.getStrictText
-          parse(firstSubscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
+          noException should be thrownBy firstSubscribed.parseJson.convertTo[SubscribedByQueryString]
 
-          val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
-          publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit))
-          publisherActor ! PublishRecord("db", "registry", "animals", bit, Schema("people", bit))
+          val currentBit              = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
+          val bitWithNotMatchingValue = Bit(0, 3, Map.empty, Map.empty)
+          val matchingBit             = Bit(0, 1, Map.empty, Map.empty)
+          publisherActor ! PublishRecord("db1", "namespace1", "metric1", currentBit, Schema("metric1", currentBit))
+          publisherActor ! PublishRecord("db1",
+                                         "namespace1",
+                                         "metric1",
+                                         bitWithNotMatchingValue,
+                                         Schema("metric1", bitWithNotMatchingValue))
+          publisherActor ! PublishRecord("db1", "namespace1", "metric1", matchingBit, Schema("metric1", matchingBit))
+          publisherActor ! PublishRecord("db", "registry", "animals", matchingBit, Schema("metric1", matchingBit))
 
           val firstRecordsPublished = wsClient.expectMessage().asTextMessage.getStrictText
 
-          (parse(firstRecordsPublished) \ "records").extract[JArray].arr.size shouldBe 1
+          firstRecordsPublished.parseJson.convertTo[RecordsPublished].records.size shouldBe 1
           wsClient.expectNoMessage(5 seconds)
         }
     }

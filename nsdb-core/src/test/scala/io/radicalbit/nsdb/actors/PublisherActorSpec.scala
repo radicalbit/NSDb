@@ -30,6 +30,13 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 
+class EmptyReadCoordinator extends Actor {
+  def receive: Receive = {
+    case ExecuteStatement(statement) =>
+      sender() ! SelectStatementExecuted(statement, values = Seq.empty)
+  }
+}
+
 class PublisherActorSpec
     extends TestKit(ActorSystem("PublisherActorSpec"))
     with ImplicitSender
@@ -37,13 +44,6 @@ class PublisherActorSpec
     with Matchers
     with OneInstancePerTest
     with BeforeAndAfter {
-
-  class EmptyReadCoordinator extends Actor {
-    def receive: Receive = {
-      case ExecuteStatement(statement) =>
-        sender() ! SelectStatementExecuted(statement, values = Seq.empty)
-    }
-  }
 
   val probe      = TestProbe()
   val probeActor = probe.testActor

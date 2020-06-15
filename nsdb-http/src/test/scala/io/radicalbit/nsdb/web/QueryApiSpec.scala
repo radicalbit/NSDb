@@ -207,8 +207,8 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
                       "namespace",
                       "metric",
                       "select * from metric limit 1",
-                      Some(NSDbLongType(100)),
-                      Some(NSDbLongType(200)),
+                      Some(NSDbLongType(1L)),
+                      Some(NSDbLongType(2L)),
                       None,
                       None)
 
@@ -220,17 +220,7 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
       recordString shouldBe
         """{
         |  "records" : [ {
-        |    "timestamp" : 100,
-        |    "value" : 1,
-        |    "dimensions" : {
-        |      "name" : "name",
-        |      "number" : 2
-        |    },
-        |    "tags" : {
-        |      "country" : "country"
-        |    }
-        |  }, {
-        |    "timestamp" : 200,
+        |    "timestamp" : 2,
         |    "value" : 3,
         |    "dimensions" : {
         |      "name" : "name",
@@ -325,8 +315,8 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
                       "namespace",
                       "metric",
                       "select * from metric limit 1",
-                      Some(NSDbLongType(1)),
-                      Some(NSDbLongType(2)),
+                      Some(NSDbLongType(1L)),
+                      Some(NSDbLongType(2L)),
                       None,
                       None)
 
