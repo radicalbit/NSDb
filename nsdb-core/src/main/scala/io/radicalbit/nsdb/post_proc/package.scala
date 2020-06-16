@@ -28,7 +28,6 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{
   InternalAggregation,
-  InternalAvgSimpleAggregation,
   InternalCountSimpleAggregation,
   InternalFirstSimpleAggregation,
   InternalLastSimpleAggregation,
