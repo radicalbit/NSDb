@@ -25,6 +25,7 @@ The  `retention_size` number of retained messages for each query. It's not manda
 
 **Data params**:
 In order to subscribe a query, after connection is opened, user has to send a POST request providing `db`, `namespace`, `metric` and the query to be subscribed to.
+
 As for Rest Apis, It is possible to specify dynamic filters.<br/> 
 Those filters are internally chained to the provided query where condition using the `AND` operator  
 ```json
