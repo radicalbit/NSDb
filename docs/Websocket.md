@@ -24,14 +24,28 @@ The  `retention_size` number of retained messages for each query. It's not manda
 `/ws-stream?refresh_period=200&retention_size=10`
 
 **Data params**:
-In order to subscribe a query, after connection is being opened, user has to send a POST request providing `db`, `namespace`, `metric` and the query to be subscribed to.
-
+In order to subscribe a query, after connection is opened, user has to send a POST request providing `db`, `namespace`, `metric` and the query to be subscribed to.
+As for Rest Apis, It is possible to specify dynamic filters.<br/> 
+Those filters are internally chained to the provided query where condition using the `AND` operator  
 ```json
 {
     "db": "[string]",
     "namespace": "[string]",
     "metric": "[string]",
-    "queryString" : "[string]"
+    "queryString" : "[string]",
+    "from": "[optional timestamp in epoch format]",
+    "to": "[optional timestamp in epoch format]",
+    "filters": "[optional array of Filter]"
+}
+```
+
+Filter object is defines as below:
+
+```json
+{
+    "dimension": "[string]",
+    "value": "[string|numerical depending on dimension type]",
+    "operator" : "[string which value must me in [=, >, >=, <, <=, like]]"
 }
 ```
 
@@ -43,6 +57,35 @@ In order to subscribe a query, after connection is being opened, user has to sen
     "namespace": "namespace",
     "metric": "metric",
     "queryString" : "select * from metric limit 1"
+}
+```
+
+```json
+{
+    "db": "db",
+    "namespace": "namespace",
+    "metric": "people",
+    "queryString": "select * from people limit 100",
+    "from": 0,
+    "to": 100000
+}
+```
+
+```json
+{
+    "db": "db",
+    "namespace": "namespace",
+    "metric": "people",
+    "queryString": "select * from people limit 100",
+    "from": 0,
+    "to": 100000,
+    "filters": [{ "dimension": "dimName1",
+                  "value" : "value",
+                  "operator": "=" },
+                { "dimension": "dimName2",
+                  "value" : 1,
+                  "operator": "=" }
+                ]
 }
 ```
 
