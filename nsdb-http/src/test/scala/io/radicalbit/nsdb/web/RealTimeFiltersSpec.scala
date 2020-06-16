@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
-import io.radicalbit.nsdb.web.NSDbJsonProtocol.RealTimeOutGoingMessageWriter._
+import io.radicalbit.nsdb.web.NSDbJson.RealTimeOutGoingMessageWriter._
 import org.scalatest.{Matchers, WordSpec}
 import spray.json._
 

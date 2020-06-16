@@ -48,7 +48,7 @@ case class InsertBody(@(ApiModelProperty @field)(value = "database name") db: St
 @Path("/data")
 trait DataApi {
 
-  import io.radicalbit.nsdb.web.NSDbJsonProtocol._
+  import io.radicalbit.nsdb.web.NSDbJson._
   import io.radicalbit.nsdb.web.validation.ValidationDirective._
   import io.radicalbit.nsdb.web.validation.Validators._
 

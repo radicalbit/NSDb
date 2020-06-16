@@ -115,7 +115,7 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
 @Path("/query")
 trait QueryApi {
 
-  import io.radicalbit.nsdb.web.NSDbJsonProtocol._
+  import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider

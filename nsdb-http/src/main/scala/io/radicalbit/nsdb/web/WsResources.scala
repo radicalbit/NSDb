@@ -27,13 +27,12 @@ import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.web.NSDbJsonProtocol._
+import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
 import spray.json._
 
 import scala.collection.JavaConverters._
-import scala.util.Try
 
 trait WsResources {
 
@@ -81,7 +80,7 @@ trait WsResources {
       Flow[Message]
         .map {
           case TextMessage.Strict(text) =>
-            Try(text.parseJson.convertTo[RegisterQuery]).toOption getOrElse s"Message $text not handled by receiver"
+            text.parseJson.convertOpt[RegisterQuery] getOrElse s"Message $text not handled by receiver"
           case _ => "Message not handled by receiver"
         }
         .to(Sink.actorRef(connectedWsActor, Terminate))

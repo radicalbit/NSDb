@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.web.DataApiTest.FakeWriteCoordinator
-import io.radicalbit.nsdb.web.NSDbJsonProtocol._
+import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.{DataApi, InsertBody}
 import io.radicalbit.nsdb.web.validation.{FieldErrorInfo, ModelValidationRejection}

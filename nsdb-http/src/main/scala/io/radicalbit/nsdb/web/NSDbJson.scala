@@ -26,7 +26,20 @@ import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.validation.FieldErrorInfo
 import spray.json._
 
-object NSDbJsonProtocol extends DefaultJsonProtocol with SprayJsonSupport {
+import scala.util.Try
+
+object NSDbJson extends DefaultJsonProtocol with SprayJsonSupport {
+
+  implicit class NSDbJsValue(raw: JsValue) {
+    def convertOpt[T: JsonReader]: Option[T] =
+      Try(jsonReader[T].read(raw)).toOption
+
+    def convertEither[T: JsonReader]: Either[String, T] =
+      Try(jsonReader[T].read(raw)) match {
+        case scala.util.Success(obj) => Right(obj)
+        case scala.util.Failure(ex)  => Left(ex.getMessage)
+      }
+  }
 
   implicit object NSDbTypeJsonFormat extends RootJsonFormat[NSDbType] {
     def write(c: NSDbType): JsValue = c match {
