@@ -28,7 +28,14 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser.{
   InternalAggregation,
+  InternalAvgSimpleAggregation,
   InternalCountSimpleAggregation,
+  InternalFirstSimpleAggregation,
+  InternalLastSimpleAggregation,
+  InternalMaxSimpleAggregation,
+  InternalMinSimpleAggregation,
+  InternalSimpleAggregationType,
+  InternalSumSimpleAggregation,
   InternalTemporalAggregation
 }
 
@@ -157,6 +164,23 @@ package object post_proc {
       schema,
       Some(aggr)
     )
+  }
+
+  def internalAggregationProcessing(bits: Seq[Bit],
+                                    schema: Schema,
+                                    aggregationType: InternalSimpleAggregationType): Bit = {
+    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    implicit val numeric: Numeric[Any] = v.numeric
+    aggregationType match {
+      case InternalMaxSimpleAggregation(_, _) =>
+        Bit(0, NSDbNumericType(bits.map(_.value.rawValue).max), bits.head.dimensions, bits.head.tags)
+      case InternalMinSimpleAggregation(_, _) =>
+        Bit(0, NSDbNumericType(bits.map(_.value.rawValue).min), bits.head.dimensions, bits.head.tags)
+      case InternalSumSimpleAggregation(_, _) =>
+        Bit(0, NSDbNumericType(bits.map(_.value.rawValue).sum), bits.head.dimensions, bits.head.tags)
+      case InternalFirstSimpleAggregation(_, _) => bits.minBy(_.timestamp)
+      case InternalLastSimpleAggregation(_, _)  => bits.maxBy(_.timestamp)
+    }
   }
 
 }

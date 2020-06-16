@@ -71,7 +71,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       sender ! CountGot(db, namespace, metric, count)
     case ReceiveTimeout =>
       self ! PoisonPill
-    case ExecuteSelectStatement(statement, schema, _, globalRanges) =>
+    case ExecuteSelectStatement(statement, schema, _, globalRanges, _) =>
       log.debug("executing statement in metric shard reader actor {}", statement)
       val results: Try[Seq[Bit]] = StatementParser.parseStatement(statement, schema) match {
         case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
@@ -124,18 +124,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                    "timestamp",
                                    "value",
                                    None,
-                                   globalRanges.filter(_.intersect(location)))))
-        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
-          val valueFieldType: IndexType[_] = schema.value.indexType
-          handleNoIndexResults(
-            Try(
-              facetIndexes
-                .executeRangeFacet(index.getSearcher,
-                                   q,
-                                   InternalSumTemporalAggregation,
-                                   "timestamp",
-                                   "value",
-                                   Some(valueFieldType),
                                    globalRanges.filter(_.intersect(location)))))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType

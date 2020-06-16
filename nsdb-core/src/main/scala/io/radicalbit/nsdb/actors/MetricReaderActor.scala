@@ -34,6 +34,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
+import io.radicalbit.nsdb.post_proc.internalAggregationProcessing
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -260,7 +261,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _, isSingleNode) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
@@ -327,29 +328,51 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             }
 
           shardResults.pipeTo(sender)
+
+        case Right(ParsedAggregatedQuery(_, _, _, InternalAvgSimpleAggregation(groupField, _), _, _)) =>
+          val filteredIndexes =
+            actorsForLocations(locations)
+
+          val shardResults =
+            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.field, msg) { bits =>
+              val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+              implicit val numeric: Numeric[Any] = v.numeric
+
+              if (isSingleNode) {
+                val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
+                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                val avg   = NSDbNumericType(sum / count)
+                Bit(
+                  0L,
+                  avg,
+                  Map.empty[String, NSDbType],
+                  Map(groupField -> bits.flatMap(_.tags.get(groupField)).head)
+                )
+              } else {
+                Bit(
+                  0L,
+                  NSDbNumericType(0),
+                  Map.empty[String, NSDbType],
+                  Map(
+                    groupField -> bits.flatMap(_.tags.get(groupField)).head,
+                    "sum"      -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
+                    "count"    -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                  )
+                )
+              }
+            }
+
+          shardResults.pipeTo(sender)
+
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
-          val rawResult =
-            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.field, msg) { values =>
-              val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
-              implicit val numeric: Numeric[Any] = v.numeric
-              aggregationType match {
-                case InternalMaxSimpleAggregation(_, _) =>
-                  Bit(0, NSDbNumericType(values.map(_.value.rawValue).max), values.head.dimensions, values.head.tags)
-                case InternalMinSimpleAggregation(_, _) =>
-                  Bit(0, NSDbNumericType(values.map(_.value.rawValue).min), values.head.dimensions, values.head.tags)
-                case InternalSumSimpleAggregation(_, _) =>
-                  Bit(0, NSDbNumericType(values.map(_.value.rawValue).sum), values.head.dimensions, values.head.tags)
-                case InternalFirstSimpleAggregation(_, _) =>
-                  values.minBy(_.timestamp)
-                case InternalLastSimpleAggregation(_, _) =>
-                  values.maxBy(_.timestamp)
-              }
-            }
+          val shardResults =
+            gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.field, msg)(
+              internalAggregationProcessing(_, schema, aggregationType))
 
-          rawResult.pipeTo(sender)
+          shardResults.pipeTo(sender)
         case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _)) =>
           val actors =
             actorsForLocations(locations)

@@ -569,8 +569,8 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             distinct = false,
             fields = ListFields(List(Field("value", Some(AvgAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
-            order = None, // Some(AscOrderOperator("height")),
-            limit = None // Some(LimitOperator(2))
+            order = Some(AscOrderOperator("height")),
+            limit = None
           )
         )
       )
@@ -578,8 +578,9 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       awaitAssert {
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
-        Bit(0L, 2L, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
+        Bit(0L, 2.5, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 5.0, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 2.5, Map.empty, Map("height" -> 32.0))
       )
     }
   }

@@ -100,6 +100,12 @@ package object common {
     def >=(other: NSDbNumericType): Boolean = compare(other) == 1 || compare(other) == 0
     def <(other: NSDbNumericType): Boolean  = compare(other) == -1
     def <=(other: NSDbNumericType): Boolean = compare(other) == -1 || compare(other) == 0
+
+    def /(other: NSDbNumericType) = Double.box {
+      new java.math.BigDecimal(this.rawValue.toString)
+        .divide(new java.math.BigDecimal(other.rawValue.toString))
+        .doubleValue()
+    }
   }
 
   object NSDbNumericType {
@@ -129,6 +135,11 @@ package object common {
         case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
         case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
       }
+
+    def avg(sum: NSDbNumericType, count: NSDbNumericType) =
+      new java.math.BigDecimal(sum.rawValue.toString)
+        .divide(new java.math.BigDecimal(count.rawValue.toString))
+        .doubleValue()
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
