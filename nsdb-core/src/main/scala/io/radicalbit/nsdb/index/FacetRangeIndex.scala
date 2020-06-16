@@ -59,8 +59,6 @@ class FacetRangeIndex {
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
       case (InternalMinTemporalAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
-      case (InternalAvgTemporalAggregation, _) =>
-        throw new RuntimeException("Not Implemented yet")
     }
     toRecord(valueFieldType) {
       facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.map { lv =>

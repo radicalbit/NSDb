@@ -135,11 +135,6 @@ package object common {
         case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
         case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
       }
-
-    def avg(sum: NSDbNumericType, count: NSDbNumericType) =
-      new java.math.BigDecimal(sum.rawValue.toString)
-        .divide(new java.math.BigDecimal(count.rawValue.toString))
-        .doubleValue()
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
