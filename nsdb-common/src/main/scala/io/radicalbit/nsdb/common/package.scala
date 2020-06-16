@@ -129,6 +129,12 @@ package object common {
         case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
         case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
       }
+
+    def unapply(numeric: NSDbNumericType): Option[Number] = numeric match {
+      case NSDbLongType(v)   => Some(v)
+      case NSDbIntType(v)    => Some(v)
+      case NSDbDoubleType(v) => Some(v)
+    }
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {

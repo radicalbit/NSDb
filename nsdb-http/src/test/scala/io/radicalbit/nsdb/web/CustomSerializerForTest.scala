@@ -18,23 +18,23 @@ package io.radicalbit.nsdb.web
 
 import io.radicalbit.nsdb.common.statement.RelativeComparisonValue
 import org.json4s.{CustomSerializer, JObject, JString}
-import org.json4s.JsonAST.{JField, JLong}
+import org.json4s.JsonAST.{JField, JInt, JLong}
 
 case object CustomSerializerForTest
-    extends CustomSerializer[RelativeComparisonValue[_]](_ =>
+    extends CustomSerializer[RelativeComparisonValue](_ =>
       ({
         case JObject(
             List(JField("value", JLong(0L)),
                  JField("operator", JString(operator)),
-                 JField("quantity", JLong(quantity)),
+                 JField("quantity", JInt(quantity)),
                  JField("unitMeasure", JString(unitMeasure)))) =>
-          RelativeComparisonValue(0L, operator, quantity, unitMeasure)
+          RelativeComparisonValue(0L, operator, quantity.intValue, unitMeasure)
       }, {
-        case RelativeComparisonValue(_, operator, quantity: Long, unitMeasure) =>
+        case RelativeComparisonValue(_, operator, quantity: Int, unitMeasure) =>
           JObject(
             List(JField("value", JLong(0L)),
                  JField("operator", JString(operator)),
-                 JField("quantity", JLong(quantity)),
+                 JField("quantity", JInt(quantity)),
                  JField("unitMeasure", JString(unitMeasure))))
 
       }))

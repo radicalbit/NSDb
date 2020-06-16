@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import org.scalatest.OptionValues._
@@ -46,11 +47,12 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val expression =
-          selectSQLStatement.condition.value.expression.asInstanceOf[EqualityExpression[_]]
+          selectSQLStatement.condition.value.expression.asInstanceOf[EqualityExpression]
 
-        val firstTimestamp = expression.value.asInstanceOf[RelativeComparisonValue[Long]]
+        val firstTimestamp = expression.value.asInstanceOf[RelativeComparisonValue]
 
-        firstTimestamp.value shouldBe now - 10 * seconds +- timestampTolerance
+        firstTimestamp.value shouldBe a[NSDbLongType]
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 10 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 10
         firstTimestamp.unitMeasure shouldBe "s"
@@ -69,11 +71,11 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val expression =
-          selectSQLStatement.condition.value.expression.asInstanceOf[ComparisonExpression[_]]
+          selectSQLStatement.condition.value.expression.asInstanceOf[ComparisonExpression]
 
-        val firstTimestamp = expression.value.asInstanceOf[RelativeComparisonValue[Long]]
+        val firstTimestamp = expression.value.asInstanceOf[RelativeComparisonValue]
 
-        firstTimestamp.value shouldBe now - 10 * seconds +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 10 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 10
         firstTimestamp.unitMeasure shouldBe "s"
@@ -90,11 +92,11 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val expression =
-          selectSQLStatement.condition.value.expression.asInstanceOf[ComparisonExpression[_]]
+          selectSQLStatement.condition.value.expression.asInstanceOf[ComparisonExpression]
 
-        val firstTimestamp = expression.value.asInstanceOf[AbsoluteComparisonValue[Long]]
+        val firstTimestamp = expression.value.asInstanceOf[AbsoluteComparisonValue]
 
-        firstTimestamp.value shouldBe now +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now +- timestampTolerance
       }
 
       "parse it successfully relative time with double comparison condition (AND)" in {
@@ -104,24 +106,24 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
                        input = "SELECT name FROM people WHERE timestamp < now AND age >= 18")
 
         val now = System.currentTimeMillis()
-        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        result shouldBe a[SqlStatementParserSuccess]
         val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
-        statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        statement shouldBe a[SelectSQLStatement]
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val condition =
           selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
 
-        val timestampExpression = condition.expression1.asInstanceOf[ComparisonExpression[Long]]
-        val ageExpression       = condition.expression2.asInstanceOf[ComparisonExpression[Int]]
+        val timestampExpression = condition.expression1.asInstanceOf[ComparisonExpression]
+        val ageExpression       = condition.expression2.asInstanceOf[ComparisonExpression]
 
-        val timestampComparison = timestampExpression.value.asInstanceOf[AbsoluteComparisonValue[Long]]
-        val ageComparison       = ageExpression.value.asInstanceOf[AbsoluteComparisonValue[Int]]
+        val timestampComparison = timestampExpression.value.asInstanceOf[AbsoluteComparisonValue]
+        val ageComparison       = ageExpression.value.asInstanceOf[AbsoluteComparisonValue]
 
-        timestampComparison.value shouldBe now +- timestampTolerance
+        timestampComparison.value.asInstanceOf[NSDbLongType].rawValue shouldBe now +- timestampTolerance
         timestampExpression.comparison shouldBe LessThanOperator
 
-        ageComparison.value shouldBe 18
+        ageComparison.value.rawValue shouldBe 18
         ageExpression.comparison shouldBe GreaterOrEqualToOperator
 
       }
@@ -141,26 +143,26 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         val expression         = selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
 
         val firstTimestamp =
-          expression.expression1.asInstanceOf[ComparisonExpression[_]].value.asInstanceOf[AbsoluteComparisonValue[Long]]
+          expression.expression1.asInstanceOf[ComparisonExpression].value.asInstanceOf[AbsoluteComparisonValue]
         val secondExpression = expression.expression2.asInstanceOf[TupledLogicalExpression]
         val secondTimestamp =
           secondExpression.expression1
-            .asInstanceOf[ComparisonExpression[_]]
+            .asInstanceOf[ComparisonExpression]
             .value
-            .asInstanceOf[RelativeComparisonValue[Long]]
+            .asInstanceOf[RelativeComparisonValue]
         val thirdTimestamp = secondExpression.expression2
-          .asInstanceOf[EqualityExpression[_]]
+          .asInstanceOf[EqualityExpression]
           .value
-          .asInstanceOf[RelativeComparisonValue[Long]]
+          .asInstanceOf[RelativeComparisonValue]
 
-        firstTimestamp.value shouldBe now +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now +- timestampTolerance
 
-        secondTimestamp.value shouldBe now - 2 * hours +- timestampTolerance
+        secondTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 2 * hours +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 2
         secondTimestamp.unitMeasure shouldBe "h"
 
-        thirdTimestamp.value shouldBe now + 4 * minutes +- timestampTolerance
+        thirdTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 4 * minutes +- timestampTolerance
         thirdTimestamp.operator shouldBe "+"
         thirdTimestamp.quantity shouldBe 4
         thirdTimestamp.unitMeasure shouldBe "m"
@@ -181,16 +183,16 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         val expression         = selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
 
         val firstTimestamp =
-          expression.expression1.asInstanceOf[ComparisonExpression[_]].value.asInstanceOf[RelativeComparisonValue[Long]]
+          expression.expression1.asInstanceOf[ComparisonExpression].value.asInstanceOf[RelativeComparisonValue]
         val secondTimestamp =
-          expression.expression2.asInstanceOf[ComparisonExpression[_]].value.asInstanceOf[RelativeComparisonValue[Long]]
+          expression.expression2.asInstanceOf[ComparisonExpression].value.asInstanceOf[RelativeComparisonValue]
 
-        firstTimestamp.value shouldBe now + 5 * seconds +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 5 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "+"
         firstTimestamp.quantity shouldBe 5
         firstTimestamp.unitMeasure shouldBe "s"
 
-        secondTimestamp.value shouldBe now - 8 * days +- timestampTolerance
+        secondTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 8 * days +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 8
         secondTimestamp.unitMeasure shouldBe "d"
@@ -212,29 +214,29 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         val expression         = selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
 
         val firstTimestamp =
-          expression.expression1.asInstanceOf[ComparisonExpression[_]].value.asInstanceOf[RelativeComparisonValue[Long]]
+          expression.expression1.asInstanceOf[ComparisonExpression].value.asInstanceOf[RelativeComparisonValue]
         val secondExpression = expression.expression2.asInstanceOf[TupledLogicalExpression]
         val secondTimestamp =
           secondExpression.expression1
-            .asInstanceOf[ComparisonExpression[_]]
+            .asInstanceOf[ComparisonExpression]
             .value
-            .asInstanceOf[RelativeComparisonValue[Long]]
+            .asInstanceOf[RelativeComparisonValue]
         val thirdTimestamp = secondExpression.expression2
-          .asInstanceOf[EqualityExpression[_]]
+          .asInstanceOf[EqualityExpression]
           .value
-          .asInstanceOf[RelativeComparisonValue[Long]]
+          .asInstanceOf[RelativeComparisonValue]
 
-        firstTimestamp.value shouldBe now + 30 * days +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 30 * days +- timestampTolerance
         firstTimestamp.operator shouldBe "+"
         firstTimestamp.quantity shouldBe 30
         firstTimestamp.unitMeasure shouldBe "d"
 
-        secondTimestamp.value shouldBe now - 2 * hours +- timestampTolerance
+        secondTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 2 * hours +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 2
         secondTimestamp.unitMeasure shouldBe "h"
 
-        thirdTimestamp.value shouldBe now + 4 * minutes +- timestampTolerance
+        thirdTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 4 * minutes +- timestampTolerance
         thirdTimestamp.operator shouldBe "+"
         thirdTimestamp.quantity shouldBe 4
         thirdTimestamp.unitMeasure shouldBe "m"
@@ -256,31 +258,31 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         val expression         = selectSQLStatement.condition.value.expression.asInstanceOf[TupledLogicalExpression]
 
         val thirdTimestamp =
-          expression.expression2.asInstanceOf[EqualityExpression[_]].value.asInstanceOf[RelativeComparisonValue[Long]]
+          expression.expression2.asInstanceOf[EqualityExpression].value.asInstanceOf[RelativeComparisonValue]
 
         val secondExpression = expression.expression1.asInstanceOf[TupledLogicalExpression]
         val firstTimestamp =
           secondExpression.expression1
-            .asInstanceOf[ComparisonExpression[_]]
+            .asInstanceOf[ComparisonExpression]
             .value
-            .asInstanceOf[RelativeComparisonValue[Long]]
+            .asInstanceOf[RelativeComparisonValue]
         val secondTimestamp =
           secondExpression.expression2
-            .asInstanceOf[ComparisonExpression[_]]
+            .asInstanceOf[ComparisonExpression]
             .value
-            .asInstanceOf[RelativeComparisonValue[Long]]
+            .asInstanceOf[RelativeComparisonValue]
 
-        firstTimestamp.value shouldBe now + 30 * days +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 30 * days +- timestampTolerance
         firstTimestamp.operator shouldBe "+"
         firstTimestamp.quantity shouldBe 30
         firstTimestamp.unitMeasure shouldBe "d"
 
-        secondTimestamp.value shouldBe now - 2 * hours +- timestampTolerance
+        secondTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 2 * hours +- timestampTolerance
         secondTimestamp.operator shouldBe "-"
         secondTimestamp.quantity shouldBe 2
         secondTimestamp.unitMeasure shouldBe "h"
 
-        thirdTimestamp.value shouldBe now + 4 * minutes +- timestampTolerance
+        thirdTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 4 * minutes +- timestampTolerance
         thirdTimestamp.operator shouldBe "+"
         thirdTimestamp.quantity shouldBe 4
         thirdTimestamp.unitMeasure shouldBe "m"
@@ -298,17 +300,17 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val expression =
-          selectSQLStatement.condition.value.expression.asInstanceOf[RangeExpression[_]]
+          selectSQLStatement.condition.value.expression.asInstanceOf[RangeExpression]
 
-        val firstTimestamp  = expression.value1.asInstanceOf[RelativeComparisonValue[Long]]
-        val secondTimestamp = expression.value2.asInstanceOf[RelativeComparisonValue[Long]]
+        val firstTimestamp  = expression.value1.asInstanceOf[RelativeComparisonValue]
+        val secondTimestamp = expression.value2.asInstanceOf[RelativeComparisonValue]
 
         expression.dimension shouldBe "timestamp"
-        firstTimestamp.value shouldBe now - 2 * seconds +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 2 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 2
         firstTimestamp.unitMeasure shouldBe "s"
-        secondTimestamp.value shouldBe now + 4 * seconds +- timestampTolerance
+        secondTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 4 * seconds +- timestampTolerance
         secondTimestamp.operator shouldBe "+"
         secondTimestamp.quantity shouldBe 4
         secondTimestamp.unitMeasure shouldBe "s"
@@ -326,17 +328,17 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val expression =
-          selectSQLStatement.condition.value.expression.asInstanceOf[RangeExpression[_]]
+          selectSQLStatement.condition.value.expression.asInstanceOf[RangeExpression]
 
-        val firstTimestamp  = expression.value1.asInstanceOf[RelativeComparisonValue[Long]]
-        val secondTimestamp = expression.value2.asInstanceOf[RelativeComparisonValue[Long]]
+        val firstTimestamp  = expression.value1.asInstanceOf[RelativeComparisonValue]
+        val secondTimestamp = expression.value2.asInstanceOf[RelativeComparisonValue]
 
         expression.dimension shouldBe "timestamp"
-        firstTimestamp.value shouldBe now - 2 * seconds +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 2 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 2
         firstTimestamp.unitMeasure shouldBe "s"
-        secondTimestamp.value shouldBe now + 4 * seconds +- timestampTolerance
+        secondTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now + 4 * seconds +- timestampTolerance
         secondTimestamp.operator shouldBe "+"
         secondTimestamp.quantity shouldBe 4
         secondTimestamp.unitMeasure shouldBe "s"
@@ -354,15 +356,15 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
         val expression =
-          selectSQLStatement.condition.value.expression.asInstanceOf[RangeExpression[_]]
+          selectSQLStatement.condition.value.expression.asInstanceOf[RangeExpression]
 
-        val firstTimestamp = expression.value1.asInstanceOf[RelativeComparisonValue[Long]]
+        val firstTimestamp = expression.value1.asInstanceOf[RelativeComparisonValue]
         expression.dimension shouldBe "timestamp"
-        firstTimestamp.value shouldBe now - 2 * seconds +- timestampTolerance
+        firstTimestamp.value.asInstanceOf[NSDbLongType].rawValue shouldBe now - 2 * seconds +- timestampTolerance
         firstTimestamp.operator shouldBe "-"
         firstTimestamp.quantity shouldBe 2
         firstTimestamp.unitMeasure shouldBe "s"
-        expression.value2 shouldBe AbsoluteComparisonValue(5)
+        expression.value2 shouldBe AbsoluteComparisonValue(5L)
       }
 
     }

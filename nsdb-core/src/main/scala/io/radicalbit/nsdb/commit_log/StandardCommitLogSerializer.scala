@@ -20,7 +20,7 @@ import java.nio.{Buffer, ByteBuffer}
 
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.CommitLogEntry.{Dimension, Value}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
@@ -37,9 +37,9 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
   private val readByteBuffer = new ReadBuffer(5000)
   private val writeBuffer    = new WriteBuffer(5000)
 
-  private final val rangeExpressionClazzName        = classOf[RangeExpression[_]].getCanonicalName
-  private final val comparisonExpressionClassName   = classOf[ComparisonExpression[_]].getCanonicalName
-  private final val equalityExpressionClassName     = classOf[EqualityExpression[_]].getCanonicalName
+  private final val rangeExpressionClazzName        = classOf[RangeExpression].getCanonicalName
+  private final val comparisonExpressionClassName   = classOf[ComparisonExpression].getCanonicalName
+  private final val equalityExpressionClassName     = classOf[EqualityExpression].getCanonicalName
   private final val likeExpressionClassName         = classOf[LikeExpression].getCanonicalName
   private final val nullableExpressionClassName     = classOf[NullableExpression].getCanonicalName
   private final val notLogicalExpressionClassName   = classOf[NotExpression].getCanonicalName
@@ -95,17 +95,17 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     * @param clazz value class canonicalName
     * @return deserialized value instance casted into the correct class
     */
-  private def argument(clazz: String): AnyRef = {
-    val longClazz: String = classOf[java.lang.Long].getCanonicalName
-    val intClazz          = classOf[java.lang.Integer].getCanonicalName
-    val doubleClazz       = classOf[java.lang.Double].getCanonicalName
-    val stringClazz       = classOf[java.lang.String].getCanonicalName
+  private def argument(clazz: String): NSDbType = {
+    val longClazz: String = classOf[NSDbLongType].getCanonicalName
+    val intClazz          = classOf[NSDbIntType].getCanonicalName
+    val doubleClazz       = classOf[NSDbDoubleType].getCanonicalName
+    val stringClazz       = classOf[NSDbStringType].getCanonicalName
 
     clazz match {
-      case `longClazz`   => Long.box(readByteBuffer.read.toLong)
-      case `intClazz`    => Int.box(readByteBuffer.read.toInt)
-      case `doubleClazz` => Double.box(readByteBuffer.read.toDouble)
-      case `stringClazz` => readByteBuffer.read
+      case `longClazz`   => NSDbType(Long.box(readByteBuffer.read.toLong))
+      case `intClazz`    => NSDbType(Int.box(readByteBuffer.read.toInt))
+      case `doubleClazz` => NSDbType(Double.box(readByteBuffer.read.toDouble))
+      case `stringClazz` => NSDbType(readByteBuffer.read)
     }
   }
 
@@ -129,7 +129,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val upperBoundType  = readByteBuffer.read
         val upperBoundValue = argument(upperBoundType)
         clazz
-          .getConstructor(classOf[String], classOf[ComparisonValue[_]], classOf[ComparisonValue[_]])
+          .getConstructor(classOf[String], classOf[ComparisonValue], classOf[ComparisonValue])
           .newInstance(dim, AbsoluteComparisonValue(lowerBoundValue), AbsoluteComparisonValue(upperBoundValue))
 
       case `comparisonExpressionClassName` =>
@@ -140,7 +140,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[ComparisonOperator], classOf[ComparisonValue[_]])
+          .getConstructor(classOf[String], classOf[ComparisonOperator], classOf[ComparisonValue])
           .newInstance(dim, operator, AbsoluteComparisonValue(value))
 
       case `equalityExpressionClassName` =>
@@ -148,7 +148,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[ComparisonValue[_]])
+          .getConstructor(classOf[String], classOf[ComparisonValue])
           .newInstance(dim, AbsoluteComparisonValue(value))
 
       case `likeExpressionClassName` =>
@@ -156,7 +156,7 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         val valueType = readByteBuffer.read
         val value     = argument(valueType)
         clazz
-          .getConstructor(classOf[String], classOf[String])
+          .getConstructor(classOf[String], classOf[NSDbType])
           .newInstance(dim, value)
 
       case `nullableExpressionClassName` =>
@@ -202,21 +202,21 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
         writeBuffer.write(dimension)
         writeBuffer.write(comparisonOperator.getClass.getCanonicalName)
         writeBuffer.write(value.getClass.getCanonicalName)
-        writeBuffer.write(value.toString)
+        writeBuffer.write(value.rawValue.toString)
       case RangeExpression(dimension, ComparisonValue(value1), ComparisonValue(value2)) =>
         writeBuffer.write(dimension)
         writeBuffer.write(value1.getClass.getCanonicalName)
-        writeBuffer.write(value1.toString)
+        writeBuffer.write(value1.rawValue.toString)
         writeBuffer.write(value2.getClass.getCanonicalName)
-        writeBuffer.write(value2.toString)
+        writeBuffer.write(value2.rawValue.toString)
       case EqualityExpression(dimension, ComparisonValue(value)) =>
         writeBuffer.write(dimension)
         writeBuffer.write(value.getClass.getCanonicalName)
-        writeBuffer.write(value.toString)
+        writeBuffer.write(value.rawValue.toString)
       case LikeExpression(dimension, value) =>
         writeBuffer.write(dimension)
         writeBuffer.write(value.getClass.getCanonicalName)
-        writeBuffer.write(value.toString)
+        writeBuffer.write(value.rawValue.toString)
       case NullableExpression(dimension) =>
         writeBuffer.write(dimension)
       case NotExpression(expression1, _) =>

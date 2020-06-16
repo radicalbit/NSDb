@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Location, TimeRange}
 import spire.implicits._
@@ -31,17 +32,20 @@ object TimeRangeManager {
 
   def extractTimeRange(exp: Option[Expression]): List[Interval[Long]] = {
     exp match {
-      case Some(EqualityExpression("timestamp", ComparisonValue(value))) => List(Interval.point(value.toString.toLong))
-      case Some(ComparisonExpression("timestamp", operator: ComparisonOperator, ComparisonValue(rawValue))) =>
-        val value = rawValue.toString.toLong
+      case Some(EqualityExpression("timestamp", ComparisonValue(NSDbNumericType(number)))) =>
+        List(Interval.point(number.longValue))
+      case Some(
+          ComparisonExpression("timestamp", operator: ComparisonOperator, ComparisonValue(NSDbNumericType(number)))) =>
+        val value = number.longValue
         operator match {
           case GreaterThanOperator      => List(Interval.fromBounds(Open(value), Unbound()))
           case GreaterOrEqualToOperator => List(Interval.fromBounds(Closed(value), Unbound()))
           case LessThanOperator         => List(Interval.openUpper(0, value))
           case LessOrEqualToOperator    => List(Interval.closed(0, value))
         }
-      case Some(RangeExpression("timestamp", ComparisonValue(v1), ComparisonValue(v2))) =>
-        List(Interval.closed(v1.toString.toLong, v2.toString.toLong))
+      case Some(
+          RangeExpression("timestamp", ComparisonValue(NSDbNumericType(v1)), ComparisonValue(NSDbNumericType(v2)))) =>
+        List(Interval.closed(v1.longValue, v2.longValue))
       case Some(NotExpression(expression, _)) => extractTimeRange(Some(expression)).flatMap(i => ~i)
       case Some(TupledLogicalExpression(expression1, operator: TupledLogicalOperator, expression2: Expression)) =>
         val intervals = extractTimeRange(Some(expression1)) ++ extractTimeRange(Some(expression2))
