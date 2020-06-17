@@ -176,7 +176,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
-        assert(readRes.records.map(_.asBit) == LongMetric.testRecords.take(2) /*.reverse.takeRight(2)*/ )
+        assert(readRes.records.map(_.asBit) == LongMetric.testRecords.take(2))
       }
     }
   }
