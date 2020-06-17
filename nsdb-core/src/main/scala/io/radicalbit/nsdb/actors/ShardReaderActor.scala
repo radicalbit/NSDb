@@ -125,18 +125,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                    "value",
                                    None,
                                    globalRanges.filter(_.intersect(location)))))
-        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalSumTemporalAggregation, _, _, _)) =>
-          val valueFieldType: IndexType[_] = schema.value.indexType
-          handleNoIndexResults(
-            Try(
-              facetIndexes
-                .executeRangeFacet(index.getSearcher,
-                                   q,
-                                   InternalSumTemporalAggregation,
-                                   "timestamp",
-                                   "value",
-                                   Some(valueFieldType),
-                                   globalRanges.filter(_.intersect(location)))))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(

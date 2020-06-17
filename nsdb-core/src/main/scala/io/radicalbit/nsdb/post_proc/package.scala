@@ -155,6 +155,9 @@ package object post_proc {
                     NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
                     v.head.dimensions,
                     v.head.tags)
+              case StatementParser.InternalAvgTemporalAggregation =>
+                // TODO: to implement
+                throw new RuntimeException("Not implemented yet.")
           }
         )
         .values

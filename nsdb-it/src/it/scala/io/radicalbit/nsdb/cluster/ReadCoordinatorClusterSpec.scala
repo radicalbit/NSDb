@@ -159,7 +159,8 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     }
   }
 
-  test("receive a select projecting a wildcard with a limit and a ordering when ordered by timestamp and where condition") {
+  test(
+    "receive a select projecting a wildcard with a limit and a ordering when ordered by timestamp and where condition") {
 
     nodes.foreach { n =>
       val nsdb =
@@ -175,7 +176,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
-        assert(readRes.records.map(_.asBit) == LongMetric.testRecords.take(2)/*.reverse.takeRight(2)*/)
+        assert(readRes.records.map(_.asBit) == LongMetric.testRecords.take(2) /*.reverse.takeRight(2)*/ )
       }
     }
   }
@@ -833,7 +834,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         lastResponse.records.map(_.asBit) ==
           Seq(
             Bit(10L, 2L, Map.empty, Map("age" -> 15L)),
-            Bit(4L, 4L, Map.empty, Map("age" -> 20L))
+            Bit(4L, 4L, Map.empty, Map("age"  -> 20L))
           ))
     }
   }
@@ -941,9 +942,58 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(
         lastResponse.records.map(_.asBit) == Seq(
-          Bit(4L, 4L, Map.empty, Map("height" -> 30.5)),
-          Bit(6L, 1L, Map.empty, Map("height" -> 31.0)),
+          Bit(4L, 4L, Map.empty, Map("height"  -> 30.5)),
+          Bit(6L, 1L, Map.empty, Map("height"  -> 31.0)),
           Bit(10L, 2L, Map.empty, Map("height" -> 32.0))
+        ))
+    }
+  }
+
+  test("receive a select containing a group by on double, long and string dimension with avg aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val avgDoubleRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(*) from ${AggregationMetric.name} group by height order by height")
+
+      val firstResponse = Await.result(nsdb.execute(avgDoubleRequest), 10.seconds)
+
+      assert(
+        firstResponse.records.map(_.asBit) == Seq(
+          Bit(0L, 3.0, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1.0, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 1.5, Map.empty, Map("height" -> 32.0))
+        ))
+
+      val avgLongRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(value) from ${AggregationMetric.name} group by age order by age")
+
+      val lastResponse = Await.result(nsdb.execute(avgLongRequest), 10.seconds)
+
+      assert(
+        lastResponse.records.map(_.asBit) == Seq(
+          Bit(0L, 1.8, Map.empty, Map("age" -> 15L)),
+          Bit(0L, 4.0, Map.empty, Map("age" -> 20L))
+        ))
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(value) from ${LongMetric.name} where timestamp >= 3 group by name order by name")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 4.0, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 5.0, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 6.0, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 3.0, Map.empty, Map("name" -> "J"))
         ))
     }
   }
