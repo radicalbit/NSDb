@@ -24,8 +24,9 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -58,7 +59,13 @@ object NullableOperators extends Enumeration {
 }
 
 @ApiModel(description = "Filter sealed trait", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
-sealed trait Filter
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[FilterByValue], name = "FilterByValue"),
+    new JsonSubTypes.Type(value = classOf[Generic], name = "FilterNullableValue")
+  ))
+sealed trait Filter extends NSDbSerializable
 
 case object Filter {
   def unapply(arg: Filter): Option[(String, Option[NSDbType], String)] =
@@ -108,7 +115,7 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
 @Path("/query")
 trait QueryApi {
 
-  import io.radicalbit.nsdb.web.Formats._
+  import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider
@@ -155,7 +162,7 @@ trait QueryApi {
                     case Success(SelectStatementExecuted(_, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`,
                                           write(QueryResponse(values, qb.parsed.map(_ => statement)))))
-                    case Success(SelectStatementFailed(_, reason, MetricNotFound(metric))) =>
+                    case Success(SelectStatementFailed(_, reason, MetricNotFound(_))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>
                       complete(HttpResponse(InternalServerError, entity = reason))

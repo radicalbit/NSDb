@@ -49,7 +49,7 @@ case class QueryValidationBody(@(ApiModelProperty @field)(value = "database name
 @Path("/query/validate")
 trait QueryValidationApi {
 
-  import io.radicalbit.nsdb.web.Formats._
+  import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider

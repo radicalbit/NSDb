@@ -16,17 +16,17 @@
 
 package io.radicalbit.nsdb.web
 
-import akka.actor.{Actor, Props}
+import akka.actor.Props
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
+import io.radicalbit.nsdb.actor.EmptyReadCoordinator
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteStatement, PublishRecord}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
@@ -34,13 +34,6 @@ import org.json4s.jackson.JsonMethods._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
-
-class FakeReadCoordinatorActor extends Actor {
-  def receive: Receive = {
-    case ExecuteStatement(statement) =>
-      sender() ! SelectStatementExecuted(statement, values = Seq.empty)
-  }
-}
 
 class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers with WsResources {
 
@@ -50,7 +43,7 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
 
   val basePath = "target/test_index/WebSocketTest"
 
-  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
+  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[EmptyReadCoordinator])))
 
   val wsStandardResources = wsResources(publisherActor, new EmptyAuthorization)
 

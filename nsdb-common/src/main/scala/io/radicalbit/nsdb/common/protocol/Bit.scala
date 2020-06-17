@@ -39,7 +39,7 @@ trait TimeSeriesRecord {
 }
 
 /**
-  * Nsdb time series record.
+  * NSDb time series record.
   * A time series record is an object composed of:
   *
   * - a Long timestamp

@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.actor
 
-import akka.actor.Actor
+import akka.actor.{Actor, Props}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
 import io.radicalbit.nsdb.model.Schema
@@ -26,7 +26,6 @@ import io.radicalbit.nsdb.statement.StatementParser
 
 class FakeReadCoordinator extends Actor {
   import FakeReadCoordinator.Data._
-  import FakeReadCoordinator._
 
   override def receive: Receive = {
     case GetDbs =>
@@ -50,15 +49,17 @@ class FakeReadCoordinator extends Actor {
                                                    MetricNotFound(statement.metric))
       }
     case ExecuteStatement(statement)
-        if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[Long]] =>
-      StatementParser.parseStatement(statement, Schema("metric", bits.head)) match {
+        if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[_]] =>
+      StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
         case Right(_) =>
-          val e = statement.condition.get.expression.asInstanceOf[RangeExpression[Long]]
-          sender ! SelectStatementExecuted(statement, bitsParametrized(e.value1.value, e.value2.value))
+          val e = statement.condition.get.expression.asInstanceOf[RangeExpression[_]]
+          val filteredBits = bits.filter(bit =>
+            bit.timestamp <= e.value2.value.toString.toLong && bit.timestamp >= e.value1.value.toString.toLong)
+          sender ! SelectStatementExecuted(statement, filteredBits)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }
     case ExecuteStatement(statement) =>
-      StatementParser.parseStatement(statement, Schema("metric", bits.head)) match {
+      StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
         case Right(_) =>
           sender ! SelectStatementExecuted(statement, bits)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
@@ -68,7 +69,18 @@ class FakeReadCoordinator extends Actor {
 
 object FakeReadCoordinator {
 
-  object Data {
+  def props(data: FakeReadCoordinatorData = Data): Props = Props(new FakeReadCoordinator)
+
+  sealed trait FakeReadCoordinatorData {
+    def dbs: Set[String]
+    def namespaces: Set[String]
+    def metrics: Set[String]
+    def schemas: Map[String, Schema]
+
+    def bits: Seq[Bit]
+  }
+
+  object Data extends FakeReadCoordinatorData {
     val dbs        = Set("db1", "db2")
     val namespaces = Set("namespace1", "namespace2")
     val metrics    = Set("metric1", "metric2")
@@ -89,13 +101,9 @@ object FakeReadCoordinator {
         dummyBit
       )
     )
+
+    val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
+                   Bit(2, 3, Map("name" -> "name", "number" -> 2), Map("country" -> "country")))
   }
 
-  def bitsParametrized(from: Long, to: Long): Seq[Bit] =
-    Seq(
-      Bit(from, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
-      Bit(to, 3, Map("name"   -> "name", "number" -> 2), Map("country" -> "country"))
-    )
-  val bits = Seq(Bit(0, 1, Map("name" -> "name", "number" -> 2), Map("country" -> "country")),
-                 Bit(2, 3, Map("name" -> "name", "number" -> 2), Map("country" -> "country")))
 }

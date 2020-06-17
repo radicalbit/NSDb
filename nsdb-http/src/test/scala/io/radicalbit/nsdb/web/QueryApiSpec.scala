@@ -25,7 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
-import io.radicalbit.nsdb.web.Formats._
+import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import org.json4s._
@@ -207,8 +207,8 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
                       "namespace",
                       "metric",
                       "select * from metric limit 1",
-                      Some(NSDbLongType(100)),
-                      Some(NSDbLongType(200)),
+                      Some(NSDbLongType(1L)),
+                      Some(NSDbLongType(2L)),
                       None,
                       None)
 
@@ -220,17 +220,7 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
       recordString shouldBe
         """{
         |  "records" : [ {
-        |    "timestamp" : 100,
-        |    "value" : 1,
-        |    "dimensions" : {
-        |      "name" : "name",
-        |      "number" : 2
-        |    },
-        |    "tags" : {
-        |      "country" : "country"
-        |    }
-        |  }, {
-        |    "timestamp" : 200,
+        |    "timestamp" : 2,
         |    "value" : 3,
         |    "dimensions" : {
         |      "name" : "name",
@@ -325,8 +315,8 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
                       "namespace",
                       "metric",
                       "select * from metric limit 1",
-                      Some(NSDbLongType(1)),
-                      Some(NSDbLongType(2)),
+                      Some(NSDbLongType(1L)),
+                      Some(NSDbLongType(2L)),
                       None,
                       None)
 
