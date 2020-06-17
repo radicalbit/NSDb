@@ -104,26 +104,31 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val CloseRoundBracket = ")"
   private val temporalInterval  = "INTERVAL" ignoreCase
 
-  private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
-  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9]*)""".r
-  private val numbers          = """([0-9]+)""".r
-  private val intValue         = numbers ^^ { _.toInt }
-  private val longValue        = numbers ^^ { _.toLong }
-  private val doubleValue      = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
+  private val chars                      = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
+  private val charsWithDashes            = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9]*)""".r
+  private val charWithDAshesAndWildcards = """(^[a-zA-Z_$][a-zA-Z0-9_\-$]*[a-zA-Z0-9$])""".r
+  private val digits                     = """([0-9]+)""".r
+  private val intValue                   = digits ^^ { _.toInt }
+  private val longValue                  = digits ^^ { _.toLong }
+  private val doubleValue                = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
 
-  private val field = digits ^^ { e =>
+  private val field = chars ^^ { e =>
     Field(e, None)
   }
-  private val aggField = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ {
+  private val aggField = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (chars | All) <~ CloseRoundBracket ^^ {
     e =>
       Field(e._2, Some(e._1))
   }
-  private val dimension = digits
-  private val stringValue = (digitsWithDashes | (("'" ?) ~> (digitsWithDashes +) <~ ("'" ?))) ^^ {
+  private val dimension = chars
+  private val stringValue = (charsWithDashes | (("'" ?) ~> (charsWithDashes +) <~ ("'" ?))) ^^ {
     case string: String        => string
     case strings: List[String] => strings.mkString(" ")
   }
-  private val stringValueWithWildcards = """(^[a-zA-Z_$][a-zA-Z0-9_\-$]*[a-zA-Z0-9$])""".r
+
+  private val stringValueWithWildcards = (charWithDAshesAndWildcards | (("'" ?) ~> (charWithDAshesAndWildcards +) <~ ("'" ?))) ^^ {
+    case string: String        => string
+    case strings: List[String] => strings.mkString(" ")
+  }
 
   private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
