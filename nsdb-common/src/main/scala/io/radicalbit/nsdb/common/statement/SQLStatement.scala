@@ -221,7 +221,7 @@ final case class AbsoluteComparisonValue(override val value: NSDbType) extends C
   */
 final case class RelativeComparisonValue(override val value: NSDbType,
                                          operator: String,
-                                         quantity: Int,
+                                         quantity: Long,
                                          unitMeasure: String)
     extends ComparisonValue
 

@@ -205,9 +205,9 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
           namespace = "registry",
           input =
             "SELECT name FROM people WHERE timestamp < now + 30d and timestamp > now - 2h AND timestamp = now + 4m")
-        result.isInstanceOf[SqlStatementParserSuccess] shouldBe true
+        result shouldBe a[SqlStatementParserSuccess]
         val statement = result.asInstanceOf[SqlStatementParserSuccess].statement
-        statement.isInstanceOf[SelectSQLStatement] shouldBe true
+        statement shouldBe a[SelectSQLStatement]
         val now = System.currentTimeMillis()
 
         val selectSQLStatement = statement.asInstanceOf[SelectSQLStatement]
