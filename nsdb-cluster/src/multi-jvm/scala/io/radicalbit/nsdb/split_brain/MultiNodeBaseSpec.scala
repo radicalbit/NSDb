@@ -1,7 +1,6 @@
 package io.radicalbit.nsdb.split_brain
 
 import akka.actor.Address
-import akka.cluster.Cluster
 import akka.cluster.MemberStatus.{Down, Exiting, Removed, Up}
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}

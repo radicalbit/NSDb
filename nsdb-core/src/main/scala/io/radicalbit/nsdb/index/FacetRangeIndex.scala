@@ -45,7 +45,8 @@ class FacetRangeIndex {
     val fc = new FacetsCollector
     FacetsCollector.search(searcher, query, 0, fc)
     val facets: Facets = (aggregationType, valueFieldType) match {
-      case (InternalCountTemporalAggregation, _) => new LongRangeFacetCounts(rangeFieldName, fc, luceneRanges: _*)
+      case (InternalCountTemporalAggregation, _) =>
+        new LongRangeFacetCounts(rangeFieldName, fc, luceneRanges: _*)
       case (InternalSumTemporalAggregation, Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
       case (InternalSumTemporalAggregation, _) =>
@@ -58,6 +59,9 @@ class FacetRangeIndex {
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
       case (InternalMinTemporalAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
+      case (InternalAvgTemporalAggregation, _) =>
+        // TODO: to implement
+        throw new RuntimeException("Not implemented yet.")
     }
     toRecord(valueFieldType) {
       facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.map { lv =>

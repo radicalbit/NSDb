@@ -507,7 +507,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with sum aggregation" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when sum(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
 
@@ -575,7 +575,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with sum aggregation on a double value metric" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when sum(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
 
@@ -643,7 +643,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with max aggregation" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when max(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
 
@@ -711,7 +711,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with max aggregation on a double metric" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when max(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
 
@@ -779,7 +779,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with min aggregation" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when min(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
 
@@ -847,7 +847,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with min aggregation on a double metric" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when min(*) is used instead of value" in within(5.seconds) {
 
         val expected = awaitAssert {
 
@@ -911,8 +911,6 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
-
     }
-
   }
 }

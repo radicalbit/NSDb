@@ -100,6 +100,12 @@ package object common {
     def >=(other: NSDbNumericType): Boolean = compare(other) == 1 || compare(other) == 0
     def <(other: NSDbNumericType): Boolean  = compare(other) == -1
     def <=(other: NSDbNumericType): Boolean = compare(other) == -1 || compare(other) == 0
+
+    def /(other: NSDbNumericType) = Double.box {
+      new java.math.BigDecimal(this.rawValue.toString)
+        .divide(new java.math.BigDecimal(other.rawValue.toString))
+        .doubleValue()
+    }
   }
 
   object NSDbNumericType {

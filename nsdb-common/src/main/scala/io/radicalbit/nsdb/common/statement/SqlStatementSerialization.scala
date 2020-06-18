@@ -63,6 +63,7 @@ object SqlStatementSerialization {
           case "SumAggregation"   => SumAggregation
           case "FirstAggregation" => FirstAggregation
           case "LastAggregation"  => LastAggregation
+          case "AvgAggregation"   => AvgAggregation
         }
       }
     }
