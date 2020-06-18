@@ -106,7 +106,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   private val chars                      = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
   private val charsWithDashes            = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9]*)""".r
-  private val charWithDAshesAndWildcards = """(^[a-zA-Z_$][a-zA-Z0-9_\-$]*[a-zA-Z0-9$])""".r
+  private val charWithDAshesAndWildcards = """([a-zA-Z0-9_\-$]+)""".r
   private val digits                     = """([0-9]+)""".r
   private val intValue                   = digits ^^ { _.toInt }
   private val longValue                  = digits ^^ { _.toLong }

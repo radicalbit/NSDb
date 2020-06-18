@@ -99,24 +99,6 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a select containing a like selection" should {
-      "parse it successfully with predicate containing special characters" in {
-        val query = "SELECT name FROM people WHERE (name like $a_m-e$)"
-        parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(
-            query,
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_m-e$")))
-            )
-          ))
-      }
-    }
-
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
         val query = "SELECT name FROM people WHERE (timestamp >= 10)"
