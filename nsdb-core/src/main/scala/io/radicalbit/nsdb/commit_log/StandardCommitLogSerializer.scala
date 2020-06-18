@@ -96,10 +96,10 @@ class StandardCommitLogSerializer extends CommitLogSerializer with TypeSupport {
     * @return deserialized value instance casted into the correct class
     */
   private def argument(clazz: String): NSDbType = {
-    val longClazz: String = classOf[NSDbLongType].getCanonicalName
-    val intClazz          = classOf[NSDbIntType].getCanonicalName
-    val doubleClazz       = classOf[NSDbDoubleType].getCanonicalName
-    val stringClazz       = classOf[NSDbStringType].getCanonicalName
+    val longClazz   = classOf[NSDbLongType].getCanonicalName
+    val intClazz    = classOf[NSDbIntType].getCanonicalName
+    val doubleClazz = classOf[NSDbDoubleType].getCanonicalName
+    val stringClazz = classOf[NSDbStringType].getCanonicalName
 
     clazz match {
       case `longClazz`   => NSDbType(Long.box(readByteBuffer.read.toLong))
