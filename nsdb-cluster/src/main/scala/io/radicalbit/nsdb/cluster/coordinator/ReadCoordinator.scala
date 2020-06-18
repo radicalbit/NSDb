@@ -145,7 +145,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       aggregationFunction: Seq[Bit] => Bit): Future[ExecuteSelectStatementResponse] =
     gatherNodeResults(statement, schema, uniqueLocationsByNode) {
       case seq if uniqueLocationsByNode.size > 1 =>
-        seq.groupBy(_.tags(groupBy)).map(m => aggregationFunction(m._2)).toSeq
+        seq.groupBy(_.tags(groupBy)).mapValues(aggregationFunction).values.toSeq
       case seq => seq
     }
 
@@ -229,22 +229,24 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
               case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
                 val distinctField = fields.head.name
 
-                gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { values =>
+                gatherAndGroupNodeResults(statement, distinctField, schema, uniqueLocationsByNode) { bits =>
                   Bit(
                     timestamp = 0,
                     value = NSDbNumericType(0),
-                    dimensions = retrieveField(values, distinctField, (bit: Bit) => bit.dimensions),
-                    tags = retrieveField(values, distinctField, (bit: Bit) => bit.tags)
+                    dimensions = retrieveField(bits, distinctField, (bit: Bit) => bit.dimensions),
+                    tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
                   )
                 }.map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedAggregatedQuery(_, _, _, agg @ InternalCountSimpleAggregation(_, _), _, _)) =>
+              case Right(ParsedAggregatedQuery(_, _, _, agg: InternalCountSimpleAggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
                   bits =>
-                    Bit(0,
-                        NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                        bits.head.dimensions,
-                        bits.head.tags)
+                    Bit(
+                      timestamp = 0,
+                      value = NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                      dimensions = foldMapOfBit(bits, bit => bit.dimensions),
+                      tags = foldMapOfBit(bits, bit => bit.tags)
+                    )
                 }.map(limitAndOrder(_, statement, schema, Some(agg)))
 
               case Right(ParsedAggregatedQuery(_, _, _, InternalAvgSimpleAggregation(groupField, _), _, _)) =>
@@ -257,10 +259,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
                     val avg   = NSDbNumericType(sum / count)
                     Bit(
-                      0L,
-                      avg,
-                      Map.empty[String, NSDbType],
-                      Map(groupField -> bits.flatMap(_.tags.get(groupField)).head)
+                      timestamp = 0L,
+                      value = avg,
+                      dimensions = Map.empty[String, NSDbType],
+                      tags = retrieveField(bits, groupField, bit => bit.tags)
                     )
                 }.map(limitAndOrder(_, statement, schema))
 

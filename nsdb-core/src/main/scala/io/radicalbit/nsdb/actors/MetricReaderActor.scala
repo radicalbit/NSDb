@@ -29,12 +29,11 @@ import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatemen
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.post_proc.postProcessingTemporalQueryResult
+import io.radicalbit.nsdb.post_proc.{foldMapOfBit, internalAggregationProcessing, postProcessingTemporalQueryResult}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
-import io.radicalbit.nsdb.post_proc.internalAggregationProcessing
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -137,10 +136,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       groupBy: String,
       msg: ExecuteSelectStatement)(aggregationFunction: Seq[Bit] => Bit): Future[ExecuteSelectStatementResponse] = {
 
-    gatherShardResults(statement, actors, msg) { seq =>
-      seq
+    gatherShardResults(statement, actors, msg) { bits =>
+      bits
         .groupBy(_.tags(groupBy))
-        .map(m => aggregationFunction(m._2))
+        .mapValues(aggregationFunction)
+        .values
         .toSeq
     }
   }
@@ -323,8 +323,8 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             gatherAndGroupShardResults(statement, filteredIndexes, statement.groupBy.get.field, msg) { values =>
               Bit(0,
                   NSDbNumericType(values.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                  values.head.dimensions,
-                  values.head.tags)
+                  foldMapOfBit(values, bit => bit.dimensions),
+                  foldMapOfBit(values, bit => bit.tags))
             }
 
           shardResults.pipeTo(sender)
@@ -346,7 +346,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                   0L,
                   avg,
                   Map.empty[String, NSDbType],
-                  Map(groupField -> bits.flatMap(_.tags.get(groupField)).head)
+                  retrieveField(bits, groupField, bit => bit.tags)
                 )
               } else {
                 Bit(
