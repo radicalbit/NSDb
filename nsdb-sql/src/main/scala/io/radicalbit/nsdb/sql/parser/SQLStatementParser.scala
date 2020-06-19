@@ -107,8 +107,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val letter          = """[a-zA-Z_]"""
   private val digit           = """[0-9]"""
   private val letterOrDigit   = """[a-zA-Z0-9_]"""
-  private val specialChar     = """[a-zA-Z0-9_\-\.:]"""
-  private val specialWildCard = """[a-zA-Z0-9_\-$\.:]"""
+  private val specialChar     = """[a-zA-Z0-9_\-\.:~]"""
+  private val specialWildCard = """[a-zA-Z0-9_\-$\.:~]"""
 
   private val standardString = s"""($letter$letterOrDigit*)""".r
   private val specialString  = s"""($letter$specialChar*$letterOrDigit*)""".r

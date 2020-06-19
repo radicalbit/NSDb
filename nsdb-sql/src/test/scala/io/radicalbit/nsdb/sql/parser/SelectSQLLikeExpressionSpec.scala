@@ -61,7 +61,7 @@ class SelectSQLLikeExpressionSpec extends WordSpec with Matchers {
       }
 
       "parse it successfully with predicate containing special characters and spaces" in {
-        val query = "SELECT name FROM people WHERE name like '$a_:m.- :e$'"
+        val query = "SELECT name FROM people WHERE name like '$a_:m.- :~e$'"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
             query,
@@ -71,7 +71,7 @@ class SelectSQLLikeExpressionSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("name", None))),
-              condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_:m.- :e$")))
+              condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_:m.- :~e$")))
             )
           ))
       }
