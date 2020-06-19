@@ -225,59 +225,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive a select containing a = selection" should {
-      "parse it successfully" in {
-        val query = "SELECT name FROM people WHERE timestamp = 10"
-        parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(
-            query,
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition =
-                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10L))))
-            )
-          ))
-      }
-
-      "parse it successfully using decimals" in {
-        val query = "SELECT name FROM people WHERE timestamp = 10.5"
-        parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(
-            query,
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition =
-                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(10.5))))
-            )
-          ))
-      }
-
-      "parse it successfully using string" in {
-        val query = "SELECT name FROM people WHERE timestamp = word_word"
-        parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(
-            query,
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              distinct = false,
-              fields = ListFields(List(Field("name", None))),
-              condition = Some(
-                Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue("word_word"))))
-            )
-          ))
-      }
-    }
-
     "receive a select containing a GTE selection" should {
       "parse it successfully" in {
         val query = "SELECT name FROM people WHERE timestamp >= 10"
@@ -618,41 +565,6 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(1))
           )
         )
-    }
-
-    "receive a select with where condition on string dimension with spaces" in {
-      val query = "select name from people where name = 'string spaced' limit 5"
-      parser.parse(db = "db", namespace = "registry", input = query) should be(
-        SqlStatementParserSuccess(
-          query,
-          SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition =
-              Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("string spaced")))),
-            limit = Some(LimitOperator(5))
-          )
-        ))
-    }
-
-    "receive a select with where condition on string dimension with one char" in {
-      val query = "select name from people where name = 'a' limit 5"
-      parser.parse(db = "db", namespace = "registry", input = query) should be(
-        SqlStatementParserSuccess(
-          query,
-          SelectSQLStatement(
-            db = "db",
-            namespace = "registry",
-            metric = "people",
-            distinct = false,
-            fields = ListFields(List(Field("name", None))),
-            condition = Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("a")))),
-            limit = Some(LimitOperator(5))
-          )
-        ))
     }
 
     "receive random string sequences" should {
