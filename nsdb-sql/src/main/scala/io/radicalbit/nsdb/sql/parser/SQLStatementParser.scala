@@ -135,7 +135,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   // def instead val because timestamp should be calculated everytime but there is a problem with
   // more than one "now - something" in the same query because "now" will be different for each condition
-  private def delta: PackratParser[ComparisonValue[Long]] = now ~> (("+" | "-") ~ longValue ~ timeMeasure).? ^^ {
+  private def delta: PackratParser[ComparisonValue] = now ~> (("+" | "-") ~ longValue ~ timeMeasure).? ^^ {
     case Some("+" ~ v ~ ((unitMeasure, timeInterval))) =>
       RelativeComparisonValue(System.currentTimeMillis() + v * timeInterval, "+", v, unitMeasure)
     case Some("-" ~ v ~ ((unitMeasure, timeInterval))) =>
@@ -193,7 +193,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val orTupledLogicalExpression: PackratParser[TupledLogicalExpression] = tupledLogicalExpression(Or, OrOperator)
 
-  lazy val equalityExpression: PackratParser[EqualityExpression[Any]] = (dimension <~ Equal) ~ (stringValue.map(n =>
+  lazy val equalityExpression: PackratParser[EqualityExpression] = (dimension <~ Equal) ~ (stringValue.map(n =>
     AbsoluteComparisonValue(n)) | comparisonTerm) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }
@@ -212,7 +212,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private lazy val comparisonExpressionRule = comparisonExpressionGT | comparisonExpressionGTE | comparisonExpressionLT | comparisonExpressionLTE
 
   private def comparisonExpression(operator: String,
-                                   comparisonOperator: ComparisonOperator): Parser[ComparisonExpression[AnyVal]] =
+                                   comparisonOperator: ComparisonOperator): Parser[ComparisonExpression] =
     (dimension <~ operator) ~ comparisonTerm ^^ {
       case d ~ v =>
         ComparisonExpression(d, comparisonOperator, v)

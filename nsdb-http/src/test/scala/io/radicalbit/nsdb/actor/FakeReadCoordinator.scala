@@ -49,12 +49,12 @@ class FakeReadCoordinator extends Actor {
                                                    MetricNotFound(statement.metric))
       }
     case ExecuteStatement(statement)
-        if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression[_]] =>
+        if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression] =>
       StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
         case Right(_) =>
-          val e = statement.condition.get.expression.asInstanceOf[RangeExpression[_]]
+          val e = statement.condition.get.expression.asInstanceOf[RangeExpression]
           val filteredBits = bits.filter(bit =>
-            bit.timestamp <= e.value2.value.toString.toLong && bit.timestamp >= e.value1.value.toString.toLong)
+            bit.timestamp <= e.value2.value.rawValue.toString.toLong && bit.timestamp >= e.value1.value.rawValue.toString.toLong)
           sender ! SelectStatementExecuted(statement, filteredBits)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }

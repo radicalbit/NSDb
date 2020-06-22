@@ -62,8 +62,8 @@ class DeleteSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               condition = Condition(
                 RangeExpression(dimension = "timestamp",
-                                value1 = AbsoluteComparisonValue(2),
-                                value2 = AbsoluteComparisonValue(4)))
+                                value1 = AbsoluteComparisonValue(2L),
+                                value2 = AbsoluteComparisonValue(4L)))
             )
           ))
       }

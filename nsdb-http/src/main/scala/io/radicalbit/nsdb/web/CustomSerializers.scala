@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.web
 
+import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.statement._
 import org.json4s.JsonAST.{JDouble, JField, JInt, JLong}
 import org.json4s.{CustomSerializer, JNull, JObject, JString}
@@ -23,6 +24,7 @@ import org.json4s.{CustomSerializer, JNull, JObject, JString}
 object CustomSerializers {
 
   val customSerializers = List(
+    NSDbTypeSerializer,
     AggregationSerializer,
     ComparisonOperatorSerializer,
     LogicalOperatorSerializer,
@@ -31,6 +33,20 @@ object CustomSerializers {
     LikeExpressionSerializer,
     EqualityExpressionSerializer
   )
+
+  case object NSDbTypeSerializer
+      extends CustomSerializer[NSDbType](_ =>
+        ({
+          case JDouble(value) => NSDbDoubleType(value)
+          case JInt(value)    => NSDbIntType(value.intValue)
+          case JLong(value)   => NSDbLongType(value)
+          case JString(value) => NSDbStringType(value)
+        }, {
+          case NSDbDoubleType(value) => JDouble(value)
+          case NSDbIntType(value)    => JInt(value)
+          case NSDbLongType(value)   => JLong(value)
+          case NSDbStringType(value) => JString(value)
+        }))
 
   case object AggregationSerializer
       extends CustomSerializer[Aggregation](_ =>
@@ -122,36 +138,36 @@ object CustomSerializers {
             JObject(
               List(JField("dimension", JString(dimension)),
                    JField("comparison", JString("like")),
-                   JField("value", JString(value))))
+                   JField("value", JString(value.rawValue.toString))))
         }))
 
   case object EqualityExpressionSerializer
-      extends CustomSerializer[EqualityExpression[_]](_ =>
+      extends CustomSerializer[EqualityExpression](_ =>
         ({
           case _ => throw new UnsupportedOperationException("Deserializing an EqualityExpression is not yet supported")
         }, {
-          case EqualityExpression(dimension, AbsoluteComparisonValue(value: Long)) =>
+          case EqualityExpression(dimension, AbsoluteComparisonValue(NSDbLongType(value))) =>
             JObject(
               List(JField("dimension", JString(dimension)),
                    JField("comparison", JString("=")),
                    JField("value", JLong(value))))
-          case EqualityExpression(dimension, AbsoluteComparisonValue(value: Int)) =>
+          case EqualityExpression(dimension, AbsoluteComparisonValue(NSDbIntType(value))) =>
             JObject(
               List(JField("dimension", JString(dimension)),
                    JField("comparison", JString("=")),
                    JField("value", JInt(value))))
-          case EqualityExpression(dimension, AbsoluteComparisonValue(value: String)) =>
+          case EqualityExpression(dimension, AbsoluteComparisonValue(NSDbStringType(value))) =>
             JObject(
               List(JField("dimension", JString(dimension)),
                    JField("comparison", JString("=")),
                    JField("value", JString(value))))
-          case EqualityExpression(dimension, AbsoluteComparisonValue(value: Double)) =>
+          case EqualityExpression(dimension, AbsoluteComparisonValue(NSDbDoubleType(value))) =>
             JObject(
               List(JField("dimension", JString(dimension)),
                    JField("comparison", JString("=")),
                    JField("value", JDouble(value))))
           case EqualityExpression(dimension,
-                                  RelativeComparisonValue(value: Long, operator, quantity: Long, unitMeasure)) =>
+                                  RelativeComparisonValue(NSDbLongType(value), operator, quantity, unitMeasure)) =>
             JObject(
               List(
                 JField("dimension", JString(dimension)),

@@ -64,11 +64,11 @@ final case class Condition(expression: Expression)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
   Array(
-    new JsonSubTypes.Type(value = classOf[ComparisonExpression[_]], name = "ComparisonExpression"),
-    new JsonSubTypes.Type(value = classOf[EqualityExpression[_]], name = "EqualityExpression"),
+    new JsonSubTypes.Type(value = classOf[ComparisonExpression], name = "ComparisonExpression"),
+    new JsonSubTypes.Type(value = classOf[EqualityExpression], name = "EqualityExpression"),
     new JsonSubTypes.Type(value = classOf[LikeExpression], name = "LikeExpression"),
     new JsonSubTypes.Type(value = classOf[NullableExpression], name = "NullableExpression"),
-    new JsonSubTypes.Type(value = classOf[RangeExpression[_]], name = "RangeExpression"),
+    new JsonSubTypes.Type(value = classOf[RangeExpression], name = "RangeExpression"),
     new JsonSubTypes.Type(value = classOf[TupledLogicalExpression], name = "TupledLogicalExpression"),
     new JsonSubTypes.Type(value = classOf[NotExpression], name = "NotExpression")
   ))
@@ -97,7 +97,7 @@ final case class TupledLogicalExpression(expression1: Expression,
   * @param comparison comparison operator (e.g. >, >=, <, <=).
   * @param value the value to compare the dimension with.
   */
-final case class ComparisonExpression[T](dimension: String, comparison: ComparisonOperator, value: ComparisonValue[T])
+final case class ComparisonExpression(dimension: String, comparison: ComparisonOperator, value: ComparisonValue)
     extends Expression
 
 /**
@@ -106,22 +106,21 @@ final case class ComparisonExpression[T](dimension: String, comparison: Comparis
   * @param value1 lower boundary.
   * @param value2 upper boundary.
   */
-final case class RangeExpression[T](dimension: String, value1: ComparisonValue[T], value2: ComparisonValue[T])
-    extends Expression
+final case class RangeExpression(dimension: String, value1: ComparisonValue, value2: ComparisonValue) extends Expression
 
 /**
   * Simple equality expression e.g. dimension = value.
   * @param dimension dimension name.
   * @param value value to check the equality with.
   */
-final case class EqualityExpression[T](dimension: String, value: ComparisonValue[T]) extends Expression
+final case class EqualityExpression(dimension: String, value: ComparisonValue) extends Expression
 
 /**
   * Simple like expression for varchar dimensions e.g. dimension like value.
   * @param dimension dimension name.
   * @param value string value with wildcards.
   */
-final case class LikeExpression(dimension: String, value: String) extends Expression
+final case class LikeExpression(dimension: String, value: NSDbType) extends Expression
 
 /**
   * Simple nullable expression e.g. dimension is null.
@@ -196,22 +195,22 @@ final case class LimitOperator(value: Int) extends NSDbSerializable
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
   Array(
-    new JsonSubTypes.Type(value = classOf[AbsoluteComparisonValue[_]], name = "AbsoluteComparisonValue"),
-    new JsonSubTypes.Type(value = classOf[RelativeComparisonValue[_]], name = "RelativeComparisonValue")
+    new JsonSubTypes.Type(value = classOf[AbsoluteComparisonValue], name = "AbsoluteComparisonValue"),
+    new JsonSubTypes.Type(value = classOf[RelativeComparisonValue], name = "RelativeComparisonValue")
   ))
-sealed trait ComparisonValue[+T] {
-  def value: T
+sealed trait ComparisonValue {
+  def value: NSDbType
 }
 
 object ComparisonValue {
-  def unapply[T](cv: ComparisonValue[T]): Option[T] = Some(cv.value)
+  def unapply(cv: ComparisonValue): Option[NSDbType] = Some(cv.value)
 }
 
 /**
   * Class that represent an absolute comparison value
   * @param value the absolute value
   */
-final case class AbsoluteComparisonValue[T](override val value: T) extends ComparisonValue[T]
+final case class AbsoluteComparisonValue(override val value: NSDbType) extends ComparisonValue
 
 /**
   * Class that represent a relative comparison value.
@@ -220,8 +219,11 @@ final case class AbsoluteComparisonValue[T](override val value: T) extends Compa
   * @param quantity the quantity of the relative time
   * @param unitMeasure the unit measure of the relative time (s, m, h, d)
   */
-final case class RelativeComparisonValue[T](override val value: T, operator: String, quantity: T, unitMeasure: String)
-    extends ComparisonValue[T]
+final case class RelativeComparisonValue(override val value: NSDbType,
+                                         operator: String,
+                                         quantity: Long,
+                                         unitMeasure: String)
+    extends ComparisonValue
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
@@ -304,38 +306,28 @@ final case class SelectSQLStatement(override val db: String,
   /**
     * Parses a simple string expression into a [[Expression]] e.g. `dimension > value`.
     * @param dimension the dimension to apply the expression.
-    * @param value the expression value.
+    * @param valueOpt the expression value.
     * @param operator the operator.
     * @return the parsed [[Expression]].
     */
-  private def filterToExpression[T](dimension: String,
-                                    value: Option[NSDbType],
-                                    operator: String): Option[Expression] = {
-    operator.toUpperCase match {
-      case ">" =>
-        Some(
-          ComparisonExpression(dimension, GreaterThanOperator, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
-      case ">=" =>
-        Some(
-          ComparisonExpression(dimension,
-                               GreaterOrEqualToOperator,
-                               value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
-      case "=" => Some(EqualityExpression(dimension, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
-      case "<=" =>
-        Some(
-          ComparisonExpression(dimension,
-                               LessOrEqualToOperator,
-                               value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
-      case "<" =>
-        Some(ComparisonExpression(dimension, LessThanOperator, value.map(v => AbsoluteComparisonValue(v.rawValue)).get))
-      case "LIKE"      => Some(LikeExpression(dimension, value.get.rawValue.asInstanceOf[String]))
-      case "ISNULL"    => Some(NullableExpression(dimension))
-      case "ISNOTNULL" => Some(NotExpression(NullableExpression(dimension)))
+  private def filterToExpression(dimension: String, valueOpt: Option[NSDbType], operator: String): Option[Expression] =
+    (operator.toUpperCase, valueOpt) match {
+      case (">", Some(value)) =>
+        Some(ComparisonExpression(dimension, GreaterThanOperator, AbsoluteComparisonValue(value)))
+      case (">=", Some(value)) =>
+        Some(ComparisonExpression(dimension, GreaterOrEqualToOperator, AbsoluteComparisonValue(value)))
+      case ("=", Some(value)) => Some(EqualityExpression(dimension, AbsoluteComparisonValue(value)))
+      case ("<=", Some(value)) =>
+        Some(ComparisonExpression(dimension, LessOrEqualToOperator, AbsoluteComparisonValue(value)))
+      case ("<", Some(value)) =>
+        Some(ComparisonExpression(dimension, LessThanOperator, AbsoluteComparisonValue(value)))
+      case ("LIKE", Some(value)) => Some(LikeExpression(dimension, value))
+      case ("ISNULL", None)      => Some(NullableExpression(dimension))
+      case ("ISNOTNULL", None)   => Some(NotExpression(NullableExpression(dimension)))
       case op @ _ =>
         logger.warn("Ignored filter with invalid operator: {}", op)
         None
     }
-  }
 
   /**
     * Returns a new instance enriched with a simple expression got from a string e.g. `dimension > value`.

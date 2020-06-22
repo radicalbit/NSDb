@@ -283,8 +283,8 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                 ),
                 operator = AndOperator,
                 expression2 = RangeExpression(dimension = "timestamp",
-                                              value1 = AbsoluteComparisonValue(2),
-                                              value2 = AbsoluteComparisonValue(4))
+                                              value1 = AbsoluteComparisonValue(2L),
+                                              value2 = AbsoluteComparisonValue(4L))
               ))),
               order = Some(DescOrderOperator(dimension = "name")),
               limit = Some(LimitOperator(5))
@@ -315,8 +315,8 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                   EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")),
                   AndOperator,
                   RangeExpression(dimension = "timestamp",
-                                  value1 = AbsoluteComparisonValue(2),
-                                  value2 = AbsoluteComparisonValue(4))
+                                  value1 = AbsoluteComparisonValue(2L),
+                                  value2 = AbsoluteComparisonValue(4L))
                 )
               ))),
               order = Some(DescOrderOperator(dimension = "name")),
@@ -412,8 +412,8 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
                   ),
                   operator = AndOperator,
                   expression2 = RangeExpression(dimension = "timestamp",
-                                                value1 = AbsoluteComparisonValue(2),
-                                                value2 = AbsoluteComparisonValue(4))
+                                                value1 = AbsoluteComparisonValue(2L),
+                                                value2 = AbsoluteComparisonValue(4L))
                 ),
                 expression2 = NotExpression(NullableExpression("code")),
                 operator = AndOperator

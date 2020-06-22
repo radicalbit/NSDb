@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, INT, VARCHAR}
 import io.radicalbit.nsdb.model.SchemaField
@@ -42,9 +43,9 @@ object ExpressionParser {
       case Some(EqualityExpression(dimension, ComparisonValue(value))) => equalityExpression(schema, dimension, value)
       case Some(LikeExpression(dimension, value))                      => likeExpression(schema, dimension, value)
       case Some(ComparisonExpression(dimension, operator: ComparisonOperator, ComparisonValue(value))) =>
-        comparisonExpression(schema, dimension, operator, value)
+        comparisonExpression(schema, dimension, operator, value.rawValue)
       case Some(RangeExpression(dimension, ComparisonValue(value1), ComparisonValue(value2))) =>
-        rangeExpression(schema, dimension, value1, value2)
+        rangeExpression(schema, dimension, value1.rawValue, value2.rawValue)
 
       case Some(NotExpression(expression, _)) => unaryLogicalExpression(schema, expression)
 
@@ -76,33 +77,37 @@ object ExpressionParser {
     }
   }
 
-  private def equalityExpression(schema: Map[String, SchemaField], field: String, value: Any): Either[String, Query] = {
+  private def equalityExpression(schema: Map[String, SchemaField],
+                                 field: String,
+                                 value: NSDbType): Either[String, Query] = {
     schema.get(field) match {
       case Some(SchemaField(_, _, t: INT)) =>
-        Try(IntPoint.newExactQuery(field, t.cast(value))) match {
+        Try(IntPoint.newExactQuery(field, t.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _ =>
             Left(StatementParserErrors.uncompatibleOperator("equality", "INT"))
         }
       case Some(SchemaField(_, _, t: BIGINT)) =>
-        Try(LongPoint.newExactQuery(field, t.cast(value))) match {
+        Try(LongPoint.newExactQuery(field, t.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _          => Left(StatementParserErrors.uncompatibleOperator("equality", "BIGINT"))
         }
       case Some(SchemaField(_, _, t: DECIMAL)) =>
-        Try(DoublePoint.newExactQuery(field, t.cast(value))) match {
+        Try(DoublePoint.newExactQuery(field, t.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _          => Left(StatementParserErrors.uncompatibleOperator("equality", "DECIMAL"))
         }
-      case Some(SchemaField(_, _, _: VARCHAR)) => Right(new TermQuery(new Term(field, value.toString)))
+      case Some(SchemaField(_, _, _: VARCHAR)) => Right(new TermQuery(new Term(field, value.rawValue.toString)))
       case None                                => Left(StatementParserErrors.notExistingDimension(field))
     }
   }
 
-  private def likeExpression(schema: Map[String, SchemaField], field: String, value: String): Either[String, Query] = {
+  private def likeExpression(schema: Map[String, SchemaField],
+                             field: String,
+                             value: NSDbType): Either[String, Query] = {
     schema.get(field) match {
       case Some(SchemaField(_, _, _: VARCHAR)) =>
-        Right(new WildcardQuery(new Term(field, value.replaceAll("\\$", "*"))))
+        Right(new WildcardQuery(new Term(field, value.rawValue.toString.replaceAll("\\$", "*"))))
       case Some(_) =>
         Left(StatementParserErrors.uncompatibleOperator("Like", "VARCHAR"))
       case None => Left(StatementParserErrors.notExistingDimension(field))
