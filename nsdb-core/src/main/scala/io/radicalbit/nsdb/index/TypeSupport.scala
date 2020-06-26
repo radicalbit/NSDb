@@ -129,11 +129,6 @@ sealed trait IndexType[T] extends Serializable {
   * @tparam T corresponding raw type.
   */
 sealed abstract class NumericType[T] extends IndexType[T] {
-
-  /**
-    * Returns a [[Numeric]] to be used for arithmetic operations
-    */
-  def numeric: Numeric[Any]
   def zero: NSDbNumericType
 }
 
@@ -176,8 +171,6 @@ case class INT() extends NumericType[Int] {
 
   override def deserialize(value: Array[Byte]): NSDbIntType = NSDbIntType(new String(value).toInt)
 
-  override def numeric: Numeric[Any] = implicitly[Numeric[Int]].asInstanceOf[Numeric[Any]]
-
   override def zero: NSDbNumericType = NSDbNumericType(0)
 
   override def cast(value: Any): Int = value.toString.toInt
@@ -201,8 +194,6 @@ case class BIGINT() extends NumericType[Long] {
     )
   def deserialize(value: Array[Byte]): NSDbLongType = NSDbLongType(new String(value).toLong)
 
-  override def numeric: Numeric[Any] = implicitly[Numeric[Long]].asInstanceOf[Numeric[Any]]
-
   override def zero: NSDbNumericType = NSDbNumericType(0L)
 
   override def cast(value: Any): Long = value.toString.toLong
@@ -225,8 +216,6 @@ case class DECIMAL() extends NumericType[Double] {
       new DoubleDocValuesField(fieldName, cast(value.rawValue))
     )
   def deserialize(value: Array[Byte]): NSDbDoubleType = NSDbDoubleType(new String(value).toDouble)
-
-  override def numeric: Numeric[Any] = implicitly[Numeric[Double]].asInstanceOf[Numeric[Any]]
 
   override def zero: NSDbNumericType = NSDbNumericType(0.0)
 

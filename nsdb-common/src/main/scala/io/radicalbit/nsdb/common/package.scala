@@ -95,19 +95,22 @@ package object common {
       new JsonSubTypes.Type(value = classOf[NSDbIntType], name = "NSDbIntType")
     ))
   sealed trait NSDbNumericType extends NSDbType {
-    private def compare(other: NSDbNumericType) =
-      new java.math.BigDecimal(this.rawValue.toString).compareTo(new java.math.BigDecimal(other.rawValue.toString))
+
+    protected def bigDecimal: BigDecimal
+    protected def rawNumeric: Numeric[_]
+
+    private def compare(other: NSDbNumericType) = this.bigDecimal.compareTo(other.bigDecimal)
+
+    def +(other: NSDbNumericType): NSDbNumericType = NSDbNumericType(this.bigDecimal + other.bigDecimal)
+    def -(other: NSDbNumericType): NSDbNumericType = NSDbNumericType(this.bigDecimal - other.bigDecimal)
+    def *(other: NSDbNumericType): NSDbNumericType = NSDbNumericType(this.bigDecimal * other.bigDecimal)
+    def /(other: NSDbNumericType): NSDbNumericType = NSDbNumericType((this.bigDecimal / other.bigDecimal).toDouble)
 
     def >(other: NSDbNumericType): Boolean  = compare(other) == 1
     def >=(other: NSDbNumericType): Boolean = compare(other) == 1 || compare(other) == 0
     def <(other: NSDbNumericType): Boolean  = compare(other) == -1
     def <=(other: NSDbNumericType): Boolean = compare(other) == -1 || compare(other) == 0
 
-    def /(other: NSDbNumericType)(implicit context: MathContext) = Double.box {
-      new java.math.BigDecimal(this.rawValue.toString)
-        .divide(new java.math.BigDecimal(other.rawValue.toString), context)
-        .doubleValue()
-    }
   }
 
   object NSDbNumericType {
@@ -115,6 +118,20 @@ package object common {
     implicit def NSDbNumericTypeLong(value: Long): NSDbNumericType     = NSDbNumericType(value)
     implicit def NSDbNumericTypeInt(value: Int): NSDbNumericType       = NSDbNumericType(value)
     implicit def NSDbNumericTypeDouble(value: Double): NSDbNumericType = NSDbNumericType(value)
+
+    implicit object numericNSDbNumericType extends Numeric[NSDbNumericType] {
+      override def plus(x: NSDbNumericType, y: NSDbNumericType): NSDbNumericType  = x + y
+      override def minus(x: NSDbNumericType, y: NSDbNumericType): NSDbNumericType = x - y
+      override def times(x: NSDbNumericType, y: NSDbNumericType): NSDbNumericType = x * y
+      override def negate(x: NSDbNumericType): NSDbNumericType                    = 0 - x
+      override def fromInt(x: Int): NSDbNumericType                               = NSDbNumericType(BigDecimal(x))
+      override def toInt(x: NSDbNumericType): Int                                 = x.bigDecimal.intValue()
+      override def toLong(x: NSDbNumericType): Long                               = x.bigDecimal.longValue()
+      override def toFloat(x: NSDbNumericType): Float                             = x.bigDecimal.floatValue()
+      override def toDouble(x: NSDbNumericType): Double                           = x.bigDecimal.doubleValue()
+      override def compare(x: NSDbNumericType, y: NSDbNumericType): Int           = x.bigDecimal.compare(y.bigDecimal)
+
+    }
 
     /**
       * Factory method to instantiate a [[NSDbNumericType]] from a supported raw type.
@@ -132,10 +149,12 @@ package object common {
 
     def apply(rawValue: Number): NSDbNumericType =
       rawValue match {
-        case x: java.lang.Integer => NSDbNumericType(x.intValue())
-        case x: java.lang.Long    => NSDbNumericType(x.longValue())
-        case x: java.lang.Float   => NSDbNumericType(x.floatValue().toDouble)
-        case x: java.lang.Double  => NSDbNumericType(x.doubleValue())
+        case x: java.lang.Integer                    => NSDbNumericType(x.intValue())
+        case x: java.lang.Long                       => NSDbNumericType(x.longValue())
+        case x: java.lang.Float                      => NSDbNumericType(x.floatValue().toDouble)
+        case x: java.lang.Double                     => NSDbNumericType(x.doubleValue())
+        case x: scala.math.BigDecimal if x.scale > 0 => NSDbNumericType(x.doubleValue())
+        case x: scala.math.BigDecimal                => NSDbNumericType(x.longValue())
       }
 
     def unapply(numeric: NSDbNumericType): Option[Number] = numeric match {
@@ -146,13 +165,19 @@ package object common {
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
-    def runtimeManifest: Manifest[_] = manifest[Int]
+    def runtimeManifest: Manifest[_]              = manifest[Int]
+    override protected def rawNumeric: Numeric[_] = implicitly[Numeric[Double]]
+    def bigDecimal: BigDecimal                    = BigDecimal(rawValue)
   }
   case class NSDbLongType(rawValue: Long) extends NSDbNumericType {
-    def runtimeManifest: Manifest[_] = manifest[Long]
+    def runtimeManifest: Manifest[_]              = manifest[Long]
+    override protected def rawNumeric: Numeric[_] = implicitly[Numeric[Double]]
+    def bigDecimal: BigDecimal                    = BigDecimal(rawValue)
   }
   case class NSDbDoubleType(rawValue: Double) extends NSDbNumericType {
-    def runtimeManifest: Manifest[_] = manifest[Double]
+    def runtimeManifest: Manifest[_]              = manifest[Double]
+    override protected def rawNumeric: Numeric[_] = implicitly[Numeric[Double]]
+    def bigDecimal: BigDecimal                    = BigDecimal(rawValue)
   }
   case class NSDbStringType(rawValue: String) extends NSDbType {
     def runtimeManifest: Manifest[_] = manifest[String]

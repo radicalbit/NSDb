@@ -21,6 +21,10 @@ import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, NumericType}
+import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.index.NumericType
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   ExecuteSelectStatementResponse,
@@ -87,8 +91,7 @@ package object post_proc {
   def limitAndOrder(chainedResults: ExecuteSelectStatementResponse,
                     statement: SelectSQLStatement,
                     schema: Schema,
-                    aggregationType: Option[InternalAggregation] = None)(
-      implicit ec: ExecutionContext): ExecuteSelectStatementResponse =
+                    aggregationType: Option[InternalAggregation] = None): ExecuteSelectStatementResponse =
     chainedResults match {
       case SelectStatementExecuted(statement, values, schema) =>
         SelectStatementExecuted(statement, applyOrderingWithLimit(values, statement, schema, aggregationType), schema)
@@ -116,9 +119,11 @@ package object post_proc {
     * @param count the value of the count to be associated with the field.
     * @param extract the function defining how to extract the field from a given bit.
     */
-  def retrieveCount(values: Seq[Bit], count: Int, extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
+  def retrieveCount(values: Seq[Bit],
+                    count: NSDbNumericType,
+                    extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
     values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
+      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> count)))
       .getOrElse(Map.empty[String, NSDbType])
 
   /**
@@ -300,6 +305,5 @@ package object post_proc {
     } else {
       Seq(Bit(0, NSDbNumericType(numeric.zero), Map.empty, aggregationsReduced))
     }
-  }
 
 }

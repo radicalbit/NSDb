@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeo
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -296,12 +297,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           }
 
           shardResults.pipeTo(sender)
-
         case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
           gatherShardResults(statement, actorsForLocations(locations), msg) { rawResults =>
             globalAggregationReduce(rawResults, fields, aggregations, statement, schema, isSingleNode)
           } pipeTo sender
-
         case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)

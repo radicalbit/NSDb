@@ -205,7 +205,7 @@ class MetricAccumulatorActor(val basePath: String,
     case ExecuteDeleteStatementInShards(statement, schema, keys) =>
       implicit val timeContext: TimeContext = TimeContext()
       StatementParser.parseStatement(statement, schema) match {
-        case Right(ParsedDeleteQuery(ns, metric, q)) =>
+        case Right(ParsedDeleteQuery(ns, metric, _)) =>
           keys.foreach { key =>
             opBufferMap += (UUID.randomUUID().toString -> DeleteShardQueryOperation(ns, key, statement, schema))
           }
