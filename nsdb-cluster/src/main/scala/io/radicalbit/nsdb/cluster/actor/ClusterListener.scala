@@ -86,6 +86,9 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
   private lazy val delay   = FiniteDuration(config.getDuration(retryPolicyDelay, TimeUnit.SECONDS), TimeUnit.SECONDS)
   private lazy val retries = config.getInt(retryPolicyNRetries)
 
+  implicit val scheduler: Scheduler = context.system.scheduler
+  implicit val _log: LoggingAdapter = log
+
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
@@ -121,6 +124,28 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
       log.info(s"metadata successfully removed for node $nodeName")
     case RemoveNodeMetadataFailed(nodeName) =>
       log.error(s"RemoveNodeMetadataFailed for node $nodeName")
+  }
+
+  private def unsubscribeNode(nodeName: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+    (for {
+      NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
+        s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
+        .mapTo[NodeChildActorsGot]
+      _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
+      _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
+        .mapTo[CommitLogCoordinatorUnSubscribed]
+      _ <- (writeCoordinator ? UnSubscribePublisher(nodeName)).mapTo[PublisherUnSubscribed]
+      _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeName))
+        .mapTo[MetricsDataActorUnSubscribed]
+      _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeName))
+        .mapTo[MetricsDataActorUnSubscribed]
+      _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
+        .mapTo[CommitLogCoordinatorUnSubscribed]
+      removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
+        .mapTo[RemoveNodeMetadataResponse]
+    } yield removeNodeMetadataResponse)
+      .retry(delay, retries)(_.isInstanceOf[NodeMetadataRemoved])
+      .map(onRemoveNodeMetadataResponse)
   }
 
   def receive: Receive = {
@@ -167,34 +192,10 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
         }
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
-
-      val nodeName = createNodeName(member)
-
-      implicit val scheduler: Scheduler = context.system.scheduler
-      implicit val _log: LoggingAdapter = log
-
-      (for {
-        NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
-          s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
-          .mapTo[NodeChildActorsGot]
-        _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
-        _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
-          .mapTo[CommitLogCoordinatorUnSubscribed]
-        _ <- (writeCoordinator ? UnSubscribePublisher(nodeName)).mapTo[PublisherUnSubscribed]
-        _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeName))
-          .mapTo[MetricsDataActorUnSubscribed]
-        _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeName))
-          .mapTo[MetricsDataActorUnSubscribed]
-        _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
-          .mapTo[CommitLogCoordinatorUnSubscribed]
-        removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
-          .mapTo[RemoveNodeMetadataResponse]
-      } yield removeNodeMetadataResponse)
-        .retry(delay, retries)(_.isInstanceOf[NodeMetadataRemoved])
-        .map(onRemoveNodeMetadataResponse)
-
+      unsubscribeNode(createNodeName(member))
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
+      unsubscribeNode(createNodeName(member))
     case _: MemberEvent => // ignore
     case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
       log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")

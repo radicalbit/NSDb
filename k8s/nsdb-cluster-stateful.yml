@@ -43,7 +43,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: nsdb
-          image: weareradicalbit/nsdb:1.0.0-SNAPSHOT
+          image: weareradicalbit/nsdb:1.1.0-SNAPSHOT
           imagePullPolicy: IfNotPresent
           #health
           readinessProbe:
@@ -87,6 +87,8 @@ spec:
               value: "k8s-dns"
             - name: SHARD_INTERVAL
               value: "10d"
+            - name: REPLICATION_FACTOR
+              value: 2
 ---
 #headless
 apiVersion: v1
