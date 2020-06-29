@@ -104,26 +104,36 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val CloseRoundBracket = ")"
   private val temporalInterval  = "INTERVAL" ignoreCase
 
-  private val digits           = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_]*)""".r
-  private val digitsWithDashes = """(^(?!now)[a-zA-Z_][a-zA-Z0-9_\-]*[a-zA-Z0-9]*)""".r
-  private val numbers          = """([0-9]+)""".r
-  private val intValue         = numbers ^^ { _.toInt }
-  private val longValue        = numbers ^^ { _.toLong }
-  private val doubleValue      = """([0-9]+)\.([0-9]+)""".r ^^ { _.toDouble }
+  private val letter          = """[a-zA-Z_]"""
+  private val digit           = """[0-9]"""
+  private val letterOrDigit   = """[a-zA-Z0-9_]"""
+  private val specialChar     = """[a-zA-Z0-9_\-\.:~]"""
+  private val specialWildCard = """[a-zA-Z0-9_\-$\.:~]"""
 
-  private val field = digits ^^ { e =>
+  private val standardString = s"""($letter$letterOrDigit*)""".r
+  private val specialString  = s"""($letter$specialChar*$letterOrDigit*)""".r
+  private val wildCardString = s"""($specialWildCard+)""".r
+  private val digits         = s"""($digit+)""".r
+  private val intValue       = digits ^^ { _.toInt }
+  private val longValue      = digits ^^ { _.toLong }
+  private val doubleValue    = s"""($digit+)[.]($digit+)""".r ^^ { _.toDouble }
+
+  private val field = standardString ^^ { e =>
     Field(e, None)
   }
-  private val aggField = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (digits | All) <~ CloseRoundBracket ^^ {
-    e =>
-      Field(e._2, Some(e._1))
+  private val aggField = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (standardString | All) <~ CloseRoundBracket ^^ {
+    case aggregation ~ name => Field(name, Some(aggregation))
   }
-  private val dimension = digits
-  private val stringValue = (digitsWithDashes | (("'" ?) ~> (digitsWithDashes +) <~ ("'" ?))) ^^ {
+  private val dimension = standardString
+  private val stringValue = (specialString | (("'" ?) ~> (specialString +) <~ ("'" ?))) ^^ {
     case string: String        => string
     case strings: List[String] => strings.mkString(" ")
   }
-  private val stringValueWithWildcards = """(^[a-zA-Z_$][a-zA-Z0-9_\-$]*[a-zA-Z0-9$])""".r
+
+  private val stringValueWithWildcards = (wildCardString | (("'" ?) ~> (wildCardString +) <~ ("'" ?))) ^^ {
+    case string: String        => string
+    case strings: List[String] => strings.mkString(" ")
+  }
 
   private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
     .map(_.toUpperCase()) ^^ {
@@ -193,8 +203,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val orTupledLogicalExpression: PackratParser[TupledLogicalExpression] = tupledLogicalExpression(Or, OrOperator)
 
-  lazy val equalityExpression: PackratParser[EqualityExpression] = (dimension <~ Equal) ~ (stringValue.map(n =>
-    AbsoluteComparisonValue(n)) | comparisonTerm) ^^ {
+  lazy val equalityExpression: PackratParser[EqualityExpression] = (dimension <~ Equal) ~ (comparisonTerm | stringValue
+    .map(n => AbsoluteComparisonValue(n))) ^^ {
     case dim ~ v => EqualityExpression(dim, v)
   }
 
