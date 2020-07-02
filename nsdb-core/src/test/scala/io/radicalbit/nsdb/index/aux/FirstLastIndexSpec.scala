@@ -335,7 +335,7 @@ class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest 
             timestamp = i * (j + 1),
             value = i + 0.1,
             dimensions = Map("dimension" -> s"dimension_$i"),
-            tags = Map( "tag2" -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
+            tags = Map("tag2"            -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
           )
         timeSeriesIndex.write(testData)(writer).get
       }
