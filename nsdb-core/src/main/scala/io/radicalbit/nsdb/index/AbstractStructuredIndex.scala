@@ -162,17 +162,17 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     val searcher = this.getSearcher
     searcher.search(query, collector)
 
-    collector.retrieveGroupHeads().toSeq.map { id =>
-      val doc = searcher.doc(id)
-      Bit(
-        timestamp = doc.getField(_keyField).numericValue().longValue(),
-        value = NSDbNumericType(doc.getField(_valueField).numericValue()),
-        dimensions = Map.empty,
-        tags = Map(doc.getField(groupTagName) match {
-          case f if f.numericValue() != null => f.name() -> NSDbType(f.numericValue())
-          case f                             => f.name() -> NSDbType(f.stringValue())
-        })
-      )
+    collector.retrieveGroupHeads().map(searcher.doc).collect {
+      case doc if doc.getField(groupTagName) != null =>
+        Bit(
+          timestamp = doc.getField(_keyField).numericValue().longValue(),
+          value = NSDbNumericType(doc.getField(_valueField).numericValue()),
+          dimensions = Map.empty,
+          tags = Map(doc.getField(groupTagName) match {
+            case f if f.numericValue() != null => f.name() -> NSDbType(f.numericValue())
+            case f                             => f.name() -> NSDbType(f.stringValue())
+          })
+        )
     }
   }
 
