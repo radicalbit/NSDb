@@ -310,4 +310,57 @@ class MinMaxIndexSpec extends FlatSpec with Matchers with OneInstancePerTest {
     minTag2 should contain(Bit(0, 0.1, Map.empty, Map("tag2" -> NSDbType(8L))))
     minTag2 should contain(Bit(0, 0.1, Map.empty, Map("tag2" -> NSDbType(9L))))
   }
+
+  "TimeSeriesIndex" should "properly discard records with null group key in min and max aggregations" in {
+    val timeSeriesIndex =
+      new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_first_last_index", UUID.randomUUID().toString)))
+
+    val writer = timeSeriesIndex.getWriter
+
+    (0 to 5).foreach { j =>
+      (0 to 10).foreach { i =>
+        val testData =
+          Bit(
+            timestamp = i * (j + 1),
+            value = i + 0.1,
+            dimensions = Map("dimension" -> s"dimension_$i"),
+            tags = Map("tag1"            -> NSDbType(s"tag_$j"), "tag2" -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
+          )
+        timeSeriesIndex.write(testData)(writer).get
+      }
+    }
+    (6 to 10).foreach { j =>
+      (0 to 10).foreach { i =>
+        val testData =
+          Bit(
+            timestamp = i * (j + 1),
+            value = i + 0.1,
+            dimensions = Map("dimension" -> s"dimension_$i"),
+            tags = Map("tag2"            -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
+          )
+        timeSeriesIndex.write(testData)(writer).get
+      }
+    }
+    writer.close()
+
+    val lastTag1 = timeSeriesIndex.getMaxGroupBy(new MatchAllDocsQuery, DecimalValueSchema, "tag1")
+    lastTag1.size shouldBe 6
+    lastTag1 should contain(Bit(10, 10.1, Map.empty, Map("tag1" -> NSDbType("tag_0"))))
+    lastTag1 should contain(Bit(20, 10.1, Map.empty, Map("tag1" -> NSDbType("tag_1"))))
+    lastTag1 should contain(Bit(30, 10.1, Map.empty, Map("tag1" -> NSDbType("tag_2"))))
+    lastTag1 should contain(Bit(40, 10.1, Map.empty, Map("tag1" -> NSDbType("tag_3"))))
+    lastTag1 should contain(Bit(50, 10.1, Map.empty, Map("tag1" -> NSDbType("tag_4"))))
+    lastTag1 should contain(Bit(60, 10.1, Map.empty, Map("tag1" -> NSDbType("tag_5"))))
+
+    val firstTag1 =
+      timeSeriesIndex.getMinGroupBy(new MatchAllDocsQuery, DecimalValueSchema, "tag1")
+    firstTag1.size shouldBe 6
+    firstTag1 should contain(Bit(0, 0.1, Map.empty, Map("tag1" -> NSDbType("tag_0"))))
+    firstTag1 should contain(Bit(0, 0.1, Map.empty, Map("tag1" -> NSDbType("tag_1"))))
+    firstTag1 should contain(Bit(0, 0.1, Map.empty, Map("tag1" -> NSDbType("tag_2"))))
+    firstTag1 should contain(Bit(0, 0.1, Map.empty, Map("tag1" -> NSDbType("tag_3"))))
+    firstTag1 should contain(Bit(0, 0.1, Map.empty, Map("tag1" -> NSDbType("tag_4"))))
+    firstTag1 should contain(Bit(0, 0.1, Map.empty, Map("tag1" -> NSDbType("tag_5"))))
+
+  }
 }

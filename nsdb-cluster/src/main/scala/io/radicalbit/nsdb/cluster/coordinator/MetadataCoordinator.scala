@@ -428,7 +428,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         val currentTime = System.currentTimeMillis()
         getMetricInfo(db, namespace, metric) { metricInfo =>
           val retention = metricInfo.retention
-          if (retention > 0 && timestamp < currentTime - retention || timestamp > currentTime + retention)
+          if (retention > 0 && (timestamp < currentTime - retention || timestamp > currentTime + retention))
             Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
           else {
             (metadataCache ? GetLocationsFromCache(db, namespace, metric))
