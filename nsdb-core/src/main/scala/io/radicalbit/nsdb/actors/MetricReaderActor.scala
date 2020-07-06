@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
-import io.radicalbit.nsdb.index.NumericType
+import io.radicalbit.nsdb.index.{BIGINT, NumericType}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc.{foldMapOfBit, internalAggregationProcessing, postProcessingTemporalQueryResult}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -340,7 +340,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
               if (isSingleNode) {
                 val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
-                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
                 val avg   = NSDbNumericType(sum / count)
                 Bit(
                   0L,
@@ -356,7 +356,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
                   Map(
                     groupField -> bits.flatMap(_.tags.get(groupField)).head,
                     "sum"      -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
-                    "count"    -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                    "count"    -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
                   )
                 )
               }

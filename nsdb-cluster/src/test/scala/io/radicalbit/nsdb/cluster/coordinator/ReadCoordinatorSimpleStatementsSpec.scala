@@ -150,7 +150,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
         val expected = probe.expectMsgType[MetricsGot]
 
         expected.namespace shouldBe namespace
-        expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name, AggregationMetric.name)
+        expected.metrics shouldBe Set(LongMetric.name, DoubleMetric.name, AggregationLongMetric.name, AggregationDoubleMetric.name)
 
       }
     }
