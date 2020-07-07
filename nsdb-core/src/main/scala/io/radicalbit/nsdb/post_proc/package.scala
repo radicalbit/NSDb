@@ -48,7 +48,7 @@ package object post_proc {
       case Some(_: InternalTemporalAggregation) =>
         val temporalSortedResults = chainedResults.sortBy(_.timestamp)
         statement.limit.map(_.value).map(v => temporalSortedResults.takeRight(v)) getOrElse temporalSortedResults
-      case Some(InternalCountSimpleAggregation(_, _)) if statement.order.exists(_.dimension == "value") =>
+      case Some(InternalCountStandardAggregation(_, _)) if statement.order.exists(_.dimension == "value") =>
         implicit val ord: Ordering[Any] =
           (if (statement.order.get.isInstanceOf[DescOrderOperator]) Ordering[Long].reverse
            else Ordering[Long]).asInstanceOf[Ordering[Any]]
@@ -164,27 +164,27 @@ package object post_proc {
 
   def internalAggregationProcessing(bits: Seq[Bit],
                                     schema: Schema,
-                                    aggregationType: InternalSimpleAggregationType): Bit = {
+                                    aggregationType: InternalStandardAggregation): Bit = {
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
     aggregationType match {
-      case _: InternalMaxSimpleAggregation =>
+      case _: InternalMaxStandardAggregation =>
         Bit(0,
             NSDbNumericType(bits.map(_.value.rawValue).max),
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
-      case _: InternalMinSimpleAggregation =>
+      case _: InternalMinStandardAggregation =>
         Bit(0,
             NSDbNumericType(bits.map(_.value.rawValue).min),
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
-      case _: InternalSumSimpleAggregation =>
+      case _: InternalSumStandardAggregation =>
         Bit(0,
             NSDbNumericType(bits.map(_.value.rawValue).sum),
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
-      case _: InternalFirstSimpleAggregation => bits.minBy(_.timestamp)
-      case _: InternalLastSimpleAggregation  => bits.maxBy(_.timestamp)
+      case _: InternalFirstStandardAggregation => bits.minBy(_.timestamp)
+      case _: InternalLastStandardAggregation  => bits.maxBy(_.timestamp)
     }
   }
 

@@ -238,7 +238,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   )
                 }.map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedAggregatedQuery(_, _, _, agg: InternalCountSimpleAggregation, _, _)) =>
+              case Right(ParsedAggregatedQuery(_, _, _, agg: InternalCountStandardAggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
                   bits =>
                     Bit(
@@ -249,7 +249,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     )
                 }.map(limitAndOrder(_, statement, schema, Some(agg)))
 
-              case Right(ParsedAggregatedQuery(_, _, _, InternalAvgSimpleAggregation(groupField, _), _, _)) =>
+              case Right(ParsedAggregatedQuery(_, _, _, InternalAvgStandardAggregation(groupField, _), _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
                   bits =>
                     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]

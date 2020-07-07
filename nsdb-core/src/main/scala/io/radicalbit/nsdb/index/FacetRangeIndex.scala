@@ -35,7 +35,7 @@ class FacetRangeIndex {
 
   protected[index] def executeRangeFacet(searcher: IndexSearcher,
                                          query: Query,
-                                         aggregationType: InternalTemporalAggregation,
+                                         aggregationType: InternalTemporalSingleAggregation,
                                          rangeFieldName: String,
                                          valueFieldName: String,
                                          valueFieldType: Option[IndexType[_]],
@@ -59,9 +59,6 @@ class FacetRangeIndex {
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
       case (InternalMinTemporalAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
-      case (InternalAvgTemporalAggregation, _) =>
-        // TODO: to implement
-        throw new RuntimeException("Not implemented yet.")
     }
     toRecord(valueFieldType) {
       facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.collect {
