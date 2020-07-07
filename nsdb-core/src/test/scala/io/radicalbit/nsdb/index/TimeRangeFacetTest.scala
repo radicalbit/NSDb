@@ -68,159 +68,159 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
     }
-  }
 
-  "supports facet range query on timestamp with where condition on value" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+    "supports facet range query on timestamp with where condition on value" in {
+      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    val records: Seq[Bit] = (0 to 30).map { i =>
-      Bit(timestamp = i.toLong,
-          value = i.toLong,
-          dimensions = Map("dimension" -> s"dimension_${i / 4}"),
-          tags = Map("tag"             -> s"tag_${i / 4}"))
+      val records: Seq[Bit] = (0 to 30).map { i =>
+        Bit(timestamp = i.toLong,
+            value = i.toLong,
+            dimensions = Map("dimension" -> s"dimension_${i / 4}"),
+            tags = Map("tag"             -> s"tag_${i / 4}"))
+      }
+
+      implicit val writer = timeSeriesIndex.getWriter
+      records.foreach(timeSeriesIndex.write)
+      writer.close()
+
+      val ranges: Seq[TimeRange] = Seq(
+        TimeRange(0L, 10L, true, false),
+        TimeRange(10L, 20L, true, false),
+        TimeRange(20L, 30L, true, false)
+      )
+
+      val searcher        = timeSeriesIndex.getSearcher
+      val query           = LongPoint.newRangeQuery("value", 10, Long.MaxValue)
+      val facetRangeIndex = new FacetRangeIndex
+
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        InternalCountTemporalAggregation,
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
+        Bit(0, NSDbLongType(0), Map("lowerBound"   -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+      )
     }
 
-    implicit val writer = timeSeriesIndex.getWriter
-    records.foreach(timeSeriesIndex.write)
-    writer.close()
+    "supports facet range query on timestamp with where condition on string dimension" in {
+      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    val ranges: Seq[TimeRange] = Seq(
-      TimeRange(0L, 10L, true, false),
-      TimeRange(10L, 20L, true, false),
-      TimeRange(20L, 30L, true, false)
-    )
+      val records: Seq[Bit] = (0 to 30).map { i =>
+        Bit(timestamp = i.toLong,
+            value = i.toLong,
+            dimensions = Map("dimension" -> s"dimension_${i / 10}"),
+            tags = Map("tag"             -> s"tag_${i / 10}"))
+      }
 
-    val searcher        = timeSeriesIndex.getSearcher
-    val query           = LongPoint.newRangeQuery("value", 10, Long.MaxValue)
-    val facetRangeIndex = new FacetRangeIndex
+      implicit val writer = timeSeriesIndex.getWriter
+      records.foreach(timeSeriesIndex.write)
+      writer.close()
 
-    facetRangeIndex.executeRangeFacet(searcher,
-                                      query,
-                                      InternalCountTemporalAggregation,
-                                      "timestamp",
-                                      "value",
-                                      Some(BIGINT()),
-                                      ranges) shouldBe Seq(
-      Bit(0, NSDbLongType(0), Map("lowerBound"   -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
-      Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-      Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
-    )
-  }
+      val ranges: Seq[TimeRange] = Seq(
+        TimeRange(0L, 10L, true, false),
+        TimeRange(10L, 20L, true, false),
+        TimeRange(20L, 30L, true, false)
+      )
 
-  "supports facet range query on timestamp with where condition on string dimension" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+      val searcher        = timeSeriesIndex.getSearcher
+      val query           = new TermQuery(new Term("dimension", "dimension_0"))
+      val facetRangeIndex = new FacetRangeIndex
 
-    val records: Seq[Bit] = (0 to 30).map { i =>
-      Bit(timestamp = i.toLong,
-          value = i.toLong,
-          dimensions = Map("dimension" -> s"dimension_${i / 10}"),
-          tags = Map("tag"             -> s"tag_${i / 10}"))
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        InternalCountTemporalAggregation,
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
+        Bit(0, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(10, NSDbLongType(0), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(20, NSDbLongType(0), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+      )
+
     }
 
-    implicit val writer = timeSeriesIndex.getWriter
-    records.foreach(timeSeriesIndex.write)
-    writer.close()
+    "supports facet range query on timestamp with where condition on string tag" in {
+      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    val ranges: Seq[TimeRange] = Seq(
-      TimeRange(0L, 10L, true, false),
-      TimeRange(10L, 20L, true, false),
-      TimeRange(20L, 30L, true, false)
-    )
+      val records: Seq[Bit] = (0 to 30).map { i =>
+        Bit(timestamp = i.toLong,
+            value = i.toLong,
+            dimensions = Map("dimension" -> s"dimension_${i / 10}"),
+            tags = Map("tag"             -> s"tag_${i / 10}"))
+      }
 
-    val searcher        = timeSeriesIndex.getSearcher
-    val query           = new TermQuery(new Term("dimension", "dimension_0"))
-    val facetRangeIndex = new FacetRangeIndex
+      implicit val writer = timeSeriesIndex.getWriter
+      records.foreach(timeSeriesIndex.write)
+      writer.close()
 
-    facetRangeIndex.executeRangeFacet(searcher,
-                                      query,
-                                      InternalCountTemporalAggregation,
-                                      "timestamp",
-                                      "value",
-                                      Some(BIGINT()),
-                                      ranges) shouldBe Seq(
-      Bit(0, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
-      Bit(10, NSDbLongType(0), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-      Bit(20, NSDbLongType(0), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
-    )
+      val ranges: Seq[TimeRange] = Seq(
+        TimeRange(0L, 10L, true, false),
+        TimeRange(10L, 20L, true, false),
+        TimeRange(20L, 30L, true, false)
+      )
 
-  }
+      val searcher        = timeSeriesIndex.getSearcher
+      val query           = new TermQuery(new Term("tag", "tag_1"))
+      val facetRangeIndex = new FacetRangeIndex
 
-  "supports facet range query on timestamp with where condition on string tag" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
-    val records: Seq[Bit] = (0 to 30).map { i =>
-      Bit(timestamp = i.toLong,
-          value = i.toLong,
-          dimensions = Map("dimension" -> s"dimension_${i / 10}"),
-          tags = Map("tag"             -> s"tag_${i / 10}"))
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        InternalCountTemporalAggregation,
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
+        Bit(0, NSDbLongType(0), Map("lowerBound"   -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(20, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+      )
     }
 
-    implicit val writer = timeSeriesIndex.getWriter
-    records.foreach(timeSeriesIndex.write)
-    writer.close()
+    "supports temporal facet aggregation query on timestamp with range on timestamp" in {
+      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
 
-    val ranges: Seq[TimeRange] = Seq(
-      TimeRange(0L, 10L, true, false),
-      TimeRange(10L, 20L, true, false),
-      TimeRange(20L, 30L, true, false)
-    )
+      val records: Seq[Bit] = (0 to 50).map { i =>
+        Bit(timestamp = i.toLong,
+            value = i.toLong,
+            dimensions = Map("dimension" -> s"dimension_${i / 10}"),
+            tags = Map("tag"             -> s"tag_${i / 10}"))
+      }
 
-    val searcher        = timeSeriesIndex.getSearcher
-    val query           = new TermQuery(new Term("tag", "tag_1"))
-    val facetRangeIndex = new FacetRangeIndex
+      implicit val writer = timeSeriesIndex.getWriter
+      records.foreach(timeSeriesIndex.write)
+      writer.close()
 
-    facetRangeIndex.executeRangeFacet(searcher,
-                                      query,
-                                      InternalCountTemporalAggregation,
-                                      "timestamp",
-                                      "value",
-                                      Some(BIGINT()),
-                                      ranges) shouldBe Seq(
-      Bit(0, NSDbLongType(0), Map("lowerBound"   -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
-      Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-      Bit(20, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
-    )
-  }
+      val ranges: Seq[TimeRange] = Seq(
+        TimeRange(0L, 10L, true, false),
+        TimeRange(10L, 20L, true, false),
+        TimeRange(20L, 30L, true, false),
+        TimeRange(30L, 40L, true, false),
+        TimeRange(40L, 50L, true, false)
+      )
 
-  "supports temporal facet aggregation query on timestamp with range on timestamp" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
+      val searcher        = timeSeriesIndex.getSearcher
+      val query           = LongPoint.newRangeQuery("timestamp", 0, 20)
+      val facetRangeIndex = new FacetRangeIndex
 
-    val records: Seq[Bit] = (0 to 50).map { i =>
-      Bit(timestamp = i.toLong,
-          value = i.toLong,
-          dimensions = Map("dimension" -> s"dimension_${i / 10}"),
-          tags = Map("tag"             -> s"tag_${i / 10}"))
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        InternalCountTemporalAggregation,
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
+        Bit(0, NSDbLongType(10), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(20, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map()),
+        Bit(30, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(30), "upperBound" -> NSDbLongType(40)), Map()),
+        Bit(40, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(40), "upperBound" -> NSDbLongType(50)), Map())
+      )
     }
-
-    implicit val writer = timeSeriesIndex.getWriter
-    records.foreach(timeSeriesIndex.write)
-    writer.close()
-
-    val ranges: Seq[TimeRange] = Seq(
-      TimeRange(0L, 10L, true, false),
-      TimeRange(10L, 20L, true, false),
-      TimeRange(20L, 30L, true, false),
-      TimeRange(30L, 40L, true, false),
-      TimeRange(40L, 50L, true, false)
-    )
-
-    val searcher        = timeSeriesIndex.getSearcher
-    val query           = LongPoint.newRangeQuery("timestamp", 0, 20)
-    val facetRangeIndex = new FacetRangeIndex
-
-    facetRangeIndex.executeRangeFacet(searcher,
-                                      query,
-                                      InternalCountTemporalAggregation,
-                                      "timestamp",
-                                      "value",
-                                      Some(BIGINT()),
-                                      ranges) shouldBe Seq(
-      Bit(0, NSDbLongType(10), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
-      Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-      Bit(20, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map()),
-      Bit(30, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(30), "upperBound" -> NSDbLongType(40)), Map()),
-      Bit(40, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(40), "upperBound" -> NSDbLongType(50)), Map())
-    )
   }
 
 }

@@ -21,10 +21,10 @@ import java.nio.file.Paths
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.{Location, TimeRange}
-import io.radicalbit.nsdb.statement.StatementParser.{InternalTemporalAggregation, InternalTemporalSingleAggregation}
+import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.index._
 import org.apache.lucene.search.{IndexSearcher, Query, Sort}
 import org.apache.lucene.util.InfoStream
 
@@ -84,8 +84,38 @@ class AllFacetIndexes(basePath: String,
           valueFieldType,
           ranges
         )
+      case InternalAvgTemporalAggregation =>
+        val sum = facetRangeIndex.executeRangeFacet(
+          searcher,
+          query,
+          InternalSumTemporalAggregation,
+          rangeFieldName,
+          valueFieldName,
+          valueFieldType,
+          ranges
+        )
+
+        val countMap = facetRangeIndex
+          .executeRangeFacet(
+            searcher,
+            query,
+            InternalCountTemporalAggregation,
+            rangeFieldName,
+            valueFieldName,
+            valueFieldType,
+            ranges
+          )
+          .groupBy(_.timestamp)
+
+        sum.map { sumBit =>
+          countMap
+            .get(sumBit.timestamp)
+            .flatMap(_.headOption)
+            .fold(sumBit)(countBit =>
+              sumBit.copy(value = 0.0, tags = Map("count" -> countBit.value, "sum" -> sumBit.value)))
+        }
+
       case _ =>
-        // TODO: to implement
         throw new RuntimeException("Not implemented yet.")
     }
 
