@@ -328,7 +328,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             actorsForLocations(locations)
 
           gatherShardResults(statement, actors, msg)(
-            postProcessingTemporalQueryResult(schema, statement, aggregationType)).pipeTo(sender)
+            postProcessingTemporalQueryResult(schema, statement, aggregationType, isSingleNode)).pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)
         case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")

@@ -125,36 +125,56 @@ package object post_proc {
   def postProcessingTemporalQueryResult(
       schema: Schema,
       statement: SelectSQLStatement,
-      aggregation: InternalTemporalAggregation)(implicit ec: ExecutionContext): Seq[Bit] => Seq[Bit] = { res =>
+      aggregation: InternalTemporalAggregation,
+      finalStep: Boolean = true)(implicit ec: ExecutionContext): Seq[Bit] => Seq[Bit] = { res =>
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
     val chainedResult =
       res
         .groupBy(_.timestamp)
-        .mapValues { bits =>
-          val dimensions = foldMapOfBit(bits, bit => bit.dimensions)
-          val tags       = foldMapOfBit(bits, bit => bit.tags)
-          aggregation match {
-            case InternalCountTemporalAggregation =>
-              Bit(bits.head.timestamp,
-                  NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                  dimensions,
-                  tags)
-            case InternalSumTemporalAggregation =>
-              Bit(bits.head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).sum), dimensions, tags)
-            case InternalMaxTemporalAggregation =>
-              Bit(bits.head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).max), dimensions, tags)
-            case InternalMinTemporalAggregation =>
-              val nonZeroValues: Seq[Any] =
-                bits.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
-              Bit(bits.head.timestamp,
-                  NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
-                  dimensions,
-                  tags)
-            case InternalAvgTemporalAggregation =>
-              // TODO: to implement
-              throw new RuntimeException("Not implemented yet.")
-          }
+        .mapValues {
+          case bits @ head :: _ =>
+            val dimensions = foldMapOfBit(bits, bit => bit.dimensions)
+            val tags       = foldMapOfBit(bits, bit => bit.tags)
+            aggregation match {
+              case InternalCountTemporalAggregation =>
+                Bit(head.timestamp,
+                    NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                    dimensions,
+                    tags)
+              case InternalSumTemporalAggregation =>
+                Bit(head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).sum), dimensions, tags)
+              case InternalMaxTemporalAggregation =>
+                Bit(head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).max), dimensions, tags)
+              case InternalMinTemporalAggregation =>
+                val nonZeroValues: Seq[Any] =
+                  bits.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
+                Bit(head.timestamp,
+                    NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
+                    dimensions,
+                    tags)
+              case InternalAvgTemporalAggregation if finalStep =>
+                val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
+                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+                val avg   = if (count.rawValue == 0) NSDbNumericType(0.0) else  NSDbNumericType(sum / count)
+                Bit(
+                  head.timestamp,
+                  avg,
+                  head.dimensions,
+                  Map.empty[String, NSDbType]
+                )
+              case InternalAvgTemporalAggregation =>
+                Bit(
+                  head.timestamp,
+                  0.0,
+                  head.dimensions,
+                  Map(
+                    "sum"   -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
+                    "count" -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+                  )
+                )
+
+            }
         }
         .values
         .toSeq
