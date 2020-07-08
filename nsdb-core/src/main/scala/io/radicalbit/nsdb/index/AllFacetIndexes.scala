@@ -114,9 +114,6 @@ class AllFacetIndexes(basePath: String,
             .fold(sumBit)(countBit =>
               sumBit.copy(value = 0.0, tags = Map("count" -> countBit.value, "sum" -> sumBit.value)))
         }
-
-      case _ =>
-        throw new RuntimeException("Not implemented yet.")
     }
 
   def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] =
