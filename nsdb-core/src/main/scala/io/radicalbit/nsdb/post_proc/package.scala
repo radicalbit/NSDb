@@ -155,8 +155,8 @@ package object post_proc {
                     tags)
               case InternalAvgTemporalAggregation if finalStep =>
                 val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
-                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
-                val avg   = if (count.rawValue == 0) NSDbNumericType(0.0) else  NSDbNumericType(sum / count)
+                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                val avg   = if (count.rawValue == 0) NSDbNumericType(0.0) else NSDbNumericType(sum / count)
                 Bit(
                   head.timestamp,
                   avg,
