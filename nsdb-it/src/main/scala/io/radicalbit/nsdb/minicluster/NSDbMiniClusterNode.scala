@@ -22,6 +22,7 @@ import io.radicalbit.nsdb.cluster.NSDbActors
 
 class NSDbMiniClusterNode(val hostname: String,
                           val storageDir: String,
+                          val shardInterval: Duration,
                           val passivateAfter: Duration = Duration.ofHours(1),
                           val replicationFactor: Int)
     extends NSDBAkkaMiniCluster
