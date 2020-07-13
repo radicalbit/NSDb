@@ -29,15 +29,15 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   Logger.getLogger("io.grpc.internal").setLevel(Level.OFF)
 
-  val nodesNumber: Int = 3
-  val replicationFactor: Int = 2
-  val rootFolder: String = s"target/minicluster/$instanceId"
+  override val nodesNumber: Int = 3
+  override val replicationFactor: Int = 2
+  override val rootFolder: String = s"target/minicluster/$instanceId"
+  override val shardInterval: Duration = Duration.ofMillis(5)
+  override val passivateAfter: Duration = Duration.ofHours(1)
 
   implicit val formats = DefaultFormats
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(20, Seconds))
-
-  def passivateAfter: Duration = Duration.ofHours(1)
 
   override def beforeAll(): Unit = {
     start(true)

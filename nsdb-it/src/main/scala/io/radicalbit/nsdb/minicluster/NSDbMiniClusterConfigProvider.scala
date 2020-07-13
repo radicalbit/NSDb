@@ -25,6 +25,7 @@ trait NSDbMiniClusterConfigProvider extends NSDbConfigProvider {
 
   def hostname: String
   def storageDir: String
+  def shardInterval: Duration
   def passivateAfter: Duration
   def replicationFactor: Int
 
@@ -35,6 +36,7 @@ trait NSDbMiniClusterConfigProvider extends NSDbConfigProvider {
       .withValue("nsdb.grpc.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.http.interface", ConfigValueFactory.fromAnyRef(hostname))
       .withValue("nsdb.storage.base-path", ConfigValueFactory.fromAnyRef(storageDir))
+      .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef(shardInterval))
       .withValue("nsdb.cluster.replication-factor", ConfigValueFactory.fromAnyRef(replicationFactor))
       .resolve()
 

@@ -169,7 +169,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -177,8 +177,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -239,8 +238,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -269,8 +268,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -328,7 +327,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -336,8 +335,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -399,14 +397,13 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 5
+        expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
           Bit(60000, 1L, Map("lowerBound"  -> 60000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -528,7 +525,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -536,8 +533,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -596,7 +592,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -604,8 +600,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -664,7 +659,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -672,8 +667,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -732,7 +726,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -740,8 +734,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -800,7 +793,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0L, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -808,8 +801,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000L, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000L, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000L, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000L, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000L, 0L, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000L, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -868,7 +860,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -876,8 +868,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }

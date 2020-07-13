@@ -31,6 +31,7 @@ trait NsdbMiniCluster extends LazyLogging {
 
   protected[this] def rootFolder: String
   protected[this] def nodesNumber: Int
+  protected[this] def shardInterval: Duration
   protected[this] def passivateAfter: Duration
   protected[this] def replicationFactor: Int
 
@@ -41,6 +42,7 @@ trait NsdbMiniCluster extends LazyLogging {
       new NSDbMiniClusterNode(
         hostname = s"$startingHostname${i + 1}",
         storageDir = s"$rootFolder/data$i",
+        shardInterval = shardInterval,
         passivateAfter = passivateAfter,
         replicationFactor = replicationFactor
       )).toSet
