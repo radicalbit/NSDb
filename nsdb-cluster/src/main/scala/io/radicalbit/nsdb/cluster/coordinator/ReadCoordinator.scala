@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.index.NumericType
+import io.radicalbit.nsdb.index.{BIGINT, NumericType}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -256,7 +256,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     implicit val numeric: Numeric[Any] = v.numeric
 
                     val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
-                    val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                    val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
                     val avg   = NSDbNumericType(sum / count)
                     Bit(
                       timestamp = 0L,

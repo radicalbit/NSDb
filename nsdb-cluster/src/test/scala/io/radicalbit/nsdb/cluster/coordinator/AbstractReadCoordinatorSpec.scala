@@ -70,9 +70,9 @@ object DoubleMetric {
   val testRecords = recordsShard1 ++ recordsShard2
 }
 
-object AggregationMetric {
+object AggregationLongMetric {
 
-  val name = "aggregationMetric"
+  val name = "aggregationLongMetric"
 
   val recordsShard1: Seq[Bit] = Seq(
     Bit(2L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
@@ -83,6 +83,24 @@ object AggregationMetric {
     Bit(6L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
     Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
     Bit(10L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+  )
+
+  val testRecords = recordsShard1 ++ recordsShard2
+}
+
+object AggregationDoubleMetric {
+
+  val name = "aggregationDoubleMetric"
+
+  val recordsShard1: Seq[Bit] = Seq(
+    Bit(2L, 2.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
+    Bit(4L, 3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
+  )
+
+  val recordsShard2: Seq[Bit] = Seq(
+    Bit(6L, 5.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+    Bit(8L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+    Bit(10L, 4.0, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
   )
 
   val testRecords = recordsShard1 ++ recordsShard2
@@ -172,30 +190,61 @@ abstract class AbstractReadCoordinatorSpec
       Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(DoubleMetric.name)), 10 seconds)
     })
 
-    //aggregation metric
+    //aggregation long metric
     Await.result(
       metricsDataActor ? DropMetricWithLocations(db,
                                                  namespace,
-                                                 AggregationMetric.name,
-                                                 Seq(location1(AggregationMetric.name),
-                                                     location2(AggregationMetric.name))),
+                                                 AggregationLongMetric.name,
+                                                 Seq(location1(AggregationLongMetric.name),
+                                                     location2(AggregationLongMetric.name))),
       10 seconds
     )
 
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
                                                             namespace,
-                                                            AggregationMetric.name,
-                                                            AggregationMetric.testRecords.head),
+                                                            AggregationLongMetric.name,
+                                                            AggregationLongMetric.testRecords.head),
                  10 seconds)
 
-    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(AggregationMetric.name))), 10 seconds)
-    AggregationMetric.recordsShard1.foreach(r => {
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationMetric.name)),
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(AggregationLongMetric.name))),
+                 10 seconds)
+    AggregationLongMetric.recordsShard1.foreach(r => {
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationLongMetric.name)),
                    10 seconds)
     })
-    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(AggregationMetric.name))), 10 seconds)
-    AggregationMetric.recordsShard2.foreach(r => {
-      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationMetric.name)),
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(AggregationLongMetric.name))),
+                 10 seconds)
+    AggregationLongMetric.recordsShard2.foreach(r => {
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationLongMetric.name)),
+                   10 seconds)
+    })
+
+    //aggregation double metric
+    Await.result(
+      metricsDataActor ? DropMetricWithLocations(db,
+                                                 namespace,
+                                                 AggregationDoubleMetric.name,
+                                                 Seq(location1(AggregationDoubleMetric.name),
+                                                     location2(AggregationDoubleMetric.name))),
+      10 seconds
+    )
+
+    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
+                                                            namespace,
+                                                            AggregationDoubleMetric.name,
+                                                            AggregationDoubleMetric.testRecords.head),
+                 10 seconds)
+
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(AggregationDoubleMetric.name))),
+                 10 seconds)
+    AggregationDoubleMetric.recordsShard1.foreach(r => {
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(AggregationDoubleMetric.name)),
+                   10 seconds)
+    })
+    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(AggregationDoubleMetric.name))),
+                 10 seconds)
+    AggregationDoubleMetric.recordsShard2.foreach(r => {
+      Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(AggregationDoubleMetric.name)),
                    10 seconds)
     })
 

@@ -321,7 +321,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             SelectSQLStatement(
               db = db,
               namespace = namespace,
-              metric = AggregationMetric.name,
+              metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
               groupBy = Some(SimpleGroupByAggregation("age")),
@@ -342,7 +342,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             SelectSQLStatement(
               db = db,
               namespace = namespace,
-              metric = AggregationMetric.name,
+              metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("value", Some(SumAggregation)))),
               groupBy = Some(SimpleGroupByAggregation("age")),
@@ -368,7 +368,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             SelectSQLStatement(
               db = db,
               namespace = namespace,
-              metric = AggregationMetric.name,
+              metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
               groupBy = Some(SimpleGroupByAggregation("height")),
@@ -394,7 +394,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(SumAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -419,7 +419,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(FirstAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -444,7 +444,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(LastAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -468,7 +468,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -492,7 +492,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(MinAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -517,7 +517,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(MaxAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -541,7 +541,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(MinAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),
@@ -558,14 +558,39 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
       )
     }
-    "execute it successfully with avg aggregation" in within(5.seconds) {
+    "execute it successfully with avg aggregation on a long value metric" in within(5.seconds) {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
           SelectSQLStatement(
             db = db,
             namespace = namespace,
-            metric = AggregationMetric.name,
+            metric = AggregationLongMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+            groupBy = Some(SimpleGroupByAggregation("height")),
+            order = Some(AscOrderOperator("height")),
+            limit = None
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0L, 2.5, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 5.0, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 2.5, Map.empty, Map("height" -> 32.0))
+      )
+    }
+    "execute it successfully with avg aggregation on a double value metric" in within(5.seconds) {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = AggregationDoubleMetric.name,
             distinct = false,
             fields = ListFields(List(Field("value", Some(AvgAggregation)))),
             groupBy = Some(SimpleGroupByAggregation("height")),

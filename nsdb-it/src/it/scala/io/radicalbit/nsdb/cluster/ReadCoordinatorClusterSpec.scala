@@ -55,9 +55,9 @@ object DoubleMetric {
 
 }
 
-object AggregationMetric {
+object AggregationLongMetric {
 
-  val name = "aggregationMetric"
+  val name = "aggregationLongMetric"
 
   val testRecords: List[Bit] = List(
     Bit(1L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
@@ -66,6 +66,21 @@ object AggregationMetric {
     Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
     Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
     Bit(10L, 2L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+  )
+
+}
+
+object AggregationDoubleMetric {
+
+  val name = "aggregationDoubleMetric"
+
+  val testRecords: List[Bit] = List(
+    Bit(1L, 2.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(4L, 4.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
+    Bit(2L, 3.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
+    Bit(6L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+    Bit(8L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+    Bit(10L, 2.0, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
   )
 
 }
@@ -100,7 +115,13 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       }
     }
 
-    AggregationMetric.testRecords.map(_.asApiBit(db, namespace, AggregationMetric.name)).foreach { bit =>
+    AggregationLongMetric.testRecords.map(_.asApiBit(db, namespace, AggregationLongMetric.name)).foreach { bit =>
+      eventually {
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+      }
+    }
+
+    AggregationDoubleMetric.testRecords.map(_.asApiBit(db, namespace, AggregationDoubleMetric.name)).foreach { bit =>
       eventually {
         assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
       }
@@ -741,7 +762,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select count(value) from ${AggregationMetric.name} group by age order by value")
+        .query(s"select count(value) from ${AggregationLongMetric.name} group by age order by value")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
@@ -758,7 +779,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select sum(value) from ${AggregationMetric.name} group by age order by age")
+        .query(s"select sum(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
@@ -778,7 +799,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val maxQuery = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select max(value) from ${AggregationMetric.name} group by age order by age")
+        .query(s"select max(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val maxResponse = Await.result(nsdb.execute(maxQuery), 10.seconds)
 
@@ -792,7 +813,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val minQuery = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select min(value) from ${AggregationMetric.name} group by age order by age")
+        .query(s"select min(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val minResponse = Await.result(nsdb.execute(minQuery), 10.seconds)
 
@@ -812,7 +833,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val firstQuery = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select first(value) from ${AggregationMetric.name} group by age order by age")
+        .query(s"select first(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val firstResponse = Await.result(nsdb.execute(firstQuery), 10.seconds)
 
@@ -826,7 +847,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val lastQuery = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select last(value) from ${AggregationMetric.name} group by age order by age")
+        .query(s"select last(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val lastResponse = Await.result(nsdb.execute(lastQuery), 10.seconds)
 
@@ -846,7 +867,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select count(value) from ${AggregationMetric.name} group by height order by value desc")
+        .query(s"select count(value) from ${AggregationLongMetric.name} group by height order by value desc")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
@@ -866,7 +887,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select sum(value) from ${AggregationMetric.name} group by height order by height")
+        .query(s"select sum(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
@@ -887,7 +908,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val maxRequest = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select max(value) from ${AggregationMetric.name} group by height order by height")
+        .query(s"select max(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val maxResponse = Await.result(nsdb.execute(maxRequest), 10.seconds)
 
@@ -901,7 +922,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val minRequest = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select min(value) from ${AggregationMetric.name} group by height order by height")
+        .query(s"select min(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val minResponse = Await.result(nsdb.execute(minRequest), 10.seconds)
 
@@ -922,7 +943,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val firstRequest = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select first(value) from ${AggregationMetric.name} group by height order by height")
+        .query(s"select first(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val firstResponse = Await.result(nsdb.execute(firstRequest), 10.seconds)
 
@@ -936,7 +957,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val lastRequest = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select last(value) from ${AggregationMetric.name} group by height order by height")
+        .query(s"select last(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val lastResponse = Await.result(nsdb.execute(lastRequest), 10.seconds)
 
@@ -949,7 +970,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     }
   }
 
-  test("receive a select containing a group by on double, long and string dimension with avg aggregation") {
+  test("receive a select containing a group by on double, long and string dimension with avg aggregation on a long value metric") {
     nodes.foreach { n =>
       val nsdb =
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
@@ -957,7 +978,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val avgDoubleRequest = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select avg(*) from ${AggregationMetric.name} group by height order by height")
+        .query(s"select avg(*) from ${AggregationLongMetric.name} group by height order by height")
 
       val firstResponse = Await.result(nsdb.execute(avgDoubleRequest), 10.seconds)
 
@@ -971,7 +992,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val avgLongRequest = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select avg(value) from ${AggregationMetric.name} group by age order by age")
+        .query(s"select avg(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val lastResponse = Await.result(nsdb.execute(avgLongRequest), 10.seconds)
 
@@ -984,16 +1005,65 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select avg(value) from ${LongMetric.name} where timestamp >= 3 group by name order by name")
+        .query(s"select avg(value) from ${AggregationLongMetric.name} where timestamp >= 3 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
       assert(
         readRes.records.map(_.asBit) == Seq(
-          Bit(0L, 4.0, Map.empty, Map("name" -> "Bill")),
-          Bit(0L, 5.0, Map.empty, Map("name" -> "Frank")),
-          Bit(0L, 6.0, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 3.0, Map.empty, Map("name" -> "J"))
+          Bit(0L, 1.0, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 1.0, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 2.0, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 4.0, Map.empty, Map("name" -> "John"))
+        ))
+    }
+  }
+
+  test("receive a select containing a group by on double, long and string dimension with avg aggregation on a double value metric") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val avgDoubleRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(*) from ${AggregationDoubleMetric.name} group by height order by height")
+
+      val firstResponse = Await.result(nsdb.execute(avgDoubleRequest), 10.seconds)
+
+      assert(
+        firstResponse.records.map(_.asBit) == Seq(
+          Bit(0L, 3.0, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 1.0, Map.empty, Map("height" -> 31.0)),
+          Bit(0L, 1.5, Map.empty, Map("height" -> 32.0))
+        ))
+
+      val avgLongRequest = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(value) from ${AggregationDoubleMetric.name} group by age order by age")
+
+      val lastResponse = Await.result(nsdb.execute(avgLongRequest), 10.seconds)
+
+      assert(
+        lastResponse.records.map(_.asBit) == Seq(
+          Bit(0L, 1.8, Map.empty, Map("age" -> 15L)),
+          Bit(0L, 4.0, Map.empty, Map("age" -> 20L))
+        ))
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(value) from ${AggregationDoubleMetric.name} where timestamp >= 3 group by name order by name")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 1.0, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 1.0, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 2.0, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 4.0, Map.empty, Map("name" -> "John"))
         ))
     }
   }
