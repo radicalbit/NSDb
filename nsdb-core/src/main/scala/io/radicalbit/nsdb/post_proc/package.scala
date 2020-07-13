@@ -133,7 +133,7 @@ package object post_proc {
       res
         .groupBy(_.timestamp)
         .mapValues {
-          case bits @ head :: _ =>
+          case bits @ head +: _ =>
             val dimensions = foldMapOfBit(bits, bit => bit.dimensions)
             val tags       = foldMapOfBit(bits, bit => bit.tags)
             aggregation match {
@@ -170,7 +170,7 @@ package object post_proc {
                   head.dimensions,
                   Map(
                     "sum"   -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
-                    "count" -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+                    "count" -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
                   )
                 )
 
