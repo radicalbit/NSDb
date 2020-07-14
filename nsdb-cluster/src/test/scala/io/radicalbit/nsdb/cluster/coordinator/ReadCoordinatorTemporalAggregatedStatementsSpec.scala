@@ -926,7 +926,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1.0, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -934,8 +934,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7.0, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5.0, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -994,7 +993,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 7
+        expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
           Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
@@ -1002,8 +1001,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
           Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map()),
-          Bit(160000, 0.0, Map("lowerBound" -> 160000L, "upperBound" -> 190000L), Map())
+          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
