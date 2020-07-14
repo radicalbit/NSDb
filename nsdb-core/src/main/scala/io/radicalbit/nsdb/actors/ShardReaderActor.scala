@@ -85,10 +85,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
             Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None, limit)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalCountSimpleAggregation(groupField, _), _, limit)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalCountStandardAggregation(groupField, _), _, limit)) =>
           handleNoIndexResults(
             Try(facetIndexes.executeCountFacet(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalSumSimpleAggregation(groupField, _), _, limit)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalSumStandardAggregation(groupField, _), _, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.executeSumFacet(q,
@@ -97,7 +97,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                            limit,
                                            schema.fieldsMap(groupField).indexType,
                                            schema.value.indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalAvgSimpleAggregation(groupField, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalAvgStandardAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.executeSumAndCountFacet(q,
@@ -106,13 +106,13 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                                    None,
                                                    schema.fieldsMap(groupField).indexType,
                                                    schema.value.indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalFirstSimpleAggregation(groupField, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalFirstStandardAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalLastSimpleAggregation(groupField, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalLastStandardAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getLastGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalMaxSimpleAggregation(groupField, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalMaxStandardAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getMaxGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalMinSimpleAggregation(groupField, _), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalMinStandardAggregation(groupField, _), _, _)) =>
           handleNoIndexResults(Try(index.getMinGroupBy(q, schema, groupField)))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
           handleNoIndexResults(

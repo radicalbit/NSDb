@@ -21,10 +21,10 @@ import java.nio.file.Paths
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.{Location, TimeRange}
-import io.radicalbit.nsdb.statement.StatementParser.InternalTemporalAggregation
+import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter
-import org.apache.lucene.index.{IndexNotFoundException, IndexWriter, IndexWriterConfig, SimpleMergedSegmentWarmer}
+import org.apache.lucene.index._
 import org.apache.lucene.search.{IndexSearcher, Query, Sort}
 import org.apache.lucene.util.InfoStream
 
@@ -72,15 +72,49 @@ class AllFacetIndexes(basePath: String,
                         rangeFieldName: String,
                         valueFieldName: String,
                         valueFieldType: Option[IndexType[_]],
-                        ranges: Seq[TimeRange]): Seq[Bit] = facetRangeIndex.executeRangeFacet(
-    searcher,
-    query,
-    aggregationType,
-    rangeFieldName,
-    valueFieldName,
-    valueFieldType,
-    ranges
-  )
+                        ranges: Seq[TimeRange]): Seq[Bit] =
+    aggregationType match {
+      case singleAggregation: InternalTemporalSingleAggregation =>
+        facetRangeIndex.executeRangeFacet(
+          searcher,
+          query,
+          singleAggregation,
+          rangeFieldName,
+          valueFieldName,
+          valueFieldType,
+          ranges
+        )
+      case InternalAvgTemporalAggregation =>
+        val sum = facetRangeIndex.executeRangeFacet(
+          searcher,
+          query,
+          InternalSumTemporalAggregation,
+          rangeFieldName,
+          valueFieldName,
+          valueFieldType,
+          ranges
+        )
+
+        val countMap = facetRangeIndex
+          .executeRangeFacet(
+            searcher,
+            query,
+            InternalCountTemporalAggregation,
+            rangeFieldName,
+            valueFieldName,
+            valueFieldType,
+            ranges
+          )
+          .groupBy(_.timestamp)
+
+        sum.map { sumBit =>
+          countMap
+            .get(sumBit.timestamp)
+            .flatMap(_.headOption)
+            .fold(sumBit)(countBit =>
+              sumBit.copy(value = 0.0, tags = Map("count" -> countBit.value, "sum" -> sumBit.value)))
+        }
+    }
 
   def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] =
     facetCountIndex.getDistinctField(query, field, sort, limit)

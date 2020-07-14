@@ -38,24 +38,24 @@ object StatementParser {
   }
 
   /**
-    * Retrieves internal [[InternalSimpleAggregationType]] based on provided into the query.
+    * Retrieves internal [[InternalStandardAggregation]] based on provided into the query.
     *
     * @param groupField     group by field.
     * @param aggregateField field to apply the aggregation to.
     * @param agg            aggregation clause in query (min, max, sum, count).
-    * @return an instance of [[InternalSimpleAggregationType]] based on the given parameters.
+    * @return an instance of [[InternalStandardAggregation]] based on the given parameters.
     */
   private def aggregationType(groupField: String,
                               aggregateField: String,
-                              agg: Aggregation): InternalSimpleAggregationType = {
+                              agg: Aggregation): InternalStandardAggregation = {
     agg match {
-      case CountAggregation => InternalCountSimpleAggregation(groupField, aggregateField)
-      case MaxAggregation   => InternalMaxSimpleAggregation(groupField, aggregateField)
-      case MinAggregation   => InternalMinSimpleAggregation(groupField, aggregateField)
-      case SumAggregation   => InternalSumSimpleAggregation(groupField, aggregateField)
-      case FirstAggregation => InternalFirstSimpleAggregation(groupField, aggregateField)
-      case LastAggregation  => InternalLastSimpleAggregation(groupField, aggregateField)
-      case AvgAggregation   => InternalAvgSimpleAggregation(groupField, aggregateField)
+      case CountAggregation => InternalCountStandardAggregation(groupField, aggregateField)
+      case MaxAggregation   => InternalMaxStandardAggregation(groupField, aggregateField)
+      case MinAggregation   => InternalMinStandardAggregation(groupField, aggregateField)
+      case SumAggregation   => InternalSumStandardAggregation(groupField, aggregateField)
+      case FirstAggregation => InternalFirstStandardAggregation(groupField, aggregateField)
+      case LastAggregation  => InternalLastStandardAggregation(groupField, aggregateField)
+      case AvgAggregation   => InternalAvgStandardAggregation(groupField, aggregateField)
     }
   }
 
@@ -231,14 +231,14 @@ object StatementParser {
     * @param namespace       query namespace.
     * @param metric          query metric.
     * @param q               lucene's [[Query]]
-    * @param aggregationType lucene [[InternalSimpleAggregationType]] that must be used to collect and aggregate query's results.
+    * @param aggregationType lucene [[InternalStandardAggregation]] that must be used to collect and aggregate query's results.
     * @param sort            lucene [[Sort]] clause. None if no sort has been supplied.
     * @param limit           groups limit.
     */
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   aggregationType: InternalSimpleAggregationType,
+                                   aggregationType: InternalStandardAggregation,
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
       extends ParsedQuery
@@ -262,37 +262,53 @@ object StatementParser {
     */
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
 
+  /**
+    * Describes aggregations that must not be composed (i.e. that involves a simple quantity) e.g. count, sum
+    */
+  sealed trait SingleAggregation
+
+  /**
+    * Describes aggregations that must be composed e.g. average, median, standard deviation
+    */
+  sealed trait CompositeAggregation
+
   sealed trait InternalAggregation
 
-  sealed trait InternalSimpleAggregationType extends InternalAggregation {
+  sealed trait InternalStandardAggregation extends InternalAggregation {
 
     def groupField: String
 
     def aggregateField: String
   }
 
-  case class InternalCountSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  sealed trait InternalStandardSingleAggregation    extends InternalStandardAggregation with SingleAggregation
+  sealed trait InternalStandardCompositeAggregation extends InternalStandardAggregation with CompositeAggregation
 
-  case class InternalMaxSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  case class InternalCountStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardSingleAggregation
 
-  case class InternalMinSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  case class InternalMaxStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardSingleAggregation
 
-  case class InternalSumSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  case class InternalMinStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardSingleAggregation
 
-  case class InternalFirstSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  case class InternalSumStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardSingleAggregation
 
-  case class InternalLastSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  case class InternalFirstStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardSingleAggregation
 
-  case class InternalAvgSimpleAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalSimpleAggregationType
+  case class InternalLastStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardSingleAggregation
+
+  case class InternalAvgStandardAggregation(override val groupField: String, override val aggregateField: String)
+      extends InternalStandardCompositeAggregation
 
   sealed trait InternalTemporalAggregation extends InternalAggregation
+
+  sealed trait InternalTemporalSingleAggregation    extends InternalTemporalAggregation with SingleAggregation
+  sealed trait InternalTemporalCompositeAggregation extends InternalTemporalAggregation with CompositeAggregation
 
   object InternalTemporalAggregation {
     def apply(aggregation: Aggregation): InternalTemporalAggregation =
@@ -305,14 +321,14 @@ object StatementParser {
       }
   }
 
-  case object InternalCountTemporalAggregation extends InternalTemporalAggregation
+  case object InternalCountTemporalAggregation extends InternalTemporalSingleAggregation
 
-  case object InternalSumTemporalAggregation extends InternalTemporalAggregation
+  case object InternalSumTemporalAggregation extends InternalTemporalSingleAggregation
 
-  case object InternalMaxTemporalAggregation extends InternalTemporalAggregation
+  case object InternalMaxTemporalAggregation extends InternalTemporalSingleAggregation
 
-  case object InternalMinTemporalAggregation extends InternalTemporalAggregation
+  case object InternalMinTemporalAggregation extends InternalTemporalSingleAggregation
 
-  case object InternalAvgTemporalAggregation extends InternalTemporalAggregation
+  case object InternalAvgTemporalAggregation extends InternalTemporalCompositeAggregation
 
 }

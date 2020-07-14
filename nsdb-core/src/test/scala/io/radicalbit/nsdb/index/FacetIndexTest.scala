@@ -18,14 +18,14 @@ package io.radicalbit.nsdb.index
 
 import java.util.UUID
 
-import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.scalatest.{Assertion, FlatSpec, Matchers, OneInstancePerTest}
+import org.scalatest.{Assertion, Matchers, OneInstancePerTest, WordSpec}
 
-class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+class FacetIndexTest extends WordSpec with Matchers with OneInstancePerTest {
 
   val facetIndexes =
     new AllFacetIndexes(
@@ -39,43 +39,45 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
   implicit val writer     = facetIndexes.getIndexWriter
   implicit val taxoWriter = facetIndexes.getTaxonomyWriter
 
-  "FacetIndex" should "write and read properly on disk" in {
+  "FacetIndex" should {
+    "write and read properly on disk" in {
 
-    (1 to 100).foreach { i =>
-      val testData =
+      (1 to 100).foreach { i =>
+        val testData =
+          Bit(timestamp = System.currentTimeMillis,
+              value = 23,
+              dimensions = Map("dimension" -> s"dimension_$i"),
+              tags = Map("tag"             -> s"tag_$i"))
+        val w = facetIndexes.write(testData)
+        w.isSuccess shouldBe true
+      }
+
+      val repeatedValue =
         Bit(timestamp = System.currentTimeMillis,
             value = 23,
-            dimensions = Map("dimension" -> s"dimension_$i"),
-            tags = Map("tag"             -> s"tag_$i"))
-      val w = facetIndexes.write(testData)
+            dimensions = Map("dimension" -> s"dimension_100"),
+            tags = Map("tag"             -> s"tag_100"))
+      val w = facetIndexes.write(repeatedValue)
       w.isSuccess shouldBe true
-    }
 
-    val repeatedValue =
-      Bit(timestamp = System.currentTimeMillis,
-          value = 23,
-          dimensions = Map("dimension" -> s"dimension_100"),
-          tags = Map("tag"             -> s"tag_100"))
-    val w = facetIndexes.write(repeatedValue)
-    w.isSuccess shouldBe true
+      taxoWriter.close()
+      writer.close()
 
-    taxoWriter.close()
-    writer.close()
+      assert(fieldName = "dimension", limit = 100, expectedCountSize = 0, expectedSizeDistinct = 0)
+      assert(fieldName = "tag", limit = 100, expectedCountSize = 100, expectedSizeDistinct = 100)
 
-    assert(fieldName = "dimension", limit = 100, expectedCountSize = 0, expectedSizeDistinct = 0)
-    assert(fieldName = "tag", limit = 100, expectedCountSize = 100, expectedSizeDistinct = 100)
+      def assert(fieldName: String, limit: Int, expectedCountSize: Int, expectedSizeDistinct: Int): Assertion = {
+        val groups =
+          facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
+        val distinct = facetIndexes.executeDistinctFieldCountIndex(new MatchAllDocsQuery(), fieldName, None, limit)
 
-    def assert(fieldName: String, limit: Int, expectedCountSize: Int, expectedSizeDistinct: Int): Assertion = {
-      val groups =
-        facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
-      val distinct = facetIndexes.executeDistinctFieldCountIndex(new MatchAllDocsQuery(), fieldName, None, limit)
-
-      groups.size shouldBe expectedCountSize
-      distinct.size shouldBe expectedSizeDistinct
+        groups.size shouldBe expectedCountSize
+        distinct.size shouldBe expectedSizeDistinct
+      }
     }
   }
 
-  "FacetIndex" should "write and properly read on disk sum and count" in {
+  "write and properly read on disk sum and count" in {
     (1 to 100).foreach { i =>
       val testData =
         Bit(
@@ -118,7 +120,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     actualResult should contain theSameElementsAs expectedResult
   }
 
-  "FacetIndex" should "write and read properly on disk with multiple dimensions" in {
+  "write and read properly on disk with multiple dimensions" in {
 
     (1 to 100).foreach { i =>
       val testData =
@@ -151,7 +153,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
   }
 
-  "FacetIndex" should "write and read properly on disk with multiple dimensions and range query" in {
+  "write and read properly on disk with multiple dimensions and range query" in {
     (1 to 100).foreach { i =>
       val testData =
         Bit(timestamp = i,
@@ -178,7 +180,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     }
   }
 
-  "FacetIndex" should "support delete" in {
+  "support delete" in {
 
     (1 to 100).foreach { i =>
       val testData =
@@ -209,7 +211,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     facetIndexes.executeCountFacet(new MatchAllDocsQuery(), "surname", None, Some(100), VARCHAR()).size shouldBe 99
   }
 
-  "FacetIndex" should "supports ordering and limiting on count and sum" in {
+  "supports ordering and limiting on count and sum" in {
 
     (1 to 100).foreach { i =>
       val factor = i / 4
@@ -265,7 +267,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     cityGroups.head.value.rawValue shouldBe 1225
   }
 
-  "FacetIndexSum" should "supports a simple sum" in {
+  "supports a simple sum" in {
     (1 to 100).foreach { i =>
       val testData =
         Bit(
@@ -302,7 +304,7 @@ class FacetIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
     res2.head.value.rawValue shouldBe 100
   }
 
-  "FacetIndex" should "supports sum on double values" in {
+  "supports sum on double values" in {
 
     (1 to 100).foreach { i =>
       val factor: Double = 1.2d
