@@ -21,7 +21,7 @@ Allow data retrieval from NSDb according to a provided query.
 
 **URL** : `/query`
 
-**Method** : `POST`
+**Method** : `POST`, `GET`
 
 **Auth required** : Depending on security configuration
 

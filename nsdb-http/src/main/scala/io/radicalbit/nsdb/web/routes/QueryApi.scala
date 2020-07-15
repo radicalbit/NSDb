@@ -24,15 +24,15 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.util.Timeout
-import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
-import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
-import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
+import io.radicalbit.nsdb.common.NSDbLongType
+import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
+import io.radicalbit.nsdb.web.Filters.Filter
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.swagger.annotations._
 import javax.ws.rs.Path
@@ -41,56 +41,6 @@ import org.json4s.jackson.Serialization.write
 
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
-
-@ApiModel(description = "Filter Operators enumeration with [=, >, >=, <, <=, LIKE]")
-object FilterOperators extends Enumeration {
-  val Equality       = Value("=")
-  val GreaterThan    = Value(">")
-  val GreaterOrEqual = Value(">=")
-  val LessThan       = Value("<")
-  val LessOrEqual    = Value("<=")
-  val Like           = Value("LIKE")
-}
-
-@ApiModel(description = "Filter Nullability Operators enumeration with [ISNULL, ISNOTNULL]")
-object NullableOperators extends Enumeration {
-  val IsNull    = Value("ISNULL")
-  val IsNotNull = Value("ISNOTNULL")
-}
-
-@ApiModel(description = "Filter sealed trait", subTypes = Array(classOf[FilterNullableValue], classOf[FilterByValue]))
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-@JsonSubTypes(
-  Array(
-    new JsonSubTypes.Type(value = classOf[FilterByValue], name = "FilterByValue"),
-    new JsonSubTypes.Type(value = classOf[Generic], name = "FilterNullableValue")
-  ))
-sealed trait Filter extends NSDbSerializable
-
-case object Filter {
-  def unapply(arg: Filter): Option[(String, Option[NSDbType], String)] =
-    arg match {
-      case byValue: FilterByValue             => Some((byValue.dimension, Some(byValue.value), byValue.operator.toString))
-      case nullableValue: FilterNullableValue => Some((nullableValue.dimension, None, nullableValue.operator.toString))
-    }
-}
-
-@ApiModel(description = "Filter using operator", parent = classOf[Filter])
-case class FilterByValue(
-    @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
-    @(ApiModelProperty @field)(value = "value of comparation") value: NSDbType,
-    @(ApiModelProperty @field)(
-      value = "filter comparison operator",
-      dataType = "io.radicalbit.nsdb.web.routes.FilterOperators") operator: FilterOperators.Value
-) extends Filter
-
-@ApiModel(description = "Filter for nullable", parent = classOf[Filter])
-case class FilterNullableValue(
-    @(ApiModelProperty @field)(value = "dimension on which apply condition") dimension: String,
-    @(ApiModelProperty @field)(
-      value = "filter nullability operator",
-      dataType = "io.radicalbit.nsdb.web.routes.NullableOperators") operator: NullableOperators.Value
-) extends Filter
 
 @ApiModel(description = "Query body")
 case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: String,
@@ -123,13 +73,16 @@ trait QueryApi {
   implicit val timeout: Timeout
 
   @ApiModel(description = "Query Response")
-  case class QueryResponse(
+  case class SelectQueryResponse(
       @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
       @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
         SQLStatement]
   )
 
-  @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[QueryResponse])
+  @ApiOperation(value = "Perform query",
+                nickname = "query",
+                httpMethod = "POST",
+                response = classOf[SelectQueryResponse])
   @ApiImplicitParams(
     Array(
       new ApiImplicitParam(name = "body",
@@ -147,7 +100,7 @@ trait QueryApi {
     ))
   def queryApi()(implicit logger: LoggingAdapter, format: Formats): Route = {
     path("query") {
-      post {
+      (post | get) {
         entity(as[QueryBody]) { qb =>
           optionalHeaderValueByName(authenticationProvider.headerName) { header =>
             authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
@@ -161,7 +114,7 @@ trait QueryApi {
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`,
-                                          write(QueryResponse(values, qb.parsed.map(_ => statement)))))
+                                          write(SelectQueryResponse(values, qb.parsed.map(_ => statement)))))
                     case Success(SelectStatementFailed(_, reason, MetricNotFound(_))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>

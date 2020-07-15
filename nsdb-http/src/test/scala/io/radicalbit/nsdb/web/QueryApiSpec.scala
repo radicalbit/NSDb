@@ -25,6 +25,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
+import io.radicalbit.nsdb.web.Filters._
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
@@ -71,9 +72,39 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
     secureQueryApi.queryApi()(system.log, formats)
   )
 
-  "QueryApi" should "not allow get" in {
-    Get("/query") ~> testRoutes ~> check {
-      status shouldEqual MethodNotAllowed
+  "QueryApi" should "correctly query the db using get verb" in {
+    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1")
+
+    Get("/query", q) ~> testRoutes ~> check {
+      status shouldBe OK
+      val entity       = entityAs[String]
+      val recordString = pretty(render(parse(entity)))
+
+      recordString shouldBe
+        """{
+          |  "records" : [ {
+          |    "timestamp" : 0,
+          |    "value" : 1,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  }, {
+          |    "timestamp" : 2,
+          |    "value" : 3,
+          |    "dimensions" : {
+          |      "name" : "name",
+          |      "number" : 2
+          |    },
+          |    "tags" : {
+          |      "country" : "country"
+          |    }
+          |  } ]
+          |}""".stripMargin
+
     }
   }
 

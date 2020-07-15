@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.web
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.web.routes._
+import io.radicalbit.nsdb.web.Filters._
 import org.scalatest.{Matchers, WordSpec}
 
 class QueryEnrichmentSpec extends WordSpec with Matchers {
