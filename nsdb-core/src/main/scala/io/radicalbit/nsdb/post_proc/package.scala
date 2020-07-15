@@ -18,7 +18,7 @@ package io.radicalbit.nsdb
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
-import io.radicalbit.nsdb.index.NumericType
+import io.radicalbit.nsdb.index.{BIGINT, NumericType}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   ExecuteSelectStatementResponse,
@@ -125,49 +125,84 @@ package object post_proc {
   def postProcessingTemporalQueryResult(
       schema: Schema,
       statement: SelectSQLStatement,
-      aggr: InternalTemporalAggregation)(implicit ec: ExecutionContext): Seq[Bit] => Seq[Bit] = { res =>
+      aggregation: InternalTemporalAggregation,
+      finalStep: Boolean = true)(implicit ec: ExecutionContext): Seq[Bit] => Seq[Bit] = { res =>
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
     val chainedResult =
       res
         .groupBy(_.timestamp)
-        .mapValues { bits =>
-          val dimensions = foldMapOfBit(bits, bit => bit.dimensions)
-          val tags       = foldMapOfBit(bits, bit => bit.tags)
-          aggr match {
-            case InternalCountTemporalAggregation =>
-              Bit(bits.head.timestamp,
-                  NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                  dimensions,
-                  tags)
-            case InternalSumTemporalAggregation =>
-              Bit(bits.head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).sum), dimensions, tags)
-            case InternalMaxTemporalAggregation =>
-              Bit(bits.head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).max), dimensions, tags)
-            case InternalMinTemporalAggregation =>
-              val nonZeroValues: Seq[Any] =
-                bits.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
-              Bit(bits.head.timestamp,
-                  NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
-                  dimensions,
-                  tags)
-            case InternalAvgTemporalAggregation =>
-              // TODO: to implement
-              throw new RuntimeException("Not implemented yet.")
-          }
+        .mapValues {
+          case bits @ head +: _ =>
+            val dimensions = foldMapOfBit(bits, bit => bit.dimensions)
+            val tags       = foldMapOfBit(bits, bit => bit.tags)
+            aggregation match {
+              case InternalCountTemporalAggregation =>
+                Bit(head.timestamp,
+                    NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
+                    dimensions,
+                    tags)
+              case InternalSumTemporalAggregation =>
+                Bit(head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).sum), dimensions, tags)
+              case InternalMaxTemporalAggregation =>
+                Bit(head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).max), dimensions, tags)
+              case InternalMinTemporalAggregation =>
+                val nonZeroValues: Seq[Any] =
+                  bits.collect { case x if x.value.rawValue != numeric.zero => x.value.rawValue }
+                Bit(head.timestamp,
+                    NSDbNumericType(if (nonZeroValues.isEmpty) numeric.zero else nonZeroValues.min),
+                    dimensions,
+                    tags)
+              case InternalAvgTemporalAggregation if finalStep =>
+                val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
+                val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                val avg   = if (count.rawValue == 0) NSDbNumericType(0.0) else NSDbNumericType(sum / count)
+                Bit(
+                  head.timestamp,
+                  avg,
+                  head.dimensions,
+                  Map.empty[String, NSDbType]
+                )
+              case InternalAvgTemporalAggregation =>
+                Bit(
+                  head.timestamp,
+                  0.0,
+                  head.dimensions,
+                  Map(
+                    "sum"   -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
+                    "count" -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum)
+                  )
+                )
+
+            }
         }
         .values
         .toSeq
 
-    applyOrderingWithLimit(chainedResult, statement, schema, Some(aggr))
+    applyOrderingWithLimit(chainedResult, statement, schema, Some(aggregation))
   }
 
-  def internalAggregationProcessing(bits: Seq[Bit],
-                                    schema: Schema,
-                                    aggregationType: InternalStandardAggregation): Bit = {
+  /**
+    * Reduces a sequence of partial results given an aggregation.
+    * The reduce operation can be final or partial.
+    * @param bits the partial results.
+    * @param schema metric schema.
+    * @param aggregation the aggregation provided inside the query.
+    * @param finalStep whether it's the final reduce to be calculated or not.
+    * @return the reduces results.
+    */
+  def internalAggregationReduce(bits: Seq[Bit],
+                                schema: Schema,
+                                aggregation: InternalStandardAggregation,
+                                finalStep: Boolean = true): Bit = {
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
-    aggregationType match {
+    aggregation match {
+      case _: InternalCountStandardAggregation =>
+        Bit(0,
+            NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
+            foldMapOfBit(bits, bit => bit.dimensions),
+            foldMapOfBit(bits, bit => bit.tags))
       case _: InternalMaxStandardAggregation =>
         Bit(0,
             NSDbNumericType(bits.map(_.value.rawValue).max),
@@ -185,6 +220,27 @@ package object post_proc {
             foldMapOfBit(bits, bit => bit.tags))
       case _: InternalFirstStandardAggregation => bits.minBy(_.timestamp)
       case _: InternalLastStandardAggregation  => bits.maxBy(_.timestamp)
+      case _: InternalAvgStandardAggregation if finalStep =>
+        val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
+        val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+        val avg   = NSDbNumericType(sum / count)
+        Bit(
+          0L,
+          avg,
+          Map.empty[String, NSDbType],
+          retrieveField(bits, aggregation.groupField, bit => bit.tags)
+        )
+      case _: InternalAvgStandardAggregation =>
+        Bit(
+          0L,
+          NSDbNumericType(0),
+          Map.empty[String, NSDbType],
+          Map(
+            aggregation.groupField -> bits.flatMap(_.tags.get(aggregation.groupField)).head,
+            "sum"                  -> NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum),
+            "count"                -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
+          )
+        )
     }
   }
 

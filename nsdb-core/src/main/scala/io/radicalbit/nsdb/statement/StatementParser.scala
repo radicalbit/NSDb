@@ -45,9 +45,9 @@ object StatementParser {
     * @param agg            aggregation clause in query (min, max, sum, count).
     * @return an instance of [[InternalStandardAggregation]] based on the given parameters.
     */
-  private def aggregationType(groupField: String,
-                              aggregateField: String,
-                              agg: Aggregation): InternalStandardAggregation = {
+  private def toInternalAggregation(groupField: String,
+                                    aggregateField: String,
+                                    agg: Aggregation): InternalStandardAggregation = {
     agg match {
       case CountAggregation => InternalCountStandardAggregation(groupField, aggregateField)
       case MaxAggregation   => InternalMaxStandardAggregation(groupField, aggregateField)
@@ -120,7 +120,7 @@ object StatementParser {
                 statement.namespace,
                 statement.metric,
                 exp.q,
-                aggregationType(groupField = group.field, aggregateField = "value", agg = agg),
+                toInternalAggregation(groupField = group.field, aggregateField = "value", agg = agg),
                 sortOpt,
                 limitOpt
               ))
@@ -231,14 +231,14 @@ object StatementParser {
     * @param namespace       query namespace.
     * @param metric          query metric.
     * @param q               lucene's [[Query]]
-    * @param aggregationType lucene [[InternalStandardAggregation]] that must be used to collect and aggregate query's results.
+    * @param aggregation     lucene [[InternalStandardAggregation]] that must be used to collect and aggregate query's results.
     * @param sort            lucene [[Sort]] clause. None if no sort has been supplied.
     * @param limit           groups limit.
     */
   case class ParsedAggregatedQuery(namespace: String,
                                    metric: String,
                                    q: Query,
-                                   aggregationType: InternalStandardAggregation,
+                                   aggregation: InternalStandardAggregation,
                                    sort: Option[Sort] = None,
                                    limit: Option[Int] = None)
       extends ParsedQuery
@@ -247,7 +247,7 @@ object StatementParser {
                                            metric: String,
                                            q: Query,
                                            rangeLength: Long,
-                                           aggregationType: InternalTemporalAggregation,
+                                           aggregation: InternalTemporalAggregation,
                                            condition: Option[Condition],
                                            sort: Option[Sort] = None,
                                            limit: Option[Int] = None)

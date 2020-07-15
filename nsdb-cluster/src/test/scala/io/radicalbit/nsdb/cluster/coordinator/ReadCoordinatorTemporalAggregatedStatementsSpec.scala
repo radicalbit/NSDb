@@ -903,5 +903,140 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         )
       }
     }
+
+    "receive a select containing a temporal group by with avg aggregation" should {
+      "execute it successfully when avg(*) is used instead of value" in within(5.seconds) {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 6
+
+        expected.values shouldBe Seq(
+          Bit(0, 1.0, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(10000, 4.0, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(40000, 7.0, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(70000, 5.0, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(100000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+        )
+
+      }
+
+      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 4
+
+        expected.values shouldBe Seq(
+          Bit(0, 1.0, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(10000, 5.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(70000, 4.0, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+        )
+      }
+
+    }
+
+    "receive a select containing a temporal group by with avg aggregation on a double value metric" should {
+      "execute it successfully when avg(*) is used instead of value" in within(5.seconds) {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalDoubleMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 6
+
+        expected.values shouldBe Seq(
+          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(10000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+        )
+
+      }
+
+      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalDoubleMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
+              )
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values.size shouldBe 4
+
+        expected.values shouldBe Seq(
+          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(10000, 6.0, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(70000, 4.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+        )
+      }
+
+    }
+
   }
 }

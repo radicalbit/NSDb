@@ -448,4 +448,60 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
       }
     }
   }
+
+
+  test("execute a temporal query with avg aggregation") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(*) from ${TemporalLongMetric.name} group by interval 30s")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 5)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(0, 2.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(30000, 7.0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(60000, 5.0, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(90000, 3.0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(120000, 2.0, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+        ))
+      }
+    }
+  }
+
+  test("execute a temporal query with avg aggregation on a double metric") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select avg(*) from ${TemporalDoubleMetric.name} group by interval 30s")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 5)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(0, 3.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(30000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(60000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(90000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(120000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+        ))
+      }
+    }
+  }
+
 }

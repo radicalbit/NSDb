@@ -266,12 +266,12 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     )
                 }.map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+              case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
-                  internalAggregationProcessing(_, schema, aggregationType)
+                  internalAggregationReduce(_, schema, aggregation)
                 ).map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregationType, condition, _, _)) =>
+              case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, _)) =>
                 val sortedLocations = filteredLocations.sortBy(_.from)
 
                 val globalRanges: Seq[TimeRange] =
@@ -283,7 +283,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                                                           condition)
 
                 gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
-                  postProcessingTemporalQueryResult(schema, statement, aggregationType))
+                  postProcessingTemporalQueryResult(schema, statement, aggregation))
 
               case Left(_) =>
                 Future(SelectStatementFailed(statement, "Select Statement not valid"))
