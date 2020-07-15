@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.web
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.sql.parser._
-import io.radicalbit.nsdb.web.routes.Filter
+import io.radicalbit.nsdb.web.Filters.Filter
 
 /**
   * Enriches an input query with:

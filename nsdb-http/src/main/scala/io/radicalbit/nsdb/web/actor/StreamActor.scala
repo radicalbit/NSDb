@@ -32,9 +32,9 @@ import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.web.Filters.Filter
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.radicalbit.nsdb.web.actor.StreamActor._
-import io.radicalbit.nsdb.web.routes.Filter
 
 import scala.collection.mutable
 

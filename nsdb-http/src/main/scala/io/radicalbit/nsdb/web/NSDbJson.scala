@@ -21,6 +21,7 @@ import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
 import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.web.Filters._
 import io.radicalbit.nsdb.web.actor.StreamActor.RegisterQuery
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.validation.FieldErrorInfo
