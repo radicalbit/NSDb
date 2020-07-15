@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.web.routes
 
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
+import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
@@ -153,7 +153,8 @@ trait QueryApi {
                       case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                         executeSelectStatement(qb, statement)
                       case SqlStatementParserSuccess(queryString, _) =>
-                        complete(HttpResponse(BadRequest, entity = s"statement $queryString is not a select statement"))
+                        complete(
+                          HttpResponse(MethodNotAllowed, entity = s"statement $queryString is not a select statement"))
                       case SqlStatementParserFailure(queryString, _) =>
                         complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
                     }
