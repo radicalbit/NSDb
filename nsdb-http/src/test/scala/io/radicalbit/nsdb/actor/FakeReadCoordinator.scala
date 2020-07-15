@@ -69,8 +69,6 @@ class FakeReadCoordinator extends Actor {
 
 object FakeReadCoordinator {
 
-  def props(data: FakeReadCoordinatorData = Data): Props = Props(new FakeReadCoordinator)
-
   sealed trait FakeReadCoordinatorData {
     def dbs: Set[String]
     def namespaces: Set[String]

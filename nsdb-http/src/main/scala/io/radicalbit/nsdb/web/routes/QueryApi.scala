@@ -68,6 +68,7 @@ trait QueryApi {
   import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
+  def writeCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout

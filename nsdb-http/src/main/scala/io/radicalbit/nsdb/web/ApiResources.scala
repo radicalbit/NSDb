@@ -51,7 +51,7 @@ class ApiResources(val publisherActor: ActorRef,
     }
   }
 
-  def swagger =
+  def swagger: Route =
     path("swagger") { getFromResource("swagger-ui/index.html") } ~
       getFromResourceDirectory("swagger-ui")
 
