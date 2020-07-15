@@ -185,7 +185,11 @@ object MessageProtocol {
         with NSDbSerializable
 
     case class DeleteStatementExecuted(db: String, namespace: String, metric: String) extends NSDbSerializable
-    case class DeleteStatementFailed(db: String, namespace: String, metric: String, reason: String)
+    case class DeleteStatementFailed(db: String,
+                                     namespace: String,
+                                     metric: String,
+                                     reason: String,
+                                     errorCode: ErrorCode = Generic())
         extends NSDbSerializable
     case class MetricDropped(db: String, namespace: String, metric: String)         extends NSDbSerializable
     case class NamespaceDeleted(db: String, namespace: String)                      extends NSDbSerializable
