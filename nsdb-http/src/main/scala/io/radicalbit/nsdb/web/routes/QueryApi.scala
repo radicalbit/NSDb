@@ -73,13 +73,16 @@ trait QueryApi {
   implicit val timeout: Timeout
 
   @ApiModel(description = "Query Response")
-  case class QueryResponse(
+  case class SelectQueryResponse(
       @(ApiModelProperty @field)(value = "query result as a Seq of Bits") records: Seq[Bit],
       @(ApiModelProperty @field)(value = "json representation of query", required = false, dataType = "SQLStatement") parsed: Option[
         SQLStatement]
   )
 
-  @ApiOperation(value = "Perform query", nickname = "query", httpMethod = "POST", response = classOf[QueryResponse])
+  @ApiOperation(value = "Perform query",
+                nickname = "query",
+                httpMethod = "POST",
+                response = classOf[SelectQueryResponse])
   @ApiImplicitParams(
     Array(
       new ApiImplicitParam(name = "body",
@@ -111,7 +114,7 @@ trait QueryApi {
                   onComplete(readCoordinator ? ExecuteStatement(statement)) {
                     case Success(SelectStatementExecuted(_, values)) =>
                       complete(HttpEntity(ContentTypes.`application/json`,
-                                          write(QueryResponse(values, qb.parsed.map(_ => statement)))))
+                                          write(SelectQueryResponse(values, qb.parsed.map(_ => statement)))))
                     case Success(SelectStatementFailed(_, reason, MetricNotFound(_))) =>
                       complete(HttpResponse(NotFound, entity = reason))
                     case Success(SelectStatementFailed(_, reason, _)) =>
