@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.actor
 
-import akka.actor.{Actor, Props}
+import akka.actor.Actor
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
 import io.radicalbit.nsdb.model.Schema
