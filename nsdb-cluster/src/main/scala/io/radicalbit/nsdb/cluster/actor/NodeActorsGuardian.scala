@@ -51,9 +51,6 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       super.supervisorStrategy.decider.apply(t)
   }
 
-  if (config.hasPath(StorageTmpPath))
-    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
-
   private val selfMember = Cluster(context.system).selfMember
 
   private val mediator = DistributedPubSub(context.system).mediator
@@ -63,6 +60,9 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   private val config = context.system.settings.config
 
   private val indexBasePath = config.getString(StorageIndexPath)
+
+  if (config.hasPath(StorageTmpPath))
+    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
