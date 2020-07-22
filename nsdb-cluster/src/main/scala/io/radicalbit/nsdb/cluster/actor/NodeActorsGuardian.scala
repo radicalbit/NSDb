@@ -51,6 +51,9 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       super.supervisorStrategy.decider.apply(t)
   }
 
+  if (config.hasPath(StorageTmpPath))
+    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
+
   private val selfMember = Cluster(context.system).selfMember
 
   private val mediator = DistributedPubSub(context.system).mediator
