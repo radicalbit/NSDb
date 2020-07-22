@@ -147,6 +147,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId
                   .get(id)
                   .foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
+              temporaryIndex.close()
             case Right(_) => log.error("unreachable branch reached...")
             case Left(error) =>
               log.error(s"query ${nsdbQuery.query} against schema $schema not valid because $error")

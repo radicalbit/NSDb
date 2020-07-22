@@ -16,9 +16,10 @@
 
 package io.radicalbit.nsdb.index
 
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.UUID
 
+import org.apache.commons.io.FileUtils
 import org.apache.lucene.store.Directory
 
 /**
@@ -28,5 +29,12 @@ class TemporaryIndex extends AbstractStructuredIndex with DirectorySupport {
 
   override def indexStorageStrategy: StorageStrategy = StorageStrategy.Memory
 
-  override lazy val directory: Directory = getDirectory(Files.createTempDirectory(UUID.randomUUID().toString))
+  lazy val tmpDirectory: Path = Files.createTempDirectory(UUID.randomUUID().toString)
+
+  override lazy val directory: Directory = getDirectory(tmpDirectory)
+
+  override def close(): Unit = {
+    super.close()
+    FileUtils.deleteDirectory(tmpDirectory.toFile)
+  }
 }
