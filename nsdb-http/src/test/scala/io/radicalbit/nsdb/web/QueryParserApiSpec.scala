@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
-import io.radicalbit.nsdb.actor.FakeReadCoordinator
+import io.radicalbit.nsdb.actor.{FakeWriteCoordinator, FakeReadCoordinator}
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
@@ -34,8 +34,8 @@ import scala.concurrent.duration._
 
 class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
-  val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
-
+  val readCoordinatorActor: ActorRef                  = system.actorOf(Props[FakeReadCoordinator])
+  val writeCoordinatorActor: ActorRef                 = system.actorOf(Props[FakeWriteCoordinator])
   val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
@@ -49,8 +49,9 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
   val queryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
-    override def readCoordinator: ActorRef = readCoordinatorActor
-    override implicit val timeout: Timeout = 5 seconds
+    override def readCoordinator: ActorRef  = readCoordinatorActor
+    override def writeCoordinator: ActorRef = writeCoordinatorActor
+    override implicit val timeout: Timeout  = 5 seconds
   }
 
   val testRoutes = Route.seal(

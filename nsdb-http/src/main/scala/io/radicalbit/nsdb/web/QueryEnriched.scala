@@ -29,7 +29,9 @@ import io.radicalbit.nsdb.web.Filters.Filter
 object QueryEnriched {
 
   /**
-    * apply enrichment process (if provided)
+    * Applies enrichment to a select query (if provided).
+    * Statement of other kind (insert, delete are parsed and not enriched)
+    *
     * @param db the db.
     * @param namespace the namespace.
     * @param inputQueryString the raw query string.
@@ -62,8 +64,8 @@ object QueryEnriched {
                                   statement
                                     .enrichWithTimeRange("timestamp", from, to))
       case (success @ SqlStatementParserSuccess(_, _: SelectSQLStatement), _, _, _) => success
-      case (SqlStatementParserSuccess(queryString, _), _, _, _) =>
-        SqlStatementParserFailure(queryString, "not a select statement")
+      case (SqlStatementParserSuccess(queryString, statement), _, _, _) =>
+        SqlStatementParserSuccess(queryString, statement)
       case (failure: SqlStatementParserFailure, _, _, _) => failure
     }
 

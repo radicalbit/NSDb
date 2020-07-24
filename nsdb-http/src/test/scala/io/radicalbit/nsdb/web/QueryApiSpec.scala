@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
-import io.radicalbit.nsdb.actor.FakeReadCoordinator
+import io.radicalbit.nsdb.actor.{FakeWriteCoordinator, FakeReadCoordinator}
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
 import io.radicalbit.nsdb.web.Filters._
@@ -31,20 +31,21 @@ import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
 
-class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
+class QueryApiSpec extends WordSpec with Matchers with ScalatestRouteTest {
 
-  val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
+  val readCoordinatorActor: ActorRef  = system.actorOf(Props[FakeReadCoordinator])
+  val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
 
   val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
   val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
 
   /*
-        adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
-        fixed timestamp (0L) in order to make the unit test time-independent
+    adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
+    fixed timestamp (0L) in order to make the unit test time-independent
    */
   implicit val formats
     : Formats = DefaultFormats ++ CustomSerializers.customSerializers + CustomSerializerForTest + BitSerializer
@@ -52,16 +53,18 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
   val secureQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
 
-    override def readCoordinator: ActorRef = readCoordinatorActor
-    override implicit val timeout: Timeout = 5 seconds
+    override def readCoordinator: ActorRef  = readCoordinatorActor
+    override def writeCoordinator: ActorRef = writeCoordinatorActor
+    override implicit val timeout: Timeout  = 5 seconds
 
   }
 
   val emptyQueryApi = new QueryApi {
     override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
 
-    override def readCoordinator: ActorRef = readCoordinatorActor
-    override implicit val timeout: Timeout = 5 seconds
+    override def readCoordinator: ActorRef  = readCoordinatorActor
+    override def writeCoordinator: ActorRef = writeCoordinatorActor
+    override implicit val timeout: Timeout  = 5 seconds
   }
 
   val testRoutes = Route.seal(
@@ -72,287 +75,336 @@ class QueryApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
     secureQueryApi.queryApi()(system.log, formats)
   )
 
-  "QueryApi" should "correctly query the db using get verb" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1")
+  "QueryApi for select statements" should {
+    "correctly query the db using get verb" in {
+      val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1")
 
-    Get("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Get("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
 
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
+        recordString shouldBe
+          """{
+            |  "records" : [ {
+            |    "timestamp" : 0,
+            |    "value" : 1,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  }, {
+            |    "timestamp" : 2,
+            |    "value" : 3,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  } ]
+            |}""".stripMargin
 
+      }
+    }
+
+    "correctly query the db with a single filter over Long" in {
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric limit 1",
+                  None,
+                  None,
+                  Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
+                  None)
+
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
+
+        recordString shouldBe
+          """{
+            |  "records" : [ {
+            |    "timestamp" : 0,
+            |    "value" : 1,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  }, {
+            |    "timestamp" : 2,
+            |    "value" : 3,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  } ]
+            |}""".stripMargin
+
+      }
+    }
+
+    "correctly query the db with a single filter and with time range" in {
+      val q =
+        QueryBody(
+          "db",
+          "namespace",
+          "metric",
+          "select * from metric limit 1",
+          Some(NSDbLongType(100)),
+          Some(NSDbLongType(200)),
+          Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
+          None
+        )
+
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
+
+        recordString shouldBe
+          """{
+            |  "records" : [ {
+            |    "timestamp" : 0,
+            |    "value" : 1,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  }, {
+            |    "timestamp" : 2,
+            |    "value" : 3,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  } ]
+            |}""".stripMargin
+
+      }
+    }
+
+    "correctly query the db with a single filter with compatible type" in {
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric limit 1",
+                  None,
+                  None,
+                  Some(Seq(FilterByValue("value", "1", FilterOperators.Equality))),
+                  None)
+
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+      }
+
+    }
+
+    "fail with a single filter with incompatible type" in {
+      val q =
+        QueryBody("db",
+                  "namespace",
+                  "metric",
+                  "select * from metric limit 1",
+                  None,
+                  None,
+                  Some(Seq(FilterByValue("value", "vd", FilterOperators.Equality))),
+                  None)
+
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe InternalServerError
+      }
+    }
+
+    "correctly query the db with time range passed" in {
+      val q = QueryBody("db",
+                        "namespace",
+                        "metric",
+                        "select * from metric limit 1",
+                        Some(NSDbLongType(1L)),
+                        Some(NSDbLongType(2L)),
+                        None,
+                        None)
+
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
+
+        recordString shouldBe
+          """{
+            |  "records" : [ {
+            |    "timestamp" : 2,
+            |    "value" : 3,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  } ]
+            |}""".stripMargin
+
+      }
+    }
+
+    "correctly query the db" in {
+      val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1")
+
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
+        val entity       = entityAs[String]
+        val recordString = pretty(render(parse(entity)))
+
+        recordString shouldBe
+          """{
+            |  "records" : [ {
+            |    "timestamp" : 0,
+            |    "value" : 1,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  }, {
+            |    "timestamp" : 2,
+            |    "value" : 3,
+            |    "dimensions" : {
+            |      "name" : "name",
+            |      "number" : 2
+            |    },
+            |    "tags" : {
+            |      "country" : "country"
+            |    }
+            |  } ]
+            |}""".stripMargin
+
+      }
     }
   }
 
-  "QueryApi" should "correctly query the db with a single filter over Long" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                None,
-                None,
-                Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
-                None)
+  "QueryApi for delete statements" should {
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+    "not work in GET" in {
+      val q = QueryBody("db", "namespace", "metric", "delete from metric where timestamp > 0")
 
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
-
+      Get("/query", q) ~> testRoutes ~> check {
+        status shouldBe MethodNotAllowed
+      }
     }
 
-  }
+    "not support invalid statements" in {
+      val q = QueryBody("db", "namespace", "metric", "delete from metric")
 
-  "QueryApi" should "correctly query the db with a single filter and with time range" in {
-    val q =
-      QueryBody(
-        "db",
-        "namespace",
-        "metric",
-        "select * from metric limit 1",
-        Some(NSDbLongType(100)),
-        Some(NSDbLongType(200)),
-        Some(Seq(FilterByValue("value", 1L, FilterOperators.Equality))),
-        None
-      )
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
-
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
-
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe BadRequest
+      }
     }
 
-  }
+    "supports valid delete statements" in {
+      val q = QueryBody("db", "namespace", "metric", "delete from metric where timestamp > 0")
 
-  "QueryApi" should "correctly query the db with a single filter with compatible type" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                None,
-                None,
-                Some(Seq(FilterByValue("value", "1", FilterOperators.Equality))),
-                None)
+      Post("/query", q) ~> testRoutes ~> check {
+        status shouldBe OK
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
+        entityAs[String] shouldBe "Ok"
+      }
     }
 
-  }
+    "properly handle delete error messages" in {
+      Post("/query",
+           QueryBody(
+             "db",
+             "namespace",
+             "metric",
+             s"delete from ${FakeWriteCoordinator.notExistingMetric} where timestamp > 0")) ~> testRoutes ~> check {
+        status shouldBe NotFound
+      }
 
-  "QueryApi" should "fail with a single filter with incompatible type" in {
-    val q =
-      QueryBody("db",
-                "namespace",
-                "metric",
-                "select * from metric limit 1",
-                None,
-                None,
-                Some(Seq(FilterByValue("value", "vd", FilterOperators.Equality))),
-                None)
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe InternalServerError
+      Post("/query",
+           QueryBody("db",
+                     "namespace",
+                     "metric",
+                     s"delete from ${FakeWriteCoordinator.errorMetric} where timestamp > 0")) ~> testRoutes ~> check {
+        status shouldBe InternalServerError
+      }
     }
   }
 
-  "QueryApi" should "correctly query the db with time range passed" in {
-    val q = QueryBody("db",
-                      "namespace",
-                      "metric",
-                      "select * from metric limit 1",
-                      Some(NSDbLongType(1L)),
-                      Some(NSDbLongType(2L)),
-                      None,
-                      None)
+  "Secured QueryApi" should {
+    "not allow a request without the security header" in {
+      val q = QueryBody("db",
+                        "namespace",
+                        "metric",
+                        "select from metric",
+                        Some(NSDbLongType(1)),
+                        Some(NSDbLongType(2)),
+                        None,
+                        None)
 
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
+      Post("/query", q) ~> testSecuredRoutes ~> check {
+        status shouldBe Forbidden
+        entityAs[String] shouldBe "not authorized header not provided"
+      }
 
-      recordString shouldBe
-        """{
-        |  "records" : [ {
-        |    "timestamp" : 2,
-        |    "value" : 3,
-        |    "dimensions" : {
-        |      "name" : "name",
-        |      "number" : 2
-        |    },
-        |    "tags" : {
-        |      "country" : "country"
-        |    }
-        |  } ]
-        |}""".stripMargin
+      Post("/query", q).withHeaders(RawHeader("wrong", "wrong")) ~> testSecuredRoutes ~> check {
+        status shouldBe Forbidden
+        entityAs[String] shouldBe "not authorized header not provided"
+      }
 
     }
 
-  }
+    "not allow a request for an unauthorized resources" in {
+      val q = QueryBody("db",
+                        "namespace",
+                        "notAuthorizedMetric",
+                        "select from metric",
+                        Some(NSDbLongType(1)),
+                        Some(NSDbLongType(2)),
+                        None,
+                        None)
 
-  "QueryApi" should "correctly query the db" in {
-    val q = QueryBody("db", "namespace", "metric", "select * from metric limit 1")
-
-    Post("/query", q) ~> testRoutes ~> check {
-      status shouldBe OK
-      val entity       = entityAs[String]
-      val recordString = pretty(render(parse(entity)))
-
-      recordString shouldBe
-        """{
-          |  "records" : [ {
-          |    "timestamp" : 0,
-          |    "value" : 1,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  }, {
-          |    "timestamp" : 2,
-          |    "value" : 3,
-          |    "dimensions" : {
-          |      "name" : "name",
-          |      "number" : 2
-          |    },
-          |    "tags" : {
-          |      "country" : "country"
-          |    }
-          |  } ]
-          |}""".stripMargin
-
-    }
-  }
-
-  "Secured QueryApi" should "not allow a request without the security header" in {
-    val q = QueryBody("db",
-                      "namespace",
-                      "metric",
-                      "select from metric",
-                      Some(NSDbLongType(1)),
-                      Some(NSDbLongType(2)),
-                      None,
-                      None)
-
-    Post("/query", q) ~> testSecuredRoutes ~> check {
-      status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized header not provided"
+      Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+        status shouldBe Forbidden
+        entityAs[String] shouldBe "not authorized forbidden access to metric notAuthorizedMetric"
+      }
     }
 
-    Post("/query", q).withHeaders(RawHeader("wrong", "wrong")) ~> testSecuredRoutes ~> check {
-      status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized header not provided"
-    }
+    "allow a request for an authorized resources" in {
+      val q = QueryBody("db",
+                        "namespace",
+                        "metric",
+                        "select * from metric limit 1",
+                        Some(NSDbLongType(1L)),
+                        Some(NSDbLongType(2L)),
+                        None,
+                        None)
 
-  }
-
-  "Secured QueryApi" should "not allow a request for an unauthorized resources" in {
-    val q = QueryBody("db",
-                      "namespace",
-                      "notAuthorizedMetric",
-                      "select from metric",
-                      Some(NSDbLongType(1)),
-                      Some(NSDbLongType(2)),
-                      None,
-                      None)
-
-    Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
-      status shouldBe Forbidden
-      entityAs[String] shouldBe "not authorized forbidden access to metric notAuthorizedMetric"
-    }
-  }
-
-  "Secured QueryApi" should "allow a request for an authorized resources" in {
-    val q = QueryBody("db",
-                      "namespace",
-                      "metric",
-                      "select * from metric limit 1",
-                      Some(NSDbLongType(1L)),
-                      Some(NSDbLongType(2L)),
-                      None,
-                      None)
-
-    Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
-      status shouldBe OK
+      Post("/query", q).withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+        status shouldBe OK
+      }
     }
   }
 }

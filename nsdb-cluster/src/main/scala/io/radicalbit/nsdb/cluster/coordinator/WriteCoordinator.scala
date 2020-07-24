@@ -506,8 +506,11 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                                 s"Unable to fetch locations for metric ${statement.metric}"))
                     }
                   case _ =>
-                    Future(
-                      DeleteStatementFailed(db, namespace, metric, s"No schema found for metric ${statement.metric}"))
+                    Future(DeleteStatementFailed(db,
+                                                 namespace,
+                                                 metric,
+                                                 s"No schema found for metric ${statement.metric}"),
+                           MetricNotFound(metric))
                 }
           case WriteToCommitLogFailed(_, _, _, _, reason) =>
             log.error(s"Failed to write to commit-log for: $msg with reason: $reason")

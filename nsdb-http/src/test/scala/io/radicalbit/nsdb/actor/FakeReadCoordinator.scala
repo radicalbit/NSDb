@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.actor
 
-import akka.actor.{Actor, Props}
+import akka.actor.Actor
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
 import io.radicalbit.nsdb.model.Schema
@@ -68,8 +68,6 @@ class FakeReadCoordinator extends Actor {
 }
 
 object FakeReadCoordinator {
-
-  def props(data: FakeReadCoordinatorData = Data): Props = Props(new FakeReadCoordinator)
 
   sealed trait FakeReadCoordinatorData {
     def dbs: Set[String]

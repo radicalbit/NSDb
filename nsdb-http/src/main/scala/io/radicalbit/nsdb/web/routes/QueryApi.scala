@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.web.routes
 
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError, NotFound}
+import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
@@ -26,8 +26,8 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{SQLStatement, SelectSQLStatement}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
+import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SQLStatement, SelectSQLStatement}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteDeleteStatement, ExecuteStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
@@ -68,6 +68,7 @@ trait QueryApi {
   import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
+  def writeCoordinator: ActorRef
   def authenticationProvider: NSDBAuthProvider
 
   implicit val timeout: Timeout
@@ -99,42 +100,92 @@ trait QueryApi {
       new ApiResponse(code = 400, message = "statement is invalid")
     ))
   def queryApi()(implicit logger: LoggingAdapter, format: Formats): Route = {
+
+    def executeSelectStatement(queryBody: QueryBody, statement: SelectSQLStatement) = {
+      onComplete(readCoordinator ? ExecuteStatement(statement)) {
+        case Success(SelectStatementExecuted(_, values)) =>
+          complete(
+            HttpEntity(ContentTypes.`application/json`,
+                       write(SelectQueryResponse(values, queryBody.parsed.map(_ => statement)))))
+        case Success(SelectStatementFailed(_, reason, MetricNotFound(_))) =>
+          complete(HttpResponse(NotFound, entity = reason))
+        case Success(SelectStatementFailed(_, reason, _)) =>
+          complete(HttpResponse(InternalServerError, entity = reason))
+        case Success(r) =>
+          logger.error("unknown response received {}", r)
+          complete(HttpResponse(InternalServerError, entity = "unknown response"))
+        case Failure(ex) =>
+          logger.error(ex, s"error while trying to execute $statement")
+          complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+      }
+    }
+
+    def executeDeleteStatement(statement: DeleteSQLStatement) = {
+      onComplete(writeCoordinator ? ExecuteDeleteStatement(statement)) {
+        case Success(_: DeleteStatementExecuted) => complete("Ok")
+        case Success(DeleteStatementFailed(_, _, _, reason, MetricNotFound(_))) =>
+          complete(HttpResponse(NotFound, entity = reason))
+        case Success(DeleteStatementFailed(_, _, _, reason, _)) =>
+          complete(HttpResponse(InternalServerError, entity = reason))
+        case Success(r) =>
+          logger.error("unknown response received {}", r)
+          complete(HttpResponse(InternalServerError, entity = "unknown response"))
+        case Failure(ex) =>
+          logger.error(ex, s"error while trying to execute $statement")
+          complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+      }
+    }
+
     path("query") {
-      (post | get) {
-        entity(as[QueryBody]) { qb =>
-          optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-            authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-              QueryEnriched(qb.db,
-                            qb.namespace,
-                            qb.queryString,
-                            qb.from.map(_.rawValue),
-                            qb.to.map(_.rawValue),
-                            qb.filters.getOrElse(Seq.empty)) match {
-                case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
-                  onComplete(readCoordinator ? ExecuteStatement(statement)) {
-                    case Success(SelectStatementExecuted(_, values)) =>
-                      complete(HttpEntity(ContentTypes.`application/json`,
-                                          write(SelectQueryResponse(values, qb.parsed.map(_ => statement)))))
-                    case Success(SelectStatementFailed(_, reason, MetricNotFound(_))) =>
-                      complete(HttpResponse(NotFound, entity = reason))
-                    case Success(SelectStatementFailed(_, reason, _)) =>
-                      complete(HttpResponse(InternalServerError, entity = reason))
-                    case Success(r) =>
-                      logger.error("unknown response received {}", r)
-                      complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                    case Failure(ex) =>
-                      logger.error(ex, s"error while trying to execute $statement")
-                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+      concat(
+        get {
+          entity(as[QueryBody]) {
+            qb =>
+              optionalHeaderValueByName(authenticationProvider.headerName) {
+                header =>
+                  authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
+                    QueryEnriched(qb.db,
+                                  qb.namespace,
+                                  qb.queryString,
+                                  qb.from.map(_.rawValue),
+                                  qb.to.map(_.rawValue),
+                                  qb.filters.getOrElse(Seq.empty)) match {
+                      case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
+                        executeSelectStatement(qb, statement)
+                      case SqlStatementParserSuccess(queryString, _) =>
+                        complete(
+                          HttpResponse(MethodNotAllowed, entity = s"statement $queryString is not a select statement"))
+                      case SqlStatementParserFailure(queryString, _) =>
+                        complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
+                    }
                   }
-                case SqlStatementParserSuccess(queryString, _) =>
-                  complete(HttpResponse(BadRequest, entity = s"statement $queryString is not a select statement"))
-                case SqlStatementParserFailure(queryString, _) =>
-                  complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
               }
-            }
+          }
+        },
+        post {
+          entity(as[QueryBody]) {
+            qb =>
+              optionalHeaderValueByName(authenticationProvider.headerName) {
+                header =>
+                  authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
+                    QueryEnriched(qb.db,
+                                  qb.namespace,
+                                  qb.queryString,
+                                  qb.from.map(_.rawValue),
+                                  qb.to.map(_.rawValue),
+                                  qb.filters.getOrElse(Seq.empty)) match {
+                      case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
+                        executeSelectStatement(qb, statement)
+                      case SqlStatementParserSuccess(_, statement: DeleteSQLStatement) =>
+                        executeDeleteStatement(statement)
+                      case SqlStatementParserFailure(queryString, _) =>
+                        complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
+                    }
+                  }
+              }
           }
         }
-      }
+      )
     }
   }
 }
