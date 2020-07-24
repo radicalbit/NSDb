@@ -551,7 +551,7 @@ object MetadataCoordinator {
     * @param replicationFactor the minimun amount of active replicas needed
     */
   def notEnoughReplicasErrorMessage(activeReplicas: Int, replicationFactor: Int) =
-    s"cannot get write locations: number of active replicas is $activeReplicas while the replication fatro is $replicationFactor"
+    s"cannot get write locations: number of active replicas is $activeReplicas while the replication factor is $replicationFactor"
 
   /**
     * Generates a delete statement given a threshold. The delete statement involves records older than the threshold.

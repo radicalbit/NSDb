@@ -61,6 +61,9 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
 
   private val indexBasePath = config.getString(StorageIndexPath)
 
+  if (config.hasPath(StorageTmpPath))
+    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
+
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
   private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeName)
