@@ -105,8 +105,8 @@ class StreamActor(clientAddress: String,
                                           metric,
                                           inputQueryString,
                                           s"unauthorized ${checkAuthorization.failReason}"))
-    case SubscribedByQueryStringInternal(db, namespace, metric, queryString, _, records) =>
-      wsActor ! OutgoingMessage(SubscribedByQueryString(db, namespace, metric, queryString, records))
+    case SubscribedByQueryStringInternal(db, namespace, metric, queryString, quid, records) =>
+      wsActor ! OutgoingMessage(SubscribedByQueryString(db, namespace, metric, queryString, quid, records))
     case msg: SubscriptionByQueryStringFailed => wsActor ! OutgoingMessage(msg)
     case msg @ RecordsPublished(_, _, _) =>
       buffer += msg

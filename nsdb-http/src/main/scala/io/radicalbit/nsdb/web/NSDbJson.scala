@@ -122,7 +122,7 @@ object NSDbJson extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit object RealTimeOutGoingMessageWriter extends JsonWriter[RealTimeOutGoingMessage] {
 
-    implicit val subscribedByQueryStringFormat: RootJsonFormat[SubscribedByQueryString] = jsonFormat5(
+    implicit val subscribedByQueryStringFormat: RootJsonFormat[SubscribedByQueryString] = jsonFormat6(
       SubscribedByQueryString.apply)
     implicit val SubscriptionByQueryStringFailedFormat: RootJsonFormat[SubscriptionByQueryStringFailed] = jsonFormat5(
       SubscriptionByQueryStringFailed.apply)
