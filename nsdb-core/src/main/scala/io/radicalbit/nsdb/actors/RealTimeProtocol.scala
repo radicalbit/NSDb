@@ -28,6 +28,7 @@ object RealTimeProtocol {
                                        namespace: String,
                                        metric: String,
                                        queryString: String,
+                                       quid: String,
                                        records: Seq[Bit])
         extends ControlMessage
         with RealTimeOutGoingMessage
