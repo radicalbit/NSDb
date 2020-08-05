@@ -27,10 +27,9 @@ import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.index.{BIGINT, NumericType}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -237,39 +236,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
                   )
                 }.map(limitAndOrder(_, statement, schema))
-
-              case Right(ParsedAggregatedQuery(_, _, _, agg: InternalCountStandardAggregation, _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
-                  bits =>
-                    Bit(
-                      timestamp = 0,
-                      value = NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                      dimensions = foldMapOfBit(bits, bit => bit.dimensions),
-                      tags = foldMapOfBit(bits, bit => bit.tags)
-                    )
-                }.map(limitAndOrder(_, statement, schema, Some(agg)))
-
-              case Right(ParsedAggregatedQuery(_, _, _, InternalAvgStandardAggregation(groupField, _), _, _)) =>
-                gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode) {
-                  bits =>
-                    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
-                    implicit val numeric: Numeric[Any] = v.numeric
-
-                    val sum   = NSDbNumericType(bits.flatMap(_.tags.get("sum").map(_.rawValue)).sum)
-                    val count = NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
-                    val avg   = NSDbNumericType(sum / count)
-                    Bit(
-                      timestamp = 0L,
-                      value = avg,
-                      dimensions = Map.empty[String, NSDbType],
-                      tags = retrieveField(bits, groupField, bit => bit.tags)
-                    )
-                }.map(limitAndOrder(_, statement, schema))
-
               case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
                   internalAggregationReduce(_, schema, aggregation)
-                ).map(limitAndOrder(_, statement, schema))
+                ).map(limitAndOrder(_, statement, schema, Some(aggregation)))
 
               case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, _)) =>
                 val sortedLocations = filteredLocations.sortBy(_.from)
