@@ -29,8 +29,7 @@ class NSDbConfigProviderSpec extends WordSpec with Matchers with OneInstancePerT
   "NSDbConfigProvider" should {
     "properly merge configuration files" in {
 
-      val c1 = ConfigFactory.parseString(
-        """
+      val c1 = ConfigFactory.parseString("""
           |p1 = "a"
           |p2 = "b"
           |""".stripMargin)

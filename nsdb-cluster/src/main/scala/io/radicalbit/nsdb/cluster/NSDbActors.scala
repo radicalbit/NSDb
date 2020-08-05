@@ -26,7 +26,6 @@ import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
-import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
 
 /**
