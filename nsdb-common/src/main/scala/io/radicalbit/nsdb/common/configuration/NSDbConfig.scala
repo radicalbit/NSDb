@@ -51,7 +51,7 @@ object NSDbConfig {
 
     final val globalTimeout = "nsdb.global.timeout"
 
-    final val maxPrecision = "nsdb.math.max-precision"
+    final val precision = "nsdb.math.precision"
   }
 
   object LowLevel {

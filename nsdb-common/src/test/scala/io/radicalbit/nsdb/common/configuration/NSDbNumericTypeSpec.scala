@@ -37,6 +37,8 @@ class NSDbNumericTypeSpec extends WordSpec with Matchers{
 
     "use at most the digits set by the math context " in {
       NSDbNumericType(2) / NSDbNumericType(3) shouldBe 0.6666666667
+
+      NSDbNumericType(200) / NSDbNumericType(3) shouldBe 66.66666667
     }
 
   }

@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.NSDbNumericType
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.maxPrecision
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
@@ -62,7 +62,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
     TimeUnit.SECONDS)
 
   implicit val mathContext: MathContext =
-    new MathContext(context.system.settings.config.getInt(maxPrecision), RoundingMode.HALF_UP)
+    new MathContext(context.system.settings.config.getInt(precision), RoundingMode.HALF_UP)
 
   import context.dispatcher
 

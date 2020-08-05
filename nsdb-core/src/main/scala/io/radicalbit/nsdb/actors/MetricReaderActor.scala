@@ -25,7 +25,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
-import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeout, maxPrecision}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeout, precision}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
@@ -59,7 +59,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     Timeout(context.system.settings.config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   implicit val mathContext: MathContext =
-    new MathContext(context.system.settings.config.getInt(maxPrecision), RoundingMode.HALF_UP)
+    new MathContext(context.system.settings.config.getInt(precision), RoundingMode.HALF_UP)
 
   private val actors: mutable.Map[Location, ActorRef] = mutable.Map.empty
 
