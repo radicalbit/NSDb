@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
+import java.math.{MathContext, RoundingMode}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, Props}
@@ -28,6 +29,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.NSDbNumericType
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.maxPrecision
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
@@ -58,6 +60,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.read-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
+
+  implicit val mathContext: MathContext =
+    new MathContext(context.system.settings.config.getInt(maxPrecision), RoundingMode.HALF_UP)
 
   import context.dispatcher
 
