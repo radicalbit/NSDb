@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.Actor
 import akka.cluster.ddata.Replicator.{WriteAll, WriteConsistency, WriteLocal, WriteMajority}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -27,7 +28,7 @@ trait WriteConfig { this: Actor =>
   private val config = context.system.settings.config
 
   private lazy val timeout: FiniteDuration =
-    FiniteDuration(config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+    FiniteDuration(config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   /**
     * Provides a Write Consistency policy from a config value.
