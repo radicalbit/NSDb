@@ -15,6 +15,8 @@
  */
 
 package io.radicalbit.nsdb
+import java.math.MathContext
+
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
@@ -39,11 +41,10 @@ package object post_proc {
     * @param aggregationType aggregation type (temporal, count, sum etc.)
     * @return the final result obtained from the manipulation of the partials.
     */
-  def applyOrderingWithLimit(
-      chainedResults: Seq[Bit],
-      statement: SelectSQLStatement,
-      schema: Schema,
-      aggregationType: Option[InternalAggregation] = None)(implicit ec: ExecutionContext): Seq[Bit] = {
+  def applyOrderingWithLimit(chainedResults: Seq[Bit],
+                             statement: SelectSQLStatement,
+                             schema: Schema,
+                             aggregationType: Option[InternalAggregation] = None): Seq[Bit] = {
     val sortedResults = aggregationType match {
       case Some(_: InternalTemporalAggregation) =>
         val temporalSortedResults = chainedResults.sortBy(_.timestamp)
@@ -126,7 +127,7 @@ package object post_proc {
       schema: Schema,
       statement: SelectSQLStatement,
       aggregation: InternalTemporalAggregation,
-      finalStep: Boolean = true)(implicit ec: ExecutionContext): Seq[Bit] => Seq[Bit] = { res =>
+      finalStep: Boolean = true)(implicit mathContext: MathContext): Seq[Bit] => Seq[Bit] = { res =>
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
     val chainedResult =
@@ -194,7 +195,7 @@ package object post_proc {
   def internalAggregationReduce(bits: Seq[Bit],
                                 schema: Schema,
                                 aggregation: InternalStandardAggregation,
-                                finalStep: Boolean = true): Bit = {
+                                finalStep: Boolean = true)(implicit mathContext: MathContext): Bit = {
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
     aggregation match {

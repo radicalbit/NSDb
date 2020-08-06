@@ -26,6 +26,7 @@ import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
 
 /**
   * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint]] based on coordinators
@@ -35,7 +36,7 @@ trait NSDbActors {
   implicit def system: ActorSystem
 
   implicit lazy val timeout: Timeout =
-    Timeout(system.settings.config.getDuration("nsdb.global.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
+    Timeout(system.settings.config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   def initTopLevelActors(): Unit = {
     AkkaManagement(system).start()

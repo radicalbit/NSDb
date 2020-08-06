@@ -17,42 +17,44 @@
 package io.radicalbit.nsdb.common.configuration
 
 import com.typesafe.config.{Config, ConfigFactory}
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
-import NSDbConfig.LowLevel._
-import NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.configuration.NSDbConfig.LowLevel._
+import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
-class NSDbConfigProviderSpec extends FlatSpec with Matchers with OneInstancePerTest with NSDbConfigProvider {
+class NSDbConfigProviderSpec extends WordSpec with Matchers with OneInstancePerTest with NSDbConfigProvider {
 
   override def userDefinedConfig: Config      = ConfigFactory.parseResources("nsdb-test.conf").resolve()
   override def lowLevelTemplateConfig: Config = ConfigFactory.parseResources("application-test.conf")
 
-  "NSDbConfigProvider" should "properly merge configuration files" in {
+  "NSDbConfigProvider" should {
+    "properly merge configuration files" in {
 
-    val c1 = ConfigFactory.parseString("""
+      val c1 = ConfigFactory.parseString("""
           |p1 = "a"
           |p2 = "b"
           |""".stripMargin)
 
-    val c2 = ConfigFactory.parseString(
-      """
+      val c2 = ConfigFactory.parseString(
+        """
           |p2= "b"
           |p3 = "d"
           |""".stripMargin
-    )
+      )
 
-    val mergedConf = mergeConf(c1, c2)
-    mergedConf.getString("p1") shouldBe "a"
-    mergedConf.getString("p2") shouldBe "b"
-    mergedConf.getString("p3") shouldBe "d"
-  }
+      val mergedConf = mergeConf(c1, c2)
+      mergedConf.getString("p1") shouldBe "a"
+      mergedConf.getString("p2") shouldBe "b"
+      mergedConf.getString("p3") shouldBe "d"
+    }
 
-  "NSDbConfigProvider" should "properly populate a low level conf" in {
-    config.getValue(AkkaArteryHostName) shouldBe userDefinedConfig.getValue(NSDbNodeHostName)
-    config.getValue(AkkaArteryPort) shouldBe userDefinedConfig.getValue(NSDbNodePort)
-    config.getValue(AkkaDDPersistenceDir) shouldBe userDefinedConfig.getValue(NSDBMetadataPath)
-    config.getValue(AkkaDiscoveryNSDbEndpoints) shouldBe userDefinedConfig.getValue(NSDbClusterEndpoints)
+    "properly populate a low level conf" in {
+      config.getValue(AkkaArteryHostName) shouldBe userDefinedConfig.getValue(NSDbNodeHostName)
+      config.getValue(AkkaArteryPort) shouldBe userDefinedConfig.getValue(NSDbNodePort)
+      config.getValue(AkkaDDPersistenceDir) shouldBe userDefinedConfig.getValue(NSDBMetadataPath)
+      config.getValue(AkkaDiscoveryNSDbEndpoints) shouldBe userDefinedConfig.getValue(NSDbClusterEndpoints)
 
-    config.hasPath(AkkaManagementContactPointNr) shouldBe false
+      config.hasPath(AkkaManagementContactPointNr) shouldBe false
+    }
   }
 
 }

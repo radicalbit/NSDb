@@ -48,6 +48,10 @@ object NSDbConfig {
 
     final val retryPolicyDelay    = "nsdb.retry-policy.delay"
     final val retryPolicyNRetries = "nsdb.retry-policy.n-retries"
+
+    final val globalTimeout = "nsdb.global.timeout"
+
+    final val precision = "nsdb.math.precision"
   }
 
   object LowLevel {
