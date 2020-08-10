@@ -195,6 +195,12 @@ object Dependencies {
     lazy val commonsIo = namespace % "commons-io" % version
   }
 
+  object apacheCommons {
+    lazy val version   = "3.11"
+    lazy val namespace = "org.apache.commons"
+    lazy val commonLang = namespace % "commons-lang3" % version
+  }
+
   object zipUtils {
     lazy val version   = "1.13"
     lazy val namespace = "org.zeroturnaround"
@@ -213,6 +219,7 @@ object Dependencies {
       scalatest.core % Test,
       akka.testkit   % Test,
       commonsIo.commonsIo,
+      apacheCommons.commonLang,
       zipUtils.zip
     )
   }

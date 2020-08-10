@@ -36,7 +36,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
   */
-class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogging {
+class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
     case e: TimeoutException =>
@@ -64,6 +64,8 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
+  private val actorNameSuffix = s"${nodeName}_$nodeId"
+
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
   private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeName)
@@ -75,7 +77,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
     SchemaCoordinator
       .props(schemaCache)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-    s"schema-coordinator_$nodeName"
+    s"schema-coordinator_$actorNameSuffix"
   )
 
   private val metadataCoordinator =
@@ -84,7 +86,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
         .props(clusterListener, metadataCache, schemaCache, mediator, writeNodesSelectionLogic)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-      name = s"metadata-coordinator_$nodeName"
+      name = s"metadata-coordinator_$actorNameSuffix"
     )
 
   private val readCoordinator =
@@ -93,7 +95,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
         .props(metadataCoordinator, schemaCoordinator, mediator, readNodesSelection)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-      s"read-coordinator_$nodeName"
+      s"read-coordinator_$actorNameSuffix"
     )
   private val publisherActor =
     context.actorOf(
@@ -101,14 +103,14 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
         .props(readCoordinator)
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-      s"publisher-actor_$nodeName"
+      s"publisher-actor_$actorNameSuffix"
     )
   private val writeCoordinator =
     context.actorOf(
       WriteCoordinator
         .props(metadataCoordinator, schemaCoordinator, mediator)
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
-      s"write-coordinator_$nodeName"
+      s"write-coordinator_$actorNameSuffix"
     )
 
   private val commitLogCoordinator =
@@ -116,7 +118,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       Props[CommitLogCoordinator]
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
         .withDispatcher("akka.actor.control-aware-dispatcher"),
-      s"commitlog-coordinator_$nodeName"
+      s"commitlog-coordinator_$actorNameSuffix"
     )
 
   private val metricsDataActor = context.actorOf(
@@ -124,7 +126,7 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
       .props(indexBasePath, nodeName, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
-    s"metrics-data-actor_$nodeName"
+    s"metrics-data-actor_$actorNameSuffix"
   )
 
   def receive: Receive = {
@@ -143,6 +145,6 @@ class NodeActorsGuardian(clusterListener: ActorRef) extends Actor with ActorLogg
 }
 
 object NodeActorsGuardian {
-  def props(clusterListener: ActorRef): Props =
-    Props(new NodeActorsGuardian(clusterListener))
+  def props(clusterListener: ActorRef, nodeId: String): Props =
+    Props(new NodeActorsGuardian(clusterListener, nodeId))
 }

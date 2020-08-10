@@ -94,16 +94,17 @@ class ClusterListener(enableClusterMetricsExtension: Boolean) extends Actor with
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
     if (enableClusterMetricsExtension) clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
-
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
 
-  protected def createNodeActorsGuardian(): ActorRef =
+  protected def createNodeActorsGuardian(): ActorRef = {
+    val nodeId = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
     context.system.actorOf(
-      NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-      name = s"guardian_$selfNodeName"
+      NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
+      name = s"guardian_${selfNodeName}_$nodeId"
     )
+  }
 
   protected def retrieveLocationsToAdd: List[LocationWithCoordinates] =
     FileUtils.getLocationsFromFilesystem(indexPath, selfNodeName)

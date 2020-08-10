@@ -25,8 +25,8 @@ class ClusterListenerTestActor extends Actor with ActorLogging {
       val nodeName = createNodeName(member)
 
       val nodeActorsGuardian =
-        context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
-          name = s"guardian_$nodeName")
+        context.system.actorOf(NodeActorsGuardian.props(self,nodeName).withDeploy(Deploy(scope = RemoteScope(member.address))),
+          name = s"guardian_${nodeName}_$nodeName")
 
       mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
     case GetNodeMetrics =>
