@@ -125,7 +125,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   implicit val timeout: Timeout = Timeout(5.seconds)
 
-  system.actorOf(Props[ClusterListenerTestActor], name = "clusterListener")
+  system.actorOf(ClusterListenerTestActor.props(), name = "clusterListener")
 
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
 
