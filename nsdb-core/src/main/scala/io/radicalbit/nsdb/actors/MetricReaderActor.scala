@@ -28,15 +28,20 @@ import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeout, precision}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
-import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.post_proc.{internalAggregationReduce, postProcessingTemporalQueryResult}
+import io.radicalbit.nsdb.post_proc.{
+  applyOrderingWithLimit,
+  internalAggregationReduce,
+  postProcessingTemporalQueryResult
+}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.math.min
 
 /**
   * Actor responsible for:
@@ -269,37 +274,13 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
-          val actors =
-            actorsForLocations(locations)
-
-          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg)
-
-          orderedResults
+          retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {
               case SelectStatementExecuted(_, seq) =>
-                if (fields.lengthCompare(1) == 0 && fields.head.count) {
-                  val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
-                  val count       = if (recordCount <= limit) recordCount else limit
-
-                  val bits = Seq(
-                    Bit(
-                      timestamp = 0,
-                      value = NSDbNumericType(count),
-                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
-                    ))
-
-                  SelectStatementExecuted(statement, bits)
-                } else {
-                  SelectStatementExecuted(
-                    statement,
-                    seq.map(
-                      b =>
-                        if (b.tags.contains("count(*)"))
-                          b.copy(tags = b.tags + ("count(*)" -> NSDbType(seq.size)))
-                        else b)
-                  )
-                }
+                SelectStatementExecuted(
+                  statement,
+                  seq
+                )
               case err: SelectStatementFailed => err
             }
             .pipeTo(sender)
@@ -319,6 +300,36 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           }
 
           shardResults.pipeTo(sender)
+
+        case Right(ParsedGlobalAggregatedQuery(_, _, _, limit, fields, _, _)) =>
+          gatherShardResults(statement, actorsForLocations(locations), msg) { seq =>
+            val count = min(limit, seq.map(_.value.rawValue.asInstanceOf[Long]).sum)
+            if (fields.nonEmpty) {
+              applyOrderingWithLimit(
+                seq.map { bit =>
+                  bit.copy(tags = bit.tags + ("count(*)" -> count))
+                },
+                statement,
+                schema
+              )
+            } else {
+              Seq(Bit(0, count, Map.empty, Map("count(*)" -> count)))
+            }
+//            val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
+//            val count       = limit.map(l => if (recordCount <= l) recordCount else l).getOrElse(recordCount)
+//            applyOrderingWithLimit(
+//              Seq(
+//                Bit(
+//                  timestamp = 0,
+//                  value = NSDbNumericType(count),
+//                  dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
+//                  tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
+//                )),
+//              statement,
+//              schema
+//            )
+          } pipeTo sender
+
         case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)

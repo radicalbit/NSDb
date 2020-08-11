@@ -49,7 +49,7 @@ package object post_proc {
       case Some(_: InternalTemporalAggregation) =>
         val temporalSortedResults = chainedResults.sortBy(_.timestamp)
         statement.limit.map(_.value).map(v => temporalSortedResults.takeRight(v)) getOrElse temporalSortedResults
-      case Some(InternalCountStandardAggregation(_, _)) if statement.order.exists(_.dimension == "value") =>
+      case Some(InternalCountStandardAggregation(_)) if statement.order.exists(_.dimension == "value") =>
         implicit val ord: Ordering[Any] =
           (if (statement.order.get.isInstanceOf[DescOrderOperator]) Ordering[Long].reverse
            else Ordering[Long]).asInstanceOf[Ordering[Any]]

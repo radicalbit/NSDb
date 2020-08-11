@@ -20,7 +20,7 @@ import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassTy
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.statement.StatementParser.SimpleField
+import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
@@ -74,7 +74,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
             .forall { _ =>
               f.name() == _keyField || f.name() == _valueField || f.name() == _countField || (fields.nonEmpty &&
               !fields.exists { sf =>
-                (sf.name == f.name() || sf.name.trim == "*") && !sf.count
+                (sf.name == f.name() || sf.name.trim == "*")
               })
             }
         }
@@ -87,15 +87,12 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     val dimensions: Map[String, NSDbType] = extractFields(schema, document, fields, DimensionFieldType).toMap
     val tags: Map[String, NSDbType]       = extractFields(schema, document, fields, TagFieldType).toMap
 
-    val aggregated: Map[String, NSDbType] =
-      fields.filter(_.count).map(_.toString -> NSDbType(document.getField(_countField).numericValue())).toMap
-
     val value = document.getField(_valueField).numericValue()
     Bit(
       timestamp = document.getField(_keyField).numericValue().longValue(),
       value = NSDbNumericType(value),
       dimensions = dimensions,
-      tags = tags ++ aggregated
+      tags = tags //++ aggregated
     )
   }
 
@@ -114,13 +111,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @return the query results as a list of entries.
     */
   def query(schema: Schema, query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[Bit] = {
-    if (fields.nonEmpty && fields.forall(_.count))
-      executeCountQuery(this.getSearcher, query, limit) { doc =>
-        toRecord(schema, doc, fields)
-      } else
-      executeQuery(this.getSearcher, query, limit, sort) { doc =>
-        toRecord(schema: Schema, doc, fields)
-      }
+    executeQuery(this.getSearcher, query, limit, sort) { doc =>
+      toRecord(schema: Schema, doc, fields)
+    }
   }
 
   /**
@@ -138,10 +131,10 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * Executes a simple count [[Query]] using the given schema.
     * @return the query results as a list of entries.
     */
-  def getCount: Int =
-    executeCountQuery(this.getSearcher, new MatchAllDocsQuery(), Int.MaxValue) { doc =>
+  def getCount(query: Query = new MatchAllDocsQuery(), limit: Int = Int.MaxValue): Long =
+    executeCountQuery(this.getSearcher, query, limit) { doc =>
       doc.getField(_countField).numericValue().intValue()
-    }.headOption.getOrElse(0)
+    }
 
   private def headItemOfGroup(query: Query,
                               schema: Schema,

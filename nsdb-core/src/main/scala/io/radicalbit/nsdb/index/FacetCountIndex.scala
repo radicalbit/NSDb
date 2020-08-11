@@ -53,7 +53,6 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
   override protected[index] def internalResult(query: Query,
                                                groupField: String,
                                                sort: Option[Sort],
-                                               limit: Option[Int],
                                                valueIndexType: IndexType[_] = BIGINT()): Option[FacetResult] = {
     val c = new FacetsConfig
     c.setIndexFieldName(groupField, facetName(groupField))
@@ -86,7 +85,7 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
                                        limit: Option[Int],
                                        indexType: IndexType[_],
                                        valueIndexType: IndexType[_]): Seq[Bit] = {
-    val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, limit, valueIndexType)
+    val facetResult: Option[FacetResult] = internalResult(query, groupField, sort, valueIndexType)
     facetResult.fold(Seq.empty[Bit])(
       _.labelValues
         .map(
@@ -105,11 +104,10 @@ class FacetCountIndex(override val directory: Directory, override val taxoDirect
     * @param query query to be executed against the facet index.
     * @param field distinct field.
     * @param sort optional lucene [[Sort]]
-    * @param limit results limit.
     * @return query results.
     */
-  protected[index] def getDistinctField(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] = {
-    val res = internalResult(query, field, sort, Some(limit))
+  protected[index] def getDistinctField(query: Query, field: String, sort: Option[Sort]): Seq[Bit] = {
+    val res = internalResult(query, field, sort)
     res.fold(Seq.empty[Bit])(_.labelValues
       .map(lv =>
         Bit(timestamp = 0, value = NSDbNumericType(0), dimensions = Map.empty, tags = Map(field -> NSDbType(lv.label))))

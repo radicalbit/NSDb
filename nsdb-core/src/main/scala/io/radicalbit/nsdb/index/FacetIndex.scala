@@ -42,7 +42,6 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
   protected[index] def internalResult(query: Query,
                                       groupField: String,
                                       sort: Option[Sort],
-                                      limit: Option[Int],
                                       valueIndexType: IndexType[_]): Option[FacetResult]
 
   /**

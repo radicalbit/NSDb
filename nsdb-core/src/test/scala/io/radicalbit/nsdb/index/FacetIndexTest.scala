@@ -93,7 +93,7 @@ class FacetIndexTest extends WordSpec with Matchers with OneInstancePerTest {
     writer.close()
 
     val actualResult =
-      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, None, VARCHAR(), DECIMAL())
+      facetIndexes.executeSumAndCountFacet(new MatchAllDocsQuery(), "tag", None, VARCHAR(), DECIMAL())
 
     val expectedResult = List(
       Bit(0,

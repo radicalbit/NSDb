@@ -117,15 +117,14 @@ class AllFacetIndexes(basePath: String,
     }
 
   def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] =
-    facetCountIndex.getDistinctField(query, field, sort, limit)
+    facetCountIndex.getDistinctField(query, field, sort)
 
   def executeSumAndCountFacet(query: Query,
                               groupField: String,
                               sort: Option[Sort],
-                              limit: Option[Int],
                               indexType: IndexType[_],
                               valueIndexType: IndexType[_]): Seq[Bit] =
-    sumAndCountFacetCombiner.executeSumAndCountFacet(query, groupField, sort, limit, indexType, valueIndexType)
+    sumAndCountFacetCombiner.executeSumAndCountFacet(query, groupField, sort, indexType, valueIndexType)
 
   /**
     * @return the [[org.apache.lucene.index.IndexWriter]]

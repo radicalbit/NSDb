@@ -498,12 +498,12 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6)),
-          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "count(*)"       -> 6)),
-          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6)),
-          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6)),
-          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6))
+          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "count(*)"       -> 6L)),
+          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6L)),
+          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6L)),
+          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6L))
         )
       }
 
@@ -527,7 +527,7 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0, 4, Map.empty, Map("count(*)" -> NSDbLongType(4)))
+          Bit(0, 4L, Map.empty, Map("count(*)" -> NSDbLongType(4L)))
         )
       }
 

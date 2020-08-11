@@ -212,7 +212,7 @@ object MessageProtocol {
     case class SchemaDeleted(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class AllSchemasDeleted(db: String, namespace: String)             extends NSDbSerializable
 
-    case class CountGot(db: String, namespace: String, metric: String, count: Int)       extends NSDbSerializable
+    case class CountGot(db: String, namespace: String, metric: String, count: Long)      extends NSDbSerializable
     case class RecordDeleted(db: String, namespace: String, metric: String, record: Bit) extends NSDbSerializable
     case class AllMetricsDeleted(db: String, namespace: String)                          extends NSDbSerializable
     case class ShardEvicted(db: String, namespace: String, location: Location)           extends NSDbSerializable

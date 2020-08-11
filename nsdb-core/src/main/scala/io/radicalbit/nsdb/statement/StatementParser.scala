@@ -18,6 +18,7 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.search._
 
 /**
@@ -41,21 +42,18 @@ object StatementParser {
     * Retrieves internal [[InternalStandardAggregation]] based on provided into the query.
     *
     * @param groupField     group by field.
-    * @param aggregateField field to apply the aggregation to.
     * @param agg            aggregation clause in query (min, max, sum, count).
     * @return an instance of [[InternalStandardAggregation]] based on the given parameters.
     */
-  private def toInternalAggregation(groupField: String,
-                                    aggregateField: String,
-                                    agg: Aggregation): InternalStandardAggregation = {
+  private def toInternalAggregation(groupField: String, agg: Aggregation): InternalStandardAggregation = {
     agg match {
-      case CountAggregation => InternalCountStandardAggregation(groupField, aggregateField)
-      case MaxAggregation   => InternalMaxStandardAggregation(groupField, aggregateField)
-      case MinAggregation   => InternalMinStandardAggregation(groupField, aggregateField)
-      case SumAggregation   => InternalSumStandardAggregation(groupField, aggregateField)
-      case FirstAggregation => InternalFirstStandardAggregation(groupField, aggregateField)
-      case LastAggregation  => InternalLastStandardAggregation(groupField, aggregateField)
-      case AvgAggregation   => InternalAvgStandardAggregation(groupField, aggregateField)
+      case CountAggregation => InternalCountStandardAggregation(groupField)
+      case MaxAggregation   => InternalMaxStandardAggregation(groupField)
+      case MinAggregation   => InternalMinStandardAggregation(groupField)
+      case SumAggregation   => InternalSumStandardAggregation(groupField)
+      case FirstAggregation => InternalFirstStandardAggregation(groupField)
+      case LastAggregation  => InternalLastStandardAggregation(groupField)
+      case AvgAggregation   => InternalAvgStandardAggregation(groupField)
     }
   }
 
@@ -72,35 +70,39 @@ object StatementParser {
       new Sort(new SortField(order.dimension, sortType, order.isInstanceOf[DescOrderOperator]))
     })
 
-    val expParsed = ExpressionParser.parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
-    val fieldList: Either[String, List[Field]] = statement.fields match {
-      case AllFields() => Right(List.empty)
-      case ListFields(list) =>
-        val metricDimensions     = schema.fieldsMap.values.map(_.name).toSeq
-        val projectionDimensions = list.map(_.name).filterNot(_ == "*")
-        val diff                 = projectionDimensions.filterNot(metricDimensions.contains)
-        if (diff.isEmpty)
-          Right(list)
-        else
-          Left(StatementParserErrors.notExistingDimensions(diff))
-    }
+    val expParsed: Either[String, ExpressionParser.ParsedExpression] =
+      ExpressionParser.parseExpression(statement.condition.map(_.expression), schema.fieldsMap)
 
     val distinctValue = statement.distinct
 
     val limitOpt = statement.limit.map(_.value)
 
-    expParsed match {
-      case Right(exp) =>
-        (distinctValue, fieldList, statement.groupBy) match {
-          case (_, Left(errorMessage), _) => Left(errorMessage)
-          // Trying to order by a dimension not in group by clause
-          case (false, Right(Seq(Field(_, Some(_)))), Some(group))
-              if sortOpt.isDefined && !Seq("value", group.field).contains(sortOpt.get.getSort.head.getField) =>
+    expParsed flatMap { exp =>
+      FieldsParser.parseFieldList(statement, schema).flatMap { fieldsList =>
+        //switch on group by
+        (statement.groupBy, fieldsList.list) match {
+          case (Some(group), _)
+              if sortOpt.exists(sort => !Seq("value", "*", group.field).contains(sort.getSort.head.getField)) =>
             Left(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP)
-          // Match temporal count aggregation
-          case (false,
-                Right(Seq(Field(fieldName, Some(aggregation)))),
-                Some(TemporalGroupByAggregation(interval, _, _))) if fieldName == "value" || fieldName == "*" =>
+          case (Some(_), list) if list.forall(_.aggregation.isEmpty) =>
+            Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
+          case (Some(_), list) if list.size > 1 =>
+            Left(StatementParserErrors.MORE_FIELDS_GROUP_BY)
+          case (Some(_), _) if distinctValue =>
+            Left(StatementParserErrors.GROUP_BY_DISTINCT)
+          case (Some(group: SimpleGroupByAggregation), _) if !schema.tags.contains(group.field) =>
+            Left(StatementParserErrors.SIMPLE_AGGREGATION_NOT_ON_TAG)
+          case (Some(group: SimpleGroupByAggregation), List(SimpleField(_, Some(agg)))) =>
+            Right(
+              ParsedAggregatedQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                toInternalAggregation(groupField = group.field, agg = agg),
+                sortOpt,
+                limitOpt
+              ))
+          case (Some(TemporalGroupByAggregation(interval, _, _)), List(SimpleField(_, Some(aggregation)))) =>
             Right(
               ParsedTemporalAggregatedQuery(
                 statement.namespace,
@@ -113,74 +115,39 @@ object StatementParser {
                 limitOpt
               )
             )
-          case (false, Right(Seq(Field(fieldName, Some(agg)))), Some(group: SimpleGroupByAggregation))
-              if schema.tags.contains(group.field) && (fieldName == "value" || fieldName == "*") =>
-            Right(
-              ParsedAggregatedQuery(
-                statement.namespace,
-                statement.metric,
-                exp.q,
-                toInternalAggregation(groupField = group.field, aggregateField = "value", agg = agg),
-                sortOpt,
-                limitOpt
-              ))
-          case (false, Right(Seq(Field(fieldName, Some(_)))), Some(_: SimpleGroupByAggregation))
-              if fieldName == "value" || fieldName == "*" =>
-            Left(StatementParserErrors.SIMPLE_AGGREGATION_NOT_ON_TAG)
-          case (false, Right(Seq(Field(_, Some(_)))), Some(group)) if schema.tags.contains(group.field) =>
-            Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
-          case (false, Right(Seq(Field(_, Some(_)))), Some(group)) =>
-            Left(StatementParserErrors.notExistingDimension(group.field))
-          case (_, Right(List(Field(_, None))), Some(_)) =>
-            Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
-          case (_, Right(Nil), Some(_)) =>
-            Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)
-          case (_, Right(List(_)), Some(_)) =>
-            Left(StatementParserErrors.MORE_FIELDS_GROUP_BY)
-          case (true, Right(List()), None) =>
-            Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
-          //TODO: Not supported yet
-          case (true, Right(fieldsSeq), None) if fieldsSeq.lengthCompare(1) > 0 =>
-            Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
-          case (false, Right(Seq(Field(name, Some(CountAggregation)))), None) =>
-            Right(
-              ParsedSimpleQuery(
-                statement.namespace,
-                statement.metric,
-                exp.q,
-                distinct = false,
-                limitOpt getOrElse Int.MaxValue,
-                List(SimpleField(name, count = true)),
-                sortOpt
-              )
-            )
-          case (distinct, Right(fieldsSeq), None)
-              if !fieldsSeq.exists(f => f.aggregation.isDefined && f.aggregation.get != CountAggregation) =>
-            Right(
-              ParsedSimpleQuery(
-                statement.namespace,
-                statement.metric,
-                exp.q,
-                distinct,
-                limitOpt getOrElse Int.MaxValue,
-                fieldsSeq.map(f => SimpleField(f.name, f.aggregation.isDefined)),
-                sortOpt
-              ))
-          case (false, Right(List()), None) =>
-            Right(
-              ParsedSimpleQuery(statement.namespace,
-                                statement.metric,
-                                exp.q,
-                                distinct = false,
-                                limitOpt getOrElse Int.MaxValue,
-                                List(),
-                                sortOpt))
-
-          case (_, Right(fieldsSeq), None)
-              if fieldsSeq.exists(f => f.aggregation.isDefined && !(f.aggregation.get == CountAggregation)) =>
+          case (None, fieldsList) if FieldsParser.containsStandardAggregations(fieldsList) =>
             Left(StatementParserErrors.NO_GROUP_BY_AGGREGATION)
+          case (None, List()) if distinctValue =>
+            Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
+          case (None, fieldsList) if distinctValue && fieldsList.size > 1 =>
+            Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
+          case (None, fieldsList) if FieldsParser.containsOnlyGlobalAggregations(fieldsList) =>
+            val (aggregatedFields, plainFields) = fieldsList.partition(_.aggregation.isDefined)
+
+            Right(
+              ParsedGlobalAggregatedQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                limitOpt.getOrElse(Int.MaxValue),
+                plainFields,
+                aggregatedFields.flatMap(_.aggregation),
+                //                          fieldsSeq.map(f => SimpleField(f.name)),
+                sortOpt
+              ))
+          case (None, fieldsList) =>
+            Right(
+              ParsedSimpleQuery(
+                statement.namespace,
+                statement.metric,
+                exp.q,
+                distinctValue,
+                limitOpt getOrElse Int.MaxValue,
+                fieldsList,
+                sortOpt
+              ))
         }
-      case Left(errorMessage) => Left(errorMessage)
+      }
     }
   }
 
@@ -191,18 +158,6 @@ object StatementParser {
     val namespace: String
     val metric: String
     val q: Query
-  }
-
-  /**
-    * Simple query field.
-    *
-    * @param name  field to be returned into query results.
-    * @param count if the number of occurrences of that field must be returned or not. i.e. if the initial query specifies count(field) as a projection.
-    */
-  case class SimpleField(name: String, count: Boolean = false) {
-    override def toString: String = {
-      if (count) s"count($name)" else name
-    }
   }
 
   /**
@@ -227,6 +182,26 @@ object StatementParser {
 
   /**
     * Internal query with aggregations
+    *
+    * @param namespace       query namespace.
+    * @param metric          query metric.
+    * @param q               lucene's [[Query]]
+    * @param limit     results limit.
+    * @param plainFields    subset of non aggregated fields to be included in the results.
+    * @param aggregations    list of global aggregations to be included in the results.
+    * @param sort      lucene [[Sort]] clause. None if no sort has been supplied.
+    */
+  case class ParsedGlobalAggregatedQuery(namespace: String,
+                                         metric: String,
+                                         q: Query,
+                                         limit: Int,
+                                         plainFields: List[SimpleField] = List.empty,
+                                         aggregations: List[Aggregation],
+                                         sort: Option[Sort] = None)
+      extends ParsedQuery
+
+  /**
+    * Internal query with group by aggregations
     *
     * @param namespace       query namespace.
     * @param metric          query metric.
@@ -277,32 +252,18 @@ object StatementParser {
   sealed trait InternalStandardAggregation extends InternalAggregation {
 
     def groupField: String
-
-    def aggregateField: String
   }
 
   sealed trait InternalStandardSingleAggregation    extends InternalStandardAggregation with SingleAggregation
   sealed trait InternalStandardCompositeAggregation extends InternalStandardAggregation with CompositeAggregation
 
-  case class InternalCountStandardAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalStandardSingleAggregation
-
-  case class InternalMaxStandardAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalStandardSingleAggregation
-
-  case class InternalMinStandardAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalStandardSingleAggregation
-
-  case class InternalSumStandardAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalStandardSingleAggregation
-
-  case class InternalFirstStandardAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalStandardSingleAggregation
-
-  case class InternalLastStandardAggregation(override val groupField: String, override val aggregateField: String)
-      extends InternalStandardSingleAggregation
-
-  case class InternalAvgStandardAggregation(override val groupField: String, override val aggregateField: String)
+  case class InternalCountStandardAggregation(override val groupField: String) extends InternalStandardSingleAggregation
+  case class InternalMaxStandardAggregation(override val groupField: String)   extends InternalStandardSingleAggregation
+  case class InternalMinStandardAggregation(override val groupField: String)   extends InternalStandardSingleAggregation
+  case class InternalSumStandardAggregation(override val groupField: String)   extends InternalStandardSingleAggregation
+  case class InternalFirstStandardAggregation(override val groupField: String) extends InternalStandardSingleAggregation
+  case class InternalLastStandardAggregation(override val groupField: String)  extends InternalStandardSingleAggregation
+  case class InternalAvgStandardAggregation(override val groupField: String)
       extends InternalStandardCompositeAggregation
 
   sealed trait InternalTemporalAggregation extends InternalAggregation

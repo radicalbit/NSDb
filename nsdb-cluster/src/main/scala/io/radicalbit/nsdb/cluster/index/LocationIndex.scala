@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.cluster.index
 
 import io.radicalbit.nsdb.index.SimpleIndex
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.statement.StatementParser.SimpleField
+import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document.Field.Store
 import org.apache.lucene.document._
 import org.apache.lucene.index.{IndexWriter, Term}

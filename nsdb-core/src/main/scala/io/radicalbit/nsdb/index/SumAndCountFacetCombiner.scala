@@ -29,11 +29,10 @@ class SumAndCountFacetCombiner(facetSumIndex: FacetSumIndex, facetCountIndex: Fa
   def executeSumAndCountFacet(query: Query,
                               groupField: String,
                               sort: Option[Sort],
-                              limit: Option[Int],
                               indexType: IndexType[_],
                               valueIndexType: IndexType[_]): Seq[Bit] = {
-    val facetSumResult   = facetSumIndex.internalResult(query, groupField, sort, limit, valueIndexType)
-    val facetCountResult = facetCountIndex.internalResult(query, groupField, sort, limit, valueIndexType)
+    val facetSumResult   = facetSumIndex.internalResult(query, groupField, sort, valueIndexType)
+    val facetCountResult = facetCountIndex.internalResult(query, groupField, sort, valueIndexType)
 
     combineSumAndCount(facetSumResult, facetCountResult).map {
       case (groupFieldValue, (sum, count)) =>

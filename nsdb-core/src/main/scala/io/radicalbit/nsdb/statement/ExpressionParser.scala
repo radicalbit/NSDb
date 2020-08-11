@@ -28,7 +28,7 @@ import scala.util.{Success, Try}
 
 object ExpressionParser {
 
-  protected case class ParsedExpression(q: Query)
+  case class ParsedExpression(q: Query)
 
   /**
     * Parses an optional [[Expression]] into a [[ParsedExpression]].
