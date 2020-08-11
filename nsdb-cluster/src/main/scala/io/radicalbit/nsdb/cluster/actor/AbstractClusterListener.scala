@@ -69,7 +69,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   private lazy val config    = context.system.settings.config
   private lazy val indexPath = config.getString(StorageIndexPath)
 
-  implicit val defaultTimeout: Timeout = Timeout(5.seconds)
+  implicit val defaultTimeout: Timeout =
+    Timeout(config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   /**
   collects all the metrics coming from the akka metric system collector.
@@ -97,6 +98,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
     if (enableClusterMetricsExtension) clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
+    mediator ! Subscribe(NSDB_LISTENERS_TOPIC, self)
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
@@ -104,7 +106,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   protected def createNodeActorsGuardian(): ActorRef = {
     context.system.actorOf(
       NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-      name = s"guardian_${selfNodeName}_$nodeId"
+      name = s"guardian_${selfNodeName}"
     )
   }
 
@@ -128,7 +130,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   private def unsubscribeNode(nodeName: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
     (for {
       NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
-        s"/user/guardian_$selfNodeName") ? GetNodeChildActors)
+        s"/user/guardian_$nodeName") ? GetNodeChildActors)
         .mapTo[NodeChildActorsGot]
       _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
       _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
@@ -180,8 +182,10 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
               }
               .onComplete {
                 case Success((_, failures)) if failures.isEmpty =>
+                  val nodeName = createNodeName(member)
                   mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
-                  NSDbClusterSnapshot(context.system).addNodeName(selfNodeName)
+                  mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
+                  NSDbClusterSnapshot(context.system).addNode(nodeId, nodeName)
                   onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
                 case e =>
                   onFailureBehaviour(member, e)
@@ -189,8 +193,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
           case unknownResponse =>
             log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
         }
-    case MemberUp(member) =>
-      NSDbClusterSnapshot(context.system).addNodeName(createNodeName(member))
+    case NodeAlive(nodeId, address) =>
+      NSDbClusterSnapshot(context.system).addNode(nodeId, address)
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
 
@@ -198,7 +202,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
       unsubscribeNode(nodeName)
 
-      NSDbClusterSnapshot(context.system).removeNodeName(nodeName)
+      NSDbClusterSnapshot(context.system).removeNode(nodeName)
 
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
@@ -207,7 +211,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
       unsubscribeNode(nodeName)
 
-      NSDbClusterSnapshot(context.system).removeNodeName(nodeName)
+      NSDbClusterSnapshot(context.system).removeNode(nodeName)
     case _: MemberEvent => // ignore
     case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
       log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")

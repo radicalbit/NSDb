@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.util.concurrent.TimeoutException
+import java.util.concurrent.{TimeUnit, TimeoutException}
 
 import akka.actor.SupervisorStrategy.{Resume, Stop}
 import akka.actor._
@@ -32,6 +32,8 @@ import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, Local
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -129,6 +131,21 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
     s"metrics-data-actor_$actorNameSuffix"
   )
 
+  override def preStart(): Unit = {
+    import context.dispatcher
+
+    val interval = FiniteDuration(
+      context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
+      TimeUnit.SECONDS)
+
+    /**
+      * scheduler that disseminate gossip message to all the cluster listener actors
+      */
+    context.system.scheduler.schedule(interval, interval) {
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
+    }
+  }
+
   def receive: Receive = {
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
@@ -145,6 +162,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
 }
 
 object NodeActorsGuardian {
+
   def props(clusterListener: ActorRef, nodeId: String): Props =
     Props(new NodeActorsGuardian(clusterListener, nodeId))
 }

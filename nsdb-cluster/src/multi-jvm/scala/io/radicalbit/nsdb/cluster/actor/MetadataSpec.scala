@@ -16,7 +16,6 @@ import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.rtsae.STMultiNodeSpec
-import org.apache.commons.lang3.RandomStringUtils
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -91,6 +90,9 @@ object MetadataSpec extends MultiNodeConfig {
     |    max-size = 50000
     |    passivate-after = 5s
     |  }
+    |
+    |  heartbeat.interval = 1 second
+    |
     |  websocket {
     |    refresh-period = 100
     |    retention-size = 10
@@ -127,7 +129,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   system.actorOf(ClusterListenerTestActor.props(), name = "clusterListener")
 
-  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
+  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/metadata-coordinator_${nodeName}_$nodeName"
+  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/schema-coordinator_${nodeName}_$nodeName"
 
   "Metadata system" must {
 
@@ -302,7 +305,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
         val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-        val schemaCoordinator   = system.actorSelection(s"user/guardian_${nodeName}_$nodeName/schema-coordinator_${nodeName}_$nodeName")
+        val schemaCoordinator   = system.actorSelection(schemaCoordinatorPath(nodeName))
 
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
@@ -315,7 +318,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
         val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-        val schemaCoordinator   = system.actorSelection(s"user/guardian_${nodeName}_$nodeName/schema-coordinator_${nodeName}_$nodeName")
+        val schemaCoordinator   = system.actorSelection(schemaCoordinatorPath(nodeName))
 
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)

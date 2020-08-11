@@ -17,21 +17,37 @@
 package io.radicalbit.nsdb.cluster.extension
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
+
 import scala.collection.JavaConverters._
 
+/**
+  * Extension that is inspired by the akka [[Cluster]] extension with the purpose to store the current snapshot for a NSDb cluster.
+  * Besides the (already provided by akka) [[Member]] information, the unique node identifier is snapshot
+  * and associated to an address, which may vary.
+  */
 class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extension {
 
-  import java.util
-  import java.util.Collections
   import java.util.concurrent.ConcurrentHashMap
 
-  private val threadSafeSet: util.Set[String] =
-    Collections.newSetFromMap(new ConcurrentHashMap[String, java.lang.Boolean])
+  private val threadSafeMap: ConcurrentHashMap[String, String] = new ConcurrentHashMap[String, String]()
 
-  def addNodeName(nodeName: String): Boolean    = threadSafeSet.add(nodeName)
-  def removeNodeName(nodeName: String): Boolean = threadSafeSet.remove(nodeName)
+  /**
+    * Adds a node and associate it to the a unique identifier
+    * @param nodeId the node unique identifier.
+    * @param address the actual address of the node.
+    */
+  def addNode(nodeId: String, address: String): String = threadSafeMap.put(nodeId, address)
 
-  def nodes: Set[String] = threadSafeSet.asScala.toSet
+  /**
+    * Removes a node.
+    * @param address the actual node address.
+    */
+  def removeNode(address: String)                      = threadSafeMap.values().removeIf(v => v == address)
+
+  /**
+    * Returns the current active nodes
+    */
+  def nodes: Set[(String, String)] = threadSafeMap.asScala.toSet
 }
 
 object NSDbClusterSnapshot extends ExtensionId[NSDbClusterSnapshotExtension] with ExtensionIdProvider {
