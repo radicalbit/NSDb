@@ -101,8 +101,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
     val isSingleNode = uniqueLocationsByNode.keys.size == 1
 
-    log.debug(s"isSingleNode: $isSingleNode")
-
     Future
       .sequence(metricsDataActors.collect {
         case (nodeName, actor) if uniqueLocationsByNode.isDefinedAt(nodeName) =>
