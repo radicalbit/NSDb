@@ -42,7 +42,7 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extensio
     * Removes a node.
     * @param address the actual node address.
     */
-  def removeNode(address: String)                      = threadSafeMap.values().removeIf(v => v == address)
+  def removeNode(address: String) = threadSafeMap.values().removeIf(v => v == address)
 
   /**
     * Returns the current active nodes

@@ -58,7 +58,7 @@ class NodeActorsGuardianForTest extends Actor with ActorLogging {
 
 class ClusterListenerWithMockedChildren(override val resultActor: ActorRef, override val testType: TestType) extends ClusterListenerTestActor {
   val nodeActorsGuardianForTest =
-          context.actorOf(Props(new NodeActorsGuardianForTest), name = s"guardian_${selfNodeName}_$nodeId")
+          context.actorOf(Props(new NodeActorsGuardianForTest), name = s"guardian_${selfNodeName}")
 
           override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
 }
@@ -75,6 +75,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
                                            |    delay = 1 second
                                            |    n-retries = 2
                                            |  }
+                                           |  global.timeout = 30 seconds
                                            |}
                                            |""".stripMargin))
 

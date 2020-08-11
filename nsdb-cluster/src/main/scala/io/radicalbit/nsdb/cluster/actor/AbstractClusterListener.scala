@@ -192,6 +192,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
               }
           case unknownResponse =>
             log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
+            context.system.terminate()
         }
     case NodeAlive(nodeId, address) =>
       NSDbClusterSnapshot(context.system).addNode(nodeId, address)
@@ -234,7 +235,9 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
         mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, fs.getUsableSpace, fs.getTotalSpace))
         log.debug(s"akka cluster metrics $akkaClusterMetrics")
       }.recover {
-        // if the fs path has not been created yet, the occupation ratio will be 100.0
+        /* if the fs path has not been created yet, we assume that the disk is fully available.
+          A convenient value is set both for usable space and total space.
+         */
         case _: NoSuchFileException =>
           mediator ! Publish(NSDB_METRICS_TOPIC, DiskOccupationChanged(selfNodeName, 100, 100))
       }
