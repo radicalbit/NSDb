@@ -132,7 +132,6 @@ object StatementParser {
                 limitOpt.getOrElse(Int.MaxValue),
                 plainFields,
                 aggregatedFields.flatMap(_.aggregation),
-                //                          fieldsSeq.map(f => SimpleField(f.name)),
                 sortOpt
               ))
           case (None, fieldsList) =>
@@ -183,13 +182,13 @@ object StatementParser {
   /**
     * Internal query with aggregations
     *
-    * @param namespace       query namespace.
-    * @param metric          query metric.
-    * @param q               lucene's [[Query]]
-    * @param limit     results limit.
-    * @param plainFields    subset of non aggregated fields to be included in the results.
-    * @param aggregations    list of global aggregations to be included in the results.
-    * @param sort      lucene [[Sort]] clause. None if no sort has been supplied.
+    * @param namespace        query namespace.
+    * @param metric           query metric.
+    * @param q                lucene [[Query]]
+    * @param limit            results limit.
+    * @param plainFields      subset of non aggregated fields to be included in the results.
+    * @param aggregations     list of global aggregations to be included in the results.
+    * @param sort             lucene [[Sort]] clause. None if no sort has been supplied.
     */
   case class ParsedGlobalAggregatedQuery(namespace: String,
                                          metric: String,

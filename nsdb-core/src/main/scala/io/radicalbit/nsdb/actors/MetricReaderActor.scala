@@ -315,19 +315,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             } else {
               Seq(Bit(0, count, Map.empty, Map("count(*)" -> count)))
             }
-//            val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
-//            val count       = limit.map(l => if (recordCount <= l) recordCount else l).getOrElse(recordCount)
-//            applyOrderingWithLimit(
-//              Seq(
-//                Bit(
-//                  timestamp = 0,
-//                  value = NSDbNumericType(count),
-//                  dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-//                  tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
-//                )),
-//              statement,
-//              schema
-//            )
           } pipeTo sender
 
         case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>

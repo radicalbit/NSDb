@@ -21,19 +21,23 @@ import io.radicalbit.nsdb.model.Schema
 
 object FieldsParser {
 
+  /**
+    * Checks if the field contains an aggregation on a field diffetenr than Value
+    */
   def aggregationNotOnValue(field: Field): Boolean =
     field.aggregation.isDefined && field.name != "value" && field.name != "*"
-  def aggregationNotOnValue(fields: List[Field]): Boolean =
-    fields.exists(field => aggregationNotOnValue(field))
 
+  /**
+    * Checks if a list of fields contains at least one standard aggregation.
+    */
   def containsStandardAggregations(fields: List[SimpleField]): Boolean =
-    fields.nonEmpty && fields.exists(f => f.aggregation.exists(!_.isInstanceOf[GlobalAggregation]))
+    fields.exists(f => f.aggregation.exists(!_.isInstanceOf[GlobalAggregation]))
 
+  /**
+    * Checks if the aggregation for a field (if exists) is global
+    */
   def containsOnlyGlobalAggregations(fields: List[SimpleField]): Boolean =
     fields.exists(f => f.aggregation.exists(_.isInstanceOf[GlobalAggregation]))
-
-//  def noAggregations(fields: List[SimpleField]): Boolean =
-//    fields.forall(f => f.aggregation.isEmpty)
 
   protected case class ParsedFields(list: List[SimpleField])
 
@@ -49,8 +53,6 @@ object FieldsParser {
     * The following checks are performed
     * - All fields must be present in the metric schema.
     * - All aggregation must be against value or *.
-//    * - If fields size is greater than 1, only global aggregations are supported.
-//    *   Otherwise all the aggregations are supported.
     * @param statement the SQL statement.
     * @param schema the metric schema.
     */
@@ -59,8 +61,6 @@ object FieldsParser {
       case AllFields() => Right(ParsedFields(List.empty))
       case ListFields(List(singleField)) if aggregationNotOnValue(singleField) =>
         Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
-//        Right(ParsedFields(List(SimpleField(singleField.name, singleField.aggregation))))
-//      case ListFields(List(singleField)) => Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
       case ListFields(list) =>
         val metricDimensions = schema.fieldsMap.values.map(_.name).toSeq
         val projectionFields = list.map(_.name).filterNot(_ == "*")
