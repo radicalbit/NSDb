@@ -82,7 +82,9 @@ object StatementParser {
         //switch on group by
         (statement.groupBy, fieldsList.list) match {
           case (Some(group), _)
-              if sortOpt.exists(sort => !Seq("value", "*", group.field).contains(sort.getSort.head.getField)) =>
+              if sortOpt
+                .flatMap(_.getSort.headOption)
+                .exists(sort => !Seq("value", "*", group.field).contains(sort.getField)) =>
             Left(StatementParserErrors.SORT_DIMENSION_NOT_IN_GROUP)
           case (Some(_), list) if list.forall(_.aggregation.isEmpty) =>
             Left(StatementParserErrors.NO_AGGREGATION_GROUP_BY)

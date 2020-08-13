@@ -74,7 +74,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
             .forall { _ =>
               f.name() == _keyField || f.name() == _valueField || f.name() == _countField || (fields.nonEmpty &&
               !fields.exists { sf =>
-                (sf.name == f.name() || sf.name.trim == "*")
+                sf.name == f.name() || sf.name.trim == "*"
               })
             }
         }
@@ -92,7 +92,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
       timestamp = document.getField(_keyField).numericValue().longValue(),
       value = NSDbNumericType(value),
       dimensions = dimensions,
-      tags = tags //++ aggregated
+      tags = tags
     )
   }
 

@@ -225,20 +225,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   )
                 }.map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedGlobalAggregatedQuery(_, _, _, limit, fields, _, _)) =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode) { seq =>
-                  val count = min(limit, seq.map(_.value.rawValue.asInstanceOf[Long]).sum)
-                  if (fields.nonEmpty) {
-                    applyOrderingWithLimit(
-                      seq.map { bit =>
-                        bit.copy(tags = bit.tags + ("count(*)" -> count))
-                      },
-                      statement,
-                      schema
-                    )
-                  } else {
-                    Seq(Bit(0, count, Map.empty, Map("count(*)" -> count)))
-                  }
+              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+                gatherNodeResults(statement, schema, uniqueLocationsByNode) { rawResults =>
+                  globalAggregationReduce(rawResults, fields, statement, schema)
                 }
               case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(

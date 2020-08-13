@@ -30,18 +30,13 @@ import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldTy
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.post_proc.{
-  applyOrderingWithLimit,
-  internalAggregationReduce,
-  postProcessingTemporalQueryResult
-}
+import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.math.min
 
 /**
   * Actor responsible for:
@@ -301,20 +296,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
           shardResults.pipeTo(sender)
 
-        case Right(ParsedGlobalAggregatedQuery(_, _, _, limit, fields, _, _)) =>
-          gatherShardResults(statement, actorsForLocations(locations), msg) { seq =>
-            val count = min(limit, seq.map(_.value.rawValue.asInstanceOf[Long]).sum)
-            if (fields.nonEmpty) {
-              applyOrderingWithLimit(
-                seq.map { bit =>
-                  bit.copy(tags = bit.tags + ("count(*)" -> count))
-                },
-                statement,
-                schema
-              )
-            } else {
-              Seq(Bit(0, count, Map.empty, Map("count(*)" -> count)))
-            }
+        case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+          gatherShardResults(statement, actorsForLocations(locations), msg) { rawResults =>
+            globalAggregationReduce(rawResults, fields, statement, schema)
           } pipeTo sender
 
         case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>

@@ -49,11 +49,6 @@ trait SimpleIndex[T] extends Index[T] {
     * @return the query results as a list of entries.
     */
   def query[B](query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(f: T => B): Seq[B] = {
-//    if (fields.nonEmpty && fields.forall(_.count)) {
-//      executeCountQuery(this.getSearcher, query, limit) { doc =>
-//        f(toRecord(doc, fields))
-//      }
-//    } else
     executeQuery(this.getSearcher, query, limit, sort) { doc =>
       f(toRecord(doc, fields))
     }
