@@ -378,23 +378,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     values.headOption
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
       .getOrElse(Map.empty[String, NSDbType])
-
-  /**
-    * This is a utility method in charge to associate a dimension or a tag with the given count.
-    * It extracts the field from a Bit sequence in a functional way without having the risk to throw dangerous exceptions.
-    *
-    * @param values the sequence of bits holding the field to be extracted.
-    * @param count the value of the count to be associated with the field.
-    * @param extract the function defining how to extract the field from a given bit.
-    * @return
-    */
-  private def retrieveCount(values: Seq[Bit],
-                            count: Long,
-                            extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
-    values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
-      .getOrElse(Map.empty[String, NSDbType])
-
 }
 
 object MetricReaderActor {
