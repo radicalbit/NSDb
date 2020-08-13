@@ -44,7 +44,6 @@ import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.math.min
 
 /**
   * Actor that receives and handles every read request.
