@@ -67,6 +67,11 @@ class Schema private (val metric: String, val fieldsMap: Map[String, SchemaField
   }
 
   /**
+    * True if there are no tags for the current schema.
+    */
+  lazy val isTagless: Boolean = tags.isEmpty
+
+  /**
     * extract value from fieldsMap
     */
   lazy val value: SchemaField = fieldsMap("value")

@@ -78,7 +78,7 @@ object StatementParser {
     val limitOpt = statement.limit.map(_.value)
 
     expParsed flatMap { exp =>
-      FieldsParser.parseFieldList(statement, schema).flatMap { fieldsList =>
+      FieldsParser.parseFieldList(statement.fields, schema).flatMap { fieldsList =>
         //switch on group by
         (statement.groupBy, fieldsList.list) match {
           case (Some(group), _)
@@ -125,7 +125,6 @@ object StatementParser {
             Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
           case (None, fieldsList) if FieldsParser.containsOnlyGlobalAggregations(fieldsList) =>
             val (aggregatedFields, plainFields) = fieldsList.partition(_.aggregation.isDefined)
-
             Right(
               ParsedGlobalAggregatedQuery(
                 statement.namespace,

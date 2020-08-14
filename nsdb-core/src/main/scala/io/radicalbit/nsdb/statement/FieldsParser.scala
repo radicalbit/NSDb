@@ -39,7 +39,9 @@ object FieldsParser {
   def containsOnlyGlobalAggregations(fields: List[SimpleField]): Boolean =
     fields.exists(f => f.aggregation.exists(_.isInstanceOf[GlobalAggregation]))
 
-  protected case class ParsedFields(list: List[SimpleField])
+  private[statement] case class ParsedFields(list: List[SimpleField]) {
+    lazy val requireTags: Boolean = list.exists(!_.aggregation.forall(_ == CountAggregation))
+  }
 
   /**
     * Simple query field.
@@ -53,11 +55,11 @@ object FieldsParser {
     * The following checks are performed
     * - All fields must be present in the metric schema.
     * - All aggregation must be against value or *.
-    * @param statement the SQL statement.
+    * @param sqlFields the SQL statement fields.
     * @param schema the metric schema.
     */
-  def parseFieldList(statement: SelectSQLStatement, schema: Schema): Either[String, ParsedFields] =
-    statement.fields match {
+  def parseFieldList(sqlFields: SelectedFields, schema: Schema): Either[String, ParsedFields] =
+    sqlFields match {
       case AllFields() => Right(ParsedFields(List.empty))
       case ListFields(List(singleField)) if aggregationNotOnValue(singleField) =>
         Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)

@@ -33,8 +33,8 @@ object StatementParserErrors {
     "cannot execute an aggregation on a field different than value"
   lazy val SORT_DIMENSION_NOT_IN_GROUP =
     "cannot sort group by query result by a field not in group by clause"
-  def notExistingDimension(dim: String)       = s"dimension $dim does not exist"
-  def notExistingDimensions(dim: Seq[String]) = s"dimensions [${dim.mkString(",")}] does not exist"
+  def notExistingDimension(dim: String)       = s"field $dim does not exist"
+  def notExistingDimensions(dim: Seq[String]) = s"field [${dim.mkString(",")}] does not exist"
   def uncompatibleOperator(operator: String, dimTypeAllowed: String) =
     s"cannot use $operator operator on dimension different from $dimTypeAllowed"
 
