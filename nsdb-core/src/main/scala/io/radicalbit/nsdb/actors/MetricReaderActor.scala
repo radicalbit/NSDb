@@ -296,9 +296,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
           shardResults.pipeTo(sender)
 
-        case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+        case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
           gatherShardResults(statement, actorsForLocations(locations), msg) { rawResults =>
-            globalAggregationReduce(rawResults, fields, statement, schema)
+            globalAggregationReduce(rawResults, fields, aggregations, statement, schema, isSingleNode)
           } pipeTo sender
 
         case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>

@@ -438,7 +438,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(readRes.records.size == 1)
 
-      assert(readRes.records.head.asBit.value.rawValue == 6L)
+      assert(readRes.records.head.asBit == Bit(0,0L,Map.empty, Map("count(*)" -> 6L)))
     }
   }
 

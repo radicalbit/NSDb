@@ -21,16 +21,19 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
+import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.index.lucene.Index.{handleNoIndexResults, handleNumericNoIndexResults}
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
+import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.lucene.search.Query
 import org.apache.lucene.store.Directory
 
 import scala.concurrent.duration._
@@ -65,6 +68,55 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
   context.setReceiveTimeout(passivateAfter)
 
+  /**
+    * Computes all the primary aggregations
+    * @param aggregations the aggregations to compute.
+    * @param query the original lucene query.
+    * @param schema metric schema.
+    * @return a map containing the results of the aggregations.
+    */
+  def computePrimaryAggregations(aggregations: Seq[Aggregation],
+                                 query: Query,
+                                 schema: Schema): Try[Map[String, NSDbNumericType]] = {
+    implicit val numeric = schema.value.indexType.asInstanceOf[NumericType[_]].numeric
+    val distinctPrimaryAggregations = aggregations.flatMap {
+      case primary: PrimaryAggregation   => Seq(primary)
+      case composite: DerivedAggregation => composite.primaryAggregationsRequired
+    }.distinct
+    handleNoIndexResults(
+      Try(
+        distinctPrimaryAggregations.map {
+          case CountAggregation => "count(*)" -> NSDbNumericType(index.getCount(query))
+          case SumAggregation =>
+            val (groupField, groupFieldSchemaField) = schema.tags.head
+            "sum(*)" -> NSDbNumericType(
+              facetIndexes
+                .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
+                .map(_.value.rawValue)
+                .sum)
+        }
+      )).map(_.toMap)
+  }
+
+  /**
+    * Computes all the primary aggregations with the related zero values
+    * @param aggregations the aggregations to compute.
+    * @param schema metric schema.
+    * @return a map containing the results of the aggregations.
+    */
+  def computeZeroPrimaryAggregations(aggregations: Seq[Aggregation], schema: Schema): Map[String, NSDbNumericType] = {
+    implicit val numeric = schema.value.indexType.asInstanceOf[NumericType[_]].numeric
+    val distinctPrimaryAggregations = aggregations.flatMap {
+      case primary: PrimaryAggregation   => Seq(primary)
+      case composite: DerivedAggregation => composite.primaryAggregationsRequired
+    }.distinct
+
+    distinctPrimaryAggregations.map {
+      case CountAggregation => "count(*)" -> NSDbNumericType(0L)
+      case SumAggregation   => "sum(*)"   -> NSDbNumericType(numeric.zero)
+    }.toMap
+  }
+
   override def receive: Receive = {
     case GetCountWithLocations(_, _, metric, _) =>
       val count = Try { index.getCount() }.recover { case _ => 0L }.getOrElse(0L)
@@ -85,18 +137,24 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(
             Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None, limit)))
-        case Right(ParsedGlobalAggregatedQuery(_, _, q, limit, fields, _, sort)) =>
-          val countResult = handleNumericNoIndexResults(Try(index.getCount(q, limit)))
+        case Right(ParsedGlobalAggregatedQuery(_, _, q, limit, fields, aggregations, sort)) =>
+          val primaryAggregationsResults = computePrimaryAggregations(aggregations, q, schema)
           if (fields.nonEmpty) {
             for {
-              count   <- countResult
-              results <- handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
-            } yield
-              results.map { bit =>
-                bit.copy(tags = bit.tags + ("count(*)" -> count))
-              }
+              primaryAggregations <- primaryAggregationsResults
+              results             <- handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
+            } yield {
+              /*
+              In case there are aggregations mixed into a plain resultset we must ensure that we're not compute the aggregations more than once
+              in the post processing phase.
+              As per the following code we make sure that the aggregations are set only in the head of the resultset (if present).
+               */
+              results.headOption.toSeq.flatMap(bit => Seq(bit.copy(tags = bit.tags ++ primaryAggregations))) ++
+                results.tail.map(bit =>
+                  bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
+            }
           } else {
-            countResult.map(count => Seq(Bit(0, count, Map.empty, Map("count(*)" -> count))))
+            primaryAggregationsResults.map(primaryAggregations => Seq(Bit(0, 0L, Map.empty, primaryAggregations)))
           }
         case Right(ParsedAggregatedQuery(_, _, q, InternalCountStandardAggregation(groupField), _, limit)) =>
           handleNoIndexResults(

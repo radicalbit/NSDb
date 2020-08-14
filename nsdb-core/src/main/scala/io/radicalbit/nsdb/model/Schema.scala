@@ -112,9 +112,7 @@ object Schema extends TypeSupport {
   def union(firstSchema: Schema, secondSchema: Schema): Try[Schema] = {
     val notCompatibleFields = secondSchema.fieldsMap.collect {
       case (name, field)
-          if firstSchema.fieldsMap
-            .get(name)
-            .isDefined && firstSchema.fieldsMap(field.name).indexType != field.indexType =>
+          if firstSchema.fieldsMap.contains(name) && firstSchema.fieldsMap(field.name).indexType != field.indexType =>
         s"mismatch type for field ${field.name} : new type ${field.indexType} is incompatible with old type"
     }
 

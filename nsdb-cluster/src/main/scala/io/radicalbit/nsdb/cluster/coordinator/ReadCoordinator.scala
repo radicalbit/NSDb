@@ -220,9 +220,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   )
                 }.map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
                 gatherNodeResults(statement, schema, uniqueLocationsByNode) { rawResults =>
-                  globalAggregationReduce(rawResults, fields, statement, schema)
+                  globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
                 }
               case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(

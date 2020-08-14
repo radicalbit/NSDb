@@ -68,10 +68,6 @@ object SqlStatementSerialization {
       }
     }
 
-  }
-
-  object GlobalAggregationSerialization {
-
     class GlobalAggregationJsonSerializer extends StdSerializer[GlobalAggregation](classOf[GlobalAggregation]) {
 
       override def serialize(value: GlobalAggregation, gen: JsonGenerator, provider: SerializerProvider): Unit =
@@ -83,6 +79,37 @@ object SqlStatementSerialization {
       override def deserialize(p: JsonParser, ctxt: DeserializationContext): GlobalAggregation = {
         p.getText match {
           case "CountAggregation" => CountAggregation
+        }
+      }
+    }
+
+    class PrimaryAggregationJsonSerializer extends StdSerializer[PrimaryAggregation](classOf[PrimaryAggregation]) {
+
+      override def serialize(value: PrimaryAggregation, gen: JsonGenerator, provider: SerializerProvider): Unit =
+        gen.writeString(value.toString)
+    }
+
+    class PrimaryAggregationJsonDeserializer extends StdDeserializer[PrimaryAggregation](classOf[PrimaryAggregation]) {
+
+      override def deserialize(p: JsonParser, ctxt: DeserializationContext): PrimaryAggregation = {
+        p.getText match {
+          case "CountAggregation" => CountAggregation
+          case "SumAggregation"   => SumAggregation
+        }
+      }
+    }
+
+    class DerivedAggregationJsonSerializer extends StdSerializer[DerivedAggregation](classOf[DerivedAggregation]) {
+
+      override def serialize(value: DerivedAggregation, gen: JsonGenerator, provider: SerializerProvider): Unit =
+        gen.writeString(value.toString)
+    }
+
+    class DerivedAggregationJsonDeserializer extends StdDeserializer[DerivedAggregation](classOf[DerivedAggregation]) {
+
+      override def deserialize(p: JsonParser, ctxt: DeserializationContext): DerivedAggregation = {
+        p.getText match {
+          case "AvgAggregation" => AvgAggregation
         }
       }
     }

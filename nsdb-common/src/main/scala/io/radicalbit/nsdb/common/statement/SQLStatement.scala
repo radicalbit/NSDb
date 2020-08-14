@@ -20,22 +20,9 @@ import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization.{
-  AggregationJsonDeserializer,
-  AggregationJsonSerializer
-}
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization.{
-  ComparisonOperatorJsonDeserializer,
-  ComparisonOperatorJsonSerializer
-}
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.GlobalAggregationSerialization.{
-  GlobalAggregationJsonDeserializer,
-  GlobalAggregationJsonSerializer
-}
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization.{
-  LogicalOperatorJsonDeserializer,
-  LogicalOperatorJsonSerializer
-}
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization._
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization._
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
 /**
@@ -165,17 +152,41 @@ case object LessOrEqualToOperator    extends ComparisonOperator
 @JsonDeserialize(using = classOf[AggregationJsonDeserializer])
 sealed trait Aggregation
 
+/**
+  * Aggregation that can be applied without a group by clause.
+  */
 @JsonSerialize(using = classOf[GlobalAggregationJsonSerializer])
 @JsonDeserialize(using = classOf[GlobalAggregationJsonDeserializer])
 sealed trait GlobalAggregation extends Aggregation
 
-case object CountAggregation extends GlobalAggregation
+/**
+  * Aggregation that is not derived from others.
+  * e.g. average is derived from count and sum.
+  */
+@JsonSerialize(using = classOf[PrimaryAggregationJsonSerializer])
+@JsonDeserialize(using = classOf[PrimaryAggregationJsonDeserializer])
+sealed trait PrimaryAggregation extends Aggregation
+
+/**
+  * Aggregation that is not derived from others.
+  * e.g. average is derived from count and sum.
+  */
+@JsonSerialize(using = classOf[GlobalAggregationJsonSerializer])
+@JsonDeserialize(using = classOf[GlobalAggregationJsonDeserializer])
+sealed trait DerivedAggregation extends Aggregation {
+  def primaryAggregationsRequired: List[Aggregation with PrimaryAggregation]
+}
+
+case object CountAggregation extends GlobalAggregation with PrimaryAggregation
 case object MaxAggregation   extends Aggregation
 case object MinAggregation   extends Aggregation
 case object FirstAggregation extends Aggregation
 case object LastAggregation  extends Aggregation
-case object SumAggregation   extends Aggregation
-case object AvgAggregation   extends GlobalAggregation
+case object SumAggregation   extends Aggregation with PrimaryAggregation
+case object AvgAggregation extends GlobalAggregation with DerivedAggregation {
+  override def primaryAggregationsRequired: List[Aggregation with PrimaryAggregation] =
+    List(CountAggregation, SumAggregation)
+}
 
 /**
   * Order operators in sql queries. Possible values are [[AscOrderOperator]] or [[DescOrderOperator]].

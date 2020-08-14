@@ -16,14 +16,11 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import io.radicalbit.nsdb.common.NSDbLongType
+import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbLongType}
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.statement.StatementParserErrors.NO_AGGREGATION_GROUP_BY
-
-import scala.concurrent.duration._
 
 class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordinatorSpec {
 
@@ -51,7 +48,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0, 4L, Map.empty, Map("count(*)" -> NSDbLongType(4L)))
+          Bit(0, 0L, Map.empty, Map("count(*)" -> NSDbLongType(4L)))
         )
       }
 
@@ -75,7 +72,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values shouldBe Seq(
-          Bit(0, 4L, Map.empty, Map("count(*)" -> NSDbLongType(4L)))
+          Bit(0, 0L, Map.empty, Map("avg(*)" -> NSDbDoubleType(3.5)))
         )
       }
     }
@@ -127,12 +124,69 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
-          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
-          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "count(*)"       -> 6L)),
-          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6L)),
-          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6L)),
-          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6L))
+          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "avg(*)"    -> 3.5)),
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "avg(*)"    -> 3.5)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "avg(*)"       -> 3.5)),
+          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "avg(*)"    -> 3.5)),
+          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "avg(*)"   -> 3.5)),
+          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "avg(*)" -> 3.5))
+        )
+      }
+
+      "execute it successfully with mixed count, average and plain fields" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(AvgAggregation)), Field("*", Some(CountAggregation)), Field("name", None))),
+              limit = Some(LimitOperator(6))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "avg(*)"    -> 3.5, "count(*)" -> 6L)),
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "avg(*)"    -> 3.5, "count(*)" -> 6L)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "avg(*)"       -> 3.5, "count(*)" -> 6L)),
+          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "avg(*)"    -> 3.5, "count(*)" -> 6L)),
+          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "avg(*)"   -> 3.5, "count(*)" -> 6L)),
+          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "avg(*)" -> 3.5, "count(*)" -> 6L))
+        )
+      }
+
+      "execute it successfully with mixed count, average and plain fields and a condition" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(AvgAggregation)), Field("*", Some(CountAggregation)), Field("name", None))),
+              condition = Some(
+                Condition(
+                  RangeExpression(dimension = "timestamp",
+                                  value1 = AbsoluteComparisonValue(2L),
+                                  value2 = AbsoluteComparisonValue(4L)))),
+              limit = Some(LimitOperator(6))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(2L, 2L, Map.empty, Map("name" -> "John", "avg(*)" -> 2.5, "count(*)" -> 2L)),
+          Bit(4L, 3L, Map.empty, Map("name" -> "J", "avg(*)"    -> 2.5, "count(*)" -> 2L))
         )
       }
 
@@ -156,31 +210,5 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         }
       }
     }
-
-//    "receive a select containing a range selection" should {
-//      "execute it successfully" in within(5.seconds) {
-//        probe.send(
-//          readCoordinatorActor,
-//          ExecuteStatement(
-//            SelectSQLStatement(
-//              db = db,
-//              namespace = namespace,
-//              metric = LongMetric.name,
-//              distinct = false,
-//              fields = ListFields(List(Field("name", None))),
-//              condition = Some(
-//                Condition(RangeExpression(dimension = "timestamp",
-//                                          value1 = AbsoluteComparisonValue(2L),
-//                                          value2 = AbsoluteComparisonValue(4L)))),
-//              limit = Some(LimitOperator(4))
-//            )
-//          )
-//        )
-//        val expected = awaitAssert {
-//          probe.expectMsgType[SelectStatementExecuted]
-//        }
-//        expected.values.size should be(2)
-//      }
-//    }
   }
 }

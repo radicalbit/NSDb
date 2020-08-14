@@ -135,7 +135,7 @@ object StatementParser {
                   exp.q,
                   limitOpt.getOrElse(Int.MaxValue),
                   plainFields,
-                  aggregatedFields.flatMap(_.aggregation),
+                  aggregatedFields.flatMap(_.aggregation).distinct,
                   sortOpt
                 ))
             }
