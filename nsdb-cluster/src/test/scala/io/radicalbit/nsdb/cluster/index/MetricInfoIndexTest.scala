@@ -43,7 +43,7 @@ class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest
     writer.close()
     metricInfoIndex.refresh()
 
-    val result = metricInfoIndex.query(metricInfoIndex._keyField, "metric_*", Seq.empty, 100)(identity)
+    val result = metricInfoIndex.query(metricInfoIndex._keyField, "metric_*", Seq.empty, 100)
 
     result.size shouldBe 100
 

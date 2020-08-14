@@ -44,7 +44,7 @@ class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest w
     }
     writer.close()
 
-    val result = metadataIndex.query(metadataIndex._keyField, "metric_*", Seq.empty, 100)(identity)
+    val result = metadataIndex.query(metadataIndex._keyField, "metric_*", Seq.empty, 100)
 
     result.size shouldBe 100
 
