@@ -35,10 +35,14 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
         tags = Map("amount"     -> 1.1, "city"       -> "city", "country"         -> "country", "age" -> 0))
   )
 
+  private val taglessSchema = Schema(
+    "people",
+    Bit(0, 1.1, dimensions = Map("name" -> "name", "surname" -> "surname", "creationDate" -> 0L), tags = Map.empty))
+
   "A statement parser instance" when {
 
     "receive a list of fields without a group by" should {
-      "parse it successfully with mixed global aggregated and simple" in {
+      "parse it successfully with mixed count aggregated and simple" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -61,6 +65,56 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             ))
         )
       }
+
+      "parse it successfully with mixed average aggregated and simple" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(AvgAggregation)), Field("surname", None))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("surname")),
+              List(AvgAggregation)
+            ))
+        )
+      }
+
+      "parse it successfully with mixed aggregated and simple" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(
+              List(Field("*", Some(CountAggregation)), Field("*", Some(AvgAggregation)), Field("surname", None))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("surname")),
+              List(CountAggregation, AvgAggregation)
+            ))
+        )
+      }
+
       "fail when other aggregation than count is provided" in {
         StatementParser
           .parseStatement(
@@ -80,19 +134,52 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
       }
     }
 
-    "receive an avg aggregation without a group by" should {
-      "fail" in {
+    "receive a list of fields without a group by for a tagless metric" should {
+      "parse it successfully with mixed count aggregated and simple" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(AvgAggregation))))
+            fields = ListFields(List(Field("*", Some(CountAggregation)), Field("surname", None))),
+            limit = Some(LimitOperator(4))
           ),
-          schema
+          taglessSchema
         ) should be(
-          Left(StatementParserErrors.NO_GROUP_BY_AGGREGATION)
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("surname")),
+              List(CountAggregation)
+            ))
+        )
+      }
+
+      "fail if average is provided" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+            limit = Some(LimitOperator(4))
+          ),
+          taglessSchema
+        ) should be(
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("surname")),
+              List(CountAggregation)
+            ))
         )
       }
     }
