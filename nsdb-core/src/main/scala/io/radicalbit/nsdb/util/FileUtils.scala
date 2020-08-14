@@ -20,7 +20,10 @@ import java.io._
 import java.nio.file.{Path, Paths}
 import java.util.zip.{ZipEntry, ZipFile}
 
+import io.radicalbit.nsdb.common.exception.InvalidNodeIdException
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
+import org.apache.commons.io.FilenameUtils
+import org.apache.commons.lang3.RandomStringUtils
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -30,16 +33,24 @@ import scala.collection.JavaConverters._
   */
 object FileUtils {
 
+  private val NODE_ID_EXTENSION = ".name"
+  private val NODE_ID_LENGTH    = 10
+  private val BUFFER_SIZE       = 4096
+  private val buffer            = new Array[Byte](BUFFER_SIZE)
+
   private class DirectoryFilter extends FileFilter {
     override def accept(pathname: File): Boolean = pathname.isDirectory
   }
 
   private class MetricShardsFilter(metric: String) extends FileFilter {
-    override def accept(pathname: File): Boolean = pathname.isDirectory && pathname.getName.startsWith(metric)
+    override def accept(pathname: File): Boolean =
+      pathname.isDirectory && pathname.getName.split("_").headOption.contains(metric)
   }
 
-  private val BUFFER_SIZE = 4096
-  private val buffer      = new Array[Byte](BUFFER_SIZE)
+  private class NodeIdFilter extends FileFilter {
+    override def accept(pathname: File): Boolean =
+      !pathname.isDirectory && pathname.getName.endsWith(NODE_ID_EXTENSION)
+  }
 
   /**
     * @param path a directory.
@@ -68,8 +79,8 @@ object FileUtils {
     * @param metric the shards metric.
     * @return all the shard folders for the given metric.
     */
-  def getMetricshards(basePath: Option[Path], metric: String): Array[File] =
-    basePath.map(_.toFile.listFiles(new MetricShardsFilter(metric))).getOrElse(Array.empty)
+  def getMetricShards(basePath: Path, metric: String): Array[File] =
+    Option(basePath.toFile.listFiles(new MetricShardsFilter(metric))).getOrElse(Array.empty)
 
   /**
     * Unzip a file into a target folder.
@@ -111,6 +122,27 @@ object FileUtils {
                 }
           }
       }
+
+  /**
+    * Creates (if not exists) a new unique id for a node and stores it in the file system.
+    * An already existing name will be used instead.
+    * This method must be executed on the local node.
+    * @param address the node address. This information will be connotate the exception in case of an error.
+    * @param basePath the parent path in which create or search the unique id
+    * @return the unique id for the current node.
+    * @throws InvalidNodeIdException if multiple identifier are found.
+    */
+  def getOrCreateNodeId(address: String, basePath: String): String = {
+    Option(Paths.get(basePath).toFile.listFiles(new NodeIdFilter)).getOrElse(Array.empty) match {
+      case Array() =>
+        val newName = RandomStringUtils.randomAlphabetic(NODE_ID_LENGTH)
+        new File(basePath).mkdirs()
+        new File(basePath, s"$newName.$NODE_ID_EXTENSION").createNewFile()
+        newName
+      case Array(singleFile) => FilenameUtils.removeExtension(singleFile.getName)
+      case _                 => throw new InvalidNodeIdException(address)
+    }
+  }
 
   /**
     * unzip all the entries of a zip file into a target folder.

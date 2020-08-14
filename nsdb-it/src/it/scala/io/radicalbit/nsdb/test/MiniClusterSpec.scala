@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.test
 import java.time.Duration
 import java.util.logging.{Level, Logger}
 
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
@@ -53,4 +54,14 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   protected def waitIndexing(): Unit    = Thread.sleep(indexingTime + 1000)
   protected def waitPassivation(): Unit = Thread.sleep(passivateAfter.toMillis + 1000)
+
+  def healthCheck(): Unit =
+    test("join cluster") {
+      nodes.map { node =>
+        eventually {
+          assert(NSDbClusterSnapshot(node.system).nodes.size == nodes.size)
+        }
+      }
+    }
+
 }

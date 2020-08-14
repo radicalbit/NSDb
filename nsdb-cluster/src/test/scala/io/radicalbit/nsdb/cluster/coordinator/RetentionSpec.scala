@@ -91,7 +91,7 @@ class RetentionSpec
   val metadataCoordinator =
     system.actorOf(
       MetadataCoordinator
-        .props(system.actorOf(ClusterListener.props(true)),
+        .props(system.actorOf(Props[ClusterListener]),
                localMetadataCache,
                schemaCache,
                system.actorOf(Props.empty),

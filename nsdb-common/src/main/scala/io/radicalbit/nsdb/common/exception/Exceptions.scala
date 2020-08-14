@@ -19,11 +19,12 @@ package io.radicalbit.nsdb.common.exception
 import scala.util.control.NoStackTrace
 
 /**
-  * Trait for Nsdb Exceptions. It extends [[NoStackTrace]] for efficiency purpose.
+  * Trait for NSDb Exceptions. It extends [[NoStackTrace]] for efficiency purpose.
   */
-sealed trait NsdbException extends RuntimeException with NoStackTrace
+sealed trait NSDbException extends RuntimeException with NoStackTrace
 
-class InvalidStatementException(val message: String) extends NsdbException
-class TypeNotSupportedException(val message: String) extends NsdbException
-class NsdbSecurityException(val message: String)     extends NsdbException
-class TooManyRetriesException(val message: String)   extends NsdbException
+class InvalidStatementException(val message: String) extends NSDbException
+class TypeNotSupportedException(val message: String) extends NSDbException
+class NsdbSecurityException(val message: String)     extends NSDbException
+class TooManyRetriesException(val message: String)   extends NSDbException
+class InvalidNodeIdException(address: String)        extends NSDbException

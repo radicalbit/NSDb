@@ -33,7 +33,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
-import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.{ActorPathLogging, FileUtils => NSDbFileUtils}
 import org.apache.commons.io.FileUtils
 import org.apache.lucene.index.IndexWriter
 
@@ -88,16 +88,12 @@ class MetricAccumulatorActor(val basePath: String,
     */
   private var performingOps: Map[String, ShardOperation] = Map.empty
 
-  private def deleteMetricData(metric: String): Unit = {
-    val folders = Option(Paths.get(basePath, db, namespace, "shards").toFile.list())
-      .map(_.toSeq)
-      .getOrElse(Seq.empty)
-      .filter(folderName => folderName.split("_").head == metric)
-
-    folders.foreach(
-      folderName => FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards", folderName).toFile)
-    )
-  }
+  private def deleteMetricData(metric: String): Unit =
+    NSDbFileUtils
+      .getMetricShards(Paths.get(basePath, db, namespace, "shards"), metric)
+      .foreach(
+        folderName => FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards", folderName.getName).toFile)
+      )
 
   /**
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.

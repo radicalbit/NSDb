@@ -2,16 +2,12 @@ package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ClusterEvent.UnreachableMember
-import akka.cluster.Member
-import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
-import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.cluster.actor.ClusterListenerTestActor.{FailureTest, SuccessTest, TestType}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, NodeMetadataRemoved, RemoveNodeMetadataFailed}
-import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, RemoveNodeMetadataFailed}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.rtsae.STMultiNodeSpec
@@ -20,10 +16,6 @@ import scala.concurrent.duration._
 
 class ClusterListenerSpecMultiJvmNode1 extends ClusterListenerSpec
 class ClusterListenerSpecMultiJvmNode2 extends ClusterListenerSpec
-
-sealed trait TestType
-case object SuccessTest extends TestType
-case object FailureTest extends TestType
 
 class MetaDataCoordinatorForTest extends Actor with ActorLogging {
   def receive: Receive = {
@@ -64,41 +56,11 @@ class NodeActorsGuardianForTest extends Actor with ActorLogging {
   }
 }
 
-class ClusterListenerForTest(resultActor: ActorRef, testType: TestType)
-    extends ClusterListener(false) {
-
+class ClusterListenerWithMockedChildren(override val resultActor: ActorRef, override val testType: TestType) extends ClusterListenerTestActor {
   val nodeActorsGuardianForTest =
-    context.actorOf(Props(new NodeActorsGuardianForTest))
+          context.actorOf(Props(new NodeActorsGuardianForTest), name = s"guardian_${selfNodeName}")
 
-  override val defaultTimeout = Timeout(1.seconds)
-
-  override def receive: Receive = super.receive orElse {
-    case SubscribeAck(subscribe) => log.info("subscribe {}", subscribe)
-  }
-  override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
-
-  override def retrieveLocationsToAdd(): List[LocationWithCoordinates] = testType match {
-    case SuccessTest =>
-      List(LocationWithCoordinates("success", "namespace", Location("metric", "node", 0L, 1L)))
-    case FailureTest =>
-      List(LocationWithCoordinates("failure", "namespace", Location("metric", "node", 0L, 1L)))
-  }
-
-  override def onSuccessBehaviour(readCoordinator: ActorRef,
-                                  writeCoordinator: ActorRef,
-                                  metadataCoordinator: ActorRef,
-                                  publisherActor: ActorRef): Unit = {
-    resultActor ! "Success"
-  }
-
-  override protected def onFailureBehaviour(member: Member, error: Any): Unit = {
-    resultActor ! "Failure"
-  }
-
-  override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {
-    case NodeMetadataRemoved(_)      => //ignore
-    case RemoveNodeMetadataFailed(_) => resultActor ! "Failure"
-  }
+          override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
 }
 
 object ClusterListenerSpecConfig extends MultiNodeConfig {
@@ -113,6 +75,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
                                            |    delay = 1 second
                                            |    n-retries = 2
                                            |  }
+                                           |  global.timeout = 30 seconds
                                            |}
                                            |""".stripMargin))
 
@@ -127,7 +90,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
   "ClusterListener" must {
     "successfully create a NsdbNodeEndpoint when a new member in the cluster is Up" in {
       val resultActor = TestProbe("resultActor")
-      cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, SuccessTest)))
+      cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, SuccessTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
@@ -136,7 +99,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
 
     "return a failure and leave the cluster" in {
       val resultActor = TestProbe("resultActor")
-      cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)))
+      cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
@@ -146,7 +109,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
     "correctly handle 'UnreachableMember' msg" in {
       val resultActor = TestProbe("resultActor")
       val clusterListener =
-        cluster.system.actorOf(Props(new ClusterListenerForTest(resultActor.testActor, FailureTest)),
+        cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)),
                                name = "clusterListener")
       awaitAssert { clusterListener ! UnreachableMember(cluster.selfMember); resultActor.expectMsg("Failure") }
     }

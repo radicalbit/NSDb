@@ -90,9 +90,15 @@ object MetadataSpec extends MultiNodeConfig {
     |    max-size = 50000
     |    passivate-after = 5s
     |  }
+    |
+    |  heartbeat.interval = 1 second
+    |
     |  websocket {
     |    refresh-period = 100
     |    retention-size = 10
+    |  }
+    |  math {
+    |    precision = 10
     |  }
     |}
     """.stripMargin))
@@ -121,9 +127,10 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   implicit val timeout: Timeout = Timeout(5.seconds)
 
-  system.actorOf(Props[ClusterListenerTestActor], name = "clusterListener")
+  system.actorOf(ClusterListenerTestActor.props(), name = "clusterListener")
 
-  lazy val nodeName = s"${cluster.selfAddress.host.getOrElse("noHost")}_${cluster.selfAddress.port.getOrElse(2552)}"
+  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/metadata-coordinator_${nodeName}_$nodeName"
+  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/schema-coordinator_${nodeName}_$nodeName"
 
   "Metadata system" must {
 
@@ -145,7 +152,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
         val metadataCoordinator = Await.result(
-          system.actorSelection(s"/user/guardian_$nodeName/metadata-coordinator_$nodeName").resolveOne(5.seconds),
+          system.actorSelection(metadataCoordinatorPath(nodeName)).resolveOne(5.seconds),
           5.seconds)
 
         awaitAssert {
@@ -165,7 +172,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val selfMember = cluster.selfMember
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
 
         awaitAssert {
           metadataCoordinator ! PutMetricInfo(metricInfo)
@@ -182,7 +189,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val selfMember = cluster.selfMember
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
 
         val path = getClass.getResource("/dump").getPath
 
@@ -297,8 +304,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val selfMember = cluster.selfMember
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
-        val schemaCoordinator   = system.actorSelection(s"user/guardian_$nodeName/schema-coordinator_$nodeName")
+        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
+        val schemaCoordinator   = system.actorSelection(schemaCoordinatorPath(nodeName))
 
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
@@ -310,8 +317,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
         val selfMember = cluster.selfMember
         val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-        val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
-        val schemaCoordinator   = system.actorSelection(s"user/guardian_$nodeName/schema-coordinator_$nodeName")
+        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
+        val schemaCoordinator   = system.actorSelection(schemaCoordinatorPath(nodeName))
 
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
@@ -326,7 +333,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val selfMember = cluster.selfMember
       val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
 
-      val metadataCoordinator = system.actorSelection(s"user/guardian_$nodeName/metadata-coordinator_$nodeName")
+      val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
 
       metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
 

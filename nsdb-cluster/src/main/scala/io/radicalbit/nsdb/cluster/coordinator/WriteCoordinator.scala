@@ -411,8 +411,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       publishers -= nodeName
       log.info(s"unsubscribed publisher actor for node $nodeName")
       sender() ! PublisherUnSubscribed(nodeName)
-    case GetConnectedDataNodes =>
-      sender ! ConnectedDataNodesGot(metricsDataActors.keys.toSeq)
     case MapInput(ts, db, namespace, metric, bit) =>
       val startTime = System.currentTimeMillis()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)

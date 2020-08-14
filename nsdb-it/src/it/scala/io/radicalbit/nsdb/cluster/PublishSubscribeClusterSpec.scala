@@ -34,7 +34,6 @@ package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
 
-import akka.cluster.{Cluster, MemberStatus}
 import akka.util.Timeout
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -56,13 +55,7 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
                           value = 2,
                           tags = Map.empty)
 
-  test("join cluster") {
-    eventually {
-      assert(
-        Cluster(nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == nodes.size)
-    }
-  }
+  healthCheck()
 
   test("subscribe to a query and receive real time updates") {
     val firstNode = nodes.head

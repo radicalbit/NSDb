@@ -1,36 +1,61 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{Actor, ActorLogging, Deploy}
-import akka.cluster.Cluster
-import akka.cluster.ClusterEvent.{InitialStateAsEvents, MemberEvent, MemberUp, UnreachableMember}
-import akka.cluster.pubsub.DistributedPubSub
-import akka.cluster.pubsub.DistributedPubSubMediator.Subscribe
-import akka.remote.RemoteScope
-import io.radicalbit.nsdb.cluster.PubSubTopics.NODE_GUARDIANS_TOPIC
-import io.radicalbit.nsdb.cluster.actor.ClusterListener.{GetNodeMetrics, NodeMetricsGot}
-import io.radicalbit.nsdb.cluster.createNodeName
+import akka.actor.{ActorRef, Props}
+import akka.cluster.Member
+import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
+import akka.util.Timeout
+import io.radicalbit.nsdb.cluster.actor.ClusterListenerTestActor._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{NodeMetadataRemoved, RemoveNodeMetadataFailed}
+import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
-class ClusterListenerTestActor extends Actor with ActorLogging {
+import scala.concurrent.duration._
 
-  private lazy val cluster             = Cluster(context.system)
-  private lazy val mediator = DistributedPubSub(context.system).mediator
+abstract class ClusterListenerTestActor
+  extends AbstractClusterListener {
 
-  override def preStart(): Unit = {
-    cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
+  def resultActor: ActorRef = ActorRef.noSender
+  def testType: TestType = SuccessTest
+
+  override def enableClusterMetricsExtension: Boolean = false
+
+  override protected lazy val nodeId: String = selfNodeName
+
+  override val defaultTimeout = Timeout(1.seconds)
+
+  override def receive: Receive = super.receive orElse {
+    case SubscribeAck(subscribe) => log.info("subscribe {}", subscribe)
   }
 
-  override def receive: Receive = {
-    case MemberUp(member) if member == cluster.selfMember =>
-
-      val nodeName = createNodeName(member)
-
-      val nodeActorsGuardian =
-        context.system.actorOf(NodeActorsGuardian.props(self).withDeploy(Deploy(scope = RemoteScope(member.address))),
-          name = s"guardian_$nodeName")
-
-      mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
-    case GetNodeMetrics =>
-    sender() ! NodeMetricsGot(Set.empty)
+  override def retrieveLocationsToAdd(): List[LocationWithCoordinates] = testType match {
+    case SuccessTest =>
+      List(LocationWithCoordinates("success", "namespace", Location("metric", "node", 0L, 1L)))
+    case FailureTest =>
+      List(LocationWithCoordinates("failure", "namespace", Location("metric", "node", 0L, 1L)))
   }
 
+  override def onSuccessBehaviour(readCoordinator: ActorRef,
+                                  writeCoordinator: ActorRef,
+                                  metadataCoordinator: ActorRef,
+                                  publisherActor: ActorRef): Unit = {
+    resultActor ! "Success"
+  }
+
+  override protected def onFailureBehaviour(member: Member, error: Any): Unit = {
+    resultActor ! "Failure"
+  }
+
+  override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {
+    case NodeMetadataRemoved(_)      => //ignore
+    case RemoveNodeMetadataFailed(_) => resultActor ! "Failure"
+  }
+}
+
+object ClusterListenerTestActor {
+
+  def props(): Props = Props(new ClusterListenerTestActor{})
+
+  sealed trait TestType
+  case object SuccessTest extends TestType
+  case object FailureTest extends TestType
 }
