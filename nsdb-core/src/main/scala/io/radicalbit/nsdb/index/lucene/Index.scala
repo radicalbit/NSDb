@@ -135,13 +135,13 @@ trait Index[T] {
     }
   }
 
-  protected def executeCountQuery[B](searcher: IndexSearcher, query: Query, limit: Int)(f: Document => B): Seq[B] = {
+  protected def executeCountQuery[B](searcher: IndexSearcher, query: Query, limit: Int)(f: Document => B): B = {
     val hits = searcher.search(query, limit).scoreDocs.length
     val d    = new Document()
     d.add(new LongPoint(_keyField, 0))
     d.add(new IntPoint(_valueField, hits))
     d.add(new IntPoint(_countField, hits))
-    Seq(f(d))
+    f(d)
   }
 
   def count(): Int = this.getSearcher.getIndexReader.numDocs()
@@ -152,6 +152,11 @@ trait Index[T] {
 }
 
 object Index {
+  def handleNumericNoIndexResults[T: Numeric](out: Try[T]): Try[T] = {
+    out.recoverWith {
+      case _: IndexNotFoundException => Success(implicitly[Numeric[T]].zero)
+    }
+  }
   def handleNoIndexResults[T](out: Try[Seq[T]]): Try[Seq[T]] = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)

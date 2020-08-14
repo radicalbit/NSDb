@@ -28,9 +28,9 @@ import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeout, precision}
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
-import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.post_proc.{internalAggregationReduce, postProcessingTemporalQueryResult}
+import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -269,37 +269,13 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
-          val actors =
-            actorsForLocations(locations)
-
-          val orderedResults = retrieveAndOrderPlainResults(actors, parsedStatement, msg)
-
-          orderedResults
+          retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {
               case SelectStatementExecuted(_, seq) =>
-                if (fields.lengthCompare(1) == 0 && fields.head.count) {
-                  val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
-                  val count       = if (recordCount <= limit) recordCount else limit
-
-                  val bits = Seq(
-                    Bit(
-                      timestamp = 0,
-                      value = NSDbNumericType(count),
-                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
-                    ))
-
-                  SelectStatementExecuted(statement, bits)
-                } else {
-                  SelectStatementExecuted(
-                    statement,
-                    seq.map(
-                      b =>
-                        if (b.tags.contains("count(*)"))
-                          b.copy(tags = b.tags + ("count(*)" -> NSDbType(seq.size)))
-                        else b)
-                  )
-                }
+                SelectStatementExecuted(
+                  statement,
+                  seq
+                )
               case err: SelectStatementFailed => err
             }
             .pipeTo(sender)
@@ -319,6 +295,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
           }
 
           shardResults.pipeTo(sender)
+
+        case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+          gatherShardResults(statement, actorsForLocations(locations), msg) { rawResults =>
+            globalAggregationReduce(rawResults, fields, statement, schema)
+          } pipeTo sender
+
         case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
@@ -380,23 +362,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     values.headOption
       .flatMap(bit => extract(bit).get(field).map(x => Map(field -> x)))
       .getOrElse(Map.empty[String, NSDbType])
-
-  /**
-    * This is a utility method in charge to associate a dimension or a tag with the given count.
-    * It extracts the field from a Bit sequence in a functional way without having the risk to throw dangerous exceptions.
-    *
-    * @param values the sequence of bits holding the field to be extracted.
-    * @param count the value of the count to be associated with the field.
-    * @param extract the function defining how to extract the field from a given bit.
-    * @return
-    */
-  private def retrieveCount(values: Seq[Bit],
-                            count: Long,
-                            extract: Bit => Map[String, NSDbType]): Map[String, NSDbType] =
-    values.headOption
-      .flatMap(bit => extract(bit).headOption.map(x => Map(x._1 -> NSDbType(count))))
-      .getOrElse(Map.empty[String, NSDbType])
-
 }
 
 object MetricReaderActor {

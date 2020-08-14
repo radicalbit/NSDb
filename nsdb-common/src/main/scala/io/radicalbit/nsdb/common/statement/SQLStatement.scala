@@ -28,6 +28,10 @@ import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonO
   ComparisonOperatorJsonDeserializer,
   ComparisonOperatorJsonSerializer
 }
+import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.GlobalAggregationSerialization.{
+  GlobalAggregationJsonDeserializer,
+  GlobalAggregationJsonSerializer
+}
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization.{
   LogicalOperatorJsonDeserializer,
   LogicalOperatorJsonSerializer
@@ -160,7 +164,12 @@ case object LessOrEqualToOperator    extends ComparisonOperator
 @JsonSerialize(using = classOf[AggregationJsonSerializer])
 @JsonDeserialize(using = classOf[AggregationJsonDeserializer])
 sealed trait Aggregation
-case object CountAggregation extends Aggregation
+
+@JsonSerialize(using = classOf[GlobalAggregationJsonSerializer])
+@JsonDeserialize(using = classOf[GlobalAggregationJsonDeserializer])
+sealed trait GlobalAggregation extends Aggregation
+
+case object CountAggregation extends GlobalAggregation
 case object MaxAggregation   extends Aggregation
 case object MinAggregation   extends Aggregation
 case object FirstAggregation extends Aggregation

@@ -27,11 +27,15 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   SelectStatementExecuted,
   SelectStatementFailed
 }
+import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import io.radicalbit.nsdb.statement.StatementParser._
 
 import scala.concurrent.ExecutionContext
+import scala.math.min
 
 package object post_proc {
+
+  final val `count(*)` = "count(*)"
 
   /**
     * Applies, if needed, ordering and limiting to a sequence of chained partial results.
@@ -49,7 +53,7 @@ package object post_proc {
       case Some(_: InternalTemporalAggregation) =>
         val temporalSortedResults = chainedResults.sortBy(_.timestamp)
         statement.limit.map(_.value).map(v => temporalSortedResults.takeRight(v)) getOrElse temporalSortedResults
-      case Some(InternalCountStandardAggregation(_, _)) if statement.order.exists(_.dimension == "value") =>
+      case Some(InternalCountStandardAggregation(_)) if statement.order.exists(_.dimension == "value") =>
         implicit val ord: Ordering[Any] =
           (if (statement.order.get.isInstanceOf[DescOrderOperator]) Ordering[Long].reverse
            else Ordering[Long]).asInstanceOf[Ordering[Any]]
@@ -242,6 +246,33 @@ package object post_proc {
             "count"                -> NSDbNumericType(bits.flatMap(_.tags.get("count").map(_.rawValue)).sum(BIGINT().numeric))
           )
         )
+    }
+  }
+
+  /**
+    * Perform all reduction operations for Global Aggregated queries.
+    * @param rawResults sequence of partial results.
+    * @param fields the fields to include in the final results.
+    * @param statement the original sql statement.
+    * @param schema metric schema.
+    * @return the reduced results.
+    */
+  def globalAggregationReduce(rawResults: Seq[Bit],
+                              fields: List[SimpleField],
+                              statement: SelectSQLStatement,
+                              schema: Schema): Seq[Bit] = {
+    val unlimitedCount = rawResults.map(_.value.rawValue.asInstanceOf[Long]).sum
+    val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
+    if (fields.nonEmpty) {
+      applyOrderingWithLimit(
+        rawResults.map { bit =>
+          bit.copy(tags = bit.tags + (`count(*)` -> limitedCount))
+        },
+        statement,
+        schema
+      )
+    } else {
+      Seq(Bit(0, limitedCount, Map.empty, Map(`count(*)` -> limitedCount)))
     }
   }
 

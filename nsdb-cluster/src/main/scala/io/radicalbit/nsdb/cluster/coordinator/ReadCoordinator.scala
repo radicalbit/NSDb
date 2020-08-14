@@ -206,24 +206,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
               readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
             StatementParser.parseStatement(statement, schema) match {
-              //pure count(*) query
-              case Right(ParsedSimpleQuery(_, _, _, false, limit, fields, _))
-                  if fields.lengthCompare(1) == 0 && fields.head.count =>
-                gatherNodeResults(statement, schema, uniqueLocationsByNode) { seq =>
-                  val recordCount = seq.map(_.value.rawValue.asInstanceOf[Int]).sum
-                  val count       = if (recordCount <= limit) recordCount else limit
-                  applyOrderingWithLimit(
-                    Seq(Bit(
-                      timestamp = 0,
-                      value = NSDbNumericType(count),
-                      dimensions = retrieveCount(seq, count, (bit: Bit) => bit.dimensions),
-                      tags = retrieveCount(seq, count, (bit: Bit) => bit.tags)
-                    )),
-                    statement,
-                    schema
-                  )
-                }
-
               case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
                 gatherNodeResults(statement, schema, uniqueLocationsByNode)(
                   applyOrderingWithLimit(_, statement, schema))
@@ -239,6 +221,11 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
                   )
                 }.map(limitAndOrder(_, statement, schema))
+
+              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+                gatherNodeResults(statement, schema, uniqueLocationsByNode) { rawResults =>
+                  globalAggregationReduce(rawResults, fields, statement, schema)
+                }
               case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
                   internalAggregationReduce(_, schema, aggregation)

@@ -70,6 +70,25 @@ object SqlStatementSerialization {
 
   }
 
+  object GlobalAggregationSerialization {
+
+    class GlobalAggregationJsonSerializer extends StdSerializer[GlobalAggregation](classOf[GlobalAggregation]) {
+
+      override def serialize(value: GlobalAggregation, gen: JsonGenerator, provider: SerializerProvider): Unit =
+        gen.writeString(value.toString)
+    }
+
+    class GlobalAggregationJsonDeserializer extends StdDeserializer[GlobalAggregation](classOf[GlobalAggregation]) {
+
+      override def deserialize(p: JsonParser, ctxt: DeserializationContext): GlobalAggregation = {
+        p.getText match {
+          case "CountAggregation" => CountAggregation
+        }
+      }
+    }
+
+  }
+
   object LogicalOperatorSerialization {
 
     class LogicalOperatorJsonSerializer extends StdSerializer[LogicalOperator](classOf[LogicalOperator]) {
