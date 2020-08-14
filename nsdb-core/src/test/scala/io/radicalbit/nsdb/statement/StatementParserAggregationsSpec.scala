@@ -171,15 +171,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
           ),
           taglessSchema
         ) should be(
-          Right(
-            ParsedGlobalAggregatedQuery(
-              "registry",
-              "people",
-              new MatchAllDocsQuery(),
-              4,
-              List(SimpleField("surname")),
-              List(CountAggregation)
-            ))
+          Left(StatementParserErrors.TAGLESS_AGGREGATIONS)
         )
       }
     }

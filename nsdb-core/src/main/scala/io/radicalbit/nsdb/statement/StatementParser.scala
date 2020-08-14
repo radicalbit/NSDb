@@ -78,9 +78,9 @@ object StatementParser {
     val limitOpt = statement.limit.map(_.value)
 
     expParsed flatMap { exp =>
-      FieldsParser.parseFieldList(statement.fields, schema).flatMap { fieldsList =>
+      FieldsParser.parseFieldList(statement.fields, schema).flatMap { parsedFieldsList =>
         //switch on group by
-        (statement.groupBy, fieldsList.list) match {
+        (statement.groupBy, parsedFieldsList.list) match {
           case (Some(group), _)
               if sortOpt
                 .flatMap(_.getSort.headOption)
@@ -124,17 +124,21 @@ object StatementParser {
           case (None, fieldsList) if distinctValue && fieldsList.size > 1 =>
             Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
           case (None, fieldsList) if FieldsParser.containsOnlyGlobalAggregations(fieldsList) =>
-            val (aggregatedFields, plainFields) = fieldsList.partition(_.aggregation.isDefined)
-            Right(
-              ParsedGlobalAggregatedQuery(
-                statement.namespace,
-                statement.metric,
-                exp.q,
-                limitOpt.getOrElse(Int.MaxValue),
-                plainFields,
-                aggregatedFields.flatMap(_.aggregation),
-                sortOpt
-              ))
+            if (parsedFieldsList.requireTags && schema.isTagless)
+              Left(StatementParserErrors.TAGLESS_AGGREGATIONS)
+            else {
+              val (aggregatedFields, plainFields) = fieldsList.partition(_.aggregation.isDefined)
+              Right(
+                ParsedGlobalAggregatedQuery(
+                  statement.namespace,
+                  statement.metric,
+                  exp.q,
+                  limitOpt.getOrElse(Int.MaxValue),
+                  plainFields,
+                  aggregatedFields.flatMap(_.aggregation),
+                  sortOpt
+                ))
+            }
           case (None, fieldsList) =>
             Right(
               ParsedSimpleQuery(
