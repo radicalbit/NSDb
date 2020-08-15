@@ -139,8 +139,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               else handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
           }
         case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
-          handleNoIndexResults(
-            Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None, limit)))
+          handleNoIndexResults(Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None)))
         case Right(ParsedGlobalAggregatedQuery(_, _, q, limit, fields, aggregations, sort)) =>
           val primaryAggregationsResults = computePrimaryAggregations(aggregations, q, schema)
           if (fields.nonEmpty) {
@@ -160,10 +159,11 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           } else {
             primaryAggregationsResults.map(primaryAggregations => Seq(Bit(0, 0L, Map.empty, primaryAggregations)))
           }
-        case Right(ParsedAggregatedQuery(_, _, q, InternalCountStandardAggregation(groupField), _, limit)) =>
+        case Right(
+            ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, CountAggregation), _, limit)) =>
           handleNoIndexResults(
             Try(facetIndexes.executeCountFacet(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalSumStandardAggregation(groupField), _, limit)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, SumAggregation), _, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.executeSumFacet(q,
@@ -172,7 +172,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                            limit,
                                            schema.fieldsMap(groupField).indexType,
                                            schema.value.indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalAvgStandardAggregation(groupField), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, AvgAggregation), _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.executeSumAndCountFacet(q,
@@ -180,21 +180,21 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                                    None,
                                                    schema.fieldsMap(groupField).indexType,
                                                    schema.value.indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalFirstStandardAggregation(groupField), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, FirstAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalLastStandardAggregation(groupField), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, LastAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getLastGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalMaxStandardAggregation(groupField), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, MaxAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getMaxGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalMinStandardAggregation(groupField), _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, MinAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getMinGroupBy(q, schema, groupField)))
-        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalCountTemporalAggregation, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalTemporalAggregation(CountAggregation), _, _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes
                 .executeRangeFacet(index.getSearcher,
                                    q,
-                                   InternalCountTemporalAggregation,
+                                   InternalTemporalAggregation(CountAggregation),
                                    "timestamp",
                                    "value",
                                    None,

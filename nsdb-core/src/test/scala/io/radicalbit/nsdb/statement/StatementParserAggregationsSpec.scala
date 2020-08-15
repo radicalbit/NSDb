@@ -199,7 +199,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalSumStandardAggregation("age")
+              InternalStandardAggregation("age", SqlSumAggregation)
             ))
         )
       }
@@ -225,7 +225,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalSumStandardAggregation("country")
+              InternalStandardAggregation("country", SqlSumAggregation)
             ))
         )
       }
@@ -251,7 +251,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalAvgStandardAggregation("country")
+              InternalStandardAggregation("country", AvgAggregation)
             ))
         )
       }
@@ -277,7 +277,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalFirstStandardAggregation("age")
+              InternalStandardAggregation("age", FirstAggregation)
             ))
         )
       }
@@ -303,7 +303,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalLastStandardAggregation("country")
+              InternalStandardAggregation("country", LastAggregation)
             ))
         )
       }
@@ -329,7 +329,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalMaxStandardAggregation("country")
+              InternalStandardAggregation("country", MaxAggregation)
             ))
         )
       }
@@ -355,7 +355,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalMinStandardAggregation("country")
+              InternalStandardAggregation("country", MinAggregation)
             ))
         )
       }
@@ -386,7 +386,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              InternalMaxStandardAggregation("country"),
+              InternalStandardAggregation("country", MaxAggregation),
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
@@ -418,7 +418,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
                      BooleanClause.Occur.MUST_NOT)
                 .build(),
-              InternalSumStandardAggregation("amount"),
+              InternalStandardAggregation("amount", SqlSumAggregation),
               None,
               Some(5)
             ))
@@ -485,7 +485,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalCountTemporalAggregation,
+              InternalTemporalAggregation(CountAggregation),
               None
             ))
         )
@@ -511,7 +511,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               86400000,
-              InternalCountTemporalAggregation,
+              InternalTemporalAggregation(CountAggregation),
               None
             ))
         )
@@ -537,7 +537,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalSumTemporalAggregation,
+              InternalTemporalAggregation(SqlSumAggregation),
               None
             ))
         )
@@ -563,7 +563,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalAvgTemporalAggregation,
+              InternalTemporalAggregation(AvgAggregation),
               None
             ))
         )
@@ -589,7 +589,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalMinTemporalAggregation,
+              InternalTemporalAggregation(MinAggregation),
               None
             ))
 
@@ -611,7 +611,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             "people",
             new MatchAllDocsQuery(),
             1000,
-            InternalMaxTemporalAggregation,
+            InternalTemporalAggregation(MaxAggregation),
             None
           ))
       }

@@ -20,10 +20,11 @@ import java.nio.file.Paths
 import java.util.UUID
 
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.AvgAggregation
 import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbLongType}
 import io.radicalbit.nsdb.index.StorageStrategy.Memory
 import io.radicalbit.nsdb.model.{Location, TimeRange}
-import io.radicalbit.nsdb.statement.StatementParser.InternalAvgTemporalAggregation
+import io.radicalbit.nsdb.statement.StatementParser.InternalTemporalAggregation
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
@@ -64,7 +65,7 @@ class AllFacetIndexSpec extends WordSpec with Matchers with OneInstancePerTest {
 
       allFacetIndex.executeRangeFacet(searcher,
                                       new MatchAllDocsQuery,
-                                      InternalAvgTemporalAggregation,
+                                      InternalTemporalAggregation(AvgAggregation),
                                       "timestamp",
                                       "value",
                                       Some(BIGINT()),

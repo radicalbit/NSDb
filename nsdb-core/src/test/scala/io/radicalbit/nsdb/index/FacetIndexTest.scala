@@ -69,7 +69,7 @@ class FacetIndexTest extends WordSpec with Matchers with OneInstancePerTest {
       def assert(fieldName: String, limit: Int, expectedCountSize: Int, expectedSizeDistinct: Int): Assertion = {
         val groups =
           facetIndexes.executeCountFacet(new MatchAllDocsQuery(), fieldName, None, Some(limit), VARCHAR())
-        val distinct = facetIndexes.executeDistinctFieldCountIndex(new MatchAllDocsQuery(), fieldName, None, limit)
+        val distinct = facetIndexes.executeDistinctFieldCountIndex(new MatchAllDocsQuery(), fieldName, None)
 
         groups.size shouldBe expectedCountSize
         distinct.size shouldBe expectedSizeDistinct

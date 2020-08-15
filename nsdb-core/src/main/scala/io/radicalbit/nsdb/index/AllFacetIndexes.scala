@@ -20,6 +20,7 @@ import java.nio.file.Paths
 
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.{AvgAggregation, CountAggregation, PrimaryAggregation, SumAggregation}
 import io.radicalbit.nsdb.model.{Location, TimeRange}
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.analysis.standard.StandardAnalyzer
@@ -68,27 +69,27 @@ class AllFacetIndexes(basePath: String,
 
   def executeRangeFacet(searcher: IndexSearcher,
                         query: Query,
-                        aggregationType: InternalTemporalAggregation,
+                        internalAggregation: InternalTemporalAggregation,
                         rangeFieldName: String,
                         valueFieldName: String,
                         valueFieldType: Option[IndexType[_]],
                         ranges: Seq[TimeRange]): Seq[Bit] =
-    aggregationType match {
-      case singleAggregation: InternalTemporalSingleAggregation =>
+    internalAggregation.aggregation match {
+      case primaryAggregation: PrimaryAggregation =>
         facetRangeIndex.executeRangeFacet(
           searcher,
           query,
-          singleAggregation,
+          primaryAggregation,
           rangeFieldName,
           valueFieldName,
           valueFieldType,
           ranges
         )
-      case InternalAvgTemporalAggregation =>
+      case AvgAggregation =>
         val sum = facetRangeIndex.executeRangeFacet(
           searcher,
           query,
-          InternalSumTemporalAggregation,
+          SumAggregation,
           rangeFieldName,
           valueFieldName,
           valueFieldType,
@@ -99,7 +100,7 @@ class AllFacetIndexes(basePath: String,
           .executeRangeFacet(
             searcher,
             query,
-            InternalCountTemporalAggregation,
+            CountAggregation,
             rangeFieldName,
             valueFieldName,
             valueFieldType,
@@ -116,7 +117,7 @@ class AllFacetIndexes(basePath: String,
         }
     }
 
-  def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort], limit: Int): Seq[Bit] =
+  def executeDistinctFieldCountIndex(query: Query, field: String, sort: Option[Sort]): Seq[Bit] =
     facetCountIndex.getDistinctField(query, field, sort)
 
   def executeSumAndCountFacet(query: Query,
