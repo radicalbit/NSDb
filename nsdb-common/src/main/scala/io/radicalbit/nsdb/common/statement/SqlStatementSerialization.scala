@@ -95,6 +95,10 @@ object SqlStatementSerialization {
         p.getText match {
           case "CountAggregation" => CountAggregation
           case "SumAggregation"   => SumAggregation
+          case "MaxAggregation"   => MaxAggregation
+          case "MinAggregation"   => MinAggregation
+          case "FirstAggregation" => FirstAggregation
+          case "LastAggregation"  => LastAggregation
         }
       }
     }
