@@ -28,6 +28,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
 import io.radicalbit.nsdb.index.lucene.Index.{handleNoIndexResults, handleNumericNoIndexResults}
 import io.radicalbit.nsdb.model.{Location, Schema}
+import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
 import io.radicalbit.nsdb.statement.StatementParser
@@ -78,27 +79,27 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
   def computePrimaryAggregations(aggregations: Seq[Aggregation],
                                  query: Query,
                                  schema: Schema): Try[Map[String, NSDbNumericType]] = {
+
+    import io.radicalbit.nsdb.common.util.ErrorUtils._
+
     implicit val numeric = schema.value.indexType.asInstanceOf[NumericType[_]].numeric
     val distinctPrimaryAggregations = aggregations.flatMap {
       case primary: PrimaryAggregation   => Seq(primary)
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
     }.distinct
-    Try {
-      distinctPrimaryAggregations
-        .map {
-          case CountAggregation =>
-            handleNumericNoIndexResults(Try(index.getCount(query))).map(count => "count(*)" -> NSDbNumericType(count))
-          case SumAggregation =>
-            val (groupField, groupFieldSchemaField) = schema.tags.head
-            handleNumericNoIndexResults(
-              Try(facetIndexes
+    flatten(distinctPrimaryAggregations
+      .map {
+        case CountAggregation =>
+          handleNumericNoIndexResults(Try(index.getCount(query))).map(count => `count(*)` -> NSDbNumericType(count))
+        case SumAggregation =>
+          val (groupField, groupFieldSchemaField) = schema.tags.head
+          handleNumericNoIndexResults(
+            Try(
+              facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
-                .sum)).map(sum => "sum(*)" -> NSDbNumericType(sum))
-        }
-        .map(_.get)
-        .toMap
-    }
+                .sum)).map(sum => `sum(*)` -> NSDbNumericType(sum))
+      }).map(_.toMap)
   }
 
   /**
