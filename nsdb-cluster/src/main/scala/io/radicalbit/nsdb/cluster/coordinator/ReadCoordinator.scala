@@ -101,8 +101,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
     val isSingleNode = uniqueLocationsByNode.keys.size == 1
 
-    log.debug(s"isSingleNode: $isSingleNode")
-
     Future
       .sequence(metricsDataActors.collect {
         case (nodeName, actor) if uniqueLocationsByNode.isDefinedAt(nodeName) =>
@@ -222,9 +220,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   )
                 }.map(limitAndOrder(_, statement, schema))
 
-              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, _, _)) =>
+              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
                 gatherNodeResults(statement, schema, uniqueLocationsByNode) { rawResults =>
-                  globalAggregationReduce(rawResults, fields, statement, schema)
+                  globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
                 }
               case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(statement, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
@@ -245,8 +243,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                 gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
                   postProcessingTemporalQueryResult(schema, statement, aggregation))
 
-              case Left(_) =>
-                Future(SelectStatementFailed(statement, "Select Statement not valid"))
+              case Left(error) =>
+                Future(SelectStatementFailed(statement, error))
               case _ =>
                 Future(SelectStatementFailed(statement, "Not a select statement."))
             }

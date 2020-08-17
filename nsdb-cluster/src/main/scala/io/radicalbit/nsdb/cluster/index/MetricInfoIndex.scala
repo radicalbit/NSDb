@@ -71,7 +71,7 @@ class MetricInfoIndex(override val directory: Directory) extends SimpleIndex[Met
     val results = handleNoIndexResults(Try {
       val queryTerm = new TermQuery(new Term(_keyField, metric))
 
-      query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)(identity)
+      query(queryTerm, Seq.empty, Integer.MAX_VALUE, None)
     })
     results match {
       case Success(metricInfoes) => metricInfoes.headOption

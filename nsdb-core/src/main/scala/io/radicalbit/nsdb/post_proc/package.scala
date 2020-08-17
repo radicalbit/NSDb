@@ -19,7 +19,13 @@ import java.math.MathContext
 
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
+import io.radicalbit.nsdb.common.statement.{
+  Aggregation,
+  AvgAggregation,
+  CountAggregation,
+  DescOrderOperator,
+  SelectSQLStatement
+}
 import io.radicalbit.nsdb.index.{BIGINT, NumericType}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
@@ -36,6 +42,8 @@ import scala.math.min
 package object post_proc {
 
   final val `count(*)` = "count(*)"
+  final val `sum(*)`   = "sum(*)"
+  final val `avg(*)`   = "avg(*)"
 
   /**
     * Applies, if needed, ordering and limiting to a sequence of chained partial results.
@@ -255,24 +263,46 @@ package object post_proc {
     * @param fields the fields to include in the final results.
     * @param statement the original sql statement.
     * @param schema metric schema.
+    * @param finalStep whether it's the final reduce to be calculated or not.
     * @return the reduced results.
     */
   def globalAggregationReduce(rawResults: Seq[Bit],
                               fields: List[SimpleField],
+                              aggregations: List[Aggregation],
                               statement: SelectSQLStatement,
-                              schema: Schema): Seq[Bit] = {
-    val unlimitedCount = rawResults.map(_.value.rawValue.asInstanceOf[Long]).sum
-    val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
+                              schema: Schema,
+                              finalStep: Boolean = true)(implicit mathContext: MathContext): Seq[Bit] = {
+
+    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    implicit val numeric: Numeric[Any] = v.numeric
+
+    val aggregationsReduced = aggregations.map {
+      case CountAggregation =>
+        val unlimitedCount = rawResults.map(_.tags(`count(*)`).rawValue.asInstanceOf[Long]).sum
+        val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
+        `count(*)` -> NSDbNumericType(limitedCount)
+      case AvgAggregation =>
+        val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
+        val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT().numeric))
+        if (finalStep) {
+          val avg = if (count.rawValue == numeric.zero) NSDbNumericType(numeric.zero) else NSDbNumericType(sum / count)
+          `avg(*)` -> avg
+        } else {
+          `sum(*)`   -> NSDbNumericType(sum)
+          `count(*)` -> NSDbNumericType(count)
+        }
+    }.toMap
+
     if (fields.nonEmpty) {
       applyOrderingWithLimit(
         rawResults.map { bit =>
-          bit.copy(tags = bit.tags + (`count(*)` -> limitedCount))
+          bit.copy(tags = bit.tags - `sum(*)` - `count(*)` ++ aggregationsReduced)
         },
         statement,
         schema
       )
     } else {
-      Seq(Bit(0, limitedCount, Map.empty, Map(`count(*)` -> limitedCount)))
+      Seq(Bit(0, NSDbNumericType(numeric.zero), Map.empty, aggregationsReduced))
     }
   }
 

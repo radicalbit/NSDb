@@ -18,71 +18,13 @@ package io.radicalbit.nsdb.cluster
 
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
+import io.radicalbit.nsdb.cluster.testdata.TestMetrics._
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 import io.radicalbit.nsdb.test.MiniClusterSpec
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-
-object LongMetric {
-
-  val name = "longMetric"
-
-  val testRecords: List[Bit] = List(
-    Bit(1L, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(2L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
-    Bit(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
-  )
-
-}
-
-object DoubleMetric {
-
-  val name = "doubleMetric"
-
-  val testRecords: List[Bit] = List(
-    Bit(2L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(6L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 1.5, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
-  )
-
-}
-
-object AggregationLongMetric {
-
-  val name = "aggregationLongMetric"
-
-  val testRecords: List[Bit] = List(
-    Bit(1L, 2L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(4L, 4L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
-    Bit(2L, 3L, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(6L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(10L, 2L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
-  )
-
-}
-
-object AggregationDoubleMetric {
-
-  val name = "aggregationDoubleMetric"
-
-  val testRecords: List[Bit] = List(
-    Bit(1L, 2.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(4L, 4.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 20L, "height" -> 30.5)),
-    Bit(2L, 3.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(6L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(8L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(10L, 2.0, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
-  )
-
-}
 
 class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
@@ -438,7 +380,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       assert(readRes.records.size == 1)
 
-      assert(readRes.records.head.asBit.value.rawValue == 6L)
+      assert(readRes.records.head.asBit == Bit(0,0L,Map.empty, Map("count(*)" -> 6L)))
     }
   }
 

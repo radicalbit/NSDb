@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, VARCHAR}
@@ -477,79 +476,6 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           val expected = probe.expectMsgType[SelectStatementExecuted]
 
           expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
-        }
-      }
-
-      "execute it successfully with mixed aggregated and simple" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation)), Field("name", None))),
-              limit = Some(LimitOperator(6))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
-          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
-          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "count(*)"       -> 6L)),
-          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6L)),
-          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6L)),
-          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6L))
-        )
-      }
-
-      "execute it successfully with only a count" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)))
-              ),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        val expected = awaitAssert {
-          probe.expectMsgType[SelectStatementExecuted]
-        }
-        expected.values shouldBe Seq(
-          Bit(0, 4L, Map.empty, Map("count(*)" -> NSDbLongType(4L)))
-        )
-      }
-
-      "fail when other aggregation than count is provided" in within(5.seconds) {
-        probe.send(
-          readCoordinatorActor,
-          ExecuteStatement(
-            SelectSQLStatement(
-              db = db,
-              namespace = namespace,
-              metric = LongMetric.name,
-              distinct = false,
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation)),
-                     Field("surname", None),
-                     Field("creationDate", Some(SumAggregation)))),
-              limit = Some(LimitOperator(4))
-            )
-          )
-        )
-        awaitAssert {
-          probe.expectMsgType[SelectStatementFailed]
         }
       }
 

@@ -44,13 +44,11 @@ trait SimpleIndex[T] extends Index[T] {
     * @param fields sequence of fields that must be included in the result.
     * @param limit results limit.
     * @param sort optional lucene [[Sort]].
-    * @param f function to obtain an element B from an element T.
-    * @tparam B return type.
     * @return the query results as a list of entries.
     */
-  def query[B](query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort])(f: T => B): Seq[B] = {
+  def query(query: Query, fields: Seq[SimpleField], limit: Int, sort: Option[Sort]): Seq[T] = {
     executeQuery(this.getSearcher, query, limit, sort) { doc =>
-      f(toRecord(doc, fields))
+      toRecord(doc, fields)
     }
   }
 
@@ -61,39 +59,20 @@ trait SimpleIndex[T] extends Index[T] {
     * @param fields sequence of fields that must be included in the result.
     * @param limit results limit.
     * @param sort optional lucene [[Sort]].
-    * @param f function to obtain an element B from an element T.
-    * @tparam B return type.
     * @return the manipulated Seq.
     */
-  def query[B](field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None)(
-      f: T => B): Seq[B] = {
-    val q = new WildcardQuery(new Term(field, value))
-
-    query(q, fields, limit, sort)(f)
+  def query(field: String, value: String, fields: Seq[SimpleField], limit: Int, sort: Option[Sort] = None): Seq[T] = {
+    query(new WildcardQuery(new Term(field, value)), fields, limit, sort)
   }
 
   /**
     * Returns all the entries.
-    * @return all the entries.
     */
   def all: Seq[T] = {
-    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(identity) } match {
+    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None) } match {
       case Success(docs: Seq[T]) => docs
       case Failure(_)            => Seq.empty
     }
   }
 
-  /**
-    * Returns all entries applying the defined callback function
-    *
-    * @param f the callback function
-    * @tparam B return type of f
-    * @return all entries
-    */
-  def all[B](f: T => B): Seq[B] = {
-    Try { query(new MatchAllDocsQuery(), Seq.empty, Int.MaxValue, None)(f) } match {
-      case Success(docs: Seq[B]) => docs
-      case Failure(_)            => Seq.empty
-    }
-  }
 }
