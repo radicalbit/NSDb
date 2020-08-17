@@ -21,6 +21,7 @@ import java.time.Duration
 import akka.cluster.{Cluster, MemberStatus}
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
+import io.radicalbit.nsdb.cluster.data.TestMetrics._
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 import io.radicalbit.nsdb.test.MiniClusterSpec
@@ -28,33 +29,6 @@ import io.radicalbit.nsdb.test.MiniClusterSpec
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
-object TemporalDoubleMetric {
-
-  val name = "temporalDoubleMetric"
-
-  val testRecords: Seq[Bit] = Seq(
-    Bit(150000, 2.5, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(120000, 3.5, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(90000, 5.5, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(60000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
-    Bit(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
-    Bit(0, 1.5, Map("surname"     -> "Doe"), Map("name" -> "Frankie"))
-  )
-}
-
-object TemporalLongMetric {
-
-  val name = "temporalLongMetric"
-
-  val testRecords: Seq[Bit] = Seq(
-    Bit(150000L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-    Bit(120000L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5)),
-    Bit(90000L, 5L, Map("surname" -> "Doe"), Map("name" -> "John", "age"    -> 15L, "height" -> 30.5)),
-    Bit(60000L, 7L, Map("surname" -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(30000L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(0L, 1L, Map("surname"     -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
-  )
-}
 
 class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 

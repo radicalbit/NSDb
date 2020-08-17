@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
+import io.radicalbit.nsdb.index.lucene.Index.{handleNoIndexResults, handleNumericNoIndexResults}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectStatementExecuted, SelectStatementFailed}
@@ -83,19 +83,22 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       case primary: PrimaryAggregation   => Seq(primary)
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
     }.distinct
-    handleNoIndexResults(
-      Try(
-        distinctPrimaryAggregations.map {
-          case CountAggregation => "count(*)" -> NSDbNumericType(index.getCount(query))
+    Try {
+      distinctPrimaryAggregations
+        .map {
+          case CountAggregation =>
+            handleNumericNoIndexResults(Try(index.getCount(query))).map(count => "count(*)" -> NSDbNumericType(count))
           case SumAggregation =>
             val (groupField, groupFieldSchemaField) = schema.tags.head
-            "sum(*)" -> NSDbNumericType(
-              facetIndexes
+            handleNumericNoIndexResults(
+              Try(facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
-                .sum)
+                .sum)).map(sum => "sum(*)" -> NSDbNumericType(sum))
         }
-      )).map(_.toMap)
+        .map(_.get)
+        .toMap
+    }
   }
 
   /**

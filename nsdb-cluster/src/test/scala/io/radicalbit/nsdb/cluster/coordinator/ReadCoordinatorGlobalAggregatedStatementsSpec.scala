@@ -28,7 +28,30 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
 
     "receive a select containing only one single global aggregations" should {
 
-      "execute it successfully with only a count" in {
+      "execute it successfully with a count without a limit" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation)))
+              )
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 0L, Map.empty, Map("count(*)" -> NSDbLongType(6L)))
+        )
+      }
+
+      "execute it successfully with a count and a limit" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(

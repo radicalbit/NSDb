@@ -22,7 +22,7 @@ object StatementParserErrors {
   lazy val MORE_FIELDS_GROUP_BY    = "cannot execute a groupField by query with more than a aggregateField"
   lazy val MORE_FIELDS_DISTINCT    = "cannot execute a select distinct projecting more than one field"
   lazy val NO_GROUP_BY_AGGREGATION =
-    s"cannot execute a query with that aggregation without a groupBy field"
+    s"cannot execute a query with a non global aggregation without a groupBy field"
   lazy val GROUP_BY_DISTINCT =
     s"cannot execute a query with a group by and a distinct clause"
   lazy val TAGLESS_AGGREGATIONS =

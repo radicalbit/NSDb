@@ -243,8 +243,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                 gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
                   postProcessingTemporalQueryResult(schema, statement, aggregation))
 
-              case Left(_) =>
-                Future(SelectStatementFailed(statement, "Select Statement not valid"))
+              case Left(error) =>
+                Future(SelectStatementFailed(statement, error))
               case _ =>
                 Future(SelectStatementFailed(statement, "Not a select statement."))
             }
