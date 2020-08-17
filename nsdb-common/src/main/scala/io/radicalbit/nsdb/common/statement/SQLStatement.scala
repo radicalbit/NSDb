@@ -168,7 +168,7 @@ sealed trait GlobalAggregation extends Aggregation
 sealed trait PrimaryAggregation extends Aggregation
 
 /**
-  * Aggregation that is not derived from others.
+  * Aggregation that is derived from others.
   * e.g. average is derived from count and sum.
   */
 @JsonSerialize(using = classOf[DerivedAggregationJsonSerializer])
