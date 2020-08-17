@@ -21,7 +21,7 @@ import java.time.Duration
 import akka.cluster.{Cluster, MemberStatus}
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
-import io.radicalbit.nsdb.cluster.data.TestMetrics._
+import io.radicalbit.nsdb.cluster.testdata.TestMetrics._
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 import io.radicalbit.nsdb.test.MiniClusterSpec

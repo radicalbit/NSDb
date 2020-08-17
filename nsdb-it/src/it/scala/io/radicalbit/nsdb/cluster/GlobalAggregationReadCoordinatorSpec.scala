@@ -20,7 +20,7 @@ import java.time.Duration
 
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
-import io.radicalbit.nsdb.cluster.data.TestMetrics._
+import io.radicalbit.nsdb.cluster.testdata.TestMetrics._
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
 import io.radicalbit.nsdb.statement.StatementParserErrors.NO_GROUP_BY_AGGREGATION
