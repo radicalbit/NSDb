@@ -212,6 +212,12 @@ final case class DescOrderOperator(override val dimension: String) extends Order
 final case class LimitOperator(value: Int) extends NSDbSerializable
 
 /**
+  * Time interval to consider to limit the size of a query.
+  * @param interval Time interval in milliseconds
+  */
+final case class GracePeriod(interval: Long)
+
+/**
   * Comparison value to wrap values for tracking relative and absolute (mainly for relative timestamp)
   */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -321,6 +327,7 @@ object SQLStatement {
   * @param condition the where condition. See [[Condition]].
   * @param groupBy present if the query includes a group by clause.
   * @param order present if the query includes a order clause. See [[OrderOperator]].
+  * @param gracePeriod present if the query includes a grace period clause. See [[GracePeriod]].
   * @param limit present if the query includes a limit clause. See [[LimitOperator]].
   */
 final case class SelectSQLStatement(override val db: String,
@@ -331,6 +338,7 @@ final case class SelectSQLStatement(override val db: String,
                                     condition: Option[Condition] = None,
                                     groupBy: Option[GroupByAggregation] = None,
                                     order: Option[OrderOperator] = None,
+                                    gracePeriod: Option[GracePeriod] = None,
                                     limit: Option[LimitOperator] = None)
     extends SQLStatement
     with LazyLogging

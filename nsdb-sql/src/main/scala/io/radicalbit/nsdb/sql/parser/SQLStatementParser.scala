@@ -36,7 +36,7 @@ import scala.util.parsing.input.CharSequenceReader
   *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "tags" "(" (literal = literal)+ ")" "VAL" = digit
   *   DropStatement := "drop metric" literal
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
-  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)?
+  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)? (since timeMeasure)?
   *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
   *   expression := expression "and" expression | expression "or" expression | "not" expression | "(" expression ")"
   *                 literal "=" literal | literal comparison literal | literal "like" literal |
@@ -105,6 +105,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
   private val temporalInterval  = "INTERVAL" ignoreCase
+  private val since             = "SINCE" ignoreCase
 
   private val letter          = """[a-zA-Z_]"""
   private val digit           = """[0-9]"""
@@ -263,9 +264,13 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val limit: PackratParser[LimitOperator] = (Limit ~> intValue) ^^ (value => LimitOperator(value))
 
+  lazy val gracePeriod: PackratParser[GracePeriod] = (since ~> longValue ~ timeMeasure) ^^ {
+    case unit ~ ((_, quantity)) => GracePeriod(unit * quantity)
+  }
+
   private def selectQuery(db: String, namespace: String) =
-    select ~ from ~ (where ?) ~ ((temporalGroupBy | simpleGroupBy) ?) ~ (order ?) ~ (limit ?) <~ ";" ^^ {
-      case d ~ fs ~ met ~ cond ~ gr ~ ord ~ lim =>
+    select ~ from ~ (where ?) ~ ((temporalGroupBy | simpleGroupBy) ?) ~ (order ?) ~ (gracePeriod ?) ~ (limit ?) <~ ";" ^^ {
+      case d ~ fs ~ met ~ cond ~ gr ~ ord ~ grace ~ lim =>
         SelectSQLStatement(db = db,
                            namespace = namespace,
                            metric = met,
@@ -274,6 +279,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
                            condition = cond.map(Condition),
                            groupBy = gr,
                            order = ord,
+                           gracePeriod = grace,
                            limit = lim)
     }
 
