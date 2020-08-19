@@ -39,25 +39,6 @@ object StatementParser {
   }
 
   /**
-    * Retrieves internal [[InternalStandardAggregation]] based on provided into the query.
-    *
-    * @param groupField     group by field.
-    * @param agg            aggregation clause in query (min, max, sum, count).
-    * @return an instance of [[InternalStandardAggregation]] based on the given parameters.
-    */
-  private def toInternalAggregation(groupField: String, agg: Aggregation): InternalStandardAggregation = {
-    agg match {
-      case CountAggregation => InternalCountStandardAggregation(groupField)
-      case MaxAggregation   => InternalMaxStandardAggregation(groupField)
-      case MinAggregation   => InternalMinStandardAggregation(groupField)
-      case SumAggregation   => InternalSumStandardAggregation(groupField)
-      case FirstAggregation => InternalFirstStandardAggregation(groupField)
-      case LastAggregation  => InternalLastStandardAggregation(groupField)
-      case AvgAggregation   => InternalAvgStandardAggregation(groupField)
-    }
-  }
-
-  /**
     * Parses a [[SelectSQLStatement]] into a [[ParsedQuery]].
     *
     * @param statement the select statement to be parsed.
@@ -100,7 +81,7 @@ object StatementParser {
                 statement.namespace,
                 statement.metric,
                 exp.q,
-                toInternalAggregation(groupField = group.field, agg = agg),
+                InternalStandardAggregation(group.field, agg),
                 sortOpt,
                 limitOpt
               ))
@@ -241,59 +222,10 @@ object StatementParser {
     */
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
 
-  /**
-    * Describes aggregations that must not be composed (i.e. that involves a simple quantity) e.g. count, sum
-    */
-  sealed trait SingleAggregation
-
-  /**
-    * Describes aggregations that must be composed e.g. average, median, standard deviation
-    */
-  sealed trait CompositeAggregation
-
   sealed trait InternalAggregation
 
-  sealed trait InternalStandardAggregation extends InternalAggregation {
+  case class InternalStandardAggregation(groupField: String, aggregation: Aggregation) extends InternalAggregation
 
-    def groupField: String
-  }
-
-  sealed trait InternalStandardSingleAggregation    extends InternalStandardAggregation with SingleAggregation
-  sealed trait InternalStandardCompositeAggregation extends InternalStandardAggregation with CompositeAggregation
-
-  case class InternalCountStandardAggregation(override val groupField: String) extends InternalStandardSingleAggregation
-  case class InternalMaxStandardAggregation(override val groupField: String)   extends InternalStandardSingleAggregation
-  case class InternalMinStandardAggregation(override val groupField: String)   extends InternalStandardSingleAggregation
-  case class InternalSumStandardAggregation(override val groupField: String)   extends InternalStandardSingleAggregation
-  case class InternalFirstStandardAggregation(override val groupField: String) extends InternalStandardSingleAggregation
-  case class InternalLastStandardAggregation(override val groupField: String)  extends InternalStandardSingleAggregation
-  case class InternalAvgStandardAggregation(override val groupField: String)
-      extends InternalStandardCompositeAggregation
-
-  sealed trait InternalTemporalAggregation extends InternalAggregation
-
-  sealed trait InternalTemporalSingleAggregation    extends InternalTemporalAggregation with SingleAggregation
-  sealed trait InternalTemporalCompositeAggregation extends InternalTemporalAggregation with CompositeAggregation
-
-  object InternalTemporalAggregation {
-    def apply(aggregation: Aggregation): InternalTemporalAggregation =
-      aggregation match {
-        case CountAggregation => InternalCountTemporalAggregation
-        case MaxAggregation   => InternalMaxTemporalAggregation
-        case MinAggregation   => InternalMinTemporalAggregation
-        case SumAggregation   => InternalSumTemporalAggregation
-        case AvgAggregation   => InternalAvgTemporalAggregation
-      }
-  }
-
-  case object InternalCountTemporalAggregation extends InternalTemporalSingleAggregation
-
-  case object InternalSumTemporalAggregation extends InternalTemporalSingleAggregation
-
-  case object InternalMaxTemporalAggregation extends InternalTemporalSingleAggregation
-
-  case object InternalMinTemporalAggregation extends InternalTemporalSingleAggregation
-
-  case object InternalAvgTemporalAggregation extends InternalTemporalCompositeAggregation
+  case class InternalTemporalAggregation(aggregation: Aggregation) extends InternalAggregation
 
 }

@@ -18,9 +18,15 @@ package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.statement.{
+  Aggregation,
+  CountAggregation,
+  MaxAggregation,
+  MinAggregation,
+  SumAggregation
+}
 import io.radicalbit.nsdb.index.FacetRangeIndex.FacetRangeResult
 import io.radicalbit.nsdb.model.TimeRange
-import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.facet.range._
 import org.apache.lucene.facet.{Facets, FacetsCollector}
 import org.apache.lucene.search.{IndexSearcher, Query}
@@ -35,7 +41,7 @@ class FacetRangeIndex {
 
   protected[index] def executeRangeFacet(searcher: IndexSearcher,
                                          query: Query,
-                                         aggregationType: InternalTemporalSingleAggregation,
+                                         aggregation: Aggregation,
                                          rangeFieldName: String,
                                          valueFieldName: String,
                                          valueFieldType: Option[IndexType[_]],
@@ -44,20 +50,20 @@ class FacetRangeIndex {
       new LongRange(s"${r.lowerBound}-${r.upperBound}", r.lowerBound, r.lowerInclusive, r.upperBound, r.upperInclusive))
     val fc = new FacetsCollector
     FacetsCollector.search(searcher, query, 0, fc)
-    val facets: Facets = (aggregationType, valueFieldType) match {
-      case (InternalCountTemporalAggregation, _) =>
+    val facets: Facets = (aggregation, valueFieldType) match {
+      case (CountAggregation, _) =>
         new LongRangeFacetCounts(rangeFieldName, fc, luceneRanges: _*)
-      case (InternalSumTemporalAggregation, Some(_: DECIMAL)) =>
+      case (SumAggregation, Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
-      case (InternalSumTemporalAggregation, _) =>
+      case (SumAggregation, _) =>
         new LongRangeFacetLongSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
-      case (InternalMaxTemporalAggregation, Some(_: DECIMAL)) =>
+      case (MaxAggregation, Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
-      case (InternalMaxTemporalAggregation, _) =>
+      case (MaxAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
-      case (InternalMinTemporalAggregation, Some(_: DECIMAL)) =>
+      case (MinAggregation, Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
-      case (InternalMinTemporalAggregation, _) =>
+      case (MinAggregation, _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
     }
     toRecord(valueFieldType) {

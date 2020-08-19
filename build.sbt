@@ -36,6 +36,7 @@ lazy val root = project
     `nsdb-sql`,
     `nsdb-cli`,
     `nsdb-perf`,
+    `nsdb-minicluster`,
     `nsdb-it`
   )
 lazy val packageDist   = taskKey[File]("create universal package and move it to package folder")
@@ -243,6 +244,14 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .enablePlugins(GatlingPlugin)
+lazy val `nsdb-minicluster` = (project in file("nsdb-minicluster"))
+  .settings(Commons.settings: _*)
+  .settings(PublishSettings.settings: _*)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
+  .settings(libraryDependencies ++= Dependencies.Minicluster.libraries)
+  .dependsOn(`nsdb-cluster`)
+  .dependsOn(`nsdb-scala-api`)
 lazy val `nsdb-it` = (project in file("nsdb-it"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -251,8 +260,7 @@ lazy val `nsdb-it` = (project in file("nsdb-it"))
   .settings(libraryDependencies ++= Dependencies.It.libraries)
   .configs(IntegrationTest)
   .settings(Defaults.itSettings)
-  .dependsOn(`nsdb-cluster`)
-  .dependsOn(`nsdb-scala-api`)
+  .dependsOn(`nsdb-minicluster`)
 scalafmtOnCompile in ThisBuild := true
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))

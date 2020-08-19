@@ -321,6 +321,12 @@ object Dependencies {
     )
   }
 
+  object Minicluster {
+    lazy val libraries = Seq(
+      scalatest.core
+    )
+  }
+
   object It {
     lazy val libraries = Seq(
       scalatest.core % "it,test"
