@@ -214,8 +214,10 @@ final case class LimitOperator(value: Int) extends NSDbSerializable
 /**
   * Time interval to consider to limit the size of a query.
   * @param interval Time interval in milliseconds
+  * @param timeMeasure a single character that express the chosen time measure.
+  * @param quantity the absolute quantity provided in the query string.
   */
-final case class GracePeriod(interval: Long)
+final case class GracePeriod(interval: Long, timeMeasure: String, quantity: Long)
 
 /**
   * Comparison value to wrap values for tracking relative and absolute (mainly for relative timestamp)
