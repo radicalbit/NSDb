@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.sql.parser
 
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.sql.parser.SQLStatementParser._
 import io.radicalbit.nsdb.sql.parser.StatementParserResult.{SqlStatementParserFailure, SqlStatementParserSuccess}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -353,7 +354,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(3000, 3, "s"))
+              groupBy = Some(TemporalGroupByAggregation(3000, 3, second))
             )
           ))
       }
@@ -371,7 +372,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("value", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(60000, 1, "m"))
+              groupBy = Some(TemporalGroupByAggregation(60000, 1, minute))
             )
           ))
       }
@@ -388,7 +389,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
-            groupBy = Some(TemporalGroupByAggregation(86400000, 1, "d")),
+            groupBy = Some(TemporalGroupByAggregation(86400000, 1, day)),
             limit = Some(LimitOperator(1))
           )
         ))
@@ -415,7 +416,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, day))
             )
           ))
       }
@@ -440,7 +441,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(CountAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, day))
             )
           ))
       }
@@ -465,7 +466,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(SumAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "d"))
+              groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, day))
             )
           ))
       }
@@ -490,7 +491,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
                 operator = AndOperator
               ))),
               fields = ListFields(List(Field("*", Some(AvgAggregation)))),
-              groupBy = Some(TemporalGroupByAggregation(4 * 24 * 3600 * 1000, 4, "d"))
+              groupBy = Some(TemporalGroupByAggregation(4 * 24 * 3600 * 1000, 4, day))
             )
           ))
       }

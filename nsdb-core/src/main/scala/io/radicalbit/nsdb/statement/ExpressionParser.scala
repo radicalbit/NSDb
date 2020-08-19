@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.statement
 import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, INT, VARCHAR}
-import io.radicalbit.nsdb.model.SchemaField
+import io.radicalbit.nsdb.model.{SchemaField, TimeContext}
 import org.apache.lucene.document.{DoublePoint, IntPoint, LongPoint}
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
@@ -36,16 +36,21 @@ object ExpressionParser {
     * @param schema metric'groupFieldType schema fields map.
     * @return a Try of [[ParsedExpression]] to potential errors.
     */
-  def parseExpression(exp: Option[Expression], schema: Map[String, SchemaField]): Either[String, ParsedExpression] = {
+  def parseExpression(exp: Option[Expression], schema: Map[String, SchemaField])(
+      implicit timeContext: TimeContext): Either[String, ParsedExpression] = {
     val q = exp match {
       case Some(NullableExpression(dimension)) => nullableExpression(schema, dimension)
 
-      case Some(EqualityExpression(dimension, ComparisonValue(value))) => equalityExpression(schema, dimension, value)
-      case Some(LikeExpression(dimension, value))                      => likeExpression(schema, dimension, value)
-      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, ComparisonValue(value))) =>
-        comparisonExpression(schema, dimension, operator, value.rawValue)
-      case Some(RangeExpression(dimension, ComparisonValue(value1), ComparisonValue(value2))) =>
-        rangeExpression(schema, dimension, value1.rawValue, value2.rawValue)
+      case Some(EqualityExpression(dimension, comparison)) =>
+        equalityExpression(schema, dimension, comparison.absoluteValue(timeContext.currentTime))
+      case Some(LikeExpression(dimension, value)) => likeExpression(schema, dimension, value)
+      case Some(ComparisonExpression(dimension, operator: ComparisonOperator, comparison)) =>
+        comparisonExpression(schema, dimension, operator, comparison.absoluteValue(timeContext.currentTime))
+      case Some(RangeExpression(dimension, comparison1, comparison2)) =>
+        rangeExpression(schema,
+                        dimension,
+                        comparison1.absoluteValue(timeContext.currentTime),
+                        comparison2.absoluteValue(timeContext.currentTime))
 
       case Some(NotExpression(expression, _)) => unaryLogicalExpression(schema, expression)
 
@@ -197,8 +202,8 @@ object ExpressionParser {
     }
   }
 
-  private def unaryLogicalExpression(schema: Map[String, SchemaField],
-                                     expression: Expression): Either[String, BooleanQuery] = {
+  private def unaryLogicalExpression(schema: Map[String, SchemaField], expression: Expression)(
+      implicit timeContext: TimeContext): Either[String, BooleanQuery] = {
     parseExpression(Some(expression), schema).map { e =>
       val builder = new BooleanQuery.Builder()
       builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
@@ -206,10 +211,11 @@ object ExpressionParser {
     }
   }
 
-  private def tupledLogicalExpression(schema: Map[String, SchemaField],
-                                      expression1: Expression,
-                                      operator: TupledLogicalOperator,
-                                      expression2: Expression): Either[String, BooleanQuery] = {
+  private def tupledLogicalExpression(
+      schema: Map[String, SchemaField],
+      expression1: Expression,
+      operator: TupledLogicalOperator,
+      expression2: Expression)(implicit timeContext: TimeContext): Either[String, BooleanQuery] = {
     for {
       e1 <- parseExpression(Some(expression1), schema)
       e2 <- parseExpression(Some(expression2), schema)

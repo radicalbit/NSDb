@@ -20,6 +20,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 
+import scala.concurrent.duration.Duration
 import scala.language.postfixOps
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
 import scala.util.parsing.input.CharSequenceReader
@@ -44,6 +45,8 @@ import scala.util.parsing.input.CharSequenceReader
   * }}}
   */
 final class SQLStatementParser extends RegexParsers with PackratParsers with RegexNSDb {
+
+  import SQLStatementParser._
 
   implicit class InsensitiveString(str: String) {
     def ignoreCase: PackratParser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toUpperCase }
@@ -135,23 +138,15 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     case strings: List[String] => strings.mkString(" ")
   }
 
-  private val timeMeasure = ("d".ignoreCase | "h".ignoreCase | "m".ignoreCase | "s".ignoreCase)
-    .map(_.toUpperCase()) ^^ {
-    case "D" => ("d", 24 * 3600 * 1000)
-    case "H" => ("h", 3600 * 1000)
-    case "M" => ("m", 60 * 1000)
-    case "S" => ("s", 1000)
-  }
+  private val timeMeasure = day.ignoreCase | hour.ignoreCase | minute.ignoreCase | second.ignoreCase
 
-  // def instead val because timestamp should be calculated everytime but there is a problem with
-  // more than one "now - something" in the same query because "now" will be different for each condition
-  private def delta: PackratParser[ComparisonValue] = now ~> (("+" | "-") ~ longValue ~ timeMeasure).? ^^ {
-    case Some("+" ~ v ~ ((unitMeasure, timeInterval))) =>
-      RelativeComparisonValue(System.currentTimeMillis() + v * timeInterval, "+", v, unitMeasure)
-    case Some("-" ~ v ~ ((unitMeasure, timeInterval))) =>
-      RelativeComparisonValue(System.currentTimeMillis() - v * timeInterval, "-", v, unitMeasure)
+  private val delta: PackratParser[RelativeComparisonValue] = now ~> ((plus | minus) ~ longValue ~ timeMeasure).? ^^ {
+    case Some(plus ~ quantity ~ unitMeasure) =>
+      RelativeComparisonValue(Duration(s"$quantity$unitMeasure").toMillis, plus, quantity, unitMeasure)
+    case Some(minus ~ quantity ~ unitMeasure) =>
+      RelativeComparisonValue(Duration(s"$quantity$unitMeasure").toMillis, minus, quantity, unitMeasure)
     case None =>
-      AbsoluteComparisonValue(System.currentTimeMillis())
+      RelativeComparisonValue(0L, plus, 0L, "S")
   }
 
   private val comparisonTerm = delta | doubleValue.map(AbsoluteComparisonValue(_)) | longValue.map(
@@ -252,9 +247,11 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   }
 
   lazy val temporalGroupBy
-    : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (intValue ?) ~ timeMeasure) ^^ {
-    case unit ~ ((timeMeasure, quantity)) =>
-      TemporalGroupByAggregation(unit.getOrElse(1) * quantity, unit.getOrElse(1).toLong, timeMeasure)
+    : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (longValue ?) ~ timeMeasure) ^^ {
+    case quantity ~ timeMeasure =>
+      TemporalGroupByAggregation(Duration(s"${quantity.getOrElse(1)}$timeMeasure").toMillis,
+                                 quantity.getOrElse(1L),
+                                 timeMeasure)
   }
 
   lazy val order: PackratParser[OrderOperator] = (Order ~> dimension ~ (Desc ?)) ^^ {
@@ -316,4 +313,14 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     }
   }
 
+}
+
+object SQLStatementParser {
+  final val plus  = "+"
+  final val minus = "-"
+
+  final val day    = "D"
+  final val hour   = "H"
+  final val minute = "M"
+  final val second = "S"
 }

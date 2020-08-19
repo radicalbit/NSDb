@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRange}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -90,13 +90,14 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
     * @param statement the Sql statement to be executed against every actor.
     * @param schema Metric's schema.
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
+    * @param timeContext the timeContext that will be propagated to all the nodes.
     * @return the processed results.
     */
-  private def gatherNodeResults(
-      statement: SelectSQLStatement,
-      schema: Schema,
-      uniqueLocationsByNode: Map[String, Seq[Location]],
-      ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit]): Future[ExecuteSelectStatementResponse] = {
+  private def gatherNodeResults(statement: SelectSQLStatement,
+                                schema: Schema,
+                                uniqueLocationsByNode: Map[String, Seq[Location]],
+                                ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit])(
+      implicit timeContext: TimeContext): Future[ExecuteSelectStatementResponse] = {
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
 
     val isSingleNode = uniqueLocationsByNode.keys.size == 1
@@ -108,6 +109,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                          schema,
                                          uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
                                          ranges,
+                                         timeContext,
                                          isSingleNode)
       })
       .map { rawResponses =>
@@ -136,15 +138,16 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
     * Groups results coming from different nodes according to the group by clause provided in the query.
     * @param statement the Sql statement to be executed against every actor.
     * @param groupBy the group by clause dimension.
-    * @param schema Metric's schema.
+    * @param schema Metric schema.
     * @param aggregationFunction the aggregate function corresponding to the aggregation operator (sum, count ecc.) contained in the query.
+    * @param timeContext the timeContext that will be propagated to all the nodes.
     * @return the grouped results.
     */
   private def gatherAndGroupNodeResults(statement: SelectSQLStatement,
                                         groupBy: String,
                                         schema: Schema,
                                         uniqueLocationsByNode: Map[String, Seq[Location]])(
-      aggregationFunction: Seq[Bit] => Bit): Future[ExecuteSelectStatementResponse] =
+      aggregationFunction: Seq[Bit] => Bit)(implicit timeContext: TimeContext): Future[ExecuteSelectStatementResponse] =
     gatherNodeResults(statement, schema, uniqueLocationsByNode) {
       case seq if uniqueLocationsByNode.size > 1 =>
         seq.groupBy(_.tags(groupBy)).mapValues(aggregationFunction).values.toSeq
@@ -175,7 +178,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .map {
           case SchemaGot(_, _, _, Some(schema)) =>
-            StatementParser.parseStatement(statement, schema) match {
+            StatementParser.parseStatement(statement, schema)(TimeContext()) match {
               case Right(_)  => SelectStatementValidated(statement)
               case Left(err) => SelectStatementValidationFailed(statement, err)
             }
@@ -186,7 +189,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
         }
         .pipeTo(sender())
     case ExecuteStatement(statement) =>
-      val startTime = System.currentTimeMillis()
+      val startTime                         = System.currentTimeMillis()
+      implicit val timeContext: TimeContext = TimeContext()
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
       val selectStatementResponse: Future[ExecuteSelectStatementResponse] = Future
         .sequence(

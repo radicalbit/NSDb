@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.search._
 
@@ -30,10 +30,11 @@ object StatementParser {
     * Parses a [[DeleteSQLStatement]] into a [[ParsedQuery]].
     *
     * @param statement the statement to be parsed.
-    * @param schema    metric'groupFieldType schema.
+    * @param schema    metric groupFieldType schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
-  def parseStatement(statement: DeleteSQLStatement, schema: Schema): Either[String, ParsedQuery] = {
+  def parseStatement(statement: DeleteSQLStatement, schema: Schema)(
+      implicit timeContext: TimeContext): Either[String, ParsedQuery] = {
     val expParsed = ExpressionParser.parseExpression(Some(statement.condition.expression), schema.fieldsMap)
     expParsed.map(exp => ParsedDeleteQuery(statement.namespace, statement.metric, exp.q))
   }
@@ -45,7 +46,8 @@ object StatementParser {
     * @param schema    metric's schema.
     * @return a Try of [[ParsedQuery]] to handle errors.
     */
-  def parseStatement(statement: SelectSQLStatement, schema: Schema): Either[String, ParsedQuery] = {
+  def parseStatement(statement: SelectSQLStatement, schema: Schema)(
+      implicit timeContext: TimeContext): Either[String, ParsedQuery] = {
     val sortOpt = statement.order.map(order => {
       val sortType = schema.fieldsMap.get(order.dimension).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
       new Sort(new SortField(order.dimension, sortType, order.isInstanceOf[DescOrderOperator]))

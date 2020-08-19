@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeo
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -265,9 +265,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         })
         .map(s => CountGot(db, ns, metric, s.sum))
         .pipeTo(sender)
-    case msg @ ExecuteSelectStatement(statement, schema, locations, _, isSingleNode) =>
+    case msg @ ExecuteSelectStatement(statement, schema, locations, _, timeContext, isSingleNode) =>
       log.debug("executing statement in metric reader actor {}", statement)
-      StatementParser.parseStatement(statement, schema) match {
+      StatementParser.parseStatement(statement, schema)(timeContext) match {
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
           retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {

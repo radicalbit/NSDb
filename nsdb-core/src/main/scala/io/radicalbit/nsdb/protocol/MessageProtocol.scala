@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
-import io.radicalbit.nsdb.model.{Location, Schema, TimeRange}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRange}
 
 /**
   * common messages exchanged among all the nsdb actors.
@@ -50,6 +50,7 @@ object MessageProtocol {
                                       schema: Schema,
                                       locations: Seq[Location],
                                       ranges: Seq[TimeRange] = Seq.empty,
+                                      timeContext: TimeContext,
                                       isSingleNode: Boolean)
         extends NSDbSerializable
 

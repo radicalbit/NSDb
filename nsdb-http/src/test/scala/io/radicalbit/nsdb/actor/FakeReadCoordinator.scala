@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.actor
 import akka.actor.Actor
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.RangeExpression
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -37,6 +37,7 @@ class FakeReadCoordinator extends Actor {
     case GetSchema(db, namespace, metric) =>
       sender() ! SchemaGot(db, namespace, metric, schemas.get(metric))
     case ValidateStatement(statement) =>
+      implicit val timeContext: TimeContext = TimeContext()
       schemas.get(statement.metric) match {
         case Some(schema) =>
           StatementParser.parseStatement(statement, schema) match {
@@ -50,6 +51,7 @@ class FakeReadCoordinator extends Actor {
       }
     case ExecuteStatement(statement)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression] =>
+      implicit val timeContext: TimeContext = TimeContext()
       StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
         case Right(_) =>
           val e = statement.condition.get.expression.asInstanceOf[RangeExpression]
@@ -59,6 +61,7 @@ class FakeReadCoordinator extends Actor {
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }
     case ExecuteStatement(statement) =>
+      implicit val timeContext: TimeContext = TimeContext()
       StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
         case Right(_) =>
           sender ! SelectStatementExecuted(statement, bits)

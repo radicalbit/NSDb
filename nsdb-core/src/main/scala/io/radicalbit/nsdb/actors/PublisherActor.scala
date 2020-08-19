@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, Subs
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{SelectSQLStatement, SimpleGroupByAggregation, TemporalGroupByAggregation}
 import io.radicalbit.nsdb.index.TemporaryIndex
+import io.radicalbit.nsdb.model.TimeContext
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -134,7 +135,8 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
       queries.foreach {
         case (id, nsdbQuery)
             if !nsdbQuery.aggregated && nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(id) =>
-          val luceneQuery = StatementParser.parseStatement(nsdbQuery.query, schema)
+          implicit val timeContext: TimeContext = TimeContext()
+          val luceneQuery                       = StatementParser.parseStatement(nsdbQuery.query, schema)
           luceneQuery match {
             case Right(parsedQuery: ParsedSimpleQuery) =>
               val temporaryIndex: TemporaryIndex = new TemporaryIndex()

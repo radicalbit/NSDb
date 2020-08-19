@@ -219,31 +219,43 @@ final case class LimitOperator(value: Int) extends NSDbSerializable
     new JsonSubTypes.Type(value = classOf[RelativeComparisonValue], name = "RelativeComparisonValue")
   ))
 sealed trait ComparisonValue {
+  def absoluteValue(currentTime: Long): NSDbType = value
   def value: NSDbType
 }
 
 object ComparisonValue {
-  def unapply(cv: ComparisonValue): Option[NSDbType] = Some(cv.value)
+
+  /**
+    * Extract the value of a [[ComparisonValue]]
+    * @return a tuple containing the value and a boolean that is true whether the comparison is relative.
+    */
+  def unapply(comparisonValue: ComparisonValue): Option[NSDbType] =
+    Some(comparisonValue.value)
+
 }
 
 /**
   * Class that represent an absolute comparison value
   * @param value the absolute value
   */
-final case class AbsoluteComparisonValue(override val value: NSDbType) extends ComparisonValue
+final case class AbsoluteComparisonValue(value: NSDbType) extends ComparisonValue
 
 /**
   * Class that represent a relative comparison value.
-  * @param value the absolute value
-  * @param operator the operator of the now (plus or minus)
-  * @param quantity the quantity of the relative time
-  * @param unitMeasure the unit measure of the relative time (s, m, h, d)
+  * @param value the time interval in milliseconds.
+  * @param operator the operator of the now (plus or minus).
+  * @param quantity the quantity of the relative time.
+  * @param unitMeasure the unit measure of the relative time (s, m, h, d).
   */
 final case class RelativeComparisonValue(override val value: NSDbType,
                                          operator: String,
                                          quantity: Long,
                                          unitMeasure: String)
-    extends ComparisonValue
+    extends ComparisonValue {
+
+  override def absoluteValue(currentTime: Long): NSDbType = ???
+
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(

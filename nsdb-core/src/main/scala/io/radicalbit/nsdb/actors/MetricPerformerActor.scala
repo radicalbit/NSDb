@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.index.{AllFacetIndexes, StorageStrategy}
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
@@ -112,6 +112,7 @@ class MetricPerformerActor(val basePath: String,
               }
             //FIXME add compensation logic here as well
             case DeleteShardQueryOperation(_, _, statement, schema) =>
+              implicit val timeContext: TimeContext = TimeContext()
               StatementParser.parseStatement(statement, schema) match {
                 case Right(parsedQuery) =>
                   (for {

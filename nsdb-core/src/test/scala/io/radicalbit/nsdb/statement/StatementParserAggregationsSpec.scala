@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{SumAggregation => SqlSumAggregation, _}
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.LongPoint
@@ -26,6 +26,8 @@ import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
 
 class StatementParserAggregationsSpec extends WordSpec with Matchers {
+
+  implicit val timeContext: TimeContext = TimeContext()
 
   private val schema = Schema(
     "people",
