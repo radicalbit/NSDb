@@ -265,8 +265,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   lazy val limit: PackratParser[LimitOperator] = (Limit ~> intValue) ^^ (value => LimitOperator(value))
 
   lazy val gracePeriod: PackratParser[GracePeriod] = (since ~> longValue ~ timeMeasure) ^^ {
-    case quantity ~ ((timeMeasure, unit)) =>
-      GracePeriod(unit * quantity, timeMeasure, quantity)
+    case timeMeasure ~ quantity =>
+      GracePeriod(quantity, timeMeasure)
   }
 
   private def selectQuery(db: String, namespace: String) =

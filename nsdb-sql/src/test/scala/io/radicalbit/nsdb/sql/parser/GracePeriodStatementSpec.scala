@@ -25,11 +25,6 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
 
-  private val seconds = 1000L
-  private val minutes = 60 * seconds
-  private val hours   = 60 * minutes
-  private val days    = 24 * hours
-
   "A SQL parser instance" when {
 
     "receive a select with a grace period" should {
@@ -48,7 +43,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
                     metric = "people",
                     distinct = false,
                     fields = AllFields(),
-                    gracePeriod = Some(GracePeriod(6 * hours, "h", 6))
+                    gracePeriod = Some(GracePeriod("H", 6))
                   )
             }
         }
@@ -68,7 +63,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
                     metric = "people",
                     distinct = false,
                     fields = AllFields(),
-                    gracePeriod = Some(GracePeriod(6 * seconds, "s", 6))
+                    gracePeriod = Some(GracePeriod("S", 6))
                   )
             }
         }
@@ -76,7 +71,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
 
       "parse it successfully for a minutes size period" in {
         inside(
-          parser.parse(db = "db", namespace = "namespace", input = "SELECT * FROM people since 6m")
+          parser.parse(db = "db", namespace = "namespace", input = "SELECT * FROM people since 6min")
         ) {
           case success: SqlStatementParserSuccess =>
             inside(success.statement) {
@@ -88,7 +83,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
                     metric = "people",
                     distinct = false,
                     fields = AllFields(),
-                    gracePeriod = Some(GracePeriod(6 * minutes, "m", 6))
+                    gracePeriod = Some(GracePeriod("MIN", 6))
                   )
             }
         }
@@ -108,7 +103,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
                     metric = "people",
                     distinct = false,
                     fields = AllFields(),
-                    gracePeriod = Some(GracePeriod(6 * days, "d", 6))
+                    gracePeriod = Some(GracePeriod("D", 6))
                   )
             }
         }
@@ -150,7 +145,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
                                                     value1 = AbsoluteComparisonValue(2L),
                                                     value2 = AbsoluteComparisonValue(4L))
                     ))),
-                    gracePeriod = Some(GracePeriod(6 * hours, "h", 6))
+                    gracePeriod = Some(GracePeriod("H", 6))
                   )
             }
         }
@@ -178,7 +173,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
                       Condition(EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")))),
                     order = Some(DescOrderOperator(dimension = "name")),
                     limit = Some(LimitOperator(5)),
-                    gracePeriod = Some(GracePeriod(6 * hours, "h", 6))
+                    gracePeriod = Some(GracePeriod("H", 6))
                   )
             }
         }
