@@ -28,9 +28,9 @@ case object CustomSerializerForTest
                  JField("operator", JString(operator)),
                  JField("quantity", JInt(quantity)),
                  JField("unitMeasure", JString(unitMeasure)))) =>
-          RelativeComparisonValue(0L, operator, quantity.intValue, unitMeasure)
+          RelativeComparisonValue(operator, quantity.intValue, unitMeasure)
       }, {
-        case RelativeComparisonValue(_, operator, quantity: Long, unitMeasure) =>
+        case RelativeComparisonValue(operator, quantity: Long, unitMeasure) =>
           JObject(
             List(JField("value", JLong(0L)),
                  JField("operator", JString(operator)),

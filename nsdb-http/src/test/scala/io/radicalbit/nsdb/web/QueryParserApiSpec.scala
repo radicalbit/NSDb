@@ -977,7 +977,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |          "value" : 0,
           |          "operator" : "-",
           |          "quantity" : 2,
-          |          "unitMeasure" : "d"
+          |          "unitMeasure" : "D"
           |        }
           |      }
           |    }
@@ -1048,7 +1048,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |            "value" : 0,
           |            "operator" : "-",
           |            "quantity" : 2,
-          |            "unitMeasure" : "d"
+          |            "unitMeasure" : "D"
           |          }
           |        },
           |        "operator" : "or",
@@ -1145,7 +1145,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |              "value" : 0,
           |              "operator" : "-",
           |              "quantity" : 2,
-          |              "unitMeasure" : "h"
+          |              "unitMeasure" : "H"
           |            },
           |            "value2" : {
           |              "value" : 7
@@ -1160,7 +1160,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |                "value" : 0,
           |                "operator" : "-",
           |                "quantity" : 2,
-          |                "unitMeasure" : "d"
+          |                "unitMeasure" : "D"
           |              }
           |            },
           |            "operator" : "or",
@@ -1263,7 +1263,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |              "value" : 0,
           |              "operator" : "-",
           |              "quantity" : 2,
-          |              "unitMeasure" : "h"
+          |              "unitMeasure" : "H"
           |            },
           |            "value2" : {
           |              "value" : 7
@@ -1278,7 +1278,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |                "value" : 0,
           |                "operator" : "-",
           |                "quantity" : 2,
-          |                "unitMeasure" : "d"
+          |                "unitMeasure" : "D"
           |              }
           |            },
           |            "operator" : "or",
@@ -1297,7 +1297,7 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |                    "value" : 0,
           |                    "operator" : "-",
           |                    "quantity" : 1,
-          |                    "unitMeasure" : "s"
+          |                    "unitMeasure" : "S"
           |                  }
           |                },
           |                "operator" : "and",

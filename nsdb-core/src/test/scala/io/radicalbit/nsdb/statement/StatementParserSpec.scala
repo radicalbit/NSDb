@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import io.radicalbit.nsdb.statement.StatementParser._
 import org.apache.lucene.document.{DoublePoint, LongPoint}
@@ -27,6 +27,8 @@ import org.apache.lucene.search._
 import org.scalatest.{Matchers, WordSpec}
 
 class StatementParserSpec extends WordSpec with Matchers {
+
+  implicit val timeContext: TimeContext = TimeContext()
 
   private val schema = Schema(
     "people",

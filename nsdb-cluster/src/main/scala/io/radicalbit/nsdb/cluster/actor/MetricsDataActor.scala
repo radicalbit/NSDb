@@ -121,7 +121,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
       getOrCreateAccumulator(db, namespace) forward msg
     case msg @ GetCountWithLocations(db, namespace, _, _) =>
       getOrCreateReader(db, namespace) forward msg
-    case msg @ ExecuteSelectStatement(statement, _, _, _, _) =>
+    case msg @ ExecuteSelectStatement(statement, _, _, _, _, _) =>
       log.debug("executing statement in metric data actor {}", statement)
       getOrCreateReader(statement.db, statement.namespace) forward msg
     case AddRecordToLocation(db, namespace, bit, location) =>

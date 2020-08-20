@@ -25,6 +25,8 @@ import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonO
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 
+import scala.concurrent.duration.Duration
+
 /**
   * Parsed object for sql select and insert statements.
   * @param name field's name.
@@ -219,31 +221,48 @@ final case class LimitOperator(value: Int) extends NSDbSerializable
     new JsonSubTypes.Type(value = classOf[RelativeComparisonValue], name = "RelativeComparisonValue")
   ))
 sealed trait ComparisonValue {
+  def absoluteValue(currentTime: Long): NSDbType
   def value: NSDbType
 }
 
 object ComparisonValue {
-  def unapply(cv: ComparisonValue): Option[NSDbType] = Some(cv.value)
+
+  /**
+    * Extract the value of a [[ComparisonValue]]
+    * @return a tuple containing the value and a boolean that is true whether the comparison is relative.
+    */
+  def unapply(comparisonValue: ComparisonValue): Option[NSDbType] =
+    Some(comparisonValue.value)
+
 }
 
 /**
   * Class that represent an absolute comparison value
   * @param value the absolute value
   */
-final case class AbsoluteComparisonValue(override val value: NSDbType) extends ComparisonValue
+final case class AbsoluteComparisonValue(value: NSDbType) extends ComparisonValue {
+  override def absoluteValue(currentTime: Long): NSDbType = value
+}
 
 /**
   * Class that represent a relative comparison value.
-  * @param value the absolute value
-  * @param operator the operator of the now (plus or minus)
-  * @param quantity the quantity of the relative time
-  * @param unitMeasure the unit measure of the relative time (s, m, h, d)
+  * @param operator the operator of the now (plus or minus).
+  * @param quantity the quantity of the relative time.
+  * @param unitMeasure the unit measure of the relative time (s, m, h, d).
   */
-final case class RelativeComparisonValue(override val value: NSDbType,
-                                         operator: String,
-                                         quantity: Long,
-                                         unitMeasure: String)
-    extends ComparisonValue
+final case class RelativeComparisonValue(operator: String, quantity: Long, unitMeasure: String)
+    extends ComparisonValue {
+
+  private val interval = Duration(s"$quantity${unitMeasure.toLowerCase}").toMillis
+
+  override val value = NSDbType(interval)
+
+  override def absoluteValue(currentTime: Long): NSDbType = operator match {
+    case SQLStatement.plus  => currentTime + interval
+    case SQLStatement.minus => currentTime - interval
+  }
+
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(
@@ -280,6 +299,16 @@ sealed trait SQLStatement extends NSDBStatement {
   def db: String
   def namespace: String
   def metric: String
+}
+
+object SQLStatement {
+  final val plus  = "+"
+  final val minus = "-"
+
+  final val day    = Set("d", "day")
+  final val hour   = Set("h", "hour")
+  final val minute = Set("min", "minute")
+  final val second = Set("s", "sec", "second")
 }
 
 /**

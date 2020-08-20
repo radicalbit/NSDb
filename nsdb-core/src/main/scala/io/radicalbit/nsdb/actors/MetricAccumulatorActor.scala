@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.index.StorageStrategy
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
@@ -203,6 +203,7 @@ class MetricAccumulatorActor(val basePath: String,
       opBufferMap += (UUID.randomUUID().toString -> DeleteShardRecordOperation(ns, key, bit))
       sender ! RecordDeleted(db, ns, key.metric, bit)
     case ExecuteDeleteStatementInShards(statement, schema, keys) =>
+      implicit val timeContext: TimeContext = TimeContext()
       StatementParser.parseStatement(statement, schema) match {
         case Right(ParsedDeleteQuery(ns, metric, q)) =>
           keys.foreach { key =>
