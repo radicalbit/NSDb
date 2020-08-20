@@ -166,8 +166,7 @@ object CustomSerializers {
               List(JField("dimension", JString(dimension)),
                    JField("comparison", JString("=")),
                    JField("value", JDouble(value))))
-          case EqualityExpression(dimension,
-                                  RelativeComparisonValue(NSDbLongType(value), operator, quantity, unitMeasure)) =>
+          case EqualityExpression(dimension, RelativeComparisonValue(operator, quantity, unitMeasure)) =>
             JObject(
               List(
                 JField("dimension", JString(dimension)),
@@ -175,8 +174,7 @@ object CustomSerializers {
                 JField(
                   "value",
                   JObject(
-                    List(JField("value", JLong(value)),
-                         JField("operator", JString(operator)),
+                    List(JField("operator", JString(operator)),
                          JField("quantity", JLong(quantity)),
                          JField("unitMeasure", JString(unitMeasure)))
                   )
