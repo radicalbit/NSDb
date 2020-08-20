@@ -60,9 +60,10 @@ object StatementParser {
 
     val limitOpt = statement.limit.map(_.value)
 
-    expParsed flatMap { exp =>
-      FieldsParser.parseFieldList(statement.fields, schema).flatMap { parsedFieldsList =>
-        //switch on group by
+    for {
+      exp              <- expParsed
+      parsedFieldsList <- FieldsParser.parseFieldList(statement.fields, schema)
+      pardedQuery <- {
         (statement.groupBy, parsedFieldsList.list) match {
           case (Some(group), _)
               if sortOpt
@@ -135,7 +136,7 @@ object StatementParser {
               ))
         }
       }
-    }
+    } yield pardedQuery
   }
 
   /**

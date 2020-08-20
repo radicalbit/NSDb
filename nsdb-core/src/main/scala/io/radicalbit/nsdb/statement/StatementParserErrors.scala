@@ -35,7 +35,9 @@ object StatementParserErrors {
     "cannot sort group by query result by a field not in group by clause"
   def notExistingDimension(dim: String)       = s"field $dim does not exist"
   def notExistingDimensions(dim: Seq[String]) = s"field [${dim.mkString(",")}] does not exist"
-  def uncompatibleOperator(operator: String, dimTypeAllowed: String) =
+  def nonCompatibleOperator(operator: String, dimTypeAllowed: String) =
     s"cannot use $operator operator on dimension different from $dimTypeAllowed"
+  def nonCompatibleClauses(clause1: String, clause2: String) =
+    s"The clause $clause1 and $clause2 are not compatible and cannot be used together"
 
 }
