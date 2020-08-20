@@ -233,14 +233,17 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   internalAggregationReduce(_, schema, aggregation)
                 ).map(limitAndOrder(_, statement, schema, Some(aggregation)))
 
-              case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, _, _)) =>
+              case Right(
+                  ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
                 val sortedLocations = filteredLocations.sortBy(_.from)
+                val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
+                  ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))
 
                 val globalRanges: Seq[TimeRange] =
-                  if (sortedLocations.isEmpty) Seq.empty[TimeRange]
+                  if (limitedLocations.isEmpty) Seq.empty[TimeRange]
                   else
-                    TimeRangeManager.computeRangesForIntervalAndCondition(sortedLocations.last.to,
-                                                                          sortedLocations.head.from,
+                    TimeRangeManager.computeRangesForIntervalAndCondition(limitedLocations.last.to,
+                                                                          limitedLocations.head.from,
                                                                           rangeLength,
                                                                           condition)
 

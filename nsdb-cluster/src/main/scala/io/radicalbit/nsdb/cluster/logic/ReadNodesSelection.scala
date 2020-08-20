@@ -16,11 +16,11 @@
 
 package io.radicalbit.nsdb.cluster.logic
 
-import io.radicalbit.nsdb.common.statement.Expression
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.common.statement.{Expression, GracePeriod}
+import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.statement.TimeRangeManager
-import spire.math.Interval
 import spire.implicits._
+import spire.math.Interval
 
 /**
   * contains the method to select distinct locations
@@ -45,6 +45,14 @@ object ReadNodesSelection {
           .map(i => Interval.closed(key.from, key.to).intersect(i) != Interval.empty[Long])
           .foldLeft(false)((x, y) => x || y)
       case _ => true
+    }
+  }
+
+  def filterLocationsThroughGracePeriod(gracePeriod: Long, locations: Seq[Location])(
+      implicit timeContext: TimeContext): Seq[Location] = {
+    val gracePeriodInterval = Interval.above(timeContext.currentTime - gracePeriod)
+    locations.filter { loc =>
+      Interval.closed(loc.from, loc.to).intersect(gracePeriodInterval) != Interval.empty[Long]
     }
   }
 }
