@@ -233,7 +233,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   internalAggregationReduce(_, schema, aggregation)
                 ).map(limitAndOrder(_, statement, schema, Some(aggregation)))
 
-              case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, _)) =>
+              case Right(ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, _, _)) =>
                 val sortedLocations = filteredLocations.sortBy(_.from)
 
                 val globalRanges: Seq[TimeRange] =

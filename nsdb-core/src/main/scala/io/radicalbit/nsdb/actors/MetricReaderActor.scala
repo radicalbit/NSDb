@@ -268,7 +268,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     case msg @ ExecuteSelectStatement(statement, schema, locations, _, timeContext, isSingleNode) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema)(timeContext) match {
-        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, limit, fields, _)) =>
+        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
           retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {
               case SelectStatementExecuted(_, seq) =>
@@ -310,7 +310,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               internalAggregationReduce(_, schema, aggregation, isSingleNode))
 
           shardResults.pipeTo(sender)
-        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 

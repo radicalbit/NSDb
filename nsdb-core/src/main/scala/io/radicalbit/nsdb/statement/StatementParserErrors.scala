@@ -33,11 +33,10 @@ object StatementParserErrors {
     "cannot execute an aggregation on a field different than value"
   lazy val SORT_DIMENSION_NOT_IN_GROUP =
     "cannot sort group by query result by a field not in group by clause"
+  lazy val GRACE_PERIOD_NOT_ALLOWED           = "grace period clause is allowed only in temporal group by queries"
   def notExistingDimension(dim: String)       = s"field $dim does not exist"
   def notExistingDimensions(dim: Seq[String]) = s"field [${dim.mkString(",")}] does not exist"
   def nonCompatibleOperator(operator: String, dimTypeAllowed: String) =
     s"cannot use $operator operator on dimension different from $dimTypeAllowed"
-  def nonCompatibleClauses(clause1: String, clause2: String) =
-    s"The clause $clause1 and $clause2 are not compatible and cannot be used together"
 
 }
