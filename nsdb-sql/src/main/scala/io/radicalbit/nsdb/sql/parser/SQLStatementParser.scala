@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.common.statement.SQLStatement._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
@@ -41,12 +42,10 @@ import scala.util.parsing.input.CharSequenceReader
   *                 literal "=" literal | literal comparison literal | literal "like" literal |
   *                 literal "in" "(" digit "," digit ")" | literal "is" "not"? "null"
   *   comparison := "=" | ">" | "<" | ">=" | "<="
-  *   timeMeasure := "D" | "H" | "M" | "S"
+  *   timeMeasure := "D" | "DAY" | "H" | "HOUR" | "MIN" | "MINUTE" | "S" | "SECOND"
   * }}}
   */
 final class SQLStatementParser extends RegexParsers with PackratParsers with RegexNSDb {
-
-  import SQLStatementParser._
 
   implicit class InsensitiveString(str: String) {
     def ignoreCase: PackratParser[String] = ("""(?i)\Q""" + str + """\E""").r ^^ { _.toUpperCase }
@@ -138,15 +137,18 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     case strings: List[String] => strings.mkString(" ")
   }
 
-  private val timeMeasure = day.ignoreCase | hour.ignoreCase | minute.ignoreCase | second.ignoreCase
+  private val timeMeasure = day.foldLeft(day.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
+    hour.foldLeft(hour.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
+    minute.foldLeft(minute.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
+    second.foldLeft(second.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase)
 
   private val delta: PackratParser[RelativeComparisonValue] = now ~> ((plus | minus) ~ longValue ~ timeMeasure).? ^^ {
     case Some(plus ~ quantity ~ unitMeasure) =>
-      RelativeComparisonValue(Duration(s"$quantity$unitMeasure").toMillis, plus, quantity, unitMeasure)
+      RelativeComparisonValue(plus, quantity, unitMeasure)
     case Some(minus ~ quantity ~ unitMeasure) =>
-      RelativeComparisonValue(Duration(s"$quantity$unitMeasure").toMillis, minus, quantity, unitMeasure)
+      RelativeComparisonValue(minus, quantity, unitMeasure)
     case None =>
-      RelativeComparisonValue(0L, plus, 0L, "S")
+      RelativeComparisonValue(plus, 0L, "S")
   }
 
   private val comparisonTerm = delta | doubleValue.map(AbsoluteComparisonValue(_)) | longValue.map(
@@ -249,7 +251,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   lazy val temporalGroupBy
     : PackratParser[GroupByAggregation] = (group ~> temporalInterval ~> (longValue ?) ~ timeMeasure) ^^ {
     case quantity ~ timeMeasure =>
-      TemporalGroupByAggregation(Duration(s"${quantity.getOrElse(1)}$timeMeasure").toMillis,
+      TemporalGroupByAggregation(Duration(s"${quantity.getOrElse(1)}${timeMeasure.toLowerCase}").toMillis,
                                  quantity.getOrElse(1L),
                                  timeMeasure)
   }
@@ -313,14 +315,4 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     }
   }
 
-}
-
-object SQLStatementParser {
-  final val plus  = "+"
-  final val minus = "-"
-
-  final val day    = "D"
-  final val hour   = "H"
-  final val minute = "M"
-  final val second = "S"
 }

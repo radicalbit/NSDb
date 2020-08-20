@@ -82,6 +82,8 @@ class Schema private (val metric: String, val fieldsMap: Map[String, SchemaField
       (otherSchema.metric == this.metric) && (otherSchema.fieldsMap.size == this.fieldsMap.size) && (otherSchema.fieldsMap == this.fieldsMap)
     } else false
   }
+
+  override def toString = s"Schema($metric, $fieldsMap)"
 }
 
 object Schema extends TypeSupport {

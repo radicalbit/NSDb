@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeo
 import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
-import io.radicalbit.nsdb.model.{Location, TimeContext}
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._

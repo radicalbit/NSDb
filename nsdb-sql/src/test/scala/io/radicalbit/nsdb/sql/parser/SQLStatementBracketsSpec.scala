@@ -156,7 +156,7 @@ class SQLStatementBracketsSpec extends WordSpec with Matchers {
           db = "db",
           namespace = "registry",
           input =
-            "SELECT name FROM people WHERE timestamp < now + 30d and (timestamp > now - 2h) AND (timestamp = now + 4m)")
+            "SELECT name FROM people WHERE timestamp < now + 30d and (timestamp > now - 2h) AND (timestamp = now + 4 min)")
         statement.isInstanceOf[SqlStatementParserSuccess] shouldBe true
       }
     }

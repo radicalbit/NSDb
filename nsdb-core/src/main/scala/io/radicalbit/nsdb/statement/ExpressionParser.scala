@@ -122,7 +122,7 @@ object ExpressionParser {
   private def comparisonExpression[T](schema: Map[String, SchemaField],
                                       field: String,
                                       operator: ComparisonOperator,
-                                      value: Any): Either[String, Query] = {
+                                      value: NSDbType): Either[String, Query] = {
     def buildRangeQuery[T](fieldTypeRangeQuery: (String, T, T) => Query,
                            greaterF: T,
                            lessThan: T,
@@ -136,7 +136,7 @@ object ExpressionParser {
         case LessOrEqualToOperator    => fieldTypeRangeQuery(field, min, v)
       }
 
-    (schema.get(field), value) match {
+    (schema.get(field), value.rawValue) match {
       case (Some(SchemaField(_, _, t: INT)), v) =>
         Try(t.cast(v)).map(v =>
           buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)) match {
@@ -170,9 +170,9 @@ object ExpressionParser {
 
   private def rangeExpression(schema: Map[String, SchemaField],
                               field: String,
-                              p1: Any,
-                              p2: Any): Either[String, Query] = {
-    (schema.get(field), p1, p2) match {
+                              p1: NSDbType,
+                              p2: NSDbType): Either[String, Query] = {
+    (schema.get(field), p1.rawValue, p2.rawValue) match {
       case (Some(SchemaField(_, _, t: BIGINT)), v1, v2) =>
         Try((t.cast(v1), t.cast(v2))).map {
           case (l, h) => LongPoint.newRangeQuery(field, l, h)

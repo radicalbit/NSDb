@@ -16,8 +16,8 @@
 
 package io.radicalbit.nsdb.sql.parser
 
+import io.radicalbit.nsdb.common.statement.SQLStatement._
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.sql.parser.SQLStatementParser._
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import org.scalatest.Inside._
 import org.scalatest.OptionValues._
@@ -26,11 +26,6 @@ import org.scalatest.{Matchers, WordSpec}
 class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
 
   private val parser = new SQLStatementParser
-
-  private val seconds = 1000L
-  private val minutes = 60 * seconds
-  private val hours   = 60 * minutes
-  24 * hours
 
   "A SQL parser instance" when {
 
@@ -43,7 +38,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
               case EqualityExpression(_, comparisonValue) =>
-                comparisonValue shouldBe RelativeComparisonValue(10000L, minus, 10, second)
+                comparisonValue shouldBe RelativeComparisonValue(minus, 10, "S")
             }
         }
       }
@@ -57,7 +52,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
               case ComparisonExpression(_, _, comparisonValue) =>
-                comparisonValue shouldBe RelativeComparisonValue(10000L, minus, 10, second)
+                comparisonValue shouldBe RelativeComparisonValue(minus, 10, "S")
             }
         }
       }
@@ -69,7 +64,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
               case ComparisonExpression(_, _, comparisonValue) =>
-                comparisonValue shouldBe RelativeComparisonValue(0L, plus, 0L, second)
+                comparisonValue shouldBe RelativeComparisonValue(plus, 0L, "S")
             }
         }
       }
@@ -85,7 +80,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
               case TupledLogicalExpression(ComparisonExpression(_, _, timestampComparison),
                                            AndOperator,
                                            ComparisonExpression(_, _, ageComparison)) =>
-                timestampComparison shouldBe RelativeComparisonValue(0L, plus, 0L, second)
+                timestampComparison shouldBe RelativeComparisonValue(plus, 0L, "S")
                 ageComparison shouldBe AbsoluteComparisonValue(18L)
             }
         }
@@ -96,7 +91,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
           parser.parse(
             db = "db",
             namespace = "registry",
-            input = "SELECT name FROM people WHERE timestamp < now and timestamp > now - 2h OR timestamp = now + 4m")
+            input = "SELECT name FROM people WHERE timestamp < now and timestamp > now - 2h OR timestamp = now + 4min")
         ) {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
@@ -107,9 +102,9 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
                                                                                         secondTimestampComparison),
                                                                    OrOperator,
                                                                    EqualityExpression(_, thirdTimestampComparison))) =>
-                firstTimestampComparison shouldBe RelativeComparisonValue(0L, plus, 0L, second)
-                secondTimestampComparison shouldBe RelativeComparisonValue(7200000L, minus, 2L, hour)
-                thirdTimestampComparison shouldBe RelativeComparisonValue(240000L, plus, 4L, minute)
+                firstTimestampComparison shouldBe RelativeComparisonValue(plus, 0L, "S")
+                secondTimestampComparison shouldBe RelativeComparisonValue(minus, 2L, "H")
+                thirdTimestampComparison shouldBe RelativeComparisonValue(plus, 4L, "MIN")
             }
         }
       }
@@ -131,9 +126,9 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
                                                                                         secondTimestampComparison)),
                                            OrOperator,
                                            EqualityExpression(_, thirdTimestampComparison)) =>
-                firstTimestampComparison shouldBe RelativeComparisonValue(2592000000L, plus, 30L, day)
-                secondTimestampComparison shouldBe RelativeComparisonValue(7200000L, minus, 2L, hour)
-                thirdTimestampComparison shouldBe RelativeComparisonValue(345600000L, plus, 4L, day)
+                firstTimestampComparison shouldBe RelativeComparisonValue(plus, 30L, "D")
+                secondTimestampComparison shouldBe RelativeComparisonValue(minus, 2L, "H")
+                thirdTimestampComparison shouldBe RelativeComparisonValue(plus, 4L, "D")
             }
         }
       }
@@ -149,8 +144,8 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
               case RangeExpression(_,
                                    firstAggregation: RelativeComparisonValue,
                                    secondAggregation: RelativeComparisonValue) =>
-                firstAggregation shouldBe RelativeComparisonValue(2000L, minus, 2L, second)
-                secondAggregation shouldBe RelativeComparisonValue(4000L, plus, 4L, second)
+                firstAggregation shouldBe RelativeComparisonValue(minus, 2L, "S")
+                secondAggregation shouldBe RelativeComparisonValue(plus, 4L, "S")
             }
         }
       }
@@ -166,8 +161,8 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
               case RangeExpression(_,
                                    firstAggregation: RelativeComparisonValue,
                                    secondAggregation: RelativeComparisonValue) =>
-                firstAggregation shouldBe RelativeComparisonValue(2000L, minus, 2L, second)
-                secondAggregation shouldBe RelativeComparisonValue(4000L, plus, 4L, second)
+                firstAggregation shouldBe RelativeComparisonValue(minus, 2L, "S")
+                secondAggregation shouldBe RelativeComparisonValue(plus, 4L, "S")
             }
         }
       }
@@ -183,7 +178,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
               case RangeExpression(_,
                                    firstAggregation: RelativeComparisonValue,
                                    secondAggregation: AbsoluteComparisonValue) =>
-                firstAggregation shouldBe RelativeComparisonValue(2000L, minus, 2L, second)
+                firstAggregation shouldBe RelativeComparisonValue(minus, 2L, "S")
                 secondAggregation shouldBe AbsoluteComparisonValue(5L)
             }
         }
