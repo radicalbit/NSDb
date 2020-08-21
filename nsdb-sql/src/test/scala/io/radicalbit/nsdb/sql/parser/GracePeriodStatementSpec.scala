@@ -190,7 +190,8 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
     "receive a select with a where condition, a group by, an order and a limit" should {
       "parse it successfully for a standard group by" in {
         inside(
-          parser.parse(db = "db",
+          parser.parse(
+            db = "db",
             namespace = "namespace",
             "SELECT name FROM people WHERE surname = pippo group by name order by name desc since 6h limit 5")
         ) {
@@ -217,7 +218,8 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
 
       "parse it successfully for a temporal group by" in {
         inside(
-          parser.parse(db = "db",
+          parser.parse(
+            db = "db",
             namespace = "namespace",
             "SELECT name FROM people WHERE surname = pippo group by interval 30s order by name desc since 6h limit 5")
         ) {
@@ -243,7 +245,6 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
       }
 
     }
-
 
   }
 

@@ -377,7 +377,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
 
         res shouldBe Seq(
           TimeRange(84, 89, false, true),
-          TimeRange(79, 84, true, true)
+          TimeRange(80, 84, true, true)
         )
       }
 

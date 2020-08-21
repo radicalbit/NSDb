@@ -47,12 +47,12 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         inside(
           parser.parse(db = "db",
                        namespace = "registry",
-                       input = "SELECT name FROM people WHERE timestamp >= now - 10s")
+                       input = "SELECT name FROM people WHERE timestamp >= now - 10 sec")
         ) {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
               case ComparisonExpression(_, _, comparisonValue) =>
-                comparisonValue shouldBe RelativeComparisonValue(minus, 10, "S")
+                comparisonValue shouldBe RelativeComparisonValue(minus, 10, "SEC")
             }
         }
       }
@@ -91,7 +91,8 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
           parser.parse(
             db = "db",
             namespace = "registry",
-            input = "SELECT name FROM people WHERE timestamp < now and timestamp > now - 2h OR timestamp = now + 4min")
+            input =
+              "SELECT name FROM people WHERE timestamp < now and timestamp > now - 2 hour OR timestamp = now + 4min")
         ) {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
@@ -103,7 +104,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
                                                                    OrOperator,
                                                                    EqualityExpression(_, thirdTimestampComparison))) =>
                 firstTimestampComparison shouldBe RelativeComparisonValue(plus, 0L, "S")
-                secondTimestampComparison shouldBe RelativeComparisonValue(minus, 2L, "H")
+                secondTimestampComparison shouldBe RelativeComparisonValue(minus, 2L, "HOUR")
                 thirdTimestampComparison shouldBe RelativeComparisonValue(plus, 4L, "MIN")
             }
         }
@@ -115,7 +116,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
             db = "db",
             namespace = "registry",
             input =
-              "SELECT name FROM people WHERE (timestamp < now + 30d and timestamp > now - 2h) or timestamp = now + 4d")
+              "SELECT name FROM people WHERE (timestamp < now + 30 day and timestamp > now - 2h) or timestamp = now + 4d")
         ) {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
@@ -126,7 +127,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
                                                                                         secondTimestampComparison)),
                                            OrOperator,
                                            EqualityExpression(_, thirdTimestampComparison)) =>
-                firstTimestampComparison shouldBe RelativeComparisonValue(plus, 30L, "D")
+                firstTimestampComparison shouldBe RelativeComparisonValue(plus, 30L, "DAY")
                 secondTimestampComparison shouldBe RelativeComparisonValue(minus, 2L, "H")
                 thirdTimestampComparison shouldBe RelativeComparisonValue(plus, 4L, "D")
             }
@@ -137,7 +138,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
         inside(
           parser.parse(db = "db",
                        namespace = "registry",
-                       input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, now + 4 s)")
+                       input = "SELECT name FROM people WHERE timestamp IN (now - 2 s, now + 4 second)")
         ) {
           case SqlStatementParserSuccess(_, selectSQLStatement: SelectSQLStatement) =>
             inside(selectSQLStatement.condition.value.expression) {
@@ -145,7 +146,7 @@ class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
                                    firstAggregation: RelativeComparisonValue,
                                    secondAggregation: RelativeComparisonValue) =>
                 firstAggregation shouldBe RelativeComparisonValue(minus, 2L, "S")
-                secondAggregation shouldBe RelativeComparisonValue(plus, 4L, "S")
+                secondAggregation shouldBe RelativeComparisonValue(plus, 4L, "SECOND")
             }
         }
       }

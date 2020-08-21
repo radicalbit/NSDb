@@ -138,6 +138,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     case strings: List[String] => strings.mkString(" ")
   }
 
+  // The lists to be folded must be ordered by string length ascending.
+  // If a shorter string is before a longer one that has the same prefix, the parser will match the first rule and fail otherwise.
   private val timeMeasure = day.foldLeft(day.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
     hour.foldLeft(hour.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
     minute.foldLeft(minute.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |

@@ -318,10 +318,13 @@ object SQLStatement {
   final val plus  = "+"
   final val minus = "-"
 
-  final val day    = Set("d", "day")
-  final val hour   = Set("h", "hour")
-  final val minute = Set("min", "minute")
-  final val second = Set("s", "sec", "second")
+  // The order of this sequences is essential, because those are picked up by the parser and used to create an alternative composition rule
+  // like "day" | "d" | "hour|
+  // if a shorter label is before a longer one that has the same prefix, the parser will match the first rule and fail otherwise.
+  final val day    = Seq("day", "d")
+  final val hour   = Seq("hour", "h")
+  final val minute = Seq("minute", "min")
+  final val second = Set("second", "sec", "s")
 }
 
 /**
