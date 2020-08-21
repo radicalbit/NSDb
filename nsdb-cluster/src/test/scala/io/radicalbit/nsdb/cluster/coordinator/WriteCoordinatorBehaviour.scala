@@ -50,7 +50,7 @@ class TestSubscriber extends Actor {
 
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(statement) =>
+    case ExecuteStatement(statement, _) =>
       sender() ! SelectStatementExecuted(statement, values = Seq.empty)
   }
 }

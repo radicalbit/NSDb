@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.{Location, TimeRange}
+import io.radicalbit.nsdb.model.{Location, TimeContext, TimeRange}
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
@@ -99,21 +99,27 @@ object TimeRangeManager {
     * @param whereCondition a where condition extracted from a SQL query used to determine ranges limits.
     * @return A sequence of [[TimeRange]] for the given input params.
     */
-  def computeRangesForIntervalAndCondition(upperInterval: Long,
-                                           lowerInterval: Long,
-                                           rangeLength: Long,
-                                           whereCondition: Option[Condition]): Seq[TimeRange] = {
+  def computeRangesForIntervalAndCondition(
+      upperInterval: Long,
+      lowerInterval: Long,
+      rangeLength: Long,
+      whereCondition: Option[Condition],
+      gracePeriod: Option[Long] = None)(implicit timeContext: TimeContext): Seq[TimeRange] = {
 
-    val globalInterval                     = Interval.fromBounds(Closed(lowerInterval), Closed(upperInterval))
+    val actualLowerInterval =
+      scala.math.max(lowerInterval, gracePeriod.fold(0L)(period => timeContext.currentTime - period))
+
+    val globalInterval                     = Interval.fromBounds(Closed(actualLowerInterval), Closed(upperInterval))
     val timeIntervals: Seq[Interval[Long]] = TimeRangeManager.extractTimeRange(whereCondition.map(_.expression))
 
     timeIntervals match {
       case Nil =>
-        computeRangeForInterval(upperInterval, lowerInterval, rangeLength, Seq.empty)
+        computeRangeForInterval(upperInterval, actualLowerInterval, rangeLength, Seq.empty)
       case _ =>
         timeIntervals.filter(interval => interval.intersects(globalInterval)).flatMap { i =>
           val upperBound = i.top(1).getOrElse(upperInterval)
-          val lowerBound = i.bottom(1).getOrElse(upperInterval)
+          val lowerBound = scala.math.max(i.bottom(1).getOrElse(upperInterval),
+                                          gracePeriod.fold(0L)(period => timeContext.currentTime - period))
           computeRangeForInterval(upperBound, lowerBound, rangeLength, Seq.empty)
         }
     }
@@ -123,13 +129,11 @@ object TimeRangeManager {
     * Filters a sequence of [[Location]] given a threshold.
     * Locations that are older that the threshold are returned.
     * @param locations the location with coordinates to evict.
-    * @param currentTime the current timestamp in milliseconds.
     * @param retention the retention in milliseconds.
     * @return the location that must be completely evicted, and the locations that must be partially evicted.
     */
-  def getLocationsToEvict(locations: Seq[Location],
-                          retention: Long,
-                          currentTime: Long = System.currentTimeMillis()): (Seq[Location], Seq[Location]) =
-    locations.partition(_.isBeyond(retention, currentTime))
+  def getLocationsToEvict(locations: Seq[Location], retention: Long)(
+      implicit timeContext: TimeContext): (Seq[Location], Seq[Location]) =
+    locations.partition(_.isBeyond(retention, timeContext.currentTime))
 
 }

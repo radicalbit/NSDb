@@ -153,7 +153,7 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
     }
 
     "receive a select with a where condition an order and a limit" should {
-      "parse it successfully relative time in complex condition with brackets" in {
+      "parse it successfully" in {
         inside(
           parser.parse(db = "db",
                        namespace = "namespace",
@@ -186,6 +186,64 @@ class GracePeriodStatementSpec extends WordSpec with Matchers {
           SqlStatementParserFailure]
       }
     }
+
+    "receive a select with a where condition, a group by, an order and a limit" should {
+      "parse it successfully for a standard group by" in {
+        inside(
+          parser.parse(db = "db",
+            namespace = "namespace",
+            "SELECT name FROM people WHERE surname = pippo group by name order by name desc since 6h limit 5")
+        ) {
+          case success: SqlStatementParserSuccess =>
+            inside(success.statement) {
+              case selectSQLStatement: SelectSQLStatement =>
+                selectSQLStatement shouldBe
+                  SelectSQLStatement(
+                    db = "db",
+                    namespace = "namespace",
+                    metric = "people",
+                    distinct = false,
+                    fields = ListFields(List(Field("name", None))),
+                    condition = Some(
+                      Condition(EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")))),
+                    groupBy = Some(SimpleGroupByAggregation("name")),
+                    order = Some(DescOrderOperator(dimension = "name")),
+                    limit = Some(LimitOperator(5)),
+                    gracePeriod = Some(GracePeriod("H", 6))
+                  )
+            }
+        }
+      }
+
+      "parse it successfully for a temporal group by" in {
+        inside(
+          parser.parse(db = "db",
+            namespace = "namespace",
+            "SELECT name FROM people WHERE surname = pippo group by interval 30s order by name desc since 6h limit 5")
+        ) {
+          case success: SqlStatementParserSuccess =>
+            inside(success.statement) {
+              case selectSQLStatement: SelectSQLStatement =>
+                selectSQLStatement shouldBe
+                  SelectSQLStatement(
+                    db = "db",
+                    namespace = "namespace",
+                    metric = "people",
+                    distinct = false,
+                    fields = ListFields(List(Field("name", None))),
+                    condition = Some(
+                      Condition(EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("pippo")))),
+                    groupBy = Some(TemporalGroupByAggregation(30000, 30, "S")),
+                    order = Some(DescOrderOperator(dimension = "name")),
+                    limit = Some(LimitOperator(5)),
+                    gracePeriod = Some(GracePeriod("H", 6))
+                  )
+            }
+        }
+      }
+
+    }
+
 
   }
 

@@ -44,7 +44,7 @@ import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
-import io.radicalbit.nsdb.model.{Location, Schema}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
@@ -286,18 +286,17 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
   override def receive: Receive = {
     case AllMetricInfoWithRetentionGot(metricInfoes) =>
+      implicit val timeContext: TimeContext = TimeContext()
       log.debug(s"check for retention for {}", metricInfoes)
       metricInfoes.foreach {
         case MetricInfo(db, namespace, metric, _, retention) =>
-          val currentTime = System.currentTimeMillis()
-
           (metadataCache ? GetLocationsFromCache(db, namespace, metric))
             .mapTo[LocationsCached]
             .map {
               case LocationsCached(_, _, _, locations) =>
-                log.debug(s"checking locations $locations at time $currentTime and retention $retention")
+                log.debug(s"checking locations $locations at time ${timeContext.currentTime} and retention $retention")
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
-                  TimeRangeManager.getLocationsToEvict(locations, retention, currentTime)
+                  TimeRangeManager.getLocationsToEvict(locations, retention)
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
@@ -336,7 +335,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             namespace,
                             System.currentTimeMillis(),
                             location,
-                            deleteStatementFromThreshold(db, namespace, location.metric, currentTime - retention))))
+                            deleteStatementFromThreshold(db,
+                                                         namespace,
+                                                         location.metric,
+                                                         timeContext.currentTime - retention))))
                     .map { responses =>
                       manageErrors[WriteToCommitLogSucceeded, WriteToCommitLogFailed](responses) { errors =>
                         log.error("errors during delete locations from cache {}", errors)
@@ -349,9 +351,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
                   Future.sequence(
                     locationsToPartiallyEvict.map(
                       location =>
-                        partiallyEvictPerform(
-                          deleteStatementFromThreshold(db, namespace, location.metric, currentTime - retention),
-                          location))
+                        partiallyEvictPerform(deleteStatementFromThreshold(db,
+                                                                           namespace,
+                                                                           location.metric,
+                                                                           timeContext.currentTime - retention),
+                                              location))
                   )
 
                   Future.sequence(

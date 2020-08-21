@@ -173,12 +173,13 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       metadataCoordinator forward msg
     case msg: GetSchema =>
       schemaCoordinator forward msg
-    case ValidateStatement(statement) =>
+    case ValidateStatement(statement, context) =>
       log.debug("validating {}", statement)
+      implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
       (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
         .map {
           case SchemaGot(_, _, _, Some(schema)) =>
-            StatementParser.parseStatement(statement, schema)(TimeContext()) match {
+            StatementParser.parseStatement(statement, schema) match {
               case Right(_)  => SelectStatementValidated(statement)
               case Left(err) => SelectStatementValidationFailed(statement, err)
             }
@@ -188,9 +189,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                             MetricNotFound(statement.metric))
         }
         .pipeTo(sender())
-    case ExecuteStatement(statement) =>
+    case ExecuteStatement(statement, context) =>
       val startTime                         = System.currentTimeMillis()
-      implicit val timeContext: TimeContext = TimeContext()
+      implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
       val selectStatementResponse: Future[ExecuteSelectStatementResponse] = Future
         .sequence(
@@ -245,7 +246,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     TimeRangeManager.computeRangesForIntervalAndCondition(limitedLocations.last.to,
                                                                           limitedLocations.head.from,
                                                                           rangeLength,
-                                                                          condition)
+                                                                          condition,
+                                                                          gracePeriod)
 
                 gatherNodeResults(statement, schema, uniqueLocationsByNode, globalRanges)(
                   postProcessingTemporalQueryResult(schema, statement, aggregation))

@@ -17,13 +17,15 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.{Location, TimeRange}
+import io.radicalbit.nsdb.model.{Location, TimeContext, TimeRange}
 import org.scalatest.{Matchers, WordSpec}
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
 
 class TimeRangeManagerSpec extends WordSpec with Matchers {
+
+  implicit val timeContext: TimeContext = TimeContext()
 
   "A TimeRange" should {
 
@@ -339,6 +341,46 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           TimeRange(71, 74, true, true)
         )
       }
+
+      "return a seq of ranges for a grace period " in {
+        val res = TimeRangeManager.computeRangesForIntervalAndCondition(
+          100L,
+          0L,
+          5L,
+          None,
+          Some(10)
+        )(TimeContext(100L))
+
+        res shouldBe Seq(
+          TimeRange(95, 100, false, true),
+          TimeRange(90, 95, true, true)
+        )
+      }
+
+      "return a seq of ranges for condition and a grace period " in {
+        val res = TimeRangeManager.computeRangesForIntervalAndCondition(
+          100L,
+          0L,
+          5L,
+          Some(
+            Condition(TupledLogicalExpression(
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = GreaterThanOperator,
+                                   value = AbsoluteComparisonValue(70L)),
+              AndOperator,
+              ComparisonExpression(dimension = "timestamp",
+                                   comparison = LessThanOperator,
+                                   value = AbsoluteComparisonValue(90L))
+            ))),
+          Some(20)
+        )(TimeContext(100L))
+
+        res shouldBe Seq(
+          TimeRange(84, 89, false, true),
+          TimeRange(79, 84, true, true)
+        )
+      }
+
     }
 
     "executing getLocationsToEvict" should {
@@ -352,7 +394,7 @@ class TimeRangeManagerSpec extends WordSpec with Matchers {
           Location("metric", "node", 21, 25)
         )
 
-        TimeRangeManager.getLocationsToEvict(locationSequence, 6, 10) shouldBe (
+        TimeRangeManager.getLocationsToEvict(locationSequence, 6)(TimeContext(10L)) shouldBe (
           Seq(Location("metric", "node", 16, 20), Location("metric", "node", 21, 25)),
           Seq(Location("metric", "node", 0, 5), Location("metric", "node", 6, 10), Location("metric", "node", 11, 15))
         )

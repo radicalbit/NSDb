@@ -44,8 +44,10 @@ object MessageProtocol {
     case class GetSchemaFromCache(db: String, namespace: String, metric: String)               extends NSDbSerializable
     case class EvictSchema(db: String, namespace: String, metric: String)                      extends NSDbSerializable
 
-    case class ValidateStatement(selectStatement: SelectSQLStatement) extends NSDbSerializable
-    case class ExecuteStatement(selectStatement: SelectSQLStatement)  extends NSDbSerializable
+    case class ValidateStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
+        extends NSDbSerializable
+    case class ExecuteStatement(selectStatement: SelectSQLStatement, timeContext: Option[TimeContext] = None)
+        extends NSDbSerializable
     case class ExecuteSelectStatement(selectStatement: SelectSQLStatement,
                                       schema: Schema,
                                       locations: Seq[Location],

@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cluster.logic
 
-import io.radicalbit.nsdb.common.statement.{Expression, GracePeriod}
+import io.radicalbit.nsdb.common.statement.Expression
 import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import spire.implicits._
