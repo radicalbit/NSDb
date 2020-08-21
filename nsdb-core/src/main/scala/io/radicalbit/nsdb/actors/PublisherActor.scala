@@ -38,7 +38,6 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 /**
@@ -66,6 +65,8 @@ case class NSDbQuery(uuid: String, query: SelectSQLStatement) {
   */
 class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
+  import context.dispatcher
+
   /**
     * mutable subscriber map aggregated by query id
     */
@@ -76,12 +77,10 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     */
   lazy val queries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
 
-  implicit val disp: ExecutionContextExecutor = context.system.dispatcher
-
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  val interval = FiniteDuration(
+  val interval: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 

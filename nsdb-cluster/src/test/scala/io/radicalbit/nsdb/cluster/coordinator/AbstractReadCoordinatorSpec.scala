@@ -25,91 +25,18 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
+import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.cluster.logic.LocalityReadNodesSelection
-import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import org.scalatest._
+import org.scalatest.{getClass, _}
 
 import scala.concurrent.Await
-
-object LongMetric {
-
-  val name = "longMetric"
-
-  val recordsShard1: Seq[Bit] = Seq(
-    Bit(1L, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(2L, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 3L, Map("surname" -> "D"), Map("name"   -> "J"))
-  )
-
-  val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
-  )
-
-  val testRecords = recordsShard1 ++ recordsShard2
-}
-
-object DoubleMetric {
-
-  val name = "doubleMetric"
-
-  val recordsShard1: Seq[Bit] = Seq(
-    Bit(2L, 1.5, Map("surname" -> "Doe"), Map("name" -> "John")),
-    Bit(4L, 1.5, Map("surname" -> "Doe"), Map("name" -> "John"))
-  )
-
-  val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(8L, 1.5, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
-    Bit(10L, 1.5, Map("surname" -> "Doe"), Map("name" -> "Frankie"))
-  )
-
-  val testRecords = recordsShard1 ++ recordsShard2
-}
-
-object AggregationLongMetric {
-
-  val name = "aggregationLongMetric"
-
-  val recordsShard1: Seq[Bit] = Seq(
-    Bit(2L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-    Bit(4L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
-  )
-
-  val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(10L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
-  )
-
-  val testRecords = recordsShard1 ++ recordsShard2
-}
-
-object AggregationDoubleMetric {
-
-  val name = "aggregationDoubleMetric"
-
-  val recordsShard1: Seq[Bit] = Seq(
-    Bit(2L, 2.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-    Bit(4L, 3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
-  )
-
-  val recordsShard2: Seq[Bit] = Seq(
-    Bit(6L, 5.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-    Bit(8L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-    Bit(10L, 4.0, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
-  )
-
-  val testRecords = recordsShard1 ++ recordsShard2
-}
 
 abstract class AbstractReadCoordinatorSpec
     extends TestKit(
       ActorSystem(
-        "ReadCoordinatorSpec",
+        getClass.getName,
         ConfigFactory
           .load()
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("local"))
@@ -122,7 +49,7 @@ abstract class AbstractReadCoordinatorSpec
     with WriteInterval {
 
   val probe     = TestProbe()
-  val basePath  = "target/test_index/ReadCoordinatorShardSpec"
+  val basePath  = s"target/test_index/${getClass.getName}"
   val db        = "db"
   val namespace = "registry"
 
