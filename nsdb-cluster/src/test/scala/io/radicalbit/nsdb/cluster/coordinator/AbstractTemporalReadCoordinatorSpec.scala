@@ -40,64 +40,64 @@ abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinat
     //drop metrics
     Await.result(
       metricsDataActor ? DropMetricWithLocations(db,
-        namespace,
-        TemporalLongMetric.name,
-        Seq(location1(TemporalLongMetric.name),
-          location2(TemporalLongMetric.name))),
+                                                 namespace,
+                                                 TemporalLongMetric.name,
+                                                 Seq(location1(TemporalLongMetric.name),
+                                                     location2(TemporalLongMetric.name))),
       10 seconds
     )
     Await.result(
       metricsDataActor ? DropMetricWithLocations(db,
-        namespace,
-        TemporalDoubleMetric.name,
-        Seq(location1(TemporalDoubleMetric.name),
-          location2(TemporalDoubleMetric.name))),
+                                                 namespace,
+                                                 TemporalDoubleMetric.name,
+                                                 Seq(location1(TemporalDoubleMetric.name),
+                                                     location2(TemporalDoubleMetric.name))),
       10 seconds
     )
 
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
-      namespace,
-      TemporalLongMetric.name,
-      TemporalLongMetric.testRecords.head),
-      10 seconds)
+                                                            namespace,
+                                                            TemporalLongMetric.name,
+                                                            TemporalLongMetric.testRecords.head),
+                 10 seconds)
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
-      namespace,
-      TemporalDoubleMetric.name,
-      TemporalDoubleMetric.testRecords.head),
-      10 seconds)
+                                                            namespace,
+                                                            TemporalDoubleMetric.name,
+                                                            TemporalDoubleMetric.testRecords.head),
+                 10 seconds)
 
     Await.result(
       metadataCoordinator ? AddLocations(db,
-        namespace,
-        Seq(location1(TemporalLongMetric.name), location1(TemporalDoubleMetric.name))),
+                                         namespace,
+                                         Seq(location1(TemporalLongMetric.name), location1(TemporalDoubleMetric.name))),
       10 seconds)
 
     TemporalLongMetric.recordsShard1
       .foreach(r => {
         Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(TemporalLongMetric.name)),
-          10 seconds)
+                     10 seconds)
       })
     TemporalDoubleMetric.recordsShard1
       .foreach(r => {
         Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(TemporalDoubleMetric.name)),
-          10 seconds)
+                     10 seconds)
       })
 
     Await.result(
       metadataCoordinator ? AddLocations(db,
-        namespace,
-        Seq(location2(TemporalLongMetric.name), location2(TemporalDoubleMetric.name))),
+                                         namespace,
+                                         Seq(location2(TemporalLongMetric.name), location2(TemporalDoubleMetric.name))),
       10 seconds)
 
     TemporalLongMetric.recordsShard2
       .foreach(r => {
         Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(TemporalLongMetric.name)),
-          10 seconds)
+                     10 seconds)
       })
     TemporalDoubleMetric.recordsShard2
       .foreach(r => {
         Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(TemporalDoubleMetric.name)),
-          10 seconds)
+                     10 seconds)
       })
 
     expectNoMessage(indexingInterval)

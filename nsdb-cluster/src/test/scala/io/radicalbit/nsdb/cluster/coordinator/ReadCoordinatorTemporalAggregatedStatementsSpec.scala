@@ -23,7 +23,6 @@ import io.radicalbit.nsdb.model.TimeContext
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
-
 class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalReadCoordinatorSpec {
 
   "ReadCoordinator" when {

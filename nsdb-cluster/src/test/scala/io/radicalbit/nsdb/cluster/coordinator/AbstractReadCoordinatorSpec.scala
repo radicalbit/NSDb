@@ -29,14 +29,14 @@ import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.cluster.logic.LocalityReadNodesSelection
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import org.scalatest.{getClass, _}
+import org.scalatest._
 
 import scala.concurrent.Await
 
 abstract class AbstractReadCoordinatorSpec
     extends TestKit(
       ActorSystem(
-        getClass.getName,
+        "ReadCoordinatorSpec",
         ConfigFactory
           .load()
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("local"))
