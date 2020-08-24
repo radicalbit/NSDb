@@ -24,10 +24,10 @@ import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.logic.WriteConfig
-import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
+import io.radicalbit.nsdb.util.ErrorManagementUtils
 
 import scala.concurrent.Future
 

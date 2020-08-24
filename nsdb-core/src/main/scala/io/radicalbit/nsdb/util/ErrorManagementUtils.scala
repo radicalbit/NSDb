@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.util
+package io.radicalbit.nsdb.util
 
 object ErrorManagementUtils {
 

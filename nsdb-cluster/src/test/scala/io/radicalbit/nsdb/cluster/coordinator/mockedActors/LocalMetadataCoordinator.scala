@@ -24,7 +24,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils.partitionResponses
+import io.radicalbit.nsdb.util.ErrorManagementUtils.partitionResponses
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
