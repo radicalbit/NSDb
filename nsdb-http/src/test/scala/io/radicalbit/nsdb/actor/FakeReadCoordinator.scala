@@ -36,7 +36,7 @@ class FakeReadCoordinator extends Actor {
       sender ! MetricsGot(db, namespace, metrics)
     case GetSchema(db, namespace, metric) =>
       sender() ! SchemaGot(db, namespace, metric, schemas.get(metric))
-    case ValidateStatement(statement) =>
+    case ValidateStatement(statement, _) =>
       implicit val timeContext: TimeContext = TimeContext()
       schemas.get(statement.metric) match {
         case Some(schema) =>
@@ -49,7 +49,7 @@ class FakeReadCoordinator extends Actor {
                                                    s"metric ${statement.metric} does not exist",
                                                    MetricNotFound(statement.metric))
       }
-    case ExecuteStatement(statement)
+    case ExecuteStatement(statement, _)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression] =>
       implicit val timeContext: TimeContext = TimeContext()
       StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
@@ -60,7 +60,7 @@ class FakeReadCoordinator extends Actor {
           sender ! SelectStatementExecuted(statement, filteredBits)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }
-    case ExecuteStatement(statement) =>
+    case ExecuteStatement(statement, _) =>
       implicit val timeContext: TimeContext = TimeContext()
       StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
         case Right(_) =>

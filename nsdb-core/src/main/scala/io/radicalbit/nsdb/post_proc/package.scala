@@ -19,18 +19,7 @@ import java.math.MathContext
 
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{
-  Aggregation,
-  AvgAggregation,
-  CountAggregation,
-  DescOrderOperator,
-  FirstAggregation,
-  LastAggregation,
-  MaxAggregation,
-  MinAggregation,
-  SelectSQLStatement,
-  SumAggregation
-}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, NumericType}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{

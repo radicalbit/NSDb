@@ -60,9 +60,17 @@ object StatementParser {
 
     val limitOpt = statement.limit.map(_.value)
 
-    expParsed flatMap { exp =>
-      FieldsParser.parseFieldList(statement.fields, schema).flatMap { parsedFieldsList =>
-        //switch on group by
+    for {
+      exp              <- expParsed
+      parsedFieldsList <- FieldsParser.parseFieldList(statement.fields, schema)
+      gracePeriod <- {
+        (statement.groupBy, statement.gracePeriod) match {
+          case (Some(_: TemporalGroupByAggregation), Some(gracePeriod)) => Right(Some(gracePeriod.interval))
+          case (_, Some(_))                                             => Left(StatementParserErrors.GRACE_PERIOD_NOT_ALLOWED)
+          case (_, None)                                                => Right(None)
+        }
+      }
+      parsedQuery <- {
         (statement.groupBy, parsedFieldsList.list) match {
           case (Some(group), _)
               if sortOpt
@@ -97,6 +105,7 @@ object StatementParser {
                 InternalTemporalAggregation(aggregation),
                 statement.condition,
                 sortOpt,
+                gracePeriod,
                 limitOpt
               )
             )
@@ -135,7 +144,7 @@ object StatementParser {
               ))
         }
       }
-    }
+    } yield parsedQuery
   }
 
   /**
@@ -212,6 +221,7 @@ object StatementParser {
                                            aggregation: InternalTemporalAggregation,
                                            condition: Option[Condition],
                                            sort: Option[Sort] = None,
+                                           gracePeriod: Option[Long] = None,
                                            limit: Option[Int] = None)
       extends ParsedQuery
 
@@ -220,7 +230,7 @@ object StatementParser {
     *
     * @param namespace query namespace.
     * @param metric    query metric.
-    * @param q         lucene's [[Query]]
+    * @param q         lucene [[Query]]
     */
   case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
 

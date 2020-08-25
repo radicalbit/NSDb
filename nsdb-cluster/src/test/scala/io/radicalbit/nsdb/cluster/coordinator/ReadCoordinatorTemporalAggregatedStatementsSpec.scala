@@ -22,12 +22,11 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 
 object TemporalDoubleMetric {
 
@@ -70,7 +69,7 @@ object TemporalLongMetric {
 
 class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordinatorSpec {
 
-  override def beforeAll = {
+  override def beforeAll: Unit = {
     import scala.concurrent.duration._
     implicit val timeout: Timeout = Timeout(5.second)
 
@@ -148,7 +147,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
   "ReadCoordinator" when {
 
     "receive a select containing a temporal group by with count aggregation" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when count(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -182,7 +181,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when no shard has picked up" in within(5.seconds) {
+      "execute it successfully when no shard has picked up" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -210,7 +209,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         expected.values.size shouldBe 0
       }
 
-      "execute it successfully when only one shard has picked up" in within(5.seconds) {
+      "execute it successfully when only one shard has picked up" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -243,7 +242,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         )
       }
 
-      "execute it successfully with limit" in within(5.seconds) {
+      "execute it successfully with limit" in {
 
         val expected = awaitAssert {
 
@@ -273,7 +272,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         )
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -306,7 +305,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with count aggregation on a double value metric" should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when count(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -340,7 +339,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -373,7 +372,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a timestamp where condition and a temporal group by with count aggregation" should {
-      "execute it successfully in case of GTE" in within(5.seconds) {
+      "execute it successfully in case of GTE" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -407,7 +406,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         )
       }
 
-      "execute it successfully in case of LT" in within(5.seconds) {
+      "execute it successfully in case of LT" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -441,7 +440,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group with count aggregation by with an interval higher than the shard interval" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -470,7 +469,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
         )
       }
 
-      "execute it successfully in case of a where condition" in within(5.seconds) {
+      "execute it successfully in case of a where condition" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -504,7 +503,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with sum aggregation" should {
-      "execute it successfully when sum(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when sum(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -538,7 +537,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -571,7 +570,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with sum aggregation on a double value metric" should {
-      "execute it successfully when sum(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when sum(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -605,7 +604,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -638,7 +637,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with max aggregation" should {
-      "execute it successfully when max(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when max(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -672,7 +671,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -705,7 +704,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with max aggregation on a double metric" should {
-      "execute it successfully when max(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when max(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -739,7 +738,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -772,7 +771,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with min aggregation" should {
-      "execute it successfully when min(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when min(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -806,7 +805,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -839,7 +838,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with min aggregation on a double metric" should {
-      "execute it successfully when min(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when min(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -873,7 +872,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -905,7 +904,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with avg aggregation" should {
-      "execute it successfully when avg(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when avg(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -939,7 +938,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -972,7 +971,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a temporal group by with avg aggregation on a double value metric" should {
-      "execute it successfully when avg(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when avg(*) is used instead of value" in {
 
         val expected = awaitAssert {
 
@@ -1006,7 +1005,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
       }
 
-      "execute it successfully when time ranges contain more than one value" in within(5.seconds) {
+      "execute it successfully when time ranges contain more than one value" in {
         val expected = awaitAssert {
 
           probe.send(
@@ -1038,5 +1037,130 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractReadCoordi
 
     }
 
+    "receive a select containing a temporal group by with a grace period" should {
+      "execute it successfully with a count aggregation" in {
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
+                gracePeriod = Some(GracePeriod("s", 50L))
+              ),
+              timeContext = Some(TimeContext(currentTime = 160000L))
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values shouldBe Seq(
+          Bit(110000, 1L, Map("lowerBound" -> 110000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+        )
+      }
+
+      "execute it successfully with sum aggregation" in {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(SumAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
+                gracePeriod = Some(GracePeriod("s", 80L))
+              ),
+              timeContext = Some(TimeContext(currentTime = 160000L))
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values shouldBe Seq(
+          Bit(80000, 5L, Map("lowerBound"  -> 80000L, "upperBound"  -> 100000L), Map()),
+          Bit(100000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+        )
+
+      }
+
+      "execute it successfully with avg aggregation" in {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
+                gracePeriod = Some(GracePeriod("s", 80L))
+              ),
+              timeContext = Some(TimeContext(currentTime = 160000L))
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values shouldBe Seq(
+          Bit(80000, 5.0, Map("lowerBound"  -> 80000L, "upperBound"  -> 100000L), Map()),
+          Bit(100000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+        )
+
+      }
+
+      "execute it successfully with count aggregation and a condition" in {
+
+        val expected = awaitAssert {
+
+          probe.send(
+            readCoordinatorActor,
+            ExecuteStatement(
+              SelectSQLStatement(
+                db = db,
+                namespace = namespace,
+                metric = TemporalLongMetric.name,
+                distinct = false,
+                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                condition = Some(
+                  Condition(ComparisonExpression(dimension = "timestamp",
+                                                 comparison = LessOrEqualToOperator,
+                                                 value = AbsoluteComparisonValue(100000L)))),
+                groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
+                gracePeriod = Some(GracePeriod("s", 80L))
+              ),
+              timeContext = Some(TimeContext(currentTime = 160000L))
+            )
+          )
+
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+
+        expected.values shouldBe Seq(
+          Bit(80000, 1L, Map("lowerBound" -> 80000L, "upperBound" -> 100000L), Map())
+        )
+
+      }
+
+    }
   }
 }

@@ -618,5 +618,64 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
           ))
       }
     }
+
+    "receive a statement with a grace period" should {
+      "refuse it in case of plain queries" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = AllFields(),
+            gracePeriod = Some(GracePeriod("S", 10))
+          ),
+          schema
+        ) should be(
+          Left(StatementParserErrors.GRACE_PERIOD_NOT_ALLOWED)
+        )
+      }
+      "refuse it in case of standard group by" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = AllFields(),
+            groupBy = Some(SimpleGroupByAggregation("name")),
+            gracePeriod = Some(GracePeriod("S", 10))
+          ),
+          schema
+        ) should be(
+          Left(StatementParserErrors.GRACE_PERIOD_NOT_ALLOWED)
+        )
+      }
+      "parse it successfully in case of a temporal group by" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            condition = None,
+            groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
+            gracePeriod = Some(GracePeriod("S", 10))
+          ),
+          schema
+        ) shouldBe
+          Right(
+            ParsedTemporalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              1000,
+              InternalTemporalAggregation(MinAggregation),
+              None,
+              gracePeriod = Some(10000)
+            ))
+      }
+    }
   }
 }

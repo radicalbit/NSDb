@@ -212,6 +212,19 @@ final case class DescOrderOperator(override val dimension: String) extends Order
 final case class LimitOperator(value: Int) extends NSDbSerializable
 
 /**
+  * Time interval to consider to limit the size of a query.
+  * @param timeMeasure a single character that express the chosen time measure.
+  * @param quantity the absolute quantity provided in the query string.
+  */
+final case class GracePeriod(timeMeasure: String, quantity: Long) {
+
+  /**
+    * Time interval in milliseconds.
+    */
+  lazy val interval = Duration(s"$quantity${timeMeasure.toLowerCase}").toMillis
+}
+
+/**
   * Comparison value to wrap values for tracking relative and absolute (mainly for relative timestamp)
   */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
@@ -305,10 +318,13 @@ object SQLStatement {
   final val plus  = "+"
   final val minus = "-"
 
-  final val day    = Set("d", "day")
-  final val hour   = Set("h", "hour")
-  final val minute = Set("min", "minute")
-  final val second = Set("s", "sec", "second")
+  // The order of this sequences is essential, because those are picked up by the parser and used to create an alternative composition rule
+  // like "day" | "d" | "hour|
+  // if a shorter label is before a longer one that has the same prefix, the parser will match the first rule and fail otherwise.
+  final val day    = Seq("day", "d")
+  final val hour   = Seq("hour", "h")
+  final val minute = Seq("minute", "min")
+  final val second = Set("second", "sec", "s")
 }
 
 /**
@@ -321,6 +337,7 @@ object SQLStatement {
   * @param condition the where condition. See [[Condition]].
   * @param groupBy present if the query includes a group by clause.
   * @param order present if the query includes a order clause. See [[OrderOperator]].
+  * @param gracePeriod present if the query includes a grace period clause. See [[GracePeriod]].
   * @param limit present if the query includes a limit clause. See [[LimitOperator]].
   */
 final case class SelectSQLStatement(override val db: String,
@@ -331,6 +348,7 @@ final case class SelectSQLStatement(override val db: String,
                                     condition: Option[Condition] = None,
                                     groupBy: Option[GroupByAggregation] = None,
                                     order: Option[OrderOperator] = None,
+                                    gracePeriod: Option[GracePeriod] = None,
                                     limit: Option[LimitOperator] = None)
     extends SQLStatement
     with LazyLogging

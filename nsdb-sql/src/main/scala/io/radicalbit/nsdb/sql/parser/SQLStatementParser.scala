@@ -36,7 +36,7 @@ import scala.util.parsing.input.CharSequenceReader
   *   InsertStatement := "insert into" literal ("ts =" digit)? "dim" "(" (literal = literal)+ ")" "tags" "(" (literal = literal)+ ")" "VAL" = digit
   *   DropStatement := "drop metric" literal
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
-  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)?
+  *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)? (since timeMeasure)?
   *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
   *   expression := expression "and" expression | expression "or" expression | "not" expression | "(" expression ")"
   *                 literal "=" literal | literal comparison literal | literal "like" literal |
@@ -105,6 +105,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val OpenRoundBracket  = "("
   private val CloseRoundBracket = ")"
   private val temporalInterval  = "INTERVAL" ignoreCase
+  private val since             = "SINCE" ignoreCase
 
   private val letter          = """[a-zA-Z_]"""
   private val digit           = """[0-9]"""
@@ -137,6 +138,8 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
     case strings: List[String] => strings.mkString(" ")
   }
 
+  // The lists to be folded must be ordered by string length ascending.
+  // If a shorter string is before a longer one that has the same prefix, the parser will match the first rule and fail otherwise.
   private val timeMeasure = day.foldLeft(day.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
     hour.foldLeft(hour.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
     minute.foldLeft(minute.head.ignoreCase)((d1, d2) => d1 | d2.ignoreCase) |
@@ -263,9 +266,14 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   lazy val limit: PackratParser[LimitOperator] = (Limit ~> intValue) ^^ (value => LimitOperator(value))
 
+  lazy val gracePeriod: PackratParser[GracePeriod] = (since ~> longValue ~ timeMeasure) ^^ {
+    case timeMeasure ~ quantity =>
+      GracePeriod(quantity, timeMeasure)
+  }
+
   private def selectQuery(db: String, namespace: String) =
-    select ~ from ~ (where ?) ~ ((temporalGroupBy | simpleGroupBy) ?) ~ (order ?) ~ (limit ?) <~ ";" ^^ {
-      case d ~ fs ~ met ~ cond ~ gr ~ ord ~ lim =>
+    select ~ from ~ (where ?) ~ ((temporalGroupBy | simpleGroupBy) ?) ~ (order ?) ~ (gracePeriod ?) ~ (limit ?) <~ ";" ^^ {
+      case d ~ fs ~ met ~ cond ~ gr ~ ord ~ grace ~ lim =>
         SelectSQLStatement(db = db,
                            namespace = namespace,
                            metric = met,
@@ -274,6 +282,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
                            condition = cond.map(Condition),
                            groupBy = gr,
                            order = ord,
+                           gracePeriod = grace,
                            limit = lim)
     }
 

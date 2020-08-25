@@ -188,7 +188,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           handleNoIndexResults(Try(index.getMaxGroupBy(q, schema, groupField)))
         case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, MinAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getMinGroupBy(q, schema, groupField)))
-        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, InternalTemporalAggregation(CountAggregation), _, _, _)) =>
+        case Right(
+            ParsedTemporalAggregatedQuery(_, _, q, _, InternalTemporalAggregation(CountAggregation), _, _, _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes
@@ -199,7 +200,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                    "value",
                                    None,
                                    globalRanges.filter(_.intersect(location)))))
-        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(

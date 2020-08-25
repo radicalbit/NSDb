@@ -22,7 +22,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecute
 
 class EmptyReadCoordinator extends Actor {
   def receive: Receive = {
-    case ExecuteStatement(statement) =>
+    case ExecuteStatement(statement, _) =>
       sender() ! SelectStatementExecuted(statement, values = Seq.empty)
   }
 }

@@ -90,17 +90,17 @@ object ExpressionParser {
         Try(IntPoint.newExactQuery(field, t.cast(value.rawValue))) match {
           case Success(q) => Right(q)
           case _ =>
-            Left(StatementParserErrors.uncompatibleOperator("equality", "INT"))
+            Left(StatementParserErrors.nonCompatibleOperator("equality", "INT"))
         }
       case Some(SchemaField(_, _, t: BIGINT)) =>
         Try(LongPoint.newExactQuery(field, t.cast(value.rawValue))) match {
           case Success(q) => Right(q)
-          case _          => Left(StatementParserErrors.uncompatibleOperator("equality", "BIGINT"))
+          case _          => Left(StatementParserErrors.nonCompatibleOperator("equality", "BIGINT"))
         }
       case Some(SchemaField(_, _, t: DECIMAL)) =>
         Try(DoublePoint.newExactQuery(field, t.cast(value.rawValue))) match {
           case Success(q) => Right(q)
-          case _          => Left(StatementParserErrors.uncompatibleOperator("equality", "DECIMAL"))
+          case _          => Left(StatementParserErrors.nonCompatibleOperator("equality", "DECIMAL"))
         }
       case Some(SchemaField(_, _, _: VARCHAR)) => Right(new TermQuery(new Term(field, value.rawValue.toString)))
       case None                                => Left(StatementParserErrors.notExistingDimension(field))
@@ -114,7 +114,7 @@ object ExpressionParser {
       case Some(SchemaField(_, _, _: VARCHAR)) =>
         Right(new WildcardQuery(new Term(field, value.rawValue.toString.replaceAll("\\$", "*"))))
       case Some(_) =>
-        Left(StatementParserErrors.uncompatibleOperator("Like", "VARCHAR"))
+        Left(StatementParserErrors.nonCompatibleOperator("Like", "VARCHAR"))
       case None => Left(StatementParserErrors.notExistingDimension(field))
     }
   }
@@ -141,14 +141,14 @@ object ExpressionParser {
         Try(t.cast(v)).map(v =>
           buildRangeQuery[Int](IntPoint.newRangeQuery, v + 1, v - 1, Int.MinValue, Int.MaxValue, v)) match {
           case Success(q) => Right(q)
-          case _          => Left(StatementParserErrors.uncompatibleOperator("range", "INT"))
+          case _          => Left(StatementParserErrors.nonCompatibleOperator("range", "INT"))
         }
       case (Some(SchemaField(_, _, t: BIGINT)), v) =>
         Try(t.cast(v)).map(v =>
           buildRangeQuery[Long](LongPoint.newRangeQuery, v + 1, v - 1, Long.MinValue, Long.MaxValue, v)) match {
           case Success(q) => Right(q)
           case _ =>
-            Left(StatementParserErrors.uncompatibleOperator("range", "BIGINT"))
+            Left(StatementParserErrors.nonCompatibleOperator("range", "BIGINT"))
         }
       case (Some(SchemaField(_, _, t: DECIMAL)), v) =>
         Try(t.cast(v)).map(
@@ -160,10 +160,10 @@ object ExpressionParser {
                                     Double.MaxValue,
                                     v)) match {
           case Success(q) => Right(q)
-          case _          => Left(StatementParserErrors.uncompatibleOperator("range", "DECIMAL"))
+          case _          => Left(StatementParserErrors.nonCompatibleOperator("range", "DECIMAL"))
         }
       case (Some(_), _) =>
-        Left(StatementParserErrors.uncompatibleOperator("comparison", "numerical"))
+        Left(StatementParserErrors.nonCompatibleOperator("comparison", "numerical"))
       case (None, _) => Left(StatementParserErrors.notExistingDimension(field))
     }
   }
@@ -179,14 +179,14 @@ object ExpressionParser {
         } match {
           case Success(q) => Right(q)
           case _ =>
-            Left(StatementParserErrors.uncompatibleOperator("range", "BIGINT"))
+            Left(StatementParserErrors.nonCompatibleOperator("range", "BIGINT"))
         }
       case (Some(SchemaField(_, _, t: INT)), v1, v2) =>
         Try((t.cast(v1), t.cast(v2))).map {
           case (l, h) => IntPoint.newRangeQuery(field, l, h)
         } match {
           case Success(q) => Right(q)
-          case _          => Left(StatementParserErrors.uncompatibleOperator("range", "INT"))
+          case _          => Left(StatementParserErrors.nonCompatibleOperator("range", "INT"))
         }
       case (Some(SchemaField(_, _, t: DECIMAL)), v1, v2) =>
         Try((t.cast(v1), t.cast(v2))).map {
@@ -194,10 +194,10 @@ object ExpressionParser {
         } match {
           case Success(q) => Right(q)
           case _ =>
-            Left(StatementParserErrors.uncompatibleOperator("range", "DECIMAL"))
+            Left(StatementParserErrors.nonCompatibleOperator("range", "DECIMAL"))
         }
       case (Some(SchemaField(_, _, _: VARCHAR)), _, _) =>
-        Left(StatementParserErrors.uncompatibleOperator("range", "numerical"))
+        Left(StatementParserErrors.nonCompatibleOperator("range", "numerical"))
       case (None, _, _) => Left(StatementParserErrors.notExistingDimension(field))
     }
   }

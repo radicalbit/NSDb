@@ -276,7 +276,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(4))
           ),
           schema
-        ) shouldBe Left(StatementParserErrors.uncompatibleOperator("equality", "BIGINT"))
+        ) shouldBe Left(StatementParserErrors.nonCompatibleOperator("equality", "BIGINT"))
       }
       "parse it successfully on a number vs a string" in {
         StatementParser.parseStatement(
@@ -374,7 +374,7 @@ class StatementParserSpec extends WordSpec with Matchers {
             limit = Some(LimitOperator(4))
           ),
           schema
-        ) shouldBe Left(StatementParserErrors.uncompatibleOperator("equality", "BIGINT"))
+        ) shouldBe Left(StatementParserErrors.nonCompatibleOperator("equality", "BIGINT"))
       }
     }
 
