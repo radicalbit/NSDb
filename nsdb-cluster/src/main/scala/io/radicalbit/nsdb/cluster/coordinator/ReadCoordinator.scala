@@ -122,7 +122,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
           SelectStatementExecuted(
             statement,
             if (isSingleNode) combinedResponsesFromNodes
-            else postProcFun(combinedResponsesFromNodes)
+            else postProcFun(combinedResponsesFromNodes),
+            schema
           )
         }
       }

@@ -90,8 +90,8 @@ package object post_proc {
                     aggregationType: Option[InternalAggregation] = None)(
       implicit ec: ExecutionContext): ExecuteSelectStatementResponse =
     chainedResults match {
-      case SelectStatementExecuted(statement, values) =>
-        SelectStatementExecuted(statement, applyOrderingWithLimit(values, statement, schema, aggregationType))
+      case SelectStatementExecuted(statement, values, schema) =>
+        SelectStatementExecuted(statement, applyOrderingWithLimit(values, statement, schema, aggregationType), schema)
       case e: SelectStatementFailed => e
     }
 

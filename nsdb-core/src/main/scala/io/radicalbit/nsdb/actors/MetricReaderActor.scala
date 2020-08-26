@@ -155,7 +155,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     *
     * @param statement the select sql statement.
     * @param actors Shard actors to retrieve results from.
-    *                @param msg the original [[ExecuteSelectStatement]] command
+    * @param msg the original [[ExecuteSelectStatement]] command
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
@@ -194,8 +194,9 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
      })
       .map(ErrorManagementUtils.partitionResponses[SelectStatementExecuted, SelectStatementFailed])
       .map {
-        case (successes, Nil) => SelectStatementExecuted(statement, postProcFun(successes.flatMap(_.values)))
-        case (_, errors)      => SelectStatementFailed(statement, errors.map(_.reason).mkString(","))
+        case (successes, Nil) =>
+          SelectStatementExecuted(statement, postProcFun(successes.flatMap(_.values)), msg.schema)
+        case (_, errors) => SelectStatementFailed(statement, errors.map(_.reason).mkString(","))
       }
   }
 
@@ -270,10 +271,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
           retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {
-              case SelectStatementExecuted(_, seq) =>
+              case SelectStatementExecuted(_, seq, schema) =>
                 SelectStatementExecuted(
                   statement,
-                  seq
+                  seq,
+                  schema
                 )
               case err: SelectStatementFailed => err
             }

@@ -52,19 +52,21 @@ class FakeReadCoordinator extends Actor {
     case ExecuteStatement(statement, _)
         if statement.condition.isDefined && statement.condition.get.expression.isInstanceOf[RangeExpression] =>
       implicit val timeContext: TimeContext = TimeContext()
-      StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
+      val schema                            = Schema(statement.metric, bits.head)
+      StatementParser.parseStatement(statement, schema) match {
         case Right(_) =>
           val e = statement.condition.get.expression.asInstanceOf[RangeExpression]
           val filteredBits = bits.filter(bit =>
             bit.timestamp <= e.value2.value.rawValue.toString.toLong && bit.timestamp >= e.value1.value.rawValue.toString.toLong)
-          sender ! SelectStatementExecuted(statement, filteredBits)
+          sender ! SelectStatementExecuted(statement, filteredBits, schema)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }
     case ExecuteStatement(statement, _) =>
       implicit val timeContext: TimeContext = TimeContext()
-      StatementParser.parseStatement(statement, Schema(statement.metric, bits.head)) match {
+      val schema                            = Schema(statement.metric, bits.head)
+      StatementParser.parseStatement(statement, schema) match {
         case Right(_) =>
-          sender ! SelectStatementExecuted(statement, bits)
+          sender ! SelectStatementExecuted(statement, bits, schema)
         case Left(errorMessage) => sender ! SelectStatementFailed(statement, errorMessage)
       }
   }

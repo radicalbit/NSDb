@@ -33,7 +33,7 @@ import scala.concurrent.duration._
 class EmptyReadCoordinator extends Actor {
   def receive: Receive = {
     case ExecuteStatement(statement, _) =>
-      sender() ! SelectStatementExecuted(statement, values = Seq.empty)
+      sender() ! SelectStatementExecuted(statement, values = Seq.empty, Schema(statement.metric, Bit.empty))
   }
 }
 

@@ -156,7 +156,7 @@ object MessageProtocol {
         new JsonSubTypes.Type(value = classOf[SelectStatementFailed], name = "SelectStatementFailed")
       ))
     trait ExecuteSelectStatementResponse extends NSDbSerializable
-    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit])
+    case class SelectStatementExecuted(statement: SelectSQLStatement, values: Seq[Bit], schema: Schema)
         extends ExecuteSelectStatementResponse
     case class SelectStatementFailed(statement: SelectSQLStatement, reason: String, errorCode: ErrorCode = Generic())
         extends ExecuteSelectStatementResponse

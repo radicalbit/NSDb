@@ -222,7 +222,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       }
       results match {
         case Success(bits) =>
-          sender ! SelectStatementExecuted(statement, bits)
+          sender ! SelectStatementExecuted(statement, bits, schema)
         case Failure(ex) =>
           log.error(ex, "error occurred executing query {} in location {}", statement, location)
           sender ! SelectStatementFailed(statement, ex.getMessage)
