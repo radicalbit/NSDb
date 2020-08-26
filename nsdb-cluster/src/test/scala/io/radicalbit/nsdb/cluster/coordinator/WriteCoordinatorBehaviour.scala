@@ -141,7 +141,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
                  SubscribeBySqlStatement(subscriber, db, namespace, "testMetric", "testQueryString", testSqlStatement))
       probe.expectMsgType[SubscribedByQueryStringInternal]
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
-      publisherActor.underlyingActor.queries.keys.size shouldBe 1
+      publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
 
       probe.send(writeCoordinatorActor,
                  MapInput(System.currentTimeMillis, db, namespace, "testMetric", testRecordSatisfy))

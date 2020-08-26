@@ -76,8 +76,8 @@ class PublisherActorSpec
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryStringInternal]
 
-    publisherActor.underlyingActor.queries.keys.size shouldBe 1
-    publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
+    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
+    publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testSqlStatement
 
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
@@ -93,8 +93,8 @@ class PublisherActorSpec
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
     val firstId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
 
-    publisherActor.underlyingActor.queries.keys.size shouldBe 1
-    publisherActor.underlyingActor.queries.values.head.query shouldBe testSqlStatement
+    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
+    publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testSqlStatement
 
     publisherActor.underlyingActor.subscribedActorsByQueryId.values.size shouldBe 1
     publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
@@ -108,7 +108,7 @@ class PublisherActorSpec
                                        testSqlStatement.copy(metric = "anotherOne")))
     val secondId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
 
-    publisherActor.underlyingActor.queries.keys.size shouldBe 2
+    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 2
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 2
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(firstId) shouldBe true
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(secondId) shouldBe true
@@ -117,13 +117,13 @@ class PublisherActorSpec
   }
 
   "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
-    publisherActor.underlyingActor.queries.clear()
+    publisherActor.underlyingActor.plainQueries.clear()
     publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
     probe.send(publisherActor,
                SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
     probe.expectMsgType[SubscribedByQueryStringInternal]
 
-    publisherActor.underlyingActor.queries.keys.size shouldBe 1
+    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
     publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
 
     probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
