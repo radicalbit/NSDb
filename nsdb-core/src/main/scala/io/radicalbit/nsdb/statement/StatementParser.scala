@@ -217,7 +217,7 @@ object StatementParser {
   case class ParsedTemporalAggregatedQuery(namespace: String,
                                            metric: String,
                                            q: Query,
-                                           rangeLength: Long,
+                                           interval: Long,
                                            aggregation: InternalTemporalAggregation,
                                            condition: Option[Condition],
                                            sort: Option[Sort] = None,
