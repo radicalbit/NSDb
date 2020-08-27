@@ -186,7 +186,9 @@ package object post_proc {
         .values
         .toSeq
 
-    applyOrderingWithLimit(chainedResult, statement, schema, Some(temporalAggregation))
+    if (finalStep)
+      applyOrderingWithLimit(chainedResult, statement, schema, Some(temporalAggregation))
+    else chainedResult
   }
 
   /**
