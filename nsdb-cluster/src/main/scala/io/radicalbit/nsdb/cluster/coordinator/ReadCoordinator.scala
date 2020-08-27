@@ -248,9 +248,9 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                                                                           condition,
                                                                           gracePeriod)
 
-                val limiterUniqueLocationsByNode = readNodesSelection.getDistinctLocationsByNode(limitedLocations)
+                val limitedUniqueLocationsByNode = readNodesSelection.getDistinctLocationsByNode(limitedLocations)
 
-                gatherNodeResults(msg, schema, limiterUniqueLocationsByNode, globalRanges)(
+                gatherNodeResults(msg, schema, limitedUniqueLocationsByNode, globalRanges)(
                   postProcessingTemporalQueryResult(schema, statement, aggregation))
 
               case Left(error) =>
