@@ -86,8 +86,8 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
   /**
     * Gathers results from every shard actor and elaborate them.
-    * @param command the commmand that contains the Sql statement to be executed against every actor.
-    * @param schema Metric's schema.
+    * @param command the command that contains the Sql statement to be executed against every actor.
+    * @param schema Metric schema.
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @param timeContext the timeContext that will be propagated to all the nodes.
     * @return the processed results.
