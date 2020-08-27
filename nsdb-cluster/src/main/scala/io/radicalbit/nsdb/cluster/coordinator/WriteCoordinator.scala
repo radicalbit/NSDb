@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.logic.WriteConfig
-import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils._
+import io.radicalbit.nsdb.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.Bit

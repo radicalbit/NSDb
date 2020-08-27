@@ -35,6 +35,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
+import io.radicalbit.nsdb.util.ErrorManagementUtils
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -154,7 +155,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     *
     * @param statement the select sql statement.
     * @param actors Shard actors to retrieve results from.
-    *                @param msg the original [[ExecuteSelectStatement]] command
+    * @param msg the original [[ExecuteSelectStatement]] command
     * @param postProcFun The function that will be applied after data are retrieved from all the shards.
     * @return the processed results.
     */
@@ -190,14 +191,13 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
              (actor ? msg.copy(locations = actors.map(_._1)))
                .recoverWith { case t => Future(SelectStatementFailed(statement, t.getMessage)) }
          })
-     }).map { e =>
-      val errs = e.collect { case a: SelectStatementFailed => a }
-      if (errs.nonEmpty) {
-        SelectStatementFailed(statement, errs.map(_.reason).mkString(","))
-      } else
-        SelectStatementExecuted(statement, postProcFun(e.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)))
-
-    }
+     })
+      .map(ErrorManagementUtils.partitionResponses[SelectStatementExecuted, SelectStatementFailed])
+      .map {
+        case (successes, Nil) =>
+          SelectStatementExecuted(statement, postProcFun(successes.flatMap(_.values)), msg.schema)
+        case (_, errors) => SelectStatementFailed(statement, errors.map(_.reason).mkString(","))
+      }
   }
 
   /**
@@ -271,10 +271,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
         case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
           retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {
-              case SelectStatementExecuted(_, seq) =>
+              case SelectStatementExecuted(_, seq, schema) =>
                 SelectStatementExecuted(
                   statement,
-                  seq
+                  seq,
+                  schema
                 )
               case err: SelectStatementFailed => err
             }
@@ -318,7 +319,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
             postProcessingTemporalQueryResult(schema, statement, aggregationType, isSingleNode)).pipeTo(sender)
 
         case Left(error) => sender ! SelectStatementFailed(statement, error)
-        case _           => sender ! SelectStatementFailed(statement, "Not a select statement.")
       }
     case DeleteAllMetrics(_, _) =>
       actors.foreach {

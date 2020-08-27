@@ -71,7 +71,7 @@ lazy val `nsdb-http` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Http.libraries)
-  .dependsOn(`nsdb-core`, `nsdb-sql`, `nsdb-security`)
+  .dependsOn(`nsdb-core` % "compile->compile;test->test", `nsdb-sql`, `nsdb-security`)
 lazy val `nsdb-rpc` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -198,7 +198,7 @@ lazy val `nsdb-cluster` = project
       output
     }
   )
-  .dependsOn(`nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
+  .dependsOn(`nsdb-core` % "compile->compile;test->test",  `nsdb-security`, `nsdb-http`, `nsdb-rpc`, `nsdb-cli`)
 lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)

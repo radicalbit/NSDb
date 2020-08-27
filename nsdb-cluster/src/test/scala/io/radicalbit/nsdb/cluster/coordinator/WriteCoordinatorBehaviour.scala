@@ -34,6 +34,7 @@ import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
 }
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
+import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest.{Matchers, _}
@@ -51,7 +52,7 @@ class TestSubscriber extends Actor {
 class FakeReadCoordinatorActor extends Actor {
   def receive: Receive = {
     case ExecuteStatement(statement, _) =>
-      sender() ! SelectStatementExecuted(statement, values = Seq.empty)
+      sender() ! SelectStatementExecuted(statement, values = Seq.empty, Schema(statement.metric, Bit.empty))
   }
 }
 
@@ -140,7 +141,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers 
                  SubscribeBySqlStatement(subscriber, db, namespace, "testMetric", "testQueryString", testSqlStatement))
       probe.expectMsgType[SubscribedByQueryStringInternal]
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
-      publisherActor.underlyingActor.queries.keys.size shouldBe 1
+      publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
 
       probe.send(writeCoordinatorActor,
                  MapInput(System.currentTimeMillis, db, namespace, "testMetric", testRecordSatisfy))

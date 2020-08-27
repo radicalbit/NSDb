@@ -136,7 +136,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.6.0"
+    lazy val version     = "8.6.1"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version

@@ -36,7 +36,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddL
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
-import io.radicalbit.nsdb.cluster.util.ErrorManagementUtils
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.model.LocationWithCoordinates
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -45,7 +44,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   MetricsDataActorUnSubscribed,
   PublisherUnSubscribed
 }
-import io.radicalbit.nsdb.util.{FileUtils, FutureRetryUtility}
+import io.radicalbit.nsdb.util.{ErrorManagementUtils, FileUtils, FutureRetryUtility}
 
 import scala.collection.mutable
 import scala.concurrent.Future

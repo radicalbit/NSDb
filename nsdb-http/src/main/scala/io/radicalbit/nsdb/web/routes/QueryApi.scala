@@ -103,7 +103,7 @@ trait QueryApi {
 
     def executeSelectStatement(queryBody: QueryBody, statement: SelectSQLStatement) = {
       onComplete(readCoordinator ? ExecuteStatement(statement)) {
-        case Success(SelectStatementExecuted(_, values)) =>
+        case Success(SelectStatementExecuted(_, values, _)) =>
           complete(
             HttpEntity(ContentTypes.`application/json`,
                        write(SelectQueryResponse(values, queryBody.parsed.map(_ => statement)))))

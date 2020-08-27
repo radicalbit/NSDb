@@ -27,32 +27,26 @@ import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatemen
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
-import io.radicalbit.nsdb.common.statement.{SelectSQLStatement, SimpleGroupByAggregation, TemporalGroupByAggregation}
+import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.index.TemporaryIndex
 import io.radicalbit.nsdb.model.TimeContext
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.StatementParser
-import io.radicalbit.nsdb.statement.StatementParser.ParsedSimpleQuery
+import io.radicalbit.nsdb.statement.StatementParser.{ParsedQuery, ParsedSimpleQuery}
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 /**
   * Models queries used for the  subscription process.
   * @param uuid a generated, unique identifier for a query.
   * @param query the parsed select statement.
+  * @param parsedQuery the parsed query which contains information about the type of query and the actual lucene query.
   */
-case class NSDbQuery(uuid: String, query: SelectSQLStatement) {
-  val aggregated: Boolean = query.groupBy.nonEmpty
-
-  val simpleAggregated: Boolean = query.groupBy.exists(_.isInstanceOf[SimpleGroupByAggregation])
-
-  val temporalAggregated: Boolean = query.groupBy.exists(_.isInstanceOf[TemporalGroupByAggregation])
-}
+class NSDbQuery(val uuid: String, val query: SelectSQLStatement, val parsedQuery: ParsedQuery)
 
 /**
   * Actor responsible to accept subscriptions and publish events to its subscribers.
@@ -66,6 +60,8 @@ case class NSDbQuery(uuid: String, query: SelectSQLStatement) {
   */
 class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
+  import context.dispatcher
+
   /**
     * mutable subscriber map aggregated by query id
     */
@@ -74,14 +70,17 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
   /**
     * mutable map of non aggregated queries by query id
     */
-  lazy val queries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
+  lazy val plainQueries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
 
-  implicit val disp: ExecutionContextExecutor = context.system.dispatcher
+  /**
+    * mutable map of aggregated queries by query id
+    */
+  lazy val aggregatedQueries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
 
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  val interval = FiniteDuration(
+  val interval: FiniteDuration = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.publisher.scheduler.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
 
@@ -89,8 +88,8 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     * scheduler that updates aggregated queries subscribers
     */
   context.system.scheduler.schedule(interval, interval) {
-    queries.foreach {
-      case (id, q) if q.aggregated && subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
+    aggregatedQueries.foreach {
+      case (id, q) if subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
         val f = (readCoordinator ? ExecuteStatement(q.query))
           .map {
             case e: SelectStatementExecuted => RecordsPublished(id, e.statement.metric, e.values)
@@ -105,8 +104,12 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
   override def receive: Receive = {
     case SubscribeBySqlStatement(actor, db, namespace, metric, queryString, query) =>
-      val subscribedQueryId = queries.find { case (_, v) => v.query == query }.map(_._1) getOrElse
+      val subscribedQueryId = (plainQueries ++ aggregatedQueries).collectFirst {
+        case (_, v) if v.query == query => v.uuid
+      } getOrElse
         UUID.randomUUID().toString
+
+      implicit val timeContext: TimeContext = TimeContext()
 
       subscribedActorsByQueryId
         .get(subscribedQueryId)
@@ -115,11 +118,19 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
           log.debug(s"subscribing a new actor to query $queryString")
           (readCoordinator ? ExecuteStatement(query))
             .map {
-              case e: SelectStatementExecuted =>
+              case SelectStatementExecuted(statement, values, schema) =>
                 val previousRegisteredActors = subscribedActorsByQueryId.getOrElse(subscribedQueryId, Set.empty)
                 subscribedActorsByQueryId += (subscribedQueryId -> (previousRegisteredActors + actor))
-                queries += (subscribedQueryId                   -> NSDbQuery(subscribedQueryId, query))
-                SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values)
+                StatementParser.parseStatement(statement, schema) match {
+                  case Right(parsedSimpleQuery: ParsedSimpleQuery) =>
+                    plainQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId, query, parsedSimpleQuery))
+                    SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, values)
+                  case Right(parsedQuery: ParsedQuery) =>
+                    aggregatedQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId, query, parsedQuery))
+                    SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, values)
+                  case Left(error) =>
+                    SubscriptionByQueryStringFailed(db, namespace, metric, queryString, error)
+                }
               case SelectStatementFailed(_, reason, _) =>
                 SubscriptionByQueryStringFailed(db, namespace, metric, queryString, reason)
             }
@@ -132,13 +143,11 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
             .pipeTo(sender())
         }
     case PublishRecord(db, namespace, metric, record, schema) =>
-      queries.foreach {
-        case (id, nsdbQuery)
-            if !nsdbQuery.aggregated && nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(id) =>
+      plainQueries.foreach {
+        case (id, nsdbQuery) if nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(id) =>
           implicit val timeContext: TimeContext = TimeContext()
-          val luceneQuery                       = StatementParser.parseStatement(nsdbQuery.query, schema)
-          luceneQuery match {
-            case Right(parsedQuery: ParsedSimpleQuery) =>
+          nsdbQuery.parsedQuery match {
+            case parsedQuery: ParsedSimpleQuery =>
               val temporaryIndex: TemporaryIndex = new TemporaryIndex()
               implicit val writer: IndexWriter   = temporaryIndex.getWriter
               temporaryIndex.write(record)
@@ -150,11 +159,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                   .get(id)
                   .foreach(e => e.foreach(_ ! RecordsPublished(id, metric, Seq(record))))
               temporaryIndex.close()
-            case Right(_) => log.error("unreachable branch reached...")
-            case Left(error) =>
-              log.error(s"query ${nsdbQuery.query} against schema $schema not valid because $error")
+            case _ => // do nothing
           }
-        case _ =>
+        case _ => // do nothing
       }
     case Unsubscribe(actor) =>
       log.debug("unsubscribe actor {} ", actor)
