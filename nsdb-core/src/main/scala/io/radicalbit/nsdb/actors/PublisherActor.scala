@@ -19,11 +19,11 @@ package io.radicalbit.nsdb.actors
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, Cancellable, Props}
 import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
+import io.radicalbit.nsdb.actors.PublisherActor.Commands.{PushAggregateQueries, SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
@@ -38,6 +38,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
 /**
@@ -73,6 +74,11 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
   lazy val plainQueries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
 
   /**
+    * mutable map of non aggregated queries by query id
+    */
+  lazy val temporalAggregatedQueries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
+
+  /**
     * mutable map of aggregated queries by query id
     */
   lazy val aggregatedQueries: mutable.Map[String, NSDbQuery] = mutable.Map.empty
@@ -85,21 +91,26 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     TimeUnit.SECONDS)
 
   /**
-    * scheduler that updates aggregated queries subscribers
+    * Task for standard aggregated queries.
     */
-  context.system.scheduler.schedule(interval, interval) {
-    aggregatedQueries.foreach {
-      case (id, q) if subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
-        val f = (readCoordinator ? ExecuteStatement(q.query))
-          .map {
-            case e: SelectStatementExecuted => RecordsPublished(id, e.statement.metric, e.values)
-            case SelectStatementFailed(statement, reason, _) =>
-              log.error(s"aggregated statement {} subscriber refresh failed because of {}", statement, reason)
-              RecordsPublished(id, q.query.metric, Seq.empty)
-          }
-        subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
-      case _ => //do nothing
-    }
+  private var aggregatedPushTask: Cancellable = _
+
+  /**
+    * Tasks for temporal aggregated queries.
+    */
+  lazy val temporalAggregatedTasks: mutable.Map[String, Cancellable] = mutable.Map.empty
+
+  /**
+    * Tasks for temporal aggregated queries.
+    */
+  lazy val temporalBuckets: mutable.Map[String, ListBuffer[Bit]] = mutable.Map.empty
+
+  override def preStart(): Unit = {
+
+    /**
+      * scheduler that updates aggregated queries subscribers
+      */
+    aggregatedPushTask = context.system.scheduler.scheduleAtFixedRate(interval, interval, self, PushAggregateQueries)
   }
 
   override def receive: Receive = {
@@ -142,6 +153,19 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
             .map(e => SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values))
             .pipeTo(sender())
         }
+    case PushAggregateQueries =>
+      aggregatedQueries.foreach {
+        case (id, q) if subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
+          val f = (readCoordinator ? ExecuteStatement(q.query))
+            .map {
+              case e: SelectStatementExecuted => RecordsPublished(id, e.statement.metric, e.values)
+              case SelectStatementFailed(statement, reason, _) =>
+                log.error(s"aggregated statement {} subscriber refresh failed because of {}", statement, reason)
+                RecordsPublished(id, q.query.metric, Seq.empty)
+            }
+          subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
+        case _ => //do nothing
+      }
     case PublishRecord(db, namespace, metric, record, schema) =>
       plainQueries.foreach {
         case (id, nsdbQuery) if nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(id) =>
@@ -174,6 +198,11 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
       }
       sender() ! Unsubscribed(actor)
   }
+
+  override def postStop(): Unit = {
+    Option(aggregatedPushTask).foreach(_.cancel())
+  }
+
 }
 
 object PublisherActor {
@@ -191,6 +220,7 @@ object PublisherActor {
         extends ControlMessage
         with NSDbSerializable
     case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
+    case object PushAggregateQueries        extends ControlMessage with NSDbSerializable
   }
 
   object Events {
