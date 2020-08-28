@@ -214,6 +214,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId
                   .get(quid)
                   .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
+                temporalBuckets -= quid
               case None => //do nothing
             }
           case _ =>
