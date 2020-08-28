@@ -267,6 +267,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
   override def postStop(): Unit = {
     Option(aggregatedPushTask).foreach(_.cancel())
+    temporalAggregatedTasks.foreach { case (_, task) => task.cancel() }
   }
 
 }
