@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb
 import java.math.MathContext
 
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, NumericType}
@@ -229,14 +229,14 @@ package object post_proc {
           Some(
             temporalAggregation.aggregation match {
               case CountAggregation =>
-                val count = NSDbNumericType(bits.size)
-                Bit(last.timestamp, NSDbNumericType(count), dimensions, Map(`count(*)` -> count))
+                val count = NSDbLongType(bits.size)
+                Bit(last.timestamp, count, dimensions, Map(`count(*)` -> count))
               case SumAggregation =>
                 val sum = NSDbNumericType(bits.map(_.value.rawValue).sum)
                 Bit(last.timestamp, sum, dimensions, Map(`sum(*)` -> sum))
               case MaxAggregation =>
                 val max = NSDbNumericType(bits.map(_.value.rawValue).max)
-                Bit(head.timestamp, max, dimensions, Map(`max(*)` -> max))
+                Bit(last.timestamp, max, dimensions, Map(`max(*)` -> max))
               case MinAggregation =>
                 val min = NSDbNumericType(bits.map(_.value.rawValue).min)
                 Bit(last.timestamp, min, dimensions, Map(`min(*)` -> min))

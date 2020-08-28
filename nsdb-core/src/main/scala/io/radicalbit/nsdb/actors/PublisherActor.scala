@@ -24,12 +24,7 @@ import akka.actor.{ActorRef, Cancellable, Props}
 import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.actors.PublisherActor.Commands.{
-  PushStandardAggregatedQueries,
-  PushTemporalAggregatedQueries,
-  SubscribeBySqlStatement,
-  Unsubscribe
-}
+import io.radicalbit.nsdb.actors.PublisherActor.Commands._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
@@ -168,6 +163,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                         self,
                         PushTemporalAggregatedQueries(subscribedQueryId)))
                     }
+                    SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, values)
                   case Right(parsedQuery: ParsedQuery) =>
                     aggregatedQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId, query, parsedQuery))
                     schemas += (statement.metric            -> schema)
@@ -182,8 +178,13 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         } { _ =>
           log.debug(s"subscribing existing actor to query $queryString")
           (readCoordinator ? ExecuteStatement(query))
-            .mapTo[SelectStatementExecuted]
-            .map(e => SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values))
+            .mapTo[ExecuteSelectStatementResponse]
+            .map {
+              case e: SelectStatementExecuted =>
+                SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values)
+              case e: SelectStatementFailed =>
+                SubscriptionByQueryStringFailed(db, namespace, metric, queryString, e.reason)
+            }
             .pipeTo(sender())
         }
     case PushStandardAggregatedQueries =>
@@ -241,10 +242,13 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                   .get(quid)
                   .foreach(e => e.foreach(_ ! RecordsPublished(quid, metric, Seq(record))))
               temporaryIndex.close()
-            case _: ParsedTemporalAggregatedQuery =>
-              temporalBuckets.get(quid).fold(temporalBuckets += (quid -> ListBuffer(record))) { previousList =>
-                temporalBuckets += (quid -> (previousList :+ record))
-              }
+            case parsedQuery: ParsedTemporalAggregatedQuery =>
+              if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
+                    .query(schema, parsedQuery.q, Seq.empty, 1, None)
+                    .lengthCompare(1) == 0)
+                temporalBuckets.get(quid).fold(temporalBuckets += (quid -> ListBuffer(record))) { previousList =>
+                  temporalBuckets += (quid -> (previousList :+ record))
+                }
             case _ => // do nothing
           }
         case _ => // do nothing
