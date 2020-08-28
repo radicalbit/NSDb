@@ -224,6 +224,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
       }
 
     case PublishRecord(db, namespace, metric, record, schema) =>
+      def coordinatesMatch(nsdbQuery: NSDbQuery, db: String, namespace: String, metric: String) =
+        db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric
+
       (plainQueries ++ temporalAggregatedQueries).foreach {
         case (quid, nsdbQuery) if nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(quid) =>
           implicit val timeContext: TimeContext = TimeContext()
@@ -235,7 +238,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
           nsdbQuery.parsedQuery match {
             case parsedQuery: ParsedSimpleQuery =>
-              if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
+              if (coordinatesMatch(nsdbQuery, db, namespace, metric) && temporaryIndex
                     .query(schema, parsedQuery.q, parsedQuery.fields, 1, None)
                     .lengthCompare(1) == 0)
                 subscribedActorsByQueryId
@@ -243,7 +246,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                   .foreach(e => e.foreach(_ ! RecordsPublished(quid, metric, Seq(record))))
               temporaryIndex.close()
             case parsedQuery: ParsedTemporalAggregatedQuery =>
-              if (db == nsdbQuery.query.db && namespace == nsdbQuery.query.namespace && metric == nsdbQuery.query.metric && temporaryIndex
+              if (coordinatesMatch(nsdbQuery, db, namespace, metric) && temporaryIndex
                     .query(schema, parsedQuery.q, Seq.empty, 1, None)
                     .lengthCompare(1) == 0)
                 temporalBuckets.get(quid).fold(temporalBuckets += (quid -> ListBuffer(record))) { previousList =>
