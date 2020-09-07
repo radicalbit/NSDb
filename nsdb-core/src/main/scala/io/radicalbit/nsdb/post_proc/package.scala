@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb
 import java.math.MathContext
 
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{BIGINT, NumericType}
@@ -38,6 +38,11 @@ package object post_proc {
   final val `count(*)` = "count(*)"
   final val `sum(*)`   = "sum(*)"
   final val `avg(*)`   = "avg(*)"
+  final val `min(*)`   = "min(*)"
+  final val `max(*)`   = "max(*)"
+
+  final val lowerBoundField = "lowerBound"
+  final val upperBoundField = "upperBound"
 
   /**
     * Applies, if needed, ordering and limiting to a sequence of chained partial results.
@@ -189,6 +194,65 @@ package object post_proc {
     if (finalStep)
       applyOrderingWithLimit(chainedResult, statement, schema, Some(temporalAggregation))
     else chainedResult
+  }
+
+  /**
+    *
+    * @param schema
+    * @param statement
+    * @param temporalAggregation
+    * @param mathContext
+    * @return
+    */
+  def reduceSingleTemporalBucket(
+      schema: Schema,
+      statement: SelectSQLStatement,
+      temporalAggregation: InternalTemporalAggregation)(implicit mathContext: MathContext): Seq[Bit] => Option[Bit] = {
+    res =>
+      val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+      implicit val numeric: Numeric[Any] = v.numeric
+
+      res.sortBy(_.timestamp) match {
+        case Nil => None
+        case head :: Nil =>
+          Some(
+            Bit(head.timestamp,
+                head.value,
+                Map(upperBoundField -> head.timestamp, lowerBoundField -> head.timestamp),
+                Map.empty)
+          )
+        case bits =>
+          val head = bits.head
+          val last = bits.last
+          val dimensions =
+            Map(upperBoundField -> NSDbNumericType(last.timestamp), lowerBoundField -> NSDbNumericType(head.timestamp))
+          Some(
+            temporalAggregation.aggregation match {
+              case CountAggregation =>
+                val count = NSDbLongType(bits.size)
+                Bit(last.timestamp, count, dimensions, Map(`count(*)` -> count))
+              case SumAggregation =>
+                val sum = NSDbNumericType(bits.map(_.value.rawValue).sum)
+                Bit(last.timestamp, sum, dimensions, Map(`sum(*)` -> sum))
+              case MaxAggregation =>
+                val max = NSDbNumericType(bits.map(_.value.rawValue).max)
+                Bit(last.timestamp, max, dimensions, Map(`max(*)` -> max))
+              case MinAggregation =>
+                val min = NSDbNumericType(bits.map(_.value.rawValue).min)
+                Bit(last.timestamp, min, dimensions, Map(`min(*)` -> min))
+              case AvgAggregation =>
+                val sum   = NSDbNumericType(bits.map(_.value.rawValue).sum)
+                val count = NSDbNumericType(bits.size)
+                val avg   = if (count.rawValue == 0) NSDbNumericType(0.0) else NSDbNumericType(sum / count)
+                Bit(
+                  last.timestamp,
+                  avg,
+                  dimensions,
+                  Map(`avg(*)` -> avg)
+                )
+            }
+          )
+      }
   }
 
   /**

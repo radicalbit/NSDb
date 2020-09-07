@@ -16,13 +16,12 @@
 
 package io.radicalbit.nsdb.web
 
-import akka.actor.Props
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
-import io.radicalbit.nsdb.actors.{EmptyReadCoordinator, PublisherActor}
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
+import io.radicalbit.nsdb.actors.{EmptyReadCoordinator, PublisherActor}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
@@ -42,7 +41,11 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
 
   val basePath = "target/test_index/WebSocketTest"
 
-  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[EmptyReadCoordinator])))
+  val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
+
+  val schema = Schema("people", bit)
+
+  val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(EmptyReadCoordinator.props(schema))))
 
   val wsStandardResources = wsResources(publisherActor, new EmptyAuthorization)
 
@@ -89,7 +92,6 @@ class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers wit
           val firstSubscribed = wsClient.expectMessage().asTextMessage.getStrictText
           parse(firstSubscribed).extractOpt[SubscribedByQueryString].isDefined shouldBe true
 
-          val bit = Bit(System.currentTimeMillis(), 1, Map.empty, Map.empty)
           publisherActor ! PublishRecord("db", "registry", "people", bit, Schema("people", bit))
           publisherActor ! PublishRecord("db", "registry", "animals", bit, Schema("people", bit))
 

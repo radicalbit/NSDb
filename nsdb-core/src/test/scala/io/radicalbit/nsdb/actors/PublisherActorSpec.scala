@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.actors
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
@@ -25,34 +25,31 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import org.scalatest._
 
 import scala.concurrent.duration._
 
-class EmptyReadCoordinator extends Actor {
-  def receive: Receive = {
-    case ExecuteStatement(statement, _) =>
-      sender() ! SelectStatementExecuted(statement, values = Seq.empty, Schema(statement.metric, Bit.empty))
-  }
-}
-
 class PublisherActorSpec
     extends TestKit(ActorSystem("PublisherActorSpec"))
     with ImplicitSender
-    with FlatSpecLike
+    with WordSpecLike
     with Matchers
     with OneInstancePerTest
     with BeforeAndAfter {
+
+  val testRecordNotSatisfy = Bit(0, 23L, Map.empty, Map("name"   -> "john"))
+  val testRecordSatisfy    = Bit(100, 25L, Map.empty, Map("name" -> "john"))
+
+  val schema = Schema("people", testRecordSatisfy)
 
   val probe      = TestProbe()
   val probeActor = probe.testActor
   val publisherActor =
     TestActorRef[PublisherActor](
       PublisherActor.props(
-        system.actorOf(Props[EmptyReadCoordinator].withDispatcher("akka.actor.control-aware-dispatcher"))))
+        system.actorOf(EmptyReadCoordinator.props(schema).withDispatcher("akka.actor.control-aware-dispatcher"))))
 
-  val testSqlStatement = SelectSQLStatement(
+  val testPlainSqlStatement = SelectSQLStatement(
     db = "db",
     namespace = "registry",
     metric = "people",
@@ -66,94 +63,338 @@ class PublisherActorSpec
     limit = Some(LimitOperator(4))
   )
 
-  val testRecordNotSatisfy = Bit(0, 23, Map("name"   -> "john"), Map.empty)
-  val testRecordSatisfy    = Bit(100, 25, Map("name" -> "john"), Map.empty)
+  val testStandardAggregatedSqlStatement = SelectSQLStatement(
+    db = "db",
+    namespace = "registry",
+    metric = "people",
+    distinct = false,
+    fields = ListFields(List(Field("*", Some(SumAggregation)))),
+    groupBy = Some(SimpleGroupByAggregation("name"))
+  )
 
-  val schema = Schema("people", testRecordSatisfy)
+  def testTemporalAggregatedSqlStatement(aggregation: Aggregation) = SelectSQLStatement(
+    db = "db",
+    namespace = "registry",
+    metric = "people",
+    distinct = false,
+    fields = ListFields(List(Field("value", Some(aggregation)))),
+    condition = Some(
+      Condition(
+        ComparisonExpression(dimension = "timestamp",
+                             comparison = GreaterOrEqualToOperator,
+                             value = AbsoluteComparisonValue(10L)))),
+    groupBy = Some(TemporalGroupByAggregation(3000, 3, "S"))
+  )
 
-  "PublisherActor" should "make other actors subscribe and unsubscribe" in {
-    probe.send(publisherActor,
-               SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    probe.expectMsgType[SubscribedByQueryStringInternal]
+  "PublisherActor" should {
+    "make other actors subscribe and unsubscribe to plain queries" in {
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
 
-    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
-    publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testSqlStatement
+      publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testPlainSqlStatement
 
-    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
 
-    probe.send(publisherActor, Unsubscribe(probeActor))
-    probe.expectMsgType[Unsubscribed]
+      probe.send(publisherActor, Unsubscribe(probeActor))
+      probe.expectMsgType[Unsubscribed]
 
-    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 0
-  }
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 0
+    }
 
-  "PublisherActor" should "subscribe more than once" in {
-    probe.send(publisherActor,
-               SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    val firstId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
+    "make other actors subscribe and unsubscribe to standard aggregated queries" in {
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testStandardAggregatedSqlStatement))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
 
-    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
-    publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testSqlStatement
+      publisherActor.underlyingActor.aggregatedQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.aggregatedQueries.values.head.query shouldBe testStandardAggregatedSqlStatement
 
-    publisherActor.underlyingActor.subscribedActorsByQueryId.values.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
 
-    probe.send(publisherActor,
-               SubscribeBySqlStatement(probeActor,
-                                       "db",
-                                       "namespace",
-                                       "anotherOne",
-                                       "queryString",
-                                       testSqlStatement.copy(metric = "anotherOne")))
-    val secondId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
+      probe.send(publisherActor, Unsubscribe(probeActor))
+      probe.expectMsgType[Unsubscribed]
 
-    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 2
-    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 2
-    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(firstId) shouldBe true
-    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(secondId) shouldBe true
-    publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
-    publisherActor.underlyingActor.subscribedActorsByQueryId.values.last shouldBe Set(probeActor)
-  }
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 0
+    }
 
-  "PublisherActor" should "do nothing if an event that does not satisfy a query comes" in {
-    publisherActor.underlyingActor.plainQueries.clear()
-    publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
-    probe.send(publisherActor,
-               SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    probe.expectMsgType[SubscribedByQueryStringInternal]
+    "make other actors subscribe and unsubscribe to temporal aggregated queries" in {
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
 
-    publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
-    publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+      publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.temporalAggregatedQueries.values.head.query shouldBe testTemporalAggregatedSqlStatement(
+        CountAggregation)
 
-    probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
-    probe.expectNoMessage(3 seconds)
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
 
-    probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordNotSatisfy, schema))
-    probe.expectNoMessage(3 seconds)
-  }
+      probe.send(publisherActor, Unsubscribe(probeActor))
+      probe.expectMsgType[Unsubscribed]
 
-  "PublisherActor" should "send a message to all its subscribers when a matching event comes" in {
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 0
+    }
 
-    val secondProbe = TestProbe()
+    "subscribe more than once" in {
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
+      val firstId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
 
-    probe.send(publisherActor,
-               SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testSqlStatement))
-    probe.expectMsgType[SubscribedByQueryStringInternal]
+      publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testPlainSqlStatement
 
-    secondProbe.send(
-      publisherActor,
-      SubscribeBySqlStatement(secondProbe.ref, "db", "namespace", "metric", "queryString", testSqlStatement))
-    secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
 
-    probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
-    val recordPublished = probe.expectMsgType[RecordsPublished]
-    recordPublished.metric shouldBe "people"
-    recordPublished.records shouldBe Seq(testRecordSatisfy)
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "anotherOne",
+                                         "queryString",
+                                         testPlainSqlStatement.copy(metric = "anotherOne")))
+      val secondId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
 
-    secondProbe.expectMsgType[RecordsPublished]
+      publisherActor.underlyingActor.plainQueries.keys.size shouldBe 2
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 2
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(firstId) shouldBe true
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.toSeq.contains(secondId) shouldBe true
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
+      publisherActor.underlyingActor.subscribedActorsByQueryId.values.last shouldBe Set(probeActor)
+    }
 
-    probe.expectNoMessage(5 seconds)
-    secondProbe.expectNoMessage(5 seconds)
+    "do nothing if an event that does not satisfy a query comes" in {
+      publisherActor.underlyingActor.plainQueries.clear()
+      publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+
+      publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+
+      probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
+      probe.expectNoMessage(3 seconds)
+
+      probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordNotSatisfy, schema))
+      probe.expectNoMessage(3 seconds)
+    }
+
+    "do nothing if an event that does not satisfy a temporal query comes" in {
+      publisherActor.underlyingActor.plainQueries.clear()
+      publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+
+      publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
+
+      probe.send(publisherActor, PublishRecord("db", "namespace", "rooms", testRecordNotSatisfy, schema))
+      probe.expectNoMessage(3 seconds)
+
+      probe.send(publisherActor, PublishRecord("db", "namespace", "people", testRecordNotSatisfy, schema))
+      probe.expectNoMessage(3 seconds)
+    }
+
+    "send a message to all its subscribers when a matching event comes for a plain query" in {
+
+      val secondProbe = TestProbe()
+
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+
+      secondProbe.send(
+        publisherActor,
+        SubscribeBySqlStatement(secondProbe.ref, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
+      secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+
+      probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
+      val recordPublished = probe.expectMsgType[RecordsPublished]
+      recordPublished.metric shouldBe "people"
+      recordPublished.records shouldBe Seq(testRecordSatisfy)
+
+      secondProbe.expectMsgType[RecordsPublished]
+
+      probe.expectNoMessage(5 seconds)
+      secondProbe.expectNoMessage(5 seconds)
+    }
+
+    "send a message to all its subscribers when only one matching event comes for a temporal aggregated query" in {
+
+      val secondProbe = TestProbe()
+
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+
+      secondProbe.send(publisherActor,
+                       SubscribeBySqlStatement(secondProbe.ref,
+                                               "db",
+                                               "namespace",
+                                               "metric",
+                                               "queryString",
+                                               testTemporalAggregatedSqlStatement(CountAggregation)))
+      secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+
+      probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
+      val recordPublished = probe.expectMsgType[RecordsPublished]
+      recordPublished.metric shouldBe "people"
+      recordPublished.records shouldBe Seq(
+        Bit(100, 1L, Map("upperBound" -> 100L, "lowerBound" -> 100L), Map("count(*)" -> 1L))
+      )
+
+      secondProbe.expectMsgType[RecordsPublished]
+
+      probe.expectNoMessage(5 seconds)
+      secondProbe.expectNoMessage(5 seconds)
+    }
+
+    "send a message to all its subscribers when multiple matching event comes for a temporal count query" in {
+
+      val secondProbe = TestProbe()
+
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+
+      secondProbe.send(publisherActor,
+                       SubscribeBySqlStatement(secondProbe.ref,
+                                               "db",
+                                               "namespace",
+                                               "metric",
+                                               "queryString",
+                                               testTemporalAggregatedSqlStatement(CountAggregation)))
+      secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+
+      (1 to 10).foreach { i =>
+        probe.send(
+          publisherActor,
+          PublishRecord("db", "registry", "people", Bit(100 + i, 25L, Map.empty, Map("name" -> "john")), schema))
+      }
+
+      val recordPublished = probe.expectMsgType[RecordsPublished]
+      recordPublished.metric shouldBe "people"
+      recordPublished.records shouldBe Seq(
+        Bit(110, 10L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("count(*)" -> 10L))
+      )
+
+      secondProbe.expectMsgType[RecordsPublished]
+
+      probe.expectNoMessage(5 seconds)
+      secondProbe.expectNoMessage(5 seconds)
+    }
+
+    "send a message to all its subscribers when multiple matching event comes for a multiple count query with different aggregations" in {
+
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(SumAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(AvgAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(MinAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.send(publisherActor,
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testTemporalAggregatedSqlStatement(MaxAggregation)))
+      probe.expectMsgType[SubscribedByQueryStringInternal]
+
+      (1 to 10).foreach { i =>
+        probe.send(
+          publisherActor,
+          PublishRecord("db", "registry", "people", Bit(100 + i, 25L, Map.empty, Map("name" -> "john")), schema))
+      }
+
+      val countBucketPublished = probe.expectMsgType[RecordsPublished]
+      countBucketPublished.metric shouldBe "people"
+      countBucketPublished.records shouldBe Seq(
+        Bit(110, 10L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("count(*)" -> 10L))
+      )
+
+      val sumBucketPublished = probe.expectMsgType[RecordsPublished]
+      sumBucketPublished.metric shouldBe "people"
+      sumBucketPublished.records shouldBe Seq(
+        Bit(110, 250L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("sum(*)" -> 250L))
+      )
+
+      val avgBucketPublished = probe.expectMsgType[RecordsPublished]
+      avgBucketPublished.metric shouldBe "people"
+      avgBucketPublished.records shouldBe Seq(
+        Bit(110, 25.0, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("avg(*)" -> 25.0))
+      )
+
+      val minBucketPublished = probe.expectMsgType[RecordsPublished]
+      minBucketPublished.metric shouldBe "people"
+      minBucketPublished.records shouldBe Seq(
+        Bit(110, 25L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("min(*)" -> 25L))
+      )
+
+      val maxBucketPublished = probe.expectMsgType[RecordsPublished]
+      maxBucketPublished.metric shouldBe "people"
+      maxBucketPublished.records shouldBe Seq(
+        Bit(110, 25L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("max(*)" -> 25L))
+      )
+
+      probe.expectNoMessage(5 seconds)
+    }
   }
 }
