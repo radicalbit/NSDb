@@ -26,6 +26,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
+import io.radicalbit.nsdb.actors.PublisherActor.{TemporalBucket, NSDbQuery}
 import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
@@ -43,14 +44,6 @@ import org.apache.lucene.index.IndexWriter
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
-
-/**
-  * Models queries used for the  subscription process.
-  * @param uuid a generated, unique identifier for a query.
-  * @param query the parsed select statement.
-  * @param parsedQuery the parsed query which contains information about the type of query and the actual lucene query.
-  */
-class NSDbQuery(val uuid: String, val query: SelectSQLStatement, val parsedQuery: ParsedQuery)
 
 /**
   * Actor responsible to accept subscriptions and publish events to its subscribers.
@@ -114,7 +107,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
   /**
     * Tasks for temporal aggregated queries.
     */
-  lazy val temporalBuckets: mutable.Map[String, Seq[Bit]] = mutable.Map.empty
+  lazy val temporalBuckets: mutable.Map[String, TemporalBucket] = mutable.Map.empty
 
   override def preStart(): Unit = {
 
@@ -210,7 +203,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         temporalQuery.parsedQuery match {
           case parsedTemporalAggregatedQuery: ParsedTemporalAggregatedQuery =>
             reduceSingleTemporalBucket(schema, temporalQuery.query, parsedTemporalAggregatedQuery.aggregation)(
-              mathContext)(partialResults) match {
+              mathContext)(partialResults.bits) match {
               case Some(record) =>
                 subscribedActorsByQueryId
                   .get(quid)
@@ -249,9 +242,14 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               if (coordinatesMatch(nsdbQuery, db, namespace, metric) && temporaryIndex
                     .query(schema, parsedQuery.q, Seq.empty, 1, None)
                     .lengthCompare(1) == 0)
-                temporalBuckets.get(quid).fold(temporalBuckets += (quid -> ListBuffer(record))) { previousList =>
-                  temporalBuckets += (quid -> (previousList :+ record))
-                }
+                temporalBuckets
+                  .get(quid)
+                  .fold(
+                    temporalBuckets += (quid -> TemporalBucket(timeContext.currentTime,
+                                                               timeContext.currentTime + parsedQuery.interval,
+                                                               ListBuffer(record)))) { previousBucket =>
+                    temporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
+                  }
             case _ => // do nothing
           }
         case _ => // do nothing
@@ -279,6 +277,19 @@ object PublisherActor {
 
   def props(readCoordinator: ActorRef): Props =
     Props(new PublisherActor(readCoordinator))
+
+  /**
+    * Models queries used for the  subscription process.
+    * @param uuid a generated, unique identifier for a query.
+    * @param query the parsed select statement.
+    * @param parsedQuery the parsed query which contains information about the type of query and the actual lucene query.
+    */
+  class NSDbQuery(val uuid: String, val query: SelectSQLStatement, val parsedQuery: ParsedQuery)
+
+  /**
+    *
+    */
+  case class TemporalBucket(lowerBound: Long, upperCount: Long, bits: Seq[Bit])
 
   object Commands {
     case class SubscribeBySqlStatement(actor: ActorRef,
