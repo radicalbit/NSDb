@@ -210,21 +210,29 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         case _ => //do nothing
       }
 
-    case PushTemporalAggregatedQueries(quid) =>
+    case PushTemporalAggregatedQueries(quid, timeContext) =>
+
       for {
         temporalQuery  <- temporalAggregatedQueries.get(quid)
-        partialResults <- currentTemporalBuckets.get(quid)
+        temporalBucket <- currentTemporalBuckets.get(quid)
         schema         <- schemas.get(temporalQuery.query.metric)
       } yield {
         temporalQuery.parsedQuery match {
           case parsedTemporalAggregatedQuery: ParsedTemporalAggregatedQuery =>
             reduceSingleTemporalBucket(schema, temporalQuery.query, parsedTemporalAggregatedQuery.aggregation)(
-              mathContext)(partialResults.bits) match {
+              mathContext)(temporalBucket.bits) match {
               case Some(record) =>
                 subscribedActorsByQueryId
                   .get(quid)
                   .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
+
+                if (temporalBucket.lowerBound >= timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod.getOrElse(0L))
+                  graceTemporalBuckets += (GraceTemporalBucketKey(quid, temporalBucket.lowerBound, temporalBucket.upperBound) -> temporalBucket)
+
+                graceTemporalBuckets --= graceTemporalBuckets.filter{case (key, _) => key.upperBound < timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod.getOrElse(0L)}.keys
+
                 currentTemporalBuckets -= quid
+
               case None => //do nothing
             }
           case _ =>
@@ -272,8 +280,15 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                   ) { previousBucket =>
                     if (record.timestamp >= timeContext.currentTime)
                       currentTemporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
-                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
+                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L)) {
+
+                      val startTime = timeContext.currentTime - (record.timestamp / parsedQuery.gracePeriod.getOrElse(1L))
+                      val endTime = startTime + parsedQuery.interval
+
+                      graceTemporalBuckets.get(GraceTemporalBucketKey(quid, startTime, endTime))
+
                       ()
+                    }
                     else
                       ()
                   }
@@ -324,7 +339,7 @@ object PublisherActor {
     def contains(timestamp: Long): Boolean = timestamp <= upperBound && timestamp >= lowerBound
   }
 
-  case class GraceTemporalBucketKey(quid: String, lowerBound: Long, upperCount: Long)
+  case class GraceTemporalBucketKey(quid: String, lowerBound: Long, upperBound: Long)
 
   object Commands {
     case class SubscribeBySqlStatement(actor: ActorRef,
@@ -338,7 +353,7 @@ object PublisherActor {
         with NSDbSerializable
     case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
 
-    case class PushTemporalAggregatedQueries(quid: String) extends ControlMessage with NSDbSerializable
+    case class PushTemporalAggregatedQueries(quid: String, timeContext: TimeContext = TimeContext()) extends ControlMessage with NSDbSerializable
     case object PushStandardAggregatedQueries              extends ControlMessage with NSDbSerializable
   }
 
