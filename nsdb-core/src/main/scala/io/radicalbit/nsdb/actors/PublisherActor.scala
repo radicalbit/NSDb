@@ -25,9 +25,13 @@ import akka.dispatch.ControlMessage
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
-import io.radicalbit.nsdb.actors.PublisherActor.{TemporalBucket, NSDbQuery}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscriptionByQueryStringFailed}
+import io.radicalbit.nsdb.actors.PublisherActor.Events.Unsubscribed
+import io.radicalbit.nsdb.actors.PublisherActor.{GraceTemporalBucketKey, NSDbQuery, TemporalBucket}
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{
+  RecordsPublished,
+  SubscribedByQueryString,
+  SubscriptionByQueryStringFailed
+}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
@@ -105,9 +109,14 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
   lazy val temporalAggregatedTasks: mutable.Map[String, Cancellable] = mutable.Map.empty
 
   /**
-    * Tasks for temporal aggregated queries.
+    * Temporal buckets grouped by quid.
     */
-  lazy val temporalBuckets: mutable.Map[String, TemporalBucket] = mutable.Map.empty
+  lazy val currentTemporalBuckets: mutable.Map[String, TemporalBucket] = mutable.Map.empty
+
+  /**
+    *
+    */
+  lazy val graceTemporalBuckets: mutable.Map[GraceTemporalBucketKey, TemporalBucket] = mutable.Map.empty
 
   override def preStart(): Unit = {
 
@@ -119,13 +128,13 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
   }
 
   override def receive: Receive = {
-    case SubscribeBySqlStatement(actor, db, namespace, metric, queryString, query) =>
+    case SubscribeBySqlStatement(actor, db, namespace, metric, queryString, query, timeContextOpt) =>
       val subscribedQueryId = (plainQueries ++ aggregatedQueries).collectFirst {
         case (_, v) if v.query == query => v.uuid
       } getOrElse
         UUID.randomUUID().toString
 
-      implicit val timeContext: TimeContext = TimeContext()
+      implicit val timeContext: TimeContext = timeContextOpt getOrElse TimeContext()
 
       subscribedActorsByQueryId
         .get(subscribedQueryId)
@@ -140,13 +149,17 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId += (subscribedQueryId -> (previousRegisteredActors + actor))
                 StatementParser.parseStatement(statement, schema) match {
                   case Right(parsedSimpleQuery: ParsedSimpleQuery) =>
-                    plainQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId, query, parsedSimpleQuery))
-                    SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, values)
+                    plainQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId,
+                                                                        query,
+                                                                        parsedSimpleQuery,
+                                                                        timeContext))
+                    SubscribedByQueryString(db, namespace, metric, queryString, subscribedQueryId, values)
 
                   case Right(parsedTemporalAggregatedQuery: ParsedTemporalAggregatedQuery) =>
                     temporalAggregatedQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId,
                                                                                      query,
-                                                                                     parsedTemporalAggregatedQuery))
+                                                                                     parsedTemporalAggregatedQuery,
+                                                                                     timeContext))
                     if (!temporalAggregatedTasks.contains(subscribedQueryId)) {
                       val duration = FiniteDuration(parsedTemporalAggregatedQuery.interval,
                                                     java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -156,11 +169,14 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                         self,
                         PushTemporalAggregatedQueries(subscribedQueryId)))
                     }
-                    SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, values)
+                    SubscribedByQueryString(db, namespace, metric, queryString, subscribedQueryId, values)
                   case Right(parsedQuery: ParsedQuery) =>
-                    aggregatedQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId, query, parsedQuery))
-                    schemas += (statement.metric            -> schema)
-                    SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, values)
+                    aggregatedQueries += (subscribedQueryId -> new NSDbQuery(subscribedQueryId,
+                                                                             query,
+                                                                             parsedQuery,
+                                                                             timeContext))
+                    schemas += (statement.metric -> schema)
+                    SubscribedByQueryString(db, namespace, metric, queryString, subscribedQueryId, values)
                   case Left(error) =>
                     SubscriptionByQueryStringFailed(db, namespace, metric, queryString, error)
                 }
@@ -174,7 +190,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
             .mapTo[ExecuteSelectStatementResponse]
             .map {
               case e: SelectStatementExecuted =>
-                SubscribedByQueryStringInternal(db, namespace, metric, queryString, subscribedQueryId, e.values)
+                SubscribedByQueryString(db, namespace, metric, queryString, subscribedQueryId, e.values)
               case e: SelectStatementFailed =>
                 SubscriptionByQueryStringFailed(db, namespace, metric, queryString, e.reason)
             }
@@ -197,7 +213,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     case PushTemporalAggregatedQueries(quid) =>
       for {
         temporalQuery  <- temporalAggregatedQueries.get(quid)
-        partialResults <- temporalBuckets.get(quid)
+        partialResults <- currentTemporalBuckets.get(quid)
         schema         <- schemas.get(temporalQuery.query.metric)
       } yield {
         temporalQuery.parsedQuery match {
@@ -208,7 +224,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 subscribedActorsByQueryId
                   .get(quid)
                   .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
-                temporalBuckets -= quid
+                currentTemporalBuckets -= quid
               case None => //do nothing
             }
           case _ =>
@@ -222,7 +238,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
       (plainQueries ++ temporalAggregatedQueries).foreach {
         case (quid, nsdbQuery) if nsdbQuery.query.metric == metric && subscribedActorsByQueryId.contains(quid) =>
-          implicit val timeContext: TimeContext = TimeContext()
+          implicit val timeContext: TimeContext = nsdbQuery.timeContext
 
           val temporaryIndex: TemporaryIndex = new TemporaryIndex()
           implicit val writer: IndexWriter   = temporaryIndex.getWriter
@@ -242,13 +258,24 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
               if (coordinatesMatch(nsdbQuery, db, namespace, metric) && temporaryIndex
                     .query(schema, parsedQuery.q, Seq.empty, 1, None)
                     .lengthCompare(1) == 0)
-                temporalBuckets
+                currentTemporalBuckets
                   .get(quid)
                   .fold(
-                    temporalBuckets += (quid -> TemporalBucket(timeContext.currentTime,
-                                                               timeContext.currentTime + parsedQuery.interval,
-                                                               ListBuffer(record)))) { previousBucket =>
-                    temporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
+                    if (record.timestamp >= timeContext.currentTime)
+                      currentTemporalBuckets += (quid -> TemporalBucket(timeContext.currentTime,
+                                                                        timeContext.currentTime + parsedQuery.interval,
+                                                                        ListBuffer(record)))
+                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
+                      ()
+                    else
+                      ()
+                  ) { previousBucket =>
+                    if (record.timestamp >= timeContext.currentTime)
+                      currentTemporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
+                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
+                      ()
+                    else
+                      ()
                   }
             case _ => // do nothing
           }
@@ -283,13 +310,21 @@ object PublisherActor {
     * @param uuid a generated, unique identifier for a query.
     * @param query the parsed select statement.
     * @param parsedQuery the parsed query which contains information about the type of query and the actual lucene query.
+    * @param timeContext the time context to use for publishing records.
     */
-  class NSDbQuery(val uuid: String, val query: SelectSQLStatement, val parsedQuery: ParsedQuery)
+  class NSDbQuery(val uuid: String,
+                  val query: SelectSQLStatement,
+                  val parsedQuery: ParsedQuery,
+                  val timeContext: TimeContext)
 
   /**
     *
     */
-  case class TemporalBucket(lowerBound: Long, upperCount: Long, bits: Seq[Bit])
+  case class TemporalBucket(lowerBound: Long, upperBound: Long, bits: Seq[Bit]) {
+    def contains(timestamp: Long): Boolean = timestamp <= upperBound && timestamp >= lowerBound
+  }
+
+  case class GraceTemporalBucketKey(quid: String, lowerBound: Long, upperCount: Long)
 
   object Commands {
     case class SubscribeBySqlStatement(actor: ActorRef,
@@ -297,7 +332,8 @@ object PublisherActor {
                                        namespace: String,
                                        metric: String,
                                        queryString: String,
-                                       query: SelectSQLStatement)
+                                       query: SelectSQLStatement,
+                                       timeContext: Option[TimeContext] = None)
         extends ControlMessage
         with NSDbSerializable
     case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
@@ -308,13 +344,5 @@ object PublisherActor {
 
   object Events {
     case class Unsubscribed(actor: ActorRef) extends ControlMessage with NSDbSerializable
-    case class SubscribedByQueryStringInternal(db: String,
-                                               namespace: String,
-                                               metric: String,
-                                               queryString: String,
-                                               quid: String,
-                                               records: Seq[Bit])
-        extends ControlMessage
-        with NSDbSerializable
   }
 }

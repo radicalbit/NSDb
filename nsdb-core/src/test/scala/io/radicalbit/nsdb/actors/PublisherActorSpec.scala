@@ -19,11 +19,11 @@ package io.radicalbit.nsdb.actors
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
-import io.radicalbit.nsdb.actors.PublisherActor.Events.{SubscribedByQueryStringInternal, Unsubscribed}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.RecordsPublished
+import io.radicalbit.nsdb.actors.PublisherActor.Events.Unsubscribed
+import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
 
@@ -36,6 +36,8 @@ class PublisherActorSpec
     with Matchers
     with OneInstancePerTest
     with BeforeAndAfter {
+
+  val testTimeContext: TimeContext = TimeContext(currentTime = 0)
 
   val testRecordNotSatisfy = Bit(0, 23L, Map.empty, Map("name"   -> "john"))
   val testRecordSatisfy    = Bit(100, 25L, Map.empty, Map("name" -> "john"))
@@ -89,8 +91,14 @@ class PublisherActorSpec
   "PublisherActor" should {
     "make other actors subscribe and unsubscribe to plain queries" in {
       probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+                 SubscribeBySqlStatement(probeActor,
+                                         "db",
+                                         "namespace",
+                                         "metric",
+                                         "queryString",
+                                         testPlainSqlStatement,
+                                         Some(testTimeContext)))
+      probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testPlainSqlStatement
@@ -112,7 +120,7 @@ class PublisherActorSpec
                                          "metric",
                                          "queryString",
                                          testStandardAggregatedSqlStatement))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.aggregatedQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.aggregatedQueries.values.head.query shouldBe testStandardAggregatedSqlStatement
@@ -134,7 +142,7 @@ class PublisherActorSpec
                                          "metric",
                                          "queryString",
                                          testTemporalAggregatedSqlStatement(CountAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.temporalAggregatedQueries.values.head.query shouldBe testTemporalAggregatedSqlStatement(
@@ -152,7 +160,7 @@ class PublisherActorSpec
     "subscribe more than once" in {
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
-      val firstId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
+      val firstId = probe.expectMsgType[SubscribedByQueryString].quid
 
       publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.plainQueries.values.head.query shouldBe testPlainSqlStatement
@@ -167,7 +175,7 @@ class PublisherActorSpec
                                          "anotherOne",
                                          "queryString",
                                          testPlainSqlStatement.copy(metric = "anotherOne")))
-      val secondId = probe.expectMsgType[SubscribedByQueryStringInternal].quid
+      val secondId = probe.expectMsgType[SubscribedByQueryString].quid
 
       publisherActor.underlyingActor.plainQueries.keys.size shouldBe 2
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 2
@@ -182,7 +190,7 @@ class PublisherActorSpec
       publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.plainQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
@@ -204,7 +212,7 @@ class PublisherActorSpec
                                          "metric",
                                          "queryString",
                                          testTemporalAggregatedSqlStatement(CountAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
@@ -222,12 +230,12 @@ class PublisherActorSpec
 
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.expectMsgType[SubscribedByQueryString]
 
       secondProbe.send(
         publisherActor,
         SubscribeBySqlStatement(secondProbe.ref, "db", "namespace", "metric", "queryString", testPlainSqlStatement))
-      secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+      secondProbe.expectMsgType[SubscribedByQueryString]
 
       probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
       val recordPublished = probe.expectMsgType[RecordsPublished]
@@ -244,23 +252,29 @@ class PublisherActorSpec
 
       val secondProbe = TestProbe()
 
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(CountAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                Some(testTimeContext))
+      )
+      probe.expectMsgType[SubscribedByQueryString]
 
-      secondProbe.send(publisherActor,
-                       SubscribeBySqlStatement(secondProbe.ref,
-                                               "db",
-                                               "namespace",
-                                               "metric",
-                                               "queryString",
-                                               testTemporalAggregatedSqlStatement(CountAggregation)))
-      secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+      secondProbe.send(
+        publisherActor,
+        SubscribeBySqlStatement(secondProbe.ref,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                Some(testTimeContext))
+      )
+      secondProbe.expectMsgType[SubscribedByQueryString]
 
       probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
       val recordPublished = probe.expectMsgType[RecordsPublished]
@@ -279,14 +293,17 @@ class PublisherActorSpec
 
       val secondProbe = TestProbe()
 
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(CountAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                Some(testTimeContext))
+      )
+      probe.expectMsgType[SubscribedByQueryString]
 
       secondProbe.send(publisherActor,
                        SubscribeBySqlStatement(secondProbe.ref,
@@ -294,8 +311,8 @@ class PublisherActorSpec
                                                "namespace",
                                                "metric",
                                                "queryString",
-                                               testTemporalAggregatedSqlStatement(CountAggregation)))
-      secondProbe.expectMsgType[SubscribedByQueryStringInternal]
+                                               testTemporalAggregatedSqlStatement(CountAggregation), Some(testTimeContext)))
+      secondProbe.expectMsgType[SubscribedByQueryString]
 
       (1 to 10).foreach { i =>
         probe.send(
@@ -323,40 +340,40 @@ class PublisherActorSpec
                                          "namespace",
                                          "metric",
                                          "queryString",
-                                         testTemporalAggregatedSqlStatement(CountAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+                                         testTemporalAggregatedSqlStatement(CountAggregation),Some(testTimeContext)))
+      probe.expectMsgType[SubscribedByQueryString]
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor,
                                          "db",
                                          "namespace",
                                          "metric",
                                          "queryString",
-                                         testTemporalAggregatedSqlStatement(SumAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+                                         testTemporalAggregatedSqlStatement(SumAggregation),Some(testTimeContext)))
+      probe.expectMsgType[SubscribedByQueryString]
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor,
                                          "db",
                                          "namespace",
                                          "metric",
                                          "queryString",
-                                         testTemporalAggregatedSqlStatement(AvgAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+                                         testTemporalAggregatedSqlStatement(AvgAggregation),Some(testTimeContext)))
+      probe.expectMsgType[SubscribedByQueryString]
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor,
                                          "db",
                                          "namespace",
                                          "metric",
                                          "queryString",
-                                         testTemporalAggregatedSqlStatement(MinAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+                                         testTemporalAggregatedSqlStatement(MinAggregation),Some(testTimeContext)))
+      probe.expectMsgType[SubscribedByQueryString]
       probe.send(publisherActor,
                  SubscribeBySqlStatement(probeActor,
                                          "db",
                                          "namespace",
                                          "metric",
                                          "queryString",
-                                         testTemporalAggregatedSqlStatement(MaxAggregation)))
-      probe.expectMsgType[SubscribedByQueryStringInternal]
+                                         testTemporalAggregatedSqlStatement(MaxAggregation),Some(testTimeContext)))
+      probe.expectMsgType[SubscribedByQueryString]
 
       (1 to 10).foreach { i =>
         probe.send(
