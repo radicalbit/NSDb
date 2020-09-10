@@ -166,13 +166,13 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                                                                                      parsedTemporalAggregatedQuery,
                                                                                      timeContext))
                     if (!temporalAggregatedTasks.contains(subscribedQueryId)) {
-                      val duration = FiniteDuration(parsedTemporalAggregatedQuery.interval,
-                                                    java.util.concurrent.TimeUnit.MILLISECONDS)
+                      val intervalAsDuration = FiniteDuration(parsedTemporalAggregatedQuery.interval,
+                                                              java.util.concurrent.TimeUnit.MILLISECONDS)
                       temporalAggregatedTasks += (subscribedQueryId -> context.system.scheduler.scheduleAtFixedRate(
-                        duration,
-                        duration,
+                        intervalAsDuration,
+                        intervalAsDuration,
                         self,
-                        PushTemporalAggregatedQueries(subscribedQueryId)))
+                        PushTemporalAggregatedQueries(subscribedQueryId, parsedTemporalAggregatedQuery.interval)))
                     }
                     SubscribedByQueryString(db, namespace, metric, queryString, subscribedQueryId, values)
                   case Right(parsedQuery: ParsedQuery) =>
@@ -215,50 +215,64 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         case _ => //do nothing
       }
 
-    case PushTemporalAggregatedQueries(quid) =>
-      val timeContext = TimeContext()
+    case PushTemporalAggregatedQueries(quid, interval) =>
       for {
-        temporalQuery  <- temporalAggregatedQueries.get(quid)
-        temporalBucket <- currentTemporalBuckets.get(quid)
-        schema         <- schemas.get(temporalQuery.query.metric)
+        temporalQuery <- temporalAggregatedQueries.get(quid)
+        schema        <- schemas.get(temporalQuery.query.metric)
       } yield {
+
+        val timeContext = temporalQuery.timeContext
+
         temporalQuery.parsedQuery match {
           case parsedTemporalAggregatedQuery: ParsedTemporalAggregatedQuery =>
-            reduceSingleTemporalBucket(schema, parsedTemporalAggregatedQuery.aggregation)(mathContext)(
-              temporalBucket.bits).foreach { record =>
-              subscribedActorsByQueryId
-                .get(quid)
-                .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
+            currentTemporalBuckets.get(quid).foreach { temporalBucket =>
+              reduceSingleTemporalBucket(schema, parsedTemporalAggregatedQuery.aggregation)(mathContext)(
+                temporalBucket.bits).foreach { record =>
+                subscribedActorsByQueryId
+                  .get(quid)
+                  .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
 
-              if (temporalBucket.lowerBound >= timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod
-                    .getOrElse(0L))
-                graceTemporalBuckets += (GraceTemporalBucketKey(quid,
-                                                                temporalBucket.lowerBound,
-                                                                temporalBucket.upperBound) -> temporalBucket)
+                currentTemporalBuckets -= quid
+              }
 
-              graceTemporalBuckets --= graceTemporalBuckets.filter {
-                case (key, _) =>
-                  key.upperBound < timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod.getOrElse(0L)
-              }.keys
+              parsedTemporalAggregatedQuery.gracePeriod.foreach { period =>
+                if (temporalBucket.lowerBound >= timeContext.currentTime - period)
+                  graceTemporalBuckets += (GraceTemporalBucketKey(quid,
+                                                                  temporalBucket.lowerBound,
+                                                                  temporalBucket.upperBound) -> temporalBucket)
 
-              currentTemporalBuckets -= quid
-
-              lateEventsToCheck.getOrElse(quid, Seq.empty).foreach { lateEvent =>
-                graceTemporalBuckets
-                  .find {
-                    case (key, _) => key.contains(lateEvent.timestamp)
-                  }
-                  .foreach {
-                    case (_, lateBucketToPush) =>
-                      reduceSingleTemporalBucket(schema, parsedTemporalAggregatedQuery.aggregation)(mathContext)(
-                        lateBucketToPush.bits).foreach { record =>
-                        subscribedActorsByQueryId
-                          .get(quid)
-                          .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
-                      }
-                  }
+                graceTemporalBuckets --= graceTemporalBuckets.filter {
+                  case (key, _) =>
+                    key.upperBound < timeContext.currentTime - period
+                }.keys
 
               }
+
+            }
+
+            lateEventsToCheck.getOrElse(quid, Seq.empty).foreach { lateEvent =>
+              graceTemporalBuckets
+                .find {
+                  case (key, _) => key.contains(lateEvent.timestamp)
+                }
+                .foreach {
+                  case (_, lateBucketToPush) =>
+                    reduceSingleTemporalBucket(schema, parsedTemporalAggregatedQuery.aggregation)(mathContext)(
+                      lateBucketToPush.bits :+ lateEvent).foreach { record =>
+                      subscribedActorsByQueryId
+                        .get(quid)
+                        .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
+                    }
+                }
+
+            }
+
+            temporalAggregatedQueries.get(quid).fold() { oldQuery =>
+              temporalAggregatedQueries += (quid -> new NSDbQuery(
+                oldQuery.uuid,
+                oldQuery.query,
+                oldQuery.parsedQuery,
+                oldQuery.timeContext.copy(currentTime = oldQuery.timeContext.currentTime + interval)))
             }
           case _ =>
             log.warning(s"trying to process a non temporal query ${temporalQuery.query} as temporal query")
@@ -310,15 +324,14 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                   ) { previousBucket =>
                     if (record.timestamp >= timeContext.currentTime)
                       currentTemporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
-                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L)) {
+                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
                       lateEventsToCheck
                         .get(quid)
                         .fold(
                           lateEventsToCheck += (quid -> Seq(record))
                         ) { previousList =>
                           lateEventsToCheck += (quid -> (previousList :+ record))
-                        }
-                    } else
+                        } else
                       ()
                   }
             case _ => // do nothing
@@ -387,8 +400,8 @@ object PublisherActor {
         with NSDbSerializable
     case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
 
-    case class PushTemporalAggregatedQueries(quid: String) extends ControlMessage with NSDbSerializable
-    case object PushStandardAggregatedQueries              extends ControlMessage with NSDbSerializable
+    case class PushTemporalAggregatedQueries(quid: String, interval: Long) extends ControlMessage with NSDbSerializable
+    case object PushStandardAggregatedQueries                              extends ControlMessage with NSDbSerializable
   }
 
   object Events {

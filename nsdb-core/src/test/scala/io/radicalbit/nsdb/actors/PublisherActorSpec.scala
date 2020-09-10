@@ -451,12 +451,12 @@ class PublisherActorSpec
       probe.send(
         publisherActor,
         SubscribeBySqlStatement(probeActor,
-          "db",
-          "namespace",
-          "metric",
-          "queryString",
-          testTemporalAggregatedSqlStatement(CountAggregation),
-          Some(lateTimeContext))
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                Some(lateTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
 
@@ -469,66 +469,79 @@ class PublisherActorSpec
 
     "send an update for a late event within a grace period for a temporal query" in {
       val lateTimeContext = TimeContext(System.currentTimeMillis)
-
-      val secondProbe = TestProbe()
+      val eventStartTime  = lateTimeContext.currentTime + 1000L
 
       probe.send(
         publisherActor,
-        SubscribeBySqlStatement(probeActor,
+        SubscribeBySqlStatement(
+          probeActor,
           "db",
           "namespace",
           "metric",
           "queryString",
           SelectSQLStatement(
             db = "db",
-            namespace = "registry",
-            metric = "people",
+            namespace = "namespace",
+            metric = "metric",
             distinct = false,
             fields = ListFields(List(Field("value", Some(CountAggregation)))),
             condition = Some(
               Condition(
                 ComparisonExpression(dimension = "timestamp",
-                  comparison = GreaterOrEqualToOperator,
-                  value = AbsoluteComparisonValue(10L)))),
+                                     comparison = GreaterOrEqualToOperator,
+                                     value = AbsoluteComparisonValue(10L)))),
             groupBy = Some(TemporalGroupByAggregation(5000, 3, "S")),
-            gracePeriod = Some(GracePeriod("s", 20))
+            gracePeriod = Some(GracePeriod("S", 20))
           ),
-          Some(lateTimeContext))
+          Some(lateTimeContext)
+        )
       )
       probe.expectMsgType[SubscribedByQueryString]
 
-      secondProbe.send(
-        publisherActor,
-        SubscribeBySqlStatement(secondProbe.ref,
-          "db",
-          "namespace",
-          "metric",
-          "queryString",
-          testTemporalAggregatedSqlStatement(CountAggregation),
-          Some(lateTimeContext))
-      )
-      secondProbe.expectMsgType[SubscribedByQueryString]
-
       (1 to 10).foreach { i =>
-        probe.send(
-          publisherActor,
-          PublishRecord("db", "registry", "people", Bit(lateTimeContext.currentTime + 1000 + i, 25L, Map.empty, Map("name" -> "john")), schema))
+        probe.send(publisherActor,
+                   PublishRecord("db",
+                                 "namespace",
+                                 "metric",
+                                 Bit(eventStartTime + i, 25L, Map.empty, Map("name" -> "john")),
+                                 schema))
       }
 
       val recordPublished = probe.expectMsgType[RecordsPublished]
       recordPublished.metric shouldBe "people"
       recordPublished.records shouldBe Seq(
-        Bit(lateTimeContext.currentTime + 1000 + 10, 10L, Map("upperBound" -> (lateTimeContext.currentTime + 1000L + 10L), "lowerBound" -> (lateTimeContext.currentTime + 1000L +  1L)), Map("count(*)" -> 10L))
+        Bit(eventStartTime + 10,
+            10L,
+            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
+            Map("count(*)"   -> 10L))
       )
 
-      secondProbe.expectMsgType[RecordsPublished]
-
       probe.expectNoMessage(1 seconds)
-      secondProbe.expectNoMessage(1 seconds)
 
       publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
       publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 1
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+
+      //time has passed... now this is a late event
+      probe.send(
+        publisherActor,
+        PublishRecord("db", "namespace", "metric", Bit(eventStartTime, 25L, Map.empty, Map("name" -> "john")), schema))
+
+      probe.expectNoMessage(1 seconds)
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 1
+      publisherActor.underlyingActor.temporalAggregatedQueries.size shouldBe 1
+      publisherActor.underlyingActor.lateEventsToCheck.head shouldBe
+        (publisherActor.underlyingActor.temporalAggregatedQueries.head._1,
+        Seq(Bit(eventStartTime, 25L, Map.empty, Map("name" -> "john"))))
+
+      val lateRecordPublished = probe.expectMsgType[RecordsPublished]
+      lateRecordPublished.metric shouldBe "people"
+      lateRecordPublished.records shouldBe Seq(
+        Bit(eventStartTime + 10,
+            11L,
+            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
+            Map("count(*)"   -> 10L))
+      )
     }
   }
 }
