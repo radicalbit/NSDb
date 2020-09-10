@@ -287,6 +287,10 @@ class PublisherActorSpec
 
       probe.expectNoMessage(5 seconds)
       secondProbe.expectNoMessage(5 seconds)
+
+      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
     }
 
     "send a message to all its subscribers when multiple matching event comes for a temporal count query" in {
@@ -333,6 +337,10 @@ class PublisherActorSpec
 
       probe.expectNoMessage(5 seconds)
       secondProbe.expectNoMessage(5 seconds)
+
+      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
     }
 
     "send a message to all its subscribers when multiple matching event comes for a multiple count query with different aggregations" in {
@@ -430,6 +438,97 @@ class PublisherActorSpec
       )
 
       probe.expectNoMessage(5 seconds)
+
+      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+    }
+
+    "do nothing if a late event comes for a temporal query without a grace period set" in {
+
+      val lateTimeContext = TimeContext(10000L)
+
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+          "db",
+          "namespace",
+          "metric",
+          "queryString",
+          testTemporalAggregatedSqlStatement(CountAggregation),
+          Some(lateTimeContext))
+      )
+      probe.expectMsgType[SubscribedByQueryString]
+
+      probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
+
+      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+    }
+
+    "send an update for a late event within a grace period for a temporal query" in {
+      val lateTimeContext = TimeContext(System.currentTimeMillis)
+
+      val secondProbe = TestProbe()
+
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+          "db",
+          "namespace",
+          "metric",
+          "queryString",
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            condition = Some(
+              Condition(
+                ComparisonExpression(dimension = "timestamp",
+                  comparison = GreaterOrEqualToOperator,
+                  value = AbsoluteComparisonValue(10L)))),
+            groupBy = Some(TemporalGroupByAggregation(5000, 3, "S")),
+            gracePeriod = Some(GracePeriod("s", 20))
+          ),
+          Some(lateTimeContext))
+      )
+      probe.expectMsgType[SubscribedByQueryString]
+
+      secondProbe.send(
+        publisherActor,
+        SubscribeBySqlStatement(secondProbe.ref,
+          "db",
+          "namespace",
+          "metric",
+          "queryString",
+          testTemporalAggregatedSqlStatement(CountAggregation),
+          Some(lateTimeContext))
+      )
+      secondProbe.expectMsgType[SubscribedByQueryString]
+
+      (1 to 10).foreach { i =>
+        probe.send(
+          publisherActor,
+          PublishRecord("db", "registry", "people", Bit(lateTimeContext.currentTime + 1000 + i, 25L, Map.empty, Map("name" -> "john")), schema))
+      }
+
+      val recordPublished = probe.expectMsgType[RecordsPublished]
+      recordPublished.metric shouldBe "people"
+      recordPublished.records shouldBe Seq(
+        Bit(lateTimeContext.currentTime + 1000 + 10, 10L, Map("upperBound" -> (lateTimeContext.currentTime + 1000L + 10L), "lowerBound" -> (lateTimeContext.currentTime + 1000L +  1L)), Map("count(*)" -> 10L))
+      )
+
+      secondProbe.expectMsgType[RecordsPublished]
+
+      probe.expectNoMessage(1 seconds)
+      secondProbe.expectNoMessage(1 seconds)
+
+      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 1
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
     }
   }
 }
