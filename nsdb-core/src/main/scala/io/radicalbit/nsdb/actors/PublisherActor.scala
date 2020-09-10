@@ -118,6 +118,11 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     */
   lazy val graceTemporalBuckets: mutable.Map[GraceTemporalBucketKey, TemporalBucket] = mutable.Map.empty
 
+  /**
+    *
+    */
+  lazy val lateEventsToCheck : mutable.Map[String, Seq[Bit]] = mutable.Map.empty
+
   override def preStart(): Unit = {
 
     /**
@@ -210,8 +215,8 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         case _ => //do nothing
       }
 
-    case PushTemporalAggregatedQueries(quid, timeContext) =>
-
+    case PushTemporalAggregatedQueries(quid) =>
+      val timeContext = TimeContext()
       for {
         temporalQuery  <- temporalAggregatedQueries.get(quid)
         temporalBucket <- currentTemporalBuckets.get(quid)
@@ -226,10 +231,16 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                   .get(quid)
                   .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
 
-                if (temporalBucket.lowerBound >= timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod.getOrElse(0L))
-                  graceTemporalBuckets += (GraceTemporalBucketKey(quid, temporalBucket.lowerBound, temporalBucket.upperBound) -> temporalBucket)
+                if (temporalBucket.lowerBound >= timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod
+                      .getOrElse(0L))
+                  graceTemporalBuckets += (GraceTemporalBucketKey(quid,
+                                                                  temporalBucket.lowerBound,
+                                                                  temporalBucket.upperBound) -> temporalBucket)
 
-                graceTemporalBuckets --= graceTemporalBuckets.filter{case (key, _) => key.upperBound < timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod.getOrElse(0L)}.keys
+                graceTemporalBuckets --= graceTemporalBuckets.filter {
+                  case (key, _) =>
+                    key.upperBound < timeContext.currentTime - parsedTemporalAggregatedQuery.gracePeriod.getOrElse(0L)
+                }.keys
 
                 currentTemporalBuckets -= quid
 
@@ -274,22 +285,23 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                                                                         timeContext.currentTime + parsedQuery.interval,
                                                                         ListBuffer(record)))
                     else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
-                      ()
+                      lateEventsToCheck.get(quid).fold(
+                        lateEventsToCheck += (quid -> Seq(record))
+                      ) { previousList =>
+                        lateEventsToCheck += (quid -> (previousList :+ record))
+                      }
                     else
                       ()
                   ) { previousBucket =>
                     if (record.timestamp >= timeContext.currentTime)
                       currentTemporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
                     else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L)) {
-
-                      val startTime = timeContext.currentTime - (record.timestamp / parsedQuery.gracePeriod.getOrElse(1L))
-                      val endTime = startTime + parsedQuery.interval
-
-                      graceTemporalBuckets.get(GraceTemporalBucketKey(quid, startTime, endTime))
-
-                      ()
-                    }
-                    else
+                      lateEventsToCheck.get(quid).fold(
+                        lateEventsToCheck += (quid -> Seq(record))
+                      ) { previousList =>
+                        lateEventsToCheck += (quid -> (previousList :+ record))
+                      }
+                    } else
                       ()
                   }
             case _ => // do nothing
@@ -333,12 +345,15 @@ object PublisherActor {
                   val timeContext: TimeContext)
 
   /**
-    *
+    * Defines a sequence of partial results delimited by a time interval.
     */
   case class TemporalBucket(lowerBound: Long, upperBound: Long, bits: Seq[Bit]) {
     def contains(timestamp: Long): Boolean = timestamp <= upperBound && timestamp >= lowerBound
   }
 
+  /**
+    * Defines a key for a subscribed query within a time interval.
+    */
   case class GraceTemporalBucketKey(quid: String, lowerBound: Long, upperBound: Long)
 
   object Commands {
@@ -353,8 +368,10 @@ object PublisherActor {
         with NSDbSerializable
     case class Unsubscribe(actor: ActorRef) extends ControlMessage with NSDbSerializable
 
-    case class PushTemporalAggregatedQueries(quid: String, timeContext: TimeContext = TimeContext()) extends ControlMessage with NSDbSerializable
-    case object PushStandardAggregatedQueries              extends ControlMessage with NSDbSerializable
+    case class PushTemporalAggregatedQueries(quid: String)
+        extends ControlMessage
+        with NSDbSerializable
+    case object PushStandardAggregatedQueries extends ControlMessage with NSDbSerializable
   }
 
   object Events {

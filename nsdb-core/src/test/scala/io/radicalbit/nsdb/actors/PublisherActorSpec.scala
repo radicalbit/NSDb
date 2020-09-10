@@ -305,13 +305,16 @@ class PublisherActorSpec
       )
       probe.expectMsgType[SubscribedByQueryString]
 
-      secondProbe.send(publisherActor,
-                       SubscribeBySqlStatement(secondProbe.ref,
-                                               "db",
-                                               "namespace",
-                                               "metric",
-                                               "queryString",
-                                               testTemporalAggregatedSqlStatement(CountAggregation), Some(testTimeContext)))
+      secondProbe.send(
+        publisherActor,
+        SubscribeBySqlStatement(secondProbe.ref,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                Some(testTimeContext))
+      )
       secondProbe.expectMsgType[SubscribedByQueryString]
 
       (1 to 10).foreach { i =>
@@ -334,45 +337,60 @@ class PublisherActorSpec
 
     "send a message to all its subscribers when multiple matching event comes for a multiple count query with different aggregations" in {
 
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(CountAggregation),Some(testTimeContext)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                Some(testTimeContext))
+      )
       probe.expectMsgType[SubscribedByQueryString]
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(SumAggregation),Some(testTimeContext)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(SumAggregation),
+                                Some(testTimeContext))
+      )
       probe.expectMsgType[SubscribedByQueryString]
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(AvgAggregation),Some(testTimeContext)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(AvgAggregation),
+                                Some(testTimeContext))
+      )
       probe.expectMsgType[SubscribedByQueryString]
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(MinAggregation),Some(testTimeContext)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(MinAggregation),
+                                Some(testTimeContext))
+      )
       probe.expectMsgType[SubscribedByQueryString]
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(MaxAggregation),Some(testTimeContext)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(MaxAggregation),
+                                Some(testTimeContext))
+      )
       probe.expectMsgType[SubscribedByQueryString]
 
       (1 to 10).foreach { i =>
