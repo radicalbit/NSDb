@@ -288,8 +288,8 @@ class PublisherActorSpec
       probe.expectNoMessage(5 seconds)
       secondProbe.expectNoMessage(5 seconds)
 
-      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
-      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 0
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
     }
 
@@ -338,8 +338,8 @@ class PublisherActorSpec
       probe.expectNoMessage(5 seconds)
       secondProbe.expectNoMessage(5 seconds)
 
-      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
-      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 0
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
     }
 
@@ -439,8 +439,8 @@ class PublisherActorSpec
 
       probe.expectNoMessage(5 seconds)
 
-      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
-      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 0
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
     }
 
@@ -462,9 +462,81 @@ class PublisherActorSpec
 
       probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
 
-      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
-      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 0
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+    }
+
+    "do nothing if a late event comes beyond the grace period" in {
+
+      val lateTimeContext = TimeContext(System.currentTimeMillis)
+      val eventStartTime  = lateTimeContext.currentTime + 1000L
+
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(
+          probeActor,
+          "db",
+          "namespace",
+          "metric",
+          "queryString",
+          SelectSQLStatement(
+            db = "db",
+            namespace = "namespace",
+            metric = "metric",
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            condition = Some(
+              Condition(
+                ComparisonExpression(dimension = "timestamp",
+                                     comparison = GreaterOrEqualToOperator,
+                                     value = AbsoluteComparisonValue(10L)))),
+            groupBy = Some(TemporalGroupByAggregation(5000, 3, "S")),
+            gracePeriod = Some(GracePeriod("S", 20))
+          ),
+          Some(lateTimeContext)
+        )
+      )
+      probe.expectMsgType[SubscribedByQueryString]
+
+      (1 to 10).foreach { i =>
+        probe.send(publisherActor,
+                   PublishRecord("db",
+                                 "namespace",
+                                 "metric",
+                                 Bit(eventStartTime + i, 25L, Map.empty, Map("name" -> "john")),
+                                 schema))
+      }
+
+      val recordPublished = probe.expectMsgType[RecordsPublished]
+      recordPublished.metric shouldBe "people"
+      recordPublished.records shouldBe Seq(
+        Bit(eventStartTime + 10,
+            10L,
+            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
+            Map("count(*)"   -> 10L))
+      )
+
+      probe.expectNoMessage(1 seconds)
+
+      publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 1
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+
+      //sending an event beyond the grace period
+      probe.send(publisherActor,
+                 PublishRecord("db",
+                               "namespace",
+                               "metric",
+                               Bit(eventStartTime - 20000, 25L, Map.empty, Map("name" -> "john")),
+                               schema))
+
+      probe.expectNoMessage(1 seconds)
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 1
+      probe.expectNoMessage(10 seconds)
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 0
     }
 
     "send an update for a late event within a grace period for a temporal query" in {
@@ -518,8 +590,8 @@ class PublisherActorSpec
 
       probe.expectNoMessage(1 seconds)
 
-      publisherActor.underlyingActor.currentTemporalBuckets.size shouldBe 0
-      publisherActor.underlyingActor.graceTemporalBuckets.size shouldBe 1
+      publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 1
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
 
       //time has passed... now this is a late event
@@ -529,6 +601,7 @@ class PublisherActorSpec
 
       probe.expectNoMessage(1 seconds)
       publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 1
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 1
       publisherActor.underlyingActor.temporalAggregatedQueries.size shouldBe 1
       publisherActor.underlyingActor.lateEventsToCheck.head shouldBe
         (publisherActor.underlyingActor.temporalAggregatedQueries.head._1,
@@ -539,9 +612,37 @@ class PublisherActorSpec
       lateRecordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             11L,
-            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> (eventStartTime + 1L)),
-            Map("count(*)"   -> 10L))
+            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> eventStartTime),
+            Map("count(*)"   -> 11L))
       )
+
+      probe.expectNoMessage(1 seconds)
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 1
+
+      //sending multiple late events
+      (1 to 10).foreach { i =>
+        probe.send(publisherActor,
+                   PublishRecord("db",
+                                 "namespace",
+                                 "metric",
+                                 Bit(eventStartTime + i, 25L, Map.empty, Map("name" -> "john")),
+                                 schema))
+      }
+
+      val multipleLateRecordPublished = probe.expectMsgType[RecordsPublished]
+      multipleLateRecordPublished.metric shouldBe "people"
+      multipleLateRecordPublished.records shouldBe Seq(
+        Bit(eventStartTime + 10,
+            21L,
+            Map("upperBound" -> (eventStartTime + 10L), "lowerBound" -> eventStartTime),
+            Map("count(*)"   -> 21L))
+      )
+
+      probe.expectNoMessage(1 seconds)
+      publisherActor.underlyingActor.lateEventsToCheck.size shouldBe 0
+      publisherActor.underlyingActor.lateTemporalBuckets.size shouldBe 0
+
     }
   }
 }
