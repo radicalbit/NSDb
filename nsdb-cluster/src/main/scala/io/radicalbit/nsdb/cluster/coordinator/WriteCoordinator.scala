@@ -24,7 +24,10 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
+  AddRecordToLocation,
+  ExecuteDeleteStatementInternalInLocations
+}
 import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._

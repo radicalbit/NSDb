@@ -24,8 +24,8 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites, PersistedBit, PersistedBits}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
-import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
+import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.{AllFacetIndexes, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.statement.StatementParser
@@ -151,7 +151,7 @@ class MetricPerformerActor(val basePath: String,
             * the operation has been retried too many times. It's time to mark the node as unavailable
             */
           if (attempt >= maxAttempts) {
-            throw new TooManyRetriesException(op.toString)
+            throw new InvalidLocationsInNode(Seq(op.location))
           }
 
           log.error("retrying operation {} attempt {} ", op, attempt)

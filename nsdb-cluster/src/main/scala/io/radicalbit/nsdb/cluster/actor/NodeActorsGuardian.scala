@@ -30,7 +30,7 @@ import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
-import io.radicalbit.nsdb.common.exception.TooManyRetriesException
+import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
 import scala.concurrent.duration.FiniteDuration
@@ -44,7 +44,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
     case e: TimeoutException =>
       log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
-    case e: TooManyRetriesException =>
+    case e: InvalidLocationsInNode =>
       log.error(e, "Too many retries on the node")
       context.system.terminate()
       Stop

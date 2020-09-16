@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.common.exception
+package io.radicalbit.nsdb.exception
 
-import scala.util.control.NoStackTrace
+import io.radicalbit.nsdb.common.exception.NSDbException
+import io.radicalbit.nsdb.model.Location
 
 /**
-  * Trait for NSDb Exceptions. It extends [[NoStackTrace]] for efficiency purpose.
+  * Exception raised in case of write failures.
+  * @param locations locations containing failures.
   */
-trait NSDbException extends RuntimeException with NoStackTrace
-
-class InvalidStatementException(val message: String) extends NSDbException
-class TypeNotSupportedException(val message: String) extends NSDbException
-class NsdbSecurityException(val message: String)     extends NSDbException
-class InvalidNodeIdException(address: String)        extends NSDbException
+class InvalidLocationsInNode(val locations: Seq[Location]) extends NSDbException

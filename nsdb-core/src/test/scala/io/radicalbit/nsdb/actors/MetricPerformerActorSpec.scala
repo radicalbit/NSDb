@@ -24,8 +24,8 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
-import io.radicalbit.nsdb.common.exception.TooManyRetriesException
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
 import org.apache.lucene.store.MMapDirectory
@@ -36,10 +36,10 @@ import scala.concurrent.duration._
 
 class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
 
-  val exceptionsCaught: ListBuffer[TooManyRetriesException] = ListBuffer.empty
+  val exceptionsCaught: ListBuffer[InvalidLocationsInNode] = ListBuffer.empty
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
-    case e: TooManyRetriesException =>
+    case e: InvalidLocationsInNode =>
       log.error(e, "TooManyRetriesException {}", e.getMessage)
       exceptionsCaught += e
       Resume
