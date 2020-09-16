@@ -24,10 +24,7 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
-  AddRecordToLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, ExecuteDeleteStatementInternalInLocations}
 import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -38,7 +35,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
-import io.radicalbit.nsdb.model.{Location, Schema}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
@@ -132,7 +129,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     * @param bit the bit containing the new schema.
     * @param op code executed in case of success.
     */
-  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(op: Schema => Future[Any]): Future[Any] =
+  def updateSchema(db: String, namespace: String, metric: String, bit: Bit)(
+      op: Schema => Future[WriteCoordinatorResponse]): Future[WriteCoordinatorResponse] =
     (schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, bit))
       .flatMap {
         case SchemaUpdated(_, _, _, schema) =>
@@ -154,7 +152,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     * @return [[LocationsGot]] if communication with metadata coordinator succeeds, RecordRejected otherwise
     */
   def getWriteLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
-      op: Seq[Location] => Future[Any]): Future[Any] =
+      op: Seq[Location] => Future[WriteCoordinatorResponse]): Future[WriteCoordinatorResponse] =
     (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).mapTo[GetWriteLocationsResponse].flatMap {
       case WriteLocationsGot(_, _, _, locations) =>
         log.debug(s"received locations for metric $metric, $locations")
@@ -185,8 +183,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
         (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
-          case msg: RecordAdded    => msg
-          case msg: RecordRejected => msg
+          case msg: RecordAccumulated => msg
+          case msg: RecordRejected    => msg
           case _ =>
             RecordRejected(db,
                            namespace,
@@ -268,8 +266,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                  bit: Bit,
                                  schema: Schema,
                                  publish: Boolean): Future[WriteCoordinatorResponse] = {
-    val (succeedResponses: List[RecordAdded], _: List[RecordRejected]) =
-      partitionResponses[RecordAdded, RecordRejected](responses)
+    val (succeedResponses: List[RecordAccumulated], _: List[RecordRejected]) =
+      partitionResponses[RecordAccumulated, RecordRejected](responses)
 
     if (succeedResponses.size == responses.size) {
       if (publish)
@@ -412,18 +410,18 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       log.info(s"unsubscribed publisher actor for node $nodeName")
       sender() ! PublisherUnSubscribed(nodeName)
     case MapInput(ts, db, namespace, metric, bit) =>
-      val startTime = System.currentTimeMillis()
+      val timeContext = TimeContext()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)
 
       val writeOperation = getWriteLocations(db, namespace, metric, bit, bit.timestamp) { locations =>
         updateSchema(db, namespace, metric, bit) { schema =>
-          accumulateOperation(locations, db, namespace, metric, startTime, bit, schema)
+          accumulateOperation(locations, db, namespace, metric, timeContext.currentTime, bit, schema)
         }
       }
 
       val writeOperationEffect: Any => Unit = { _ =>
         if (perfLogger.isDebugEnabled)
-          perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - startTime)
+          perfLogger.debug("End write request in {} millis", System.currentTimeMillis() - timeContext.currentTime)
       }
 
       writeProcessing match {
@@ -446,7 +444,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         commitLogResponses <- Future.sequence {
           locations
             .collect {
-              case location if commitLogCoordinators.get(location.node).isDefined =>
+              case location if commitLogCoordinators.contains(location.node) =>
                 (location, commitLogCoordinators(location.node))
             }
             .map {
@@ -521,7 +519,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         commitLogResponses <- Future.sequence {
           locations
             .collect {
-              case location if commitLogCoordinators.get(location.node).isDefined =>
+              case location if commitLogCoordinators.contains(location.node) =>
                 (location, commitLogCoordinators(location.node))
             }
             .map {

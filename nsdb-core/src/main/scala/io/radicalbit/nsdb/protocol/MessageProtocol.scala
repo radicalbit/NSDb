@@ -169,12 +169,12 @@ object MessageProtocol {
     case class InputMapped(db: String, namespace: String, metric: String, record: Bit)
         extends WriteCoordinatorResponse
         with NSDbSerializable
-    case class RecordAdded(db: String,
-                           namespace: String,
-                           metric: String,
-                           record: Bit,
-                           override val location: Location,
-                           override val timestamp: Long)
+    case class RecordAccumulated(db: String,
+                                 namespace: String,
+                                 metric: String,
+                                 record: Bit,
+                                 override val location: Location,
+                                 override val timestamp: Long)
         extends WriteCoordinatorResponse
         with NSDbSerializable
     case class RecordRejected(db: String,

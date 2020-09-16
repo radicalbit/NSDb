@@ -24,7 +24,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
   WriteToCommitLogSucceeded
 }
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.DeleteRecordFromShard
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAdded, RecordRejected}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAccumulated, RecordRejected}
 
 class MockedCommitLogCoordinator(probe: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = {
@@ -54,7 +54,7 @@ class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = {
     case msg @ AddRecordToLocation(db, namespace, bit, location) if location.node == "node1" =>
       probe ! msg
-      sender() ! RecordAdded(db, namespace, location.metric, bit, location, System.currentTimeMillis())
+      sender() ! RecordAccumulated(db, namespace, location.metric, bit, location, System.currentTimeMillis())
     case msg @ AddRecordToLocation(db, namespace, bit, location) if location.node == "node2" =>
       probe ! msg
       sender() ! RecordRejected(db,

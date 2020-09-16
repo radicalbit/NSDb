@@ -81,7 +81,7 @@ class MetricAccumulatorActorSpec()
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit))
     awaitAssert {
-      val expectedAdd = probe.expectMsgType[RecordAdded]
+      val expectedAdd = probe.expectMsgType[RecordAccumulated]
       expectedAdd.metric shouldBe metric
       expectedAdd.record shouldBe bit
     }
@@ -127,11 +127,11 @@ class MetricAccumulatorActorSpec()
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key2, bit21))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, key2, bit22))
     awaitAssert {
-      probe.expectMsgType[RecordAdded]
-      probe.expectMsgType[RecordAdded]
-      probe.expectMsgType[RecordAdded]
-      probe.expectMsgType[RecordAdded]
-      probe.expectMsgType[RecordAdded]
+      probe.expectMsgType[RecordAccumulated]
+      probe.expectMsgType[RecordAccumulated]
+      probe.expectMsgType[RecordAccumulated]
+      probe.expectMsgType[RecordAccumulated]
+      probe.expectMsgType[RecordAccumulated]
     }
 
     expectNoMessage(indexingInterval)
@@ -170,8 +170,8 @@ class MetricAccumulatorActorSpec()
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit1))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit2))
-    probe.expectMsgType[RecordAdded]
-    probe.expectMsgType[RecordAdded]
+    probe.expectMsgType[RecordAccumulated]
+    probe.expectMsgType[RecordAccumulated]
 
     expectNoMessage(indexingInterval)
 
@@ -206,8 +206,8 @@ class MetricAccumulatorActorSpec()
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location1, bit1))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location2, bit2))
-    probe.expectMsgType[RecordAdded]
-    probe.expectMsgType[RecordAdded]
+    probe.expectMsgType[RecordAccumulated]
+    probe.expectMsgType[RecordAccumulated]
 
     expectNoMessage(indexingInterval)
 
