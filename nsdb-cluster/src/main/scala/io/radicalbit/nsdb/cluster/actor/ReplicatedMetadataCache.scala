@@ -55,6 +55,7 @@ object ReplicatedMetadataCache {
                                                         metric: String,
                                                         node: String,
                                                         replyTo: ActorRef)
+  private final case class OutdatedLocationsRequest(replyTo: ActorRef)
   private final case class MetricInfoRequest(key: MetricInfoCacheKey, replyTo: ActorRef)
   private final case class AllMetricInfoWithRetentionRequest(replyTo: ActorRef)
   private final case class AllMetricInfoRequest(replyTo: ActorRef)
@@ -126,6 +127,13 @@ object ReplicatedMetadataCache {
   final case class DropMetricFromCacheFailed(db: String, namespace: String, metric: String) extends NSDbSerializable
   final case class NamespaceFromCacheDropped(db: String, namespace: String)                 extends NSDbSerializable
   final case class DropNamespaceFromCacheFailed(db: String, namespace: String)              extends NSDbSerializable
+
+  final case class AddOutdatedLocation(db: String, namespace: String, location: Location)       extends NSDbSerializable
+  final case class OutdatedLocationAdded(db: String, namespace: String, location: Location)     extends NSDbSerializable
+  final case class AddOutdatedLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
+  final case object GetOutdatedLocationsFromCache                                               extends NSDbSerializable
+  final case class OutdatedLocationsFromCacheGot(locations: Set[LocationWithCoordinates])       extends NSDbSerializable
+  final case class GetOutdatedLocationsFromCacheFailed(reason: String)                          extends NSDbSerializable
 }
 
 /**
@@ -176,6 +184,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     * Creates a [[ORSetKey]] for databases
     */
   private val coordinatesKey: ORSetKey[Coordinates] = ORSetKey("coordinates-cache")
+
+  /**
+    * Creates a [[ORSetKey]] for outdated locations
+    */
+  private val outdatedLocationsKey: ORSetKey[LocationWithCoordinates] = ORSetKey(s"outdated-locations-cache")
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
@@ -288,6 +301,16 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
             Future(Left(EvictLocationsInNodeFailed(nodeName)))
         }
         .pipeTo(sender)
+    case AddOutdatedLocation(db, namespace, location) =>
+      (replicator ? Update(outdatedLocationsKey, ORSet(), metadataWriteConsistency)(
+        _ :+ LocationWithCoordinates(db, namespace, location)))
+        .map {
+          case UpdateSuccess(_, _) =>
+            OutdatedLocationAdded(db, namespace, location)
+          case e =>
+            log.error(s"error in put location in cache $e")
+            AddOutdatedLocationFailed(db, namespace, location)
+        }
     case GetLocationsFromCache(db, namespace, metric) =>
       val key = MetricLocationsCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
@@ -296,6 +319,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       val key = nodeLocationsKey(nodeName)
       log.debug("searching for key {} in cache", key)
       replicator ! Get(key, ReadLocal, Some(MetricLocationsInNodeRequest(db, namespace, metric, nodeName, sender())))
+    case GetOutdatedLocationsFromCache =>
+      log.debug("searching for outdated locations in cache")
+      replicator ! Get(outdatedLocationsKey, ReadLocal, Some(OutdatedLocationsRequest(sender())))
     case GetAllMetricInfoWithRetention =>
       log.debug("searching for key {} in cache", allMetricInfoKey)
       replicator ! Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoWithRetentionRequest(sender())))
@@ -404,7 +430,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         .elements
         .toList
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, values)
-    case g @ GetSuccess(ORSetKey(_), Some(MetricLocationsInNodeRequest(db, namespace, metric, nodeName, replyTo))) =>
+    case g @ GetSuccess(ORSetKey(_), Some(MetricLocationsInNodeRequest(db, namespace, metric, _, replyTo))) =>
       val values = g.dataValue
         .asInstanceOf[ORSet[LocationWithCoordinates]]
         .elements
@@ -414,6 +440,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         }
         .toList
       replyTo ! LocationsCached(db, namespace, metric, values)
+    case g @ GetSuccess(_, Some(OutdatedLocationsRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[LocationWithCoordinates]].elements
+      replyTo ! OutdatedLocationsFromCacheGot(elements)
     case g @ GetSuccess(LWWMapKey(_), Some(MetricInfoRequest(key, replyTo))) =>
       val dataValue = g.dataValue
         .asInstanceOf[LWWMap[MetricInfoCacheKey, MetricInfo]]
@@ -442,6 +471,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
     case NotFound(_, Some(MetricLocationsInNodeRequest(db, namespace, metric, nodeName, replyTo))) =>
       replyTo ! LocationsCached(db, namespace, metric, Seq.empty)
+    case NotFound(_, Some(OutdatedLocationsRequest(replyTo))) =>
+      replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
     case NotFound(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>
