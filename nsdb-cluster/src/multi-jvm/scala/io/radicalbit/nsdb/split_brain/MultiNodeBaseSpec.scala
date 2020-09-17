@@ -6,7 +6,7 @@ import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.testkit.ImplicitSender
-import io.radicalbit.rtsae.STMultiNodeSpec
+import io.radicalbit.nsdb.STMultiNodeSpec
 
 import scala.concurrent.duration.Duration
 

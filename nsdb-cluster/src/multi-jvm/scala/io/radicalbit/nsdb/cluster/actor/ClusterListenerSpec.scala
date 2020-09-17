@@ -10,7 +10,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddL
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, RemoveNodeMetadataFailed}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
-import io.radicalbit.rtsae.STMultiNodeSpec
+import io.radicalbit.nsdb.STMultiNodeSpec
 
 import scala.concurrent.duration._
 

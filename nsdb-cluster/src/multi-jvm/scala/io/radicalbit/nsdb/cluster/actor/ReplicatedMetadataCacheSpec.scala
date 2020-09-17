@@ -8,8 +8,8 @@ import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.rtsae.STMultiNodeSpec
+import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
+import io.radicalbit.nsdb.STMultiNodeSpec
 
 import scala.concurrent.duration._
 
@@ -496,6 +496,47 @@ class ReplicatedMetadataCacheSpec
       }
 
       enterBarrier("after-node-evict")
+    }
+
+    "manage outdated locations" in {
+
+      replicatedCache ! GetOutdatedLocationsFromCache
+
+      awaitAssert {
+        expectMsgType[OutdatedLocationsFromCacheGot].locations.size shouldBe 0
+      }
+
+      enterBarrier("no-outdated-locations")
+
+      val location = Location("metric", "node1",0,1)
+
+      awaitAssert {
+        replicatedCache ! AddOutdatedLocation("db", "namespace", location)
+        val outdatedLocationAdded = expectMsgType[OutdatedLocationAdded]
+        outdatedLocationAdded.db shouldBe "db"
+        outdatedLocationAdded.namespace shouldBe "namespace"
+        outdatedLocationAdded.location shouldBe location
+      }
+
+      awaitAssert {
+        replicatedCache ! AddOutdatedLocation("db1", "namespace1", location)
+        val outdatedLocationAdded = expectMsgType[OutdatedLocationAdded]
+        outdatedLocationAdded.db shouldBe "db1"
+        outdatedLocationAdded.namespace shouldBe "namespace1"
+        outdatedLocationAdded.location shouldBe location
+      }
+
+      enterBarrier("after-add-outdated-locations")
+
+      awaitAssert {
+        replicatedCache ! GetOutdatedLocationsFromCache
+        val outdatedLocationsFromCacheGot = expectMsgType[OutdatedLocationsFromCacheGot]
+        outdatedLocationsFromCacheGot.locations shouldBe
+          Set(
+            LocationWithCoordinates("db", "namespace", location),
+            LocationWithCoordinates("db1", "namespace1", location),
+          )
+      }
     }
 
   }

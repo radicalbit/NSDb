@@ -15,7 +15,7 @@ import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, NumericType}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.rtsae.STMultiNodeSpec
+import io.radicalbit.nsdb.STMultiNodeSpec
 
 import scala.concurrent.Await
 import scala.concurrent.duration._

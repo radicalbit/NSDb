@@ -311,6 +311,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
             log.error(s"error in put location in cache $e")
             AddOutdatedLocationFailed(db, namespace, location)
         }
+        .pipeTo(sender)
     case GetLocationsFromCache(db, namespace, metric) =>
       val key = MetricLocationsCacheKey(db, namespace, metric)
       log.debug("searching for key {} in cache", key)
