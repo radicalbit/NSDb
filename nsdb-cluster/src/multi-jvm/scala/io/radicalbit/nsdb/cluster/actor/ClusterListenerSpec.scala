@@ -6,8 +6,8 @@ import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ClusterListenerTestActor.{FailureTest, SuccessTest, TestType}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, RemoveNodeMetadataFailed}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, GetOutdatedLocations, RemoveNodeMetadata}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, OutdatedLocationsGot, RemoveNodeMetadataFailed}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.nsdb.STMultiNodeSpec
@@ -26,6 +26,7 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
     case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
     case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case RemoveNodeMetadata(nodeName)              => sender() ! RemoveNodeMetadataFailed(nodeName)
+    case GetOutdatedLocations => sender() ! OutdatedLocationsGot(Seq.empty)
     case _ =>
       log.warning("Unhandled message on purpose")
   }

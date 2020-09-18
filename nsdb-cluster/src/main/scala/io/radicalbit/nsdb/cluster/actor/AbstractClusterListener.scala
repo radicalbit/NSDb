@@ -186,30 +186,6 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
         }
       } yield (children, addLocationsResult))
         .onComplete {
-//          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
-//            val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd
-//
-//            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
-//              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
-//            }
-//
-//            implicit val scheduler: Scheduler = context.system.scheduler
-//            implicit val _log: LoggingAdapter = log
-//
-//            Future
-//              .sequence {
-//                locationsGroupedBy.map {
-//                  case ((db, namespace), locations) =>
-//                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
-//                      case LocationWithCoordinates(_, _, location) => location
-//                    })
-//                }
-//              }
-//              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-//              .retry(delay, retries) {
-//                case (_, addLocationsFailedList) => addLocationsFailedList.isEmpty
-//              }
-//              .onComplete {
           case Success(
               (NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor),
                (_, failures))) if failures.isEmpty =>
@@ -221,10 +197,6 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
           case e =>
             onFailureBehaviour(member, e)
         }
-//          case unknownResponse =>
-//            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
-//            context.system.terminate()
-//        }
     case NodeAlive(nodeId, address) =>
       NSDbClusterSnapshot(context.system).addNode(nodeId, address)
     case UnreachableMember(member) =>

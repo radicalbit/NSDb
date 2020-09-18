@@ -14,6 +14,7 @@ import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
 import io.radicalbit.nsdb.STMultiNodeSpec
+import io.radicalbit.nsdb.cluster.actor.MetadataSpec.commonConfig
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
@@ -22,43 +23,8 @@ object ReplicatedSchemaCacheSpec extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
-  commonConfig(ConfigFactory.parseString("""
-    |akka.loglevel = INFO
-    |akka.actor {
-    |
-    | serialization-bindings {
-    |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
-    | }
-    |
-    | provider = "cluster"
-    | control-aware-dispatcher {
-    |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
-    |   }
-    |}
-    |akka.log-dead-letters-during-shutdown = off
-    |nsdb {
-    |
-    |  global.timeout = 30 seconds
-    |  read-coordinator.timeout = 10 seconds
-    |  namespace-schema.timeout = 10 seconds
-    |  namespace-data.timeout = 10 seconds
-    |  publisher.timeout = 10 seconds
-    |  publisher.scheduler.interval = 5 seconds
-    |  write.scheduler.interval = 15 seconds
-    |
-    |  cluster.metadata-write-consistency = "all"
-    |
-    |  write-coordinator.timeout = 5 seconds
-    |  metadata-coordinator.timeout = 5 seconds
-    |  commit-log {
-    |   serializer = "io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer"
-    |    writer = "io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter"
-    |    directory = "target/commitLog"
-    |    max-size = 50000
-    |    passivate-after = 5s
-    |  }
-    |}
-    """.stripMargin))
+  commonConfig(ConfigFactory.parseResources("application.conf"))
+
 }
 
 class ReplicatedSchemaCacheSpecMultiJvmNode1 extends ReplicatedSchemaCacheSpec
