@@ -29,7 +29,7 @@ abstract class ClusterListenerTestActor
 
   override def retrieveLocationsToAdd(): List[LocationWithCoordinates] = testType match {
     case SuccessTest =>
-      List(LocationWithCoordinates("success", "namespace", Location("metric", "node", 0L, 1L)))
+      List()
     case FailureTest =>
       List(LocationWithCoordinates("failure", "namespace", Location("metric", "node", 0L, 1L)))
   }

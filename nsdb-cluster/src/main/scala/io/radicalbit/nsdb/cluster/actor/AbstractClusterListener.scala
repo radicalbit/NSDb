@@ -32,7 +32,11 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, RemoveNodeMetadata}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
+  AddLocations,
+  GetOutdatedLocations,
+  RemoveNodeMetadata
+}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
@@ -154,45 +158,73 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
       val nodeActorsGuardian = createNodeActorsGuardian()
 
-      (nodeActorsGuardian ? GetNodeChildActors)
-        .map {
-          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
-            val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd
+      (for {
+        children @ NodeChildActorsGot(metadataCoordinator, _, _, _) <- (nodeActorsGuardian ? GetNodeChildActors)
+          .mapTo[NodeChildActorsGot]
+        outdatedLocations <- (children.metadataCoordinator ? GetOutdatedLocations).mapTo[OutdatedLocationsGot]
+        addLocationsResult <- {
 
-            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
-              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
+          val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd.diff(outdatedLocations.locations)
+
+          val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
+            case LocationWithCoordinates(database, namespace, _) => (database, namespace)
+          }
+
+          Future
+            .sequence {
+              locationsGroupedBy.map {
+                case ((db, namespace), locations) =>
+                  metadataCoordinator ? AddLocations(db, namespace, locations.map {
+                    case LocationWithCoordinates(_, _, location) => location
+                  })
+              }
             }
-
-            implicit val scheduler: Scheduler = context.system.scheduler
-            implicit val _log: LoggingAdapter = log
-
-            Future
-              .sequence {
-                locationsGroupedBy.map {
-                  case ((db, namespace), locations) =>
-                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
-                      case LocationWithCoordinates(_, _, location) => location
-                    })
-                }
-              }
-              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
-              .retry(delay, retries) {
-                case (_, addLocationsFailedList) => addLocationsFailedList.isEmpty
-              }
-              .onComplete {
-                case Success((_, failures)) if failures.isEmpty =>
-                  val nodeName = createNodeName(member)
-                  mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
-                  mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
-                  NSDbClusterSnapshot(context.system).addNode(nodeId, nodeName)
-                  onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
-                case e =>
-                  onFailureBehaviour(member, e)
-              }
-          case unknownResponse =>
-            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
-            context.system.terminate()
+            .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+            .retry(delay, retries) {
+              case (_, addLocationsFailedList) => addLocationsFailedList.isEmpty
+            }
         }
+      } yield (children, addLocationsResult))
+        .onComplete {
+//          case NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor) =>
+//            val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd
+//
+//            val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
+//              case LocationWithCoordinates(database, namespace, _) => (database, namespace)
+//            }
+//
+//            implicit val scheduler: Scheduler = context.system.scheduler
+//            implicit val _log: LoggingAdapter = log
+//
+//            Future
+//              .sequence {
+//                locationsGroupedBy.map {
+//                  case ((db, namespace), locations) =>
+//                    metadataCoordinator ? AddLocations(db, namespace, locations.map {
+//                      case LocationWithCoordinates(_, _, location) => location
+//                    })
+//                }
+//              }
+//              .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])
+//              .retry(delay, retries) {
+//                case (_, addLocationsFailedList) => addLocationsFailedList.isEmpty
+//              }
+//              .onComplete {
+          case Success(
+              (NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor),
+               (_, failures))) if failures.isEmpty =>
+            val nodeName = createNodeName(member)
+            mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
+            mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
+            NSDbClusterSnapshot(context.system).addNode(nodeId, nodeName)
+            onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
+          case e =>
+            onFailureBehaviour(member, e)
+        }
+//          case unknownResponse =>
+//            log.error(s"unknown response from nodeActorsGuardian ? GetNodeChildActors $unknownResponse")
+//            context.system.terminate()
+//        }
     case NodeAlive(nodeId, address) =>
       NSDbClusterSnapshot(context.system).addNode(nodeId, address)
     case UnreachableMember(member) =>

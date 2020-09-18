@@ -128,12 +128,18 @@ object ReplicatedMetadataCache {
   final case class NamespaceFromCacheDropped(db: String, namespace: String)                 extends NSDbSerializable
   final case class DropNamespaceFromCacheFailed(db: String, namespace: String)              extends NSDbSerializable
 
-  final case class AddOutdatedLocation(db: String, namespace: String, location: Location)       extends NSDbSerializable
-  final case class OutdatedLocationAdded(db: String, namespace: String, location: Location)     extends NSDbSerializable
-  final case class AddOutdatedLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
-  final case object GetOutdatedLocationsFromCache                                               extends NSDbSerializable
-  final case class OutdatedLocationsFromCacheGot(locations: Set[LocationWithCoordinates])       extends NSDbSerializable
-  final case class GetOutdatedLocationsFromCacheFailed(reason: String)                          extends NSDbSerializable
+  final case class AddOutdatedLocationInCache(db: String, namespace: String, location: Location)
+      extends NSDbSerializable
+  sealed trait AddLocationInCacheResponse extends NSDbSerializable
+  final case class OutdatedLocationInCacheAdded(db: String, namespace: String, location: Location)
+      extends AddLocationInCacheResponse
+  final case class AddOutdatedLocationFailed(db: String, namespace: String, location: Location)
+      extends AddLocationInCacheResponse
+  final case object GetOutdatedLocationsFromCache extends NSDbSerializable
+  sealed trait GetOutdatedLocationsFromCache      extends NSDbSerializable
+  final case class OutdatedLocationsFromCacheGot(locations: Set[LocationWithCoordinates])
+      extends GetOutdatedLocationsFromCache
+  final case class GetOutdatedLocationsFromCacheFailed(reason: String) extends GetOutdatedLocationsFromCache
 }
 
 /**
@@ -301,12 +307,12 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
             Future(Left(EvictLocationsInNodeFailed(nodeName)))
         }
         .pipeTo(sender)
-    case AddOutdatedLocation(db, namespace, location) =>
+    case AddOutdatedLocationInCache(db, namespace, location) =>
       (replicator ? Update(outdatedLocationsKey, ORSet(), metadataWriteConsistency)(
         _ :+ LocationWithCoordinates(db, namespace, location)))
         .map {
           case UpdateSuccess(_, _) =>
-            OutdatedLocationAdded(db, namespace, location)
+            OutdatedLocationInCacheAdded(db, namespace, location)
           case e =>
             log.error(s"error in put location in cache $e")
             AddOutdatedLocationFailed(db, namespace, location)

@@ -511,16 +511,16 @@ class ReplicatedMetadataCacheSpec
       val location = Location("metric", "node1",0,1)
 
       awaitAssert {
-        replicatedCache ! AddOutdatedLocation("db", "namespace", location)
-        val outdatedLocationAdded = expectMsgType[OutdatedLocationAdded]
+        replicatedCache ! AddOutdatedLocationInCache("db", "namespace", location)
+        val outdatedLocationAdded = expectMsgType[OutdatedLocationInCacheAdded]
         outdatedLocationAdded.db shouldBe "db"
         outdatedLocationAdded.namespace shouldBe "namespace"
         outdatedLocationAdded.location shouldBe location
       }
 
       awaitAssert {
-        replicatedCache ! AddOutdatedLocation("db1", "namespace1", location)
-        val outdatedLocationAdded = expectMsgType[OutdatedLocationAdded]
+        replicatedCache ! AddOutdatedLocationInCache("db1", "namespace1", location)
+        val outdatedLocationAdded = expectMsgType[OutdatedLocationInCacheAdded]
         outdatedLocationAdded.db shouldBe "db1"
         outdatedLocationAdded.namespace shouldBe "namespace1"
         outdatedLocationAdded.location shouldBe location
@@ -533,8 +533,8 @@ class ReplicatedMetadataCacheSpec
         val outdatedLocationsFromCacheGot = expectMsgType[OutdatedLocationsFromCacheGot]
         outdatedLocationsFromCacheGot.locations shouldBe
           Set(
-            LocationWithCoordinates("db", "namespace", location),
             LocationWithCoordinates("db1", "namespace1", location),
+            LocationWithCoordinates("db", "namespace", location)
           )
       }
     }
