@@ -37,8 +37,6 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     super.beforeAll()
 
-    healthCheck()
-
     val firstNode = nodes.head
 
     val nsdbConnection =

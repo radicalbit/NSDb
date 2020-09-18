@@ -124,12 +124,8 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
     case msg @ ExecuteSelectStatement(statement, _, _, _, _, _) =>
       log.debug("executing statement in metric data actor {}", statement)
       getOrCreateReader(statement.db, statement.namespace) forward msg
-    case AddRecordToLocation(db, namespace, bit, location) =>
-      getOrCreateAccumulator(db, namespace) forward AddRecordToShard(
-        db,
-        namespace,
-        Location(location.metric, nodeName, location.from, location.to),
-        bit)
+    case msg @ AddRecordToShard(db, namespace, _, _) =>
+      getOrCreateAccumulator(db, namespace) forward msg
     case DeleteRecordFromLocation(db, namespace, bit, location) =>
       getOrCreateAccumulator(db, namespace) forward DeleteRecordFromShard(
         db,
@@ -171,7 +167,6 @@ object MetricsDataActor {
   def props(basePath: String, nodeName: String, commitLogCoordinator: ActorRef): Props =
     Props(new MetricsDataActor(basePath, nodeName, commitLogCoordinator))
 
-  case class AddRecordToLocation(db: String, namespace: String, bit: Bit, location: Location) extends NSDbSerializable
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
       extends NSDbSerializable
   case class ExecuteDeleteStatementInternalInLocations(statement: DeleteSQLStatement,

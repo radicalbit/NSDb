@@ -27,7 +27,8 @@ import org.json4s.{DefaultFormats, Formats}
 /**
   * Class responsible to instantiate all the node endpoints (e.g. grpc, http and ws).
   */
-class NsdbNodeEndpoint(readCoordinator: ActorRef,
+class NsdbNodeEndpoint(nodeId: String,
+                       readCoordinator: ActorRef,
                        writeCoordinator: ActorRef,
                        metadataCoordinator: ActorRef,
                        publisher: ActorRef)(override implicit val system: ActorSystem)
@@ -38,12 +39,13 @@ class NsdbNodeEndpoint(readCoordinator: ActorRef,
 
   override implicit val logger: LoggingAdapter = Logging.getLogger(system, this)
 
-  new GrpcEndpoint(readCoordinator = readCoordinator,
+  new GrpcEndpoint(nodeId = nodeId,
+                   readCoordinator = readCoordinator,
                    writeCoordinator = writeCoordinator,
                    metadataCoordinator = metadataCoordinator)
 
   implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer
 
-  initWebEndpoint(writeCoordinator, readCoordinator, metadataCoordinator, publisher)
+  initWebEndpoint(nodeId, writeCoordinator, readCoordinator, metadataCoordinator, publisher)
 
 }

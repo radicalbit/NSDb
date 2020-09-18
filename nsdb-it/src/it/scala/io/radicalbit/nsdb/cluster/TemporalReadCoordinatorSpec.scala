@@ -51,13 +51,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
     TemporalLongMetric.testRecords.map(_.asApiBit(db, namespace, TemporalLongMetric.name)).foreach { bit =>
       eventually {
-        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).errors == "")
       }
     }
 
     TemporalDoubleMetric.testRecords.map(_.asApiBit(db, namespace, TemporalDoubleMetric.name)).foreach { bit =>
       eventually {
-        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).errors == "")
       }
     }
 

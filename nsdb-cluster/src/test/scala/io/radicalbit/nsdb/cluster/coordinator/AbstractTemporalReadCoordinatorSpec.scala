@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.model.Location
@@ -74,12 +73,12 @@ abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinat
 
     TemporalLongMetric.recordsShard1
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(TemporalLongMetric.name)),
+        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location1(TemporalLongMetric.name), r),
                      10 seconds)
       })
     TemporalDoubleMetric.recordsShard1
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location1(TemporalDoubleMetric.name)),
+        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location1(TemporalDoubleMetric.name), r),
                      10 seconds)
       })
 
@@ -91,12 +90,12 @@ abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinat
 
     TemporalLongMetric.recordsShard2
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(TemporalLongMetric.name)),
+        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(TemporalLongMetric.name), r),
                      10 seconds)
       })
     TemporalDoubleMetric.recordsShard2
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToLocation(db, namespace, r, location2(TemporalDoubleMetric.name)),
+        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(TemporalDoubleMetric.name), r),
                      10 seconds)
       })
 

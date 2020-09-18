@@ -55,8 +55,6 @@ class PublishSubscribeClusterSpec extends MiniClusterSpec {
                           value = 2,
                           tags = Map.empty)
 
-  healthCheck()
-
   test("subscribe to a query and receive real time updates") {
     val firstNode = nodes.head
     val lastNode  = nodes.last
