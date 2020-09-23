@@ -36,8 +36,8 @@ trait NSDBAkkaMiniCluster { this: NSDbConfigProvider with NSDbActors =>
   def leave(): Unit = Cluster(system).down(Cluster(system).selfAddress)
 
   def stop(): Unit = {
-    Await.result(system.terminate(), 10.seconds)
-    Await.result(system.whenTerminated, 10.seconds)
+    Await.result(system.terminate(), Duration.Inf)
+    Await.result(system.whenTerminated, Duration.Inf)
   }
 
 }

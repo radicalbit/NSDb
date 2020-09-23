@@ -505,7 +505,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
       performAddOutdatedLocationIntoCache(locations).pipeTo(sender)
     case GetOutdatedLocations =>
       (metadataCache ? GetOutdatedLocationsFromCache)
-        .mapTo[GetOutdatedLocationsFromCache]
+        .mapTo[GetOutdatedLocationsFromCacheResponse]
         .map {
           case OutdatedLocationsFromCacheGot(locations)    => OutdatedLocationsGot(locations.toSeq)
           case GetOutdatedLocationsFromCacheFailed(reason) => GetOutdatedLocationsFailed(reason)

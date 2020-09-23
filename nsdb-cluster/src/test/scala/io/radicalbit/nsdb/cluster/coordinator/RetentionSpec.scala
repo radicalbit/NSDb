@@ -22,6 +22,7 @@ import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import io.radicalbit.nsdb.cluster.`extension`.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
   AllMetricInfoWithRetentionGot,
   GetAllMetricInfoWithRetention
@@ -30,7 +31,6 @@ import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetricsDataActor}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetricInfoPut
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
-import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
@@ -126,16 +126,20 @@ class RetentionSpec
     val cluster = Cluster(system)
     cluster.join(cluster.selfAddress)
 
-    val nodeName = createNodeName(cluster.selfMember)
+    val nodesId = awaitAssert {
+      val nodes = NSDbClusterSnapshot(system).nodes
+      nodes.size shouldBe 1
+      nodes.head._2
+    }
 
     val metricsDataActor =
-      system.actorOf(MetricsDataActor.props(basePath, nodeName, Actor.noSender))
+      system.actorOf(MetricsDataActor.props(basePath, nodesId, Actor.noSender))
 
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, nodeName), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName), 10 seconds)
-    Await.result(writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodeName), 10 seconds)
-    Await.result(writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName), 10 seconds)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, nodesId), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodesId), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodesId), 10 seconds)
+    Await.result(writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodesId), 10 seconds)
+    Await.result(writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodesId), 10 seconds)
 
     Await.result(writeCoordinator ? DropMetric(db, namespace, metricWithRetention), 10 seconds)
     Await.result(writeCoordinator ? DropMetric(db, namespace, metricWithoutRetention), 10 seconds)

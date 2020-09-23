@@ -48,7 +48,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   system.actorOf(ClusterListenerTestActor.props(), name = "clusterListener")
 
-  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/metadata-coordinator_${nodeName}_$nodeName"
+  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
 
   "Metadata system" must {
 

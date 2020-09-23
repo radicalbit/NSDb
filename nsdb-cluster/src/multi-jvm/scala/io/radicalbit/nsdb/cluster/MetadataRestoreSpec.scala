@@ -36,8 +36,8 @@ class MetadataRestoreSpecMultiJvmNode2 extends MetadataRestoreSpec {}
 class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMultiNodeSpec with ImplicitSender {
   override def initialParticipants: Int = roles.size
 
-  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/metadata-coordinator_${nodeName}_$nodeName"
-  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}/schema-coordinator_${nodeName}_$nodeName"
+  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
+  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/schema-coordinator_${nodeName}_$nodeName"
 
  system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 

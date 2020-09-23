@@ -50,8 +50,6 @@ object Commons {
     ),
     parallelExecution in Test := false,
     parallelExecution in IntegrationTest := false,
-    testForkedParallel in Test := false,
-    testForkedParallel in IntegrationTest := false,
     concurrentRestrictions in Test += Tags.limitAll(1),
     concurrentRestrictions in IntegrationTest += Tags.limitAll(1),
     test in assembly := {},

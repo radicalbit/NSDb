@@ -47,10 +47,7 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
 
   override def afterAll(): Unit = {
     leave()
-    stopCheck
     stop()
-    waitIndexing()
-    waitIndexing()
   }
 
 
@@ -66,12 +63,5 @@ trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually wi
           assert(NSDbClusterSnapshot(node.system).nodes.size == nodes.size)
         }
       }
-
-  def stopCheck(): Set[Assertion] =
-    nodes.map { node =>
-      eventually {
-        assert(NSDbClusterSnapshot(node.system).nodes.isEmpty)
-      }
-    }
 
 }
