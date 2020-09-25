@@ -45,7 +45,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
       log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
     case e: InvalidLocationsInNode =>
-      log.error(e, "Too many retries on the node")
+      log.error(e, s"Invalid locations ${e.locations} found")
       context.system.terminate()
       Stop
     case t =>

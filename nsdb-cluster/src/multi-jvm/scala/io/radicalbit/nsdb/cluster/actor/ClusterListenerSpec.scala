@@ -26,7 +26,7 @@ class MetaDataCoordinatorForTest extends Actor with ActorLogging {
     case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
     case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
     case RemoveNodeMetadata(nodeName)              => sender() ! RemoveNodeMetadataFailed(nodeName)
-    case GetOutdatedLocations => sender() ! OutdatedLocationsGot(Seq.empty)
+    case GetOutdatedLocations                      => sender() ! OutdatedLocationsGot(Seq.empty)
     case _ =>
       log.warning("Unhandled message on purpose")
   }

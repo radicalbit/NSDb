@@ -551,7 +551,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
             data.foreach {
               case ("coordinates-cache", envelope: DurableStore.DurableDataEnvelope) =>
                 envelope.data.asInstanceOf[ORSet[Coordinates]].elements.foreach {
-                  case c @ Coordinates(db, namespace, metric) =>
+                  case Coordinates(db, namespace, metric) =>
                     metadataCache ! PutCoordinateInCache(db, namespace, metric)
                 }
               case ("all-metric-info-cache", envelope: DurableStore.DurableDataEnvelope) =>

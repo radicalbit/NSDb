@@ -40,7 +40,7 @@ class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
 
   override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1) {
     case e: InvalidLocationsInNode =>
-      log.error(e, "TooManyRetriesException {}", e.getMessage)
+      log.error(e, s"Invalid locations ${e.locations} found")
       exceptionsCaught += e
       Resume
     case t =>
