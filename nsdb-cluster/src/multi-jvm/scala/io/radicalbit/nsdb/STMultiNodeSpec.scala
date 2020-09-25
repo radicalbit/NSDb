@@ -1,4 +1,4 @@
-package io.radicalbit.rtsae
+package io.radicalbit.nsdb
 
 import akka.cluster.Cluster
 import akka.remote.testconductor.RoleName

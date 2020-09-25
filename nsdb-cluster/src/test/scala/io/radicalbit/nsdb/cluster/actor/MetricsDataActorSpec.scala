@@ -75,7 +75,7 @@ class MetricsDataActorSpec()
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace, record, location(metric)))
 
     val expectedAdd = awaitAssert {
-      probe.expectMsgType[RecordAdded]
+      probe.expectMsgType[RecordAccumulated]
     }
     expectedAdd.metric shouldBe metric
     expectedAdd.record shouldBe record
@@ -112,7 +112,7 @@ class MetricsDataActorSpec()
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
 
     awaitAssert {
-      probe.expectMsgType[RecordAdded]
+      probe.expectMsgType[RecordAccumulated]
     }
 
     expectNoMessage(interval)
@@ -142,7 +142,7 @@ class MetricsDataActorSpec()
     probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
 
     awaitAssert {
-      probe.expectMsgType[RecordAdded]
+      probe.expectMsgType[RecordAccumulated]
     }
 
     expectNoMessage(interval)

@@ -37,14 +37,14 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatemen
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
-import io.radicalbit.nsdb.util.ErrorManagementUtils._
+import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
-import io.radicalbit.nsdb.model.{Location, Schema, TimeContext}
+import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates, Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
@@ -115,6 +115,27 @@ class MetadataCoordinator(clusterListener: ActorRef,
             .flatMap { _ =>
               Future(AddLocationsFailed(db, namespace, errorResponses.map(_.location)))
             }
+        }
+      }
+
+  private def performAddOutdatedLocationIntoCache(
+      locations: Seq[LocationWithCoordinates]): Future[AddOutdatedLocationsResponse] =
+    Future
+      .sequence(locations.map {
+        case LocationWithCoordinates(db, namespace, location) =>
+          (metadataCache ? AddOutdatedLocationInCache(db, namespace, location))
+            .mapTo[AddLocationInCacheResponse]
+      })
+      .flatMap { responses =>
+        val (successResponses: List[OutdatedLocationInCacheAdded], errorResponses: List[AddOutdatedLocationFailed]) =
+          partitionResponses[OutdatedLocationInCacheAdded, AddOutdatedLocationFailed](responses)
+
+        if (successResponses.size == responses.size) {
+          Future(OutdatedLocationsAdded(successResponses.map(res =>
+            LocationWithCoordinates(res.db, res.namespace, res.location))))
+        } else {
+          log.error(s"errors in adding outdated locations in cache $errorResponses")
+          Future(AddOutdatedLocationsFailed(locations))
         }
       }
 
@@ -475,6 +496,16 @@ class MetadataCoordinator(clusterListener: ActorRef,
       }
     case AddLocations(db, namespace, locations) =>
       performAddLocationIntoCache(db, namespace, locations).pipeTo(sender)
+    case AddOutdatedLocations(locations) =>
+      performAddOutdatedLocationIntoCache(locations).pipeTo(sender)
+    case GetOutdatedLocations =>
+      (metadataCache ? GetOutdatedLocationsFromCache)
+        .mapTo[GetOutdatedLocationsFromCache]
+        .map {
+          case OutdatedLocationsFromCacheGot(locations)    => OutdatedLocationsGot(locations.toSeq)
+          case GetOutdatedLocationsFromCacheFailed(reason) => GetOutdatedLocationsFailed(reason)
+        }
+        .pipeTo(sender)
     case GetMetricInfo(db, namespace, metric) =>
       (metadataCache ? GetMetricInfoFromCache(db, namespace, metric))
         .map {
@@ -514,7 +545,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
       (temporaryDurableStoreActor ? LoadAll)
         .map {
           case LoadData(data) =>
-            log.debug(s"restoring $data")
+            log.error(s"restoring $data")
             log.info(s"restoring ${data.size} metadata entries")
 
             data.foreach {
@@ -578,6 +609,9 @@ object MetadataCoordinator {
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
         extends NSDbSerializable
     case class AddLocations(db: String, namespace: String, locations: Seq[Location]) extends NSDbSerializable
+    case class AddOutdatedLocations(locations: Seq[LocationWithCoordinates])         extends NSDbSerializable
+    case object GetOutdatedLocations                                                 extends NSDbSerializable
+
     case class DeleteMetricMetadata(db: String,
                                     namespace: String,
                                     metric: String,
@@ -613,11 +647,6 @@ object MetadataCoordinator {
                                                 retention: Long)
         extends GetWriteLocationsResponse
 
-    case class UpdateLocationFailed(db: String, namespace: String, oldLocation: Location, newOccupation: Long)
-        extends NSDbSerializable
-    case class LocationAdded(db: String, namespace: String, location: Location)     extends NSDbSerializable
-    case class AddLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
-
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
       Array(
@@ -627,6 +656,26 @@ object MetadataCoordinator {
     sealed trait AddLocationsResponse                                                      extends NSDbSerializable
     case class LocationsAdded(db: String, namespace: String, locations: Seq[Location])     extends AddLocationsResponse
     case class AddLocationsFailed(db: String, namespace: String, locations: Seq[Location]) extends AddLocationsResponse
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[OutdatedLocationsAdded], name = "OutdatedLocationsAdded"),
+        new JsonSubTypes.Type(value = classOf[AddOutdatedLocationsFailed], name = "AddOutdatedLocationsFailed")
+      ))
+    sealed trait AddOutdatedLocationsResponse                                      extends NSDbSerializable
+    case class OutdatedLocationsAdded(locations: Seq[LocationWithCoordinates])     extends AddOutdatedLocationsResponse
+    case class AddOutdatedLocationsFailed(locations: Seq[LocationWithCoordinates]) extends AddOutdatedLocationsResponse
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes(
+      Array(
+        new JsonSubTypes.Type(value = classOf[OutdatedLocationsAdded], name = "OutdatedLocationsGot"),
+        new JsonSubTypes.Type(value = classOf[AddOutdatedLocationsFailed], name = "GetOutdatedLocationsFailed")
+      ))
+    sealed trait GetOutdatedLocationsResponse                                extends NSDbSerializable
+    case class OutdatedLocationsGot(locations: Seq[LocationWithCoordinates]) extends GetOutdatedLocationsResponse
+    case class GetOutdatedLocationsFailed(reason: String)                    extends GetOutdatedLocationsResponse
 
     case class MetricMetadataDeleted(db: String, namespace: String, metric: String, occurredOn: Long)
         extends NSDbSerializable
