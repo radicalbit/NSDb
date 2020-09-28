@@ -17,11 +17,12 @@
 package io.radicalbit.nsdb.minicluster
 
 import akka.actor.ActorSystem
+import akka.cluster.Cluster
 import io.radicalbit.nsdb.cluster.NSDbActors
 import io.radicalbit.nsdb.common.configuration.NSDbConfigProvider
 
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 trait NSDBAkkaMiniCluster { this: NSDbConfigProvider with NSDbActors =>
 
@@ -32,6 +33,11 @@ trait NSDBAkkaMiniCluster { this: NSDbConfigProvider with NSDbActors =>
     initTopLevelActors()
   }
 
-  def stop(): Unit = Await.result(system.terminate(), 10.seconds)
+  def leave(): Unit = Cluster(system).down(Cluster(system).selfAddress)
+
+  def stop(): Unit = {
+    Await.result(system.terminate(), Duration.Inf)
+    Await.result(system.whenTerminated, Duration.Inf)
+  }
 
 }

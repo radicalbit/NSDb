@@ -17,13 +17,12 @@
 package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
   WriteToCommitLog,
   WriteToCommitLogFailed,
   WriteToCommitLogSucceeded
 }
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.DeleteRecordFromShard
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{AddRecordToShard, DeleteRecordFromShard}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAccumulated, RecordRejected}
 
 class MockedCommitLogCoordinator(probe: ActorRef) extends Actor with ActorLogging {
@@ -52,10 +51,10 @@ case object MockedCommitLogCoordinator {
 class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {
 
   override def receive: Receive = {
-    case msg @ AddRecordToLocation(db, namespace, bit, location) if location.node == "node1" =>
+    case msg @ AddRecordToShard(db, namespace, location, bit) if location.node == "node1" =>
       probe ! msg
       sender() ! RecordAccumulated(db, namespace, location.metric, bit, location, System.currentTimeMillis())
-    case msg @ AddRecordToLocation(db, namespace, bit, location) if location.node == "node2" =>
+    case msg @ AddRecordToShard(db, namespace, location, bit) if location.node == "node2" =>
       probe ! msg
       sender() ! RecordRejected(db,
                                 namespace,

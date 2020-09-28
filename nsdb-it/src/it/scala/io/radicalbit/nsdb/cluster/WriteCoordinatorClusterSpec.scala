@@ -32,8 +32,6 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 
-  healthCheck()
-
   test("add record from first node") {
 
     val firstNode = nodes.head

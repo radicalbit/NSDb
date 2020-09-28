@@ -74,7 +74,7 @@ import scala.util.{Failure, Success, Try}
   * @param writeCoordinator the write coordinator actor
   * @param system the global actor system
   */
-class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metadataCoordinator: ActorRef)(
+class GrpcEndpoint(nodeId: String, readCoordinator: ActorRef, writeCoordinator: ActorRef, metadataCoordinator: ActorRef)(
     implicit system: ActorSystem)
     extends GRPCServer {
 
@@ -104,16 +104,17 @@ class GrpcEndpoint(readCoordinator: ActorRef, writeCoordinator: ActorRef, metada
 
   start() match {
     case Success(_) =>
-      log.info("GrpcEndpoint started on interface {} on port {}", interface, port)
+      log.info(s"GrpcEndpoint started for node $nodeId on interface $interface on port $port")
       system.registerOnTermination {
-        log.error("Shutting down gRPC server at interface {} and port {} since Actor System is shutting down",
-                  interface,
-                  port)
+        log.error(
+          s"Shutting down gRPC server for node $nodeId on interface $interface on port $port since Actor System is shutting down",
+          interface,
+          port)
         stop()
-        log.error("Server at interface {} and port {} shut down", interface, port)
+        log.error(s"Server for node $nodeId on interface $interface on port $port shut down")
       }
     case Failure(ex) =>
-      log.error(s"error in starting Grpc endpoint on interface $interface and port $port", ex)
+      log.error(s"error in starting Grpc endpoint for node $nodeId on interface $interface on port $port", ex)
   }
 
   /**

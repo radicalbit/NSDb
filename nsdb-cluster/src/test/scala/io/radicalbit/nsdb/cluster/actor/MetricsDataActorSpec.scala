@@ -22,7 +22,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{AddRecordToLocation, DeleteRecordFromLocation}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.DeleteRecordFromLocation
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
@@ -72,7 +72,7 @@ class MetricsDataActorSpec()
 
     val record = Bit(System.currentTimeMillis, 0.5, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
-    probe.send(metricsDataActor, AddRecordToLocation(db, namespace, record, location(metric)))
+    probe.send(metricsDataActor, AddRecordToShard(db, namespace, location(metric), record))
 
     val expectedAdd = awaitAssert {
       probe.expectMsgType[RecordAccumulated]
@@ -109,7 +109,7 @@ class MetricsDataActorSpec()
 
     val record = Bit(System.currentTimeMillis, 24, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
-    probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
+    probe.send(metricsDataActor, AddRecordToShard(db, namespace1, location(metric + "2"), record))
 
     awaitAssert {
       probe.expectMsgType[RecordAccumulated]
@@ -139,7 +139,7 @@ class MetricsDataActorSpec()
 
     val record = Bit(System.currentTimeMillis, 23, Map("dimension" -> s"dimension"), Map("tag" -> s"tag"))
 
-    probe.send(metricsDataActor, AddRecordToLocation(db, namespace1, record, location(metric + "2")))
+    probe.send(metricsDataActor, AddRecordToShard(db, namespace1, location(metric + "2"), record))
 
     awaitAssert {
       probe.expectMsgType[RecordAccumulated]

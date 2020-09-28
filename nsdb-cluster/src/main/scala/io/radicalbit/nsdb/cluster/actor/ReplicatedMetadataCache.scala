@@ -135,11 +135,11 @@ object ReplicatedMetadataCache {
       extends AddLocationInCacheResponse
   final case class AddOutdatedLocationFailed(db: String, namespace: String, location: Location)
       extends AddLocationInCacheResponse
-  final case object GetOutdatedLocationsFromCache extends NSDbSerializable
-  sealed trait GetOutdatedLocationsFromCache      extends NSDbSerializable
+  final case object GetOutdatedLocationsFromCache    extends NSDbSerializable
+  sealed trait GetOutdatedLocationsFromCacheResponse extends NSDbSerializable
   final case class OutdatedLocationsFromCacheGot(locations: Set[LocationWithCoordinates])
-      extends GetOutdatedLocationsFromCache
-  final case class GetOutdatedLocationsFromCacheFailed(reason: String) extends GetOutdatedLocationsFromCache
+      extends GetOutdatedLocationsFromCacheResponse
+  final case class GetOutdatedLocationsFromCacheFailed(reason: String) extends GetOutdatedLocationsFromCacheResponse
 }
 
 /**

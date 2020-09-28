@@ -109,12 +109,12 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   protected def createNodeActorsGuardian(): ActorRef = {
     context.system.actorOf(
       NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-      name = s"guardian_${selfNodeName}"
+      name = s"guardian_${nodeId}_${selfNodeName}"
     )
   }
 
   protected def retrieveLocationsToAdd: List[LocationWithCoordinates] =
-    FileUtils.getLocationsFromFilesystem(indexPath, selfNodeName)
+    FileUtils.getLocationsFromFilesystem(indexPath, nodeId)
 
   protected def onSuccessBehaviour(readCoordinator: ActorRef,
                                    writeCoordinator: ActorRef,
@@ -192,24 +192,17 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
             val nodeName = createNodeName(member)
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
             mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
-            NSDbClusterSnapshot(context.system).addNode(nodeId, nodeName)
+            NSDbClusterSnapshot(context.system).addNode(nodeName, nodeId)
             onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
           case e =>
             onFailureBehaviour(member, e)
         }
     case NodeAlive(nodeId, address) =>
-      NSDbClusterSnapshot(context.system).addNode(nodeId, address)
+      NSDbClusterSnapshot(context.system).addNode(address, nodeId)
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
-
-      val nodeName = createNodeName(member)
-
-      unsubscribeNode(nodeName)
-
-      NSDbClusterSnapshot(context.system).removeNode(nodeName)
-
     case MemberRemoved(member, previousStatus) =>
-      log.info("Member is Removed: {} after {}", member.address, previousStatus)
+      log.info("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
 
       val nodeName = createNodeName(member)
 

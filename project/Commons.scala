@@ -49,7 +49,9 @@ object Commons {
       Resolver.bintrayRepo("hseeberger", "maven")
     ),
     parallelExecution in Test := false,
-    concurrentRestrictions in Global += Tags.limitAll(1),
+    parallelExecution in IntegrationTest := false,
+    concurrentRestrictions in Test += Tags.limitAll(1),
+    concurrentRestrictions in IntegrationTest += Tags.limitAll(1),
     test in assembly := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first

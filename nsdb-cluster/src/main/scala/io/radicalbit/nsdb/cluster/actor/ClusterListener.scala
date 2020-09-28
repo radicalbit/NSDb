@@ -27,7 +27,7 @@ final class ClusterListener extends AbstractClusterListener {
                                    writeCoordinator: ActorRef,
                                    metadataCoordinator: ActorRef,
                                    publisherActor: ActorRef): Unit =
-    new NsdbNodeEndpoint(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
+    new NsdbNodeEndpoint(nodeId, readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)(context.system)
 
   protected def onFailureBehaviour(member: Member, error: Any): Unit = {
     log.error("received wrong response {}", error)

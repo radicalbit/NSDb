@@ -103,10 +103,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
     Future
       .sequence(metricsDataActors.collect {
-        case (nodeName, actor) if uniqueLocationsByNode.isDefinedAt(nodeName) =>
+        case (nodeId, actor) if uniqueLocationsByNode.isDefinedAt(nodeId) =>
           actor ? ExecuteSelectStatement(statement,
                                          schema,
-                                         uniqueLocationsByNode.getOrElse(nodeName, Seq.empty),
+                                         uniqueLocationsByNode.getOrElse(nodeId, Seq.empty),
                                          ranges,
                                          timeContext,
                                          isSingleNode)
@@ -155,16 +155,16 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
     }
 
   override def receive: Receive = {
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      if (!metricsDataActors.get(nodeName).contains(actor)) {
-        metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
+    case SubscribeMetricsDataActor(actor, nodeId) =>
+      if (!metricsDataActors.get(nodeId).contains(actor)) {
+        metricsDataActors += (nodeId -> actor)
+        log.info(s"subscribed data actor for node $nodeId")
       }
-      sender ! MetricsDataActorSubscribed(actor, nodeName)
-    case UnsubscribeMetricsDataActor(nodeName) =>
-      metricsDataActors -= nodeName
-      log.info(s"metric data actor removed for node $nodeName")
-      sender ! MetricsDataActorUnSubscribed(nodeName)
+      sender ! MetricsDataActorSubscribed(actor, nodeId)
+    case UnsubscribeMetricsDataActor(nodeId) =>
+      metricsDataActors -= nodeId
+      log.info(s"metric data actor removed for node $nodeId")
+      sender ! MetricsDataActorUnSubscribed(nodeId)
     case GetDbs =>
       metadataCoordinator forward GetDbs
     case msg @ GetNamespaces(_) =>

@@ -57,7 +57,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  private val nodeName = createNodeName(selfMember)
+  private val nodeAddress = createNodeName(selfMember)
 
   private val config = context.system.settings.config
 
@@ -66,14 +66,14 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
-  private val actorNameSuffix = s"${nodeName}_$nodeId"
+  private val actorNameSuffix = s"${nodeAddress}_$nodeId"
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
-  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeName)
+  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeAddress)
 
-  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeName")
-  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeName")
+  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeId-$nodeAddress")
+  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeId-$nodeAddress")
 
   private val schemaCoordinator = context.actorOf(
     SchemaCoordinator
@@ -125,7 +125,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
 
   private val metricsDataActor = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, nodeName, commitLogCoordinator)
+      .props(indexBasePath, nodeAddress, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$actorNameSuffix"
@@ -142,7 +142,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
       * scheduler that disseminate gossip message to all the cluster listener actors
       */
     context.system.scheduler.schedule(interval, interval) {
-      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeAddress))
     }
   }
 
@@ -150,14 +150,14 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
     case GetMetricsDataActors =>
-      log.debug("gossiping metric data actors from node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeName))
+      log.debug("gossiping metric data actors from node {}", nodeId)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeId))
     case GetCommitLogCoordinators =>
-      log.debug("gossiping commit logs for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeName))
+      log.debug("gossiping commit logs for node {}", nodeId)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeId))
     case GetPublishers =>
-      log.debug("gossiping publishers for node {}", nodeName)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeName))
+      log.debug("gossiping publishers for node {}", nodeId)
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeId))
   }
 }
 

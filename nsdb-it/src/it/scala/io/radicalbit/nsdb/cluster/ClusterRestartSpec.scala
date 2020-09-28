@@ -22,8 +22,10 @@ class ClusterRestartSpec extends ReadCoordinatorClusterSpec {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
+    leave()
     stop()
     start(false)
+    healthCheck()
     waitIndexing()
   }
 }

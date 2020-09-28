@@ -28,6 +28,7 @@ import akka.util.Timeout
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
+import io.radicalbit.nsdb.cluster.`extension`.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
@@ -68,6 +69,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
     extends ActorPathLogging
     with DirectorySupport {
   private val cluster = Cluster(context.system)
+
+  private val nsdbClusterSnapshot = NSDbClusterSnapshot(context.system)
 
   private val config = context.system.settings.config
 
@@ -385,27 +388,27 @@ class MetadataCoordinator(clusterListener: ActorRef,
                 }
             }
       }
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      if (!metricsDataActors.get(nodeName).contains(actor)) {
-        metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeId) =>
+      if (!metricsDataActors.get(nodeId).contains(actor)) {
+        metricsDataActors += (nodeId -> actor)
+        log.info(s"subscribed data actor for node $nodeId")
       }
-      sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
+      sender() ! MetricsDataActorSubscribed(actor, nodeId)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeId) =>
+      if (!commitLogCoordinators.get(nodeId).contains(actor)) {
+        commitLogCoordinators += (nodeId -> actor)
+        log.info(s"subscribed commit log actor for node $nodeId")
       }
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeId)
 
-    case UnsubscribeMetricsDataActor(nodeName) =>
-      metricsDataActors -= nodeName
-      log.info(s"metric data actor removed for node $nodeName")
-      sender() ! MetricsDataActorUnSubscribed(nodeName)
-    case UnSubscribeCommitLogCoordinator(nodeName) =>
-      commitLogCoordinators -= nodeName
-      log.info(s"unsubscribed commit log actor for node $nodeName")
-      sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
+    case UnsubscribeMetricsDataActor(nodeId) =>
+      metricsDataActors -= nodeId
+      log.info(s"metric data actor removed for node $nodeId")
+      sender() ! MetricsDataActorUnSubscribed(nodeId)
+    case UnSubscribeCommitLogCoordinator(nodeId) =>
+      commitLogCoordinators -= nodeId
+      log.info(s"unsubscribed commit log actor for node $nodeId")
+      sender() ! CommitLogCoordinatorUnSubscribed(nodeId)
     case GetDbs =>
       (metadataCache ? GetDbsFromCache)
         .mapTo[DbsFromCacheGot]
@@ -474,7 +477,9 @@ class MetadataCoordinator(clusterListener: ActorRef,
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
                             }
 
-                          val locations = nodes.map(Location(metric, _, start, end))
+                          val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
+
+                          val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
                           performAddLocationIntoCache(db, namespace, locations)
                         }
                       } yield
@@ -500,7 +505,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
       performAddOutdatedLocationIntoCache(locations).pipeTo(sender)
     case GetOutdatedLocations =>
       (metadataCache ? GetOutdatedLocationsFromCache)
-        .mapTo[GetOutdatedLocationsFromCache]
+        .mapTo[GetOutdatedLocationsFromCacheResponse]
         .map {
           case OutdatedLocationsFromCacheGot(locations)    => OutdatedLocationsGot(locations.toSeq)
           case GetOutdatedLocationsFromCacheFailed(reason) => GetOutdatedLocationsFailed(reason)

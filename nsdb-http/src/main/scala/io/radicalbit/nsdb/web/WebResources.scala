@@ -52,7 +52,8 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
   implicit lazy val httpTimeout: Timeout =
     Timeout(config.getDuration("nsdb.http-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  def initWebEndpoint(writeCoordinator: ActorRef,
+  def initWebEndpoint(nodeId: String,
+                      writeCoordinator: ActorRef,
                       readCoordinator: ActorRef,
                       metadataCoordinator: ActorRef,
                       publisher: ActorRef)(implicit logger: LoggingAdapter) =
@@ -70,12 +71,14 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
           if (isSSLEnabled) {
             val interface = config.getString(HttpInterface)
             val port      = config.getInt(HttpsPort)
-            logger.info(s"Cluster Apis started with https protocol at interface $interface on port $port")
+            logger.info(
+              s"Cluster Apis started for node $nodeId with https protocol at interface $interface on port $port")
             httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port, connectionContext = serverContext)
           } else {
             val interface = config.getString(HttpInterface)
             val port      = config.getInt(HttpPort)
-            logger.info(s"Cluster Apis started with http protocol at interface $interface and port $port")
+            logger.info(
+              s"Cluster Apis started for node $nodeId with http protocol at interface $interface and port $port")
             httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port)
           }
 

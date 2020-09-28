@@ -24,10 +24,7 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.{
-  AddRecordToLocation,
-  ExecuteDeleteStatementInternalInLocations
-}
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -107,10 +104,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                              namespace: String,
                              ts: Long,
                              metric: String,
-                             nodeName: String,
+                             nodeId: String,
                              action: CommitLogAction,
                              location: Location): Future[CommitLogResponse] = {
-    commitLogCoordinators.get(nodeName) match {
+    commitLogCoordinators.get(nodeId) match {
       case Some(commitLogCoordinator) =>
         (commitLogCoordinator ? WriteToCommitLog(db = db,
                                                  namespace = namespace,
@@ -120,7 +117,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                                  location)).mapTo[CommitLogResponse]
       case None =>
         Future(
-          WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeName "))
+          WriteToCommitLogFailed(db, namespace, ts, metric, s"Commit log not existing for requested node: $nodeId "))
     }
   }
 
@@ -185,7 +182,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                        location: Location): Future[WriteCoordinatorResponse] =
     metricsDataActors.get(location.node) match {
       case Some(actor) =>
-        (actor ? AddRecordToLocation(db, namespace, bit, location)).map {
+        (actor ? AddRecordToShard(db, namespace, location, bit)).map {
           case msg: RecordAccumulated => msg
           case msg: RecordRejected    => msg
           case _ =>
@@ -381,37 +378,37 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
   }
 
   override def receive: Receive = {
-    case SubscribeMetricsDataActor(actor: ActorRef, nodeName) =>
-      if (!metricsDataActors.get(nodeName).contains(actor)) {
-        metricsDataActors += (nodeName -> actor)
-        log.info(s"subscribed data actor for node $nodeName")
+    case SubscribeMetricsDataActor(actor: ActorRef, nodeId) =>
+      if (!metricsDataActors.get(nodeId).contains(actor)) {
+        metricsDataActors += (nodeId -> actor)
+        log.info(s"subscribed data actor for node $nodeId")
       }
-      sender() ! MetricsDataActorSubscribed(actor, nodeName)
-    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeName) =>
-      if (!commitLogCoordinators.get(nodeName).contains(actor)) {
-        commitLogCoordinators += (nodeName -> actor)
-        log.info(s"subscribed commit log actor for node $nodeName")
+      sender() ! MetricsDataActorSubscribed(actor, nodeId)
+    case SubscribeCommitLogCoordinator(actor: ActorRef, nodeId) =>
+      if (!commitLogCoordinators.get(nodeId).contains(actor)) {
+        commitLogCoordinators += (nodeId -> actor)
+        log.info(s"subscribed commit log actor for node $nodeId")
       }
-      sender() ! CommitLogCoordinatorSubscribed(actor, nodeName)
-    case SubscribePublisher(actor: ActorRef, nodeName) =>
-      if (!publishers.get(nodeName).contains(actor)) {
-        publishers += (nodeName -> actor)
-        log.info(s"subscribed publisher actor for node $nodeName")
+      sender() ! CommitLogCoordinatorSubscribed(actor, nodeId)
+    case SubscribePublisher(actor: ActorRef, nodeId) =>
+      if (!publishers.get(nodeId).contains(actor)) {
+        publishers += (nodeId -> actor)
+        log.info(s"subscribed publisher actor for node $nodeId")
       }
-      sender() ! PublisherSubscribed(actor, nodeName)
+      sender() ! PublisherSubscribed(actor, nodeId)
 
-    case UnsubscribeMetricsDataActor(nodeName) =>
-      metricsDataActors -= nodeName
-      log.info(s"unsubscribed data actor for node $nodeName")
-      sender() ! MetricsDataActorUnSubscribed(nodeName)
-    case UnSubscribeCommitLogCoordinator(nodeName) =>
-      commitLogCoordinators -= nodeName
-      log.info(s"unsubscribed commit log actor for node $nodeName")
-      sender() ! CommitLogCoordinatorUnSubscribed(nodeName)
-    case UnSubscribePublisher(nodeName) =>
-      publishers -= nodeName
-      log.info(s"unsubscribed publisher actor for node $nodeName")
-      sender() ! PublisherUnSubscribed(nodeName)
+    case UnsubscribeMetricsDataActor(nodeId) =>
+      metricsDataActors -= nodeId
+      log.info(s"unsubscribed data actor for node $nodeId")
+      sender() ! MetricsDataActorUnSubscribed(nodeId)
+    case UnSubscribeCommitLogCoordinator(nodeId) =>
+      commitLogCoordinators -= nodeId
+      log.info(s"unsubscribed commit log actor for node $nodeId")
+      sender() ! CommitLogCoordinatorUnSubscribed(nodeId)
+    case UnSubscribePublisher(nodeId) =>
+      publishers -= nodeId
+      log.info(s"unsubscribed publisher actor for node $nodeId")
+      sender() ! PublisherUnSubscribed(nodeId)
     case MapInput(ts, db, namespace, metric, bit) =>
       val timeContext = TimeContext()
       log.debug("Received a write request for (ts: {}, metric: {}, bit : {})", ts, metric, bit)

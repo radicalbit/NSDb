@@ -25,7 +25,6 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.AddRecordToLocation
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationsGot, WriteLocationsGot}
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
@@ -166,11 +165,11 @@ class WriteCoordinatorErrorsSpec
       }
 
       awaitAssert {
-        successAccumulationProbe.expectMsgType[AddRecordToLocation]
+        successAccumulationProbe.expectMsgType[AddRecordToShard]
       }
 
       awaitAssert {
-        failureAccumulationProbe.expectMsgType[AddRecordToLocation]
+        failureAccumulationProbe.expectMsgType[AddRecordToShard]
       }
 
       awaitAssert {
