@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, TagFieldType}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
@@ -24,7 +24,8 @@ import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
-import org.apache.lucene.search.grouping.{AllGroupHeadsCollector, TermGroupSelector}
+import org.apache.lucene.search.grouping._
+import org.apache.lucene.util.BytesRef
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -204,4 +205,46 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     */
   def getMinGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
     headItemOfGroup(query, schema, groupTagName, last = false, _valueField)
+
+  def countDistinct(query: Query, schema: Schema, groupTagName: String) = {
+    val groupSelector = schema.fieldsMap(groupTagName).indexType match {
+      case VARCHAR() => new TermGroupSelector(groupTagName)
+      case _         => new TermGroupSelector(s"${groupTagName}_str")
+    }
+
+    val sortType = SortField.Type.DOC //schema.fieldsMap.get(sortField).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
+
+    val groupSort = new Sort()
+
+    val searcher = this.getSearcher
+
+    val firstPassGroupingCollector =
+      new FirstPassGroupingCollector[BytesRef](groupSelector, groupSort, 1000)
+
+    searcher.search(query, firstPassGroupingCollector)
+
+    val gs = new TermGroupSelector("value_str");
+
+    val groupsOpt = Option(firstPassGroupingCollector.getTopGroups(0))
+
+    groupsOpt match {
+      case Some(inputGroups) =>
+        val distinctValuesCollector = new DistinctValuesCollector[BytesRef, BytesRef](
+          firstPassGroupingCollector.getGroupSelector,
+          inputGroups,
+          gs)
+        searcher.search(query, distinctValuesCollector)
+
+        val groups = distinctValuesCollector.getGroups.asScala
+
+        groups.map(
+          g =>
+            Bit(0,
+              g.uniqueValues.size(),
+              Map.empty,
+              Map(groupTagName -> schema.tags(groupTagName).indexType.deserialize(g.groupValue.bytes))))
+      case None =>
+        Seq.empty
+    }
+  }
 }
