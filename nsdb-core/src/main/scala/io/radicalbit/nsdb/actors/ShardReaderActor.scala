@@ -116,8 +116,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     }.distinct
 
     distinctPrimaryAggregations.map {
-      case CountAggregation => "count(*)" -> NSDbNumericType(0L)
-      case SumAggregation   => "sum(*)"   -> NSDbNumericType(numeric.zero)
+      case CountAggregation         => "count(*)"             -> NSDbNumericType(0L)
+      case CountDistinctAggregation => "count( distinct(*) )" -> NSDbNumericType(0L)
+      case SumAggregation           => "sum(*)"               -> NSDbNumericType(numeric.zero)
     }.toMap
   }
 
@@ -163,6 +164,17 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, CountAggregation), _, limit)) =>
           handleNoIndexResults(
             Try(facetIndexes.executeCountFacet(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
+
+        case Right(
+            ParsedAggregatedQuery(_,
+                                  _,
+                                  q,
+                                  InternalStandardAggregation(groupField, CountDistinctAggregation),
+                                  _,
+                                  limit)) =>
+          handleNoIndexResults(
+            Try(index.countDistinct(q, schema, groupField))
+          )
         case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, SumAggregation), _, limit)) =>
           handleNoIndexResults(
             Try(

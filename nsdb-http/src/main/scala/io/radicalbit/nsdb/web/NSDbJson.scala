@@ -114,7 +114,7 @@ object NSDbJson extends DefaultJsonProtocol with SprayJsonSupport {
 
   implicit val QvbFormat: RootJsonFormat[QueryValidationBody] = jsonFormat4(QueryValidationBody.apply)
 
-  implicit val BitFormat: RootJsonFormat[Bit] = jsonFormat4(Bit.apply)
+  implicit val BitFormat: RootJsonFormat[Bit] = jsonFormat5(Bit.apply)
 
   implicit val InsertBodyFormat: RootJsonFormat[InsertBody] = jsonFormat4(InsertBody.apply)
 

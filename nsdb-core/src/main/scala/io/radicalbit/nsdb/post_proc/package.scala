@@ -268,6 +268,15 @@ package object post_proc {
             NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
+
+      case CountDistinctAggregation =>
+        val uniqueValues = bits.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
+
+        if (finalStep)
+          Bit(0, uniqueValues.size, Map.empty, bits.head.tags)
+        else
+          Bit(0, 0, Map.empty, bits.head.tags, uniqueValues)
+
       case MaxAggregation =>
         Bit(0,
             NSDbNumericType(bits.map(_.value.rawValue).max),

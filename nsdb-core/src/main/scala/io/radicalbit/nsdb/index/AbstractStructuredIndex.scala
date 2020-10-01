@@ -206,13 +206,11 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
   def getMinGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
     headItemOfGroup(query, schema, groupTagName, last = false, _valueField)
 
-  def countDistinct(query: Query, schema: Schema, groupTagName: String) = {
+  def countDistinct(query: Query, schema: Schema, groupTagName: String): Seq[Bit] = {
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
       case VARCHAR() => new TermGroupSelector(groupTagName)
       case _         => new TermGroupSelector(s"${groupTagName}_str")
     }
-
-    val sortType = SortField.Type.DOC //schema.fieldsMap.get(sortField).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
 
     val groupSort = new Sort()
 
@@ -229,20 +227,25 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
 
     groupsOpt match {
       case Some(inputGroups) =>
-        val distinctValuesCollector = new DistinctValuesCollector[BytesRef, BytesRef](
-          firstPassGroupingCollector.getGroupSelector,
-          inputGroups,
-          gs)
+        val distinctValuesCollector =
+          new DistinctValuesCollector[BytesRef, BytesRef](firstPassGroupingCollector.getGroupSelector, inputGroups, gs)
         searcher.search(query, distinctValuesCollector)
 
         val groups = distinctValuesCollector.getGroups.asScala
 
         groups.map(
           g =>
-            Bit(0,
-              g.uniqueValues.size(),
+            Bit(
+              0,
+              0,
               Map.empty,
-              Map(groupTagName -> schema.tags(groupTagName).indexType.deserialize(g.groupValue.bytes))))
+              Map(groupTagName -> schema.tags(groupTagName).indexType.deserialize(g.groupValue.bytes)),
+              g.uniqueValues.asScala.map { v =>
+                schema.value.indexType.deserialize(new String(v.bytes).stripSuffix("_str").getBytes)
+              }.toSet,
+          )
+        )
+
       case None =>
         Seq.empty
     }

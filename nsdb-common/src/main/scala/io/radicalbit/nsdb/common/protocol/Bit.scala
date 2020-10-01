@@ -54,7 +54,11 @@ trait TimeSeriesRecord {
   * @param value      record value.
   * @param dimensions record dimensions.
   */
-case class Bit(timestamp: Long, value: NSDbNumericType, dimensions: Map[String, NSDbType], tags: Map[String, NSDbType])
+case class Bit(timestamp: Long,
+               value: NSDbNumericType,
+               dimensions: Map[String, NSDbType],
+               tags: Map[String, NSDbType],
+               uniqueValues: Set[NSDbType] = Set.empty)
     extends TimeSeriesRecord {
 
   /**

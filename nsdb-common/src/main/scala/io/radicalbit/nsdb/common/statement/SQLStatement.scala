@@ -179,12 +179,13 @@ sealed trait DerivedAggregation extends Aggregation {
   def primaryAggregationsRequired: List[Aggregation with PrimaryAggregation]
 }
 
-case object CountAggregation extends GlobalAggregation with PrimaryAggregation
-case object MaxAggregation   extends Aggregation with PrimaryAggregation
-case object MinAggregation   extends Aggregation with PrimaryAggregation
-case object FirstAggregation extends Aggregation with PrimaryAggregation
-case object LastAggregation  extends Aggregation with PrimaryAggregation
-case object SumAggregation   extends Aggregation with PrimaryAggregation
+case object CountAggregation         extends GlobalAggregation with PrimaryAggregation
+case object CountDistinctAggregation extends GlobalAggregation with PrimaryAggregation
+case object MaxAggregation           extends Aggregation with PrimaryAggregation
+case object MinAggregation           extends Aggregation with PrimaryAggregation
+case object FirstAggregation         extends Aggregation with PrimaryAggregation
+case object LastAggregation          extends Aggregation with PrimaryAggregation
+case object SumAggregation           extends Aggregation with PrimaryAggregation
 case object AvgAggregation extends GlobalAggregation with DerivedAggregation {
   override def primaryAggregationsRequired: List[Aggregation with PrimaryAggregation] =
     List(CountAggregation, SumAggregation)
