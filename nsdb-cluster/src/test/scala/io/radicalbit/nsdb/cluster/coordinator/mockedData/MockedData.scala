@@ -62,12 +62,16 @@ object MockedData {
 
     val recordsShard1: Seq[Bit] = Seq(
       Bit(2L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-      Bit(4L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
+      Bit(3L, 2L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
+      Bit(4L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5)),
+      Bit(5L, 3L, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
     )
 
     val recordsShard2: Seq[Bit] = Seq(
       Bit(6L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+      Bit(7L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
       Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+      Bit(9L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
       Bit(10L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
     )
 
@@ -80,12 +84,16 @@ object MockedData {
 
     val recordsShard1: Seq[Bit] = Seq(
       Bit(2L, 2.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
-      Bit(4L, 3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
+      Bit(3L, 2.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height" -> 30.5)),
+      Bit(4L, 3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5)),
+      Bit(5L, 3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height" -> 30.5))
     )
 
     val recordsShard2: Seq[Bit] = Seq(
       Bit(6L, 5.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
+      Bit(7L, 5.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
       Bit(8L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
+      Bit(9L, 1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
       Bit(10L, 4.0, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
     )
 

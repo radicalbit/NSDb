@@ -244,7 +244,11 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
               0,
               0,
               Map.empty,
-              Map(groupTagName -> schema.tags(groupTagName).indexType.deserialize(g.groupValue.bytes)),
+              Map(
+                groupTagName -> schema
+                  .tags(groupTagName)
+                  .indexType
+                  .deserialize(new String(g.groupValue.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)),
               g.uniqueValues.asScala.map { v =>
                 schema.value.indexType.deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
               }.toSet,
