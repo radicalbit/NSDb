@@ -190,10 +190,14 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
           ))
       }
       "fail in case of other aggregations" in {
-        parser.parse(db = "db", namespace = "registry", input = "SELECT sum( distinct *) FROM people group by name") shouldBe a[SqlStatementParserFailure]
-        parser.parse(db = "db", namespace = "registry", input = "SELECT min( distinct *) FROM people group by name") shouldBe a[SqlStatementParserFailure]
-        parser.parse(db = "db", namespace = "registry", input = "SELECT max( distinct *) FROM people group by name") shouldBe a[SqlStatementParserFailure]
-        parser.parse(db = "db", namespace = "registry", input = "SELECT avg( distinct *) FROM people group by name") shouldBe a[SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT sum( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT min( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT max( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT avg( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
       }
     }
 

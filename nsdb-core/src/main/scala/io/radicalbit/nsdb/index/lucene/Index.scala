@@ -40,9 +40,13 @@ trait Index[T] {
   /**
     * number of occurrences
     */
-  val _countField: String = "_count"
+  protected val _countField: String = "_count"
 
-  val _valueField = "value"
+  protected val _valueField = "value"
+
+  protected val maxGroups = 10000
+
+  protected val stringAuxiliaryFieldSuffix = "_str"
 
   private lazy val searcherManager: SearcherManager = new SearcherManager(directory, null)
 
@@ -152,6 +156,7 @@ trait Index[T] {
 }
 
 object Index {
+
   def handleNumericNoIndexResults[T: Numeric](out: Try[T]): Try[T] = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(implicitly[Numeric[T]].zero)

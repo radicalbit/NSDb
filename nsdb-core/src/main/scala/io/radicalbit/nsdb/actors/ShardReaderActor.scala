@@ -139,7 +139,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               if (limit == Int.MaxValue) handleNoIndexResults(Try(index.query(schema, q, fields, limit, None)))
               else handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
           }
-        case Right(ParsedSimpleQuery(_, _, q, true, limit, fields, _)) if fields.lengthCompare(1) == 0 =>
+        case Right(ParsedSimpleQuery(_, _, q, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None)))
         case Right(ParsedGlobalAggregatedQuery(_, _, q, limit, fields, aggregations, sort)) =>
           val primaryAggregationsResults = computePrimaryAggregations(aggregations, q, schema)
@@ -166,14 +166,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             Try(facetIndexes.executeCountFacet(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
 
         case Right(
-            ParsedAggregatedQuery(_,
-                                  _,
-                                  q,
-                                  InternalStandardAggregation(groupField, CountDistinctAggregation),
-                                  _,
-                                  limit)) =>
+            ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, CountDistinctAggregation), _, _)) =>
           handleNoIndexResults(
-            Try(index.countDistinct(q, schema, groupField))
+            Try(index.uniqueValues(q, schema, groupField))
           )
         case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, SumAggregation), _, limit)) =>
           handleNoIndexResults(
@@ -251,6 +246,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 }
 
 object ShardReaderActor {
+
+  final val maxGroupResults: Int = 10000
 
   case object RefreshShard extends NSDbSerializable
 
