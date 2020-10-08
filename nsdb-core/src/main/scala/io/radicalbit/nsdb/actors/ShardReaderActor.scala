@@ -20,13 +20,17 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
-import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
-import io.radicalbit.nsdb.common.NSDbNumericType
+import io.radicalbit.nsdb.actors.ShardReaderActor.{PrimaryAggregationResults, RefreshShard}
+import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.index.lucene.Index.{handleNoIndexResults, handleNumericNoIndexResults}
+import io.radicalbit.nsdb.index.lucene.Index.{
+  handleNoIndexResults,
+  handleNumericNoIndexResults,
+  handleUniqueValuesNoIndexResults
+}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
@@ -78,7 +82,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     */
   def computePrimaryAggregations(aggregations: Seq[Aggregation],
                                  query: Query,
-                                 schema: Schema): Try[Map[String, NSDbNumericType]] = {
+                                 schema: Schema): Try[PrimaryAggregationResults] = {
 
     import io.radicalbit.nsdb.common.util.ErrorUtils._
 
@@ -87,19 +91,30 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       case primary: PrimaryAggregation   => Seq(primary)
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
     }.distinct
-    flatten(distinctPrimaryAggregations
-      .map {
-        case CountAggregation =>
-          handleNumericNoIndexResults(Try(index.getCount(query))).map(count => `count(*)` -> NSDbNumericType(count))
-        case SumAggregation =>
-          val (groupField, groupFieldSchemaField) = schema.tags.head
-          handleNumericNoIndexResults(
-            Try(
-              facetIndexes
+
+    for {
+      quantities <- flatten(distinctPrimaryAggregations
+        .collect {
+          case CountAggregation =>
+            handleNumericNoIndexResults(Try(index.getCount(query))).map(count => `count(*)` -> NSDbNumericType(count))
+          case SumAggregation =>
+            val (groupField, groupFieldSchemaField) = schema.tags.head
+            handleNumericNoIndexResults(
+              Try(facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
                 .sum)).map(sum => `sum(*)` -> NSDbNumericType(sum))
-      }).map(_.toMap)
+        })
+      uniqueValues <- distinctPrimaryAggregations
+        .find(_ == CountDistinctAggregation)
+        .map { _ =>
+          val (groupField, _) = schema.tags.head
+          handleUniqueValuesNoIndexResults(
+            Try(index.uniqueValues(query, schema, groupField).flatMap(_.uniqueValues).toSet)
+          )
+        }
+        .getOrElse(Success(Set.empty[NSDbType]))
+    } yield PrimaryAggregationResults(quantities.toMap, uniqueValues)
   }
 
   /**
@@ -115,10 +130,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
     }.distinct
 
-    distinctPrimaryAggregations.map {
-      case CountAggregation         => "count(*)"             -> NSDbNumericType(0L)
-      case CountDistinctAggregation => "count( distinct(*) )" -> NSDbNumericType(0L)
-      case SumAggregation           => "sum(*)"               -> NSDbNumericType(numeric.zero)
+    distinctPrimaryAggregations.collect {
+      case CountAggregation => `count(*)` -> NSDbNumericType(0L)
+      case SumAggregation   => `sum(*)`   -> NSDbNumericType(numeric.zero)
     }.toMap
   }
 
@@ -153,12 +167,17 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               in the post processing phase.
               As per the following code we make sure that the aggregations are set only in the head of the resultset (if present).
                */
-              results.headOption.toSeq.flatMap(bit => Seq(bit.copy(tags = bit.tags ++ primaryAggregations))) ++
+              results.headOption.toSeq
+                .flatMap(
+                  bit =>
+                    Seq(bit.copy(tags = bit.tags ++ primaryAggregations.quantities,
+                                 uniqueValues = primaryAggregations.uniqueValues))) ++
                 results.tail.map(bit =>
                   bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
             }
           } else {
-            primaryAggregationsResults.map(primaryAggregations => Seq(Bit(0, 0L, Map.empty, primaryAggregations)))
+            primaryAggregationsResults.map(primaryAggregations =>
+              Seq(Bit(0, 0L, Map.empty, primaryAggregations.quantities, primaryAggregations.uniqueValues)))
           }
         case Right(
             ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, CountAggregation), _, limit)) =>
@@ -250,6 +269,9 @@ object ShardReaderActor {
   final val maxGroupResults: Int = 10000
 
   case object RefreshShard extends NSDbSerializable
+
+  case class PrimaryAggregationResults(quantities: Map[String, NSDbNumericType] = Map.empty,
+                                       uniqueValues: Set[NSDbType] = Set.empty)
 
   def props(basePath: String, db: String, namespace: String, location: Location): Props =
     Props(new ShardReaderActor(basePath, db, namespace, location))

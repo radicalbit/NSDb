@@ -35,11 +35,12 @@ import scala.math.min
 
 package object post_proc {
 
-  final val `count(*)` = "count(*)"
-  final val `sum(*)`   = "sum(*)"
-  final val `avg(*)`   = "avg(*)"
-  final val `min(*)`   = "min(*)"
-  final val `max(*)`   = "max(*)"
+  final val `count(*)`          = "count(*)"
+  final val `count(distinct *)` = "count(distinct *)"
+  final val `sum(*)`            = "sum(*)"
+  final val `avg(*)`            = "avg(*)"
+  final val `min(*)`            = "min(*)"
+  final val `max(*)`            = "max(*)"
 
   final val lowerBoundField = "lowerBound"
   final val upperBoundField = "upperBound"
@@ -344,11 +345,12 @@ package object post_proc {
     val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
     implicit val numeric: Numeric[Any] = v.numeric
 
-    val aggregationsReduced = aggregations.map {
+    val aggregationsReduced = aggregations.collect {
       case CountAggregation =>
         val unlimitedCount = rawResults.map(_.tags(`count(*)`).rawValue.asInstanceOf[Long]).sum
         val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
         `count(*)` -> NSDbNumericType(limitedCount)
+
       case AvgAggregation =>
         val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
         val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT().numeric))
@@ -361,16 +363,25 @@ package object post_proc {
         }
     }.toMap
 
+    val uniqueValues = rawResults.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
+
+    val allAggregationReduce =
+      if (finalStep && uniqueValues.nonEmpty)
+        aggregationsReduced + (`count(distinct *)` -> NSDbLongType(uniqueValues.size))
+      else aggregationsReduced
+
+    val finalUniqueValues = if (finalStep) Set.empty[NSDbType] else uniqueValues
+
     if (fields.nonEmpty) {
       applyOrderingWithLimit(
         rawResults.map { bit =>
-          bit.copy(tags = bit.tags - `sum(*)` - `count(*)` ++ aggregationsReduced)
+          bit.copy(tags = bit.tags - `sum(*)` - `count(*)` ++ allAggregationReduce, uniqueValues = finalUniqueValues)
         },
         statement,
         schema
       )
     } else {
-      Seq(Bit(0, NSDbNumericType(numeric.zero), Map.empty, aggregationsReduced))
+      Seq(Bit(0, NSDbNumericType(numeric.zero), Map.empty, allAggregationReduce, finalUniqueValues))
     }
   }
 

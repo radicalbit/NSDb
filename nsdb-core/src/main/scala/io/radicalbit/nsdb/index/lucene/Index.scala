@@ -167,4 +167,9 @@ object Index {
       case _: IndexNotFoundException => Success(Seq.empty)
     }
   }
+  def handleUniqueValuesNoIndexResults[T](out: Try[Set[T]]): Try[Set[T]] = {
+    out.recoverWith {
+      case _: IndexNotFoundException => Success(Set.empty)
+    }
+  }
 }

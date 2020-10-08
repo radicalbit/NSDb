@@ -76,6 +76,29 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         )
       }
 
+      "execute it successfully with a count distinct" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationLongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(CountDistinctAggregation)))
+              )
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 0L, Map.empty, Map("count(distinct *)" -> NSDbLongType(5L)))
+        )
+      }
+
       "execute it successfully with only an average" in {
         probe.send(
           readCoordinatorActor,
@@ -127,6 +150,34 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6L)),
           Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6L)),
           Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6L))
+        )
+      }
+
+      "execute it successfully with mixed count distinct and plain fields" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationLongMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(CountDistinctAggregation)), Field("name", None))),
+              limit = Some(LimitOperator(6)),
+              order = Some(DescOrderOperator("value"))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
+          Bit(5L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
+          Bit(6L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 5L)),
+          Bit(7L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 5L)),
+          Bit(10L, 4L, Map.empty, Map("name" -> "Frankie", "count(distinct *)" -> 5L))
         )
       }
 
