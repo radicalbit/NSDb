@@ -280,9 +280,9 @@ package object post_proc {
         val uniqueValues = bits.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
 
         if (finalStep)
-          Bit(0, uniqueValues.size.toLong, Map.empty, bits.head.tags)
+          Bit(0, uniqueValues.size.toLong, Map.empty, bits.headOption.map(_.tags).getOrElse(Map.empty))
         else
-          Bit(0, 0L, Map.empty, bits.head.tags, uniqueValues)
+          Bit(0, 0L, Map.empty, bits.headOption.map(_.tags).getOrElse(Map.empty), uniqueValues)
 
       case MaxAggregation =>
         Bit(0,
