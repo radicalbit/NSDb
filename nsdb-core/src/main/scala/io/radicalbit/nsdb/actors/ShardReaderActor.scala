@@ -90,25 +90,26 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     }.distinct
 
     (for {
+      (groupField, groupFieldSchemaField) <- Try(schema.tags.head)
       quantities <- flatten(distinctPrimaryAggregations
         .collect {
           case CountAggregation =>
             Try(index.getCount(query)).map(count => `count(*)` -> NSDbNumericType(count))
           case SumAggregation =>
-            val (groupField, groupFieldSchemaField) = schema.tags.head
             Try(
               facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
                 .sum).map(sum => `sum(*)` -> NSDbNumericType(sum))
         })
-      uniqueValues <- distinctPrimaryAggregations
-        .find(_ == CountDistinctAggregation)
-        .map { _ =>
-          val (groupField, _) = schema.tags.head
-          Try(index.uniqueValues(query, schema, groupField).flatMap(_.uniqueValues).toSet)
-        }
-        .getOrElse(Success(Set.empty[NSDbType]))
+      uniqueValues <- {
+        distinctPrimaryAggregations
+          .collectFirst {
+            case CountDistinctAggregation =>
+              Try(index.uniqueValues(query, schema, groupField).flatMap(_.uniqueValues).toSet)
+          }
+          .getOrElse(Success(Set.empty[NSDbType]))
+      }
     } yield PrimaryAggregationResults(quantities.toMap, uniqueValues)).recoverWith {
       case _: IndexNotFoundException => Success(PrimaryAggregationResults(Map.empty, Set.empty))
     }
@@ -169,8 +170,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                   bit =>
                     Seq(bit.copy(tags = bit.tags ++ primaryAggregations.quantities,
                                  uniqueValues = primaryAggregations.uniqueValues))) ++
-                results.drop(1).map(bit =>
-                  bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
+                results
+                  .drop(1)
+                  .map(bit => bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
             }
           } else {
             primaryAggregationsResults.map(primaryAggregations =>
