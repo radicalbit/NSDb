@@ -624,6 +624,22 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
           Bit(0L, 1L, Map.empty, Map("name" -> "J")),
           Bit(0L, 2L, Map.empty, Map("name" -> "John"))
         ))
+
+      val distinctQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct value) from ${DoubleMetric.name} group by name order by name")
+
+      val distinctReadRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        distinctReadRes.records.map(_.asBit) == Seq(
+          Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 2L, Map.empty, Map("name" -> "John"))
+        ))
     }
   }
 
@@ -631,17 +647,32 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     nodes.foreach { n =>
       val nsdb =
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
-      val query = nsdb
+      val countQuery = nsdb
         .db(db)
         .namespace(namespace)
         .query(s"select count(value) from ${LongMetric.name} group by name order by name desc")
 
-      var readRes = Await.result(nsdb.execute(query), 10.seconds)
+      var readRes = Await.result(nsdb.execute(countQuery), 10.seconds)
 
       assert(
         readRes.records.map(_.asBit) == Seq(
           Bit(0L, 2L, Map.empty, Map("name" -> "John")),
           Bit(0L, 1L, Map.empty, Map("name" -> "J")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
+          Bit(0L, 1L, Map.empty, Map("name" -> "Bill"))
+        ))
+
+      val countDistinctQuery = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct value) from ${DoubleMetric.name} group by name order by name desc")
+
+       readRes = Await.result(nsdb.execute(countDistinctQuery), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 1L, Map.empty, Map("name" -> "John")),
           Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
           Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
           Bit(0L, 1L, Map.empty, Map("name" -> "Bill"))
@@ -702,6 +733,23 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       assert(
         readRes.records.map(_.asBit) ==
           Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 5L, Map.empty, Map("age" -> 15L))))
+    }
+  }
+
+  test("receive a select containing a group by on long dimension with count distinct aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct value) from ${AggregationLongMetric.name} group by age order by value")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) ==
+          Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 3L, Map.empty, Map("age" -> 15L))))
     }
   }
 
@@ -801,6 +849,26 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         .db(db)
         .namespace(namespace)
         .query(s"select count(value) from ${AggregationLongMetric.name} group by height order by value desc")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0L, 3L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 2L, Map.empty, Map("height" -> 32.0)),
+          Bit(0L, 1L, Map.empty, Map("height" -> 31.0))
+        ))
+    }
+  }
+
+  test("receive a select containing a group by on double dimension with count distinct aggregation") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct value) from ${AggregationLongMetric.name} group by height order by value desc")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
 

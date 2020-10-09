@@ -158,6 +158,49 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
       }
     }
 
+    "receive a select with a group by and one distinct aggregation" should {
+      "parse it successfully in case of count" in {
+        val query = "SELECT count( distinct value) FROM people group by name"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          ))
+      }
+      "parse it successfully in case of count * " in {
+        val query = "SELECT count( distinct *) FROM people group by name"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(CountDistinctAggregation)))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          ))
+      }
+      "fail in case of other aggregations" in {
+        parser.parse(db = "db", namespace = "registry", input = "SELECT sum( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT min( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT max( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+        parser.parse(db = "db", namespace = "registry", input = "SELECT avg( distinct *) FROM people group by name") shouldBe a[
+          SqlStatementParserFailure]
+      }
+    }
+
     "receive a select containing a range selection and a group by" should {
       "parse it successfully" in {
         val query = "SELECT count(value) FROM people WHERE timestamp IN (2,4) group by name"

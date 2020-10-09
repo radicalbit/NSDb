@@ -37,7 +37,7 @@ import scala.util.parsing.input.CharSequenceReader
   *   DropStatement := "drop metric" literal
   *   DeleteStatement := "delete" "from" literal ("where" expression)?
   *   SelectStatement := "select" "distinct"? selectFields "from" literal ("where" expression)? ("group by" (literal |  digit? timeMeasure))? ("order by" literal ("desc")?)? (limit digit)? (since timeMeasure)?
-  *   selectFields := "*" | aggregation(literal | "*") | (literal | "*")+
+  *   selectFields := "*" | aggregation( "distinct"? literal | "*") | (literal | "*")+
   *   expression := expression "and" expression | expression "or" expression | "not" expression | "(" expression ")"
   *                 literal "=" literal | literal comparison literal | literal "like" literal |
   *                 literal "in" "(" digit "," digit ")" | literal "is" "not"? "null"
@@ -124,9 +124,12 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val field = standardString ^^ { e =>
     Field(e, None)
   }
-  private val aggField = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (standardString | All) <~ CloseRoundBracket ^^ {
-    case aggregation ~ name => Field(name, Some(aggregation))
-  }
+  private val aggField
+    : Parser[Field] = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (Distinct ?) ~ (standardString | All) <~ CloseRoundBracket ^? ({
+    case CountAggregation ~ Some(_) ~ name => Field(name, Some(CountDistinctAggregation))
+    case aggregation ~ None ~ name         => Field(name, Some(aggregation))
+  }, _ => "Distinct clause is only applicable to the count aggregation")
+
   private val dimension = standardString
   private val stringValue = (specialString | (("'" ?) ~> (specialString +) <~ ("'" ?))) ^^ {
     case string: String        => string

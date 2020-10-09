@@ -66,6 +66,13 @@ package object post_proc {
            else Ordering[Long]).asInstanceOf[Ordering[Any]]
         val sortedResults = chainedResults.sortBy(_.value.rawValue)
         statement.limit.map(_.value).map(v => sortedResults.take(v)) getOrElse sortedResults
+      case Some(InternalStandardAggregation(_, CountDistinctAggregation))
+          if statement.order.exists(_.dimension == "value") =>
+        implicit val ord: Ordering[Any] =
+          (if (statement.order.get.isInstanceOf[DescOrderOperator]) Ordering[Long].reverse
+           else Ordering[Long]).asInstanceOf[Ordering[Any]]
+        val sortedResults = chainedResults.sortBy(_.value.rawValue)
+        statement.limit.map(_.value).map(v => sortedResults.take(v)) getOrElse sortedResults
       case _ =>
         val sortedResults = statement.order.map { order =>
           val o = schema.fieldsMap(order.dimension).indexType.ord
@@ -268,6 +275,15 @@ package object post_proc {
             NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
+
+      case CountDistinctAggregation =>
+        val uniqueValues = bits.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
+
+        if (finalStep)
+          Bit(0, uniqueValues.size.toLong, Map.empty, bits.headOption.map(_.tags).getOrElse(Map.empty))
+        else
+          Bit(0, 0L, Map.empty, bits.headOption.map(_.tags).getOrElse(Map.empty), uniqueValues)
+
       case MaxAggregation =>
         Bit(0,
             NSDbNumericType(bits.map(_.value.rawValue).max),

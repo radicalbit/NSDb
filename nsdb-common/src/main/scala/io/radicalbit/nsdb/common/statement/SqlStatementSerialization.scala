@@ -57,13 +57,14 @@ object SqlStatementSerialization {
 
       override def deserialize(p: JsonParser, ctxt: DeserializationContext): Aggregation = {
         p.getText match {
-          case "CountAggregation" => CountAggregation
-          case "MaxAggregation"   => MaxAggregation
-          case "MinAggregation"   => MinAggregation
-          case "SumAggregation"   => SumAggregation
-          case "FirstAggregation" => FirstAggregation
-          case "LastAggregation"  => LastAggregation
-          case "AvgAggregation"   => AvgAggregation
+          case "CountAggregation"         => CountAggregation
+          case "CountDistinctAggregation" => CountDistinctAggregation
+          case "MaxAggregation"           => MaxAggregation
+          case "MinAggregation"           => MinAggregation
+          case "SumAggregation"           => SumAggregation
+          case "FirstAggregation"         => FirstAggregation
+          case "LastAggregation"          => LastAggregation
+          case "AvgAggregation"           => AvgAggregation
         }
       }
     }

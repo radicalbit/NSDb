@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.index
 
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, FieldClassType, TagFieldType}
+import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
 import io.radicalbit.nsdb.model.Schema
@@ -24,7 +24,8 @@ import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.search._
-import org.apache.lucene.search.grouping.{AllGroupHeadsCollector, TermGroupSelector}
+import org.apache.lucene.search.grouping._
+import org.apache.lucene.util.BytesRef
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -204,4 +205,58 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     */
   def getMinGroupBy(query: Query, schema: Schema, groupTagName: String): Seq[Bit] =
     headItemOfGroup(query, schema, groupTagName, last = false, _valueField)
+
+  /**
+    * Group query result by groupTagName and return the unique values for each group.
+    * @param query query to be executed before grouping.
+    * @param schema bit schema.
+    * @param groupTagName tag used to group by.
+    */
+  def uniqueValues(query: Query, schema: Schema, groupTagName: String): Seq[Bit] = {
+    val groupSelector = schema.fieldsMap(groupTagName).indexType match {
+      case VARCHAR() => new TermGroupSelector(groupTagName)
+      case _         => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
+    }
+
+    val searcher = this.getSearcher
+
+    val firstPassGroupingCollector =
+      new FirstPassGroupingCollector[BytesRef](groupSelector, new Sort(), maxGroups)
+
+    searcher.search(query, firstPassGroupingCollector)
+
+    val groupsOpt = Option(firstPassGroupingCollector.getTopGroups(0))
+
+    groupsOpt match {
+      case Some(inputGroups) =>
+        val distinctValuesCollector =
+          new DistinctValuesCollector[BytesRef, BytesRef](
+            firstPassGroupingCollector.getGroupSelector,
+            inputGroups,
+            new TermGroupSelector(s"${_valueField}$stringAuxiliaryFieldSuffix"))
+        searcher.search(query, distinctValuesCollector)
+
+        val groups = distinctValuesCollector.getGroups.asScala
+
+        groups.map(
+          g =>
+            Bit(
+              0,
+              0,
+              Map.empty,
+              Map(
+                groupTagName -> schema
+                  .tags(groupTagName)
+                  .indexType
+                  .deserialize(new String(g.groupValue.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)),
+              g.uniqueValues.asScala.map { v =>
+                schema.value.indexType.deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
+              }.toSet,
+          )
+        )
+
+      case None =>
+        Seq.empty
+    }
+  }
 }

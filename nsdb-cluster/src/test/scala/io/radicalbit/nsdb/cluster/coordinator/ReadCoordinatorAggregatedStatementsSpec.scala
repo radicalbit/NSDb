@@ -333,7 +333,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
 
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
-        }.values shouldBe Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 4L, Map.empty, Map("age" -> 15L)))
+        }.values shouldBe Seq(Bit(0L, 2L, Map.empty, Map("age" -> 20L)), Bit(0L, 7L, Map.empty, Map("age" -> 15L)))
       }
 
       "execute it successfully with sum aggregation" in within(5.seconds) {
@@ -355,8 +355,8 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
         }.values shouldBe Seq(
-          Bit(0L, 12L, Map.empty, Map("age" -> 15L)),
-          Bit(0L, 3L, Map.empty, Map("age"  -> 20L))
+          Bit(0L, 20L, Map.empty, Map("age" -> 15L)),
+          Bit(0L, 6L, Map.empty, Map("age"  -> 20L))
         )
       }
     }
@@ -381,9 +381,9 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
         }.values shouldBe Seq(
-          Bit(0L, 2L, Map.empty, Map("height" -> 32.0)),
-          Bit(0L, 2L, Map.empty, Map("height" -> 30.5)),
-          Bit(0L, 1L, Map.empty, Map("height" -> 31.0))
+          Bit(0L, 4L, Map.empty, Map("height" -> 30.5)),
+          Bit(0L, 3L, Map.empty, Map("height" -> 32.0)),
+          Bit(0L, 2L, Map.empty, Map("height" -> 31.0))
         )
       }
     }
@@ -407,9 +407,9 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       awaitAssert {
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
-        Bit(0L, 5L, Map.empty, Map("height" -> 30.5)),
-        Bit(0L, 5L, Map.empty, Map("height" -> 31.0)),
-        Bit(0L, 5L, Map.empty, Map("height" -> 32.0))
+        Bit(0L, 10L, Map.empty, Map("height" -> 30.5)),
+        Bit(0L, 10L, Map.empty, Map("height" -> 31.0)),
+        Bit(0L, 6L, Map.empty, Map("height"  -> 32.0))
       )
     }
 
@@ -457,8 +457,8 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       awaitAssert {
         probe.expectMsgType[SelectStatementExecuted]
       }.values shouldBe Seq(
-        Bit(4L, 3L, Map.empty, Map("height"  -> 30.5)),
-        Bit(6L, 5L, Map.empty, Map("height"  -> 31.0)),
+        Bit(5L, 3L, Map.empty, Map("height"  -> 30.5)),
+        Bit(7L, 5L, Map.empty, Map("height"  -> 31.0)),
         Bit(10L, 4L, Map.empty, Map("height" -> 32.0))
       )
     }
@@ -581,7 +581,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       }.values shouldBe Seq(
         Bit(0L, 2.5, Map.empty, Map("height" -> 30.5)),
         Bit(0L, 5.0, Map.empty, Map("height" -> 31.0)),
-        Bit(0L, 2.5, Map.empty, Map("height" -> 32.0))
+        Bit(0L, 2.0, Map.empty, Map("height" -> 32.0))
       )
     }
     "execute it successfully with avg aggregation on a double value metric" in within(5.seconds) {
@@ -606,7 +606,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       }.values shouldBe Seq(
         Bit(0L, 2.5, Map.empty, Map("height" -> 30.5)),
         Bit(0L, 5.0, Map.empty, Map("height" -> 31.0)),
-        Bit(0L, 2.5, Map.empty, Map("height" -> 32.0))
+        Bit(0L, 2.0, Map.empty, Map("height" -> 32.0))
       )
     }
   }
