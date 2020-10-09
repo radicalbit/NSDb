@@ -26,11 +26,7 @@ import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index._
-import io.radicalbit.nsdb.index.lucene.Index.{
-  handleNoIndexResults,
-  handleNumericNoIndexResults,
-  handleUniqueValuesNoIndexResults
-}
+import io.radicalbit.nsdb.index.lucene.Index.handleNoIndexResults
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteSelectStatement, GetCountWithLocations}
@@ -38,6 +34,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CountGot, SelectState
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import org.apache.lucene.index.IndexNotFoundException
 import org.apache.lucene.search.Query
 import org.apache.lucene.store.Directory
 
@@ -92,29 +89,29 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
     }.distinct
 
-    for {
+    (for {
       quantities <- flatten(distinctPrimaryAggregations
         .collect {
           case CountAggregation =>
-            handleNumericNoIndexResults(Try(index.getCount(query))).map(count => `count(*)` -> NSDbNumericType(count))
+            Try(index.getCount(query)).map(count => `count(*)` -> NSDbNumericType(count))
           case SumAggregation =>
             val (groupField, groupFieldSchemaField) = schema.tags.head
-            handleNumericNoIndexResults(
-              Try(facetIndexes
+            Try(
+              facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
-                .sum)).map(sum => `sum(*)` -> NSDbNumericType(sum))
+                .sum).map(sum => `sum(*)` -> NSDbNumericType(sum))
         })
       uniqueValues <- distinctPrimaryAggregations
         .find(_ == CountDistinctAggregation)
         .map { _ =>
           val (groupField, _) = schema.tags.head
-          handleUniqueValuesNoIndexResults(
-            Try(index.uniqueValues(query, schema, groupField).flatMap(_.uniqueValues).toSet)
-          )
+          Try(index.uniqueValues(query, schema, groupField).flatMap(_.uniqueValues).toSet)
         }
         .getOrElse(Success(Set.empty[NSDbType]))
-    } yield PrimaryAggregationResults(quantities.toMap, uniqueValues)
+    } yield PrimaryAggregationResults(quantities.toMap, uniqueValues)).recoverWith {
+      case _: IndexNotFoundException => Success(PrimaryAggregationResults(Map.empty, Set.empty))
+    }
   }
 
   /**
@@ -172,7 +169,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                   bit =>
                     Seq(bit.copy(tags = bit.tags ++ primaryAggregations.quantities,
                                  uniqueValues = primaryAggregations.uniqueValues))) ++
-                results.tail.map(bit =>
+                results.drop(1).map(bit =>
                   bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
             }
           } else {
@@ -270,6 +267,11 @@ object ShardReaderActor {
 
   case object RefreshShard extends NSDbSerializable
 
+  /**
+    * Stores the results from primary aggregations
+    * @param quantities single quantities (count, sum etc.).
+    * @param uniqueValues unique values that will be used for count distinct calculation.
+    */
   case class PrimaryAggregationResults(quantities: Map[String, NSDbNumericType] = Map.empty,
                                        uniqueValues: Set[NSDbType] = Set.empty)
 
