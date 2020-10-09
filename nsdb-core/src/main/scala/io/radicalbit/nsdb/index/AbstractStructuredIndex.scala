@@ -28,6 +28,7 @@ import org.apache.lucene.search.grouping._
 import org.apache.lucene.util.BytesRef
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -236,11 +237,11 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
             new TermGroupSelector(s"${_valueField}$stringAuxiliaryFieldSuffix"))
         searcher.search(query, distinctValuesCollector)
 
-        val groups = distinctValuesCollector.getGroups.asScala
+        val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]
 
-        groups.map(
+        distinctValuesCollector.getGroups.forEach(
           g =>
-            Bit(
+            buffer += Bit(
               0,
               0,
               Map.empty,
@@ -252,8 +253,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
               g.uniqueValues.asScala.map { v =>
                 schema.value.indexType.deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
               }.toSet,
-          )
-        )
+          ))
+
+        buffer
 
       case None =>
         Seq.empty
