@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.model
 import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.index.{IndexType, TypeSupport}
+import io.radicalbit.nsdb.model.Schema.{timestampField, valueField}
 
 import scala.util.{Failure, Success, Try}
 
@@ -67,14 +68,14 @@ class Schema private (val metric: String, val fieldsMap: Map[String, SchemaField
   }
 
   /**
-    * True if there are no tags for the current schema.
+    * extract value from fieldsMap
     */
-  lazy val isTagless: Boolean = tags.isEmpty
+  lazy val value: SchemaField = fieldsMap(valueField)
 
   /**
     * extract value from fieldsMap
     */
-  lazy val value: SchemaField = fieldsMap("value")
+  lazy val timestamp: SchemaField = fieldsMap(timestampField)
 
   override def equals(obj: scala.Any): Boolean = {
     if (obj != null && obj.isInstanceOf[Schema]) {
@@ -87,6 +88,9 @@ class Schema private (val metric: String, val fieldsMap: Map[String, SchemaField
 }
 
 object Schema extends TypeSupport {
+
+  final val valueField     = "value"
+  final val timestampField = "timestamp"
 
   /**
     * Creates a schema by analyzing a [[Bit]] structure.

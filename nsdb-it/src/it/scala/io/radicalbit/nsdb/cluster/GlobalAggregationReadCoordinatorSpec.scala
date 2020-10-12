@@ -55,6 +55,12 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       }
     }
 
+    AggregationLongMetric.testRecords.map(_.asApiBit(db, namespace, AggregationLongMetric.name)).foreach { bit =>
+      eventually {
+        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+      }
+    }
+
   }
 
   test("receive a select containing a global count") {
@@ -99,6 +105,27 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select containing a global count distinct ") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct *) from ${AggregationLongMetric.name}")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.reason == "")
+        assert(readRes.records.size == 1)
+        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("count(distinct *)" -> 4L))))
+      }
+    }
+  }
+
   test("receive a select containing a global average") {
 
     nodes.foreach { n =>
@@ -120,7 +147,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
-  test("receive a select containing mixed count and plain fields") {
+  test("receive a select containing mixed count, count distinct and plain fields") {
 
     nodes.foreach { n =>
       val nsdb =
@@ -129,7 +156,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select count(*), name from ${LongMetric.name}")
+        .query(s"select count(*), count(distinct *), name from ${AggregationLongMetric.name} order by timestamp")
 
       eventually {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -137,12 +164,12 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 6)
         assert(readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
-          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
-          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(*)"    -> 6L)),
-          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "count(*)"       -> 6L)),
-          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "count(*)"    -> 6L)),
-          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "count(*)"   -> 6L)),
-          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "count(*)" -> 6L))
+          Bit(1L,2L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(2L,3L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(4L,4L,Map(),Map("name" -> "John", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(6L,1L,Map(),Map("name" -> "Bill", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(8L,1L,Map(),Map("name" -> "Frank", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
+          Bit(10L,2L,Map(),Map("name" -> "Frankie", "count(*)" -> 6L, "count(distinct *)" -> 4L)),
         ))
       }
     }

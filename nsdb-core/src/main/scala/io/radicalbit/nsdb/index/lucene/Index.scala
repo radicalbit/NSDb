@@ -157,11 +157,6 @@ trait Index[T] {
 
 object Index {
 
-  def handleNumericNoIndexResults[T: Numeric](out: Try[T]): Try[T] = {
-    out.recoverWith {
-      case _: IndexNotFoundException => Success(implicitly[Numeric[T]].zero)
-    }
-  }
   def handleNoIndexResults[T](out: Try[Seq[T]]): Try[Seq[T]] = {
     out.recoverWith {
       case _: IndexNotFoundException => Success(Seq.empty)
