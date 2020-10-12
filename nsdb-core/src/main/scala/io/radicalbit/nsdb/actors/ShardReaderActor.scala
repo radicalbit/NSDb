@@ -275,8 +275,7 @@ object ShardReaderActor {
     * @param quantities single quantities (count, sum etc.).
     * @param uniqueValues unique values that will be used for count distinct calculation.
     */
-  case class PrimaryAggregationResults(quantities: Map[String, NSDbNumericType] = Map.empty,
-                                       uniqueValues: Set[NSDbType] = Set.empty)
+  case class PrimaryAggregationResults(quantities: Map[String, NSDbNumericType], uniqueValues: Set[NSDbType])
 
   def props(basePath: String, db: String, namespace: String, location: Location): Props =
     Props(new ShardReaderActor(basePath, db, namespace, location))
