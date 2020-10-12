@@ -161,7 +161,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
         )
       }
 
-      "fail if average is provided" in {
+      "parse it successfully if average is provided" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -173,7 +173,15 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
           ),
           taglessSchema
         ) should be(
-          Left(StatementParserErrors.TAGLESS_AGGREGATIONS)
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(),
+              List(AvgAggregation)
+            ))
         )
       }
     }

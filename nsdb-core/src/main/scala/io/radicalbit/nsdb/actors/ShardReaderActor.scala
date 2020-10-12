@@ -90,7 +90,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     }.distinct
 
     (for {
-      (groupField, groupFieldSchemaField) <- Try(schema.tags.head)
+      (groupField, groupFieldSchemaField) <- Try(
+        schema.tags.headOption.getOrElse(Schema.timestampField -> schema.timestamp))
       quantities <- flatten(distinctPrimaryAggregations
         .collect {
           case CountAggregation =>

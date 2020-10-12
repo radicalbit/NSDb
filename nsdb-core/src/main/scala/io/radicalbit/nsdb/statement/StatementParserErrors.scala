@@ -25,8 +25,6 @@ object StatementParserErrors {
     s"cannot execute a query with a non global aggregation without a groupBy field"
   lazy val GROUP_BY_DISTINCT =
     s"cannot execute a query with a group by and a distinct clause"
-  lazy val TAGLESS_AGGREGATIONS =
-    s"the provided aggregations require at least one tag defined for a metric"
   lazy val SIMPLE_AGGREGATION_NOT_ON_TAG =
     "cannot execute a groupBy query grouping by a field that is not a tag"
   lazy val AGGREGATION_NOT_ON_VALUE =
