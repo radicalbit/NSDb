@@ -122,6 +122,30 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           Bit(0, 0L, Map.empty, Map("avg(*)" -> NSDbDoubleType(3.5)))
         )
       }
+
+      "execute it successfully with a min aggregation" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationDoubleMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(MinAggregation)))
+              ),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 0.0, Map.empty, Map("min(*)" -> NSDbDoubleType(1.0)))
+        )
+      }
     }
 
     "receive a select containing mixed global aggregations and plain fields" should {
@@ -163,7 +187,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("*", Some(CountDistinctAggregation)), Field("name", None))),
-              limit = Some(LimitOperator(6)),
+              limit = Some(LimitOperator(5)),
               order = Some(DescOrderOperator("value"))
             )
           )
@@ -172,7 +196,6 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
-          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(4L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(5L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(6L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 5L)),
@@ -262,6 +285,33 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         expected.values.sortBy(_.timestamp) shouldBe Seq(
           Bit(2L, 2L, Map.empty, Map("name" -> "John", "avg(*)" -> 2.5, "count(*)" -> 2L)),
           Bit(4L, 3L, Map.empty, Map("name" -> "J", "avg(*)"    -> 2.5, "count(*)" -> 2L))
+        )
+      }
+
+      "execute it successfully with mixed count, min and a condition" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationDoubleMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(MinAggregation)), Field("*", Some(CountAggregation)))),
+              condition = Some(
+                Condition(
+                  RangeExpression(dimension = "timestamp",
+                                  value1 = AbsoluteComparisonValue(4L),
+                                  value2 = AbsoluteComparisonValue(7L)))),
+              limit = Some(LimitOperator(6))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(0L, 0.0, Map.empty, Map("min(*)" -> 3.0, "count(*)" -> 4L))
         )
       }
 

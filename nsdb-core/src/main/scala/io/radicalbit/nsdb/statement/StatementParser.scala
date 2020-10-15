@@ -111,7 +111,7 @@ object StatementParser {
             )
           case (None, fieldsList) if FieldsParser.containsStandardAggregations(fieldsList) =>
             Left(StatementParserErrors.NO_GROUP_BY_AGGREGATION)
-          case (None, List()) if distinctValue =>
+          case (None, Nil) if distinctValue =>
             Left(StatementParserErrors.MORE_FIELDS_DISTINCT)
           case (None, fieldsList) if distinctValue && fieldsList.size > 1 =>
             Left(StatementParserErrors.MORE_FIELDS_DISTINCT)

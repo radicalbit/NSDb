@@ -22,7 +22,7 @@ import io.radicalbit.nsdb.model.Schema
 object FieldsParser {
 
   /**
-    * Checks if the field contains an aggregation on a field diffetenr than Value
+    * Checks if the field contains an aggregation on a field that is not the Value field
     */
   def aggregationNotOnValue(field: Field): Boolean =
     field.aggregation.isDefined && field.name != "value" && field.name != "*"

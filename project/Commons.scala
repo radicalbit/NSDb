@@ -45,7 +45,6 @@ object Commons {
       Opts.resolver.mavenLocalFile,
       "Radicalbit Public Releases" at "https://tools.radicalbit.io/artifactory/public-release/",
       "Radicalbit Public Snapshots" at "https://tools.radicalbit.io/artifactory/public-snapshot/",
-      "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven",
       Resolver.bintrayRepo("hseeberger", "maven")
     ),
     parallelExecution in Test := false,

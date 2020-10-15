@@ -143,6 +143,7 @@ package object common {
       case NSDbIntType(v)    => Some(v)
       case NSDbDoubleType(v) => Some(v)
     }
+
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {

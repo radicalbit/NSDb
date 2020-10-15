@@ -20,7 +20,7 @@ import java.math.MathContext
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, NumericType}
+import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, NumericType}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   ExecuteSelectStatementResponse,
@@ -350,6 +350,10 @@ package object post_proc {
         val unlimitedCount = rawResults.map(_.tags(`count(*)`).rawValue.asInstanceOf[Long]).sum
         val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
         `count(*)` -> NSDbNumericType(limitedCount)
+
+      case MinAggregation =>
+        val globalMin = rawResults.flatMap(bit => bit.tags.get(`min(*)`)).map(_.rawValue).min(DECIMAL().ord)
+        `min(*)` -> NSDbNumericType(globalMin)
 
       case AvgAggregation =>
         val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
