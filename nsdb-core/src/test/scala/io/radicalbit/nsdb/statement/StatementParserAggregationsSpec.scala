@@ -44,7 +44,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
   "A statement parser instance" when {
 
     "receive a list of fields without a group by" should {
-      "parse it successfully with mixed count aggregated and simple" in {
+      "parse it successfully with mixed count(*) aggregation and simple" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -68,7 +68,32 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
         )
       }
 
-      "parse it successfully with mixed average aggregated and simple" in {
+      "parse it successfully with mixed min(*) and count(*) aggregations and simple" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(
+              List(Field("*", Some(CountAggregation)), Field("surname", None), Field("*", Some(MinAggregation)))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("surname")),
+              List(CountAggregation, MinAggregation)
+            ))
+        )
+      }
+
+      "parse it successfully with mixed average aggregation and simple" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -92,7 +117,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
         )
       }
 
-      "parse it successfully with mixed aggregated and simple" in {
+      "parse it successfully with mixed aggregations and simple" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
             db = "db",
@@ -117,7 +142,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
         )
       }
 
-      "fail when other aggregation than count is provided" in {
+      "fail when any unsupported aggregation is provided" in {
         StatementParser
           .parseStatement(
             SelectSQLStatement(

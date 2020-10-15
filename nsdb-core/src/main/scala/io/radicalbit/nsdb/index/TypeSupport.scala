@@ -114,6 +114,13 @@ sealed trait IndexType[T] extends Serializable {
     */
   def sortType: SortField.Type
 
+  /**
+    *
+    * @return the [[NumericType]] underlying instance for this index
+    */
+  @throws[ClassCastException]("underlying type of Index is a string")
+  def asNumericType: NumericType[T]
+
 }
 
 /**
@@ -135,6 +142,18 @@ sealed abstract class NumericType[T] extends IndexType[T] {
     */
   def numeric: Numeric[Any]
   def zero: NSDbNumericType
+
+  /**
+    * @return The [[NSDbNumericType]] min value inherited from the underlying type
+    */
+  def MIN_VALUE: NSDbNumericType
+
+  /**
+    * @return The [[NSDbNumericType]] max value inherited from the underlying type
+    */
+  def MAX_VALUE: NSDbNumericType
+
+  override final def asNumericType: NumericType[T] = this
 }
 
 object IndexType {
@@ -180,6 +199,10 @@ case class INT() extends NumericType[Int] {
 
   override def zero: NSDbNumericType = NSDbNumericType(0)
 
+  override def MAX_VALUE: NSDbNumericType = Int.MaxValue
+
+  override def MIN_VALUE: NSDbNumericType = Int.MinValue
+
   override def cast(value: Any): Int = value.toString.toInt
 
   val sortType: SortField.Type = SortField.Type.INT
@@ -204,6 +227,10 @@ case class BIGINT() extends NumericType[Long] {
   override def numeric: Numeric[Any] = implicitly[Numeric[Long]].asInstanceOf[Numeric[Any]]
 
   override def zero: NSDbNumericType = NSDbNumericType(0L)
+
+  override def MAX_VALUE: NSDbNumericType = Long.MaxValue
+
+  override def MIN_VALUE: NSDbNumericType = Long.MinValue
 
   override def cast(value: Any): Long = value.toString.toLong
 
@@ -230,6 +257,10 @@ case class DECIMAL() extends NumericType[Double] {
 
   override def zero: NSDbNumericType = NSDbNumericType(0.0)
 
+  override def MAX_VALUE: NSDbNumericType = Double.MaxValue
+
+  override def MIN_VALUE: NSDbNumericType = Double.MinValue
+
   override def cast(value: Any): Double = value.toString.toDouble
 
   val sortType: SortField.Type = SortField.Type.DOUBLE
@@ -247,9 +278,12 @@ case class VARCHAR() extends IndexType[String] {
       new StringField(fieldName, cast(value.rawValue), Store.YES),
       new SortedDocValuesField(fieldName, new BytesRef(cast(value.rawValue)))
     )
-  def deserialize(value: Array[Byte]) = NSDbStringType(new String(value))
+  def deserialize(value: Array[Byte]): NSDbStringType = NSDbStringType(new String(value))
 
   override def cast(value: Any): String = value.toString
+
+  override def asNumericType: NumericType[String] =
+    throw new ClassCastException(s"Cannot cast VARCHAR IndexType to numeric type")
 
   val sortType: SortField.Type = SortField.Type.STRING
 }

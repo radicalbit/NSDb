@@ -177,4 +177,5 @@ abstract class AbstractReadCoordinatorSpec
     expectNoMessage(indexingInterval)
     expectNoMessage(indexingInterval)
   }
+
 }

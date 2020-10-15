@@ -222,7 +222,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                     dimensions = retrieveField(bits, distinctField, (bit: Bit) => bit.dimensions),
                     tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
                   )
-                }.map(limitAndOrder(_, statement, schema))
+                }.map(limitAndOrder(_))
 
               case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
                 gatherNodeResults(msg, schema, uniqueLocationsByNode) { rawResults =>
@@ -231,7 +231,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
               case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(msg, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
                   internalAggregationReduce(_, schema, aggregation)
-                ).map(limitAndOrder(_, statement, schema, Some(aggregation)))
+                ).map(limitAndOrder(_, Some(aggregation)))
 
               case Right(
                   ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>

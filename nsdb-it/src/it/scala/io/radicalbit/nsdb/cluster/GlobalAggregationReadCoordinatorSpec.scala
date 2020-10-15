@@ -231,6 +231,52 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select containing min aggregation") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select min(*)  from ${LongMetric.name}")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 1)
+        assert(readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
+          Bit(0L, 0L, Map.empty, Map("min(*)"    -> 1L))
+        ))
+      }
+    }
+  }
+
+  test("receive a select containing mixed count and min aggregations with where condition") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(*), min(*) from ${AggregationLongMetric.name} where height < 31")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 1)
+        assert(readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
+          Bit(0L, 0L, Map.empty, Map("min(*)"    -> 2L, "count(*)" -> 3L))
+        ))
+      }
+    }
+  }
+
   test("receive a select containing non global aggregation without a group by") {
 
     nodes.foreach { n =>

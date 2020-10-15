@@ -83,7 +83,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
 
     import io.radicalbit.nsdb.common.util.ErrorUtils._
 
-    implicit val numeric = schema.value.indexType.asInstanceOf[NumericType[_]].numeric
+    implicit val numeric: Numeric[Any] = schema.value.indexType.asNumericType.numeric
+
     val distinctPrimaryAggregations = aggregations.flatMap {
       case primary: PrimaryAggregation   => Seq(primary)
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
@@ -95,13 +96,20 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       quantities <- flatten(distinctPrimaryAggregations
         .collect {
           case CountAggregation =>
-            Try(index.getCount(query)).map(count => `count(*)` -> NSDbNumericType(count))
+            Try(index.getCount(query)).map(count => Some(`count(*)` -> NSDbNumericType(count)))
           case SumAggregation =>
             Try(
               facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
-                .sum).map(sum => `sum(*)` -> NSDbNumericType(sum))
+                .sum).map(sum => Some(`sum(*)` -> NSDbNumericType(sum)))
+          case MinAggregation =>
+            Try {
+              val minPerGroup = index.getMinGroupBy(query, schema, groupField)
+              val minCrossGroup =
+                minPerGroup.reduceLeftOption((bitL, bitR) => if (bitR.value <= bitL.value) bitR else bitL)
+              minCrossGroup.map(min => `min(*)` -> min.value)
+            }
         })
       uniqueValues <- {
         distinctPrimaryAggregations
@@ -111,7 +119,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           }
           .getOrElse(Success(Set.empty[NSDbType]))
       }
-    } yield PrimaryAggregationResults(quantities.toMap, uniqueValues)).recoverWith {
+    } yield PrimaryAggregationResults(quantities.flatten.toMap, uniqueValues)).recoverWith {
       case _: IndexNotFoundException => Success(PrimaryAggregationResults(Map.empty, Set.empty))
     }
   }
@@ -123,7 +131,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     * @return a map containing the results of the aggregations.
     */
   def computeZeroPrimaryAggregations(aggregations: Seq[Aggregation], schema: Schema): Map[String, NSDbNumericType] = {
-    implicit val numeric = schema.value.indexType.asInstanceOf[NumericType[_]].numeric
+    val valueNumericType               = schema.value.indexType.asNumericType
+    implicit val numeric: Numeric[Any] = valueNumericType.numeric
     val distinctPrimaryAggregations = aggregations.flatMap {
       case primary: PrimaryAggregation   => Seq(primary)
       case composite: DerivedAggregation => composite.primaryAggregationsRequired
@@ -132,6 +141,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     distinctPrimaryAggregations.collect {
       case CountAggregation => `count(*)` -> NSDbNumericType(0L)
       case SumAggregation   => `sum(*)`   -> NSDbNumericType(numeric.zero)
+      case MinAggregation   => `min(*)`   -> valueNumericType.MAX_VALUE
     }.toMap
   }
 
@@ -155,29 +165,36 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(ParsedSimpleQuery(_, _, q, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None)))
         case Right(ParsedGlobalAggregatedQuery(_, _, q, limit, fields, aggregations, sort)) =>
-          val primaryAggregationsResults = computePrimaryAggregations(aggregations, q, schema)
+          val localPrimaryAggregationsResults = computePrimaryAggregations(aggregations, q, schema)
           if (fields.nonEmpty) {
             for {
-              primaryAggregations <- primaryAggregationsResults
-              results             <- handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
+              localPrimaryAggregations <- localPrimaryAggregationsResults
+              results                  <- handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
             } yield {
               /*
-              In case there are aggregations mixed into a plain resultset we must ensure that we're not compute the aggregations more than once
-              in the post processing phase.
-              As per the following code we make sure that the aggregations are set only in the head of the resultset (if present).
+              In case there are aggregations mixed into a plain resultset we must ensure that we're not compute
+              the aggregations more than once in the post processing phase. As per the following code
+              we make sure that the aggregations are set only in the head of the resultset (if present).
                */
-              results.headOption.toSeq
-                .flatMap(
+
+              val headWithAggregation = results.headOption.toSeq
+                .map(
                   bit =>
-                    Seq(bit.copy(tags = bit.tags ++ primaryAggregations.quantities,
-                                 uniqueValues = primaryAggregations.uniqueValues))) ++
-                results
-                  .drop(1)
-                  .map(bit => bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
+                    bit.copy(tags = bit.tags ++ localPrimaryAggregations.quantities,
+                             uniqueValues = localPrimaryAggregations.uniqueValues))
+              val tailWithoutAggregation = results
+                .drop(1)
+                .map(bit => bit.copy(tags = bit.tags ++ computeZeroPrimaryAggregations(aggregations, schema)))
+              headWithAggregation ++ tailWithoutAggregation
             }
           } else {
-            primaryAggregationsResults.map(primaryAggregations =>
-              Seq(Bit(0, 0L, Map.empty, primaryAggregations.quantities, primaryAggregations.uniqueValues)))
+            localPrimaryAggregationsResults.map { primaryAggregations =>
+              val aggregationTags =
+                if (primaryAggregations.quantities.isEmpty) computeZeroPrimaryAggregations(aggregations, schema)
+                else primaryAggregations.quantities
+              val uniqueValues = primaryAggregations.uniqueValues
+              Seq(Bit(0, 0L, Map.empty, aggregationTags, uniqueValues))
+            }
           }
         case Right(
             ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, CountAggregation), _, limit)) =>
