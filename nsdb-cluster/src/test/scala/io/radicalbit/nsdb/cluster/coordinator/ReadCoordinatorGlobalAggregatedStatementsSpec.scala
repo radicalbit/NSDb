@@ -19,8 +19,7 @@ package io.radicalbit.nsdb.cluster.coordinator
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbLongType, NSDbNumericType, NSDbStringType}
-import io.radicalbit.nsdb.index.BIGINT
+import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbLongType, NSDbStringType}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
