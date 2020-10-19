@@ -115,7 +115,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       uniqueValues <- {
         distinctPrimaryAggregations
           .collectFirst {
-            case CountDistinctAggregation(_) =>
+            case _: CountDistinctAggregation =>
               Try(index.uniqueValues(query, schema, groupField).flatMap(_.uniqueValues).toSet)
           }
           .getOrElse(Success(Set.empty[NSDbType]))
@@ -204,7 +204,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             ParsedAggregatedQuery(_,
                                   _,
                                   q,
-                                  InternalStandardAggregation(groupField, CountDistinctAggregation(_)),
+                                  InternalStandardAggregation(groupField, _: CountDistinctAggregation),
                                   _,
                                   _)) =>
           handleNoIndexResults(

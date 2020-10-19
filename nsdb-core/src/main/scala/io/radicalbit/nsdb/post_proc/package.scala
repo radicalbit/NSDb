@@ -68,7 +68,7 @@ package object post_proc {
            else Ordering[Long]).asInstanceOf[Ordering[Any]]
         val sortedResults = chainedResults.sortBy(_.value.rawValue)
         statement.limit.map(_.value).map(v => sortedResults.take(v)) getOrElse sortedResults
-      case Some(InternalStandardAggregation(_, CountDistinctAggregation(_)))
+      case Some(InternalStandardAggregation(_, _: CountDistinctAggregation))
           if statement.order.exists(_.dimension == "value") =>
         implicit val ord: Ordering[Any] =
           (if (statement.order.get.isInstanceOf[DescOrderOperator]) Ordering[Long].reverse
@@ -274,7 +274,7 @@ package object post_proc {
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
 
-      case CountDistinctAggregation(_) =>
+      case _: CountDistinctAggregation =>
         val uniqueValues = bits.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
 
         if (finalStep)
