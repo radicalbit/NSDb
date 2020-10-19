@@ -53,10 +53,10 @@ object CustomSerializers {
         ({
           case JString(aggregation) =>
             aggregation.toLowerCase match {
-              case "count" => CountAggregation
-              case "max"   => MaxAggregation
-              case "min"   => MinAggregation
-              case "sum"   => SumAggregation
+              case "count" => CountAggregation("")
+              case "max"   => MaxAggregation("")
+              case "min"   => MinAggregation("")
+              case "sum"   => SumAggregation("")
             }
           case JNull => null
         }, {

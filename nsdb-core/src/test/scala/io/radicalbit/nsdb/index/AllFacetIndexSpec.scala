@@ -65,7 +65,7 @@ class AllFacetIndexSpec extends WordSpec with Matchers with OneInstancePerTest {
 
       allFacetIndex.executeRangeFacet(searcher,
                                       new MatchAllDocsQuery,
-                                      InternalTemporalAggregation(AvgAggregation),
+                                      InternalTemporalAggregation(AvgAggregation("value")),
                                       "timestamp",
                                       "value",
                                       Some(BIGINT()),

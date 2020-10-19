@@ -213,7 +213,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @param schema bit schema.
     * @param groupTagName tag used to group by.
     */
-  def uniqueValues(query: Query, schema: Schema, groupTagName: String): Seq[Bit] = {
+  def uniqueValues(query: Query, schema: Schema, groupTagName: String, aggregationField: String): Seq[Bit] = {
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
       case VARCHAR() => new TermGroupSelector(groupTagName)
       case _         => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
@@ -234,7 +234,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
           new DistinctValuesCollector[BytesRef, BytesRef](
             firstPassGroupingCollector.getGroupSelector,
             inputGroups,
-            new TermGroupSelector(s"${_valueField}$stringAuxiliaryFieldSuffix"))
+            new TermGroupSelector(s"${aggregationField}$stringAuxiliaryFieldSuffix"))
         searcher.search(query, distinctValuesCollector)
 
         val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]

@@ -46,7 +46,7 @@ class FieldsParserSpec extends WordSpec with Matchers {
     }
 
     "reject fields containing aggregations not on value" in {
-      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation)))), schema) shouldBe Left(
+      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation("tag"))))), schema) shouldBe Left(
         StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
     }
 
@@ -58,11 +58,13 @@ class FieldsParserSpec extends WordSpec with Matchers {
 
   "ParsedFields" should {
     "compute requireTags true if only standard aggregations are provided" in {
-      ParsedFields(List(SimpleField("*", Some(SumAggregation)), SimpleField("*", Some(AvgAggregation)))).requireTags shouldBe true
+      ParsedFields(List(SimpleField("*", Some(SumAggregation("value"))),
+                        SimpleField("*", Some(AvgAggregation("value"))))).requireTags shouldBe true
     }
 
     "compute requireTags true if mixed count and standard aggregations are provided" in {
-      ParsedFields(List(SimpleField("*", Some(CountAggregation)), SimpleField("*", Some(AvgAggregation)))).requireTags shouldBe true
+      ParsedFields(List(SimpleField("*", Some(CountAggregation("value"))),
+                        SimpleField("*", Some(AvgAggregation("value"))))).requireTags shouldBe true
     }
 
     "compute requireTags false if only plain fields are provided" in {
@@ -70,7 +72,7 @@ class FieldsParserSpec extends WordSpec with Matchers {
     }
 
     "compute requireTags false if mixed count and plain fields are provided" in {
-      ParsedFields(List(SimpleField("field1", Some(CountAggregation)), SimpleField("field2"))).requireTags shouldBe false
+      ParsedFields(List(SimpleField("field1", Some(CountAggregation("value"))), SimpleField("field2"))).requireTags shouldBe false
     }
   }
 }

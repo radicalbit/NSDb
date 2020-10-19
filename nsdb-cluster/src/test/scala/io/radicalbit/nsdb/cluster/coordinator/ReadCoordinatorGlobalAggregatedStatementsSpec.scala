@@ -38,7 +38,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation)))
+                List(Field("*", Some(CountAggregation("value"))))
               ),
               Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
             )
@@ -60,7 +60,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(AvgAggregation)))
+                List(Field("*", Some(AvgAggregation("value"))))
               ),
               Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
             )
@@ -82,7 +82,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation)))
+                List(Field("*", Some(MinAggregation("value"))))
               ),
               Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
             )
@@ -104,7 +104,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation)), Field("*", Some(CountAggregation)))
+                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))
               ),
               condition =
                 Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
@@ -127,7 +127,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation)), Field("*", Some(CountAggregation)), Field("name", None))),
+                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))), Field("name", None))),
               limit = Some(LimitOperator(6)),
               condition =
                 Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
@@ -153,7 +153,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation)))
+                List(Field("*", Some(CountAggregation("*"))))
               )
             )
           )
@@ -176,7 +176,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation)))
+                List(Field("*", Some(CountAggregation("*"))))
               ),
               limit = Some(LimitOperator(4))
             )
@@ -200,7 +200,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountDistinctAggregation)))
+                List(Field("*", Some(CountDistinctAggregation("*"))))
               )
             )
           )
@@ -223,7 +223,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(AvgAggregation)))
+                List(Field("*", Some(AvgAggregation("*"))))
               ),
               limit = Some(LimitOperator(4))
             )
@@ -247,7 +247,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = AggregationDoubleMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation)))
+                List(Field("*", Some(MinAggregation("value"))))
               ),
               limit = Some(LimitOperator(4))
             )
@@ -274,7 +274,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation)), Field("name", None))),
+              fields = ListFields(List(Field("*", Some(CountAggregation("*"))), Field("name", None))),
               limit = Some(LimitOperator(6))
             )
           )
@@ -301,7 +301,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(CountDistinctAggregation)), Field("name", None))),
+              fields = ListFields(List(Field("*", Some(CountDistinctAggregation("value"))), Field("name", None))),
               limit = Some(LimitOperator(5)),
               order = Some(DescOrderOperator("value"))
             )
@@ -315,6 +315,8 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           Bit(5L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(6L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 5L)),
           Bit(7L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 5L)),
+          Bit(8L, 1L, Map.empty, Map("name"  -> "Frank", "count(distinct *)"   -> 5L)),
+          Bit(9L, 1L, Map.empty, Map("name"  -> "Frank", "count(distinct *)"   -> 5L)),
           Bit(10L, 4L, Map.empty, Map("name" -> "Frankie", "count(distinct *)" -> 5L))
         )
       }
@@ -328,7 +330,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(AvgAggregation)), Field("name", None))),
+              fields = ListFields(List(Field("*", Some(AvgAggregation("*"))), Field("name", None))),
               limit = Some(LimitOperator(6))
             )
           )
@@ -356,7 +358,9 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(AvgAggregation)), Field("*", Some(CountAggregation)), Field("name", None))),
+                List(Field("*", Some(AvgAggregation("*"))),
+                     Field("*", Some(CountAggregation("*"))),
+                     Field("name", None))),
               limit = Some(LimitOperator(6))
             )
           )
@@ -384,7 +388,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation)), Field("*", Some(CountAggregation)), Field("name", None))),
+                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))), Field("name", None))),
               limit = Some(LimitOperator(6))
             )
           )
@@ -412,7 +416,9 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(AvgAggregation)), Field("*", Some(CountAggregation)), Field("name", None))),
+                List(Field("*", Some(AvgAggregation("*"))),
+                     Field("*", Some(CountAggregation("*"))),
+                     Field("name", None))),
               condition = Some(
                 Condition(
                   RangeExpression(dimension = "timestamp",
@@ -440,7 +446,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = AggregationDoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(MinAggregation)), Field("*", Some(CountAggregation)))),
+              fields = ListFields(List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
               condition = Some(
                 Condition(
                   RangeExpression(dimension = "timestamp",
@@ -467,7 +473,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = AggregationDoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(MinAggregation)), Field("*", Some(CountAggregation)))),
+              fields = ListFields(List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
               condition = Some(
                 Condition(
                   RangeExpression(dimension = "timestamp",
@@ -495,7 +501,9 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation)), Field("surname", None), Field("value", Some(SumAggregation)))),
+                List(Field("*", Some(CountAggregation("*"))),
+                     Field("surname", None),
+                     Field("value", Some(SumAggregation("*"))))),
               limit = Some(LimitOperator(4))
             )
           )

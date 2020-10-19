@@ -51,19 +51,19 @@ class FacetRangeIndex {
     val fc = new FacetsCollector
     FacetsCollector.search(searcher, query, 0, fc)
     val facets: Facets = (aggregation, valueFieldType) match {
-      case (CountAggregation, _) =>
+      case (CountAggregation(_), _) =>
         new LongRangeFacetCounts(rangeFieldName, fc, luceneRanges: _*)
-      case (SumAggregation, Some(_: DECIMAL)) =>
+      case (SumAggregation(_), Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
-      case (SumAggregation, _) =>
+      case (SumAggregation(_), _) =>
         new LongRangeFacetLongSum(rangeFieldName, valueFieldName, fc, luceneRanges: _*)
-      case (MaxAggregation, Some(_: DECIMAL)) =>
+      case (MaxAggregation(_), Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
-      case (MaxAggregation, _) =>
+      case (MaxAggregation(_), _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, false, fc, luceneRanges: _*)
-      case (MinAggregation, Some(_: DECIMAL)) =>
+      case (MinAggregation(_), Some(_: DECIMAL)) =>
         new LongRangeFacetDoubleMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
-      case (MinAggregation, _) =>
+      case (MinAggregation(_), _) =>
         new LongRangeFacetLongMinMax(rangeFieldName, valueFieldName, true, fc, luceneRanges: _*)
     }
     toRecord(valueFieldType) {

@@ -38,7 +38,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           )
@@ -65,7 +65,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               condition = Some(
                 Condition(
                   ComparisonExpression(dimension = "timestamp",
@@ -98,7 +98,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("age")),
               order = Some(AscOrderOperator("value"))
             )
@@ -121,7 +121,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("height")),
               order = Some(DescOrderOperator("value"))
             )
@@ -138,5 +138,32 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
       }
     }
 
+    "receive a select containing a count distinct on a tag " should {
+      "execute it successfully on a long metric" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationLongMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("age", Some(CountDistinctAggregation("value"))))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          )
+        )
+
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 1L, Map(), Map("name" -> "Bill")),
+          Bit(0, 1L, Map(), Map("name" -> "Frankie")),
+          Bit(0, 1L, Map(), Map("name" -> "Frank")),
+          Bit(0, 2L, Map(), Map("name" -> "John"))
+        )
+      }
+    }
   }
 }

@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
-import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.AggregationSerialization._
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.ComparisonOperatorSerialization._
 import io.radicalbit.nsdb.common.statement.SqlStatementSerialization.LogicalOperatorSerialization._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
@@ -150,45 +149,78 @@ case object LessOrEqualToOperator    extends ComparisonOperator
 /**
   * Aggregations to be used optionally in [[Field]].
   */
-@JsonSerialize(using = classOf[AggregationJsonSerializer])
-@JsonDeserialize(using = classOf[AggregationJsonDeserializer])
-sealed trait Aggregation
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[CountAggregation], name = "CountAggregation"),
+    new JsonSubTypes.Type(value = classOf[CountDistinctAggregation], name = "CountDistinctAggregation"),
+    new JsonSubTypes.Type(value = classOf[MaxAggregation], name = "MaxAggregation"),
+    new JsonSubTypes.Type(value = classOf[MinAggregation], name = "MinAggregation"),
+    new JsonSubTypes.Type(value = classOf[SumAggregation], name = "SumAggregation"),
+    new JsonSubTypes.Type(value = classOf[FirstAggregation], name = "FirstAggregation"),
+    new JsonSubTypes.Type(value = classOf[LastAggregation], name = "LastAggregation"),
+    new JsonSubTypes.Type(value = classOf[AvgAggregation], name = "AvgAggregation")
+  ))
+sealed trait Aggregation {
+
+  /**
+    * Field to apply the aggregation to.
+    */
+  def fieldName: String
+}
 
 /**
   * Aggregation that can be applied without a group by clause.
   */
-@JsonSerialize(using = classOf[GlobalAggregationJsonSerializer])
-@JsonDeserialize(using = classOf[GlobalAggregationJsonDeserializer])
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[CountAggregation], name = "CountAggregation"),
+    new JsonSubTypes.Type(value = classOf[CountDistinctAggregation], name = "CountDistinctAggregation"),
+    new JsonSubTypes.Type(value = classOf[AvgAggregation], name = "AvgAggregation")
+  ))
 sealed trait GlobalAggregation extends Aggregation
 
 /**
   * Aggregation that is not derived from others.
   * e.g. average is derived from count and sum.
   */
-@JsonSerialize(using = classOf[PrimaryAggregationJsonSerializer])
-@JsonDeserialize(using = classOf[PrimaryAggregationJsonDeserializer])
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[CountAggregation], name = "CountAggregation"),
+    new JsonSubTypes.Type(value = classOf[CountDistinctAggregation], name = "CountDistinctAggregation"),
+    new JsonSubTypes.Type(value = classOf[MaxAggregation], name = "MaxAggregation"),
+    new JsonSubTypes.Type(value = classOf[MinAggregation], name = "MinAggregation"),
+    new JsonSubTypes.Type(value = classOf[SumAggregation], name = "SumAggregation"),
+    new JsonSubTypes.Type(value = classOf[FirstAggregation], name = "FirstAggregation"),
+    new JsonSubTypes.Type(value = classOf[LastAggregation], name = "LastAggregation"),
+  ))
 sealed trait PrimaryAggregation extends Aggregation
 
 /**
   * Aggregation that is derived from others.
   * e.g. average is derived from count and sum.
   */
-@JsonSerialize(using = classOf[DerivedAggregationJsonSerializer])
-@JsonDeserialize(using = classOf[DerivedAggregationJsonDeserializer])
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[AvgAggregation], name = "AvgAggregation")
+  ))
 sealed trait DerivedAggregation extends Aggregation {
   def primaryAggregationsRequired: List[Aggregation with PrimaryAggregation]
 }
 
-case object CountAggregation         extends GlobalAggregation with PrimaryAggregation
-case object CountDistinctAggregation extends GlobalAggregation with PrimaryAggregation
-case object MinAggregation           extends GlobalAggregation with PrimaryAggregation
-case object MaxAggregation           extends Aggregation with PrimaryAggregation
-case object FirstAggregation         extends Aggregation with PrimaryAggregation
-case object LastAggregation          extends Aggregation with PrimaryAggregation
-case object SumAggregation           extends Aggregation with PrimaryAggregation
-case object AvgAggregation extends GlobalAggregation with DerivedAggregation {
+case class CountAggregation(override val fieldName: String)         extends GlobalAggregation with PrimaryAggregation
+case class CountDistinctAggregation(override val fieldName: String) extends GlobalAggregation with PrimaryAggregation
+case class MaxAggregation(override val fieldName: String)           extends Aggregation with PrimaryAggregation
+case class MinAggregation(override val fieldName: String)           extends Aggregation with PrimaryAggregation
+case class FirstAggregation(override val fieldName: String)         extends Aggregation with PrimaryAggregation
+case class LastAggregation(override val fieldName: String)          extends Aggregation with PrimaryAggregation
+case class SumAggregation(override val fieldName: String)           extends Aggregation with PrimaryAggregation
+case class AvgAggregation(override val fieldName: String) extends GlobalAggregation with DerivedAggregation {
   override def primaryAggregationsRequired: List[Aggregation with PrimaryAggregation] =
-    List(CountAggregation, SumAggregation)
+    List(CountAggregation(fieldName), SumAggregation(fieldName))
 }
 
 /**

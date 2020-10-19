@@ -84,18 +84,21 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = ListFields(List(Field("value", Some(CountAggregation))))))
+                               fields = ListFields(List(Field("value", Some(CountAggregation("value"))))))
+          )
         )
       }
       "parse it successfully with a sum aggregated field" in {
         val query = "SELECT sum(value) FROM people"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(query,
-                                    SelectSQLStatement(db = "db",
-                                                       namespace = "registry",
-                                                       metric = "people",
-                                                       distinct = false,
-                                                       fields = ListFields(List(Field("value", Some(SumAggregation))))))
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("value", Some(SumAggregation("value"))))))
+          )
         )
       }
       "parse it successfully with a first aggregated field" in {
@@ -107,7 +110,8 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = ListFields(List(Field("value", Some(FirstAggregation))))))
+                               fields = ListFields(List(Field("value", Some(FirstAggregation("value"))))))
+          )
         )
       }
       "parse it successfully with a last aggregated field" in {
@@ -119,18 +123,21 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = ListFields(List(Field("value", Some(LastAggregation))))))
+                               fields = ListFields(List(Field("value", Some(LastAggregation("value"))))))
+          )
         )
       }
       "parse it successfully with an aggregated *" in {
         val query = "SELECT count(*) FROM people"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(query,
-                                    SelectSQLStatement(db = "db",
-                                                       namespace = "registry",
-                                                       metric = "people",
-                                                       distinct = false,
-                                                       fields = ListFields(List(Field("*", Some(CountAggregation))))))
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(db = "db",
+                               namespace = "registry",
+                               metric = "people",
+                               distinct = false,
+                               fields = ListFields(List(Field("*", Some(CountAggregation("value"))))))
+          )
         )
       }
     }
@@ -177,9 +184,9 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation)),
+                List(Field("*", Some(CountAggregation("value"))),
                      Field("surname", None),
-                     Field("creationDate", Some(SumAggregation))))
+                     Field("creationDate", Some(SumAggregation("value")))))
             )
           ))
       }
