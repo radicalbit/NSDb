@@ -186,7 +186,7 @@ class SelectSQLStatementSpec extends WordSpec with Matchers {
               fields = ListFields(
                 List(Field("*", Some(CountAggregation("value"))),
                      Field("surname", None),
-                     Field("creationDate", Some(SumAggregation("value")))))
+                     Field("creationDate", Some(SumAggregation("creationDate")))))
             )
           ))
       }

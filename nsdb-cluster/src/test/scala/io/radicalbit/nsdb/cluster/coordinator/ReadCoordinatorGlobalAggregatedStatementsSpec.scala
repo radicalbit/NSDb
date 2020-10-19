@@ -200,7 +200,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountDistinctAggregation("*"))))
+                List(Field("*", Some(CountDistinctAggregation("value"))))
               )
             )
           )
@@ -302,7 +302,6 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = AggregationLongMetric.name,
               distinct = false,
               fields = ListFields(List(Field("*", Some(CountDistinctAggregation("value"))), Field("name", None))),
-              limit = Some(LimitOperator(5)),
               order = Some(DescOrderOperator("value"))
             )
           )
@@ -311,6 +310,8 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           probe.expectMsgType[SelectStatementExecuted]
         }
         expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
+          Bit(3L, 2L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(4L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(5L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 5L)),
           Bit(6L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 5L)),

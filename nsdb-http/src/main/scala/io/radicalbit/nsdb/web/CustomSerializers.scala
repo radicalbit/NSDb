@@ -51,19 +51,26 @@ object CustomSerializers {
   case object AggregationSerializer
       extends CustomSerializer[Aggregation](_ =>
         ({
-          case JString(aggregation) =>
+          case JObject(
+              List(JField("aggregation", JString(aggregation)),
+                   JField("aggregationField", JString(aggregationField)))) =>
             aggregation.toLowerCase match {
-              case "count" => CountAggregation("")
-              case "max"   => MaxAggregation("")
-              case "min"   => MinAggregation("")
-              case "sum"   => SumAggregation("")
+              case "count" => CountAggregation(aggregationField)
+              case "max"   => MaxAggregation(aggregationField)
+              case "min"   => MinAggregation(aggregationField)
+              case "sum"   => SumAggregation(aggregationField)
             }
           case JNull => null
         }, {
-          case CountAggregation => JString("count")
-          case MaxAggregation   => JString("max")
-          case MinAggregation   => JString("min")
-          case SumAggregation   => JString("sum")
+          case CountAggregation(aggregationField) =>
+            JObject(
+              List(JField("aggregation", JString("count")), JField("aggregationField", JString(aggregationField))))
+          case MaxAggregation(aggregationField) =>
+            JObject(List(JField("aggregation", JString("max")), JField("aggregationField", JString(aggregationField))))
+          case MinAggregation(aggregationField) =>
+            JObject(List(JField("aggregation", JString("min")), JField("aggregationField", JString(aggregationField))))
+          case SumAggregation(aggregationField) =>
+            JObject(List(JField("aggregation", JString("sum")), JField("aggregationField", JString(aggregationField))))
         }))
 
   case object ComparisonOperatorSerializer
