@@ -40,6 +40,7 @@ abstract class AbstractReadCoordinatorSpec
           .load()
           .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("local"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
+          .withValue("akka.log-dead-letters-during-shutdown", ConfigValueFactory.fromAnyRef("off"))
       ))
     with ImplicitSender
     with WordSpecLike
@@ -177,4 +178,5 @@ abstract class AbstractReadCoordinatorSpec
     expectNoMessage(indexingInterval)
     expectNoMessage(indexingInterval)
   }
+
 }

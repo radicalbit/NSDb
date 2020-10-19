@@ -17,10 +17,10 @@
 package io.radicalbit.nsdb
 import java.math.MathContext
 
-import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.index.{BIGINT, NumericType}
+import io.radicalbit.nsdb.common.{NSDbLongType, NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.index.BIGINT
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   ExecuteSelectStatementResponse,
@@ -92,14 +92,10 @@ package object post_proc {
   /**
     * Applies, if needed, ordering and limiting to a sequence of chained partial results.
     * @param chainedResults sequence of chained partial results.
-    * @param statement the initial sql statement.
-    * @param schema metric's schema.
     * @param aggregationType aggregation type (temporal, count, sum etc.)
     * @return the final result obtained from the manipulation of the partials.
     */
   def limitAndOrder(chainedResults: ExecuteSelectStatementResponse,
-                    statement: SelectSQLStatement,
-                    schema: Schema,
                     aggregationType: Option[InternalAggregation] = None)(
       implicit ec: ExecutionContext): ExecuteSelectStatementResponse =
     chainedResults match {
@@ -147,7 +143,7 @@ package object post_proc {
       statement: SelectSQLStatement,
       temporalAggregation: InternalTemporalAggregation,
       finalStep: Boolean = true)(implicit mathContext: MathContext): Seq[Bit] => Seq[Bit] = { res =>
-    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    val v                              = schema.value.indexType.asNumericType
     implicit val numeric: Numeric[Any] = v.numeric
     val chainedResult =
       res
@@ -209,7 +205,7 @@ package object post_proc {
     */
   def reduceSingleTemporalBucket(schema: Schema, temporalAggregation: InternalTemporalAggregation)(
       implicit mathContext: MathContext): Seq[Bit] => Option[Bit] = { res =>
-    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    val v                              = schema.value.indexType.asNumericType
     implicit val numeric: Numeric[Any] = v.numeric
 
     res.sortBy(_.timestamp) match {
@@ -268,7 +264,7 @@ package object post_proc {
                                 schema: Schema,
                                 standardAggregation: InternalStandardAggregation,
                                 finalStep: Boolean = true)(implicit mathContext: MathContext): Bit = {
-    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    val v                              = schema.value.indexType.asNumericType
     implicit val numeric: Numeric[Any] = v.numeric
     standardAggregation.aggregation match {
       case CountAggregation =>
@@ -342,26 +338,32 @@ package object post_proc {
                               schema: Schema,
                               finalStep: Boolean = true)(implicit mathContext: MathContext): Seq[Bit] = {
 
-    val v                              = schema.value.indexType.asInstanceOf[NumericType[_]]
+    val v                              = schema.value.indexType.asNumericType
     implicit val numeric: Numeric[Any] = v.numeric
 
-    val aggregationsReduced = aggregations.collect {
-      case CountAggregation =>
+    val aggregationsReduced = aggregations.foldLeft(Map.empty[String, NSDbNumericType]) {
+      case (acc, CountAggregation) =>
         val unlimitedCount = rawResults.map(_.tags(`count(*)`).rawValue.asInstanceOf[Long]).sum
         val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
-        `count(*)` -> NSDbNumericType(limitedCount)
+        acc + (`count(*)` -> NSDbNumericType(limitedCount))
 
-      case AvgAggregation =>
+      case (acc, MinAggregation) =>
+        val localMins = rawResults.flatMap(bit => bit.tags.get(`min(*)`).map(_.asInstanceOf[NSDbNumericType]))
+        val globalMin = localMins.reduceLeftOption((local1, local2) => if (local1 <= local2) local1 else local2)
+        globalMin.fold(acc)(globalMin => acc + (`min(*)` -> globalMin))
+
+      case (acc, AvgAggregation) =>
         val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
         val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT().numeric))
         if (finalStep) {
           val avg = if (count.rawValue == numeric.zero) NSDbNumericType(numeric.zero) else NSDbNumericType(sum / count)
-          `avg(*)` -> avg
+          acc + (`avg(*)` -> avg)
         } else {
-          `sum(*)`   -> NSDbNumericType(sum)
-          `count(*)` -> NSDbNumericType(count)
+          acc + (`sum(*)` -> NSDbNumericType(sum)) + (`count(*)` -> NSDbNumericType(count))
         }
-    }.toMap
+
+      case (acc, _) => acc
+    }
 
     val uniqueValues = rawResults.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
 
