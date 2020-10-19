@@ -76,7 +76,9 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(
-              List(Field("*", Some(CountAggregation)), Field("surname", None), Field("*", Some(MinAggregation)))),
+              List(Field("*", Some(CountAggregation("value"))),
+                   Field("surname", None),
+                   Field("*", Some(MinAggregation("value"))))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -88,7 +90,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(CountAggregation, MinAggregation)
+              List(CountAggregation("value"), MinAggregation("value"))
             ))
         )
       }

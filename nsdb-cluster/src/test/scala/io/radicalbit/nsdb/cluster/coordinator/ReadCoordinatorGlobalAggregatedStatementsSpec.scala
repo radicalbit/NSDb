@@ -127,7 +127,9 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))), Field("name", None))),
+                List(Field("*", Some(MinAggregation("value"))),
+                     Field("*", Some(CountAggregation("value"))),
+                     Field("name", None))),
               limit = Some(LimitOperator(6)),
               condition =
                 Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
@@ -389,7 +391,9 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               metric = LongMetric.name,
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))), Field("name", None))),
+                List(Field("*", Some(MinAggregation("value"))),
+                     Field("*", Some(CountAggregation("value"))),
+                     Field("name", None))),
               limit = Some(LimitOperator(6))
             )
           )
@@ -447,7 +451,8 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = AggregationDoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
+              fields = ListFields(
+                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
               condition = Some(
                 Condition(
                   RangeExpression(dimension = "timestamp",
@@ -474,7 +479,8 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               namespace = namespace,
               metric = AggregationDoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
+              fields = ListFields(
+                List(Field("*", Some(MinAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
               condition = Some(
                 Condition(
                   RangeExpression(dimension = "timestamp",

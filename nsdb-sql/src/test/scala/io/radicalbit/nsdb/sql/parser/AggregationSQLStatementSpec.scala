@@ -89,7 +89,7 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("value", Some(MinAggregation)))),
+              fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
               groupBy = None
             )
           ))
@@ -105,7 +105,8 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation)), Field("value", Some(MinAggregation)))),
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation("value"))), Field("value", Some(MinAggregation("value"))))),
               condition = Some(
                 Condition(RangeExpression(dimension = "timestamp",
                                           value1 = AbsoluteComparisonValue(2L),
