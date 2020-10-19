@@ -58,7 +58,7 @@ class CountDistinctSpec extends WordSpec with Matchers with OneInstancePerTest {
       writer.close()
 
       val countDistinct =
-        timeSeriesIndex.uniqueValues(new MatchAllDocsQuery, Schema("testMetric", testRecords.head), "name")
+        timeSeriesIndex.uniqueValues(new MatchAllDocsQuery, Schema("testMetric", testRecords.head), "name", "value")
 
       countDistinct shouldBe Seq(
         Bit(0,

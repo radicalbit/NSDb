@@ -480,7 +480,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               limit = Some(LimitOperator(5))
             ),
             schema
-          ) shouldBe Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
+          ) shouldBe Left(StatementParserErrors.AGGREGATION_NOT_ALLOWED)
       }
     }
 

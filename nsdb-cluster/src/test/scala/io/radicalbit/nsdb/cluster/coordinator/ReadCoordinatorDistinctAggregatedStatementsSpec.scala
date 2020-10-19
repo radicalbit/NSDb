@@ -22,8 +22,6 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
-import scala.concurrent.duration._
-
 class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordinatorSpec {
 
   "ReadCoordinator" when {
@@ -89,7 +87,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
     }
 
     "receive a select containing a count distinct and a group by on a long tag" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -107,12 +105,16 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
 
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
-        }.values shouldBe Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 4L, Map.empty, Map("age" -> 15L)))
+        }.values shouldBe Seq(
+          Bit(0L, 1L, Map.empty, Map("age" -> 20L)),
+          Bit(0L, 1L, Map.empty, Map("age" -> 16L)),
+          Bit(0L, 4L, Map.empty, Map("age" -> 15L))
+        )
       }
     }
 
     "receive a select containing a count distinct and group by on a double tag" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -134,6 +136,34 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
           Bit(0L, 2L, Map.empty, Map("height" -> 32.0)),
           Bit(0L, 2L, Map.empty, Map("height" -> 30.5)),
           Bit(0L, 1L, Map.empty, Map("height" -> 31.0))
+        )
+      }
+    }
+
+    "receive a select containing a count distinct on a tag " should {
+      "execute it successfully on a long metric" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationLongMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("age", Some(CountDistinctAggregation("age"))))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          )
+        )
+
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 2L, Map(), Map("name" -> "Bill")),
+          Bit(0, 1L, Map(), Map("name" -> "Frankie")),
+          Bit(0, 1L, Map(), Map("name" -> "Frank")),
+          Bit(0, 2L, Map(), Map("name" -> "John"))
         )
       }
     }

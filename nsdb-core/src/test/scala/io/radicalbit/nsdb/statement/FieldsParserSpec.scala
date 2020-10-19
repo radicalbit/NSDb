@@ -45,9 +45,9 @@ class FieldsParserSpec extends WordSpec with Matchers {
       FieldsParser.parseFieldList(AllFields(), schema) shouldBe Right(ParsedFields(List.empty))
     }
 
-    "reject fields containing aggregations not on value" in {
-      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation("tag"))))), schema) shouldBe Left(
-        StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
+    "reject fields containing not allowed aggregations not on value" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(SumAggregation("tag"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
     }
 
     "reject fields not existing in the schema" in {
@@ -72,7 +72,7 @@ class FieldsParserSpec extends WordSpec with Matchers {
     }
 
     "compute requireTags false if mixed count and plain fields are provided" in {
-      ParsedFields(List(SimpleField("field1", Some(CountAggregation("value"))), SimpleField("field2"))).requireTags shouldBe false
+      ParsedFields(List(SimpleField("field1", Some(CountAggregation("field1"))), SimpleField("field2"))).requireTags shouldBe false
     }
   }
 }

@@ -17,15 +17,21 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 
 object FieldsParser {
 
   /**
     * Checks if the field contains an aggregation on a field that is not the Value field
     */
-  def aggregationNotOnValue(field: Field): Boolean =
-    field.aggregation.isDefined && field.name != "value" && field.name != "*"
+  def aggregationNotAllowed(field: Field, tags: Map[String, SchemaField]): Boolean = {
+
+    val allowedAggregationOnTag = field.aggregation.exists(a =>
+      a.isInstanceOf[CountAggregation] || a.isInstanceOf[CountDistinctAggregation]) && tags
+      .contains(field.name)
+
+    field.aggregation.isDefined && field.name != "value" && field.name != "*" && !allowedAggregationOnTag
+  }
 
   /**
     * Checks if a list of fields contains at least one standard aggregation.
@@ -61,8 +67,8 @@ object FieldsParser {
   def parseFieldList(sqlFields: SelectedFields, schema: Schema): Either[String, ParsedFields] =
     sqlFields match {
       case AllFields() => Right(ParsedFields(List.empty))
-      case ListFields(List(singleField)) if aggregationNotOnValue(singleField) =>
-        Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
+      case ListFields(List(singleField)) if aggregationNotAllowed(singleField, schema.tags) =>
+        Left(StatementParserErrors.AGGREGATION_NOT_ALLOWED)
       case ListFields(list) =>
         val metricDimensions = schema.fieldsMap.values.map(_.name).toSeq
         val projectionFields = list.map(_.name).filterNot(_ == "*")
@@ -71,6 +77,6 @@ object FieldsParser {
           Right(ParsedFields(list.map(f => SimpleField(f.name, f.aggregation))))
         else
           Left(StatementParserErrors.notExistingDimensions(diff))
-      case ListFields(_) => Left(StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
+      case ListFields(_) => Left(StatementParserErrors.AGGREGATION_NOT_ALLOWED)
     }
 }

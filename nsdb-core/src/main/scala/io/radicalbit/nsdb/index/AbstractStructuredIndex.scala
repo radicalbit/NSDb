@@ -27,7 +27,6 @@ import org.apache.lucene.search._
 import org.apache.lucene.search.grouping._
 import org.apache.lucene.util.BytesRef
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
@@ -213,8 +212,10 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @param query query to be executed before grouping.
     * @param schema bit schema.
     * @param groupTagName tag used to group by.
+    * @param aggregationField the field to pick up to calculate the unique values.
     */
-  def uniqueValues(query: Query, schema: Schema, groupTagName: String): Seq[Bit] = {
+  def uniqueValues(query: Query, schema: Schema, groupTagName: String, aggregationField: String): Seq[Bit] = {
+    val internalAggregationField = if (aggregationField == "value") _valueField else aggregationField
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
       case VARCHAR() => new TermGroupSelector(groupTagName)
       case _         => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
@@ -235,13 +236,20 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
           new DistinctValuesCollector[BytesRef, BytesRef](
             firstPassGroupingCollector.getGroupSelector,
             inputGroups,
-            new TermGroupSelector(s"${_valueField}$stringAuxiliaryFieldSuffix"))
+            new TermGroupSelector(s"${internalAggregationField}$stringAuxiliaryFieldSuffix"))
         searcher.search(query, distinctValuesCollector)
 
         val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]
 
-        distinctValuesCollector.getGroups.forEach(
-          g =>
+        distinctValuesCollector.getGroups.forEach { g =>
+          if (g.groupValue != null) {
+            val uniqueValues = mutable.Set.empty[NSDbType]
+            g.uniqueValues.forEach { v =>
+              if (v != null)
+                uniqueValues += schema.value.indexType
+                  .deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
+            }
+
             buffer += Bit(
               0,
               0,
@@ -251,10 +259,10 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                   .tags(groupTagName)
                   .indexType
                   .deserialize(new String(g.groupValue.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)),
-              g.uniqueValues.asScala.map { v =>
-                schema.value.indexType.deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
-              }.toSet,
-          ))
+              uniqueValues.toSet
+            )
+          }
+        }
 
         buffer
 
