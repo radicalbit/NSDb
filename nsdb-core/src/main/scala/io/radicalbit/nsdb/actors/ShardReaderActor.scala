@@ -81,8 +81,6 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                  query: Query,
                                  schema: Schema): Try[PrimaryAggregationResults] = {
 
-    import io.radicalbit.nsdb.common.util.ErrorUtils._
-
     implicit val numeric: Numeric[Any] = schema.value.indexType.asNumericType.numeric
 
     val distinctPrimaryAggregations = aggregations.flatMap {
@@ -93,24 +91,27 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     (for {
       (groupField, groupFieldSchemaField) <- Try(
         schema.tags.headOption.getOrElse(Schema.timestampField -> schema.timestamp))
-      quantities <- flatten(distinctPrimaryAggregations
-        .collect {
-          case CountAggregation =>
-            Try(index.getCount(query)).map(count => Some(`count(*)` -> NSDbNumericType(count)))
-          case SumAggregation =>
-            Try(
-              facetIndexes
+      quantities <- distinctPrimaryAggregations
+        .foldLeft(Try(Map.empty[String, NSDbNumericType])) {
+          case (tryAcc, CountAggregation) =>
+            tryAcc.map(acc => acc + (`count(*)` -> NSDbNumericType(index.getCount(query))))
+          case (tryAcc, SumAggregation) =>
+            tryAcc.map { acc =>
+              val sum = facetIndexes
                 .executeSumFacet(query, groupField, None, None, groupFieldSchemaField.indexType, schema.value.indexType)
                 .map(_.value.rawValue)
-                .sum).map(sum => Some(`sum(*)` -> NSDbNumericType(sum)))
-          case MinAggregation =>
-            Try {
+                .sum
+              acc + (`sum(*)` -> NSDbNumericType(sum))
+            }
+          case (tryAcc, MinAggregation) =>
+            tryAcc.map { acc =>
               val minPerGroup = index.getMinGroupBy(query, schema, groupField)
               val minCrossGroup =
                 minPerGroup.reduceLeftOption((bitL, bitR) => if (bitR.value <= bitL.value) bitR else bitL)
-              minCrossGroup.map(min => `min(*)` -> min.value)
+              minCrossGroup.fold(acc)(min => acc + (`min(*)` -> min.value))
             }
-        })
+          case (tryAcc, _) => tryAcc
+        }
       uniqueValues <- {
         distinctPrimaryAggregations
           .collectFirst {
@@ -119,7 +120,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           }
           .getOrElse(Success(Set.empty[NSDbType]))
       }
-    } yield PrimaryAggregationResults(quantities.flatten.toMap, uniqueValues)).recoverWith {
+    } yield PrimaryAggregationResults(quantities, uniqueValues)).recoverWith {
       case _: IndexNotFoundException => Success(PrimaryAggregationResults(Map.empty, Set.empty))
     }
   }
@@ -189,10 +190,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             }
           } else {
             localPrimaryAggregationsResults.map { primaryAggregations =>
-              val aggregationTags =
-                if (primaryAggregations.quantities.isEmpty) computeZeroPrimaryAggregations(aggregations, schema)
-                else primaryAggregations.quantities
-              val uniqueValues = primaryAggregations.uniqueValues
+              val aggregationTags = primaryAggregations.quantities
+              val uniqueValues    = primaryAggregations.uniqueValues
               Seq(Bit(0, 0L, Map.empty, aggregationTags, uniqueValues))
             }
           }
