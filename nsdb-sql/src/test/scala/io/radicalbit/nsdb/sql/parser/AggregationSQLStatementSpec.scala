@@ -78,6 +78,42 @@ class AggregationSQLStatementSpec extends WordSpec with Matchers {
             )
           ))
       }
+
+      "parse it successfully when min(value) is provided" in {
+        val query = "SELECT min(value) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(MinAggregation)))),
+              groupBy = None
+            )
+          ))
+      }
+
+      "parse it successfully when mixed min(*), count(*) aggregations and a where condition are provided" in {
+        val query = "SELECT count(*), min(value) FROM people WHERE timestamp IN (2,4)"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(CountAggregation)), Field("value", Some(MinAggregation)))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2L),
+                                          value2 = AbsoluteComparisonValue(4L)))),
+              groupBy = None
+            )
+          ))
+      }
     }
 
     "receive a select with a group by and one aggregation" should {

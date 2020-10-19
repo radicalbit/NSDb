@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.Future
 
 /**
-  * Grpc client
-  * @param host Grpc server host
-  * @param port Grpc server port
+  * GRPC client
+  * @param host GRPC server host
+  * @param port GRPC server port
   */
 class GRPCClient(host: String, port: Int) {
 
