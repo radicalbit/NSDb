@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
-import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
@@ -28,6 +28,7 @@ import org.apache.lucene.search.grouping._
 import org.apache.lucene.util.BytesRef
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
@@ -66,33 +67,33 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
 
   private def toRecord(schema: Schema, document: Document, fields: Seq[SimpleField]): Bit = {
 
-    def extractFields(schema: Schema, document: Document, fields: Seq[SimpleField], fieldClassType: FieldClassType) = {
-      document.getFields.asScala
-        .filterNot { f =>
-          schema.fieldsMap
-            .find {
-              case (_, fieldSchema) => fieldSchema.name == f.name && fieldSchema.fieldClassType == fieldClassType
-            }
-            .forall { _ =>
-              f.name() == _keyField || f.name() == _valueField || f.name() == _countField || (fields.nonEmpty &&
-              !fields.exists { sf =>
-                sf.name == f.name() || sf.name.trim == "*"
-              })
-            }
+    def extractTagsAndDimension: (Map[String, NSDbType], Map[String, NSDbType]) = {
+      val dimensions = mutable.Map.empty[String, NSDbType]
+      val tags       = mutable.Map.empty[String, NSDbType]
+
+      val starProjection = fields.isEmpty || fields.exists(_.name == "*")
+
+      document.getFields.forEach { f =>
+        schema.fieldsMap.get(f.name) match {
+          case Some(SchemaField(_, fieldClassType, _))
+              if fields.exists(field => field.name == f.name) || starProjection =>
+            val valueToAdd =
+              NSDbType(if (f.numericValue() != null) f.numericValue() else f.stringValue())
+            if (fieldClassType == TagFieldType)
+              tags += (f.name() -> valueToAdd)
+            if (fieldClassType == DimensionFieldType)
+              dimensions += (f.name() -> valueToAdd)
+          case _ => //do nothing
         }
-        .map {
-          case f if f.numericValue() != null => f.name() -> NSDbType(f.numericValue())
-          case f                             => f.name() -> NSDbType(f.stringValue())
-        }
+      }
+      (tags.toMap, dimensions.toMap)
     }
 
-    val dimensions: Map[String, NSDbType] = extractFields(schema, document, fields, DimensionFieldType).toMap
-    val tags: Map[String, NSDbType]       = extractFields(schema, document, fields, TagFieldType).toMap
+    val (tags, dimensions) = extractTagsAndDimension
 
-    val value = document.getField(_valueField).numericValue()
     Bit(
       timestamp = document.getField(_keyField).numericValue().longValue(),
-      value = NSDbNumericType(value),
+      value = NSDbNumericType(document.getField(_valueField).numericValue()),
       dimensions = dimensions,
       tags = tags
     )

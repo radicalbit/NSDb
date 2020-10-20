@@ -38,7 +38,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           )
@@ -65,7 +65,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               condition = Some(
                 Condition(
                   ComparisonExpression(dimension = "timestamp",
@@ -98,7 +98,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("age")),
               order = Some(AscOrderOperator("value"))
             )
@@ -121,7 +121,7 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountDistinctAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountDistinctAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("height")),
               order = Some(DescOrderOperator("value"))
             )
@@ -137,6 +137,5 @@ class ReadCoordinatorDistinctAggregatedStatementsSpec extends AbstractReadCoordi
         )
       }
     }
-
   }
 }

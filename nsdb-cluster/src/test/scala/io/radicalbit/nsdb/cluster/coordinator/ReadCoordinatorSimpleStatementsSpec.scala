@@ -272,11 +272,14 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 6
-
-        val names = expected.values.flatMap(_.dimensions.values.map(_.rawValue.asInstanceOf[String]))
-        names.count(_ == "Doe") shouldBe 5
-        names.count(_ == "D") shouldBe 1
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(1, 1L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(2, 2L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(4, 3L, Map("surname"  -> "D"), Map.empty),
+          Bit(6, 4L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(8, 5L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(10, 6L, Map("surname" -> "Doe"), Map.empty),
+        )
       }
     }
 
@@ -298,18 +301,15 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 6
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(1, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+          Bit(2, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+          Bit(4, 3L, Map("surname"  -> "D"), Map("name"   -> "J")),
+          Bit(6, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+          Bit(8, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+          Bit(10, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
+        )
 
-        val dimensions = expected.values.flatMap(_.dimensions.values.map(_.rawValue.asInstanceOf[String]))
-        dimensions.count(_ == "Doe") shouldBe 5
-
-        val tags = expected.values.flatMap(_.tags.values.map(_.rawValue.asInstanceOf[String]))
-
-        tags.count(_ == "Bill") shouldBe 1
-        tags.count(_ == "Frank") shouldBe 1
-        tags.count(_ == "Frankie") shouldBe 1
-        tags.count(_ == "J") shouldBe 1
-        tags.count(_ == "John") shouldBe 2
       }
     }
 
@@ -473,11 +473,10 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           )
         )
 
-        awaitAssert {
-          val expected = probe.expectMsgType[SelectStatementExecuted]
-
-          expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
         }
+        expected.values.sortBy(_.timestamp) shouldBe LongMetric.testRecords
       }
 
       "fail when is select distinct" in within(5.seconds) {

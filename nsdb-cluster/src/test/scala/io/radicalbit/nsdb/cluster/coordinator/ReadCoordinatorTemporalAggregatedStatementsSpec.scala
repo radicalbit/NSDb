@@ -40,7 +40,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -77,7 +77,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
                                                  value = AbsoluteComparisonValue(200000L)))),
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 limit = Some(LimitOperator(2))
               )
@@ -105,7 +105,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
                                                  value = AbsoluteComparisonValue(100000L)))),
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 limit = Some(LimitOperator(2))
               )
@@ -135,7 +135,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 limit = Some(LimitOperator(2))
               )
@@ -164,7 +164,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -198,7 +198,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -231,7 +231,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -264,7 +264,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
@@ -298,7 +298,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = LessThanOperator,
@@ -332,7 +332,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
                 condition = None,
                 groupBy = Some(TemporalGroupByAggregation(100000L, 100, "s"))
               )
@@ -361,7 +361,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(CountAggregation)))),
+                fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = GreaterOrEqualToOperator,
@@ -396,7 +396,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(SumAggregation)))),
+                fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -429,7 +429,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -463,7 +463,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(SumAggregation)))),
+                fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -496,7 +496,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(SumAggregation)))),
+                fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -530,7 +530,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(MaxAggregation)))),
+                fields = ListFields(List(Field("*", Some(MaxAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -563,7 +563,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+                fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -597,7 +597,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(MaxAggregation)))),
+                fields = ListFields(List(Field("*", Some(MaxAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -630,7 +630,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+                fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -664,7 +664,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(MinAggregation)))),
+                fields = ListFields(List(Field("*", Some(MinAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -697,7 +697,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(MinAggregation)))),
+                fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -731,7 +731,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(MinAggregation)))),
+                fields = ListFields(List(Field("*", Some(MinAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -764,7 +764,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(MinAggregation)))),
+                fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -797,7 +797,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+                fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -830,7 +830,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+                fields = ListFields(List(Field("value", Some(AvgAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -864,7 +864,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+                fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s"))
               )
             )
@@ -897,7 +897,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+                fields = ListFields(List(Field("value", Some(AvgAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(60000, 60, "s"))
               )
             )
@@ -930,7 +930,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 50L))
               ),
@@ -959,7 +959,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(SumAggregation)))),
+                fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 80L))
               ),
@@ -990,7 +990,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+                fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 80L))
               ),
@@ -1021,7 +1021,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
                 distinct = false,
-                fields = ListFields(List(Field("*", Some(CountAggregation)))),
+                fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 condition = Some(
                   Condition(ComparisonExpression(dimension = "timestamp",
                                                  comparison = LessOrEqualToOperator,

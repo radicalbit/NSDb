@@ -51,7 +51,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(CountAggregation)), Field("surname", None))),
+            fields = ListFields(List(Field("*", Some(CountAggregation("value"))), Field("surname", None))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -63,7 +63,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(CountAggregation)
+              List(CountAggregation("value"))
             ))
         )
       }
@@ -76,7 +76,9 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(
-              List(Field("*", Some(CountAggregation)), Field("surname", None), Field("*", Some(MinAggregation)))),
+              List(Field("*", Some(CountAggregation("value"))),
+                   Field("surname", None),
+                   Field("*", Some(MinAggregation("value"))))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -88,7 +90,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(CountAggregation, MinAggregation)
+              List(CountAggregation("value"), MinAggregation("value"))
             ))
         )
       }
@@ -100,7 +102,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(AvgAggregation)), Field("surname", None))),
+            fields = ListFields(List(Field("*", Some(AvgAggregation("value"))), Field("surname", None))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -112,7 +114,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(AvgAggregation)
+              List(AvgAggregation("value"))
             ))
         )
       }
@@ -125,7 +127,9 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             metric = "people",
             distinct = false,
             fields = ListFields(
-              List(Field("*", Some(CountAggregation)), Field("*", Some(AvgAggregation)), Field("surname", None))),
+              List(Field("*", Some(CountAggregation("value"))),
+                   Field("*", Some(AvgAggregation("value"))),
+                   Field("surname", None))),
             limit = Some(LimitOperator(4))
           ),
           schema
@@ -137,7 +141,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(CountAggregation, AvgAggregation)
+              List(CountAggregation("value"), AvgAggregation("value"))
             ))
         )
       }
@@ -151,9 +155,9 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               metric = "people",
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation)),
+                List(Field("*", Some(CountAggregation("value"))),
                      Field("surname", None),
-                     Field("creationDate", Some(SqlSumAggregation)))),
+                     Field("creationDate", Some(SqlSumAggregation("value"))))),
               limit = Some(LimitOperator(4))
             ),
             schema
@@ -169,7 +173,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(CountAggregation)), Field("surname", None))),
+            fields = ListFields(List(Field("*", Some(CountAggregation("value"))), Field("surname", None))),
             limit = Some(LimitOperator(4))
           ),
           taglessSchema
@@ -181,7 +185,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(CountAggregation)
+              List(CountAggregation("value"))
             ))
         )
       }
@@ -193,7 +197,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+            fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
             limit = Some(LimitOperator(4))
           ),
           taglessSchema
@@ -205,7 +209,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               new MatchAllDocsQuery(),
               4,
               List(),
-              List(AvgAggregation)
+              List(AvgAggregation("value"))
             ))
         )
       }
@@ -219,7 +223,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(SqlSumAggregation)))),
+            fields = ListFields(List(Field("value", Some(SqlSumAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -234,7 +238,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("age", SqlSumAggregation)
+              InternalStandardAggregation("age", SqlSumAggregation("value"))
             ))
         )
       }
@@ -245,7 +249,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+            fields = ListFields(List(Field("*", Some(SqlSumAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -260,7 +264,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("country", SqlSumAggregation)
+              InternalStandardAggregation("country", SqlSumAggregation("value"))
             ))
         )
       }
@@ -271,7 +275,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+            fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -286,7 +290,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("country", AvgAggregation)
+              InternalStandardAggregation("country", AvgAggregation("value"))
             ))
         )
       }
@@ -297,7 +301,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(FirstAggregation)))),
+            fields = ListFields(List(Field("*", Some(FirstAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -312,7 +316,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("age", FirstAggregation)
+              InternalStandardAggregation("age", FirstAggregation("value"))
             ))
         )
       }
@@ -323,7 +327,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(LastAggregation)))),
+            fields = ListFields(List(Field("*", Some(LastAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -338,7 +342,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("country", LastAggregation)
+              InternalStandardAggregation("country", LastAggregation("value"))
             ))
         )
       }
@@ -349,7 +353,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(MaxAggregation)))),
+            fields = ListFields(List(Field("*", Some(MaxAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -364,7 +368,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("country", MaxAggregation)
+              InternalStandardAggregation("country", MaxAggregation("value"))
             ))
         )
       }
@@ -375,7 +379,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            fields = ListFields(List(Field("*", Some(MinAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -390,7 +394,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("country", MinAggregation)
+              InternalStandardAggregation("country", MinAggregation("value"))
             ))
         )
       }
@@ -404,7 +408,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -421,7 +425,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
-              InternalStandardAggregation("country", MaxAggregation),
+              InternalStandardAggregation("country", MaxAggregation("value")),
               Some(new Sort(new SortField("value", SortField.Type.DOUBLE, true))),
               Some(5)
             ))
@@ -437,7 +441,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(SqlSumAggregation)))),
+            fields = ListFields(List(Field("value", Some(SqlSumAggregation("value"))))),
             condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
             groupBy = Some(SimpleGroupByAggregation("amount")),
             limit = Some(LimitOperator(5))
@@ -453,7 +457,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
                      BooleanClause.Occur.MUST_NOT)
                 .build(),
-              InternalStandardAggregation("amount", SqlSumAggregation),
+              InternalStandardAggregation("amount", SqlSumAggregation("value")),
               None,
               Some(5)
             ))
@@ -470,7 +474,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("amount", Some(SqlSumAggregation)))),
+              fields = ListFields(List(Field("amount", Some(SqlSumAggregation("value"))))),
               condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               limit = Some(LimitOperator(5))
@@ -489,7 +493,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+              fields = ListFields(List(Field("*", Some(SqlSumAggregation("value"))))),
               condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               limit = Some(LimitOperator(5))
@@ -507,7 +511,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(CountAggregation)))),
+            fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
@@ -520,7 +524,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalTemporalAggregation(CountAggregation),
+              InternalTemporalAggregation(CountAggregation("value")),
               None
             ))
         )
@@ -533,7 +537,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(CountAggregation)))),
+            fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(86400000, 1, "d")),
             limit = None
@@ -546,7 +550,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               86400000,
-              InternalTemporalAggregation(CountAggregation),
+              InternalTemporalAggregation(CountAggregation("value")),
               None
             ))
         )
@@ -559,7 +563,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(SqlSumAggregation)))),
+            fields = ListFields(List(Field("*", Some(SqlSumAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
@@ -572,7 +576,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalTemporalAggregation(SqlSumAggregation),
+              InternalTemporalAggregation(SqlSumAggregation("value")),
               None
             ))
         )
@@ -585,7 +589,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(AvgAggregation)))),
+            fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
@@ -598,7 +602,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalTemporalAggregation(AvgAggregation),
+              InternalTemporalAggregation(AvgAggregation("value")),
               None
             ))
         )
@@ -611,7 +615,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            fields = ListFields(List(Field("*", Some(MinAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
@@ -624,7 +628,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalTemporalAggregation(MinAggregation),
+              InternalTemporalAggregation(MinAggregation("value")),
               None
             ))
 
@@ -634,7 +638,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(MaxAggregation)))),
+            fields = ListFields(List(Field("*", Some(MaxAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
@@ -646,7 +650,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             "people",
             new MatchAllDocsQuery(),
             1000,
-            InternalTemporalAggregation(MaxAggregation),
+            InternalTemporalAggregation(MaxAggregation("value")),
             None
           ))
       }
@@ -691,7 +695,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(MinAggregation)))),
+            fields = ListFields(List(Field("*", Some(MinAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             gracePeriod = Some(GracePeriod("S", 10))
@@ -704,7 +708,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalTemporalAggregation(MinAggregation),
+              InternalTemporalAggregation(MinAggregation("value")),
               None,
               gracePeriod = Some(10000)
             ))

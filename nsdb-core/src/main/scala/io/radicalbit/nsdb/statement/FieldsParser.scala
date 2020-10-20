@@ -40,7 +40,7 @@ object FieldsParser {
     fields.exists(f => f.aggregation.exists(_.isInstanceOf[GlobalAggregation]))
 
   private[statement] case class ParsedFields(list: List[SimpleField]) {
-    lazy val requireTags: Boolean = list.exists(!_.aggregation.forall(_ == CountAggregation))
+    lazy val requireTags: Boolean = list.exists(!_.aggregation.forall(_.isInstanceOf[CountAggregation]))
   }
 
   /**

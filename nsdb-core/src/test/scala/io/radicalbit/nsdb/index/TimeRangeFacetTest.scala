@@ -56,7 +56,13 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val query           = new MatchAllDocsQuery()
       val facetRangeIndex = new FacetRangeIndex
 
-      facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        CountAggregation("value"),
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
         Bit(0, NSDbLongType(10), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
@@ -87,7 +93,13 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val query           = LongPoint.newRangeQuery("value", 10, Long.MaxValue)
       val facetRangeIndex = new FacetRangeIndex
 
-      facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        CountAggregation("value"),
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
@@ -117,7 +129,13 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val query           = new TermQuery(new Term("dimension", "dimension_0"))
       val facetRangeIndex = new FacetRangeIndex
 
-      facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        CountAggregation("value"),
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
         Bit(0, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound" -> NSDbLongType(10)), Map())
       )
 
@@ -147,7 +165,13 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val query           = new TermQuery(new Term("tag", "tag_1"))
       val facetRangeIndex = new FacetRangeIndex
 
-      facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        CountAggregation("value"),
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map())
       )
     }
@@ -178,7 +202,13 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val query           = LongPoint.newRangeQuery("timestamp", 0, 20)
       val facetRangeIndex = new FacetRangeIndex
 
-      facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
+      facetRangeIndex.executeRangeFacet(searcher,
+                                        query,
+                                        CountAggregation("value"),
+                                        "timestamp",
+                                        "value",
+                                        Some(BIGINT()),
+                                        ranges) shouldBe Seq(
         Bit(0, NSDbLongType(10), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
         Bit(20, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())

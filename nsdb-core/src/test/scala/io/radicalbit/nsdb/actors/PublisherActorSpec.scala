@@ -70,7 +70,7 @@ class PublisherActorSpec
     namespace = "registry",
     metric = "people",
     distinct = false,
-    fields = ListFields(List(Field("*", Some(SumAggregation)))),
+    fields = ListFields(List(Field("*", Some(SumAggregation("*"))))),
     groupBy = Some(SimpleGroupByAggregation("name"))
   )
 
@@ -135,18 +135,20 @@ class PublisherActorSpec
     }
 
     "make other actors subscribe and unsubscribe to temporal aggregated queries" in {
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")))
+      )
       probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
       publisherActor.underlyingActor.temporalAggregatedQueries.values.head.query shouldBe testTemporalAggregatedSqlStatement(
-        CountAggregation)
+        CountAggregation("value"))
 
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 1
       publisherActor.underlyingActor.subscribedActorsByQueryId.values.head shouldBe Set(probeActor)
@@ -205,13 +207,15 @@ class PublisherActorSpec
     "do nothing if an event that does not satisfy a temporal query comes" in {
       publisherActor.underlyingActor.plainQueries.clear()
       publisherActor.underlyingActor.subscribedActorsByQueryId.clear()
-      probe.send(publisherActor,
-                 SubscribeBySqlStatement(probeActor,
-                                         "db",
-                                         "namespace",
-                                         "metric",
-                                         "queryString",
-                                         testTemporalAggregatedSqlStatement(CountAggregation)))
+      probe.send(
+        publisherActor,
+        SubscribeBySqlStatement(probeActor,
+                                "db",
+                                "namespace",
+                                "metric",
+                                "queryString",
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")))
+      )
       probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
@@ -259,7 +263,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -271,7 +275,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
       secondProbe.expectMsgType[SubscribedByQueryString]
@@ -304,7 +308,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -316,7 +320,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
       secondProbe.expectMsgType[SubscribedByQueryString]
@@ -352,7 +356,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -363,7 +367,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(SumAggregation),
+                                testTemporalAggregatedSqlStatement(SumAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -374,7 +378,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(AvgAggregation),
+                                testTemporalAggregatedSqlStatement(AvgAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -385,7 +389,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(MinAggregation),
+                                testTemporalAggregatedSqlStatement(MinAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -396,7 +400,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(MaxAggregation),
+                                testTemporalAggregatedSqlStatement(MaxAggregation("value")),
                                 Some(testTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -455,7 +459,7 @@ class PublisherActorSpec
                                 "namespace",
                                 "metric",
                                 "queryString",
-                                testTemporalAggregatedSqlStatement(CountAggregation),
+                                testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(lateTimeContext))
       )
       probe.expectMsgType[SubscribedByQueryString]
@@ -485,7 +489,7 @@ class PublisherActorSpec
             namespace = "namespace",
             metric = "metric",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
             condition = Some(
               Condition(
                 ComparisonExpression(dimension = "timestamp",
@@ -556,7 +560,7 @@ class PublisherActorSpec
             namespace = "namespace",
             metric = "metric",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(CountAggregation)))),
+            fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
             condition = Some(
               Condition(
                 ComparisonExpression(dimension = "timestamp",

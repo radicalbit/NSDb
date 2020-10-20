@@ -99,7 +99,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "*",
-          |        "aggregation" : "count"
+          |        "aggregation" : {
+          |          "aggregation" : "count",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    }
           |  }
@@ -152,7 +155,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "*",
-          |        "aggregation" : "count"
+          |        "aggregation" : {
+          |          "aggregation" : "count",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "condition" : {
@@ -220,7 +226,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "*",
-          |        "aggregation" : "count"
+          |        "aggregation" : {
+          |          "aggregation" : "count",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "condition" : {
@@ -278,7 +287,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "*",
-          |        "aggregation" : "count"
+          |        "aggregation" : {
+          |          "aggregation" : "count",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "limit" : {
@@ -337,7 +349,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "value",
-          |        "aggregation" : "sum"
+          |        "aggregation" : {
+          |          "aggregation" : "sum",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "groupBy" : {
@@ -399,7 +414,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "value",
-          |        "aggregation" : "min"
+          |        "aggregation" : {
+          |          "aggregation" : "min",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "groupBy" : {
@@ -461,7 +479,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "value",
-          |        "aggregation" : "max"
+          |        "aggregation" : {
+          |          "aggregation" : "max",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "groupBy" : {
@@ -1036,7 +1057,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "*",
-          |        "aggregation" : "count"
+          |        "aggregation" : {
+          |          "aggregation" : "count",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "condition" : {
@@ -1127,7 +1151,10 @@ class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest 
           |    "fields" : {
           |      "fields" : [ {
           |        "name" : "*",
-          |        "aggregation" : "count"
+          |        "aggregation" : {
+          |          "aggregation" : "count",
+          |          "aggregationField" : "value"
+          |        }
           |      } ]
           |    },
           |    "condition" : {

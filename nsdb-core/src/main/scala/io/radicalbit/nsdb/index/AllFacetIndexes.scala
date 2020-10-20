@@ -85,11 +85,11 @@ class AllFacetIndexes(basePath: String,
           valueFieldType,
           ranges
         )
-      case AvgAggregation =>
+      case AvgAggregation(aggregationField) =>
         val sum = facetRangeIndex.executeRangeFacet(
           searcher,
           query,
-          SumAggregation,
+          SumAggregation(aggregationField),
           rangeFieldName,
           valueFieldName,
           valueFieldType,
@@ -100,7 +100,7 @@ class AllFacetIndexes(basePath: String,
           .executeRangeFacet(
             searcher,
             query,
-            CountAggregation,
+            CountAggregation(aggregationField),
             rangeFieldName,
             valueFieldName,
             valueFieldType,

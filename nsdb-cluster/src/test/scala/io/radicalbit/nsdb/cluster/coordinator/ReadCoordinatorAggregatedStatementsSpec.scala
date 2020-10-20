@@ -38,7 +38,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               condition = Some(
                 Condition(ComparisonExpression(dimension = "timestamp",
                                                comparison = GreaterOrEqualToOperator,
@@ -109,7 +109,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation)))),
+              fields = ListFields(List(Field("*", Some(CountAggregation("*"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(AscOrderOperator("name"))
             )
@@ -137,7 +137,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(AscOrderOperator("name"))
             )
@@ -165,7 +165,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(DescOrderOperator("name"))
             )
@@ -190,7 +190,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = DoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(DescOrderOperator("name"))
             )
@@ -217,7 +217,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(DescOrderOperator("value"))
             )
@@ -236,7 +236,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = DoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(DescOrderOperator("value"))
             )
@@ -258,7 +258,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = DoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(AscOrderOperator("value")),
               limit = Some(LimitOperator(2))
@@ -280,7 +280,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = LongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(AscOrderOperator("value")),
               limit = Some(LimitOperator(2))
@@ -300,7 +300,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = DoubleMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               order = Some(AscOrderOperator("value")),
               limit = Some(LimitOperator(2))
@@ -324,7 +324,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("age")),
               order = Some(AscOrderOperator("value"))
             )
@@ -345,7 +345,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(SumAggregation)))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("age")),
               order = Some(AscOrderOperator("age"))
             )
@@ -371,7 +371,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               namespace = namespace,
               metric = AggregationLongMetric.name,
               distinct = false,
-              fields = ListFields(List(Field("value", Some(CountAggregation)))),
+              fields = ListFields(List(Field("value", Some(CountAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("height")),
               order = Some(DescOrderOperator("value"))
             )
@@ -397,7 +397,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(SumAggregation)))),
+            fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height"))
           )
@@ -422,7 +422,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(FirstAggregation)))),
+            fields = ListFields(List(Field("value", Some(FirstAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height"))
           )
@@ -447,7 +447,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(LastAggregation)))),
+            fields = ListFields(List(Field("value", Some(LastAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height"))
           )
@@ -471,7 +471,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height"))
           )
@@ -495,7 +495,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(MinAggregation)))),
+            fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height"))
           )
@@ -520,7 +520,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(MaxAggregation)))),
+            fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height")),
             limit = Some(LimitOperator(2))
@@ -544,7 +544,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(MinAggregation)))),
+            fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height")),
             limit = Some(LimitOperator(2))
@@ -568,7 +568,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationLongMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+            fields = ListFields(List(Field("value", Some(AvgAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height")),
             limit = None
@@ -593,7 +593,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
             namespace = namespace,
             metric = AggregationDoubleMetric.name,
             distinct = false,
-            fields = ListFields(List(Field("value", Some(AvgAggregation)))),
+            fields = ListFields(List(Field("value", Some(AvgAggregation("value"))))),
             groupBy = Some(SimpleGroupByAggregation("height")),
             order = Some(AscOrderOperator("height")),
             limit = None
