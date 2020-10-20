@@ -17,14 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{
-  AllFields,
-  AvgAggregation,
-  CountAggregation,
-  Field,
-  ListFields,
-  SumAggregation
-}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.FieldsParser.{ParsedFields, SimpleField}
 import org.scalatest.{Matchers, WordSpec}
@@ -45,8 +38,34 @@ class FieldsParserSpec extends WordSpec with Matchers {
       FieldsParser.parseFieldList(AllFields(), schema) shouldBe Right(ParsedFields(List.empty))
     }
 
-    "reject fields containing not allowed aggregations not on value" in {
-      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(SumAggregation("tag"))))), schema) shouldBe Left(
+    "parse allowed aggregation on tag" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("amount", Some(CountAggregation("amount"))))), schema) shouldBe
+        Right(ParsedFields(List(SimpleField("amount", Some(CountAggregation("amount"))))))
+
+      FieldsParser.parseFieldList(ListFields(List(Field("amount", Some(CountDistinctAggregation("amount"))))), schema) shouldBe
+        Right(ParsedFields(List(SimpleField("amount", Some(CountDistinctAggregation("amount"))))))
+    }
+
+    "reject fields containing not allowed aggregations on tags" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(SumAggregation("country"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(AvgAggregation("amount"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(MinAggregation("country"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(FirstAggregation("amount"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+    }
+
+    "reject fields containing not allowed aggregations on dimensions" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation("name"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountDistinctAggregation("name"))))), schema) shouldBe Left(
         StatementParserErrors.AGGREGATION_NOT_ALLOWED)
     }
 

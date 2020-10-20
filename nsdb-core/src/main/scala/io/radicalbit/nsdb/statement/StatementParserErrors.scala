@@ -28,7 +28,7 @@ object StatementParserErrors {
   lazy val SIMPLE_AGGREGATION_NOT_ON_TAG =
     "cannot execute a groupBy query grouping by a field that is not a tag"
   lazy val AGGREGATION_NOT_ALLOWED =
-    "Count And Count Distinct Aggregation can be applied to the value and to a tag. Other aggregation can be applied only on the value"
+    "Count And Count Distinct Aggregation can be applied to the value and to a tag. Other aggregations can be applied only on the value"
   lazy val SORT_DIMENSION_NOT_IN_GROUP =
     "cannot sort group by query result by a field not in group by clause"
   lazy val GRACE_PERIOD_NOT_ALLOWED           = "grace period clause is allowed only in temporal group by queries"

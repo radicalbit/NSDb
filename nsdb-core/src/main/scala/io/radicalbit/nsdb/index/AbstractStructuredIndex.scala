@@ -221,6 +221,11 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
       case _         => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
     }
 
+    val aggregationSelector = schema.fieldsMap(internalAggregationField).indexType match {
+      case VARCHAR() => new TermGroupSelector(internalAggregationField)
+      case _         => new TermGroupSelector(s"$internalAggregationField$stringAuxiliaryFieldSuffix")
+    }
+
     val searcher = this.getSearcher
 
     val firstPassGroupingCollector =
@@ -233,10 +238,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     groupsOpt match {
       case Some(inputGroups) =>
         val distinctValuesCollector =
-          new DistinctValuesCollector[BytesRef, BytesRef](
-            firstPassGroupingCollector.getGroupSelector,
-            inputGroups,
-            new TermGroupSelector(s"${internalAggregationField}$stringAuxiliaryFieldSuffix"))
+          new DistinctValuesCollector[BytesRef, BytesRef](firstPassGroupingCollector.getGroupSelector,
+                                                          inputGroups,
+                                                          aggregationSelector)
         searcher.search(query, distinctValuesCollector)
 
         val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]
@@ -246,7 +250,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
             val uniqueValues = mutable.Set.empty[NSDbType]
             g.uniqueValues.forEach { v =>
               if (v != null)
-                uniqueValues += schema.value.indexType
+                uniqueValues += schema
+                  .fieldsMap(aggregationField)
+                  .indexType
                   .deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
             }
 
