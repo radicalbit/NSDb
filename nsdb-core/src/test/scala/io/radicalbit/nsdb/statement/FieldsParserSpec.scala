@@ -101,7 +101,7 @@ class FieldsParserSpec extends WordSpec with Matchers {
 
     "reject fields not existing in the schema" in {
       FieldsParser.parseFieldList(ListFields(List(Field("notExisting", None))), schema) shouldBe Left(
-        StatementParserErrors.notExistingDimensions(Seq("notExisting")))
+        StatementParserErrors.notExistingFields(Seq("notExisting")))
     }
   }
 

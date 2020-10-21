@@ -89,6 +89,6 @@ object FieldsParser {
         if (diff.isEmpty)
           Right(ParsedFields(list.map(f => SimpleField(f.name, f.aggregation))))
         else
-          Left(StatementParserErrors.notExistingDimensions(diff))
+          Left(StatementParserErrors.notExistingFields(diff))
     }
 }

@@ -72,7 +72,7 @@ object ExpressionParser {
       case Some(SchemaField(_, _, DECIMAL())) =>
         Right(DoublePoint.newRangeQuery(field, Double.MinValue, Double.MaxValue))
       case Some(SchemaField(_, _, VARCHAR())) => Right(new WildcardQuery(new Term(field, "*")))
-      case None                               => Left(StatementParserErrors.notExistingDimension(field))
+      case None                               => Left(StatementParserErrors.notExistingField(field))
     }
     // Used to apply negation due to the fact Lucene does not support nullable fields, query the values' range and apply negation
     query.map { qq =>
@@ -103,7 +103,7 @@ object ExpressionParser {
           case _          => Left(StatementParserErrors.nonCompatibleOperator("equality", "DECIMAL"))
         }
       case Some(SchemaField(_, _, _: VARCHAR)) => Right(new TermQuery(new Term(field, value.rawValue.toString)))
-      case None                                => Left(StatementParserErrors.notExistingDimension(field))
+      case None                                => Left(StatementParserErrors.notExistingField(field))
     }
   }
 
@@ -115,7 +115,7 @@ object ExpressionParser {
         Right(new WildcardQuery(new Term(field, value.rawValue.toString.replaceAll("\\$", "*"))))
       case Some(_) =>
         Left(StatementParserErrors.nonCompatibleOperator("Like", "VARCHAR"))
-      case None => Left(StatementParserErrors.notExistingDimension(field))
+      case None => Left(StatementParserErrors.notExistingField(field))
     }
   }
 
@@ -164,7 +164,7 @@ object ExpressionParser {
         }
       case (Some(_), _) =>
         Left(StatementParserErrors.nonCompatibleOperator("comparison", "numerical"))
-      case (None, _) => Left(StatementParserErrors.notExistingDimension(field))
+      case (None, _) => Left(StatementParserErrors.notExistingField(field))
     }
   }
 
@@ -198,7 +198,7 @@ object ExpressionParser {
         }
       case (Some(SchemaField(_, _, _: VARCHAR)), _, _) =>
         Left(StatementParserErrors.nonCompatibleOperator("range", "numerical"))
-      case (None, _, _) => Left(StatementParserErrors.notExistingDimension(field))
+      case (None, _, _) => Left(StatementParserErrors.notExistingField(field))
     }
   }
 
