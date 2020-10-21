@@ -22,7 +22,10 @@ import io.radicalbit.nsdb.model.{Schema, SchemaField}
 object FieldsParser {
 
   /**
-    * Checks if the field contains an aggregation on a field that is not the Value field
+    * Checks if an aggregation is not allowed.
+    * An aggregation is allowed if :
+    * - it belongs to the count family (Count or Count Distinct) and it is applied on the value or on a tag.
+    * - it is applied on the value.
     */
   def aggregationNotAllowed(field: Field, tags: Map[String, SchemaField]): Boolean = {
 
@@ -77,6 +80,5 @@ object FieldsParser {
           Right(ParsedFields(list.map(f => SimpleField(f.name, f.aggregation))))
         else
           Left(StatementParserErrors.notExistingDimensions(diff))
-      case ListFields(_) => Left(StatementParserErrors.AGGREGATION_NOT_ALLOWED)
     }
 }

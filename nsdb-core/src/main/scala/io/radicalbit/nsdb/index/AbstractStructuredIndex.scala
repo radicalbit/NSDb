@@ -145,8 +145,8 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                               sortField: String): Seq[Bit] = {
 
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
-      case VARCHAR() => new TermGroupSelector(groupTagName)
-      case _         => new TermGroupSelector(s"${groupTagName}_str")
+      case _: VARCHAR => new TermGroupSelector(groupTagName)
+      case _          => new TermGroupSelector(s"${groupTagName}_str")
     }
 
     val sortType = schema.fieldsMap.get(sortField).map(_.indexType.sortType).getOrElse(SortField.Type.DOC)
@@ -215,15 +215,14 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     * @param aggregationField the field to pick up to calculate the unique values.
     */
   def uniqueValues(query: Query, schema: Schema, groupTagName: String, aggregationField: String): Seq[Bit] = {
-    val internalAggregationField = if (aggregationField == "value") _valueField else aggregationField
     val groupSelector = schema.fieldsMap(groupTagName).indexType match {
-      case VARCHAR() => new TermGroupSelector(groupTagName)
-      case _         => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
+      case _: VARCHAR => new TermGroupSelector(groupTagName)
+      case _          => new TermGroupSelector(s"$groupTagName$stringAuxiliaryFieldSuffix")
     }
 
-    val aggregationSelector = schema.fieldsMap(internalAggregationField).indexType match {
-      case VARCHAR() => new TermGroupSelector(internalAggregationField)
-      case _         => new TermGroupSelector(s"$internalAggregationField$stringAuxiliaryFieldSuffix")
+    val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
+      case _: VARCHAR => new TermGroupSelector(aggregationField)
+      case _          => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
     }
 
     val searcher = this.getSearcher
