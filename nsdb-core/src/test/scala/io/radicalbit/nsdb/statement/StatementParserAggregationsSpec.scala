@@ -157,7 +157,7 @@ class StatementParserAggregationsSpec extends WordSpec with Matchers {
               fields = ListFields(
                 List(Field("*", Some(CountAggregation("value"))),
                      Field("surname", None),
-                     Field("creationDate", Some(SqlSumAggregation("value"))))),
+                     Field("value", Some(SqlSumAggregation("value"))))),
               limit = Some(LimitOperator(4))
             ),
             schema

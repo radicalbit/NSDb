@@ -61,6 +61,36 @@ class FieldsParserSpec extends WordSpec with Matchers {
 
     }
 
+    "reject fields containing multiple count or count distinct" in {
+      FieldsParser.parseFieldList(
+        ListFields(
+          List(Field("*", Some(CountAggregation("value"))), Field("amount", Some(CountAggregation("amount"))))),
+        schema) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+
+      FieldsParser.parseFieldList(ListFields(
+                                    List(Field("*", Some(CountDistinctAggregation("value"))),
+                                         Field("amount", Some(CountDistinctAggregation("amount"))))),
+                                  schema) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+
+      FieldsParser.parseFieldList(
+        ListFields(
+          List(Field("*", Some(CountAggregation("value"))),
+               Field("amount", Some(CountAggregation("amount"))),
+               Field("*", Some(CountDistinctAggregation("value"))))),
+        schema
+      ) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+
+      FieldsParser.parseFieldList(
+        ListFields(
+          List(
+            Field("*", Some(CountDistinctAggregation("value"))),
+            Field("amount", Some(CountDistinctAggregation("amount"))),
+            Field("*", Some(CountAggregation("value")))
+          )),
+        schema
+      ) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+    }
+
     "reject fields containing not allowed aggregations on dimensions" in {
       FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation("name"))))), schema) shouldBe Left(
         StatementParserErrors.AGGREGATION_NOT_ALLOWED)

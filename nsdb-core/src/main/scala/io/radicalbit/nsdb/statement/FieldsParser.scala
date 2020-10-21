@@ -37,6 +37,14 @@ object FieldsParser {
   }
 
   /**
+    * Checks if there is only a single count and a single count distinct.
+    */
+  def containsMultipleCountAndCountDistinct(fields: List[Field]): Boolean =
+    fields.flatMap(_.aggregation).count(_.isInstanceOf[CountAggregation]) > 1 || fields
+      .flatMap(_.aggregation)
+      .count(_.isInstanceOf[CountDistinctAggregation]) > 1
+
+  /**
     * Checks if a list of fields contains at least one standard aggregation.
     */
   def containsStandardAggregations(fields: List[SimpleField]): Boolean =
@@ -70,8 +78,10 @@ object FieldsParser {
   def parseFieldList(sqlFields: SelectedFields, schema: Schema): Either[String, ParsedFields] =
     sqlFields match {
       case AllFields() => Right(ParsedFields(List.empty))
-      case ListFields(List(singleField)) if aggregationNotAllowed(singleField, schema.tags) =>
+      case ListFields(list) if list.exists(aggregationNotAllowed(_, schema.tags)) =>
         Left(StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+      case ListFields(list) if containsMultipleCountAndCountDistinct(list) =>
+        Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
       case ListFields(list) =>
         val metricDimensions = schema.fieldsMap.values.map(_.name).toSeq
         val projectionFields = list.map(_.name).filterNot(_ == "*")
