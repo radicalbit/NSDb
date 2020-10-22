@@ -167,6 +167,8 @@ sealed trait Aggregation {
     * Field to apply the aggregation to.
     */
   def fieldName: String
+
+  def concreteFieldName = if (fieldName == "*") "value" else fieldName
 }
 
 /**

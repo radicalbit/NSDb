@@ -126,9 +126,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   }
   private val aggField
     : Parser[Field] = ((sum | min | max | count | first | last | avg) <~ OpenRoundBracket) ~ (Distinct ?) ~ (standardString | All) <~ CloseRoundBracket ^? ({
-    case CountAggregation ~ Some(_) ~ "*"  => Field("*", Some(CountDistinctAggregation("value")))
     case CountAggregation ~ Some(_) ~ name => Field(name, Some(CountDistinctAggregation(name)))
-    case aggregation ~ None ~ "*"          => Field("*", Some(aggregation("value")))
     case aggregation ~ None ~ name         => Field(name, Some(aggregation(name)))
   }, _ => "Distinct clause is only applicable to the count aggregation")
 

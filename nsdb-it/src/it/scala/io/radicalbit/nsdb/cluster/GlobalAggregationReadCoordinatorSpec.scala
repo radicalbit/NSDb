@@ -140,7 +140,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
 
         assert(readRes.reason == "")
         assert(readRes.records.size == 1)
-        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("count(distinct *)" -> 3L))))
+        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("count(distinct height)" -> 3L))))
       }
     }
   }
