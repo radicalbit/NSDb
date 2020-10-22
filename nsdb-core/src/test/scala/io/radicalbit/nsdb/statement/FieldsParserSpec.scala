@@ -17,14 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{
-  AllFields,
-  AvgAggregation,
-  CountAggregation,
-  Field,
-  ListFields,
-  SumAggregation
-}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.FieldsParser.{ParsedFields, SimpleField}
 import org.scalatest.{Matchers, WordSpec}
@@ -45,14 +38,70 @@ class FieldsParserSpec extends WordSpec with Matchers {
       FieldsParser.parseFieldList(AllFields(), schema) shouldBe Right(ParsedFields(List.empty))
     }
 
-    "reject fields containing aggregations not on value" in {
-      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation("tag"))))), schema) shouldBe Left(
-        StatementParserErrors.AGGREGATION_NOT_ON_VALUE)
+    "parse allowed aggregation on tag" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("amount", Some(CountAggregation("amount"))))), schema) shouldBe
+        Right(ParsedFields(List(SimpleField("amount", Some(CountAggregation("amount"))))))
+
+      FieldsParser.parseFieldList(ListFields(List(Field("amount", Some(CountDistinctAggregation("amount"))))), schema) shouldBe
+        Right(ParsedFields(List(SimpleField("amount", Some(CountDistinctAggregation("amount"))))))
+    }
+
+    "reject fields containing not allowed aggregations on tags" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(SumAggregation("country"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(AvgAggregation("amount"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(MinAggregation("country"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("country", Some(FirstAggregation("amount"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+    }
+
+    "reject fields containing multiple count or count distinct" in {
+      FieldsParser.parseFieldList(
+        ListFields(
+          List(Field("*", Some(CountAggregation("value"))), Field("amount", Some(CountAggregation("amount"))))),
+        schema) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+
+      FieldsParser.parseFieldList(ListFields(
+                                    List(Field("*", Some(CountDistinctAggregation("value"))),
+                                         Field("amount", Some(CountDistinctAggregation("amount"))))),
+                                  schema) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+
+      FieldsParser.parseFieldList(
+        ListFields(
+          List(Field("*", Some(CountAggregation("value"))),
+               Field("amount", Some(CountAggregation("amount"))),
+               Field("*", Some(CountDistinctAggregation("value"))))),
+        schema
+      ) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+
+      FieldsParser.parseFieldList(
+        ListFields(
+          List(
+            Field("*", Some(CountDistinctAggregation("value"))),
+            Field("amount", Some(CountDistinctAggregation("amount"))),
+            Field("*", Some(CountAggregation("value")))
+          )),
+        schema
+      ) shouldBe Left(StatementParserErrors.MULTIPLE_COUNT_AGGREGATIONS)
+    }
+
+    "reject fields containing not allowed aggregations on dimensions" in {
+      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountAggregation("name"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
+
+      FieldsParser.parseFieldList(ListFields(List(Field("name", Some(CountDistinctAggregation("name"))))), schema) shouldBe Left(
+        StatementParserErrors.AGGREGATION_NOT_ALLOWED)
     }
 
     "reject fields not existing in the schema" in {
       FieldsParser.parseFieldList(ListFields(List(Field("notExisting", None))), schema) shouldBe Left(
-        StatementParserErrors.notExistingDimensions(Seq("notExisting")))
+        StatementParserErrors.notExistingFields(Seq("notExisting")))
     }
   }
 
@@ -72,7 +121,7 @@ class FieldsParserSpec extends WordSpec with Matchers {
     }
 
     "compute requireTags false if mixed count and plain fields are provided" in {
-      ParsedFields(List(SimpleField("field1", Some(CountAggregation("value"))), SimpleField("field2"))).requireTags shouldBe false
+      ParsedFields(List(SimpleField("field1", Some(CountAggregation("field1"))), SimpleField("field2"))).requireTags shouldBe false
     }
   }
 }

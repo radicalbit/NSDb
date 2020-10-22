@@ -333,7 +333,11 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
 
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
-        }.values shouldBe Seq(Bit(0L, 2L, Map.empty, Map("age" -> 20L)), Bit(0L, 7L, Map.empty, Map("age" -> 15L)))
+        }.values shouldBe Seq(
+          Bit(0, 1L, Map(), Map("age" -> 16L), Set()),
+          Bit(0, 2L, Map(), Map("age" -> 20L), Set()),
+          Bit(0, 5L, Map(), Map("age" -> 15L), Set())
+        )
       }
 
       "execute it successfully with sum aggregation" in within(5.seconds) {
@@ -355,8 +359,9 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         awaitAssert {
           probe.expectMsgType[SelectStatementExecuted]
         }.values shouldBe Seq(
-          Bit(0L, 20L, Map.empty, Map("age" -> 15L)),
-          Bit(0L, 6L, Map.empty, Map("age"  -> 20L))
+          Bit(0, 14L, Map(), Map("age" -> 15L), Set()),
+          Bit(0, 5L, Map(), Map("age"  -> 16L), Set()),
+          Bit(0, 6L, Map(), Map("age"  -> 20L), Set())
         )
       }
     }

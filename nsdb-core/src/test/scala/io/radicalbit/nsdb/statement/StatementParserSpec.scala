@@ -74,7 +74,7 @@ class StatementParserSpec extends WordSpec with Matchers {
                                fields = ListFields(List(Field("address", None))),
                                limit = Some(LimitOperator(4))),
             schema
-          ) shouldBe Left(StatementParserErrors.notExistingDimensions(List("address")))
+          ) shouldBe Left(StatementParserErrors.notExistingFields(List("address")))
       }
     }
 

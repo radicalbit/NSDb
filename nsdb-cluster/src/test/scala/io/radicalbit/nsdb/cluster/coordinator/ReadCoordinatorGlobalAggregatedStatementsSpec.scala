@@ -192,7 +192,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         )
       }
 
-      "execute it successfully with a count distinct" in {
+      "execute it successfully with a count distinct on the value" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -212,6 +212,29 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         }
         expected.values shouldBe Seq(
           Bit(0, 0L, Map.empty, Map("count(distinct *)" -> NSDbLongType(5L)))
+        )
+      }
+
+      "execute it successfully with a count distinct on a tag" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationLongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(CountDistinctAggregation("height"))))
+              )
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 0L, Map.empty, Map("count(distinct *)" -> NSDbLongType(3L)))
         )
       }
 
@@ -321,6 +344,36 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
           Bit(8L, 1L, Map.empty, Map("name"  -> "Frank", "count(distinct *)"   -> 5L)),
           Bit(9L, 1L, Map.empty, Map("name"  -> "Frank", "count(distinct *)"   -> 5L)),
           Bit(10L, 4L, Map.empty, Map("name" -> "Frankie", "count(distinct *)" -> 5L))
+        )
+      }
+
+      "execute it successfully with mixed count distinct on a tag and plain fields" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationLongMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(CountDistinctAggregation("name"))), Field("name", None))),
+              order = Some(DescOrderOperator("value"))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 4L)),
+          Bit(3L, 2L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 4L)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 4L)),
+          Bit(5L, 3L, Map.empty, Map("name"  -> "John", "count(distinct *)"    -> 4L)),
+          Bit(6L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 4L)),
+          Bit(7L, 5L, Map.empty, Map("name"  -> "Bill", "count(distinct *)"    -> 4L)),
+          Bit(8L, 1L, Map.empty, Map("name"  -> "Frank", "count(distinct *)"   -> 4L)),
+          Bit(9L, 1L, Map.empty, Map("name"  -> "Frank", "count(distinct *)"   -> 4L)),
+          Bit(10L, 4L, Map.empty, Map("name" -> "Frankie", "count(distinct *)" -> 4L))
         )
       }
 

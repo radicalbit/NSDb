@@ -736,7 +736,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
     }
   }
 
-  test("receive a select containing a group by on long dimension with count distinct aggregation") {
+  test("receive a select containing a group by on long dimension with count distinct aggregation on the value") {
     nodes.foreach { n =>
       val nsdb =
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
@@ -750,6 +750,47 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       assert(
         readRes.records.map(_.asBit) ==
           Seq(Bit(0L, 1L, Map.empty, Map("age" -> 20L)), Bit(0L, 3L, Map.empty, Map("age" -> 15L))))
+    }
+  }
+
+  test("receive a select containing a group by with count distinct aggregation on a numeric tag") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct height) from ${AggregationLongMetric.name} group by name order by name")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) ==
+          Seq(Bit(0,1L,Map(),Map("name" -> "Bill"),Set()),
+            Bit(0,1L,Map(),Map("name" -> "Frank"),Set()),
+            Bit(0,1L,Map(),Map("name" -> "Frankie"),Set()),
+            Bit(0,1L,Map(),Map("name" -> "John"),Set()))
+      )
+    }
+  }
+
+  test("receive a select containing a group by with count distinct aggregation on a string tag") {
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct name) from ${AggregationLongMetric.name} group by age order by age")
+
+      val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+      assert(
+        readRes.records.map(_.asBit) == Seq(
+          Bit(0,4L,Map(),Map("age" -> 15L),Set()),
+          Bit(0,1L,Map(),Map("age" -> 20L),Set())
+        )
+      )
     }
   }
 

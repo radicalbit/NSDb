@@ -126,6 +126,27 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select containing a global count distinct on a tag") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(distinct height) from ${AggregationLongMetric.name}")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.reason == "")
+        assert(readRes.records.size == 1)
+        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("count(distinct *)" -> 3L))))
+      }
+    }
+  }
+
   test("receive a select containing a global average") {
 
     nodes.foreach { n =>

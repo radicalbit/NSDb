@@ -68,11 +68,11 @@ object MockedData {
     )
 
     val recordsShard2: Seq[Bit] = Seq(
-      Bit(6L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-      Bit(7L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 15L, "height" -> 31.0)),
-      Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-      Bit(9L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 15L, "height" -> 32.0)),
-      Bit(10L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> 15L, "height" -> 32.0))
+      Bit(6L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"     -> 15L, "height" -> 31.0)),
+      Bit(7L, 5L, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"     -> 16L, "height" -> 31.0)),
+      Bit(8L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "height" -> 32.0)),
+      Bit(9L, 1L, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"    -> 15L, "height" -> 32.0)),
+      Bit(10L, 4L, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age"  -> 15L, "height" -> 32.0))
     )
 
     val testRecords = recordsShard1 ++ recordsShard2
