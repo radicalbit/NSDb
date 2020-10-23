@@ -31,6 +31,7 @@ import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
+import io.grpc.protobuf.services.ProtoReflectionService
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
@@ -73,6 +74,7 @@ trait GRPCServer {
     .addService(InitMetricGrpc.bindService(initMetricService, executionContextExecutor))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
     .addService(RestoreGrpc.bindService(restore, executionContextExecutor))
+    .addService(ProtoReflectionService.newInstance())
     .build
 
   def start(): Try[Server] = Try(server.start())
