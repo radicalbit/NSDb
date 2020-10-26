@@ -155,6 +155,7 @@ object Dependencies {
     lazy val version         = scalapb.compiler.Version.grpcJavaVersion
     lazy val namespace       = "io.grpc"
     lazy val `grpc-netty`    = namespace % "grpc-netty" % version
+    lazy val `grpc-services` = namespace % "grpc-services" % version
   }
 
   object scalaPB {
@@ -237,6 +238,7 @@ object Dependencies {
     val libraries = Seq(
       slf4j.api,
       gRPC.`grpc-netty`,
+      gRPC.`grpc-services`,
       scalaPB.`runtime`,
       scalaPB.`runtime-grpc`
     )
