@@ -136,7 +136,7 @@ class SelectSQLStatementSpec extends NSDbSpec {
                                namespace = "registry",
                                metric = "people",
                                distinct = false,
-                               fields = ListFields(List(Field("*", Some(CountAggregation("value"))))))
+                               fields = ListFields(List(Field("*", Some(CountAggregation("*"))))))
           )
         )
       }
@@ -184,7 +184,7 @@ class SelectSQLStatementSpec extends NSDbSpec {
               metric = "people",
               distinct = false,
               fields = ListFields(
-                List(Field("*", Some(CountAggregation("value"))),
+                List(Field("*", Some(CountAggregation("*"))),
                      Field("surname", None),
                      Field("creationDate", Some(SumAggregation("creationDate")))))
             )

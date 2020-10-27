@@ -381,11 +381,11 @@ package object post_proc {
 
     val uniqueValues = rawResults.foldLeft(Set.empty[NSDbType])((acc, b2) => acc ++ b2.uniqueValues)
 
-    //only one count distinct is allowed. This has been checked previously in the flow
+    //only one count distinct is allowed. This has been previously checked by the semantic parser.
     val allAggregationReduced = aggregations.find(_.isInstanceOf[CountDistinctAggregation]) match {
       case Some(aggregation) if finalStep =>
         aggregationsReduced + (s"count(distinct ${aggregation.fieldName})" -> NSDbLongType(uniqueValues.size))
-      case None => aggregationsReduced
+      case _ => aggregationsReduced
     }
 
     val finalUniqueValues = if (finalStep) Set.empty[NSDbType] else uniqueValues
