@@ -101,7 +101,7 @@ class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
           |        "name" : "*",
           |        "aggregation" : {
           |          "aggregation" : "count",
-          |          "aggregationField" : "value"
+          |          "aggregationField" : "*"
           |        }
           |      } ]
           |    }
@@ -286,7 +286,7 @@ class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
           |    "distinct" : false,
           |    "fields" : {
           |      "fields" : [ {
-          |        "name" : "*",
+          |        "name" : "value",
           |        "aggregation" : {
           |          "aggregation" : "count",
           |          "aggregationField" : "value"
@@ -1059,7 +1059,7 @@ class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
           |        "name" : "*",
           |        "aggregation" : {
           |          "aggregation" : "count",
-          |          "aggregationField" : "value"
+          |          "aggregationField" : "*"
           |        }
           |      } ]
           |    },
@@ -1153,7 +1153,7 @@ class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
           |        "name" : "*",
           |        "aggregation" : {
           |          "aggregation" : "count",
-          |          "aggregationField" : "value"
+          |          "aggregationField" : "*"
           |        }
           |      } ]
           |    },
