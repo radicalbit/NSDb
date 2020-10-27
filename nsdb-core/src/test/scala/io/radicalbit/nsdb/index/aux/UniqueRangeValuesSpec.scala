@@ -46,7 +46,7 @@ class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTe
   )
 
   "TimeSeriesIndex" should {
-    "calculate unique range unique values on the value" in {
+    "calculate unique range values on the value" in {
 
       val timeSeriesIndex =
         new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
@@ -57,22 +57,29 @@ class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTe
 
       writer.close()
 
-       val timeRangeContext = TimeRangeContext(180000, 0 , 30000, Seq.empty)
-
       val uniqueValues =
-        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery, Schema("testMetric", testRecords.head), "value",timeRangeContext)
+        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
+                                          Schema("testMetric", testRecords.head),
+                                          "value",
+                                          0,
+                                          30000,
+                                          180000)
 
       uniqueValues shouldBe Seq(
-        Bit(0,0,Map("lowerbound" -> 150000L, "upperbound" -> 180000L),Map(),Set(NSDbDoubleType(2.5))),
-        Bit(0,0,Map("lowerbound" -> 120000L, "upperbound" -> 150000L),Map(),Set(NSDbDoubleType(3.5))),
-        Bit(0,0,Map("lowerbound" -> 90000L, "upperbound" -> 120000L),Map(),Set(NSDbDoubleType(5.5))),
-        Bit(0,0,Map("lowerbound" -> 60000L, "upperbound" -> 90000L),Map(),Set(NSDbDoubleType(8.5), NSDbDoubleType(7.5))),
-        Bit(0,0,Map("lowerbound" -> 30000L, "upperbound" -> 60000L),Map(),Set(NSDbDoubleType(4.5))),
-        Bit(0,0,Map("lowerbound" -> 0L, "upperbound" -> 30000L),Map(),Set(NSDbDoubleType(1.5)))
+        Bit(0, 0, Map("lowerbound" -> 150000L, "upperbound" -> 180000L), Map(), Set(NSDbDoubleType(2.5))),
+        Bit(0, 0, Map("lowerbound" -> 120000L, "upperbound" -> 150000L), Map(), Set(NSDbDoubleType(3.5))),
+        Bit(0, 0, Map("lowerbound" -> 90000L, "upperbound"  -> 120000L), Map(), Set(NSDbDoubleType(5.5))),
+        Bit(0,
+            0,
+            Map("lowerbound" -> 60000L, "upperbound" -> 90000L),
+            Map(),
+            Set(NSDbDoubleType(8.5), NSDbDoubleType(7.5))),
+        Bit(0, 0, Map("lowerbound" -> 30000L, "upperbound" -> 60000L), Map(), Set(NSDbDoubleType(4.5))),
+        Bit(0, 0, Map("lowerbound" -> 0L, "upperbound"     -> 30000L), Map(), Set(NSDbDoubleType(1.5)))
       )
     }
 
-    "calculate unique range unique values on a tag" in {
+    "calculate unique range values on a tag" in {
 
       val timeSeriesIndex =
         new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
@@ -83,19 +90,54 @@ class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTe
 
       writer.close()
 
-      val timeRangeContext = TimeRangeContext(180000, 0 , 30000, Seq.empty)
+      val timeRangeContext = TimeRangeContext(180000, 0, 30000, Seq.empty)
 
       val uniqueValues =
-        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery, Schema("testMetric", testRecords.head), "name",timeRangeContext)
+        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
+                                          Schema("testMetric", testRecords.head),
+                                          "name",
+                                          0,
+                                          30000,
+                                          180000)
 
       uniqueValues shouldBe Seq(
-        Bit(0,0,Map("lowerbound" -> 150000L, "upperbound" -> 180000L),Map(),Set(NSDbStringType("John"),NSDbStringType("Bill"))),
-        Bit(0,0,Map("lowerbound" -> 120000L, "upperbound" -> 150000L),Map(),Set(NSDbStringType("John"),NSDbStringType("Bill"))),
-        Bit(0,0,Map("lowerbound" -> 90000L, "upperbound" -> 120000L),Map(),Set(NSDbStringType("John"))),
-        Bit(0,0,Map("lowerbound" -> 60000L, "upperbound" -> 90000L),Map(),Set(NSDbStringType("Bill"))),
-        Bit(0,0,Map("lowerbound" -> 30000L, "upperbound" -> 60000L),Map(),Set(NSDbStringType("Frank"))),
-        Bit(0,0,Map("lowerbound" -> 0L, "upperbound" -> 30000L),Map(),Set(NSDbStringType("Frankie")))
+        Bit(0,
+            0,
+            Map("lowerbound" -> 150000L, "upperbound" -> 180000L),
+            Map(),
+            Set(NSDbStringType("John"), NSDbStringType("Bill"))),
+        Bit(0,
+            0,
+            Map("lowerbound" -> 120000L, "upperbound" -> 150000L),
+            Map(),
+            Set(NSDbStringType("John"), NSDbStringType("Bill"))),
+        Bit(0, 0, Map("lowerbound" -> 90000L, "upperbound" -> 120000L), Map(), Set(NSDbStringType("John"))),
+        Bit(0, 0, Map("lowerbound" -> 60000L, "upperbound" -> 90000L), Map(), Set(NSDbStringType("Bill"))),
+        Bit(0, 0, Map("lowerbound" -> 30000L, "upperbound" -> 60000L), Map(), Set(NSDbStringType("Frank"))),
+        Bit(0, 0, Map("lowerbound" -> 0L, "upperbound"     -> 30000L), Map(), Set(NSDbStringType("Frankie")))
       )
+    }
+
+    "calculate unique range on an empty interval" in {
+
+      val timeSeriesIndex =
+        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+
+      val writer = timeSeriesIndex.getWriter
+
+      testRecords.foreach(timeSeriesIndex.write(_)(writer))
+
+      writer.close()
+
+      val uniqueValues =
+        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
+                                          Schema("testMetric", testRecords.head),
+                                          "value",
+                                          0,
+                                          30000,
+                                          0)
+
+      uniqueValues shouldBe Seq.empty
     }
 
   }

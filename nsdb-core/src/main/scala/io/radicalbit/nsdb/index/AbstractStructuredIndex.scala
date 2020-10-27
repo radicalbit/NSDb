@@ -276,9 +276,15 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     }
   }
 
-  def uniqueRangeValues(query: Query, schema: Schema, aggregationField: String, timeRangeContext: TimeRangeContext): Seq[Bit] = {
+  def uniqueRangeValues(query: Query,
+                        schema: Schema,
+                        aggregationField: String,
+                        lowerBound: Long,
+                        interval: Long,
+                        upperBound: Long): Seq[Bit] = {
     val groupSelector =
-      new LongRangeGroupSelector(LongValuesSource.fromLongField(_keyField), new LongRangeFactory(timeRangeContext.lowerBound, timeRangeContext.interval,timeRangeContext.upperBound));
+      new LongRangeGroupSelector(LongValuesSource.fromLongField(_keyField),
+                                 new LongRangeFactory(lowerBound, interval, upperBound));
 
     val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
       case _: VARCHAR => new TermGroupSelector(aggregationField)
@@ -314,23 +320,23 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                   .deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
             }
 
-            if ((g.groupValue.min == timeRangeContext.upperBound) || (g.groupValue.max == timeRangeContext.upperBound))
-            uniqueValuesBeyondRange ++= uniqueValues
-              else
-            buffer += Bit(
-              0,
-              0,
-              Map("lowerbound" -> g.groupValue.min, "upperbound" -> g.groupValue.max),
-              Map.empty,
-              uniqueValues.toSet
-            )
+            if ((g.groupValue.min == upperBound) || (g.groupValue.max == upperBound))
+              uniqueValuesBeyondRange ++= uniqueValues
+            else
+              buffer += Bit(
+                0,
+                0,
+                Map("lowerbound" -> g.groupValue.min, "upperbound" -> g.groupValue.max),
+                Map.empty,
+                uniqueValues.toSet
+              )
           }
         }
 
         Bit(
           0,
           0,
-          Map("lowerbound" -> (timeRangeContext.upperBound - timeRangeContext.interval), "upperbound" -> timeRangeContext.upperBound),
+          Map("lowerbound" -> (upperBound - interval), "upperbound" -> upperBound),
           Map.empty,
           uniqueValuesBeyondRange.toSet
         ) +: buffer
