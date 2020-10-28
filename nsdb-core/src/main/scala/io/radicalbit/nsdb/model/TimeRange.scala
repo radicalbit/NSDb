@@ -38,3 +38,5 @@ case class TimeRange(lowerBound: Long, upperBound: Long, lowerInclusive: Boolean
 
   def intersect(location: Location): Boolean = this.interval.intersects(location.interval)
 }
+
+case class TimeRangeContext(upperBound: Long, lowerBound: Long, interval: Long, ranges: Seq[TimeRange])

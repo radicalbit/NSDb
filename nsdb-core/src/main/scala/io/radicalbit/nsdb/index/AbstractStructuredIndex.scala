@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
-import io.radicalbit.nsdb.model.{Schema, SchemaField}
+import io.radicalbit.nsdb.model.{Schema, SchemaField, TimeRangeContext}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
@@ -270,6 +270,70 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
         }
 
         buffer
+
+      case None =>
+        Seq.empty
+    }
+  }
+
+  def uniqueRangeValues(query: Query, schema: Schema, aggregationField: String, timeRangeContext: TimeRangeContext): Seq[Bit] = {
+    val groupSelector =
+      new LongRangeGroupSelector(LongValuesSource.fromLongField(_keyField), new LongRangeFactory(timeRangeContext.lowerBound, timeRangeContext.interval,timeRangeContext.upperBound));
+
+    val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
+      case _: VARCHAR => new TermGroupSelector(aggregationField)
+      case _          => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
+    }
+
+    val firstPassGroupingCollector =
+      new FirstPassGroupingCollector(groupSelector, new Sort(), maxGroups)
+
+    val searcher = this.getSearcher
+
+    searcher.search(query, firstPassGroupingCollector)
+
+    val groupsOpt = Option(firstPassGroupingCollector.getTopGroups(0))
+
+    groupsOpt match {
+      case Some(inputGroups) =>
+        val distinctValuesCollector =
+          new DistinctValuesCollector(firstPassGroupingCollector.getGroupSelector, inputGroups, aggregationSelector)
+        searcher.search(query, distinctValuesCollector)
+
+        var uniqueValuesBeyondRange = mutable.Set.empty[NSDbType]
+        val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]
+
+        distinctValuesCollector.getGroups.forEach { g =>
+          if (g.groupValue != null) {
+            val uniqueValues = mutable.Set.empty[NSDbType]
+            g.uniqueValues.forEach { v =>
+              if (v != null)
+                uniqueValues += schema
+                  .fieldsMap(aggregationField)
+                  .indexType
+                  .deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
+            }
+
+            if ((g.groupValue.min == timeRangeContext.upperBound) || (g.groupValue.max == timeRangeContext.upperBound))
+            uniqueValuesBeyondRange ++= uniqueValues
+              else
+            buffer += Bit(
+              0,
+              0,
+              Map("lowerbound" -> g.groupValue.min, "upperbound" -> g.groupValue.max),
+              Map.empty,
+              uniqueValues.toSet
+            )
+          }
+        }
+
+        Bit(
+          0,
+          0,
+          Map("lowerbound" -> (timeRangeContext.upperBound - timeRangeContext.interval), "upperbound" -> timeRangeContext.upperBound),
+          Map.empty,
+          uniqueValuesBeyondRange.toSet
+        ) +: buffer
 
       case None =>
         Seq.empty

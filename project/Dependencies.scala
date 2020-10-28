@@ -124,7 +124,7 @@ object Dependencies {
   }
 
   object javaWebsocket {
-    lazy val version       = "1.3.8"
+    lazy val version       = "1.5.1"
     lazy val namespace     = "org.java-websocket"
     lazy val javaWebsocket = namespace % "Java-WebSocket" % version
   }
@@ -136,7 +136,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.6.2"
+    lazy val version     = "8.6.3"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version

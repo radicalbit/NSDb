@@ -152,7 +152,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
       sender ! CountGot(db, namespace, metric, count)
     case ReceiveTimeout =>
       self ! PoisonPill
-    case ExecuteSelectStatement(statement, schema, _, globalRanges, timeContext, _) =>
+    case ExecuteSelectStatement(statement, schema, _, timeRangeContext, timeContext, _) =>
       log.debug("executing statement in metric shard reader actor {}", statement)
       val results: Try[Seq[Bit]] = StatementParser.parseStatement(statement, schema)(timeContext) match {
         case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
@@ -250,25 +250,32 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           handleNoIndexResults(
             Try(
               facetIndexes
-                .executeRangeFacet(index.getSearcher,
-                                   q,
-                                   InternalTemporalAggregation(countAggregation),
-                                   "timestamp",
-                                   "value",
-                                   None,
-                                   globalRanges.filter(_.intersect(location)))))
+                .executeRangeFacet(
+                  index.getSearcher,
+                  q,
+                  InternalTemporalAggregation(countAggregation),
+                  "timestamp",
+                  "value",
+                  None,
+                  timeRangeContext
+                    .map(_.ranges)
+                    .getOrElse(Seq.empty)
+                    .filter(_.intersect(location))
+                )))
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(
               facetIndexes
-                .executeRangeFacet(index.getSearcher,
-                                   q,
-                                   aggregationType,
-                                   "timestamp",
-                                   "value",
-                                   Some(valueFieldType),
-                                   globalRanges.filter(_.intersect(location)))))
+                .executeRangeFacet(
+                  index.getSearcher,
+                  q,
+                  aggregationType,
+                  "timestamp",
+                  "value",
+                  Some(valueFieldType),
+                  timeRangeContext.map(_.ranges).getOrElse(Seq.empty).filter(_.intersect(location))
+                )))
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           Failure(new RuntimeException(s"$aggregationType is not currently supported."))
         case Right(_) =>
