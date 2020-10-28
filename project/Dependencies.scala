@@ -19,7 +19,7 @@ import sbt._
 object Dependencies {
 
   object scalaLang {
-    lazy val version   = "2.12.7"
+    lazy val version   = "2.12.12"
     lazy val namespace = "org.scala-lang"
     lazy val compiler = namespace % "scala-compiler" % version excludeAll (ExclusionRule(organization =
                                                                                            "org.scala-lang.modules",
@@ -27,27 +27,27 @@ object Dependencies {
   }
 
   object scalaModules {
-    lazy val version           = "1.1.1"
+    lazy val version           = "1.1.2"
     lazy val namespace         = "org.scala-lang.modules"
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
 
-    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "0.9.0"
+    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "0.9.1"
   }
 
   object scopt {
-    lazy val version   = "3.7.0"
+    lazy val version   = "3.7.1"
     lazy val namespace = "com.github.scopt"
     val scopt          = namespace %% "scopt" % version
   }
 
   object cats {
-    lazy val version   = "1.6.1"
+    lazy val version   = "2.0.0"
     lazy val namespace = "org.typelevel"
     lazy val cats_core      = namespace %% "cats-core" % version
   }
 
   object spire {
-    lazy val version   = "0.16.2"
+    lazy val version   = "0.17.0"
     lazy val namespace = "org.typelevel"
     lazy val spire     = namespace %% "spire" % version
   }
@@ -85,7 +85,7 @@ object Dependencies {
   }
 
   object scala_logging {
-    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
+    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   }
 
   object logback {
