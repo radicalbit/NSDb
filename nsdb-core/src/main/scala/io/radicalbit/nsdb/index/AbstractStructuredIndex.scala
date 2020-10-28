@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.index
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.index.lucene.Index
-import io.radicalbit.nsdb.model.{Schema, SchemaField, TimeRangeContext}
+import io.radicalbit.nsdb.model.{Schema, SchemaField}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import org.apache.lucene.document._
 import org.apache.lucene.index.IndexWriter
@@ -276,6 +276,16 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
     }
   }
 
+  /**
+    * Extracts the unique values for a temporal range.
+    * @param query the query to be executed before grouping.
+    * @param schema bit schema.
+    * @param aggregationField field to use to gather unique values.
+    * @param lowerBound global lower bound.
+    * @param interval range interval.
+    * @param upperBound global upper bound.
+    * @return a sequence of bit, one for each time range, containing a set of unique values.
+    */
   def uniqueRangeValues(query: Query,
                         schema: Schema,
                         aggregationField: String,
@@ -324,9 +334,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
               uniqueValuesBeyondRange ++= uniqueValues
             else
               buffer += Bit(
+                g.groupValue.min,
                 0,
-                0,
-                Map("lowerbound" -> g.groupValue.min, "upperbound" -> g.groupValue.max),
+                Map("lowerBound" -> g.groupValue.min, "upperBound" -> g.groupValue.max),
                 Map.empty,
                 uniqueValues.toSet
               )
@@ -334,9 +344,9 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
         }
 
         Bit(
+          upperBound - interval,
           0,
-          0,
-          Map("lowerbound" -> (upperBound - interval), "upperbound" -> upperBound),
+          Map("lowerBound" -> (upperBound - interval), "upperBound" -> upperBound),
           Map.empty,
           uniqueValuesBeyondRange.toSet
         ) +: buffer

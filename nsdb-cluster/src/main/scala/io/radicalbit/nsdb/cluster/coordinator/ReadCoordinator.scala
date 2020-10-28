@@ -31,7 +31,7 @@ import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRange, TimeRangeContext}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRangeContext}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._

@@ -66,16 +66,16 @@ class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTe
                                           180000)
 
       uniqueValues shouldBe Seq(
-        Bit(0, 0, Map("lowerbound" -> 150000L, "upperbound" -> 180000L), Map(), Set(NSDbDoubleType(2.5))),
-        Bit(0, 0, Map("lowerbound" -> 120000L, "upperbound" -> 150000L), Map(), Set(NSDbDoubleType(3.5))),
-        Bit(0, 0, Map("lowerbound" -> 90000L, "upperbound"  -> 120000L), Map(), Set(NSDbDoubleType(5.5))),
-        Bit(0,
+        Bit(150000, 0, Map("lowerBound" -> 150000L, "upperBound" -> 180000L), Map(), Set(NSDbDoubleType(2.5))),
+        Bit(120000, 0, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map(), Set(NSDbDoubleType(3.5))),
+        Bit(90000, 0, Map("lowerBound"  -> 90000L, "upperBound"  -> 120000L), Map(), Set(NSDbDoubleType(5.5))),
+        Bit(60000,
             0,
-            Map("lowerbound" -> 60000L, "upperbound" -> 90000L),
+            Map("lowerBound" -> 60000L, "upperBound" -> 90000L),
             Map(),
             Set(NSDbDoubleType(8.5), NSDbDoubleType(7.5))),
-        Bit(0, 0, Map("lowerbound" -> 30000L, "upperbound" -> 60000L), Map(), Set(NSDbDoubleType(4.5))),
-        Bit(0, 0, Map("lowerbound" -> 0L, "upperbound"     -> 30000L), Map(), Set(NSDbDoubleType(1.5)))
+        Bit(30000, 0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map(), Set(NSDbDoubleType(4.5))),
+        Bit(0, 0, Map("lowerBound"     -> 0L, "upperBound"     -> 30000L), Map(), Set(NSDbDoubleType(1.5)))
       )
     }
 
@@ -90,7 +90,7 @@ class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTe
 
       writer.close()
 
-      val timeRangeContext = TimeRangeContext(180000, 0, 30000, Seq.empty)
+      TimeRangeContext(180000, 0, 30000, Seq.empty)
 
       val uniqueValues =
         timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
@@ -101,43 +101,21 @@ class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTe
                                           180000)
 
       uniqueValues shouldBe Seq(
-        Bit(0,
+        Bit(150000,
             0,
-            Map("lowerbound" -> 150000L, "upperbound" -> 180000L),
+            Map("lowerBound" -> 150000L, "upperBound" -> 180000L),
             Map(),
             Set(NSDbStringType("John"), NSDbStringType("Bill"))),
-        Bit(0,
+        Bit(120000,
             0,
-            Map("lowerbound" -> 120000L, "upperbound" -> 150000L),
+            Map("lowerBound" -> 120000L, "upperBound" -> 150000L),
             Map(),
             Set(NSDbStringType("John"), NSDbStringType("Bill"))),
-        Bit(0, 0, Map("lowerbound" -> 90000L, "upperbound" -> 120000L), Map(), Set(NSDbStringType("John"))),
-        Bit(0, 0, Map("lowerbound" -> 60000L, "upperbound" -> 90000L), Map(), Set(NSDbStringType("Bill"))),
-        Bit(0, 0, Map("lowerbound" -> 30000L, "upperbound" -> 60000L), Map(), Set(NSDbStringType("Frank"))),
-        Bit(0, 0, Map("lowerbound" -> 0L, "upperbound"     -> 30000L), Map(), Set(NSDbStringType("Frankie")))
+        Bit(90000, 0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map(), Set(NSDbStringType("John"))),
+        Bit(60000, 0, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map(), Set(NSDbStringType("Bill"))),
+        Bit(30000, 0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map(), Set(NSDbStringType("Frank"))),
+        Bit(0, 0, Map("lowerBound"     -> 0L, "upperBound"     -> 30000L), Map(), Set(NSDbStringType("Frankie")))
       )
-    }
-
-    "calculate unique range on an empty interval" in {
-
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
-
-      val writer = timeSeriesIndex.getWriter
-
-      testRecords.foreach(timeSeriesIndex.write(_)(writer))
-
-      writer.close()
-
-      val uniqueValues =
-        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
-                                          Schema("testMetric", testRecords.head),
-                                          "value",
-                                          0,
-                                          30000,
-                                          0)
-
-      uniqueValues shouldBe Seq.empty
     }
 
   }

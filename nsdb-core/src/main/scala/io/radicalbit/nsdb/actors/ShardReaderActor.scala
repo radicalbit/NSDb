@@ -287,9 +287,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                   q,
                   schema,
                   countDistinctAggregation.fieldName,
-                  filteredRanges.headOption.map(_.lowerBound).getOrElse(0L),
+                  filteredRanges.lastOption.map(_.lowerBound).getOrElse(0L),
                   interval,
-                  filteredRanges.lastOption.map(_.upperBound).getOrElse(0L)
+                  filteredRanges.headOption.map(_.upperBound).getOrElse(0L)
                 )))
 
         case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _, _)) =>
