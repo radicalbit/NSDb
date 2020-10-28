@@ -28,7 +28,8 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.scalatest.{BeforeAndAfter, FlatSpecLike, Matchers}
+import io.radicalbit.nsdb.test.NSDbFlatSpecLike
+import org.scalatest.BeforeAndAfter
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -36,8 +37,7 @@ import scala.concurrent.duration._
 class MetricAccumulatorActorSpec()
     extends TestKit(ActorSystem("metricAccumulatorSpec"))
     with ImplicitSender
-    with FlatSpecLike
-    with Matchers
+    with NSDbFlatSpecLike
     with BeforeAndAfter {
 
   val probe      = TestProbe()

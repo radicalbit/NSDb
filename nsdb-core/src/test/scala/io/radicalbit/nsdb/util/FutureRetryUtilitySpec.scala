@@ -19,18 +19,14 @@ package io.radicalbit.nsdb.util
 import akka.actor.{ActorSystem, Scheduler, Status}
 import akka.event.{Logging, LoggingAdapter}
 import akka.testkit.{TestKit, TestProbe}
-import org.scalatest.{Matchers, WordSpecLike}
+import io.radicalbit.nsdb.test.NSDbSpecLike
 
 import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class FutureRetryUtilitySpec
-    extends TestKit(ActorSystem("MySpec"))
-    with WordSpecLike
-    with Matchers
-    with FutureRetryUtility {
+class FutureRetryUtilitySpec extends TestKit(ActorSystem("MySpec")) with NSDbSpecLike with FutureRetryUtility {
 
   implicit val schedule: Scheduler    = system.scheduler
   implicit val logger: LoggingAdapter = Logging.getLogger(system, this)

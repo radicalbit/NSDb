@@ -33,7 +33,8 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.RecordRejected
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Matchers, WordSpecLike}
+import io.radicalbit.nsdb.test.NSDbSpecLike
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import scala.collection.mutable
 import scala.concurrent.Await
@@ -65,8 +66,7 @@ class WriteCoordinatorErrorsSpec
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
       ))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with BeforeAndAfter
     with BeforeAndAfterAll {
 

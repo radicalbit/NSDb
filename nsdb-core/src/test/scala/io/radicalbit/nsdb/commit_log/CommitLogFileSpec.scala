@@ -18,9 +18,10 @@ package io.radicalbit.nsdb.commit_log
 import java.io.{File, FileOutputStream}
 import java.util.UUID
 
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
+import org.scalatest.BeforeAndAfterAll
 
-class CommitLogFileSpec extends WordSpec with Matchers with CommitLogSpec with BeforeAndAfterAll {
+class CommitLogFileSpec extends NSDbSpec with CommitLogSpec with BeforeAndAfterAll {
 
   override def beforeAll(): Unit = {
     new File(directory).mkdirs()

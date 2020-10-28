@@ -19,9 +19,9 @@ package io.radicalbit.nsdb.commit_log
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class StandardCommitLogSerializerSpec extends WordSpec with Matchers {
+class StandardCommitLogSerializerSpec extends NSDbSpec {
 
   "A CommitLogEntry" when {
     val entryService = new StandardCommitLogSerializer

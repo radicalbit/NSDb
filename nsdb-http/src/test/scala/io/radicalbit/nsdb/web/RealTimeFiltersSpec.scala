@@ -31,12 +31,12 @@ import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
 import io.radicalbit.nsdb.security.http.EmptyAuthorization
 import io.radicalbit.nsdb.web.NSDbJson.RealTimeOutGoingMessageWriter._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 import spray.json._
 
 import scala.concurrent.duration._
 
-class RealTimeFiltersSpec extends WordSpec with ScalatestRouteTest with Matchers with WsResources {
+class RealTimeFiltersSpec extends NSDbSpec with ScalatestRouteTest with WsResources {
 
   override def logger: LoggingAdapter = system.log
 

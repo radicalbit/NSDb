@@ -25,15 +25,15 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
 import io.radicalbit.nsdb.model.Location
-import org.scalatest.{BeforeAndAfter, Matchers, WordSpecLike}
+import io.radicalbit.nsdb.test.NSDbSpecLike
+import org.scalatest.BeforeAndAfter
 
 import scala.concurrent.duration.FiniteDuration
 
 class RollingCommitLogFileWriterSpec
     extends TestKit(ActorSystem("radicaldb-test"))
+    with NSDbSpecLike
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
     with BeforeAndAfter
     with CommitLogSpec {
 

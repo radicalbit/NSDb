@@ -64,7 +64,7 @@ lazy val `nsdb-core` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .settings(libraryDependencies ++= Dependencies.Core.libraries)
-  .dependsOn(`nsdb-common`)
+  .dependsOn(`nsdb-common` % "compile->compile;test->test")
 lazy val `nsdb-http` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)
@@ -212,7 +212,7 @@ lazy val `nsdb-sql` = project
   .settings(libraryDependencies ++= Dependencies.SQL.libraries)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
-  .dependsOn(`nsdb-common`)
+  .dependsOn(`nsdb-common` % "compile->compile;test->test")
 lazy val `nsdb-java-api` = project
   .settings(Commons.settings: _*)
   .settings(crossPaths := false)

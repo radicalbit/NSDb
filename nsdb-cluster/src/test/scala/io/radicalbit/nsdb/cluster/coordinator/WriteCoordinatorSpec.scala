@@ -22,6 +22,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -36,8 +37,7 @@ class WriteCoordinatorSpec
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
       ))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with BeforeAndAfter
     with BeforeAndAfterAll
     with WriteCoordinatorBehaviour {

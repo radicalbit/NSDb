@@ -29,6 +29,8 @@ import io.radicalbit.nsdb.cluster.logic.LocalityReadNodesSelection
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import org.scalatest._
+import org.scalatest.matchers.should
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.Await
 
@@ -43,8 +45,8 @@ abstract class AbstractReadCoordinatorSpec
           .withValue("akka.log-dead-letters-during-shutdown", ConfigValueFactory.fromAnyRef("off"))
       ))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with AnyWordSpecLike
+    with should.Matchers
     with BeforeAndAfterAll
     with WriteInterval {
 

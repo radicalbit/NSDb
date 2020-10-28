@@ -18,11 +18,12 @@ package io.radicalbit.nsdb.cli
 
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
 import io.radicalbit.nsdb.common.protocol.{Bit, SQLStatementExecuted}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
-class ASCIITableBuilderSpec extends WordSpec with Matchers {
+class ASCIITableBuilderSpec extends AnyWordSpec with should.Matchers {
 
   def statementFor(res: Seq[Bit]) = SQLStatementExecuted(db = "db", namespace = "registry", metric = "people", res)
 

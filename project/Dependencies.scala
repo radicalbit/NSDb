@@ -146,7 +146,7 @@ object Dependencies {
   }
 
   object scalatest {
-    lazy val version   = "3.0.7"
+    lazy val version   = "3.2.2"
     lazy val namespace = "org.scalatest"
     lazy val core      = namespace %% "scalatest" % version
   }

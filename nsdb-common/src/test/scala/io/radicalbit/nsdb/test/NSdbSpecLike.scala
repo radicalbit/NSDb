@@ -14,23 +14,16 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.test
 
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit}
-import io.radicalbit.nsdb.test.NSDbSpecLike
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
+import org.scalatest.matchers.should
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
-class JournalServiceSpec
-    extends TestKit(ActorSystem("nsdb-test"))
-    with ImplicitSender
-    with NSDbSpecLike
-    with BeforeAndAfterAll {
+trait NSDbSpecLike extends AnyWordSpecLike with should.Matchers
 
-  "A partition" when {
-    "inserted" should {
-      "be saved correctly" in {}
-    }
-  }
+trait NSDbFlatSpec extends AnyFlatSpec with should.Matchers
 
-}
+trait NSDbFlatSpecLike extends AnyFlatSpecLike with should.Matchers
+
+trait NSDbSpec extends AnyWordSpec with should.Matchers

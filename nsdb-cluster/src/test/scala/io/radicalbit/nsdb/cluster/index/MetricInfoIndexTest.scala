@@ -22,9 +22,10 @@ import java.util.UUID
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.index.StorageStrategy.Memory
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import io.radicalbit.nsdb.test.NSDbFlatSpec
+import org.scalatest.OneInstancePerTest
 
-class MetricInfoIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
+class MetricInfoIndexTest extends NSDbFlatSpec with OneInstancePerTest with DirectorySupport {
 
   override def indexStorageStrategy: StorageStrategy = Memory
 

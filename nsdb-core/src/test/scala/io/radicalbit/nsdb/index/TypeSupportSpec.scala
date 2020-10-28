@@ -17,9 +17,9 @@
 package io.radicalbit.nsdb.index
 
 import io.radicalbit.nsdb.common.NSDbNumericType
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class TypeSupportSpec extends WordSpec with Matchers {
+class TypeSupportSpec extends NSDbSpec {
 
   "TypeSupport" when {
     "Index type are used" should {

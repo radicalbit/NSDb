@@ -19,9 +19,9 @@ package io.radicalbit.nsdb.common.configuration
 import java.math.{MathContext, RoundingMode}
 
 import io.radicalbit.nsdb.common.NSDbNumericType
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class NSDbNumericTypeSpec extends WordSpec with Matchers {
+class NSDbNumericTypeSpec extends NSDbSpec {
 
   implicit val mathContext: MathContext = new MathContext(10, RoundingMode.HALF_UP)
 

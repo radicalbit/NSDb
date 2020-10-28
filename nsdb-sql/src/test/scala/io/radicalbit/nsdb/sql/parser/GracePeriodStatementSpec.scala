@@ -19,9 +19,9 @@ package io.radicalbit.nsdb.sql.parser
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import org.scalatest.Inside._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class GracePeriodStatementSpec extends WordSpec with Matchers {
+class GracePeriodStatementSpec extends NSDbSpec {
 
   private val parser = new SQLStatementParser
 

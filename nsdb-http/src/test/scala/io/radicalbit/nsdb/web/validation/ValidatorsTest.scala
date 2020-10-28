@@ -16,12 +16,12 @@
 
 package io.radicalbit.nsdb.web.validation
 
-import org.scalatest.{FlatSpec, Matchers}
-import Validators._
 import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.routes.InsertBody
+import io.radicalbit.nsdb.web.validation.Validators._
 
-class ValidatorsTest extends FlatSpec with Matchers {
+class ValidatorsTest extends NSDbFlatSpec {
   "Validators" should "validate InsertBody returning empty errors" in {
     val metric = "metric"
     val result = insertBodyValidator.apply(InsertBody("db", "namespace", metric, Bit.empty))

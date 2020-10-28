@@ -29,11 +29,11 @@ import io.radicalbit.nsdb.security.http.EmptyAuthorization
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
 import scala.concurrent.duration._
 
-class RealTimeApiSpec extends WordSpec with ScalatestRouteTest with Matchers with WsResources {
+class RealTimeApiSpec extends NSDbSpec with ScalatestRouteTest with WsResources {
 
   override def logger: LoggingAdapter = system.log
 

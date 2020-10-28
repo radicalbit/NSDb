@@ -22,13 +22,13 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import io.radicalbit.nsdb.statement.StatementParser._
+import io.radicalbit.nsdb.test.NSDbSpec
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search._
-import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration.Duration
 
-class StatementParserRelativeTimeSpec extends WordSpec with Matchers {
+class StatementParserRelativeTimeSpec extends NSDbSpec {
 
   implicit val timeContext: TimeContext = TimeContext()
 

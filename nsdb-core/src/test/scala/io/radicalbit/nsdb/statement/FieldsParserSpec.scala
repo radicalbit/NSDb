@@ -20,9 +20,9 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.statement.FieldsParser.{ParsedFields, SimpleField}
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class FieldsParserSpec extends WordSpec with Matchers {
+class FieldsParserSpec extends NSDbSpec {
 
   private val schema = Schema(
     "people",

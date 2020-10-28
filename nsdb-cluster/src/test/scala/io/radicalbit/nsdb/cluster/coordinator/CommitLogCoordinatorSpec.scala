@@ -25,15 +25,15 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{AbsoluteComparisonValue, Condition, DeleteSQLStatement, RangeExpression}
 import io.radicalbit.nsdb.model.Location
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import io.radicalbit.nsdb.test.NSDbSpecLike
+import org.scalatest.BeforeAndAfterAll
 
 import scala.concurrent.duration._
 
 class CommitLogCoordinatorSpec
     extends TestKit(ActorSystem("CommitLogCoordinatorSpec"))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with BeforeAndAfterAll {
 
   private val commitLogCoordinatorActor = system actorOf Props[CommitLogCoordinator]

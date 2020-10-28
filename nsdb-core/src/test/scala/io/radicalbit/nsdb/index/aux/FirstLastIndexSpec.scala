@@ -23,13 +23,14 @@ import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.test.NSDbFlatSpec
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import org.scalatest.OneInstancePerTest
 
-class FirstLastIndexSpec extends FlatSpec with Matchers with OneInstancePerTest {
+class FirstLastIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
 
   private val BigIntValueSchema = Schema("testMetric",
                                          Bit(0,

@@ -37,6 +37,7 @@ import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement.{AscOrderOperator, ListFields, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, SelectStatementExecuted}
+import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -55,8 +56,7 @@ class RetentionSpec
           .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("50ms"))
       ))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with BeforeAndAfterAll
     with WriteInterval {
 

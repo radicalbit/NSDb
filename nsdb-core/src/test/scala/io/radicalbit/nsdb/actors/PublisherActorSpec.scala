@@ -25,6 +25,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
 
 import scala.concurrent.duration._
@@ -32,8 +33,7 @@ import scala.concurrent.duration._
 class PublisherActorSpec
     extends TestKit(ActorSystem("PublisherActorSpec"))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with OneInstancePerTest
     with BeforeAndAfter {
 
