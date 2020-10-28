@@ -497,4 +497,60 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
+  test("execute a temporal query with count distinct aggregation") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count( distinct *) from ${TemporalLongMetric.name} group by interval 30s")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 6)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(0,0L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map(),Set()),
+          Bit(30000,0L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map(),Set()),
+          Bit(60000,0L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map(),Set()),
+          Bit(90000,0L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map(),Set()),
+          Bit(120000,0L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map(),Set()),
+          Bit(150000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map(),Set())
+        ))
+      }
+    }
+  }
+
+  test("execute a temporal query with count distinct aggregation on a tag") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count( distinct height) from ${TemporalLongMetric.name} group by interval 30s")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 6)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(0,0L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map(),Set()),
+          Bit(30000,0L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map(),Set()),
+          Bit(60000,0L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map(),Set()),
+          Bit(90000,0L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map(),Set()),
+          Bit(120000,0L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map(),Set()),
+          Bit(150000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map(),Set())
+        ))
+      }
+    }
+  }
+
 }

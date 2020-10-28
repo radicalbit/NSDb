@@ -294,7 +294,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                         upperBound: Long): Seq[Bit] = {
     val groupSelector =
       new LongRangeGroupSelector(LongValuesSource.fromLongField(_keyField),
-                                 new LongRangeFactory(lowerBound, interval, upperBound));
+                                 new LongRangeFactory(lowerBound, interval, upperBound))
 
     val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
       case _: VARCHAR => new TermGroupSelector(aggregationField)
