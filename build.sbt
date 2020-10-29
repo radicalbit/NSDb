@@ -237,6 +237,7 @@ lazy val `nsdb-cli` = project
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
+  .dependsOn(`nsdb-common` % "compile->compile;test->test")
 lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)

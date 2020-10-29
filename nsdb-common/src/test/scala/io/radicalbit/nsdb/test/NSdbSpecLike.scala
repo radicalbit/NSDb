@@ -20,10 +20,22 @@ import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
 import org.scalatest.matchers.should
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
+/**
+  * Mix-in scalatest [[AnyWordSpecLike]] with should matchers
+  */
 trait NSDbSpecLike extends AnyWordSpecLike with should.Matchers
 
+/**
+  * Mix-in scalatest [[AnyFlatSpec]] with should matchers
+  */
 trait NSDbFlatSpec extends AnyFlatSpec with should.Matchers
 
+/**
+  * Mix-in scalatest [[AnyFlatSpecLike]] with should matchers
+  */
 trait NSDbFlatSpecLike extends AnyFlatSpecLike with should.Matchers
 
+/**
+  * Mix-in scalatest [[AnyWordSpec]] with should matchers
+  */
 trait NSDbSpec extends AnyWordSpec with should.Matchers
