@@ -19,12 +19,12 @@ package io.radicalbit.nsdb.cluster.logic
 import akka.cluster.metrics._
 import akka.actor.Address
 import io.radicalbit.nsdb.cluster.metrics.{DiskMetricsSelector, NSDbMixMetricSelector}
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
 /**
   * only the disk metric selector is tested because the other selectors have been already accurately tested inside the akka project.
   */
-class CapacityWriteNodesSelectionLogicSpec extends WordSpec with Matchers {
+class CapacityWriteNodesSelectionLogicSpec extends NSDbSpec {
 
   def akkaClusterMetric: Set[Metric] =
     Set(

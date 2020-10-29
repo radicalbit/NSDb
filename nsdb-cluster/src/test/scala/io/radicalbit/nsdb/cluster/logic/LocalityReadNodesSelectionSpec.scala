@@ -17,9 +17,9 @@
 package io.radicalbit.nsdb.cluster.logic
 
 import io.radicalbit.nsdb.model.Location
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class LocalityReadNodesSelectionSpec extends WordSpec with Matchers {
+class LocalityReadNodesSelectionSpec extends NSDbSpec {
 
   val localityReadNodesSelection = new LocalityReadNodesSelection("this")
 

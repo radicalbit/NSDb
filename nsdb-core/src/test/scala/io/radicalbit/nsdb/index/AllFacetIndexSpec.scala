@@ -25,11 +25,12 @@ import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbLongType}
 import io.radicalbit.nsdb.index.StorageStrategy.Memory
 import io.radicalbit.nsdb.model.{Location, TimeRange}
 import io.radicalbit.nsdb.statement.StatementParser.InternalTemporalAggregation
+import io.radicalbit.nsdb.test.NSDbSpec
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
+import org.scalatest.OneInstancePerTest
 
-class AllFacetIndexSpec extends WordSpec with Matchers with OneInstancePerTest {
+class AllFacetIndexSpec extends NSDbSpec with OneInstancePerTest {
 
   "AllFacetIndex" should {
     "Combine Results for temporal average calculation" in {

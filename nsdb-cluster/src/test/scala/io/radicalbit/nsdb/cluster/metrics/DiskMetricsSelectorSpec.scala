@@ -22,10 +22,10 @@ import akka.actor.Address
 import akka.cluster.metrics.StandardMetrics._
 import akka.cluster.metrics.{Metric, NodeMetrics}
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 import org.scalatest.OptionValues._
 
-class DiskMetricsSelectorSpec extends WordSpec with Matchers {
+class DiskMetricsSelectorSpec extends NSDbSpec {
 
   val emptyNode      = Address("nsdb", "NSDb", "emptyNode", 2552)
   val almostFullNode = Address("nsdb", "NSDb", "node1", 2552)

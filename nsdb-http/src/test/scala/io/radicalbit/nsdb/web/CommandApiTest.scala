@@ -27,11 +27,11 @@ import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.CommandApi
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.write
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -57,7 +57,7 @@ object CommandApiTest {
   }
 }
 
-class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
+class CommandApiTest extends NSDbFlatSpec with ScalatestRouteTest with CommandApi {
 
   import FakeReadCoordinator.Data._
   import io.radicalbit.nsdb.web.CommandApiTest._

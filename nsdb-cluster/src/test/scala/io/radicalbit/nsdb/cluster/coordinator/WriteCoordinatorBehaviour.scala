@@ -36,7 +36,7 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import org.scalatest.{Matchers, _}
+import io.radicalbit.nsdb.test.NSDbSpecLike
 
 import scala.concurrent.duration._
 
@@ -55,7 +55,7 @@ class FakeReadCoordinatorActor extends Actor {
   }
 }
 
-trait WriteCoordinatorBehaviour { this: TestKit with WordSpecLike with Matchers =>
+trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
   val probe = TestProbe()
 

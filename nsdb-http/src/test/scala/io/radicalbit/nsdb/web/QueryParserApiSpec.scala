@@ -28,11 +28,11 @@ import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
 import scala.concurrent.duration._
 
-class QueryParserApiSpec extends WordSpec with Matchers with ScalatestRouteTest {
+class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
 
   val readCoordinatorActor: ActorRef                  = system.actorOf(Props[FakeReadCoordinator])
   val writeCoordinatorActor: ActorRef                 = system.actorOf(Props[FakeWriteCoordinator])

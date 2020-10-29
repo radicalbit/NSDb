@@ -18,12 +18,12 @@ package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Location, TimeContext, TimeRange}
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 import spire.implicits._
 import spire.math.Interval
 import spire.math.interval.{Closed, Open, Unbound}
 
-class TimeRangeManagerSpec extends WordSpec with Matchers {
+class TimeRangeManagerSpec extends NSDbSpec {
 
   implicit val timeContext: TimeContext = TimeContext()
 

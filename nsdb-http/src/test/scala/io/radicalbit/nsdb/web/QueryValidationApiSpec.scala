@@ -24,15 +24,15 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
+import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
 import org.json4s._
-import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
 
-class QueryValidationApiSpec extends FlatSpec with Matchers with ScalatestRouteTest {
+class QueryValidationApiSpec extends NSDbFlatSpec with ScalatestRouteTest {
 
   val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 

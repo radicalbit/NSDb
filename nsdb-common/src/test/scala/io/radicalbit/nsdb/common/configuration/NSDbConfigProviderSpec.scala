@@ -19,9 +19,10 @@ package io.radicalbit.nsdb.common.configuration
 import com.typesafe.config.{Config, ConfigFactory}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.LowLevel._
-import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
+import io.radicalbit.nsdb.test._
+import org.scalatest.OneInstancePerTest
 
-class NSDbConfigProviderSpec extends WordSpec with Matchers with OneInstancePerTest with NSDbConfigProvider {
+class NSDbConfigProviderSpec extends NSDbSpec with OneInstancePerTest with NSDbConfigProvider {
 
   override def userDefinedConfig: Config      = ConfigFactory.parseResources("nsdb-test.conf").resolve()
   override def lowLevelTemplateConfig: Config = ConfigFactory.parseResources("application-test.conf")

@@ -23,10 +23,11 @@ import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Assertion, BeforeAndAfterAll, FunSuite}
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 
-trait MiniClusterSpec extends FunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
+trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
 
   Logger.getLogger("io.grpc.internal").setLevel(Level.OFF)
 

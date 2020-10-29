@@ -18,13 +18,13 @@ package io.radicalbit.nsdb.actors
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import io.radicalbit.nsdb.test.NSDbSpecLike
+import org.scalatest.BeforeAndAfterAll
 
 class JournalServiceSpec
     extends TestKit(ActorSystem("nsdb-test"))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with BeforeAndAfterAll {
 
   "A partition" when {

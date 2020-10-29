@@ -32,8 +32,8 @@ object StatementParserErrors {
   lazy val MULTIPLE_COUNT_AGGREGATIONS = "Only one Count and one Count Distinct is allowed"
   lazy val SORT_DIMENSION_NOT_IN_GROUP =
     "cannot sort group by query result by a field not in group by clause"
-  lazy val GRACE_PERIOD_NOT_ALLOWED           = "grace period clause is allowed only in temporal group by queries"
-  def notExistingField(field: String)       = s"field $field does not exist"
+  lazy val GRACE_PERIOD_NOT_ALLOWED          = "grace period clause is allowed only in temporal group by queries"
+  def notExistingField(field: String)        = s"field $field does not exist"
   def notExistingFields(fields: Seq[String]) = s"field [${fields.mkString(",")}] does not exist"
   def nonCompatibleOperator(operator: String, dimTypeAllowed: String) =
     s"cannot use $operator operator on dimension different from $dimTypeAllowed"

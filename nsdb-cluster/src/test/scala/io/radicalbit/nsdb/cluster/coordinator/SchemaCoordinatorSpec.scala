@@ -24,6 +24,7 @@ import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.test.NSDbFlatSpecLike
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -32,8 +33,7 @@ import scala.concurrent.duration._
 class SchemaCoordinatorSpec
     extends TestKit(ActorSystem("SchemaCoordinatorSpec"))
     with ImplicitSender
-    with FlatSpecLike
-    with Matchers
+    with NSDbFlatSpecLike
     with OneInstancePerTest
     with BeforeAndAfter {
 

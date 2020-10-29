@@ -21,13 +21,14 @@ import java.util.UUID
 
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
+import io.radicalbit.nsdb.test.NSDbFlatSpec
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import org.scalatest.OneInstancePerTest
 
-class TimeSeriesIndexTest extends FlatSpec with Matchers with OneInstancePerTest {
+class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
 
   private val schema = Schema("", Bit(0, 0, Map("dimension" -> "d"), Map("tag" -> "t")))
 

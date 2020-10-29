@@ -33,6 +33,7 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricInfoGot
+import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -49,8 +50,7 @@ class MetadataCoordinatorSpec
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("60s"))
       ))
     with ImplicitSender
-    with WordSpecLike
-    with Matchers
+    with NSDbSpecLike
     with BeforeAndAfterEach
     with BeforeAndAfterAll {
 

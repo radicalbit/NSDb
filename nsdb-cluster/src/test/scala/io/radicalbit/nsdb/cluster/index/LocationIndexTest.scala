@@ -22,11 +22,12 @@ import java.util.UUID
 import io.radicalbit.nsdb.index.StorageStrategy.Memory
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.test.NSDbFlatSpec
 import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.index.{IndexWriter, IndexWriterConfig}
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import org.scalatest.OneInstancePerTest
 
-class LocationIndexTest extends FlatSpec with Matchers with OneInstancePerTest with DirectorySupport {
+class LocationIndexTest extends NSDbFlatSpec with OneInstancePerTest with DirectorySupport {
 
   override def indexStorageStrategy: StorageStrategy = Memory
 

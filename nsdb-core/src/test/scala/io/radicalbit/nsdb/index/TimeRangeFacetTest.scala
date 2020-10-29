@@ -23,13 +23,14 @@ import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.CountAggregation
 import io.radicalbit.nsdb.model.TimeRange
+import io.radicalbit.nsdb.test.NSDbSpec
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
+import org.scalatest.OneInstancePerTest
 
-class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest {
+class TimeRangeFacetTest extends NSDbSpec with OneInstancePerTest {
 
   "FacetRangeIndex" should {
     "supports facet range query on timestamp without where conditions" in {

@@ -21,9 +21,9 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import org.scalatest.Inside._
 import org.scalatest.OptionValues._
-import org.scalatest.{Matchers, WordSpec}
+import io.radicalbit.nsdb.test.NSDbSpec
 
-class RelativeTimeSQLStatementSpec extends WordSpec with Matchers {
+class RelativeTimeSQLStatementSpec extends NSDbSpec {
 
   private val parser = new SQLStatementParser
 

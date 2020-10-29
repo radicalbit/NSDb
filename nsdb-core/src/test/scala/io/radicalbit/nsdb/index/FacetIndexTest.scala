@@ -21,11 +21,12 @@ import java.util.UUID
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
+import io.radicalbit.nsdb.test.NSDbSpec
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.search.{MatchAllDocsQuery, Sort, SortField}
-import org.scalatest.{Assertion, Matchers, OneInstancePerTest, WordSpec}
+import org.scalatest.{Assertion, OneInstancePerTest}
 
-class FacetIndexTest extends WordSpec with Matchers with OneInstancePerTest {
+class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
 
   val facetIndexes =
     new AllFacetIndexes(
