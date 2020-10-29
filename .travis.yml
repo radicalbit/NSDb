@@ -85,6 +85,6 @@ jobs:
       after_success:
         - bash <(curl -s https://codecov.io/bash)
     - stage: "Image Creation Test"
-      script: sbt docker:publishLocal
+      script: sbt +publishLocal docker:publishLocal
     - stage: "push"
-      script: $TRAVIS_BUILD_DIR/travis-credentials.sh && sbt publish && docker login -u $DOCKER_USER -p $DOCKER_PASSWORD && sbt docker:publish
+      script: $TRAVIS_BUILD_DIR/travis-credentials.sh && sbt +publish && docker login -u $DOCKER_USER -p $DOCKER_PASSWORD && sbt docker:publish

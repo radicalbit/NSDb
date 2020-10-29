@@ -23,7 +23,7 @@ import scalafix.sbt.ScalafixPlugin.autoImport.scalafixSemanticdb
 
 object Commons {
 
-  val scalaVer = "2.12.7"
+  val scalaVer = "2.12.12"
 
   val settings: Seq[Def.Setting[_]] = Seq(
     scalaVersion := scalaVer,
@@ -37,8 +37,7 @@ object Commons {
       "-language:implicitConversions",
       "-language:higherKinds",
       "-language:existentials",
-      "-language:postfixOps",
-      "-Ypartial-unification"
+      "-language:postfixOps"
     ),
     organization := "io.radicalbit.nsdb",
     resolvers ++= Seq(
@@ -61,4 +60,6 @@ object Commons {
         oldStrategy(x)
     }
   )
+
+  val crossScalaVersionSettings = settings :+ (crossScalaVersions := Seq("2.12.12", "2.13.3"))
 }
