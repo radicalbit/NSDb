@@ -20,14 +20,14 @@ import java.time.Duration
 import java.util.logging.{Level, Logger}
 
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
-import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
+import io.radicalbit.nsdb.minicluster.{NSDbMiniCluster, NSDbMiniClusterNode}
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
-trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
+trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually with NSDbMiniCluster {
 
   Logger.getLogger("io.grpc.internal").setLevel(Level.OFF)
 
@@ -51,6 +51,7 @@ trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually
     stop()
   }
 
+  lazy val firstNode: NSDbMiniClusterNode = nodes.head
 
   protected lazy val indexingTime: Long =
     nodes.head.system.settings.config.getDuration("nsdb.write.scheduler.interval").toMillis

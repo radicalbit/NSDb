@@ -343,10 +343,11 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
           }
         }
 
+        val lastLowerBound = if (upperBound - interval < 0) 0 else upperBound - interval
         Bit(
-          upperBound - interval,
+          lastLowerBound,
           0,
-          Map("lowerBound" -> (upperBound - interval), "upperBound" -> upperBound),
+          Map("lowerBound" -> lastLowerBound, "upperBound" -> upperBound),
           Map.empty,
           uniqueValuesBeyondRange.toSet
         ) +: buffer

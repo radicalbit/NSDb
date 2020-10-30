@@ -23,7 +23,7 @@ import java.util.UUID
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.io.FileUtils
 
-trait NsdbMiniCluster extends LazyLogging {
+trait NSDbMiniCluster extends LazyLogging {
 
   protected[this] val instanceId = { UUID.randomUUID }
 

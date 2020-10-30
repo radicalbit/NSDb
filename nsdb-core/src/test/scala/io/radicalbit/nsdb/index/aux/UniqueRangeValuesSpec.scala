@@ -23,11 +23,12 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbStringType}
 import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.{Schema, TimeRangeContext}
+import io.radicalbit.nsdb.test.NSDbSpec
 import org.apache.lucene.search.MatchAllDocsQuery
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
+import org.scalatest.OneInstancePerTest
 
-class UniqueRangeValuesSpec extends WordSpec with Matchers with OneInstancePerTest {
+class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
 
   val testRecords: Seq[Bit] = Seq(
     Bit(180000, 2.5, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 31L)),
