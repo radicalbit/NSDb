@@ -133,8 +133,9 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   }, _ => "Distinct clause is only applicable to the count aggregation")
 
   private val dimension = standardString
-  private val stringValue = (specialString | (("'" ?) ~> (specialString +) <~ ("'" ?))) ^^ {
+  private val stringValue = (specialString | (("'" ?) ~> (specialString *) <~ ("'" ?))) ^^ {
     case string: String        => string
+    case Nil                   => ""
     case strings: List[String] => strings.mkString(" ")
   }
 
