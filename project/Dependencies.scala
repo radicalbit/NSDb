@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.3"
+    lazy val version   = "2.6.4"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -72,7 +72,7 @@ object Dependencies {
   }
 
   object akka_management {
-    lazy val version   = "1.0.5"
+    lazy val version   = "1.0.6"
     lazy val namespace = "com.lightbend.akka.management"
     lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
     lazy val cluster_http = namespace %% "akka-management-cluster-http" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
@@ -93,12 +93,12 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.1.11"
+    lazy val version   = "10.2.0"
     lazy val namespace = "com.typesafe.akka"
     lazy val default         = namespace                      %% "akka-http"            % version
     lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
     lazy val sprayJson       = "com.typesafe.akka"            %% "akka-http-spray-json" % version
-    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http"    % "2.0.4"
+    lazy val swaggerAkkaHttp = "com.github.swagger-akka-http" %% "swagger-akka-http"    % "2.2.0"
   }
 
   object kamon {
@@ -112,13 +112,13 @@ object Dependencies {
   }
 
   object lithium {
-    lazy val version   = "0.10.0"
+    lazy val version   = "0.11.2"
     lazy val namespace = "com.swissborg"
     lazy val core =  namespace %% "lithium" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
   }
 
   object swagger {
-    lazy val version     = "1.5.19"
+    lazy val version     = "1.6.2"
     lazy val namespace   = "io.swagger"
     lazy val coreSwagger = namespace % "swagger-jaxrs" % version
   }
@@ -178,7 +178,7 @@ object Dependencies {
   }
 
   object config {
-    lazy val version   = "1.3.3"
+    lazy val version   = "1.4.0"
     lazy val namespace = "com.typesafe"
     lazy val core      = namespace % "config" % version
   }
@@ -203,7 +203,7 @@ object Dependencies {
   }
 
   object zipUtils {
-    lazy val version   = "1.13"
+    lazy val version   = "1.14"
     lazy val namespace = "org.zeroturnaround"
     lazy val zip       = namespace % "zt-zip" % version
   }
