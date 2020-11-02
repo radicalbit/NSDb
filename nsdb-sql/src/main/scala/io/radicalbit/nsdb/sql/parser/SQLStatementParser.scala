@@ -175,7 +175,7 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
 
   private val valueAssignment = (Val ~ Equal) ~> (doubleValue | longValue)
 
-  private val assignment = (dimension <~ Equal) ~ (stringValue | doubleValue | intValue) ^^ {
+  private val assignment = (dimension <~ Equal) ~ (doubleValue | intValue | stringValue) ^^ {
     case k ~ v => k -> NSDbType(v)
   }
 
