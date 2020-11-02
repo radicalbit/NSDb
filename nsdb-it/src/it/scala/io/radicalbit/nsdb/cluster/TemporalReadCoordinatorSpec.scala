@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster
 
 import java.time.Duration
 
-import akka.cluster.{Cluster, MemberStatus}
 import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
 import io.radicalbit.nsdb.cluster.testdata.TestMetrics._
@@ -62,14 +61,6 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
     }
 
     waitIndexing()
-  }
-
-  test("join cluster") {
-    eventually {
-      assert(
-        Cluster(nodes.head.system).state.members
-          .count(_.status == MemberStatus.Up) == nodes.size)
-    }
   }
 
   test("execute a temporal count query on a Long metric") {
@@ -136,7 +127,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(120001, 1L, Map("lowerBound" -> 100001L, "upperBound" -> 120000L), Map()),
+          Bit(120000, 1L, Map("lowerBound" -> 100001L, "upperBound" -> 120000L), Map()),
           Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
@@ -162,6 +153,34 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
           Bit(120000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
           Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
+      }
+    }
+  }
+
+  test("execute a temporal count query with a timestamp descending ordering") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count(*) from ${TemporalLongMetric.name} group by interval 30s order by timestamp desc")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 5)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(150000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map()),
+          Bit(120000,1L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map()),
+          Bit(90000,1L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map()),
+          Bit(60000,1L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map()),
+          Bit(30000,2L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map())
+        )
+        )
       }
     }
   }
