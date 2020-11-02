@@ -149,6 +149,23 @@ class SelectSQLEqExpressionSpec extends NSDbSpec {
           ))
       }
 
+      "parse it successfully on an empty string" in {
+        val query = "select name from people where name = '' limit 5"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(EqualityExpression(dimension = "name", value = AbsoluteComparisonValue("")))),
+              limit = Some(LimitOperator(5))
+            )
+          ))
+      }
+
       "not allow wildcard char" in {
         val query = "select name from people where name = 'a$' limit 5"
         parser.parse(db = "db", namespace = "registry", input = query) shouldBe a[SqlStatementParserFailure]
