@@ -59,7 +59,10 @@ package object post_proc {
                              aggregationType: Option[InternalAggregation] = None): Seq[Bit] = {
     val sortedResults = aggregationType match {
       case Some(_: InternalTemporalAggregation) =>
-        val temporalSortedResults = chainedResults.sortBy(_.timestamp)
+        val temporalSortedResults = statement.order match {
+          case Some(DescOrderOperator("timestamp")) => chainedResults.sortBy(-_.timestamp)
+          case _                                    => chainedResults.sortBy(_.timestamp)
+        }
         statement.limit.map(_.value).map(v => temporalSortedResults.takeRight(v)) getOrElse temporalSortedResults
       case Some(InternalStandardAggregation(_, CountAggregation)) if statement.order.exists(_.dimension == "value") =>
         implicit val ord: Ordering[Any] =

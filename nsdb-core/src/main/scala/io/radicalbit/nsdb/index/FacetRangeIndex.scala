@@ -79,7 +79,7 @@ class FacetRangeIndex {
     facetResultSeq
       .map { facetResult =>
         Bit(
-          facetResult.lowerBound,
+          facetResult.upperBound,
           valueFieldType.fold(NSDbNumericType(facetResult.value.longValue())) { typez =>
             if (typez.isInstanceOf[DECIMAL])
               NSDbNumericType(facetResult.value.doubleValue())

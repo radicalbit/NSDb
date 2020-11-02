@@ -29,7 +29,7 @@ import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
 import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
-class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest {
+class TimeRangeFacetSpec extends WordSpec with Matchers with OneInstancePerTest {
 
   "FacetRangeIndex" should {
     "supports facet range query on timestamp without where conditions" in {
@@ -57,9 +57,9 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val facetRangeIndex = new FacetRangeIndex
 
       facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
-        Bit(0, NSDbLongType(10), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
-        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(30, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
     }
 
@@ -88,8 +88,8 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val facetRangeIndex = new FacetRangeIndex
 
       facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
-        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(30, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
     }
 
@@ -118,7 +118,7 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val facetRangeIndex = new FacetRangeIndex
 
       facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
-        Bit(0, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound" -> NSDbLongType(10)), Map())
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound" -> NSDbLongType(10)), Map())
       )
 
     }
@@ -148,7 +148,7 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val facetRangeIndex = new FacetRangeIndex
 
       facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
-        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map())
+        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map())
       )
     }
 
@@ -179,9 +179,9 @@ class TimeRangeFacetTest extends WordSpec with Matchers with OneInstancePerTest 
       val facetRangeIndex = new FacetRangeIndex
 
       facetRangeIndex.executeRangeFacet(searcher, query, CountAggregation, "timestamp", "value", Some(BIGINT()), ranges) shouldBe Seq(
-        Bit(0, NSDbLongType(10), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
-        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-        Bit(20, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(30, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
     }
   }
