@@ -52,12 +52,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 1L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 1L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 1L, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -118,8 +118,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(130000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -148,8 +148,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(130000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -176,10 +176,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 2L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 2L, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 2L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 2L, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -210,12 +210,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 1L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 1L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 1L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 1L, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -243,10 +243,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 2L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 2L, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 2L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 2L, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -280,10 +280,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(60000, 1L, Map("lowerBound"  -> 60000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 1L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(70000, 1L, Map("lowerBound"  -> 60000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 1L, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 1L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -314,8 +314,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"     -> 0L, "upperBound"     -> 29999L), Map()),
-          Bit(29999, 1L, Map("lowerBound" -> 29999L, "upperBound" -> 59999L), Map())
+          Bit(29999, 1L, Map("lowerBound" -> 0L, "upperBound"     -> 29999L), Map()),
+          Bit(59999, 1L, Map("lowerBound" -> 29999L, "upperBound" -> 59999L), Map())
         )
       }
     }
@@ -345,8 +345,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(0, 4L, Map("lowerBound"     -> 0L, "upperBound"     -> 90000L), Map()),
-          Bit(90000, 2L, Map("lowerBound" -> 90000L, "upperBound" -> 190000L), Map())
+          Bit(90000, 4L, Map("lowerBound"  -> 0L, "upperBound"     -> 90000L), Map()),
+          Bit(190000, 2L, Map("lowerBound" -> 90000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -377,8 +377,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 2
 
         expected.values shouldBe Seq(
-          Bit(60000, 2L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 2L, Map("lowerBound" -> 90000L, "upperBound" -> 190000L), Map())
+          Bit(90000, 2L, Map("lowerBound"  -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(190000, 2L, Map("lowerBound" -> 90000L, "upperBound" -> 190000L), Map())
         )
       }
     }
@@ -408,12 +408,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5L, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -441,10 +441,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 11L, Map("lowerBound" -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 8L, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 11L, Map("lowerBound" -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 8L, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -475,12 +475,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5.5, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -508,10 +508,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 12.0, Map("lowerBound" -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 9.0, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 12.0, Map("lowerBound" -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 9.0, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -542,12 +542,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5L, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -575,10 +575,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 7L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 7L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 5L, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -609,12 +609,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5.5, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -642,10 +642,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 7.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 7.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 5.5, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -676,12 +676,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0L, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000L, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000L, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000L, 5L, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000L, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000L, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7L, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5L, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -709,10 +709,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0L, 1L, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000L, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000L, 3L, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000L, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1L, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 4L, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 3L, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -743,12 +743,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5.5, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(140000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -776,10 +776,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 3.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 3.5, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
     }
@@ -809,12 +809,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1.0, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4.0, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7.0, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5.0, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1.0, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4.0, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7.0, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(100000, 5.0, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -842,10 +842,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.0, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 5.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 4.0, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1.0, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 5.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 4.0, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -876,12 +876,12 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 6
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
-          Bit(40000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(40000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
+          Bit(70000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
+          Bit(10000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -909,10 +909,10 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         expected.values.size shouldBe 4
 
         expected.values shouldBe Seq(
-          Bit(0, 1.5, Map("lowerBound"      -> 0L, "upperBound"      -> 10000L), Map()),
-          Bit(10000, 6.0, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
-          Bit(70000, 4.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 130000L), Map()),
-          Bit(130000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
+          Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
+          Bit(70000, 6.0, Map("lowerBound"  -> 10000L, "upperBound"  -> 70000L), Map()),
+          Bit(130000, 4.5, Map("lowerBound" -> 70000L, "upperBound"  -> 130000L), Map()),
+          Bit(190000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 190000L), Map())
         )
       }
 
@@ -942,8 +942,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         }
 
         expected.values shouldBe Seq(
-          Bit(110000, 1L, Map("lowerBound" -> 110000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(130000, 1L, Map("lowerBound" -> 110000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 1L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
       }
 
@@ -971,9 +971,9 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         }
 
         expected.values shouldBe Seq(
-          Bit(80000, 5L, Map("lowerBound"  -> 80000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(100000, 5L, Map("lowerBound" -> 80000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3L, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2L, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -1002,9 +1002,9 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         }
 
         expected.values shouldBe Seq(
-          Bit(80000, 5.0, Map("lowerBound"  -> 80000L, "upperBound"  -> 100000L), Map()),
-          Bit(100000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
-          Bit(130000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
+          Bit(100000, 5.0, Map("lowerBound" -> 80000L, "upperBound"  -> 100000L), Map()),
+          Bit(130000, 3.0, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
+          Bit(160000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )
 
       }
@@ -1037,7 +1037,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
         }
 
         expected.values shouldBe Seq(
-          Bit(80000, 1L, Map("lowerBound" -> 80000L, "upperBound" -> 100000L), Map())
+          Bit(100000, 1L, Map("lowerBound" -> 80000L, "upperBound" -> 100000L), Map())
         )
 
       }

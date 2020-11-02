@@ -89,11 +89,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0,2L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map()),
-          Bit(30000,1L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map()),
-          Bit(60000,1L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map()),
-          Bit(90000,1L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map()),
-          Bit(120000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map())
+          Bit(30000,2L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map()),
+          Bit(60000,1L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map()),
+          Bit(90000,1L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map()),
+          Bit(120000,1L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map()),
+          Bit(150000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map())
         )
         )
       }
@@ -136,8 +136,8 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(100001, 1L, Map("lowerBound" -> 100001L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(120001, 1L, Map("lowerBound" -> 100001L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -159,8 +159,8 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(90000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(120000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -182,9 +182,9 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 3)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 3L, Map("lowerBound"      -> 0L, "upperBound"      -> 60000L), Map()),
-          Bit(60000, 2L, Map("lowerBound"  -> 60000L, "upperBound"  -> 120000L), Map()),
-          Bit(120000, 1L, Map("lowerBound"  -> 120000L, "upperBound"  -> 180000L), Map())
+          Bit(60000, 3L, Map("lowerBound"      -> 0L, "upperBound"      -> 60000L), Map()),
+          Bit(120000, 2L, Map("lowerBound"  -> 60000L, "upperBound"  -> 120000L), Map()),
+          Bit(180000, 1L, Map("lowerBound"  -> 120000L, "upperBound"  -> 180000L), Map())
         ))
       }
     }
@@ -206,11 +206,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 2L, Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 1L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 1L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 2L, Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 1L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 1L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -232,9 +232,9 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 3)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 3L, Map("lowerBound"      -> 0L, "upperBound"      -> 60000L), Map()),
-          Bit(60000, 2L, Map("lowerBound"  -> 60000L, "upperBound"  -> 120000L), Map()),
-          Bit(120000, 1L, Map("lowerBound"  -> 120000L, "upperBound"  -> 180000L), Map())
+          Bit(60000, 3L, Map("lowerBound"      -> 0L, "upperBound"      -> 60000L), Map()),
+          Bit(120000, 2L, Map("lowerBound"  -> 60000L, "upperBound"  -> 120000L), Map()),
+          Bit(180000, 1L, Map("lowerBound"  -> 120000L, "upperBound"  -> 180000L), Map())
         ))
       }
     }
@@ -256,8 +256,8 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 3L, Map("lowerBound"     -> 0L, "upperBound"     -> 80000L), Map()),
-          Bit(80000, 3L, Map("lowerBound" -> 80000L, "upperBound" -> 180000L), Map())
+          Bit(80000, 3L, Map("lowerBound"     -> 0L, "upperBound"     -> 80000L), Map()),
+          Bit(180000, 3L, Map("lowerBound" -> 80000L, "upperBound" -> 180000L), Map())
         ))
       }
     }
@@ -280,8 +280,8 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(60000, 1L, Map("lowerBound" -> 60000L, "upperBound" -> 80000L), Map()),
-          Bit(80000, 3L, Map("lowerBound" -> 80000L, "upperBound" -> 180000L), Map())
+          Bit(80000, 1L, Map("lowerBound" -> 60000L, "upperBound" -> 80000L), Map()),
+          Bit(180000, 3L, Map("lowerBound" -> 80000L, "upperBound" -> 180000L), Map())
         ))
       }
     }
@@ -305,11 +305,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
           assert(readRes.completedSuccessfully)
           assert(readRes.records.size == 5)
           assert(readRes.records.map(_.asBit) == Seq(
-            Bit(0, 6.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-            Bit(30000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-            Bit(60000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-            Bit(90000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-            Bit(120000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+            Bit(30000, 6.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+            Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+            Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+            Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+            Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
           ))
         }
       }
@@ -332,11 +332,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 4L , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 7L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 5L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 3L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 4L , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 7L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 5L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 3L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -359,11 +359,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 4.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 4.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -386,11 +386,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 1L , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 7L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 5L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 3L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 1L , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 7L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 5L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 3L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -413,11 +413,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 1.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 1.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -441,11 +441,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 2.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 7.0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 5.0, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 3.0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 2.0, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 2.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 7.0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 5.0, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 3.0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 2.0, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
@@ -468,11 +468,11 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(0, 3.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(30000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(60000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(90000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(120000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(30000, 3.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
+          Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
+          Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
+          Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
+          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
         ))
       }
     }
