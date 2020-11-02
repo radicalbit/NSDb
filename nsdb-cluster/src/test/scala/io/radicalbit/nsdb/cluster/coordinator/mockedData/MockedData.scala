@@ -26,7 +26,7 @@ object MockedData {
     val recordsShard1: Seq[Bit] = Seq(
       Bit(1L, 1L, Map("surname" -> "Doe"), Map("name" -> "John")),
       Bit(2L, 2L, Map("surname" -> "Doe"), Map("name" -> "John")),
-      Bit(4L, 3L, Map("surname" -> "D"), Map("name"   -> "J"))
+      Bit(4L, 3L, Map("surname" -> ""), Map("name"    -> "J"))
     )
 
     val recordsShard2: Seq[Bit] = Seq(

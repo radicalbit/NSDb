@@ -288,10 +288,10 @@ class GrpcEndpoint(nodeId: String, readCoordinator: ActorRef, writeCoordinator: 
       val bit = Bit(
         timestamp = request.timestamp,
         dimensions = request.dimensions.collect {
-          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, dimensionFor(v.value))
+          case (k, v) => (k, dimensionFor(v.value))
         },
         tags = request.tags.collect {
-          case (k, v) if !v.value.isStringValue || v.getStringValue != "" => (k, tagFor(v.value))
+          case (k, v) => (k, tagFor(v.value))
         },
         value = valueFor(request.value)
       )

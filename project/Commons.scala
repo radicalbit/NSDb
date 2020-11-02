@@ -16,9 +16,6 @@
 
 import sbt.Keys._
 import sbt._
-import sbtassembly.AssemblyKeys._
-import sbtassembly.AssemblyPlugin.autoImport.{MergeStrategy, assemblyMergeStrategy}
-import sbtassembly.PathList
 import scalafix.sbt.ScalafixPlugin.autoImport.scalafixSemanticdb
 
 object Commons {
@@ -50,15 +47,6 @@ object Commons {
     parallelExecution in Test := false,
     parallelExecution in IntegrationTest := false,
     concurrentRestrictions in Test += Tags.limitAll(1),
-    concurrentRestrictions in IntegrationTest += Tags.limitAll(1),
-    test in assembly := {},
-    assemblyMergeStrategy in assembly := {
-      case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
-      case PathList("CHANGELOG.adoc")                           => MergeStrategy.first
-      case PathList("CHANGELOG.html")                           => MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    }
+    concurrentRestrictions in IntegrationTest += Tags.limitAll(1)
   )
 }

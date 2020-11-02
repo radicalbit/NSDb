@@ -272,11 +272,14 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 6
-
-        val names = expected.values.flatMap(_.dimensions.values.map(_.rawValue.asInstanceOf[String]))
-        names.count(_ == "Doe") shouldBe 5
-        names.count(_ == "D") shouldBe 1
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(1, 1L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(2, 2L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(4, 3L, Map("surname"  -> ""), Map.empty),
+          Bit(6, 4L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(8, 5L, Map("surname"  -> "Doe"), Map.empty),
+          Bit(10, 6L, Map("surname" -> "Doe"), Map.empty),
+        )
       }
     }
 
@@ -298,18 +301,15 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
           probe.expectMsgType[SelectStatementExecuted]
         }
 
-        expected.values.size shouldBe 6
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(1, 1L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+          Bit(2, 2L, Map("surname"  -> "Doe"), Map("name" -> "John")),
+          Bit(4, 3L, Map("surname"  -> ""), Map("name"    -> "J")),
+          Bit(6, 4L, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
+          Bit(8, 5L, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
+          Bit(10, 6L, Map("surname" -> "Doe"), Map("name" -> "Frankie")),
+        )
 
-        val dimensions = expected.values.flatMap(_.dimensions.values.map(_.rawValue.asInstanceOf[String]))
-        dimensions.count(_ == "Doe") shouldBe 5
-
-        val tags = expected.values.flatMap(_.tags.values.map(_.rawValue.asInstanceOf[String]))
-
-        tags.count(_ == "Bill") shouldBe 1
-        tags.count(_ == "Frank") shouldBe 1
-        tags.count(_ == "Frankie") shouldBe 1
-        tags.count(_ == "J") shouldBe 1
-        tags.count(_ == "John") shouldBe 2
       }
     }
 
@@ -664,6 +664,29 @@ class ReadCoordinatorSimpleStatementsSpec extends AbstractReadCoordinatorSpec {
               fields = ListFields(List(Field("name", None))),
               condition =
                 Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(2L)))),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.size should be(1)
+      }
+
+      "execute it successfully in case of an empty string comparison" in within(5.seconds) {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("*", None))),
+              condition =
+                Some(Condition(EqualityExpression(dimension = "surname", value = AbsoluteComparisonValue("")))),
               limit = Some(LimitOperator(4))
             )
           )

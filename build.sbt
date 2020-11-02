@@ -95,7 +95,6 @@ lazy val `nsdb-cluster` = project
   .settings(scriptClasspath in bashScriptDefines += "../ext-lib/*")
   .settings(SbtMultiJvm.multiJvmSettings)
   .configs(MultiJvm)
-  .settings(assemblyJarName in assembly := "nsdb-cluster.jar")
   .settings(
     /* Docker Settings - to create, run as:
        $ sbt `project nsdb-cluster` docker:publishLocal
@@ -233,7 +232,6 @@ lazy val `nsdb-cli` = project
   .settings(PublishSettings.dontPublish: _*)
   .settings(libraryDependencies ++= Dependencies.CLI.libraries)
   .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
-  .settings(assemblyJarName in assembly := "nsdb-cli.jar")
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .dependsOn(`nsdb-rpc`)
