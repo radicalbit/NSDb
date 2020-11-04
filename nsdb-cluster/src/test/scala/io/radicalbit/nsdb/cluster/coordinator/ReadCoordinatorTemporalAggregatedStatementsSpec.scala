@@ -879,7 +879,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           Bit(10000, 1.5, Map("lowerBound"  -> 0L, "upperBound"      -> 10000L), Map()),
           Bit(40000, 4.5, Map("lowerBound"  -> 10000L, "upperBound"  -> 40000L), Map()),
           Bit(70000, 7.5, Map("lowerBound"  -> 40000L, "upperBound"  -> 70000L), Map()),
-          Bit(100000, 5.5, Map("lowerBound"  -> 70000L, "upperBound"  -> 100000L), Map()),
+          Bit(100000, 5.5, Map("lowerBound" -> 70000L, "upperBound"  -> 100000L), Map()),
           Bit(130000, 3.5, Map("lowerBound" -> 100000L, "upperBound" -> 130000L), Map()),
           Bit(160000, 2.5, Map("lowerBound" -> 130000L, "upperBound" -> 160000L), Map())
         )

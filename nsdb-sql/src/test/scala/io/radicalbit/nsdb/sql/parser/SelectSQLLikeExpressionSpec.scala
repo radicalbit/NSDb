@@ -60,6 +60,22 @@ class SelectSQLLikeExpressionSpec extends NSDbSpec {
           ))
       }
 
+      "parse it successfully with predicate containing question and exclamation marks" in {
+        val query = "SELECT name FROM people WHERE name like $a_:m?!-e$"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition = Some(Condition(LikeExpression(dimension = "name", value = "$a_:m?!-e$")))
+            )
+          ))
+      }
+
       "parse it successfully with predicate containing special characters and spaces" in {
         val query = "SELECT name FROM people WHERE name like '$a_:m.- :~e$'"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
