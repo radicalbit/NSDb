@@ -163,7 +163,7 @@ package object post_proc {
                     dimensions,
                     tags)
               case _: CountDistinctAggregation if finalStep =>
-                Bit(head.timestamp, NSDbNumericType(bits.flatMap(_.uniqueValues).toSet.size), dimensions, tags)
+                Bit(head.timestamp, NSDbNumericType(bits.flatMap(_.uniqueValues).toSet.size.toLong), dimensions, tags)
               case _: CountDistinctAggregation =>
                 Bit(head.timestamp, 0L, dimensions, tags, bits.flatMap(_.uniqueValues).toSet)
               case _: SumAggregation =>
