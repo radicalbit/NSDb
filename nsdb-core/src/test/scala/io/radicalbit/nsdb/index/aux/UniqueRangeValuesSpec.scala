@@ -39,9 +39,9 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
     Bit(130000, 3.5, Map("surname" -> "Doe"), Map("name" -> "Bill", "age" -> 33L)),
     Bit(120000, 3.5, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 32L)),
     Bit(90000, 5.5, Map("surname"  -> "Doe"), Map("name" -> "John")),
-    Bit(60000, 7.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
-    Bit(70000, 7.5, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age" -> 34L)),
     Bit(80000, 8.5, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age" -> 34L)),
+    Bit(70000, 7.5, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age" -> 34L)),
+    Bit(60000, 7.5, Map("surname"  -> "Doe"), Map("name" -> "Bill")),
     Bit(30000, 4.5, Map("surname"  -> "Doe"), Map("name" -> "Frank")),
     Bit(0, 1.5, Map("surname"      -> "Doe"), Map("name" -> "Frankie"))
   )
@@ -67,16 +67,124 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
                                           180000)
 
       uniqueValues shouldBe Seq(
-        Bit(150000, 0, Map("lowerBound" -> 150000L, "upperBound" -> 180000L), Map(), Set(NSDbDoubleType(2.5))),
-        Bit(120000, 0, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map(), Set(NSDbDoubleType(3.5))),
-        Bit(90000, 0, Map("lowerBound"  -> 90000L, "upperBound"  -> 120000L), Map(), Set(NSDbDoubleType(5.5))),
-        Bit(60000,
+        Bit(180000, 0, Map("lowerBound" -> 150000L, "upperBound" -> 180000L), Map(), Set(NSDbDoubleType(2.5))),
+        Bit(150000,
+            0,
+            Map("lowerBound" -> 120000L, "upperBound" -> 150000L),
+            Map(),
+            Set(NSDbDoubleType(2.5), NSDbDoubleType(3.5))),
+        Bit(120000, 0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map(), Set(NSDbDoubleType(3.5))),
+        Bit(90000,
             0,
             Map("lowerBound" -> 60000L, "upperBound" -> 90000L),
             Map(),
+            Set(NSDbDoubleType(5.5), NSDbDoubleType(8.5), NSDbDoubleType(7.5))),
+        Bit(60000, 0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map(), Set(NSDbDoubleType(7.5))),
+        Bit(30000,
+            0,
+            Map("lowerBound" -> 0L, "upperBound" -> 30000L),
+            Map(),
+            Set(NSDbDoubleType(1.5), NSDbDoubleType(4.5)))
+      )
+    }
+
+    "calculate unique range values in case interval is not an exact divider of the global range" in {
+
+      val timeSeriesIndex =
+        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+
+      val writer = timeSeriesIndex.getWriter
+
+      testRecords.foreach(timeSeriesIndex.write(_)(writer))
+
+      writer.close()
+
+      val uniqueValues =
+        timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
+                                          Schema("testMetric", testRecords.head),
+                                          "value",
+                                          0,
+                                          50000,
+                                          180000)
+
+      uniqueValues shouldBe Seq(
+        Bit(180000,
+            0,
+            Map("lowerBound" -> 130000L, "upperBound" -> 180000L),
+            Map(),
+            Set(NSDbDoubleType(3.5), NSDbDoubleType(2.5))),
+        Bit(130000,
+            0,
+            Map("lowerBound" -> 80000L, "upperBound" -> 130000L),
+            Map(),
+            Set(NSDbDoubleType(5.5), NSDbDoubleType(3.5))),
+        Bit(80000,
+            0,
+            Map("lowerBound" -> 30000L, "upperBound" -> 80000L),
+            Map(),
             Set(NSDbDoubleType(8.5), NSDbDoubleType(7.5))),
-        Bit(30000, 0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map(), Set(NSDbDoubleType(4.5))),
-        Bit(0, 0, Map("lowerBound"     -> 0L, "upperBound"     -> 30000L), Map(), Set(NSDbDoubleType(1.5)))
+        Bit(30000,
+            0,
+            Map("lowerBound" -> 0L, "upperBound" -> 30000L),
+            Map(),
+            Set(NSDbDoubleType(1.5), NSDbDoubleType(4.5)))
+      )
+    }
+
+    "calculate unique range when interval is equal to the range" in {
+      val timeSeriesIndex =
+        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+
+      val writer = timeSeriesIndex.getWriter
+
+      Seq(
+        Bit(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+        Bit(0, 1.5, Map("surname"     -> "Doe"), Map("name" -> "Frankie"))
+      ).foreach(timeSeriesIndex.write(_)(writer))
+
+      writer.close()
+
+      timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
+                                        Schema("testMetric", testRecords.head),
+                                        "value",
+                                        0,
+                                        50000,
+                                        30000) shouldBe Seq(
+        Bit(30000,
+            0,
+            Map("lowerBound" -> 0L, "upperBound" -> 30000L),
+            Map(),
+            Set(NSDbDoubleType(1.5), NSDbDoubleType(4.5)))
+      )
+    }
+
+    "calculate unique range when interval is higher of the range" in {
+      val timeSeriesIndex =
+        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+
+      val writer = timeSeriesIndex.getWriter
+
+      Seq(
+        Bit(60000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+        Bit(50000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
+        Bit(40000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+        Bit(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
+      ).foreach(timeSeriesIndex.write(_)(writer))
+
+      writer.close()
+
+      timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
+                                        Schema("testMetric", testRecords.head),
+                                        "value",
+                                        0,
+                                        50000,
+                                        80000) shouldBe Seq(
+        Bit(80000,
+            0,
+            Map("lowerBound" -> 30000L, "upperBound" -> 80000L),
+            Map(),
+            Set(NSDbDoubleType(7.5), NSDbDoubleType(4.5))),
+        Bit(30000, 0, Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map(), Set(NSDbDoubleType(4.5)))
       )
     }
 
@@ -102,20 +210,28 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
                                           180000)
 
       uniqueValues shouldBe Seq(
-        Bit(150000,
+        Bit(180000,
             0,
             Map("lowerBound" -> 150000L, "upperBound" -> 180000L),
             Map(),
             Set(NSDbStringType("John"), NSDbStringType("Bill"))),
-        Bit(120000,
+        Bit(150000,
             0,
             Map("lowerBound" -> 120000L, "upperBound" -> 150000L),
             Map(),
             Set(NSDbStringType("John"), NSDbStringType("Bill"))),
-        Bit(90000, 0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map(), Set(NSDbStringType("John"))),
-        Bit(60000, 0, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map(), Set(NSDbStringType("Bill"))),
-        Bit(30000, 0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map(), Set(NSDbStringType("Frank"))),
-        Bit(0, 0, Map("lowerBound"     -> 0L, "upperBound"     -> 30000L), Map(), Set(NSDbStringType("Frankie")))
+        Bit(120000, 0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map(), Set(NSDbStringType("John"))),
+        Bit(90000,
+            0,
+            Map("lowerBound" -> 60000L, "upperBound" -> 90000L),
+            Map(),
+            Set(NSDbStringType("John"), NSDbStringType("Bill"))),
+        Bit(60000, 0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map(), Set(NSDbStringType("Bill"))),
+        Bit(30000,
+            0,
+            Map("lowerBound" -> 0L, "upperBound" -> 30000L),
+            Map(),
+            Set(NSDbStringType("Frank"), NSDbStringType("Frankie")))
       )
     }
 

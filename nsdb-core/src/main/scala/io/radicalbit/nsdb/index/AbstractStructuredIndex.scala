@@ -294,7 +294,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                         upperBound: Long): Seq[Bit] = {
     val groupSelector =
       new LongRangeGroupSelector(LongValuesSource.fromLongField(_keyField),
-                                 new LongRangeFactory(lowerBound, interval, upperBound))
+                                 new NSDbLongRangeFactory(lowerBound, interval, upperBound))
 
     val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
       case _: VARCHAR => new TermGroupSelector(aggregationField)
@@ -316,7 +316,6 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
           new DistinctValuesCollector(firstPassGroupingCollector.getGroupSelector, inputGroups, aggregationSelector)
         searcher.search(query, distinctValuesCollector)
 
-        var uniqueValuesBeyondRange = mutable.Set.empty[NSDbType]
         val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]
 
         distinctValuesCollector.getGroups.forEach { g =>
@@ -329,28 +328,19 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
                   .indexType
                   .deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
             }
-
-            if ((g.groupValue.min == upperBound) || (g.groupValue.max == upperBound))
-              uniqueValuesBeyondRange ++= uniqueValues
-            else
-              buffer += Bit(
-                g.groupValue.min,
-                0,
-                Map("lowerBound" -> g.groupValue.min, "upperBound" -> g.groupValue.max),
-                Map.empty,
-                uniqueValues.toSet
-              )
+            val max = scala.math.min(g.groupValue.max, upperBound)
+            val min = scala.math.max(g.groupValue.min, lowerBound)
+            buffer += Bit(
+              max,
+              0,
+              Map("lowerBound" -> min, "upperBound" -> max),
+              Map.empty,
+              uniqueValues.toSet
+            )
           }
         }
 
-        val lastLowerBound = if (upperBound - interval < 0) 0 else upperBound - interval
-        Bit(
-          lastLowerBound,
-          0,
-          Map("lowerBound" -> lastLowerBound, "upperBound" -> upperBound),
-          Map.empty,
-          uniqueValuesBeyondRange.toSet
-        ) +: buffer
+        buffer
 
       case None =>
         Seq.empty
