@@ -529,7 +529,7 @@ class StatementParserSpec extends NSDbSpec {
                                                        comparison = GreaterOrEqualToOperator,
                                                        value = AbsoluteComparisonValue(2L)),
                     operator = OrOperator,
-                    expression2 = LikeExpression(dimension = "name", value = "$john$")
+                    expression2 = LikeExpression(dimension = "name", value = "$jo?hn$")
                   )
                 ))),
             limit = Some(LimitOperator(4))
@@ -545,7 +545,7 @@ class StatementParserSpec extends NSDbSpec {
                 .add(
                   new BooleanQuery.Builder()
                     .add(LongPoint.newRangeQuery("timestamp", 2L, Long.MaxValue), BooleanClause.Occur.SHOULD)
-                    .add(new WildcardQuery(new Term("name", "*john*")), BooleanClause.Occur.SHOULD)
+                    .add(new WildcardQuery(new Term("name", "*jo\\?hn*")), BooleanClause.Occur.SHOULD)
                     .build(),
                   BooleanClause.Occur.MUST_NOT
                 )

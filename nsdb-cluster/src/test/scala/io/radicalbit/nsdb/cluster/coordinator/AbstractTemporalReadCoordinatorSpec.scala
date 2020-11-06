@@ -24,15 +24,11 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinatorSpec {
 
-  override def beforeAll: Unit = {
-    import scala.concurrent.duration._
-    implicit val timeout: Timeout = Timeout(5.second)
-
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
-
+  override def prepareTestData()(implicit timeout: Timeout): Unit = {
     val location1 = Location(_: String, "node1", 100000, 190000)
     val location2 = Location(_: String, "node1", 0, 90000)
 
@@ -98,7 +94,6 @@ abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinat
         Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(TemporalDoubleMetric.name), r),
                      10 seconds)
       })
-
-    expectNoMessage(indexingInterval)
   }
+
 }

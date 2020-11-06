@@ -139,4 +139,32 @@ object MockedData {
     val testRecords: Seq[Bit] = recordsShard1 ++ recordsShard2
   }
 
+  object CharsetMetric {
+
+    val name = "charsetMetric"
+
+    val recordsShard1: Seq[Bit] = Seq(
+      Bit(150000L,
+          2L,
+          Map("textDimension" -> "Is this a question? Really"),
+          Map("textTag"       -> "Is this a question? Really")),
+      Bit(120000L,
+          3L,
+          Map("textDimension" -> "Is this an empathized question?! Or not?"),
+          Map("textTag"       -> "Is this an empathized question?! Or not?"))
+    )
+
+    val recordsShard2: Seq[Bit] = Seq(
+      Bit(90000L,
+          5L,
+          Map("textDimension"             -> "Is this a double question??"),
+          Map("textTag"                   -> "Is this a double question??")),
+      Bit(60000L, 7L, Map("textDimension" -> "a_:m?!-e"), Map("textTag" -> "a_:m?!-e")),
+      Bit(30000L, 4L, Map("textDimension" -> "a_:m-e"), Map("textTag" -> "a_:m-e")),
+      Bit(0L, 1L, Map("textDimension"     -> "Doe"), Map("textTag" -> "John"))
+    )
+
+    val testRecords: Seq[Bit] = recordsShard1 ++ recordsShard2
+  }
+
 }

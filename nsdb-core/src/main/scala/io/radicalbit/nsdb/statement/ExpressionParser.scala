@@ -112,7 +112,7 @@ object ExpressionParser {
                              value: NSDbType): Either[String, Query] = {
     schema.get(field) match {
       case Some(SchemaField(_, _, _: VARCHAR)) =>
-        Right(new WildcardQuery(new Term(field, value.rawValue.toString.replaceAll("\\$", "*"))))
+        Right(new WildcardQuery(new Term(field, value.rawValue.toString.replaceAll("\\$", "*").replace("?", "\\?"))))
       case Some(_) =>
         Left(StatementParserErrors.nonCompatibleOperator("Like", "VARCHAR"))
       case None => Left(StatementParserErrors.notExistingField(field))

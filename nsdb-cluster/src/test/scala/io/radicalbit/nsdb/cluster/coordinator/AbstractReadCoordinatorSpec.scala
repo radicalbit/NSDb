@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
+import scala.concurrent.duration._
 
 import scala.concurrent.Await
 
@@ -66,12 +67,7 @@ abstract class AbstractReadCoordinatorSpec
                                                                   system.actorOf(Props.empty),
                                                                   readNodesSelection)
 
-  override def beforeAll = {
-    import scala.concurrent.duration._
-    implicit val timeout = Timeout(5.second)
-
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
-
+  def prepareTestData()(implicit timeout: Timeout) = {
     val location1 = Location(_: String, "node1", 0, 5)
     val location2 = Location(_: String, "node1", 6, 10)
 
@@ -174,8 +170,16 @@ abstract class AbstractReadCoordinatorSpec
       Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(AggregationDoubleMetric.name), r),
                    10 seconds)
     })
+  }
 
-    expectNoMessage(indexingInterval)
+  override def beforeAll = {
+
+    implicit val timeout = Timeout(5.second)
+
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
+
+    prepareTestData()
+
     expectNoMessage(indexingInterval)
   }
 
