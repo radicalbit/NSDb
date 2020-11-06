@@ -55,7 +55,7 @@ class LocalMetadataCache extends Actor {
     case DropNamespaceFromCache(db, namespace) =>
       coordinates --= coordinates.filter(c => c.db == db && c.namespace == namespace)
       sender() ! NamespaceFromCacheDropped(db, namespace)
-    case PutLocationInCache(db, namespace, metric, value) =>
+    case PutLocationInCache(db, namespace, metric, value, _) =>
       val key              = MetricLocationsCacheKey(db, namespace, metric)
       val previousLocation = locations.getOrElse(key, Set.empty)
       locations.put(key, previousLocation + value)
