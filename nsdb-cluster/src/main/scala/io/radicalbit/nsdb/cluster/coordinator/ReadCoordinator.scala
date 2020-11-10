@@ -31,7 +31,7 @@ import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRange}
+import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRangeContext}
 import io.radicalbit.nsdb.post_proc._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -95,7 +95,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
   private def gatherNodeResults(command: ExecuteStatement,
                                 schema: Schema,
                                 uniqueLocationsByNode: Map[String, Seq[Location]],
-                                ranges: Seq[TimeRange] = Seq.empty)(postProcFun: Seq[Bit] => Seq[Bit])(
+                                timeRangeContext: Option[TimeRangeContext] = None)(postProcFun: Seq[Bit] => Seq[Bit])(
       implicit timeContext: TimeContext): Future[ExecuteSelectStatementResponse] = {
     log.debug("gathering node results for locations {}", uniqueLocationsByNode)
     val statement    = command.selectStatement
@@ -107,7 +107,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
           actor ? ExecuteSelectStatement(statement,
                                          schema,
                                          uniqueLocationsByNode.getOrElse(nodeId, Seq.empty),
-                                         ranges,
+                                         timeRangeContext,
                                          timeContext,
                                          isSingleNode)
       })
@@ -239,18 +239,27 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                 val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
                   ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))
 
-                val globalRanges: Seq[TimeRange] =
-                  if (limitedLocations.isEmpty) Seq.empty[TimeRange]
-                  else
-                    TimeRangeManager.computeRangesForIntervalAndCondition(limitedLocations.last.to,
-                                                                          limitedLocations.head.from,
-                                                                          rangeLength,
-                                                                          condition,
-                                                                          gracePeriod)
+                val timeRangeContext: Option[TimeRangeContext] =
+                  if (limitedLocations.isEmpty) None
+                  else {
+
+                    val upperBound = limitedLocations.last.to
+                    val lowerBound = limitedLocations.head.from
+
+                    Some(
+                      TimeRangeContext(upperBound,
+                                       lowerBound,
+                                       rangeLength,
+                                       TimeRangeManager.computeRangesForIntervalAndCondition(upperBound,
+                                                                                             lowerBound,
+                                                                                             rangeLength,
+                                                                                             condition,
+                                                                                             gracePeriod)))
+                  }
 
                 val limitedUniqueLocationsByNode = readNodesSelection.getDistinctLocationsByNode(limitedLocations)
 
-                gatherNodeResults(msg, schema, limitedUniqueLocationsByNode, globalRanges)(
+                gatherNodeResults(msg, schema, limitedUniqueLocationsByNode, timeRangeContext)(
                   postProcessingTemporalQueryResult(schema, statement, aggregation))
 
               case Left(error) =>

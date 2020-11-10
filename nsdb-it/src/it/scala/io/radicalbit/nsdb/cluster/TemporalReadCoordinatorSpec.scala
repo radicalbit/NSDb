@@ -41,8 +41,6 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
     super.beforeAll()
 
-    val firstNode = nodes.head
-
     val nsdbConnection =
       eventually {
         Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
@@ -452,19 +450,18 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select avg(*) from ${TemporalLongMetric.name} group by interval 30s")
+        .query(s"select avg(*) from ${TemporalLongMetric.name} group by interval 50s")
 
       eventually {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
+        assert(readRes.records.size == 4)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 2.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
-          Bit(60000, 7.0, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
-          Bit(90000, 5.0, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
-          Bit(120000, 3.0, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 2.0, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(80000, 7.0, Map("lowerBound" -> 30000L, "upperBound" -> 80000L), Map()),
+          Bit(130000, 4.0, Map("lowerBound" -> 80000L, "upperBound" -> 130000L), Map()),
+          Bit(180000, 2.0, Map("lowerBound" -> 130000L, "upperBound" -> 180000L), Map())
         ))
       }
     }
@@ -492,6 +489,57 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
           Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
           Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+        ))
+      }
+    }
+  }
+
+  test("execute a temporal query with count distinct aggregation") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count( distinct *) from ${TemporalLongMetric.name} group by interval 50s")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(30000,2L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map()),
+          Bit(80000,1L,Map("lowerBound" -> 30000L, "upperBound" -> 80000L),Map()),
+          Bit(130000,2L,Map("lowerBound" -> 80000L, "upperBound" -> 130000L),Map()),
+          Bit(180000,1L,Map("lowerBound" -> 130000L, "upperBound" -> 180000L),Map())
+        ))
+      }
+    }
+  }
+
+  test("execute a temporal query with count distinct aggregation on a tag") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select count( distinct height) from ${TemporalLongMetric.name} group by interval 30s order by timestamp desc")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.map(_.asBit) == Seq(
+          Bit(150000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map(),Set()),
+          Bit(120000,1L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map(),Set()),
+          Bit(90000,1L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map(),Set()),
+          Bit(60000,1L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map(),Set()),
+          Bit(30000,1L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map(),Set())
         ))
       }
     }

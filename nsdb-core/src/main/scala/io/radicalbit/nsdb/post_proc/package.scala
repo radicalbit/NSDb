@@ -162,6 +162,10 @@ package object post_proc {
                     NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
                     dimensions,
                     tags)
+              case _: CountDistinctAggregation if finalStep =>
+                Bit(head.timestamp, NSDbNumericType(bits.flatMap(_.uniqueValues).toSet.size.toLong), dimensions, tags)
+              case _: CountDistinctAggregation =>
+                Bit(head.timestamp, 0L, dimensions, tags, bits.flatMap(_.uniqueValues).toSet)
               case _: SumAggregation =>
                 Bit(head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).sum), dimensions, tags)
               case _: MaxAggregation =>

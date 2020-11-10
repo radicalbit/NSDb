@@ -275,4 +275,75 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
         Seq.empty
     }
   }
+
+  /**
+    * Extracts the unique values for a temporal range.
+    * @param query the query to be executed before grouping.
+    * @param schema bit schema.
+    * @param aggregationField field to use to gather unique values.
+    * @param lowerBound global lower bound.
+    * @param interval range interval.
+    * @param upperBound global upper bound.
+    * @return a sequence of bit, one for each time range, containing a set of unique values.
+    */
+  def uniqueRangeValues(query: Query,
+                        schema: Schema,
+                        aggregationField: String,
+                        lowerBound: Long,
+                        interval: Long,
+                        upperBound: Long): Seq[Bit] = {
+    val groupSelector =
+      new LongRangeGroupSelector(LongValuesSource.fromLongField(_keyField),
+                                 new NSDbLongRangeFactory(lowerBound, interval, upperBound))
+
+    val aggregationSelector = schema.fieldsMap(aggregationField).indexType match {
+      case _: VARCHAR => new TermGroupSelector(aggregationField)
+      case _          => new TermGroupSelector(s"$aggregationField$stringAuxiliaryFieldSuffix")
+    }
+
+    val firstPassGroupingCollector =
+      new FirstPassGroupingCollector(groupSelector, new Sort(), maxGroups)
+
+    val searcher = this.getSearcher
+
+    searcher.search(query, firstPassGroupingCollector)
+
+    val groupsOpt = Option(firstPassGroupingCollector.getTopGroups(0))
+
+    groupsOpt match {
+      case Some(inputGroups) =>
+        val distinctValuesCollector =
+          new DistinctValuesCollector(firstPassGroupingCollector.getGroupSelector, inputGroups, aggregationSelector)
+        searcher.search(query, distinctValuesCollector)
+
+        val buffer: ListBuffer[Bit] = ListBuffer.empty[Bit]
+
+        distinctValuesCollector.getGroups.forEach { g =>
+          if (g.groupValue != null) {
+            val uniqueValues = mutable.Set.empty[NSDbType]
+            g.uniqueValues.forEach { v =>
+              if (v != null)
+                uniqueValues += schema
+                  .fieldsMap(aggregationField)
+                  .indexType
+                  .deserialize(new String(v.bytes).stripSuffix(stringAuxiliaryFieldSuffix).getBytes)
+            }
+            val max = scala.math.min(g.groupValue.max, upperBound)
+            val min = scala.math.max(g.groupValue.min, lowerBound)
+            buffer += Bit(
+              max,
+              0,
+              Map("lowerBound" -> min, "upperBound" -> max),
+              Map.empty,
+              uniqueValues.toSet
+            )
+          }
+        }
+
+        buffer
+
+      case None =>
+        Seq.empty
+    }
+  }
 }

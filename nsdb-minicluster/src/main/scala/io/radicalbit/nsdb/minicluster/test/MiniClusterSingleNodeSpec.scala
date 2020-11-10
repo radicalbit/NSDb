@@ -19,14 +19,14 @@ package io.radicalbit.nsdb.minicluster.test
 import java.time.Duration
 import java.util.logging.{Level, Logger}
 
-import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
+import io.radicalbit.nsdb.minicluster.NSDbMiniCluster
 import org.json4s.DefaultFormats
 import org.scalatest.concurrent.Eventually
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.BeforeAndAfterAll
 
-trait MiniClusterSingleNodeSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually with NsdbMiniCluster {
+trait MiniClusterSingleNodeSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually with NSDbMiniCluster {
 
   Logger.getLogger("io.grpc.internal").setLevel(Level.OFF)
 

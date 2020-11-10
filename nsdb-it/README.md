@@ -30,9 +30,9 @@ discovery {
 ```  
 
 ```scala
-import io.radicalbit.nsdb.minicluster.NsdbMiniCluster
+import io.radicalbit.nsdb.minicluster.NSDbMiniCluster
 
-object MiniClusterStarter extends App with NsdbMiniCluster {
+object MiniClusterStarter extends App with NSDbMiniCluster {
   override protected[this] def nodesNumber              = 3
   override protected[this] def passivateAfter: Duration = Duration.ofHours(1)
 

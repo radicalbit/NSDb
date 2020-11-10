@@ -38,3 +38,13 @@ case class TimeRange(lowerBound: Long, upperBound: Long, lowerInclusive: Boolean
 
   def intersect(location: Location): Boolean = this.interval.intersects(location.interval)
 }
+
+/**
+  * Contains all the information required for a temporal group by queries.
+  *
+  * @param upperBound global upper bound.
+  * @param lowerBound lower upper bound.
+  * @param interval range interval.
+  * @param ranges computed ranges based on the the previous parameters.
+  */
+case class TimeRangeContext(upperBound: Long, lowerBound: Long, interval: Long, ranges: Seq[TimeRange])

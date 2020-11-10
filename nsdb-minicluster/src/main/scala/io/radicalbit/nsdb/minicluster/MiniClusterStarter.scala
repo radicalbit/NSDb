@@ -18,7 +18,7 @@ package io.radicalbit.nsdb.minicluster
 
 import java.time.Duration
 
-object MiniClusterStarter extends App with NsdbMiniCluster {
+object MiniClusterStarter extends App with NSDbMiniCluster {
   override protected[this] def nodesNumber              = 3
   override protected[this] def replicationFactor: Int   = 2
   override protected[this] def rootFolder: String       = s"target/minicluster/$instanceId"
