@@ -20,7 +20,13 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.Actor
 import akka.cluster.ddata.Replicator.{WriteAll, WriteConsistency, WriteLocal, WriteMajority}
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.{DeserializationContext, SerializerProvider}
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -75,11 +81,13 @@ object WriteConfig {
       * - All: a metadata record is synchronously disseminated to the nodes, asynchronously to the remaining.
       * - Local: a metadata record is written only to the local node and then asynchronously disseminate to the others.
       */
+    @JsonSerialize(using = classOf[MetadataConsistencyJsonSerializer])
+    @JsonDeserialize(using = classOf[MetadataConsistencyJsonDeserializer])
     sealed trait MetadataConsistency
 
-    case object All      extends MetadataConsistency
-    case object Majority extends MetadataConsistency
-    case object Local    extends MetadataConsistency
+    case object All      extends MetadataConsistency with NSDbSerializable
+    case object Majority extends MetadataConsistency with NSDbSerializable
+    case object Local    extends MetadataConsistency with NSDbSerializable
 
     def apply(inputString: String): MetadataConsistency =
       inputString.toLowerCase match {
@@ -89,5 +97,31 @@ object WriteConfig {
         case wrongConfigValue =>
           throw new IllegalArgumentException(s"$wrongConfigValue is not a valid value for metadata-write-consistency")
       }
+
+    /**
+      * Serializer for [[MetadataConsistency]]
+      */
+    class MetadataConsistencyJsonSerializer extends StdSerializer[MetadataConsistency](classOf[MetadataConsistency]) {
+
+      override def serialize(value: MetadataConsistency, gen: JsonGenerator, provider: SerializerProvider): Unit =
+        gen.writeString(value.toString)
+    }
+
+    /**
+      * Deserializer for [[MetadataConsistency]]
+      */
+    class MetadataConsistencyJsonDeserializer
+        extends StdDeserializer[MetadataConsistency](classOf[MetadataConsistency]) {
+
+      override def deserialize(p: JsonParser, ctxt: DeserializationContext): MetadataConsistency = {
+        p.getText match {
+          case "All"      => All
+          case "Majority" => Majority
+          case "Local"    => Local
+          case wrongValue =>
+            throw new IllegalArgumentException(s"$wrongValue is not a valid value for MetadataConsistency")
+        }
+      }
+    }
   }
 }
