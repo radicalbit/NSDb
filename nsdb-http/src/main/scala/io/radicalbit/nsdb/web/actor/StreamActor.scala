@@ -27,6 +27,7 @@ import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
+import io.radicalbit.nsdb.monitoring.NSDbMonitoring
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
 import io.radicalbit.nsdb.security.model.Metric
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
@@ -34,6 +35,7 @@ import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.web.Filters.Filter
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.radicalbit.nsdb.web.actor.StreamActor._
+import kamon.Kamon
 
 import scala.collection.mutable
 
@@ -59,6 +61,16 @@ class StreamActor(clientAddress: String,
   override def receive: Receive = waiting
 
   private val buffer: mutable.Queue[RecordsPublished] = mutable.Queue.empty
+
+  lazy val kamonMetric = Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
+
+  override def preStart(): Unit = {
+    kamonMetric.increment()
+  }
+
+  override def postStop(): Unit = {
+    kamonMetric.decrement()
+  }
 
   /**
     * Waits for the WebSocket actor reference behaviour.

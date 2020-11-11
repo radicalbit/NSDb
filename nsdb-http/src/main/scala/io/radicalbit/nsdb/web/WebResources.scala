@@ -27,7 +27,9 @@ import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.monitoring.NSDbMonitoring
 import io.radicalbit.nsdb.security.NsdbSecurity
+import kamon.Kamon
 import org.json4s.Formats
 
 import scala.concurrent.duration._
@@ -59,6 +61,7 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
                       publisher: ActorRef)(implicit logger: LoggingAdapter) =
     authProvider match {
       case Success(provider) =>
+        Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
         val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
                                                                              readCoordinator,
                                                                              writeCoordinator,
