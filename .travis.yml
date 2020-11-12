@@ -87,4 +87,4 @@ jobs:
     - stage: "Image Creation Test"
       script: sbt +publishLocal docker:publishLocal
     - stage: "push"
-      script: $TRAVIS_BUILD_DIR/travis-credentials.sh && sbt +publish && docker login -u $DOCKER_USER -p $DOCKER_PASSWORD && sbt docker:publish
+      script: $TRAVIS_BUILD_DIR/travis-credentials.sh && sbt +publish && docker login -u $DOCKER_USER -p $DOCKER_PASSWORD && sbt ";project nsdb-cluster; docker:publish"
