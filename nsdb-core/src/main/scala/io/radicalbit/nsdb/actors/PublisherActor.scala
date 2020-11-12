@@ -134,8 +134,9 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
 
   override def receive: Receive = {
     case SubscribeBySqlStatement(actor, db, namespace, metric, queryString, query, timeContextOpt) =>
-      val subscribedQueryId = (plainQueries ++ aggregatedQueries).collectFirst {
-        case (_, v) if v.query == query => v.uuid
+      val subscribedQueryId = (plainQueries ++ aggregatedQueries ++ temporalAggregatedQueries).collectFirst {
+        case (_, v) if v.query == query =>
+          v.uuid
       } getOrElse
         UUID.randomUUID().toString
 
@@ -332,10 +333,10 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                     else
                       ()
                   ) { previousBucket =>
-                    if (record.timestamp >= timeContext.currentTime)
+                    if (record.timestamp >= timeContext.currentTime) {
                       temporalBuckets += (quid -> previousBucket.copy(bits = previousBucket.bits :+ record))
-                    else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
-                      updateLateEvents
+                    } else if (record.timestamp >= timeContext.currentTime - parsedQuery.gracePeriod.getOrElse(0L))
+                      updateLateEvents()
                     else
                       ()
                   }
@@ -346,10 +347,13 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
     case Unsubscribe(actor) =>
       log.debug("unsubscribe actor {} ", actor)
       subscribedActorsByQueryId.foreach {
-        case (k, v) if v.contains(actor) =>
-          if (v.size == 1) subscribedActorsByQueryId -= k
-          else
-            subscribedActorsByQueryId += (k -> (v - actor))
+        case (quid, actors) if actors.contains(actor) =>
+          if (actors.size == 1) {
+            subscribedActorsByQueryId -= quid
+            temporalAggregatedTasks.get(quid).foreach(_.cancel())
+            temporalAggregatedTasks -= quid
+          } else
+            subscribedActorsByQueryId += (quid -> (actors - actor))
         case _ => //do nothing
       }
       sender() ! Unsubscribed(actor)

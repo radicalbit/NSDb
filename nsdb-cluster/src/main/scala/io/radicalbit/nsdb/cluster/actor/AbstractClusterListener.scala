@@ -39,6 +39,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
 }
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
+import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency
 import io.radicalbit.nsdb.cluster.metrics.NSDbMetrics
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.model.LocationWithCoordinates
@@ -176,7 +177,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
                 case ((db, namespace), locations) =>
                   metadataCoordinator ? AddLocations(db, namespace, locations.map {
                     case LocationWithCoordinates(_, _, location) => location
-                  })
+                  }, consistency = Some(MetadataConsistency.Local))
               }
             }
             .map(ErrorManagementUtils.partitionResponses[LocationsAdded, AddLocationsFailed])

@@ -145,6 +145,7 @@ class PublisherActorSpec
       probe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.temporalAggregatedQueries.keys.size shouldBe 1
+      publisherActor.underlyingActor.temporalAggregatedTasks.keys.size shouldBe 1
       publisherActor.underlyingActor.temporalAggregatedQueries.values.head.query shouldBe testTemporalAggregatedSqlStatement(
         CountAggregation)
 
@@ -155,6 +156,7 @@ class PublisherActorSpec
       probe.expectMsgType[Unsubscribed]
 
       publisherActor.underlyingActor.subscribedActorsByQueryId.keys.size shouldBe 0
+      publisherActor.underlyingActor.temporalAggregatedTasks.keys.size shouldBe 0
     }
 
     "subscribe more than once" in {
@@ -275,6 +277,10 @@ class PublisherActorSpec
                                 Some(testTimeContext))
       )
       secondProbe.expectMsgType[SubscribedByQueryString]
+
+      publisherActor.underlyingActor.temporalAggregatedTasks.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.size shouldBe 1
+      publisherActor.underlyingActor.subscribedActorsByQueryId.head._2.size shouldBe 2
 
       probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
       val recordPublished = probe.expectMsgType[RecordsPublished]

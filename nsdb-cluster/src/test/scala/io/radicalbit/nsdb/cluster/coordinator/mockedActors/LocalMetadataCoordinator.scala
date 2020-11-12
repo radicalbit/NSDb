@@ -93,7 +93,7 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
                                     s"unexpected response while trying to put metadata in cache $e")
         }
         .pipeTo(sender())
-    case AddLocations(db, namespace, locations) =>
+    case AddLocations(db, namespace, locations, _) =>
       Future
         .sequence(
           locations.map(location =>

@@ -19,9 +19,9 @@ class ClusterListenerSpecMultiJvmNode2 extends ClusterListenerSpec
 
 class MetaDataCoordinatorForTest extends Actor with ActorLogging {
   def receive: Receive = {
-    case AddLocations("success", namespace, locations) =>
+    case AddLocations("success", namespace, locations, _) =>
       sender() ! LocationsAdded("success", namespace, locations)
-    case AddLocations("failure", namespace, locations) =>
+    case AddLocations("failure", namespace, locations, _) =>
       sender() ! AddLocationsFailed("failure", namespace, locations)
     case UnsubscribeMetricsDataActor(nodeName)     => sender() ! MetricsDataActorUnSubscribed(nodeName)
     case UnSubscribeCommitLogCoordinator(nodeName) => sender() ! CommitLogCoordinatorUnSubscribed(nodeName)

@@ -37,6 +37,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
 import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
@@ -99,11 +100,12 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
   private def performAddLocationIntoCache(db: String,
                                           namespace: String,
-                                          locations: Seq[Location]): Future[AddLocationsResponse] =
+                                          locations: Seq[Location],
+                                          consistency: Option[MetadataConsistency]): Future[AddLocationsResponse] =
     Future
       .sequence(
         locations.map(location =>
-          (metadataCache ? PutLocationInCache(db, namespace, location.metric, location))
+          (metadataCache ? PutLocationInCache(db, namespace, location.metric, location, consistency))
             .mapTo[AddLocationResponse]))
       .flatMap { responses =>
         val (successResponses: List[LocationCached], errorResponses: List[PutLocationInCacheFailed]) =
@@ -480,7 +482,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                           val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
 
                           val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
-                          performAddLocationIntoCache(db, namespace, locations)
+                          performAddLocationIntoCache(db, namespace, locations, None)
                         }
                       } yield
                         addLocationResult match {
@@ -499,8 +501,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
           }
         } pipeTo sender()
       }
-    case AddLocations(db, namespace, locations) =>
-      performAddLocationIntoCache(db, namespace, locations).pipeTo(sender)
+    case AddLocations(db, namespace, locations, consistencyOpt) =>
+      performAddLocationIntoCache(db, namespace, locations, consistencyOpt).pipeTo(sender)
     case AddOutdatedLocations(locations) =>
       performAddOutdatedLocationIntoCache(locations).pipeTo(sender)
     case GetOutdatedLocations =>
@@ -613,9 +615,13 @@ object MetadataCoordinator {
     case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
         extends NSDbSerializable
-    case class AddLocations(db: String, namespace: String, locations: Seq[Location]) extends NSDbSerializable
-    case class AddOutdatedLocations(locations: Seq[LocationWithCoordinates])         extends NSDbSerializable
-    case object GetOutdatedLocations                                                 extends NSDbSerializable
+    case class AddLocations(db: String,
+                            namespace: String,
+                            locations: Seq[Location],
+                            consistency: Option[MetadataConsistency] = None)
+        extends NSDbSerializable
+    case class AddOutdatedLocations(locations: Seq[LocationWithCoordinates]) extends NSDbSerializable
+    case object GetOutdatedLocations                                         extends NSDbSerializable
 
     case class DeleteMetricMetadata(db: String,
                                     namespace: String,
