@@ -76,13 +76,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000,2L,Map("lowerBound" -> 0L, "upperBound" -> 30000L),Map()),
           Bit(60000,1L,Map("lowerBound" -> 30000L, "upperBound" -> 60000L),Map()),
           Bit(90000,1L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map()),
           Bit(120000,1L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map()),
-          Bit(150000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map())
+          Bit(150000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map()),
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         )
         )
       }
@@ -123,10 +123,10 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(120000, 1L, Map("lowerBound" -> 100001L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -146,10 +146,9 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 2)
         assert(readRes.records.map(_.asBit) == Seq(
-          Bit(120000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -170,8 +169,8 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map()),
           Bit(150000,1L,Map("lowerBound" -> 120000L, "upperBound" -> 150000L),Map()),
           Bit(120000,1L,Map("lowerBound" -> 90000L, "upperBound" -> 120000L),Map()),
           Bit(90000,1L,Map("lowerBound" -> 60000L, "upperBound" -> 90000L),Map()),
@@ -221,13 +220,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 2L, Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
           Bit(60000, 1L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
           Bit(90000, 1L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 1L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 1L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -320,13 +319,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
           val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
           assert(readRes.completedSuccessfully)
-          assert(readRes.records.size == 5)
           assert(readRes.records.map(_.asBit) == Seq(
             Bit(30000, 6.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
             Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
             Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
             Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-            Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+            Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+            Bit(180000,0.0,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
           ))
         }
       }
@@ -347,13 +346,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 4L , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
           Bit(60000, 7L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
           Bit(90000, 5L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 3L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -374,13 +373,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 4.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
           Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
           Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0.0,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -401,13 +400,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 1L , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
           Bit(60000, 7L, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
           Bit(90000, 5L, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 3L, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 2L, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0L,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -428,13 +427,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 1.5 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
           Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
           Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0.0,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
@@ -482,13 +481,13 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
-        assert(readRes.records.size == 5)
         assert(readRes.records.map(_.asBit) == Seq(
           Bit(30000, 3.0 , Map("lowerBound" -> 0L, "upperBound" -> 30000L), Map()),
           Bit(60000, 7.5, Map("lowerBound" -> 30000L, "upperBound" -> 60000L), Map()),
           Bit(90000, 5.5, Map("lowerBound" -> 60000L, "upperBound" -> 90000L), Map()),
           Bit(120000, 3.5, Map("lowerBound" -> 90000L, "upperBound" -> 120000L), Map()),
-          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map())
+          Bit(150000, 2.5, Map("lowerBound" -> 120000L, "upperBound" -> 150000L), Map()),
+          Bit(180000,0.0,Map("lowerBound" -> 150000L, "upperBound" -> 180000L),Map())
         ))
       }
     }
