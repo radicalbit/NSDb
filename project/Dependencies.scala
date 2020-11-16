@@ -103,12 +103,10 @@ object Dependencies {
 
   object kamon {
     lazy val namespace= "io.kamon"
-    lazy val kamonVersion = "2.0.4"
-    lazy val kamonPrometheusVersion = "2.0.1"
+    lazy val kamonVersion = "2.1.8"
     lazy val sigarVersion = "1.6.6-rev002"
     lazy val bundle = namespace %% "kamon-bundle" % kamonVersion
-    lazy val prometheus = namespace %% "kamon-prometheus" %  kamonPrometheusVersion
-    lazy val sigarLoader = namespace % "sigar-loader" % sigarVersion
+    lazy val prometheus = namespace %% "kamon-prometheus" %  kamonVersion
   }
 
   object lithium {
@@ -217,6 +215,8 @@ object Dependencies {
       lucene.grouping,
       lucene.facet,
       lucene.backwardCodecs,
+      kamon.bundle,
+      kamon.prometheus,
       scalatest.core % Test,
       akka.testkit   % Test,
       commonsIo.commonsIo,
@@ -258,9 +258,6 @@ object Dependencies {
       lithium.core,
       scala_logging.scala_logging,
       akka.slf4j,
-      kamon.bundle,
-      kamon.prometheus,
-      kamon.sigarLoader,
       logback.logback,
       scalatest.core % Test,
       akka.testkit   % Test,
