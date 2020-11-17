@@ -101,6 +101,7 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         "value",
                                         Some(BIGINT()),
                                         ranges) shouldBe Seq(
+        Bit(10, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
         Bit(30, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
@@ -137,7 +138,9 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         "value",
                                         Some(BIGINT()),
                                         ranges) shouldBe Seq(
-        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound" -> NSDbLongType(10)), Map())
+        Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(20, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(30, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
 
     }
@@ -173,7 +176,9 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         "value",
                                         Some(BIGINT()),
                                         ranges) shouldBe Seq(
-        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map())
+        Bit(10, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
+        Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
+        Bit(30, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
       )
     }
 
@@ -212,7 +217,9 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
                                         ranges) shouldBe Seq(
         Bit(10, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(0), "upperBound"  -> NSDbLongType(10)), Map()),
         Bit(20, NSDbLongType(10), Map("lowerBound" -> NSDbLongType(10), "upperBound" -> NSDbLongType(20)), Map()),
-        Bit(30, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map())
+        Bit(30, NSDbLongType(1), Map("lowerBound"  -> NSDbLongType(20), "upperBound" -> NSDbLongType(30)), Map()),
+        Bit(40, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(30), "upperBound" -> NSDbLongType(40)), Map()),
+        Bit(50, NSDbLongType(0), Map("lowerBound"  -> NSDbLongType(40), "upperBound" -> NSDbLongType(50)), Map())
       )
     }
   }

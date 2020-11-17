@@ -68,7 +68,7 @@ class FacetRangeIndex {
     }
     toRecord(valueFieldType) {
       facets.getTopChildren(0, rangeFieldName).labelValues.toSeq.collect {
-        case lv if lv.value.doubleValue > 0.0 =>
+        case lv =>
           val structuredLabel = lv.label.split("-").map(_.toLong)
           FacetRangeResult(structuredLabel(0), structuredLabel(1), lv.value)
       }
