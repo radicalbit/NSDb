@@ -55,6 +55,14 @@ package object common {
       * convert to a [[NSDbStringType]]
       */
     def toStringType: NSDbStringType = NSDbStringType(rawValue.toString)
+
+    /**
+      * converts to a [[NSDbNumericType]]. If the instance is not a numeric type a [[None]] is returned
+      */
+    def asNumericType: Option[NSDbNumericType] = this match {
+      case numericType: NSDbNumericType => Some(numericType)
+      case _                            => None
+    }
   }
 
   object NSDbType {
@@ -95,6 +103,17 @@ package object common {
       new JsonSubTypes.Type(value = classOf[NSDbIntType], name = "NSDbIntType")
     ))
   sealed trait NSDbNumericType extends NSDbType {
+
+    /**
+      * @return the long value (in case of a double it truncates the original value)
+      */
+    def longValue: Long
+
+    /**
+      * @return the double value (in case of a long the double conversion)
+      */
+    def doubleValue: Double
+
     private def compare(other: NSDbNumericType) =
       new java.math.BigDecimal(this.rawValue.toString).compareTo(new java.math.BigDecimal(other.rawValue.toString))
 
@@ -103,7 +122,7 @@ package object common {
     def <(other: NSDbNumericType): Boolean  = compare(other) == -1
     def <=(other: NSDbNumericType): Boolean = compare(other) == -1 || compare(other) == 0
 
-    def /(other: NSDbNumericType)(implicit context: MathContext) = Double.box {
+    def /(other: NSDbNumericType)(implicit context: MathContext): Double = Double.box {
       new java.math.BigDecimal(this.rawValue.toString)
         .divide(new java.math.BigDecimal(other.rawValue.toString), context)
         .doubleValue()
@@ -146,12 +165,24 @@ package object common {
   }
 
   case class NSDbIntType(rawValue: Int) extends NSDbNumericType {
+
+    override def longValue: Long     = rawValue
+    override def doubleValue: Double = rawValue
+
     def runtimeManifest: Manifest[_] = manifest[Int]
   }
   case class NSDbLongType(rawValue: Long) extends NSDbNumericType {
+
+    override def longValue: Long     = rawValue
+    override def doubleValue: Double = rawValue
+
     def runtimeManifest: Manifest[_] = manifest[Long]
   }
   case class NSDbDoubleType(rawValue: Double) extends NSDbNumericType {
+
+    override def longValue: Long     = rawValue.toLong
+    override def doubleValue: Double = rawValue
+
     def runtimeManifest: Manifest[_] = manifest[Double]
   }
   case class NSDbStringType(rawValue: String) extends NSDbType {
