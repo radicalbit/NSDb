@@ -170,6 +170,7 @@ abstract class AbstractReadCoordinatorSpec
       Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(AggregationDoubleMetric.name), r),
                    10 seconds)
     })
+
   }
 
   override def beforeAll = {

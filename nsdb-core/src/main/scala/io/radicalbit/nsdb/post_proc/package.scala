@@ -158,10 +158,7 @@ package object post_proc {
             val tags       = foldMapOfBit(bits, bit => bit.tags)
             temporalAggregation.aggregation match {
               case _: CountAggregation =>
-                Bit(head.timestamp,
-                    NSDbNumericType(bits.map(_.value.longValue).sum),
-                    dimensions,
-                    tags)
+                Bit(head.timestamp, NSDbNumericType(bits.map(_.value.longValue).sum), dimensions, tags)
               case _: CountDistinctAggregation if finalStep =>
                 Bit(head.timestamp, NSDbNumericType(bits.flatMap(_.uniqueValues).toSet.size.toLong), dimensions, tags)
               case _: CountDistinctAggregation =>
@@ -351,8 +348,9 @@ package object post_proc {
 
     val aggregationsReduced = aggregations.foldLeft(Map.empty[String, NSDbNumericType]) {
       case (acc, _: CountAggregation) =>
-        val unlimitedCount = rawResults.map(_.tags.get(`count(*)`).flatMap(_.asNumericType).map(_.longValue).getOrElse(0L)).sum
-        val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
+        val unlimitedCount =
+          rawResults.map(_.tags.get(`count(*)`).flatMap(_.asNumericType).map(_.longValue).getOrElse(0L)).sum
+        val limitedCount = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
         acc + (`count(*)` -> NSDbNumericType(limitedCount))
 
       case (acc, _: MinAggregation) =>
