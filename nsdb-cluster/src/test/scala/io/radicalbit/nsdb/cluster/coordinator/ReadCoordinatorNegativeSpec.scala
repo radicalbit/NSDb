@@ -62,7 +62,7 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
   "ReadCoordinator" when {
 
     "receive a select projecting a wildcard with a limit and a ordering" should {
-      "execute it successfully when ordered on a negative field" in within(5.seconds) {
+      "execute it successfully when ordered on a negative field" in {
 
         probe.send(
           readCoordinatorActor,
@@ -87,11 +87,11 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
           Bit(9, -1.0, Map("surname" -> "Doe"), Map("age" -> 18L, "name"  -> "Frank", "height" -> -32.0)),
           Bit(7, -6.0, Map("surname" -> "Doe"), Map("age" -> 17L, "name"  -> "Bill", "height"  -> -31.0)),
           Bit(3, -2.0, Map("surname" -> "Doe"), Map("age" -> 15L, "name"  -> "John", "height"  -> 30.5)),
-          Bit(2, -2.0, Map("surname" -> "Doe"), Map("age" -> -15L, "name" -> "John", "height"  -> -30.5))
+          Bit(2, -2.0, Map("surname" -> "Doe"), Map("age" -> -15L, "name" -> "Bill", "height"  -> -30.5))
         )
       }
 
-      "execute it successfully when ordered by value" in within(5.seconds) {
+      "execute it successfully when ordered by value" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -112,14 +112,14 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
         }
         expected.values shouldBe Seq(
           Bit(7, -6.0, Map("surname" -> "Doe"), Map("age" -> 17L, "name"  -> "Bill", "height" -> -31.0), Set()),
-          Bit(6, -5.0, Map("surname" -> "Doe"), Map("age" -> -16L, "name" -> "Bill", "height" -> -31.0), Set())
+          Bit(6, -5.0, Map("surname" -> "Doe"), Map("age" -> -16L, "name" -> "John", "height" -> -31.0), Set())
         )
       }
 
     }
 
     "receive a select containing a GTE selection" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -130,9 +130,10 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
               distinct = false,
               fields = ListFields(List(Field("name", None))),
               condition = Some(
-                Condition(ComparisonExpression(dimension = "timestamp",
-                                               comparison = GreaterOrEqualToOperator,
-                                               value = AbsoluteComparisonValue(10L)))),
+                Condition(
+                  ComparisonExpression(dimension = "timestamp",
+                                       comparison = GreaterOrEqualToOperator,
+                                       value = AbsoluteComparisonValue(10L)))),
               limit = Some(LimitOperator(4))
             )
           )
@@ -149,7 +150,7 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
     }
 
     "receive a select containing a GTE and a NOT selection" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -177,7 +178,7 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
     }
 
     "receive a select containing a GT AND a LTE selection" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -207,7 +208,7 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
     }
 
     "receive a select containing a = selection" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -218,8 +219,7 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
               distinct = false,
               fields = ListFields(List(Field("name", None))),
               condition =
-                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(2L)))),
-              limit = Some(LimitOperator(4))
+                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(2L))))
             )
           )
         )
@@ -232,5 +232,116 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
 
     }
 
+    "receive a select containing a standard aggregation" should {
+      "execute it successfully in case of a sum" in {
+
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = NegativeMetric.name,
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
+              groupBy = Some(SimpleGroupByAggregation("name")),
+              order = Some(DescOrderOperator("value"))
+            )
+          )
+        )
+
+        awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values shouldBe Seq(
+          Bit(0, -2.0, Map(), Map("name"  -> "Frank")),
+          Bit(0, -4.0, Map(), Map("name"  -> "Frankie")),
+          Bit(0, -8.0, Map(), Map("name"  -> "Bill")),
+          Bit(0, -13.0, Map(), Map("name" -> "John"))
+        )
+      }
+
+    }
+    "execute it successfully in case of a min" in {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = NegativeMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
+            groupBy = Some(SimpleGroupByAggregation("age")),
+            order = Some(DescOrderOperator("age"))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0, -3.0, Map(), Map("age" -> 20L)),
+        Bit(0, -1.0, Map(), Map("age" -> 18L)),
+        Bit(0, -6.0, Map(), Map("age" -> 17L)),
+        Bit(0, -2.0, Map(), Map("age" -> 15L)),
+        Bit(0, -2.0, Map(), Map("age" -> -15L)),
+        Bit(0, -5.0, Map(), Map("age" -> -16L)),
+        Bit(0, -1.0, Map(), Map("age" -> -17L)),
+        Bit(0, -4.0, Map(), Map("age" -> -18L)),
+        Bit(0, -3.0, Map(), Map("age" -> -20L))
+      )
+    }
+    "execute it successfully in case of a max" in {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = NegativeMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
+            groupBy = Some(SimpleGroupByAggregation("height")),
+            order = Some(AscOrderOperator("height"))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0, -1.0, Map(), Map("height" -> -32.0)),
+        Bit(0, -5.0, Map(), Map("height" -> -31.0)),
+        Bit(0, -2.0, Map(), Map("height" -> -30.5)),
+        Bit(0, -2.0, Map(), Map("height" -> 30.5)),
+        Bit(0, -1.0, Map(), Map("height" -> 32.0))
+      )
+    }
+
+    "execute it successfully in case of a avg" in {
+      probe.send(
+        readCoordinatorActor,
+        ExecuteStatement(
+          SelectSQLStatement(
+            db = db,
+            namespace = namespace,
+            metric = NegativeMetric.name,
+            distinct = false,
+            fields = ListFields(List(Field("value", Some(AvgAggregation("value"))))),
+            groupBy = Some(SimpleGroupByAggregation("name")),
+            order = Some(AscOrderOperator("name"))
+          )
+        )
+      )
+
+      awaitAssert {
+        probe.expectMsgType[SelectStatementExecuted]
+      }.values shouldBe Seq(
+        Bit(0, -4.0, Map(), Map("name"  -> "Bill")),
+        Bit(0, -1.0, Map(), Map("name"  -> "Frank")),
+        Bit(0, -4.0, Map(), Map("name"  -> "Frankie")),
+        Bit(0, -3.25, Map(), Map("name" -> "John")),
+      )
+    }
   }
 }

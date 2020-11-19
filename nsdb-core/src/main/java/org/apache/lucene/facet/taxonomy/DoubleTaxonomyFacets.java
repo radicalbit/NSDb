@@ -93,7 +93,7 @@ public abstract class DoubleTaxonomyFacets  extends TaxonomyFacets {
 
         TopOrdAndDoubleQueue q = new TopOrdAndDoubleQueue(Math.min(taxoReader.getSize(), topN));
 
-        double bottomValue = 0;
+        double bottomValue = -Double.MAX_VALUE;
 
         int ord = getChildren()[dimOrd];
         double totValue = 0;
@@ -101,7 +101,7 @@ public abstract class DoubleTaxonomyFacets  extends TaxonomyFacets {
 
         TopOrdAndDoubleQueue.OrdAndValue reuse = null;
         while(ord != TaxonomyReader.INVALID_ORDINAL) {
-            if (values[ord] > 0) {
+            if (values[ord] != 0) {
                 totValue += values[ord];
                 childCount++;
                 if (values[ord] > bottomValue) {
