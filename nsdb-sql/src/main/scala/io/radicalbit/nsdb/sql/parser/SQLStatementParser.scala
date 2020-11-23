@@ -116,10 +116,10 @@ final class SQLStatementParser extends RegexParsers with PackratParsers with Reg
   private val standardString = s"""($letter$letterOrDigit*)""".r
   private val specialString  = s"""($letter$specialChar*$letterOrDigit*)""".r
   private val wildCardString = s"""($specialWildCard+)""".r
-  private val digits         = s"""($digit+)""".r
+  private val digits         = s"""(-?$digit+)""".r
   private val intValue       = digits ^^ { _.toInt }
   private val longValue      = digits ^^ { _.toLong }
-  private val doubleValue    = s"""($digit+)[.]($digit+)""".r ^^ { _.toDouble }
+  private val doubleValue    = s"""(-?)($digit+)[.]($digit+)""".r ^^ { _.toDouble }
 
   private val field = standardString ^^ { e =>
     Field(e, None)

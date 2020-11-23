@@ -100,6 +100,28 @@ object MockedData {
     val testRecords = recordsShard1 ++ recordsShard2
   }
 
+  object NegativeMetric {
+
+    val name = "negativeMetric"
+
+    val recordsShard1: Seq[Bit] = Seq(
+      Bit(2L, -2.0, Map("surname" -> "Doe"), Map("name" -> "Bill", "age" -> -15L, "height" -> -30.5)),
+      Bit(3L, -2.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 15L, "height"  -> 30.5)),
+      Bit(4L, -3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> -20L, "height" -> -30.5)),
+      Bit(5L, -3.0, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 20L, "height"  -> 30.5))
+    )
+
+    val recordsShard2: Seq[Bit] = Seq(
+      Bit(6L, -5.0, Map("surname"  -> "Doe"), Map("name" -> "John", "age"    -> -16L, "height" -> -31.0)),
+      Bit(7L, -6.0, Map("surname"  -> "Doe"), Map("name" -> "Bill", "age"    -> 17L, "height"  -> -31.0)),
+      Bit(8L, -1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> -17L, "height" -> 32.0)),
+      Bit(9L, -1.0, Map("surname"  -> "Doe"), Map("name" -> "Frank", "age"   -> 18L, "height"  -> -32.0)),
+      Bit(10L, -4.0, Map("surname" -> "Doe"), Map("name" -> "Frankie", "age" -> -18L, "height" -> 32.0))
+    )
+
+    val testRecords = recordsShard1 ++ recordsShard2
+  }
+
   object TemporalDoubleMetric {
 
     val name = "temporalDoubleMetric"
