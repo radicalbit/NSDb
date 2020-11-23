@@ -99,7 +99,6 @@ abstract class FacetIndex(val directory: Directory, val taxoDirectory: Directory
         val c   = facetConfig(fields.toSeq)
 
         fields
-          .filterNot(f => f.name() == "value")
           .foreach { f =>
             doc.add(f)
             if (f.isInstanceOf[StringField] || f.isInstanceOf[FloatPoint] || f.isInstanceOf[DoublePoint] ||

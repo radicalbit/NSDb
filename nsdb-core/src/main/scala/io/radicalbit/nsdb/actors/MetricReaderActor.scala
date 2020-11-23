@@ -189,7 +189,11 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
          .sequence(actors.map {
            case (_, actor) =>
              (actor ? msg.copy(locations = actors.map(_._1)))
-               .recoverWith { case t => Future(SelectStatementFailed(statement, t.getMessage)) }
+               .recoverWith {
+                 case t =>
+                   log.error(t, "error occurred during shard result gathering")
+                   Future(SelectStatementFailed(statement, t.getMessage))
+               }
          })
      })
       .map(ErrorManagementUtils.partitionResponses[SelectStatementExecuted, SelectStatementFailed])

@@ -177,6 +177,35 @@ class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
       }
     }
 
+    "receive a select containing a GTE expression on value" should {
+      "execute it successfully" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = NegativeMetric.name,
+              distinct = false,
+              fields = AllFields(),
+              condition = Some(
+                Condition(
+                  ComparisonExpression(dimension = "value",
+                                       comparison = GreaterThanOperator,
+                                       value = AbsoluteComparisonValue(-2.0))))
+            )
+          )
+        )
+
+        awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(8L, -1.0, Map("surname" -> "Doe"), Map("name" -> "Frank", "age" -> -17L, "height" -> 32.0)),
+          Bit(9L, -1.0, Map("surname" -> "Doe"), Map("name" -> "Frank", "age" -> 18L, "height"  -> -32.0))
+        )
+      }
+    }
+
     "receive a select containing a GT AND a LTE selection" should {
       "execute it successfully" in {
         probe.send(
