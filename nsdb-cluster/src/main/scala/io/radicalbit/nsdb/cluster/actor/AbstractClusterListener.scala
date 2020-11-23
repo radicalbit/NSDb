@@ -167,6 +167,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
           val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd.diff(outdatedLocations.locations)
 
+          log.debug(s"locations to add from node $nodeId $locationsToAdd")
+
           val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
             case LocationWithCoordinates(database, namespace, _) => (database, namespace)
           }

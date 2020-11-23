@@ -157,10 +157,7 @@ package object post_proc {
             val tags       = foldMapOfBit(bits, bit => bit.tags)
             temporalAggregation.aggregation match {
               case CountAggregation =>
-                Bit(head.timestamp,
-                    NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
-                    dimensions,
-                    tags)
+                Bit(head.timestamp, NSDbNumericType(bits.map(_.value.longValue).sum), dimensions, tags)
               case SumAggregation =>
                 Bit(head.timestamp, NSDbNumericType(bits.map(_.value.rawValue).sum), dimensions, tags)
               case MaxAggregation =>
@@ -272,7 +269,7 @@ package object post_proc {
     standardAggregation.aggregation match {
       case CountAggregation =>
         Bit(0,
-            NSDbNumericType(bits.map(_.value.rawValue.asInstanceOf[Long]).sum),
+            NSDbNumericType(bits.map(_.value.longValue).sum),
             foldMapOfBit(bits, bit => bit.dimensions),
             foldMapOfBit(bits, bit => bit.tags))
 
@@ -346,12 +343,13 @@ package object post_proc {
 
     val aggregationsReduced = aggregations.foldLeft(Map.empty[String, NSDbNumericType]) {
       case (acc, CountAggregation) =>
-        val unlimitedCount = rawResults.map(_.tags(`count(*)`).rawValue.asInstanceOf[Long]).sum
-        val limitedCount   = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
+        val unlimitedCount =
+          rawResults.map(_.tags.get(`count(*)`).flatMap(_.asNumericType).map(_.longValue).getOrElse(0L)).sum
+        val limitedCount = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
         acc + (`count(*)` -> NSDbNumericType(limitedCount))
 
       case (acc, MinAggregation) =>
-        val localMins = rawResults.flatMap(bit => bit.tags.get(`min(*)`).map(_.asInstanceOf[NSDbNumericType]))
+        val localMins = rawResults.flatMap(bit => bit.tags.get(`min(*)`).flatMap(_.asNumericType))
         val globalMin = localMins.reduceLeftOption((local1, local2) => if (local1 <= local2) local1 else local2)
         globalMin.fold(acc)(globalMin => acc + (`min(*)` -> globalMin))
 

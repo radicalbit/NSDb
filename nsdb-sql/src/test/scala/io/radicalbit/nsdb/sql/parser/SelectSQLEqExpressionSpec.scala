@@ -61,6 +61,40 @@ class SelectSQLEqExpressionSpec extends WordSpec with Matchers {
           ))
       }
 
+      "parse it successfully using a negative value" in {
+        val query = "SELECT name FROM people WHERE timestamp = -10"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition =
+                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(-10L))))
+            )
+          ))
+      }
+
+      "parse it successfully using a negative decimal value" in {
+        val query = "SELECT name FROM people WHERE timestamp = -10.5"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("name", None))),
+              condition =
+                Some(Condition(EqualityExpression(dimension = "timestamp", value = AbsoluteComparisonValue(-10.5))))
+            )
+          ))
+      }
+
       "parse it successfully using string" in {
         val query = "SELECT name FROM people WHERE timestamp = word_word"
         parser.parse(db = "db", namespace = "registry", input = query) should be(

@@ -201,7 +201,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
           ))
         .flatMap {
           case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
-            log.debug("found schema {} and locations", schema, locations)
+            log.debug("found schema {} and locations {}", schema, locations)
             val filteredLocations: Seq[Location] =
               ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 

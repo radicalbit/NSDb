@@ -56,8 +56,9 @@ class AllFacetIndexes(basePath: String,
                       sort: Option[Sort],
                       limit: Option[Int],
                       groupFieldIndexType: IndexType[_],
-                      valueIndexType: IndexType[_]): Seq[Bit] =
+                      valueIndexType: IndexType[_]): Seq[Bit] = {
     facetSumIndex.result(query, groupField, sort, limit, groupFieldIndexType, valueIndexType)
+  }
 
   def executeCountFacet(query: Query,
                         groupField: String,
