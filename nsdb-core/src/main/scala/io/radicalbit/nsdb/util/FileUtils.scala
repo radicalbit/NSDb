@@ -114,8 +114,10 @@ object FileUtils {
               FileUtils
                 .getSubDirs(Paths.get(namespaceDir.getAbsolutePath, "shards"))
                 .collect {
-                  case file if file.getName.split("_").length == 3 =>
-                    val Array(metric, from, to) = file.getName.split("_")
+                  case file if file.getName.split("_").length >= 3 =>
+                    val fileName = file.getName
+                    val Array(from, to) = fileName.split("_").takeRight(2)
+                    val metric          = fileName.split(s"_${from}").head
                     LocationWithCoordinates(database,
                                             namespaceDir.getName,
                                             Location(metric, nodeName, from.toLong, to.toLong))
