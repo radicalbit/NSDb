@@ -35,7 +35,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -67,7 +68,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -95,7 +97,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -127,7 +130,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -154,7 +158,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -182,7 +187,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -220,7 +226,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -252,7 +259,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -283,7 +291,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -316,7 +325,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -348,7 +358,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -375,7 +386,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -408,7 +420,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -440,7 +453,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -472,7 +486,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -504,7 +519,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -536,7 +552,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -568,7 +585,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -600,7 +618,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -632,7 +651,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -664,7 +684,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -696,7 +717,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -728,7 +750,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -760,7 +783,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -791,7 +815,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -823,7 +848,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -855,7 +881,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -887,7 +914,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -918,7 +946,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -950,7 +979,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -982,7 +1012,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -1006,7 +1037,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -1014,8 +1046,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 50L))
-              ),
-              timeContext = Some(TimeContext(currentTime = 160000L))
+              )
             )
           )
 
@@ -1036,7 +1067,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -1044,8 +1076,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 80L))
-              ),
-              timeContext = Some(TimeContext(currentTime = 160000L))
+              )
             )
           )
 
@@ -1068,7 +1099,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -1076,8 +1108,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                 fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 80L))
-              ),
-              timeContext = Some(TimeContext(currentTime = 160000L))
+              )
             )
           )
 
@@ -1100,7 +1131,8 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              timeContext = Some(TimeContext(160000)),
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -1112,8 +1144,7 @@ class ReadCoordinatorTemporalAggregatedStatementsSpec extends AbstractTemporalRe
                                                  value = AbsoluteComparisonValue(100000L)))),
                 groupBy = Some(TemporalGroupByAggregation(30000, 30, "s")),
                 gracePeriod = Some(GracePeriod("s", 80L))
-              ),
-              timeContext = Some(TimeContext(currentTime = 160000L))
+              )
             )
           )
 
