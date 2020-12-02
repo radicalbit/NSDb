@@ -34,7 +34,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -65,7 +65,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -93,7 +93,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -125,7 +125,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -156,7 +156,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalDoubleMetric.name,
@@ -187,7 +187,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,
@@ -216,7 +216,7 @@ class ReadCoordinatorTemporalDistinctAggregatedStatementsSpec extends AbstractTe
           probe.send(
             readCoordinatorActor,
             ExecuteStatement(
-              SelectSQLStatement(
+              selectStatement = SelectSQLStatement(
                 db = db,
                 namespace = namespace,
                 metric = TemporalLongMetric.name,

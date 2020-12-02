@@ -277,7 +277,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
           val filteredRanges = timeRangeContext
             .map(_.ranges)
             .getOrElse(Seq.empty)
-            .filter(_.intersect(location))
+            .filter(l => l.intersect(location) && l.lowerBound < timeContext.currentTime)
 
           if (filteredRanges.isEmpty) Try(Seq.empty[Bit])
           else
@@ -304,7 +304,10 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                   "timestamp",
                   "value",
                   Some(valueFieldType),
-                  timeRangeContext.map(_.ranges).getOrElse(Seq.empty).filter(_.intersect(location))
+                  timeRangeContext
+                    .map(_.ranges)
+                    .getOrElse(Seq.empty)
+                    .filter(l => l.intersect(location) && l.lowerBound < timeContext.currentTime)
                 )))
         case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
           Failure(new RuntimeException(s"$aggregationType is not currently supported."))
