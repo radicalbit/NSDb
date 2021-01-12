@@ -353,6 +353,11 @@ package object post_proc {
         val limitedCount = statement.limit.map(limitOp => min(limitOp.value, unlimitedCount)).getOrElse(unlimitedCount)
         acc + (`count(*)` -> NSDbNumericType(limitedCount))
 
+      case (acc, _: MaxAggregation) =>
+        val localMax  = rawResults.flatMap(bit => bit.tags.get(`max(*)`).flatMap(_.asNumericType))
+        val globalMax = localMax.reduceLeftOption((local1, local2) => if (local1 >= local2) local1 else local2)
+        globalMax.fold(acc)(globalMax => acc + (`max(*)` -> globalMax))
+
       case (acc, _: MinAggregation) =>
         val localMins = rawResults.flatMap(bit => bit.tags.get(`min(*)`).flatMap(_.asNumericType))
         val globalMin = localMins.reduceLeftOption((local1, local2) => if (local1 <= local2) local1 else local2)

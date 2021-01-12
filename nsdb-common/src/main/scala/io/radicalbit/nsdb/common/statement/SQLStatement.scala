@@ -177,6 +177,8 @@ sealed trait Aggregation {
   Array(
     new JsonSubTypes.Type(value = classOf[CountAggregation], name = "CountAggregation"),
     new JsonSubTypes.Type(value = classOf[CountDistinctAggregation], name = "CountDistinctAggregation"),
+    new JsonSubTypes.Type(value = classOf[MaxAggregation], name = "MaxAggregation"),
+    new JsonSubTypes.Type(value = classOf[MinAggregation], name = "MinAggregation"),
     new JsonSubTypes.Type(value = classOf[AvgAggregation], name = "AvgAggregation")
   ))
 sealed trait GlobalAggregation extends Aggregation
@@ -213,7 +215,7 @@ sealed trait DerivedAggregation extends Aggregation {
 
 case class CountAggregation(override val fieldName: String)         extends GlobalAggregation with PrimaryAggregation
 case class CountDistinctAggregation(override val fieldName: String) extends GlobalAggregation with PrimaryAggregation
-case class MaxAggregation(override val fieldName: String)           extends Aggregation with PrimaryAggregation
+case class MaxAggregation(override val fieldName: String)           extends GlobalAggregation with PrimaryAggregation
 case class MinAggregation(override val fieldName: String)           extends GlobalAggregation with PrimaryAggregation
 case class FirstAggregation(override val fieldName: String)         extends Aggregation with PrimaryAggregation
 case class LastAggregation(override val fieldName: String)          extends Aggregation with PrimaryAggregation

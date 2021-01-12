@@ -103,6 +103,13 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                 .sum
               acc + (`sum(*)` -> NSDbNumericType(sum))
             }
+          case (tryAcc, _: MaxAggregation) =>
+            tryAcc.map { acc =>
+              val maxPerGroup = index.getMaxGroupBy(query, schema, groupField)
+              val maxCrossGroup =
+                maxPerGroup.reduceLeftOption((bitL, bitR) => if (bitR.value >= bitL.value) bitR else bitL)
+              maxCrossGroup.fold(acc)(max => acc + (`max(*)` -> max.value))
+            }
           case (tryAcc, _: MinAggregation) =>
             tryAcc.map { acc =>
               val minPerGroup = index.getMinGroupBy(query, schema, groupField)
@@ -142,6 +149,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     distinctPrimaryAggregations.collect {
       case _: CountAggregation => `count(*)` -> NSDbNumericType(0L)
       case _: SumAggregation   => `sum(*)`   -> NSDbNumericType(numeric.zero)
+      case _: MaxAggregation   => `max(*)`   -> valueNumericType.MIN_VALUE
       case _: MinAggregation   => `min(*)`   -> valueNumericType.MAX_VALUE
     }.toMap
   }
