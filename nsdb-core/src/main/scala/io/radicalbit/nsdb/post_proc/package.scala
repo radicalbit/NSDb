@@ -363,6 +363,10 @@ package object post_proc {
         val globalMin = localMins.reduceLeftOption((local1, local2) => if (local1 <= local2) local1 else local2)
         globalMin.fold(acc)(globalMin => acc + (`min(*)` -> globalMin))
 
+      case (acc, _: SumAggregation) =>
+        val sum = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
+        acc + (`sum(*)` -> sum)
+
       case (acc, _: AvgAggregation) =>
         val sum   = NSDbNumericType(rawResults.flatMap(_.tags.get(`sum(*)`).map(_.rawValue)).sum)
         val count = NSDbNumericType(rawResults.flatMap(_.tags.get(`count(*)`).map(_.rawValue)).sum(BIGINT().numeric))

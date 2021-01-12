@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.statement
 
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.statement.{SumAggregation => SqlSumAggregation, _}
+import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.statement.FieldsParser.SimpleField
 import io.radicalbit.nsdb.statement.StatementParser._
@@ -143,6 +143,30 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         )
       }
 
+      "parse it successfully with mixed sum(*) aggregation and a plain field" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(SumAggregation("value"))), Field("surname", None))),
+            limit = Some(LimitOperator(4))
+          ),
+          schema
+        ) should be(
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(SimpleField("surname")),
+              List(SumAggregation("value"))
+            ))
+        )
+      }
+
       "parse it successfully with mixed aggregations and a plain field" in {
         StatementParser.parseStatement(
           SelectSQLStatement(
@@ -155,6 +179,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               Field("*", Some(AvgAggregation("avg"))),
               Field("*", Some(MaxAggregation("max"))),
               Field("*", Some(MinAggregation("min"))),
+              Field("*", Some(SumAggregation("sum"))),
               Field("surname", None)
             )),
             limit = Some(LimitOperator(4))
@@ -168,7 +193,11 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               new MatchAllDocsQuery(),
               4,
               List(SimpleField("surname")),
-              List(CountAggregation("count"), AvgAggregation("avg"), MaxAggregation("max"), MinAggregation("min"))
+              List(CountAggregation("count"),
+                   AvgAggregation("avg"),
+                   MaxAggregation("max"),
+                   MinAggregation("min"),
+                   SumAggregation("sum"))
             ))
         )
       }
@@ -184,7 +213,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               fields = ListFields(
                 List(Field("*", Some(CountAggregation("value"))),
                      Field("surname", None),
-                     Field("value", Some(SqlSumAggregation("value"))))),
+                     Field("value", Some(FirstAggregation("value"))))),
               limit = Some(LimitOperator(4))
             ),
             schema
@@ -264,6 +293,30 @@ class StatementParserAggregationsSpec extends NSDbSpec {
             ))
         )
       }
+
+      "parse it successfully with sum(*) aggregation" in {
+        StatementParser.parseStatement(
+          SelectSQLStatement(
+            db = "db",
+            namespace = "registry",
+            metric = "people",
+            distinct = false,
+            fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
+            limit = Some(LimitOperator(4))
+          ),
+          taglessSchema
+        ) should be(
+          Right(
+            ParsedGlobalAggregatedQuery(
+              "registry",
+              "people",
+              new MatchAllDocsQuery(),
+              4,
+              List(),
+              List(SumAggregation("value"))
+            ))
+        )
+      }
     }
 
     "receive a select containing a range selection and a group by" should {
@@ -274,7 +327,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(SqlSumAggregation("value"))))),
+            fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -289,7 +342,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("age", SqlSumAggregation("value"))
+              InternalStandardAggregation("age", SumAggregation("value"))
             ))
         )
       }
@@ -300,7 +353,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(SqlSumAggregation("value"))))),
+            fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
             condition = Some(
               Condition(
                 RangeExpression(dimension = "timestamp",
@@ -315,7 +368,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
-              InternalStandardAggregation("country", SqlSumAggregation("value"))
+              InternalStandardAggregation("country", SumAggregation("value"))
             ))
         )
       }
@@ -492,7 +545,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("value", Some(SqlSumAggregation("value"))))),
+            fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
             condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
             groupBy = Some(SimpleGroupByAggregation("amount")),
             limit = Some(LimitOperator(5))
@@ -508,7 +561,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
                 .add(LongPoint.newRangeQuery("creationDate", Long.MinValue, Long.MaxValue),
                      BooleanClause.Occur.MUST_NOT)
                 .build(),
-              InternalStandardAggregation("amount", SqlSumAggregation("value")),
+              InternalStandardAggregation("amount", SumAggregation("value")),
               None,
               Some(5)
             ))
@@ -525,7 +578,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("amount", Some(SqlSumAggregation("value"))))),
+              fields = ListFields(List(Field("amount", Some(SumAggregation("value"))))),
               condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               limit = Some(LimitOperator(5))
@@ -544,7 +597,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(SqlSumAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
               condition = Some(Condition(NullableExpression(dimension = "creationDate"))),
               groupBy = Some(SimpleGroupByAggregation("name")),
               limit = Some(LimitOperator(5))
@@ -614,7 +667,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
             namespace = "registry",
             metric = "people",
             distinct = false,
-            fields = ListFields(List(Field("*", Some(SqlSumAggregation("value"))))),
+            fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
             condition = None,
             groupBy = Some(TemporalGroupByAggregation(1000, 1, "s")),
             limit = None
@@ -627,7 +680,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
               "people",
               new MatchAllDocsQuery(),
               1000,
-              InternalTemporalAggregation(SqlSumAggregation("value")),
+              InternalTemporalAggregation(SumAggregation("value")),
               None
             ))
         )
