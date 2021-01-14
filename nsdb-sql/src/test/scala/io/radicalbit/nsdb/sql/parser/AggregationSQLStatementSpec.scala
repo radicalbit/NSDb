@@ -43,8 +43,8 @@ class AggregationSQLStatementSpec extends NSDbSpec {
           ))
       }
 
-      "parse it successfully when avg(*) aggregation is provided" in {
-        val query = "SELECT avg(*) FROM people"
+      "parse it successfully when max(value) is provided" in {
+        val query = "SELECT max(value) FROM people"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
             query,
@@ -53,27 +53,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
-              groupBy = None
-            )
-          ))
-      }
-
-      "parse it successfully when avg(*) aggregation with a where condition is provided" in {
-        val query = "SELECT avg(*) FROM people WHERE timestamp IN (2,4)"
-        parser.parse(db = "db", namespace = "registry", input = query) should be(
-          SqlStatementParserSuccess(
-            query,
-            SelectSQLStatement(
-              db = "db",
-              namespace = "registry",
-              metric = "people",
-              distinct = false,
-              fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
-              condition = Some(
-                Condition(RangeExpression(dimension = "timestamp",
-                                          value1 = AbsoluteComparisonValue(2L),
-                                          value2 = AbsoluteComparisonValue(4L)))),
+              fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
               groupBy = None
             )
           ))
@@ -95,8 +75,8 @@ class AggregationSQLStatementSpec extends NSDbSpec {
           ))
       }
 
-      "parse it successfully when mixed min(*), count(*) aggregations and a where condition are provided" in {
-        val query = "SELECT count(*), min(value) FROM people WHERE timestamp IN (2,4)"
+      "parse it successfully when mixed min(*), max(*), count(*) aggregations and a where condition are provided" in {
+        val query = "SELECT count(*), avg(*), max(*), min(*) FROM people WHERE timestamp IN (2,4)"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
             query,
@@ -105,8 +85,12 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(
-                List(Field("*", Some(CountAggregation("value"))), Field("value", Some(MinAggregation("value"))))),
+              fields = ListFields(List(
+                Field("*", Some(CountAggregation("value"))),
+                Field("*", Some(AvgAggregation("value"))),
+                Field("*", Some(MaxAggregation("value"))),
+                Field("*", Some(MinAggregation("value")))
+              )),
               condition = Some(
                 Condition(RangeExpression(dimension = "timestamp",
                                           value1 = AbsoluteComparisonValue(2L),
@@ -159,6 +143,21 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               metric = "people",
               distinct = false,
               fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
+              groupBy = Some(SimpleGroupByAggregation("name"))
+            )
+          ))
+      }
+      "parse it successfully if max(*) is provided" in {
+        val query = "SELECT max(*) FROM people group by name"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("*", Some(MaxAggregation("value"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           ))
