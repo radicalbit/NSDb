@@ -41,20 +41,15 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
     super.beforeAll()
 
-    val nsdbConnection =
-      eventually {
-        Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
-      }
-
     TemporalLongMetric.testRecords.map(_.asApiBit(db, namespace, TemporalLongMetric.name)).foreach { bit =>
       eventually {
-        assert(Await.result(nsdbConnection.write(bit), 10.seconds).errors == "")
+        assert(Await.result(withRandomNodeConnection{_.write(bit)}, 10.seconds).errors == "")
       }
     }
 
     TemporalDoubleMetric.testRecords.map(_.asApiBit(db, namespace, TemporalDoubleMetric.name)).foreach { bit =>
       eventually {
-        assert(Await.result(nsdbConnection.write(bit), 10.seconds).errors == "")
+        assert(Await.result(withRandomNodeConnection{_.write(bit)}, 10.seconds).errors == "")
       }
     }
 

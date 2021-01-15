@@ -40,22 +40,15 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
 
     super.beforeAll()
 
-    val firstNode = nodes.head
-
-    val nsdbConnection =
-      eventually {
-        Await.result(NSDB.connect(host = firstNode.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
-      }
-
     LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name)).foreach { bit =>
       eventually {
-        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+        assert(Await.result(withRandomNodeConnection{_.write(bit)}, 10.seconds).completedSuccessfully)
       }
     }
 
     AggregationLongMetric.testRecords.map(_.asApiBit(db, namespace, AggregationLongMetric.name)).foreach { bit =>
       eventually {
-        assert(Await.result(nsdbConnection.write(bit), 10.seconds).completedSuccessfully)
+        assert(Await.result(withRandomNodeConnection{_.write(bit)}, 10.seconds).completedSuccessfully)
       }
     }
 

@@ -27,7 +27,6 @@ import io.radicalbit.nsdb.test.MiniClusterSpec
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class PublishSubscribeGrpcClusterSpec extends MiniClusterSpec {

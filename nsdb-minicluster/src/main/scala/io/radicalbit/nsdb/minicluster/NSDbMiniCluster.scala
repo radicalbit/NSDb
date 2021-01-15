@@ -25,7 +25,7 @@ import org.apache.commons.io.FileUtils
 
 trait NSDbMiniCluster extends LazyLogging {
 
-  protected[this] val instanceId = { UUID.randomUUID }
+  protected[this] val instanceId: UUID = { UUID.randomUUID }
 
   protected[this] val startingHostname = "127.0.0."
 
@@ -35,8 +35,8 @@ trait NSDbMiniCluster extends LazyLogging {
   protected[this] def passivateAfter: Duration
   protected[this] def replicationFactor: Int
 
-  lazy val nodes: Set[NSDbMiniClusterNode] =
-    (for {
+  lazy val nodes: Seq[NSDbMiniClusterNode] =
+    for {
       i <- 0 until nodesNumber
     } yield
       new NSDbMiniClusterNode(
@@ -45,7 +45,7 @@ trait NSDbMiniCluster extends LazyLogging {
         shardInterval = shardInterval,
         passivateAfter = passivateAfter,
         replicationFactor = replicationFactor
-      )).toSet
+      )
 
   def start(cleanup: Boolean = false): Unit = {
     if (cleanup)
