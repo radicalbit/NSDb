@@ -63,7 +63,7 @@ public class NSDB {
         }
 
         /**
-         * defines the namespace used to build the bit or the query
+         * defines the namespace used to build the namespace
          *
          * @param namespace the db name
          * @return
@@ -78,11 +78,37 @@ public class NSDB {
      */
     public static class Namespace {
         private String db;
-        private String name;
+        private String namespace;
 
-        private Namespace(String db, String name) {
+        private Namespace(String db, String namespace) {
             this.db = db;
-            this.name = name;
+            this.namespace = namespace;
+        }
+
+        /**
+         * defines the Metric to be inserted
+         *
+         * @param metric the db name
+         * @return the Bit
+         */
+        public Metric metric(String metric) {
+            return new Metric(this.db, this.namespace, metric);
+        }
+
+        public Bit bit(String metric) {
+            return new Bit(this.db, this.namespace, metric);
+        }
+    }
+
+    public static class Metric {
+        private String db;
+        private String namespace;
+        private String metric;
+
+        private Metric(String db, String namespace, String metric) {
+            this.db = db;
+            this.namespace = namespace;
+            this.metric = metric;
         }
 
         /**
@@ -92,17 +118,7 @@ public class NSDB {
          * @return the sql statement to execute
          */
         public SQLStatement query(String queryString) {
-            return new SQLStatement(this.db, this.name, queryString);
-        }
-
-        /**
-         * defines the Bit to be inserted
-         *
-         * @param metric the db name
-         * @return the Bit 
-         */
-        public Bit bit(String metric) {
-            return new Bit(db, name, metric);
+            return new SQLStatement(this.db, this.namespace, this.metric, queryString);
         }
     }
 
@@ -112,11 +128,13 @@ public class NSDB {
     public static class SQLStatement {
         private String db;
         private String namespace;
+        private String metric;
         private String sQLStatement;
 
-        private SQLStatement(String db, String namespace, String sqlStatement) {
+        private SQLStatement(String db, String namespace, String metric, String sqlStatement) {
             this.db = db;
             this.namespace = namespace;
+            this.metric = metric;
             this.sQLStatement = sqlStatement;
         }
     }
@@ -429,8 +447,8 @@ public class NSDB {
      * @return a CompletableFuture of the result of the operation. See {@link QueryResult}
      */
     public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
-        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
-        return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
+        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.metric, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
+        return toJava(client.executeSQLStatement(sqlStatementRequest, "")).toCompletableFuture().thenApply(QueryResult::new);
     }
 
     /**

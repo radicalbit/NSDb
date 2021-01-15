@@ -25,7 +25,7 @@ public class NSDBRead {
     public static void main(String[] args) throws Exception {
         NSDB nsdb = NSDB.connect("127.0.0.1", 7817).get();
 
-        NSDB.SQLStatement statement = nsdb.db("root").namespace("registry").query("select * from people limit 1");
+        NSDB.SQLStatement statement = nsdb.db("root").namespace("registry").metric("people").query("select * from people limit 1");
 
         QueryResult result = nsdb.executeStatement(statement).get();
 

@@ -24,13 +24,16 @@ import "requestSQL.proto";
 import "requestCommand.proto";
 import "responseSQL.proto";
 import "responseCommand.proto";
+import "security.proto";
 
 service NSDBServiceSQL {
+    option (isAuthorized) = true;
     rpc InsertBit (io.radicalbit.nsdb.rpc.RPCInsert) returns (io.radicalbit.nsdb.rpc.RPCInsertResult) {}
     rpc executeSQLStatement(io.radicalbit.nsdb.rpc.SQLRequestStatement) returns (io.radicalbit.nsdb.rpc.SQLStatementResponse) {}
 }
 
 service NSDBServiceCommand {
+    option (isAuthorized) = true;
     rpc showNamespaces (io.radicalbit.nsdb.rpc.ShowNamespaces) returns (io.radicalbit.nsdb.rpc.Namespaces) {}
     rpc showMetrics (io.radicalbit.nsdb.rpc.ShowMetrics) returns (io.radicalbit.nsdb.rpc.MetricsGot) {}
     rpc describeMetric (io.radicalbit.nsdb.rpc.DescribeMetric) returns (io.radicalbit.nsdb.rpc.DescribeMetricResponse) {}

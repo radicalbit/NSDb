@@ -17,18 +17,19 @@
 syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
+import "security.proto";
 
 message ShowMetrics{
-    string db = 1;
-    string namespace = 2;
+    string db = 1 [(AuthorizationField) = DB];
+    string namespace = 2 [(AuthorizationField) = NAMESPACE];
 }
 
 message DescribeMetric{
-    string db = 1;
-    string namespace = 2;
-    string metric = 3;
+    string db = 1 [(AuthorizationField) = DB];
+    string namespace = 2 [(AuthorizationField) = NAMESPACE];
+    string metric = 3 [(AuthorizationField) = METRIC];
 }
 
 message ShowNamespaces{
-    string db = 1;
+    string db = 1 [(AuthorizationField) = DB];
 }

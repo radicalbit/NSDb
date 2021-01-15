@@ -16,9 +16,10 @@
 
 package io.radicalbit.nsdb.client.rpc
 
-import java.util.concurrent.TimeUnit
+import io.grpc.stub.AbstractStub
 
-import io.grpc.{ManagedChannel, ManagedChannelBuilder}
+import java.util.concurrent.{Executor, TimeUnit}
+import io.grpc.{CallCredentials, ManagedChannel, ManagedChannelBuilder, Metadata, Status}
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
 import io.radicalbit.nsdb.rpc.request.RPCInsert
@@ -33,6 +34,32 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
+class JwtTokenApplier(token: String) extends CallCredentials {
+
+  private val log = LoggerFactory.getLogger(classOf[JwtTokenApplier])
+
+  override def applyRequestMetadata(requestInfo: CallCredentials.RequestInfo,
+                                    appExecutor: Executor,
+                                    applier: CallCredentials.MetadataApplier): Unit = {
+    appExecutor.execute(
+      () =>
+        if (token != null && token.nonEmpty)
+          try {
+            val metadata = new Metadata
+            metadata.put(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER), s"Bearer $token")
+            applier.apply(metadata)
+          } catch {
+            case e: RuntimeException =>
+              val errorMsg = "An exception when obtaining JWT token"
+              log.error(errorMsg, e)
+              applier.fail(Status.UNAUTHENTICATED.withDescription(errorMsg).withCause(e))
+          } else
+          applier.fail(Status.UNAUTHENTICATED.withDescription("Empty token provided")))
+  }
+
+  override def thisUsesUnstableApi(): Unit = {}
+}
+
 /**
   * GRPC client
   * @param host GRPC server host
@@ -42,12 +69,15 @@ class GRPCClient(host: String, port: Int) {
 
   private val log = LoggerFactory.getLogger(classOf[GRPCClient])
 
-  private val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
-  private val stubHealth              = HealthGrpc.stub(channel)
-  private val stubRestore             = RestoreGrpc.stub(channel)
-  private val stubSql                 = NSDBServiceSQLGrpc.stub(channel)
-  private val stubCommand             = NSDBServiceCommandGrpc.stub(channel)
-  private val stubInit                = InitMetricGrpc.stub(channel)
+  private val channel: ManagedChannel           = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
+  private val stubHealth: HealthGrpc.HealthStub = HealthGrpc.stub(channel)
+  private val stubRestore                       = RestoreGrpc.stub(channel)
+  private val stubSql                           = NSDBServiceSQLGrpc.stub(channel)
+  private val stubCommand                       = NSDBServiceCommandGrpc.stub(channel)
+  private val stubInit                          = InitMetricGrpc.stub(channel)
+
+  private def prepareStub[T <: AbstractStub[T]](stub: T, token: String = "") =
+    Option(token).filter(_.trim.nonEmpty).fold(stub)(t => stub.withCallCredentials(new JwtTokenApplier(t)))
 
   def checkConnection(): Future[HealthCheckResponse] = {
     log.debug("checking connection")
@@ -69,9 +99,9 @@ class GRPCClient(host: String, port: Int) {
     stubSql.insertBit(request)
   }
 
-  def executeSQLStatement(request: SQLRequestStatement): Future[SQLStatementResponse] = {
+  def executeSQLStatement(request: SQLRequestStatement, token: String = ""): Future[SQLStatementResponse] = {
     log.debug("Preparing execution of SQL request: {} ", request.statement)
-    stubSql.executeSQLStatement(request)
+    prepareStub(stubSql, token).executeSQLStatement(request)
   }
 
   def showNamespaces(request: ShowNamespaces): Future[Namespaces] = {

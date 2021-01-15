@@ -70,10 +70,13 @@ class NsdbNodeEndpoint(nodeId: String,
 
   authProvider match {
     case Right(provider: NSDbAuthorizationProvider) =>
-      new GrpcEndpoint(nodeId = nodeId,
-                       readCoordinator = readCoordinator,
-                       writeCoordinator = writeCoordinator,
-                       metadataCoordinator = metadataCoordinator)
+      new GrpcEndpoint(
+        nodeId = nodeId,
+        readCoordinator = readCoordinator,
+        writeCoordinator = writeCoordinator,
+        metadataCoordinator = metadataCoordinator,
+        authorizationProvider = provider
+      )
 
       initWebEndpoint(nodeId, writeCoordinator, readCoordinator, metadataCoordinator, publisher, provider)
     case Left(error) =>

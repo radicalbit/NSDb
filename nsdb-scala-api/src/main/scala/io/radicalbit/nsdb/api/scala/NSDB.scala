@@ -44,8 +44,9 @@ object NSDB {
     * @param executionContextExecutor implicit execution context.
     * @return a Future of a nsdb connection.
     */
-  def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
-    val connection = new NSDB(host = host, port = port)
+  def connect(host: String, port: Int, token: Option[String] = None)(
+      implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
+    val connection = new NSDB(host = host, port = port, token = token)
     connection.check.map(_ => connection)
   }
 
@@ -79,7 +80,8 @@ object NSDB {
   * @param port Nsdb port
   * @param executionContextExecutor implicit execution context to handle asynchronous methods
   */
-case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
+case class NSDB(host: String, port: Int, token: Option[String] = None)(
+    implicit executionContextExecutor: ExecutionContext) {
 
   /**
     * Inner Grpc client.
@@ -132,7 +134,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
       SQLRequestStatement(db = sqlStatement.db,
                           namespace = sqlStatement.namespace,
                           statement = sqlStatement.sQLStatement)
-    client.executeSQLStatement(sqlStatementRequest)
+    client.executeSQLStatement(sqlStatementRequest, token.getOrElse(""))
   }
 
   /**

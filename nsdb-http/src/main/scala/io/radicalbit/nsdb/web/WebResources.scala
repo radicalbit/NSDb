@@ -56,6 +56,7 @@ trait WebResources extends WsResources with SSLSupport {
                       writeCoordinator: ActorRef,
                       readCoordinator: ActorRef,
                       metadataCoordinator: ActorRef,
+//<<<<<<< HEAD
                       publisher: ActorRef,
                       authProvider: NSDbAuthorizationProvider)(implicit logger: LoggingAdapter) = {
     Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
@@ -65,6 +66,17 @@ trait WebResources extends WsResources with SSLSupport {
                                                                              writeCoordinator,
                                                                              metadataCoordinator,
                                                                              authProvider).apiResources(config)
+//=======
+//                      publisher: ActorRef)(implicit logger: LoggingAdapter) =
+//    authProvider match {
+//      case Right(provider) =>
+//        Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
+//        val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
+//                                                                             readCoordinator,
+//                                                                             writeCoordinator,
+//                                                                             metadataCoordinator,
+//                                                                             provider).apiResources(config)
+//>>>>>>> 4a4ef970... test grpc interceptor
 
     val httpExt = akka.http.scaladsl.Http()
 
@@ -87,7 +99,13 @@ trait WebResources extends WsResources with SSLSupport {
         .onComplete { _ =>
           system.terminate()
         }
+//<<<<<<< HEAD
       Await.result(system.whenTerminated, 60 seconds)
+//=======
+//      case Left(error) =>
+//        logger.error(s"error on loading authorization provider $error")
+//        System.exit(1)
+//>>>>>>> 4a4ef970... test grpc interceptor
     }
   }
 
