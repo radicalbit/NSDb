@@ -75,8 +75,24 @@ class AggregationSQLStatementSpec extends NSDbSpec {
           ))
       }
 
-      "parse it successfully when mixed min(*), max(*), count(*) aggregations and a where condition are provided" in {
-        val query = "SELECT count(*), avg(*), max(*), min(*) FROM people WHERE timestamp IN (2,4)"
+      "parse it successfully when sum(value) is provided" in {
+        val query = "SELECT sum(value) FROM people"
+        parser.parse(db = "db", namespace = "registry", input = query) should be(
+          SqlStatementParserSuccess(
+            query,
+            SelectSQLStatement(
+              db = "db",
+              namespace = "registry",
+              metric = "people",
+              distinct = false,
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
+              groupBy = None
+            )
+          ))
+      }
+
+      "parse it successfully when mixed count(*), avg(*), min(*), max(*), sum(*) aggregations and a where condition are provided" in {
+        val query = "SELECT count(*), avg(*), min(*), max(*), sum(*) FROM people WHERE timestamp IN (2,4)"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
             query,
@@ -88,8 +104,9 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               fields = ListFields(List(
                 Field("*", Some(CountAggregation("value"))),
                 Field("*", Some(AvgAggregation("value"))),
+                Field("*", Some(MinAggregation("value"))),
                 Field("*", Some(MaxAggregation("value"))),
-                Field("*", Some(MinAggregation("value")))
+                Field("*", Some(SumAggregation("value")))
               )),
               condition = Some(
                 Condition(RangeExpression(dimension = "timestamp",
@@ -210,7 +227,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
             )
           ))
       }
-      "parse it successfully in case of count * " in {
+      "parse it successfully in case of count(*)" in {
         val query = "SELECT count( distinct *) FROM people group by name"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(

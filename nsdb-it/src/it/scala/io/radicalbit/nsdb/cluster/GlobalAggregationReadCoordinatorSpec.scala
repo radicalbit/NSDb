@@ -208,6 +208,27 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select containing a global sum") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(*) from ${LongMetric.name}")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 1)
+        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("sum(*)" -> 21L))))
+      }
+    }
+  }
+
   test("receive a select containing mixed global aggregations") {
 
     nodes.foreach { n =>
@@ -217,14 +238,14 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select max(*), min(*), avg(*), count(*), count(distinct *) from ${LongMetric.name}")
+        .query(s"select max(*), min(*), sum(*), avg(*), count(*), count(distinct *) from ${LongMetric.name}")
 
       eventually {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
 
         assert(readRes.completedSuccessfully)
         assert(readRes.records.size == 1)
-        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("max(*)" -> 6L, "min(*)" -> 1L, "avg(*)" -> 3.5, "count(distinct *)" -> 6L, "count(*)" -> 6L))))
+        assert(readRes.records.map(_.asBit) == Seq(Bit(0, 0L, Map.empty, Map("max(*)" -> 6L, "min(*)" -> 1L, "sum(*)" -> 21L, "avg(*)" -> 3.5, "count(distinct *)" -> 6L, "count(*)" -> 6L))))
       }
     }
   }
@@ -239,7 +260,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
         .db(db)
         .namespace(namespace)
         .query(
-          s"select count(*), count(distinct *), avg(*), max(*), min(*), name from ${AggregationLongMetric.name} order by timestamp")
+          s"select count(*), count(distinct *), avg(*), max(*), min(*), sum(*), name from ${AggregationLongMetric.name} order by timestamp")
 
       eventually {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -249,59 +270,65 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
         assert(
           readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
             Bit(1L,
-                2L,
-                Map(),
-                Map("name"              -> "John",
-                    "count(*)"          -> 6L,
-                    "count(distinct *)" -> 4L,
-                    "avg(*)"            -> 2.166666667,
-                    "max(*)"            -> 4L,
-                    "min(*)"            -> 1L)),
+              2L,
+              Map(),
+              Map("name"              -> "John",
+                "count(*)"          -> 6L,
+                "count(distinct *)" -> 4L,
+                "avg(*)"            -> 2.166666667,
+                "max(*)"            -> 4L,
+                "min(*)"            -> 1L,
+                "sum(*)"            -> 13L)),
             Bit(2L,
-                3L,
-                Map(),
-                Map("name"              -> "John",
-                    "count(*)"          -> 6L,
-                    "count(distinct *)" -> 4L,
-                    "avg(*)"            -> 2.166666667,
-                    "max(*)"            -> 4L,
-                    "min(*)"            -> 1L)),
+              3L,
+              Map(),
+              Map("name"              -> "John",
+                "count(*)"          -> 6L,
+                "count(distinct *)" -> 4L,
+                "avg(*)"            -> 2.166666667,
+                "max(*)"            -> 4L,
+                "min(*)"            -> 1L,
+                "sum(*)"            -> 13L)),
             Bit(4L,
-                4L,
-                Map(),
-                Map("name"              -> "John",
-                    "count(*)"          -> 6L,
-                    "count(distinct *)" -> 4L,
-                    "avg(*)"            -> 2.166666667,
-                    "max(*)"            -> 4L,
-                    "min(*)"            -> 1L)),
+              4L,
+              Map(),
+              Map("name"              -> "John",
+                "count(*)"          -> 6L,
+                "count(distinct *)" -> 4L,
+                "avg(*)"            -> 2.166666667,
+                "max(*)"            -> 4L,
+                "min(*)"            -> 1L,
+                "sum(*)"            -> 13L)),
             Bit(6L,
-                1L,
-                Map(),
-                Map("name"              -> "Bill",
-                    "count(*)"          -> 6L,
-                    "count(distinct *)" -> 4L,
-                    "avg(*)"            -> 2.166666667,
-                    "max(*)"            -> 4L,
-                    "min(*)"            -> 1L)),
+              1L,
+              Map(),
+              Map("name"              -> "Bill",
+                "count(*)"          -> 6L,
+                "count(distinct *)" -> 4L,
+                "avg(*)"            -> 2.166666667,
+                "max(*)"            -> 4L,
+                "min(*)"            -> 1L,
+                "sum(*)"            -> 13L)),
             Bit(8L,
-                1L,
-                Map(),
-                Map("name"              -> "Frank",
-                    "count(*)"          -> 6L,
-                    "count(distinct *)" -> 4L,
-                    "avg(*)"            -> 2.166666667,
-                    "max(*)"            -> 4L,
-                    "min(*)"            -> 1L)),
+              1L,
+              Map(),
+              Map("name"              -> "Frank",
+                "count(*)"          -> 6L,
+                "count(distinct *)" -> 4L,
+                "avg(*)"            -> 2.166666667,
+                "max(*)"            -> 4L,
+                "min(*)"            -> 1L,
+                "sum(*)"            -> 13L)),
             Bit(10L,
-                2L,
-                Map(),
-                Map("name"              -> "Frankie",
-                    "count(*)"          -> 6L,
-                    "count(distinct *)" -> 4L,
-                    "avg(*)"            -> 2.166666667,
-                    "max(*)"            -> 4L,
-                    "min(*)"            -> 1L))
+              2L,
+              Map(),
+              Map("name"              -> "Frankie",
+                "count(*)"          -> 6L,
+                "count(distinct *)" -> 4L,
+                "avg(*)"            -> 2.166666667,
+                "max(*)"            -> 4L,
+                "min(*)"            -> 1L,
+                "sum(*)"            -> 13L))
           ))
       }
     }
@@ -394,6 +421,34 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
     }
   }
 
+  test("receive a select containing mixed sum(*) and plain fields") {
+
+    nodes.foreach { n =>
+      val nsdb =
+        Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
+
+      val query = nsdb
+        .db(db)
+        .namespace(namespace)
+        .query(s"select sum(*), name from ${LongMetric.name}")
+
+      eventually {
+        val readRes = Await.result(nsdb.execute(query), 10.seconds)
+
+        assert(readRes.completedSuccessfully)
+        assert(readRes.records.size == 6)
+        assert(readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
+          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "sum(*)"    -> 21L)),
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "sum(*)"    -> 21L)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "sum(*)"       -> 21L)),
+          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "sum(*)"    -> 21L)),
+          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "sum(*)"   -> 21L)),
+          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "sum(*)" -> 21L))
+        ))
+      }
+    }
+  }
+
   test("receive a select containing mixed aggregations with where condition") {
 
     nodes.foreach { n =>
@@ -403,7 +458,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select count(*), min(*), max(*) from ${AggregationLongMetric.name} where height < 31")
+        .query(s"select count(*), min(*), max(*), sum(*) from ${AggregationLongMetric.name} where height < 31")
 
       eventually {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -412,7 +467,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
         assert(readRes.records.size == 1)
         assert(
           readRes.records.map(_.asBit).sortBy(_.timestamp) == Seq(
-            Bit(0L, 0L, Map.empty, Map("min(*)" -> 2L, "max(*)" -> 4L, "count(*)" -> 3L))
+            Bit(0L, 0L, Map.empty, Map("min(*)" -> 2L, "max(*)" -> 4L, "sum(*)" -> 9L, "count(*)" -> 3L))
           ))
       }
     }
@@ -427,7 +482,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
-        .query(s"select sum(*) from ${LongMetric.name}")
+        .query(s"select first(*) from ${LongMetric.name}")
 
       eventually {
         val readRes = Await.result(nsdb.execute(query), 10.seconds)

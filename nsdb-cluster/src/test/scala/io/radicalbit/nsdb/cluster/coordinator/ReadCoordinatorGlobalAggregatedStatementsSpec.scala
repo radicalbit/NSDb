@@ -116,6 +116,28 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         expected.values shouldBe Seq(Bit(0, 0L, Map.empty, Map.empty))
       }
 
+      "execute it successfully with a sum()" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(SumAggregation("value"))))
+              ),
+              Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(Bit(0, 0L, Map.empty, Map("sum(*)" -> NSDbLongType(0L))))
+      }
+
       "execute it successfully with mixed count(), min() aggregations" in {
         probe.send(
           readCoordinatorActor,
@@ -187,6 +209,29 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         expected.values shouldBe Seq(Bit(0, 0L, Map.empty, Map("count(*)" -> 0L)))
       }
 
+      "execute it successfully with mixed count(), sum() aggregations" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(SumAggregation("value"))), Field("*", Some(CountAggregation("value"))))
+              ),
+              condition =
+                Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(Bit(0, 0L, Map.empty, Map("count(*)" -> 0L, "sum(*)" -> 0L)))
+      }
+
       "execute it successfully with mixed max aggregation and plain fields" in {
         probe.send(
           readCoordinatorActor,
@@ -198,6 +243,31 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               distinct = false,
               fields = ListFields(
                 List(Field("*", Some(MaxAggregation("value"))),
+                     Field("*", Some(CountAggregation("value"))),
+                     Field("name", None))),
+              limit = Some(LimitOperator(6)),
+              condition =
+                Some(Condition(EqualityExpression("surname", AbsoluteComparisonValue(NSDbStringType("yorke")))))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq.empty
+      }
+
+      "execute it successfully with mixed sum aggregation and plain fields" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(SumAggregation("value"))),
                      Field("*", Some(CountAggregation("value"))),
                      Field("name", None))),
               limit = Some(LimitOperator(6)),
@@ -380,6 +450,29 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         )
       }
 
+      "execute it successfully with a sum aggregation" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationDoubleMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(SumAggregation("value"))))
+              ),
+              limit = Some(LimitOperator(4))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values shouldBe Seq(
+          Bit(0, 0.0, Map.empty, Map("sum(*)" -> NSDbDoubleType(26L)))
+        )
+      }
     }
 
     "receive a select containing mixed global aggregations and plain fields" should {
@@ -703,6 +796,64 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
         )
       }
 
+      "execute it successfully with mixed count, sum and plain fields" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = LongMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation("value"))),
+                     Field("*", Some(SumAggregation("value"))),
+                     Field("name", None))),
+              limit = Some(LimitOperator(6))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(1L, 1L, Map.empty, Map("name"  -> "John", "sum(*)"    -> 21L, "count(*)" -> 6L)),
+          Bit(2L, 2L, Map.empty, Map("name"  -> "John", "sum(*)"    -> 21L, "count(*)" -> 6L)),
+          Bit(4L, 3L, Map.empty, Map("name"  -> "J", "sum(*)"       -> 21L, "count(*)" -> 6L)),
+          Bit(6L, 4L, Map.empty, Map("name"  -> "Bill", "sum(*)"    -> 21L, "count(*)" -> 6L)),
+          Bit(8L, 5L, Map.empty, Map("name"  -> "Frank", "sum(*)"   -> 21L, "count(*)" -> 6L)),
+          Bit(10L, 6L, Map.empty, Map("name" -> "Frankie", "sum(*)" -> 21L, "count(*)" -> 6L))
+        )
+      }
+
+      "execute it successfully with mixed count, sum and a condition" in {
+        probe.send(
+          readCoordinatorActor,
+          ExecuteStatement(
+            SelectSQLStatement(
+              db = db,
+              namespace = namespace,
+              metric = AggregationDoubleMetric.name,
+              distinct = false,
+              fields = ListFields(
+                List(Field("*", Some(SumAggregation("value"))), Field("*", Some(CountAggregation("value"))))),
+              condition = Some(
+                Condition(
+                  RangeExpression(dimension = "timestamp",
+                                  value1 = AbsoluteComparisonValue(4L),
+                                  value2 = AbsoluteComparisonValue(7L)))),
+              limit = Some(LimitOperator(6))
+            )
+          )
+        )
+        val expected = awaitAssert {
+          probe.expectMsgType[SelectStatementExecuted]
+        }
+        expected.values.sortBy(_.timestamp) shouldBe Seq(
+          Bit(0L, 0.0, Map.empty, Map("sum(*)" -> 16.0, "count(*)" -> 4L))
+        )
+      }
+
       "fail when a non global aggregation is provided" in {
         probe.send(
           readCoordinatorActor,
@@ -715,7 +866,7 @@ class ReadCoordinatorGlobalAggregatedStatementsSpec extends AbstractReadCoordina
               fields = ListFields(
                 List(Field("*", Some(CountAggregation("*"))),
                      Field("surname", None),
-                     Field("value", Some(SumAggregation("*"))))),
+                     Field("value", Some(FirstAggregation("*"))))),
               limit = Some(LimitOperator(4))
             )
           )
