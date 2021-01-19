@@ -429,7 +429,7 @@ public class NSDB {
      * @return a CompletableFuture of the result of the operation. See {@link QueryResult}
      */
     public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
-        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.sQLStatement);
+        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
         return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
     }
 
@@ -442,18 +442,18 @@ public class NSDB {
     public CompletableFuture<InsertResult> write(Bit bit) {
         return toJava(client.write(
                 new RPCInsert(bit.db, bit.namespace, bit.metric,
-                        bit.timestamp, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), bit.value))).toCompletableFuture().thenApply(InsertResult::new);
+                        bit.timestamp, bit.value, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(InsertResult::new);
     }
 
 
     public CompletableFuture<InitMetricResult> initMetric(MetricInfo metricInfo) {
         return toJava(client.initMetric(
-                new InitMetricRequest(metricInfo.db, metricInfo.namespace, metricInfo.metric, metricInfo.shardInterval, metricInfo.retention))).toCompletableFuture().thenApply(InitMetricResult::new);
+                new InitMetricRequest(metricInfo.db, metricInfo.namespace, metricInfo.metric, metricInfo.shardInterval, metricInfo.retention, scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(InitMetricResult::new);
     }
 
     public CompletableFuture<DescribeMetricResult> describe(Bit bit) {
         return toJava(client.describeMetric(
-                new DescribeMetric(bit.db, bit.namespace, bit.metric))).toCompletableFuture().thenApply(DescribeMetricResult::new);
+                new DescribeMetric(bit.db, bit.namespace, bit.metric, scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(DescribeMetricResult::new);
     }
 
 

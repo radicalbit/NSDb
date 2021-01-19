@@ -17,7 +17,7 @@ version: '3'
 services:
 
     nsdb:
-      image: weareradicalbit/nsdb:1.0.0-SNAPSHOT
+      image: weareradicalbit/nsdb:1.3.0-SNAPSHOT
       volumes:
         - ./nsdb-cluster/src/main/resources:/opt/nsdb-cluster/conf
         - ./data:/opt/nsdb/data
