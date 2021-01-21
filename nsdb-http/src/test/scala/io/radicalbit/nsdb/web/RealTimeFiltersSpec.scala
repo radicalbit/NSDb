@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
-import io.radicalbit.nsdb.security.http.EmptyAuthorization
+import io.radicalbit.nsdb.security.NSDbAuthProvider
 import io.radicalbit.nsdb.web.NSDbJson.RealTimeOutGoingMessageWriter._
 import io.radicalbit.nsdb.test.NSDbSpec
 import spray.json._
@@ -44,7 +44,7 @@ class RealTimeFiltersSpec extends NSDbSpec with ScalatestRouteTest with WsResour
 
   val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(Props[FakeReadCoordinator])))
 
-  val wsStandardResources = wsResources(publisherActor, new EmptyAuthorization)
+  val wsStandardResources = wsResources(publisherActor, NSDbAuthProvider.empty)
 
   "Real Time Filter" should {
 

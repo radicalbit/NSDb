@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.web
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
@@ -28,19 +26,20 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.monitoring.NSDbMonitoring
-import io.radicalbit.nsdb.security.NsdbSecurity
+import io.radicalbit.nsdb.security.NSDbSecurity
+import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import kamon.Kamon
 import org.json4s.Formats
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 
 /**
   * Instantiate NSDb Http Server exposing apis defined in [[ApiResources]]
   * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
   */
-trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
+trait WebResources extends WsResources with SSLSupport { this: NSDbSecurity =>
 
   import CORSSupport._
   import VersionHeader._
@@ -60,13 +59,14 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
                       metadataCoordinator: ActorRef,
                       publisher: ActorRef)(implicit logger: LoggingAdapter) =
     authProvider match {
-      case Success(provider) =>
+      case Right(provider) =>
         Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
-        val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
-                                                                             readCoordinator,
-                                                                             writeCoordinator,
-                                                                             metadataCoordinator,
-                                                                             provider).apiResources(config)
+        val api: Route = wsResources(publisher, provider) ~ new ApiResources(
+          publisher,
+          readCoordinator,
+          writeCoordinator,
+          metadataCoordinator,
+          new NSDbHttpSecurityDirective(provider)).apiResources(config)
 
         val httpExt = akka.http.scaladsl.Http()
 
@@ -93,7 +93,7 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
             }
           Await.result(system.whenTerminated, 60 seconds)
         }
-      case Failure(ex) =>
+      case Left(ex) =>
         logger.error("error on loading authorization provider", ex)
         System.exit(1)
     }

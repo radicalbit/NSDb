@@ -26,7 +26,8 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.security.NSDbAuthProvider
+import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
@@ -50,27 +51,28 @@ trait WsResources {
 
   /**
     * Akka stream Flow used to define the webSocket behaviour.
-    * @param clientAddress the client address that opened the connection (for debugging and monitoring purposes).
-    * @param publishInterval interval of data publishing operation.
-    * @param retentionSize size of the buffer used to retain events in case of no subscribers.
-    * @param publisherActor the global [[io.radicalbit.nsdb.actors.PublisherActor]].
+    *
+    * @param clientAddress         the client address that opened the connection (for debugging and monitoring purposes).
+    * @param publishInterval       interval of data publishing operation.
+    * @param retentionSize         size of the buffer used to retain events in case of no subscribers.
+    * @param publisherActor        the global [[io.radicalbit.nsdb.actors.PublisherActor]].
     * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
-    * @param authProvider the configured [[NSDBAuthProvider]].
+    * @param authProvider          the configured [[NSDbHttpSecurityDirective]].
     * @return the [[Flow]] that models the WebSocket.
     */
   private def newStream(clientAddress: String,
                         publishInterval: Int,
                         retentionSize: Int,
                         publisherActor: ActorRef,
-                        securityHeaderPayload: Option[String],
-                        authProvider: NSDBAuthProvider): Flow[Message, Message, NotUsed] = {
+                        wsSubProtocols: Seq[String],
+                        authProvider: NSDbAuthProvider[_]): Flow[Message, Message, NotUsed] = {
 
     /**
       * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
       */
     val connectedWsActor = system.actorOf(
       StreamActor
-        .props(clientAddress, publisherActor, refreshPeriod, securityHeaderPayload, authProvider)
+        .props(clientAddress, publisherActor, refreshPeriod, wsSubProtocols, authProvider)
         .withDispatcher("akka.actor.control-aware-dispatcher"))
 
     /**
@@ -111,10 +113,10 @@ trait WsResources {
     * User defined `refresh_period` cannot be less than the default value specified in `nsdb.refresh-period`.
     *
     * @param publisherActor actor publisher of class [[io.radicalbit.nsdb.actors.PublisherActor]]
-    * @param authProvider authentication provider implementing [[NSDBAuthProvider]] class
+    * @param authProvider   authentication provider implementing [[NSDbAuthProvider]] class
     * @return ws route
     */
-  def wsResources(publisherActor: ActorRef, authProvider: NSDBAuthProvider): Route =
+  def wsResources(publisherActor: ActorRef, authProvider: NSDbAuthProvider[_]): Route =
     path("ws-stream") {
       extractClientIP { remoteAddress: RemoteAddress =>
         parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
@@ -130,7 +132,7 @@ trait WsResources {
                           period,
                           retention,
                           publisherActor,
-                          Some(header),
+                          subProtocols,
                           authProvider),
                 subProtocols.headOption
               )

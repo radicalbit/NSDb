@@ -26,13 +26,12 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
+import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.swagger.annotations._
-import javax.ws.rs.Path
 import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
 
+import javax.ws.rs.Path
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -43,15 +42,15 @@ trait CommandApi {
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
   def metadataCoordinator: ActorRef
-  def authenticationProvider: NSDBAuthProvider
+  def securityDirective: NSDbHttpSecurityDirective[_]
 
   implicit val timeout: Timeout
   implicit val formats: Formats
   implicit val ec: ExecutionContext
 
-  case class CommandRequestDatabase(db: String)                                  extends Db
-  case class CommandRequestNamespace(db: String, namespace: String)              extends Namespace
-  case class CommandRequestMetric(db: String, namespace: String, metric: String) extends Metric
+  case class CommandRequestDatabase(db: String)
+  case class CommandRequestNamespace(db: String, namespace: String)
+  case class CommandRequestMetric(db: String, namespace: String, metric: String)
 
   sealed trait CommandResponse
   case class ShowDbsResponse(dbs: Set[String])               extends CommandResponse
@@ -72,7 +71,10 @@ trait CommandApi {
     ))
   def showDbs: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { request =>
+        request.header
+//      request.getHeader("").map(_.value())
+//      optionalHeaderValueByName(securityDirective.headerName) { header =>
         path("dbs") {
           (pathEnd & get) {
             onComplete(readCoordinator ? GetDbs) {
@@ -102,11 +104,11 @@ trait CommandApi {
     ))
   def showNamespaces: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { implicit request =>
         pathPrefix(Segment) { db =>
           path("namespaces") {
             (pathEnd & get) {
-              authenticationProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
+              securityDirective.authorizeDb(db, false) {
                 onComplete(readCoordinator ? GetNamespaces(db)) {
                   case Success(NamespacesGot(_, namespaces)) =>
                     complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
@@ -141,12 +143,12 @@ trait CommandApi {
     ))
   def dropNamespace: Route = {
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { implicit request =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             pathEnd {
               delete {
-                authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
+                securityDirective.authorizeNamespace(db, namespace, true) {
                   onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
                     case Success(NamespaceDeleted(_, _)) => complete("Ok")
                     case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
@@ -182,13 +184,13 @@ trait CommandApi {
     ))
   def showMetrics: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { implicit request =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             path("metrics") {
               pathEnd {
                 get {
-                  authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
+                  securityDirective.authorizeNamespace(db, namespace, false) {
                     onComplete(readCoordinator ? GetMetrics(db, namespace)) {
                       case Success(MetricsGot(_, _, metrics)) =>
                         complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
@@ -227,12 +229,12 @@ trait CommandApi {
     ))
   def describeMetric: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { implicit request =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             pathPrefix(Segment) { metric =>
               (pathEnd & get) {
-                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
+                securityDirective.authorizeMetric(db, namespace, metric, false) {
                   onComplete(
                     Future.sequence(
                       Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
@@ -306,12 +308,12 @@ trait CommandApi {
     ))
   def dropMetric: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { implicit request =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             pathPrefix(Segment) { metric =>
               delete {
-                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
+                securityDirective.authorizeMetric(db, namespace, metric, true) {
                   onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
                     case Success(MetricDropped(_, _, _)) => complete("Ok")
                     case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))

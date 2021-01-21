@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.web.actor
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
@@ -28,8 +26,7 @@ import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.monitoring.NSDbMonitoring
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.Metric
+import io.radicalbit.nsdb.security.NSDbAuthProvider
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.web.Filters.Filter
@@ -37,21 +34,23 @@ import io.radicalbit.nsdb.web.QueryEnriched
 import io.radicalbit.nsdb.web.actor.StreamActor._
 import kamon.Kamon
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
-  * @param clientAddress the client address that established the connection (for logging and monitoring purposes).
-  * @param publisher global Publisher Actor.
-  * @param publishInterval publish to web socket interval.
+  *
+  * @param clientAddress         the client address that established the connection (for logging and monitoring purposes).
+  * @param publisher             global Publisher Actor.
+  * @param publishInterval       publish to web socket interval.
   * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
-  * @param authProvider the configured [[NSDBAuthProvider]]
+  * @param authProvider          the configured [[NSDbAuthProvider]]
   */
-class StreamActor(clientAddress: String,
-                  publisher: ActorRef,
-                  publishInterval: Int,
-                  securityHeaderPayload: Option[String],
-                  authProvider: NSDBAuthProvider)
+class StreamActor[A](clientAddress: String,
+                     publisher: ActorRef,
+                     publishInterval: Int,
+                     wsSubProtocols: Seq[String],
+                     authProvider: NSDbAuthProvider[A])
     extends ActorPathLogging {
 
   implicit val timeout: Timeout =
@@ -63,6 +62,8 @@ class StreamActor(clientAddress: String,
   private val buffer: mutable.Queue[RecordsPublished] = mutable.Queue.empty
 
   lazy val kamonMetric = Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
+
+  lazy val securityHeaderPayload = authProvider.extractWsUserIngo(wsSubProtocols)
 
   override def preStart(): Unit = {
     kamonMetric.increment()
@@ -92,9 +93,9 @@ class StreamActor(clientAddress: String,
     * @param wsActor WebSocket actor reference.
     */
   def connected(wsActor: ActorRef): Receive = {
-    case msg @ RegisterQuery(db, namespace, metric, inputQueryString, from, to, filtersOpt) =>
+    case RegisterQuery(db, namespace, metric, inputQueryString, from, to, filtersOpt) =>
       val checkAuthorization =
-        authProvider.checkMetricAuth(ent = msg, header = securityHeaderPayload getOrElse "", writePermission = false)
+        authProvider.checkMetricAuth(db, namespace, metric, securityHeaderPayload, writePermission = false)
       if (checkAuthorization.success)
         QueryEnriched(db,
                       namespace,
@@ -145,13 +146,12 @@ object StreamActor {
                            from: Option[NSDbLongType] = None,
                            to: Option[NSDbLongType] = None,
                            filters: Option[Seq[Filter]] = None)
-      extends Metric
-      with NSDbSerializable
+      extends NSDbSerializable
 
   def props(clientAddress: String,
             publisherActor: ActorRef,
             refreshPeriod: Int,
-            securityHeader: Option[String],
-            authProvider: NSDBAuthProvider) =
-    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, securityHeader, authProvider))
+            wsSubProtocols: Seq[String],
+            authProvider: NSDbAuthProvider[_]) =
+    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, wsSubProtocols, authProvider))
 }

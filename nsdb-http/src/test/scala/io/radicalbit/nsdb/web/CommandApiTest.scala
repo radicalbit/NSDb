@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
+import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.CommandApi
@@ -68,7 +68,7 @@ class CommandApiTest extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
 
   override def metadataCoordinator: ActorRef = system.actorOf(Props[FakeMetadataCoordinator])
 
-  override def authenticationProvider: NSDBAuthProvider = new TestAuthProvider
+  override def securityDirective = new NSDbHttpSecurityDirective(new TestAuthProvider)
 
   override val ec: ExecutionContext = ExecutionContext.Implicits.global
 

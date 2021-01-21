@@ -23,7 +23,8 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
-import io.radicalbit.nsdb.security.http.{EmptyAuthorization, NSDBAuthProvider}
+import io.radicalbit.nsdb.security.NSDbAuthProvider
+import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
@@ -36,11 +37,12 @@ class QueryValidationApiSpec extends NSDbFlatSpec with ScalatestRouteTest {
 
   val readCoordinatorActor: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 
-  val secureAuthenticationProvider: NSDBAuthProvider  = new TestAuthProvider
-  val emptyAuthenticationProvider: EmptyAuthorization = new EmptyAuthorization
+  val secureAuthenticationProvider: NSDbAuthProvider[String] = new TestAuthProvider
+  val emptyAuthenticationProvider: NSDbAuthProvider[String]  = NSDbAuthProvider.empty
 
   val secureQueryValidationApi = new QueryValidationApi {
-    override def authenticationProvider: NSDBAuthProvider = secureAuthenticationProvider
+    override def securityDirective: NSDbHttpSecurityDirective[String] =
+      new NSDbHttpSecurityDirective(secureAuthenticationProvider)
 
     override def readCoordinator: ActorRef        = readCoordinatorActor
     override implicit val formats: DefaultFormats = DefaultFormats
@@ -49,7 +51,8 @@ class QueryValidationApiSpec extends NSDbFlatSpec with ScalatestRouteTest {
   }
 
   val emptyQueryVAlidationApi = new QueryValidationApi {
-    override def authenticationProvider: NSDBAuthProvider = emptyAuthenticationProvider
+    override def securityDirective: NSDbHttpSecurityDirective[String] =
+      new NSDbHttpSecurityDirective(emptyAuthenticationProvider)
 
     override def readCoordinator: ActorRef = readCoordinatorActor
 

@@ -20,7 +20,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
-import io.radicalbit.nsdb.security.NsdbSecurity
+import io.radicalbit.nsdb.security.NSDbSecurity
 import io.radicalbit.nsdb.web.{BitSerializer, CustomSerializers, WebResources}
 import org.json4s.{DefaultFormats, Formats}
 
@@ -33,7 +33,7 @@ class NsdbNodeEndpoint(nodeId: String,
                        metadataCoordinator: ActorRef,
                        publisher: ActorRef)(override implicit val system: ActorSystem)
     extends WebResources
-    with NsdbSecurity {
+    with NSDbSecurity {
 
   override val config: Config = system.settings.config
 
