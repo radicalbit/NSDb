@@ -26,7 +26,6 @@ import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes.CommandApi

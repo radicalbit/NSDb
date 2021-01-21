@@ -26,8 +26,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import io.radicalbit.nsdb.security.NSDbAuthProvider
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.actor.StreamActor
 import io.radicalbit.nsdb.web.actor.StreamActor._
@@ -65,7 +64,7 @@ trait WsResources {
                         retentionSize: Int,
                         publisherActor: ActorRef,
                         wsSubProtocols: Seq[String],
-                        authProvider: NSDbAuthProvider[_]): Flow[Message, Message, NotUsed] = {
+                        authProvider: NSDbAuthorizationProvider): Flow[Message, Message, NotUsed] = {
 
     /**
       * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
@@ -113,10 +112,10 @@ trait WsResources {
     * User defined `refresh_period` cannot be less than the default value specified in `nsdb.refresh-period`.
     *
     * @param publisherActor actor publisher of class [[io.radicalbit.nsdb.actors.PublisherActor]]
-    * @param authProvider   authentication provider implementing [[NSDbAuthProvider]] class
+    * @param authProvider   authentication provider implementing [[NSDbAuthorizationProvider]] class
     * @return ws route
     */
-  def wsResources(publisherActor: ActorRef, authProvider: NSDbAuthProvider[_]): Route =
+  def wsResources(publisherActor: ActorRef, authProvider: NSDbAuthorizationProvider): Route =
     path("ws-stream") {
       extractClientIP { remoteAddress: RemoteAddress =>
         parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
@@ -124,8 +123,6 @@ trait WsResources {
             extractUpgradeToWebSocket { u: UpgradeToWebSocket =>
               val subProtocols = u.getRequestedProtocols().iterator().asScala.toSeq
               logger.debug("found sub protocols in ws request {}", subProtocols)
-
-              val header = subProtocols.mkString(" ")
 
               handleWebSocketMessagesForOptionalProtocol(
                 newStream(remoteAddress.toOption.map(_.getHostAddress).getOrElse("unknown"),

@@ -23,8 +23,6 @@ import akka.http.scaladsl.server._
 import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
-import io.radicalbit.nsdb.security.NSDbAuthProvider
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.radicalbit.nsdb.web.routes._
 import io.radicalbit.nsdb.web.swagger.SwaggerDocService
 import org.json4s.Formats
@@ -35,10 +33,10 @@ class ApiResources(val publisherActor: ActorRef,
                    val readCoordinator: ActorRef,
                    val writeCoordinator: ActorRef,
                    val metadataCoordinator: ActorRef,
-                   val securityDirective: NSDbHttpSecurityDirective[_])(override implicit val timeout: Timeout,
-                                                                        implicit val logger: LoggingAdapter,
-                                                                        override implicit val ec: ExecutionContext,
-                                                                        override implicit val formats: Formats)
+                   val securityDirective: NSDbHttpSecurityDirective)(override implicit val timeout: Timeout,
+                                                                     implicit val logger: LoggingAdapter,
+                                                                     override implicit val ec: ExecutionContext,
+                                                                     override implicit val formats: Formats)
     extends CommandApi
     with QueryApi
     with QueryValidationApi

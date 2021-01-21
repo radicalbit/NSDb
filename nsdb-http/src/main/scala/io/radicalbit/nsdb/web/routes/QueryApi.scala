@@ -29,10 +29,9 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteDeleteStatement, ExecuteStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.web.Filters.Filter
-import io.radicalbit.nsdb.web.QueryEnriched
+import io.radicalbit.nsdb.web.{NSDbHttpSecurityDirective, QueryEnriched}
 import io.swagger.annotations._
 import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
@@ -40,6 +39,7 @@ import org.json4s.jackson.Serialization.write
 import javax.ws.rs.Path
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
+import NSDbHttpSecurityDirective._
 
 @ApiModel(description = "Query body")
 case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: String,
@@ -67,7 +67,7 @@ trait QueryApi {
 
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
-  def securityDirective: NSDbHttpSecurityDirective[_]
+  def securityDirective: NSDbHttpSecurityDirective
 
   implicit val timeout: Timeout
 
@@ -139,8 +139,8 @@ trait QueryApi {
         get {
           entity(as[QueryBody]) {
             qb =>
-              extractRequest {
-                implicit request =>
+              extractRawHeaders {
+                implicit rawHeaders =>
                   securityDirective.authorizeMetric(qb.db, qb.namespace, qb.metric, writePermission = false) {
                     QueryEnriched(qb.db,
                                   qb.namespace,
@@ -163,8 +163,8 @@ trait QueryApi {
         post {
           entity(as[QueryBody]) {
             qb =>
-              extractRequest {
-                implicit request =>
+              extractRawHeaders {
+                implicit rawHeaders =>
                   securityDirective.authorizeMetric(qb.db, qb.namespace, qb.metric, writePermission = false) {
                     QueryEnriched(qb.db,
                                   qb.namespace,

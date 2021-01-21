@@ -27,8 +27,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.InputMapped
-import io.radicalbit.nsdb.security.NSDbAuthProvider
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.test.NSDbFlatSpec
 import io.radicalbit.nsdb.web.DataApiTest.FakeWriteCoordinator
 import io.radicalbit.nsdb.web.NSDbJson._
@@ -66,11 +65,11 @@ class DataApiTest extends NSDbFlatSpec with ScalatestRouteTest with MyRejectionH
 
   val writeCoordinatorActor: ActorRef = system.actorOf(Props[FakeWriteCoordinator])
 
-  val secureAuthenticationProvider: NSDbAuthProvider[String] = new TestAuthProvider
-  val emptyAuthenticationProvider: NSDbAuthProvider[String]  = NSDbAuthProvider.empty
+  val secureAuthenticationProvider: NSDbAuthorizationProvider = new TestAuthProvider
+  val emptyAuthenticationProvider: NSDbAuthorizationProvider  = NSDbAuthorizationProvider.empty
 
   val secureDataApi = new DataApi {
-    override def securityDirective: NSDbHttpSecurityDirective[String] =
+    override def securityDirective: NSDbHttpSecurityDirective =
       new NSDbHttpSecurityDirective(secureAuthenticationProvider)
 
     override def writeCoordinator: ActorRef       = writeCoordinatorActor
@@ -79,7 +78,7 @@ class DataApiTest extends NSDbFlatSpec with ScalatestRouteTest with MyRejectionH
   }
 
   val emptyDataApi = new DataApi {
-    override def securityDirective: NSDbHttpSecurityDirective[String] =
+    override def securityDirective: NSDbHttpSecurityDirective =
       new NSDbHttpSecurityDirective(emptyAuthenticationProvider)
 
     override def writeCoordinator: ActorRef = writeCoordinatorActor

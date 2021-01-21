@@ -26,7 +26,7 @@ import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.monitoring.NSDbMonitoring
-import io.radicalbit.nsdb.security.NSDbAuthProvider
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.web.Filters.Filter
@@ -36,6 +36,7 @@ import kamon.Kamon
 
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
+import scala.collection.JavaConverters._
 
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
@@ -46,11 +47,11 @@ import scala.collection.mutable
   * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
   * @param authProvider          the configured [[NSDbAuthProvider]]
   */
-class StreamActor[A](clientAddress: String,
-                     publisher: ActorRef,
-                     publishInterval: Int,
-                     wsSubProtocols: Seq[String],
-                     authProvider: NSDbAuthProvider[A])
+class StreamActor(clientAddress: String,
+                  publisher: ActorRef,
+                  publishInterval: Int,
+                  wsSubProtocols: Seq[String],
+                  authProvider: NSDbAuthorizationProvider)
     extends ActorPathLogging {
 
   implicit val timeout: Timeout =
@@ -63,7 +64,7 @@ class StreamActor[A](clientAddress: String,
 
   lazy val kamonMetric = Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
 
-  lazy val securityHeaderPayload = authProvider.extractWsUserIngo(wsSubProtocols)
+  lazy val securityHeaderPayload = authProvider.extractWsSecurityPayload(wsSubProtocols.asJava)
 
   override def preStart(): Unit = {
     kamonMetric.increment()
@@ -95,8 +96,8 @@ class StreamActor[A](clientAddress: String,
   def connected(wsActor: ActorRef): Receive = {
     case RegisterQuery(db, namespace, metric, inputQueryString, from, to, filtersOpt) =>
       val checkAuthorization =
-        authProvider.checkMetricAuth(db, namespace, metric, securityHeaderPayload, writePermission = false)
-      if (checkAuthorization.success)
+        authProvider.checkMetricAuth(db, namespace, metric, securityHeaderPayload, false)
+      if (checkAuthorization.isSuccess)
         QueryEnriched(db,
                       namespace,
                       inputQueryString,
@@ -116,7 +117,7 @@ class StreamActor[A](clientAddress: String,
                                           namespace,
                                           metric,
                                           inputQueryString,
-                                          s"unauthorized ${checkAuthorization.failReason}"))
+                                          s"unauthorized ${checkAuthorization.getFailReason}"))
     case msg: SubscribedByQueryString =>
       wsActor ! OutgoingMessage(msg)
     case msg: SubscriptionByQueryStringFailed => wsActor ! OutgoingMessage(msg)
@@ -152,6 +153,6 @@ object StreamActor {
             publisherActor: ActorRef,
             refreshPeriod: Int,
             wsSubProtocols: Seq[String],
-            authProvider: NSDbAuthProvider[_]) =
+            authProvider: NSDbAuthorizationProvider) =
     Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, wsSubProtocols, authProvider))
 }

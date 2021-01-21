@@ -16,49 +16,50 @@
 
 package io.radicalbit.nsdb.web.auth
 
-import akka.http.scaladsl.model.HttpRequest
-import io.radicalbit.nsdb.security.NSDbAuthProvider
-import io.radicalbit.nsdb.security.NSDbAuthProvider.AuthResponse
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider.AuthorizationResponse
 
-class TestAuthProvider extends NSDbAuthProvider[String] {
+import java.util
+import scala.collection.JavaConverters._
+
+class TestAuthProvider extends NSDbAuthorizationProvider {
 
   def headerName: String = "testHeader"
 
-  override def extractHttpUserInfo(request: HttpRequest): String = {
-    val javaOpt = request.getHeader("testHeader")
-    if (javaOpt.isPresent) javaOpt.get().value() else ""
-  }
+  override def extractHttpSecurityPayload(rawHeaders: util.Map[String, String]): String =
+    Option(rawHeaders.get("testHeader")).getOrElse("")
 
-  override def extractWsUserIngo(subProtocols: Seq[String]): String = subProtocols.mkString(" ")
+  override def extractWsSecurityPayload(subProtocols: java.util.List[String]): String =
+    subProtocols.asScala.mkString(" ")
 
-  override def checkDbAuth(db: String, userInfo: String, writePermission: Boolean): AuthResponse =
-    if (userInfo.isEmpty) AuthResponse(success = false, failReason = "header not provided")
+  override def checkDbAuth(db: String, userInfo: String, writePermission: Boolean): AuthorizationResponse =
+    if (userInfo.isEmpty) new AuthorizationResponse(false, "header not provided")
     else if (db == "notAuthorizedDb")
-      AuthResponse(success = false, failReason = s"forbidden access to db $db")
+      new AuthorizationResponse(false, s"forbidden access to db $db")
     else if (db == "readOnlyDb" && writePermission)
-      AuthResponse(success = false, failReason = s"forbidden write access to namespace $db")
-    else AuthResponse(success = true)
+      new AuthorizationResponse(false, s"forbidden write access to namespace $db")
+    else new AuthorizationResponse(true)
 
   override def checkNamespaceAuth(db: String,
                                   namespace: String,
                                   userInfo: String,
-                                  writePermission: Boolean): AuthResponse =
-    if (userInfo.isEmpty) AuthResponse(success = false, failReason = "header not provided")
+                                  writePermission: Boolean): AuthorizationResponse =
+    if (userInfo.isEmpty) new AuthorizationResponse(false, "header not provided")
     else if (namespace == "notAuthorizedNamespace")
-      AuthResponse(success = false, failReason = s"forbidden access to namespace $namespace")
+      new AuthorizationResponse(false, s"forbidden access to namespace $namespace")
     else if (namespace == "readOnlyNamespace" && writePermission)
-      AuthResponse(success = false, failReason = s"forbidden write access to namespace $namespace")
-    else AuthResponse(success = true)
+      new AuthorizationResponse(false, s"forbidden write access to namespace $namespace")
+    else new AuthorizationResponse(true)
 
   override def checkMetricAuth(db: String,
                                namespace: String,
                                metric: String,
                                userInfo: String,
-                               writePermission: Boolean): AuthResponse =
-    if (userInfo.isEmpty) AuthResponse(success = false, failReason = "header not provided")
+                               writePermission: Boolean): AuthorizationResponse =
+    if (userInfo.isEmpty) new AuthorizationResponse(false, "header not provided")
     else if (metric == "notAuthorizedMetric")
-      AuthResponse(success = false, failReason = s"forbidden access to metric $metric")
+      new AuthorizationResponse(false, s"forbidden access to metric $metric")
     else if (metric == "readOnlyMetric" && writePermission)
-      AuthResponse(success = false, failReason = s"forbidden write access to metric $metric")
-    else AuthResponse(success = true)
+      new AuthorizationResponse(false, s"forbidden write access to metric $metric")
+    else new AuthorizationResponse(true)
 }

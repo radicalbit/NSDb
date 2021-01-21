@@ -26,7 +26,8 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective.extractRawHeaders
 import io.swagger.annotations._
 import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
@@ -42,7 +43,7 @@ trait CommandApi {
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
   def metadataCoordinator: ActorRef
-  def securityDirective: NSDbHttpSecurityDirective[_]
+  def securityDirective: NSDbHttpSecurityDirective
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -104,7 +105,7 @@ trait CommandApi {
     ))
   def showNamespaces: Route =
     pathPrefix("commands") {
-      extractRequest { implicit request =>
+      extractRawHeaders { implicit rawHeaders =>
         pathPrefix(Segment) { db =>
           path("namespaces") {
             (pathEnd & get) {
@@ -143,7 +144,7 @@ trait CommandApi {
     ))
   def dropNamespace: Route = {
     pathPrefix("commands") {
-      extractRequest { implicit request =>
+      extractRawHeaders { implicit rawHeaders =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             pathEnd {
@@ -184,7 +185,7 @@ trait CommandApi {
     ))
   def showMetrics: Route =
     pathPrefix("commands") {
-      extractRequest { implicit request =>
+      extractRawHeaders { implicit rawHeaders =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             path("metrics") {
@@ -229,7 +230,7 @@ trait CommandApi {
     ))
   def describeMetric: Route =
     pathPrefix("commands") {
-      extractRequest { implicit request =>
+      extractRawHeaders { implicit rawHeaders =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             pathPrefix(Segment) { metric =>
@@ -308,7 +309,7 @@ trait CommandApi {
     ))
   def dropMetric: Route =
     pathPrefix("commands") {
-      extractRequest { implicit request =>
+      extractRawHeaders { implicit rawHeaders =>
         pathPrefix(Segment) { db =>
           pathPrefix(Segment) { namespace =>
             pathPrefix(Segment) { metric =>

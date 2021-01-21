@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.security.http
+package io.radicalbit.nsdb.web
 
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
-import io.radicalbit.nsdb.security.NSDbAuthProvider
+import akka.http.scaladsl.server.{Directive, Route}
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+
+import scala.collection.JavaConverters._
 
 /**
   * Class to inherit in order to develop a custom authentication provider
   */
-class NSDbHttpSecurityDirective[UserInfo](authProvider: NSDbAuthProvider[UserInfo]) {
+class NSDbHttpSecurityDirective(authProvider: NSDbAuthorizationProvider) {
 
   /**
     * Forwards, if authorized, a request against a Db.
@@ -34,10 +36,12 @@ class NSDbHttpSecurityDirective[UserInfo](authProvider: NSDbAuthProvider[UserInf
     * @param route the route to forward the request to.
     * @return the destination route or a 403 if authorization check fails.
     */
-  final def authorizeDb(db: String, writePermission: Boolean)(route: Route)(implicit request: HttpRequest): Route = {
-    val check = authProvider.checkDbAuth(db, authProvider.extractHttpUserInfo(request), writePermission)
-    if (check.success) route
-    else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.failReason}"))
+  final def authorizeDb(db: String, writePermission: Boolean)(route: Route)(
+      implicit rawHeaders: Map[String, String]): Route = {
+    val check =
+      authProvider.checkDbAuth(db, authProvider.extractHttpSecurityPayload(rawHeaders.asJava), writePermission)
+    if (check.isSuccess) route
+    else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.getFailReason}"))
   }
 
   /**
@@ -50,11 +54,14 @@ class NSDbHttpSecurityDirective[UserInfo](authProvider: NSDbAuthProvider[UserInf
     * @return the destination route or a 403 if authorization check fails.
     */
   final def authorizeNamespace(db: String, namespace: String, writePermission: Boolean)(route: Route)(
-      implicit request: HttpRequest): Route = {
+      implicit rawHeaders: Map[String, String]): Route = {
     val check =
-      authProvider.checkNamespaceAuth(db, namespace, authProvider.extractHttpUserInfo(request), writePermission)
-    if (check.success) route
-    else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.failReason}"))
+      authProvider.checkNamespaceAuth(db,
+                                      namespace,
+                                      authProvider.extractHttpSecurityPayload(rawHeaders.asJava),
+                                      writePermission)
+    if (check.isSuccess) route
+    else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.getFailReason}"))
   }
 
   /**
@@ -68,11 +75,24 @@ class NSDbHttpSecurityDirective[UserInfo](authProvider: NSDbAuthProvider[UserInf
     * @return the destination route or a 403 if authorization check fails.
     */
   final def authorizeMetric(db: String, namespace: String, metric: String, writePermission: Boolean)(route: Route)(
-      implicit request: HttpRequest): Route = {
+      implicit rawHeaders: Map[String, String]): Route = {
     val check =
-      authProvider.checkMetricAuth(db, namespace, metric, authProvider.extractHttpUserInfo(request), writePermission)
-    if (check.success) route
-    else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.failReason}"))
+      authProvider.checkMetricAuth(db,
+                                   namespace,
+                                   metric,
+                                   authProvider.extractHttpSecurityPayload(rawHeaders.asJava),
+                                   writePermission)
+    if (check.isSuccess) route
+    else complete(HttpResponse(StatusCodes.Forbidden, entity = s"not authorized ${check.getFailReason}"))
+  }
+
+}
+
+object NSDbHttpSecurityDirective {
+
+  def extractRawHeaders: Directive[Tuple1[Map[String, String]]] = Directive[Tuple1[Map[String, String]]] {
+    inner => ctx =>
+      inner(Tuple1(ctx.request.headers.map(h => h.name() -> h.value()).toMap))(ctx)
   }
 
 }

@@ -20,9 +20,11 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
-import io.radicalbit.nsdb.security.NSDbSecurity
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.web.{BitSerializer, CustomSerializers, WebResources}
 import org.json4s.{DefaultFormats, Formats}
+
+import scala.util.Try
 
 /**
   * Class responsible to instantiate all the node endpoints (e.g. grpc, http and ws).
@@ -32,20 +34,50 @@ class NsdbNodeEndpoint(nodeId: String,
                        writeCoordinator: ActorRef,
                        metadataCoordinator: ActorRef,
                        publisher: ActorRef)(override implicit val system: ActorSystem)
-    extends WebResources
-    with NSDbSecurity {
+    extends WebResources {
 
   override val config: Config = system.settings.config
 
   override implicit val logger: LoggingAdapter = Logging.getLogger(system, this)
 
-  new GrpcEndpoint(nodeId = nodeId,
-                   readCoordinator = readCoordinator,
-                   writeCoordinator = writeCoordinator,
-                   metadataCoordinator = metadataCoordinator)
-
   implicit val formats: Formats = DefaultFormats ++ CustomSerializers.customSerializers + BitSerializer
 
-  initWebEndpoint(nodeId, writeCoordinator, readCoordinator, metadataCoordinator, publisher)
+  /**
+    * configuration key to set if security is enabled or not.
+    */
+  lazy val securityEnabled: Boolean = config.getBoolean("nsdb.security.enabled")
+
+  /**
+    * configuration key to set the authorization provider FQCN.
+    */
+  lazy val authProviderClassName: String = config.getString("nsdb.security.auth-provider-class")
+
+  /**
+    * Authorization provider instance, retrieved based on the configuration provided.
+    * If there is any error during the dynamic instantiation process, a [[Left]] will be returned.
+    */
+  lazy val authProvider: Either[String, NSDbAuthorizationProvider] =
+    if (!securityEnabled) {
+      logger.info("Security is not enabled")
+      Right(NSDbAuthorizationProvider.empty)
+    } else if (authProviderClassName.nonEmpty) {
+      logger.debug(s"Trying to load class $authProviderClassName")
+      Try(Class.forName(authProviderClassName).asSubclass(classOf[NSDbAuthorizationProvider]).newInstance).toEither.left
+        .map(_.getMessage)
+    } else {
+      Left("a valid classname must be provided if security is enabled")
+    }
+
+  authProvider match {
+    case Right(provider: NSDbAuthorizationProvider) =>
+      new GrpcEndpoint(nodeId = nodeId,
+                       readCoordinator = readCoordinator,
+                       writeCoordinator = writeCoordinator,
+                       metadataCoordinator = metadataCoordinator)
+
+      initWebEndpoint(nodeId, writeCoordinator, readCoordinator, metadataCoordinator, publisher, provider)
+    case Left(error) =>
+      logger.error(s"Error during Security initialization \n $error")
+  }
 
 }

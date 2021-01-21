@@ -26,7 +26,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, RecordRejected}
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective
 import io.swagger.annotations._
 import org.json4s.Formats
 
@@ -51,7 +51,7 @@ trait DataApi {
   import io.radicalbit.nsdb.web.validation.Validators._
 
   def writeCoordinator: ActorRef
-  def securityDirective: NSDbHttpSecurityDirective[_]
+  def securityDirective: NSDbHttpSecurityDirective
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -74,7 +74,7 @@ trait DataApi {
     pathPrefix("data") {
       post {
         entity(as[InsertBody]) { insertBody =>
-          extractRequest { implicit request =>
+          NSDbHttpSecurityDirective.extractRawHeaders { implicit rawHeaders =>
             validateModel(insertBody).apply { validatedInsertBody =>
               securityDirective.authorizeMetric(validatedInsertBody.db,
                                                 validatedInsertBody.namespace,

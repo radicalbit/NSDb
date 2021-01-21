@@ -22,8 +22,7 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.{FakeReadCoordinator, FakeWriteCoordinator}
-import io.radicalbit.nsdb.security.NSDbAuthProvider
-import io.radicalbit.nsdb.security.http.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import io.radicalbit.nsdb.web.routes._
@@ -35,10 +34,10 @@ import scala.concurrent.duration._
 
 class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
 
-  val readCoordinatorActor: ActorRef                         = system.actorOf(Props[FakeReadCoordinator])
-  val writeCoordinatorActor: ActorRef                        = system.actorOf(Props[FakeWriteCoordinator])
-  val secureAuthenticationProvider: NSDbAuthProvider[String] = new TestAuthProvider
-  val emptyAuthenticationProvider: NSDbAuthProvider[String]  = NSDbAuthProvider.empty
+  val readCoordinatorActor: ActorRef                          = system.actorOf(Props[FakeReadCoordinator])
+  val writeCoordinatorActor: ActorRef                         = system.actorOf(Props[FakeWriteCoordinator])
+  val secureAuthenticationProvider: NSDbAuthorizationProvider = new TestAuthProvider
+  val emptyAuthenticationProvider: NSDbAuthorizationProvider  = NSDbAuthorizationProvider.empty
 
   /*
       adds to formats a CustomSerializerForTest that serializes relative timestamp (now) with a fake
@@ -48,7 +47,7 @@ class QueryParserApiSpec extends NSDbSpec with ScalatestRouteTest {
     : Formats = DefaultFormats ++ CustomSerializers.customSerializers + CustomSerializerForTest + BitSerializer
 
   val queryApi = new QueryApi {
-    override def securityDirective: NSDbHttpSecurityDirective[String] =
+    override def securityDirective: NSDbHttpSecurityDirective =
       new NSDbHttpSecurityDirective(emptyAuthenticationProvider)
 
     override def readCoordinator: ActorRef  = readCoordinatorActor

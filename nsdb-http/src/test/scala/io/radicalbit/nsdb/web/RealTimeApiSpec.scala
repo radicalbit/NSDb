@@ -25,7 +25,7 @@ import io.radicalbit.nsdb.actors.{EmptyReadCoordinator, PublisherActor}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.PublishRecord
-import io.radicalbit.nsdb.security.NSDbAuthProvider
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.test.NSDbSpec
 import io.radicalbit.nsdb.web.auth.TestAuthProvider
 import org.json4s._
@@ -47,7 +47,7 @@ class RealTimeApiSpec extends NSDbSpec with ScalatestRouteTest with WsResources 
 
   val publisherActor = system.actorOf(PublisherActor.props(system.actorOf(EmptyReadCoordinator.props(schema))))
 
-  val wsStandardResources = wsResources(publisherActor, NSDbAuthProvider.empty)
+  val wsStandardResources = wsResources(publisherActor, NSDbAuthorizationProvider.empty)
 
   val wsSecureResources = wsResources(publisherActor, new TestAuthProvider)
 
