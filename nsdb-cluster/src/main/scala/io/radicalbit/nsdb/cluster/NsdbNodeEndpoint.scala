@@ -80,7 +80,7 @@ class NsdbNodeEndpoint(nodeId: String,
 
       initWebEndpoint(nodeId, writeCoordinator, readCoordinator, metadataCoordinator, publisher, provider)
     case Left(error) =>
-      logger.error(s"Error during Security initialization \n $error")
+      logger.error(s"Error during Security initialization: $error")
       System.exit(1)
   }
 
