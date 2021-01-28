@@ -67,7 +67,7 @@ class CommandApiTest extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
 
   override def metadataCoordinator: ActorRef = system.actorOf(Props[FakeMetadataCoordinator])
 
-  override def securityDirective = new NSDbHttpSecurityDirective(new TestAuthProvider)
+  override def authorizationProvider = new TestAuthProvider
 
   override val ec: ExecutionContext = ExecutionContext.Implicits.global
 

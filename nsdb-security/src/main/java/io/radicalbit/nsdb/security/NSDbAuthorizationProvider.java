@@ -19,13 +19,24 @@ package io.radicalbit.nsdb.security;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Interface to extend in order to develop a custom authentication provider.
+ */
 public interface NSDbAuthorizationProvider {
 
+    /**
+     * Class that contains the results of an authorization process.
+     */
     class AuthorizationResponse {
+
 
         private final boolean success;
         private final String failReason;
 
+        /**
+         * @param success: if authorization succeeded or not.
+         * @param failReason: the fail reason.
+         */
         public AuthorizationResponse(boolean success, String failReason) {
             this.success = success;
             this.failReason = failReason;
@@ -49,14 +60,48 @@ public interface NSDbAuthorizationProvider {
         return new EmptyNSDbAuthorizationProvider();
     }
 
+    /**
+     * Extract the security info from Http headers.
+     * @param rawHeaders Http headers in an agnostic format.
+     * @return the security payload in string format.
+     */
     String extractHttpSecurityPayload(Map<String, String> rawHeaders);
 
+    /**
+     * Extract the security info from Ws request subprotocols.
+     * @param subProtocols list of all subprotocols.
+     * @return the security payload in string format.
+     */
     String extractWsSecurityPayload(List<String> subProtocols);
 
+    /**
+     * Checks if a request against a Db is authorized.
+     * @param db the db to check.
+     * @param payload the security payload gathered from request.
+     * @param writePermission true if write permission is required.
+     * @return the resulting {@link AuthorizationResponse}.
+     */
     AuthorizationResponse checkDbAuth(String db, String payload, boolean writePermission);
 
+    /**
+     * Checks if a request against a Db is authorized.
+     * @param db the db to check.
+     * @param namespace the namespace to check.
+     * @param payload the security payload gathered from request.
+     * @param writePermission true if write permission is required.
+     * @return the resulting {@link AuthorizationResponse}.
+     */
     AuthorizationResponse checkNamespaceAuth(String db, String namespace, String payload, boolean writePermission);
 
+    /**
+     * Checks if a request against a Db is authorized.
+     * @param db the db to check.
+     * @param namespace the namespace to check.
+     * @param metric the metric to check.
+     * @param payload the security payload gathered from request.
+     * @param writePermission true if write permission is required.
+     * @return the resulting {@link AuthorizationResponse}.
+     */
     AuthorizationResponse checkMetricAuth(String db, String namespace, String metric, String payload, boolean writePermission);
 
 }

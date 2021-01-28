@@ -26,7 +26,8 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, RecordRejected}
-import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective._
 import io.swagger.annotations._
 import org.json4s.Formats
 
@@ -51,7 +52,7 @@ trait DataApi {
   import io.radicalbit.nsdb.web.validation.Validators._
 
   def writeCoordinator: ActorRef
-  def securityDirective: NSDbHttpSecurityDirective
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -74,26 +75,25 @@ trait DataApi {
     pathPrefix("data") {
       post {
         entity(as[InsertBody]) { insertBody =>
-          NSDbHttpSecurityDirective.extractRawHeaders { implicit rawHeaders =>
-            validateModel(insertBody).apply { validatedInsertBody =>
-              securityDirective.authorizeMetric(validatedInsertBody.db,
-                                                validatedInsertBody.namespace,
-                                                validatedInsertBody.metric,
-                                                writePermission = true) {
-                onComplete(
-                  writeCoordinator ? MapInput(validatedInsertBody.bit.timestamp,
-                                              validatedInsertBody.db,
-                                              validatedInsertBody.namespace,
-                                              validatedInsertBody.metric,
-                                              validatedInsertBody.bit)) {
-                  case Success(_: InputMapped) =>
-                    complete("OK")
-                  case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
-                    complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
-                  case Success(_) =>
-                    complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
+          validateModel(insertBody).apply { validatedInsertBody =>
+            withMetricAuthorization(validatedInsertBody.db,
+                                    validatedInsertBody.namespace,
+                                    validatedInsertBody.metric,
+                                    writePermission = true,
+                                    authorizationProvider = authorizationProvider) {
+              onComplete(
+                writeCoordinator ? MapInput(validatedInsertBody.bit.timestamp,
+                                            validatedInsertBody.db,
+                                            validatedInsertBody.namespace,
+                                            validatedInsertBody.metric,
+                                            validatedInsertBody.bit)) {
+                case Success(_: InputMapped) =>
+                  complete("OK")
+                case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
+                  complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
+                case Success(_) =>
+                  complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
               }
             }
           }

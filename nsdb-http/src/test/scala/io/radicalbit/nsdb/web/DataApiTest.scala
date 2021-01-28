@@ -69,8 +69,7 @@ class DataApiTest extends NSDbFlatSpec with ScalatestRouteTest with MyRejectionH
   val emptyAuthenticationProvider: NSDbAuthorizationProvider  = NSDbAuthorizationProvider.empty
 
   val secureDataApi = new DataApi {
-    override def securityDirective: NSDbHttpSecurityDirective =
-      new NSDbHttpSecurityDirective(secureAuthenticationProvider)
+    override def authorizationProvider = secureAuthenticationProvider
 
     override def writeCoordinator: ActorRef       = writeCoordinatorActor
     override implicit val formats: DefaultFormats = DefaultFormats
@@ -78,8 +77,7 @@ class DataApiTest extends NSDbFlatSpec with ScalatestRouteTest with MyRejectionH
   }
 
   val emptyDataApi = new DataApi {
-    override def securityDirective: NSDbHttpSecurityDirective =
-      new NSDbHttpSecurityDirective(emptyAuthenticationProvider)
+    override def authorizationProvider = emptyAuthenticationProvider
 
     override def writeCoordinator: ActorRef = writeCoordinatorActor
 

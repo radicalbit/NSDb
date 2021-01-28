@@ -40,8 +40,7 @@ class QueryValidationApiSpec extends NSDbFlatSpec with ScalatestRouteTest {
   val emptyAuthenticationProvider: NSDbAuthorizationProvider  = NSDbAuthorizationProvider.empty
 
   val secureQueryValidationApi = new QueryValidationApi {
-    override def securityDirective: NSDbHttpSecurityDirective =
-      new NSDbHttpSecurityDirective(secureAuthenticationProvider)
+    override def authorizationProvider = secureAuthenticationProvider
 
     override def readCoordinator: ActorRef        = readCoordinatorActor
     override implicit val formats: DefaultFormats = DefaultFormats
@@ -50,8 +49,7 @@ class QueryValidationApiSpec extends NSDbFlatSpec with ScalatestRouteTest {
   }
 
   val emptyQueryVAlidationApi = new QueryValidationApi {
-    override def securityDirective: NSDbHttpSecurityDirective =
-      new NSDbHttpSecurityDirective(emptyAuthenticationProvider)
+    override def authorizationProvider = emptyAuthenticationProvider
 
     override def readCoordinator: ActorRef = readCoordinatorActor
 

@@ -202,10 +202,8 @@ lazy val `nsdb-security` = project
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
   .settings(crossPaths := false)
-//  .settings(libraryDependencies ++= Dependencies.Security.libraries)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
-//  .dependsOn(`nsdb-common`)
 lazy val `nsdb-sql` = project
   .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)

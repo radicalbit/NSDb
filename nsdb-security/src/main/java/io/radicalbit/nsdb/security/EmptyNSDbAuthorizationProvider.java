@@ -19,6 +19,9 @@ package io.radicalbit.nsdb.security;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Authorization providers that does not perform any check whatsoever, and successfully forwards all the requests.
+ */
 public class EmptyNSDbAuthorizationProvider implements NSDbAuthorizationProvider {
 
 

@@ -58,16 +58,13 @@ trait WebResources extends WsResources with SSLSupport {
                       metadataCoordinator: ActorRef,
                       publisher: ActorRef,
                       authProvider: NSDbAuthorizationProvider)(implicit logger: LoggingAdapter) = {
-//    authProvider match {
-//      case Right(provider) =>
     Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
 
-    val api: Route = wsResources(publisher, authProvider) ~ new ApiResources(
-      publisher,
-      readCoordinator,
-      writeCoordinator,
-      metadataCoordinator,
-      new NSDbHttpSecurityDirective(authProvider)).apiResources(config)
+    val api: Route = wsResources(publisher, authProvider) ~ new ApiResources(publisher,
+                                                                             readCoordinator,
+                                                                             writeCoordinator,
+                                                                             metadataCoordinator,
+                                                                             authProvider).apiResources(config)
 
     val httpExt = akka.http.scaladsl.Http()
 
@@ -92,9 +89,6 @@ trait WebResources extends WsResources with SSLSupport {
         }
       Await.result(system.whenTerminated, 60 seconds)
     }
-//      case Left(ex) =>
-//        logger.error("error on loading authorization provider", ex)
-//        System.exit(1)
   }
 
 }

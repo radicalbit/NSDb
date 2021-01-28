@@ -27,10 +27,10 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ValidateStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
-import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective
-import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective.extractRawHeaders
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective._
 import io.swagger.annotations._
 import org.json4s.Formats
 
@@ -51,7 +51,7 @@ trait QueryValidationApi {
   import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
-  def securityDirective: NSDbHttpSecurityDirective
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -76,7 +76,11 @@ trait QueryValidationApi {
       post {
         entity(as[QueryValidationBody]) { qb =>
           extractRawHeaders { implicit rawHeaders =>
-            securityDirective.authorizeMetric(qb.db, qb.namespace, qb.metric, writePermission = false) {
+            withMetricAuthorization(qb.db,
+                                    qb.namespace,
+                                    qb.metric,
+                                    writePermission = false,
+                                    authorizationProvider = authorizationProvider) {
               new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString) match {
                 case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ValidateStatement(statement)) {

@@ -265,15 +265,6 @@ object Dependencies {
     )
   }
 
-//  object Security {
-//    lazy val libraries = Seq(
-//      scala_logging.scala_logging,
-//      akka.actor,
-//      akka_http.default,
-//      akka.stream
-//    )
-//  }
-
   object ScalaAPI {
     lazy val libraries = Seq.empty
   }

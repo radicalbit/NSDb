@@ -55,8 +55,8 @@ trait WsResources {
     * @param publishInterval       interval of data publishing operation.
     * @param retentionSize         size of the buffer used to retain events in case of no subscribers.
     * @param publisherActor        the global [[io.radicalbit.nsdb.actors.PublisherActor]].
-    * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
-    * @param authProvider          the configured [[NSDbHttpSecurityDirective]].
+    * @param wsSubProtocols        all the subprotocols of the webSocket request.
+    * @param authProvider          the configured [[NSDbAuthorizationProvider]].
     * @return the [[Flow]] that models the WebSocket.
     */
   private def newStream(clientAddress: String,

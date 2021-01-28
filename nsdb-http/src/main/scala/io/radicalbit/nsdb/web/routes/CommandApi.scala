@@ -26,8 +26,12 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective
-import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective.extractRawHeaders
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective.{
+  withDbAuthorization,
+  withMetricAuthorization,
+  withNamespaceAuthorization
+}
 import io.swagger.annotations._
 import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
@@ -43,7 +47,7 @@ trait CommandApi {
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
   def metadataCoordinator: ActorRef
-  def securityDirective: NSDbHttpSecurityDirective
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -74,8 +78,6 @@ trait CommandApi {
     pathPrefix("commands") {
       extractRequest { request =>
         request.header
-//      request.getHeader("").map(_.value())
-//      optionalHeaderValueByName(securityDirective.headerName) { header =>
         path("dbs") {
           (pathEnd & get) {
             onComplete(readCoordinator ? GetDbs) {
@@ -105,17 +107,15 @@ trait CommandApi {
     ))
   def showNamespaces: Route =
     pathPrefix("commands") {
-      extractRawHeaders { implicit rawHeaders =>
-        pathPrefix(Segment) { db =>
-          path("namespaces") {
-            (pathEnd & get) {
-              securityDirective.authorizeDb(db, false) {
-                onComplete(readCoordinator ? GetNamespaces(db)) {
-                  case Success(NamespacesGot(_, namespaces)) =>
-                    complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
-                  case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
+      pathPrefix(Segment) { db =>
+        path("namespaces") {
+          (pathEnd & get) {
+            withDbAuthorization(db, false, authorizationProvider) {
+              onComplete(readCoordinator ? GetNamespaces(db)) {
+                case Success(NamespacesGot(_, namespaces)) =>
+                  complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
               }
             }
           }
@@ -144,17 +144,15 @@ trait CommandApi {
     ))
   def dropNamespace: Route = {
     pathPrefix("commands") {
-      extractRawHeaders { implicit rawHeaders =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathEnd {
-              delete {
-                securityDirective.authorizeNamespace(db, namespace, true) {
-                  onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
-                    case Success(NamespaceDeleted(_, _)) => complete("Ok")
-                    case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  }
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathEnd {
+            delete {
+              withNamespaceAuthorization(db, namespace, true, authorizationProvider) {
+                onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
+                  case Success(NamespaceDeleted(_, _)) => complete("Ok")
+                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }
@@ -185,19 +183,17 @@ trait CommandApi {
     ))
   def showMetrics: Route =
     pathPrefix("commands") {
-      extractRawHeaders { implicit rawHeaders =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            path("metrics") {
-              pathEnd {
-                get {
-                  securityDirective.authorizeNamespace(db, namespace, false) {
-                    onComplete(readCoordinator ? GetMetrics(db, namespace)) {
-                      case Success(MetricsGot(_, _, metrics)) =>
-                        complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
-                      case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                    }
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          path("metrics") {
+            pathEnd {
+              get {
+                withNamespaceAuthorization(db, namespace, false, authorizationProvider) {
+                  onComplete(readCoordinator ? GetMetrics(db, namespace)) {
+                    case Success(MetricsGot(_, _, metrics)) =>
+                      complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
@@ -230,55 +226,53 @@ trait CommandApi {
     ))
   def describeMetric: Route =
     pathPrefix("commands") {
-      extractRawHeaders { implicit rawHeaders =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathPrefix(Segment) { metric =>
-              (pathEnd & get) {
-                securityDirective.authorizeMetric(db, namespace, metric, false) {
-                  onComplete(
-                    Future.sequence(
-                      Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
-                          (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
-                    )) {
-                    case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
-                      complete(
-                        HttpEntity(
-                          ContentTypes.`application/json`,
-                          write(
-                            DescribeMetricResponse(
-                              schema.fieldsMap.map {
-                                case (_, field) =>
-                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                              }.toSet,
-                              metricInfo
-                            )
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathPrefix(Segment) { metric =>
+            (pathEnd & get) {
+              withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
+                onComplete(
+                  Future.sequence(
+                    Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
+                        (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
+                  )) {
+                  case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
+                    complete(
+                      HttpEntity(
+                        ContentTypes.`application/json`,
+                        write(
+                          DescribeMetricResponse(
+                            schema.fieldsMap.map {
+                              case (_, field) =>
+                                Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                            }.toSet,
+                            metricInfo
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
-                      complete(
-                        HttpEntity(
-                          ContentTypes.`application/json`,
-                          write(
-                            DescribeMetricResponse(
-                              schemaOpt
-                                .map(s =>
-                                  s.fieldsMap.map {
-                                    case (_, field) =>
-                                      Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                                  }.toSet)
-                                .getOrElse(Set.empty),
-                              Some(metricInfo)
-                            )
+                    )
+                  case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
+                    complete(
+                      HttpEntity(
+                        ContentTypes.`application/json`,
+                        write(
+                          DescribeMetricResponse(
+                            schemaOpt
+                              .map(s =>
+                                s.fieldsMap.map {
+                                  case (_, field) =>
+                                    Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                                }.toSet)
+                              .getOrElse(Set.empty),
+                            Some(metricInfo)
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
-                      complete(HttpResponse(NotFound))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                    case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  }
+                    )
+                  case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
+                    complete(HttpResponse(NotFound))
+                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                  case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                 }
               }
             }
@@ -309,17 +303,15 @@ trait CommandApi {
     ))
   def dropMetric: Route =
     pathPrefix("commands") {
-      extractRawHeaders { implicit rawHeaders =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathPrefix(Segment) { metric =>
-              delete {
-                securityDirective.authorizeMetric(db, namespace, metric, true) {
-                  onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
-                    case Success(MetricDropped(_, _, _)) => complete("Ok")
-                    case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  }
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathPrefix(Segment) { metric =>
+            delete {
+              withMetricAuthorization(db, namespace, metric, true, authorizationProvider) {
+                onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
+                  case Success(MetricDropped(_, _, _)) => complete("Ok")
+                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }

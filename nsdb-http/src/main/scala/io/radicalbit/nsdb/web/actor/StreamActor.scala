@@ -35,8 +35,8 @@ import io.radicalbit.nsdb.web.actor.StreamActor._
 import kamon.Kamon
 
 import java.util.concurrent.TimeUnit
-import scala.collection.mutable
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the WebSocket channel.
@@ -44,8 +44,8 @@ import scala.collection.JavaConverters._
   * @param clientAddress         the client address that established the connection (for logging and monitoring purposes).
   * @param publisher             global Publisher Actor.
   * @param publishInterval       publish to web socket interval.
-  * @param securityHeaderPayload payload of the security header. @see NSDBAuthProvider#headerName.
-  * @param authProvider          the configured [[NSDbAuthProvider]]
+  * @param wsSubProtocols        List of all webSocket subprotocols.
+  * @param authProvider          the configured [[NSDbAuthorizationProvider]]
   */
 class StreamActor(clientAddress: String,
                   publisher: ActorRef,

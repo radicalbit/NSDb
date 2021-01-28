@@ -51,8 +51,7 @@ class QueryApiSpec extends NSDbSpec with ScalatestRouteTest {
     : Formats = DefaultFormats ++ CustomSerializers.customSerializers + CustomSerializerForTest + BitSerializer
 
   val secureQueryApi = new QueryApi {
-    override def securityDirective: NSDbHttpSecurityDirective =
-      new NSDbHttpSecurityDirective(secureAuthenticationProvider)
+    override def authorizationProvider = secureAuthenticationProvider
 
     override def readCoordinator: ActorRef  = readCoordinatorActor
     override def writeCoordinator: ActorRef = writeCoordinatorActor
@@ -61,8 +60,7 @@ class QueryApiSpec extends NSDbSpec with ScalatestRouteTest {
   }
 
   val emptyQueryApi = new QueryApi {
-    override def securityDirective: NSDbHttpSecurityDirective =
-      new NSDbHttpSecurityDirective(emptyAuthenticationProvider)
+    override def authorizationProvider = emptyAuthenticationProvider
 
     override def readCoordinator: ActorRef  = readCoordinatorActor
     override def writeCoordinator: ActorRef = writeCoordinatorActor
