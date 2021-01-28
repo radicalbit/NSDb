@@ -19,11 +19,12 @@ syntax = "proto3";
 package io.radicalbit.nsdb.rpc;
 
 import "common.proto";
+import "security.proto";
 
 message RPCInsert {
-    string database = 1;
-    string namespace = 2;
-    string metric = 3;
+    string database = 1 [(AuthorizationField) = DB];
+    string namespace = 2 [(AuthorizationField) = NAMESPACE];
+    string metric = 3 [(AuthorizationField) = METRIC];
     int64 timestamp = 4;
     oneof value {
         double decimalValue = 5;

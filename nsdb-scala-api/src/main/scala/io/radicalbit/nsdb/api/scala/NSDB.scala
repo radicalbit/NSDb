@@ -133,6 +133,7 @@ case class NSDB(host: String, port: Int, token: Option[String] = None)(
     val sqlStatementRequest =
       SQLRequestStatement(db = sqlStatement.db,
                           namespace = sqlStatement.namespace,
+                          metric = sqlStatement.metric,
                           statement = sqlStatement.sQLStatement)
     client.executeSQLStatement(sqlStatementRequest, token.getOrElse(""))
   }
@@ -171,17 +172,9 @@ case class Namespace(db: String, name: String) {
     * @return a bit with empty dimensions and value.
     */
   def metric(metric: String): Bit = Bit(db = db, namespace = name, metric = metric)
-
-  /**
-    * Builds the query to be executed.
-    * @param queryString raw query.
-    * @return auxiliary [[SQLStatement]] case class.
-    */
-  def query(queryString: String): SQLStatement = SQLStatement(db = db, namespace = name, sQLStatement = queryString)
-
 }
 
-case class SQLStatement(db: String, namespace: String, sQLStatement: String)
+case class SQLStatement(db: String, namespace: String, metric: String, sQLStatement: String)
 
 /**
   * Auxiliary case class useful to define a bit to be inserted.
@@ -199,6 +192,14 @@ case class Bit protected (db: String,
                           value: RPCInsert.Value = RPCInsert.Value.Empty,
                           dimensions: ListBuffer[DimensionAPI] = ListBuffer.empty[DimensionAPI],
                           tags: ListBuffer[TagAPI] = ListBuffer.empty[TagAPI]) {
+
+  /**
+    * Builds the query to be executed.
+    * @param queryString raw query.
+    * @return auxiliary [[SQLStatement]] case class.
+    */
+  def query(queryString: String): SQLStatement =
+    SQLStatement(db = db, namespace = namespace, metric = metric, sQLStatement = queryString)
 
   /**
     * Builds [[MetricInfo]] from an existing bit providing a shard interval

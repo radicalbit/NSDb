@@ -39,8 +39,10 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
           case message: GeneratedMessage =>
             val authorizationLevel: Map[AuthorizationLevel, String] = message.toPMessage.value.collect {
               case (fieldDescriptor: FieldDescriptor, fieldValue: PValue)
-                  if !fieldDescriptor.getOptions.extension(SecurityProto.authorizationField).isUnrecognized =>
-                fieldDescriptor.getOptions.extension(SecurityProto.authorizationField) -> fieldValue.as[String]
+                  if !fieldDescriptor.getOptions.extension(SecurityProto.authorizationField).isNone =>
+                val authLevel: AuthorizationLevel =
+                  fieldDescriptor.getOptions.extension(SecurityProto.authorizationField)
+                authLevel -> fieldValue.as[String]
             }
 
             val authorizationResponse = AuthInfo.validate(authorizationLevel) match {
@@ -56,9 +58,9 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
 
             if (authorizationResponse.isSuccess) super.onMessage(request)
             else
-              call.close(Status.PERMISSION_DENIED.withDescription(""), new Metadata)
+              call.close(Status.PERMISSION_DENIED.withDescription(authorizationResponse.getFailReason), new Metadata)
           case _ =>
-            call.close(Status.FAILED_PRECONDITION.withDescription(""), new Metadata)
+            call.close(Status.FAILED_PRECONDITION.withDescription(s"Wrong Msssage Type $request"), new Metadata)
         }
       }
     }
@@ -72,8 +74,6 @@ object GrpcAuthInterceptor {
   private case class DbAuthInto private (db: String)                                        extends AuthInfo
   private case class NamespaceAuthInto private (db: String, namespace: String)              extends AuthInfo
   private case class MetricAuthInto private (db: String, namespace: String, metric: String) extends AuthInfo
-
-//  private (db: Option[String], namespace: Option[String], metric: Option[String])
 
   object AuthInfo {
     def validate(map: Map[AuthorizationLevel, String]): Either[String, AuthInfo] = {

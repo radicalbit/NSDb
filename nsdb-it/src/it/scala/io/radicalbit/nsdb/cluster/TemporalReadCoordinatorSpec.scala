@@ -70,6 +70,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalLongMetric.name} group by interval 30s")
 
       eventually {
@@ -96,7 +97,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalLongMetric.name} where timestamp > 200000 group by interval 30s")
 
       eventually {
@@ -116,7 +117,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalLongMetric.name} where timestamp > 100000 group by interval 30s")
 
       eventually {
@@ -139,7 +140,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalLongMetric.name} group by interval 30s limit 2")
 
       eventually {
@@ -162,7 +163,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalLongMetric.name} group by interval 30s order by timestamp desc")
 
       eventually {
@@ -189,7 +190,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalLongMetric.name} group by interval 60s")
 
       eventually {
@@ -213,7 +214,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalDoubleMetric.name} group by interval 30s")
 
       eventually {
@@ -239,7 +240,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalDoubleMetric.name} group by interval 60s")
 
       eventually {
@@ -263,7 +264,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalDoubleMetric.name} group by interval 100s")
 
       eventually {
@@ -287,7 +288,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count(*) from ${TemporalDoubleMetric.name} where timestamp >= 60000 group by interval 100s")
 
       eventually {
@@ -312,7 +313,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
         val query = nsdb
           .db(db)
-          .namespace(namespace)
+          .namespace(namespace).metric(TemporalLongMetric.name)
           .query(s"select sum(*) from ${TemporalDoubleMetric.name} group by interval 30s")
 
         eventually {
@@ -339,7 +340,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select max(*) from ${TemporalLongMetric.name} group by interval 30s")
 
       eventually {
@@ -366,7 +367,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select max(*) from ${TemporalDoubleMetric.name} group by interval 30s")
 
       eventually {
@@ -393,7 +394,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select min(*) from ${TemporalLongMetric.name} group by interval 30s")
 
       eventually {
@@ -420,7 +421,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select min(*) from ${TemporalDoubleMetric.name} group by interval 30s")
 
       eventually {
@@ -448,7 +449,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select avg(*) from ${TemporalLongMetric.name} group by interval 50s")
 
       eventually {
@@ -474,7 +475,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select avg(*) from ${TemporalDoubleMetric.name} group by interval 30s")
 
       eventually {
@@ -501,7 +502,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count( distinct *) from ${TemporalLongMetric.name} group by interval 50s")
 
       eventually {
@@ -526,7 +527,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(TemporalLongMetric.name)
         .query(s"select count( distinct height) from ${TemporalLongMetric.name} group by interval 30s order by timestamp desc")
 
       eventually {

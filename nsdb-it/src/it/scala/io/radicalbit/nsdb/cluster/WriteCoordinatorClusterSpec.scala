@@ -62,6 +62,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
     val query = nsdb
       .db("root")
       .namespace("registry")
+      .metric("people")
       .query("select * from people limit 1")
 
     eventually {
@@ -99,6 +100,7 @@ class WriteCoordinatorClusterSpec extends MiniClusterSpec {
     val query = nsdb
       .db("root")
       .namespace("registry")
+      .metric("people")
       .query("select * from people limit 2")
 
     eventually {

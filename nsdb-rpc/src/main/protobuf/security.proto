@@ -5,9 +5,10 @@ package io.radicalbit.nsdb.rpc;
 import "google/protobuf/descriptor.proto";
 
 enum AuthorizationLevel {
-  DB = 0;
-  NAMESPACE = 1;
-  METRIC = 2;
+  NONE = 0;
+  DB = 1;
+  NAMESPACE = 2;
+  METRIC = 3;
 }
 
 extend google.protobuf.ServiceOptions {

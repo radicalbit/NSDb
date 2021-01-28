@@ -58,6 +58,7 @@ object NSDBMainRead extends App {
   val query = nsdb
     .db("root")
     .namespace("registry")
+    .metric("people")
     .query("select * from people limit 1")
 
   val readRes: Future[SQLStatementResponse] = nsdb.execute(query)

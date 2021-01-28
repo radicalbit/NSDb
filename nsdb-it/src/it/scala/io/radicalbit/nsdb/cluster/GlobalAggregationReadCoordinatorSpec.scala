@@ -70,6 +70,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select count(*) from ${LongMetric.name}")
 
       eventually {
@@ -91,6 +92,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select count(*) from ${LongMetric.name} limit 4")
 
       eventually {
@@ -112,6 +114,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(distinct *) from ${AggregationLongMetric.name}")
 
       eventually {
@@ -133,6 +136,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(distinct height) from ${AggregationLongMetric.name}")
 
       eventually {
@@ -154,6 +158,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select avg(*) from ${LongMetric.name}")
 
       eventually {
@@ -175,6 +180,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select max(*) from ${LongMetric.name}")
 
       eventually {
@@ -196,6 +202,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select min(*) from ${LongMetric.name}")
 
       eventually {
@@ -217,6 +224,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select sum(*) from ${LongMetric.name}")
 
       eventually {
@@ -238,6 +246,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select max(*), min(*), sum(*), avg(*), count(*), count(distinct *) from ${LongMetric.name}")
 
       eventually {
@@ -259,6 +268,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(
           s"select count(*), count(distinct *), avg(*), max(*), min(*), sum(*), name from ${AggregationLongMetric.name} order by timestamp")
 
@@ -343,6 +353,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select avg(*), name from ${LongMetric.name}")
 
       eventually {
@@ -372,6 +383,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select max(*), name from ${LongMetric.name}")
 
       eventually {
@@ -401,6 +413,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select min(*), name from ${LongMetric.name}")
 
       eventually {
@@ -430,6 +443,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select sum(*), name from ${LongMetric.name}")
 
       eventually {
@@ -458,6 +472,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(*), min(*), max(*), sum(*) from ${AggregationLongMetric.name} where height < 31")
 
       eventually {
@@ -482,6 +497,7 @@ class GlobalAggregationReadCoordinatorSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select first(*) from ${LongMetric.name}")
 
       eventually {
