@@ -17,8 +17,8 @@
 package io.radicalbit.nsdb.web
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
-import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events._
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.web.Filters._

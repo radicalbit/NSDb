@@ -20,7 +20,7 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{SubscribedByQueryString, SubscriptionByQueryStringFailed}
 import io.radicalbit.nsdb.actors.{EmptyReadCoordinator, PublisherActor}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema

@@ -27,7 +27,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.Unsubscribed
 import io.radicalbit.nsdb.actors.PublisherActor.{LateTemporalBucketKey, NSDbQuery, TemporalBucket}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{
   RecordsPublished,
   SubscribedByQueryString,
   SubscriptionByQueryStringFailed

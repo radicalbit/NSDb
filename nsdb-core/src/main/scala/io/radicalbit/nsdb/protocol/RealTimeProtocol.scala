@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.protocol
 
 import akka.dispatch.ControlMessage
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}

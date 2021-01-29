@@ -20,13 +20,12 @@ import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
-import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.monitoring.NSDbMonitoring
-import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events._
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
 import io.radicalbit.nsdb.web.Filters.Filter
@@ -35,7 +34,6 @@ import io.radicalbit.nsdb.web.actor.StreamActor._
 import kamon.Kamon
 
 import java.util.concurrent.TimeUnit
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 /**
@@ -44,14 +42,10 @@ import scala.collection.mutable
   * @param clientAddress         the client address that established the connection (for logging and monitoring purposes).
   * @param publisher             global Publisher Actor.
   * @param publishInterval       publish to web socket interval.
-  * @param wsSubProtocols        List of all webSocket subprotocols.
-  * @param authProvider          the configured [[NSDbAuthorizationProvider]]
   */
 class StreamActor(clientAddress: String,
                   publisher: ActorRef,
-                  publishInterval: Int,
-                  wsSubProtocols: Seq[String],
-                  authProvider: NSDbAuthorizationProvider)
+                  publishInterval: Int)
     extends ActorPathLogging {
 
   implicit val timeout: Timeout =
@@ -63,8 +57,6 @@ class StreamActor(clientAddress: String,
   private val buffer: mutable.Queue[RecordsPublished] = mutable.Queue.empty
 
   lazy val kamonMetric = Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
-
-  lazy val securityHeaderPayload = authProvider.extractWsSecurityPayload(wsSubProtocols.asJava)
 
   override def preStart(): Unit = {
     kamonMetric.increment()
@@ -95,29 +87,20 @@ class StreamActor(clientAddress: String,
     */
   def connected(wsActor: ActorRef): Receive = {
     case RegisterQuery(db, namespace, metric, inputQueryString, from, to, filtersOpt) =>
-      val checkAuthorization =
-        authProvider.checkMetricAuth(db, namespace, metric, securityHeaderPayload, false)
-      if (checkAuthorization.isSuccess)
-        QueryEnriched(db,
-                      namespace,
-                      inputQueryString,
-                      from.map(_.rawValue),
-                      to.map(_.rawValue),
-                      filtersOpt.getOrElse(Seq.empty)) match {
-          case SqlStatementParserSuccess(queryString, statement: SelectSQLStatement) =>
-            publisher ! SubscribeBySqlStatement(self, db, namespace, metric, queryString, statement)
-          case SqlStatementParserSuccess(queryString, _) =>
-            wsActor ! OutgoingMessage(
-              SubscriptionByQueryStringFailed(db, namespace, metric, queryString, "not a select statement"))
-          case SqlStatementParserFailure(queryString, error) =>
-            wsActor ! OutgoingMessage(SubscriptionByQueryStringFailed(db, namespace, metric, queryString, error))
-        } else
-        wsActor ! OutgoingMessage(
-          SubscriptionByQueryStringFailed(db,
-                                          namespace,
-                                          metric,
-                                          inputQueryString,
-                                          s"unauthorized ${checkAuthorization.getFailReason}"))
+      QueryEnriched(db,
+                    namespace,
+                    inputQueryString,
+                    from.map(_.rawValue),
+                    to.map(_.rawValue),
+                    filtersOpt.getOrElse(Seq.empty)) match {
+        case SqlStatementParserSuccess(queryString, statement: SelectSQLStatement) =>
+          publisher ! SubscribeBySqlStatement(self, db, namespace, metric, queryString, statement)
+        case SqlStatementParserSuccess(queryString, _) =>
+          wsActor ! OutgoingMessage(
+            SubscriptionByQueryStringFailed(db, namespace, metric, queryString, "not a select statement"))
+        case SqlStatementParserFailure(queryString, error) =>
+          wsActor ! OutgoingMessage(SubscriptionByQueryStringFailed(db, namespace, metric, queryString, error))
+      }
     case msg: SubscribedByQueryString =>
       wsActor ! OutgoingMessage(msg)
     case msg: SubscriptionByQueryStringFailed => wsActor ! OutgoingMessage(msg)
@@ -151,8 +134,6 @@ object StreamActor {
 
   def props(clientAddress: String,
             publisherActor: ActorRef,
-            refreshPeriod: Int,
-            wsSubProtocols: Seq[String],
-            authProvider: NSDbAuthorizationProvider) =
-    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, wsSubProtocols, authProvider))
+            refreshPeriod: Int) =
+    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod))
 }

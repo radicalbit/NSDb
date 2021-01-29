@@ -22,12 +22,10 @@ import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
 import io.radicalbit.nsdb.rpc.streaming.SQLStreamingResponse
 
-class ObserverActor(publisherActor: ActorRef) extends Actor {
-  override def receive: Receive =
-}
+//class ObserverActor(publisherActor: ActorRef) extends Actor {
+//  override def receive: Receive =
+//}
 
 class GrpcNSDbStreaming(publisherActor: ActorRef) extends NSDbStreaming {
-  override def streamSQL(request: SQLRequestStatement, responseObserver: StreamObserver[SQLStreamingResponse]): Unit = {
-
-  }
+  override def streamSQL(request: SQLRequestStatement, responseObserver: StreamObserver[SQLStreamingResponse]): Unit = {}
 }
