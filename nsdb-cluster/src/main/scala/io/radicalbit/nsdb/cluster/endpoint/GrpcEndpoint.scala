@@ -35,6 +35,7 @@ import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.restore.{RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.server.GRPCServer
+import io.radicalbit.nsdb.rpc.server.endpoint.{GrpcEndpointServiceCommand, GrpcEndpointServiceSQL}
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser

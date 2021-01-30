@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.endpoint
+package io.radicalbit.nsdb.rpc.server.endpoint
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.ActorRef
 import io.grpc.stub.StreamObserver
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming

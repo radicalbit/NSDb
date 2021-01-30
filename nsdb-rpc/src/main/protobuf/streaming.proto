@@ -19,18 +19,38 @@ syntax = "proto3";
 package io.radicalbit.nsdb.rpc;
 import "requestSQL.proto";
 import "common.proto";
+import "security.proto";
+
+message SubscribedByQueryString {
+  string quid = 1;
+  repeated Bit records = 2;
+}
+
+message SubscriptionByQueryStringFailed {
+  string queryString = 1;
+  string reason = 2;
+  string message = 3;
+}
+
+message RecordsPublished {
+  string quid = 1;
+  repeated Bit records = 2;
+}
+
 
 message SQLStreamingResponse{
   string db = 1;
   string namespace = 2;
   string metric = 3;
-  bool completedSuccessfully = 4;
-  string reason = 5;
-  string message = 6;
-  Bit records = 7;
+  oneof payload {
+    SubscribedByQueryString subscribedByQueryString = 4;
+    SubscriptionByQueryStringFailed subscriptionByQueryStringFailed = 5;
+    RecordsPublished recordsPublished = 6;
+  }
 }
 
 
 service NSDbStreaming {
+  option (isAuthorized) = true;
   rpc streamSQL(io.radicalbit.nsdb.rpc.SQLRequestStatement) returns (stream io.radicalbit.nsdb.rpc.SQLStreamingResponse) {}
 }

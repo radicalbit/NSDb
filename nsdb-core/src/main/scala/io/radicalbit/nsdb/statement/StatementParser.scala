@@ -36,7 +36,7 @@ object StatementParser {
   def parseStatement(statement: DeleteSQLStatement, schema: Schema)(
       implicit timeContext: TimeContext): Either[String, ParsedQuery] = {
     val expParsed = ExpressionParser.parseExpression(Some(statement.condition.expression), schema.fieldsMap)
-    expParsed.map(exp => ParsedDeleteQuery(statement.namespace, statement.metric, exp.q))
+    expParsed.map(exp => ParsedDeleteQuery(statement.db, statement.namespace, statement.metric, exp.q))
   }
 
   /**
@@ -88,6 +88,7 @@ object StatementParser {
           case (Some(group: SimpleGroupByAggregation), List(SimpleField(_, Some(agg)))) =>
             Right(
               ParsedAggregatedQuery(
+                statement.db,
                 statement.namespace,
                 statement.metric,
                 exp.q,
@@ -98,6 +99,7 @@ object StatementParser {
           case (Some(TemporalGroupByAggregation(interval, _, _)), List(SimpleField(_, Some(aggregation)))) =>
             Right(
               ParsedTemporalAggregatedQuery(
+                statement.db,
                 statement.namespace,
                 statement.metric,
                 exp.q,
@@ -119,6 +121,7 @@ object StatementParser {
             val (aggregatedFields, plainFields) = fieldsList.partition(_.aggregation.isDefined)
             Right(
               ParsedGlobalAggregatedQuery(
+                statement.db,
                 statement.namespace,
                 statement.metric,
                 exp.q,
@@ -130,6 +133,7 @@ object StatementParser {
           case (None, fieldsList) =>
             Right(
               ParsedSimpleQuery(
+                statement.db,
                 statement.namespace,
                 statement.metric,
                 exp.q,
@@ -147,6 +151,7 @@ object StatementParser {
     * Query to be used directly against lucene indexes. It contains the internal [[Query]] as well as the namespace and metric info.
     */
   sealed trait ParsedQuery {
+    val db: String
     val namespace: String
     val metric: String
     val q: Query
@@ -155,6 +160,7 @@ object StatementParser {
   /**
     * Internal query without aggregations.
     *
+    * @param db        query db.
     * @param namespace query namespace.
     * @param metric    query metric.
     * @param q         lucene's [[Query]]
@@ -163,7 +169,8 @@ object StatementParser {
     * @param fields    subset of fields to be included in the results .
     * @param sort      lucene [[Sort]] clause. None if no sort has been supplied.
     */
-  case class ParsedSimpleQuery(namespace: String,
+  case class ParsedSimpleQuery(db: String,
+                               namespace: String,
                                metric: String,
                                q: Query,
                                distinct: Boolean,
@@ -175,6 +182,7 @@ object StatementParser {
   /**
     * Internal query with aggregations
     *
+    * @param db              query db.
     * @param namespace        query namespace.
     * @param metric           query metric.
     * @param q                lucene [[Query]]
@@ -183,7 +191,8 @@ object StatementParser {
     * @param aggregations     list of global aggregations to be included in the results.
     * @param sort             lucene [[Sort]] clause. None if no sort has been supplied.
     */
-  case class ParsedGlobalAggregatedQuery(namespace: String,
+  case class ParsedGlobalAggregatedQuery(db: String,
+                                         namespace: String,
                                          metric: String,
                                          q: Query,
                                          limit: Int,
@@ -195,6 +204,7 @@ object StatementParser {
   /**
     * Internal query with group by aggregations
     *
+    * @param db              query db.
     * @param namespace       query namespace.
     * @param metric          query metric.
     * @param q               lucene's [[Query]]
@@ -202,7 +212,8 @@ object StatementParser {
     * @param sort            lucene [[Sort]] clause. None if no sort has been supplied.
     * @param limit           groups limit.
     */
-  case class ParsedAggregatedQuery(namespace: String,
+  case class ParsedAggregatedQuery(db: String,
+                                   namespace: String,
                                    metric: String,
                                    q: Query,
                                    aggregation: InternalStandardAggregation,
@@ -210,7 +221,8 @@ object StatementParser {
                                    limit: Option[Int] = None)
       extends ParsedQuery
 
-  case class ParsedTemporalAggregatedQuery(namespace: String,
+  case class ParsedTemporalAggregatedQuery(db: String,
+                                           namespace: String,
                                            metric: String,
                                            q: Query,
                                            interval: Long,
@@ -224,11 +236,12 @@ object StatementParser {
   /**
     * Internal query that maps a sql delete statement.
     *
+    * @param db        query db.
     * @param namespace query namespace.
     * @param metric    query metric.
     * @param q         lucene [[Query]]
     */
-  case class ParsedDeleteQuery(namespace: String, metric: String, q: Query) extends ParsedQuery
+  case class ParsedDeleteQuery(db: String, namespace: String, metric: String, q: Query) extends ParsedQuery
 
   sealed trait InternalAggregation
 

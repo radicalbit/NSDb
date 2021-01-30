@@ -58,6 +58,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -85,6 +86,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -109,6 +111,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -133,6 +136,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -157,6 +161,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -188,6 +193,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -236,6 +242,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -260,6 +267,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -284,6 +292,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -308,6 +317,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedGlobalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -339,6 +349,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -365,6 +376,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -391,6 +403,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -417,6 +430,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -443,6 +457,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -469,6 +484,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -495,6 +511,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -526,6 +543,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
@@ -554,6 +572,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedAggregatedQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -624,6 +643,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedTemporalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -650,6 +670,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedTemporalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -676,6 +697,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedTemporalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -702,6 +724,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedTemporalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -728,6 +751,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) shouldBe
           Right(
             ParsedTemporalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -750,6 +774,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
           schema
         ) shouldBe Right(
           ParsedTemporalAggregatedQuery(
+            "db",
             "registry",
             "people",
             new MatchAllDocsQuery(),
@@ -808,6 +833,7 @@ class StatementParserAggregationsSpec extends NSDbSpec {
         ) shouldBe
           Right(
             ParsedTemporalAggregatedQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),

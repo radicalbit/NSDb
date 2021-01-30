@@ -43,10 +43,7 @@ import scala.collection.mutable
   * @param publisher             global Publisher Actor.
   * @param publishInterval       publish to web socket interval.
   */
-class StreamActor(clientAddress: String,
-                  publisher: ActorRef,
-                  publishInterval: Int)
-    extends ActorPathLogging {
+class StreamActor(clientAddress: String, publisher: ActorRef, publishInterval: Int) extends ActorPathLogging {
 
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.stream.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
@@ -104,7 +101,7 @@ class StreamActor(clientAddress: String,
     case msg: SubscribedByQueryString =>
       wsActor ! OutgoingMessage(msg)
     case msg: SubscriptionByQueryStringFailed => wsActor ! OutgoingMessage(msg)
-    case msg @ RecordsPublished(_, _, _) =>
+    case msg @ RecordsPublished(_, _, _, _, _) =>
       buffer += msg
     case Terminate =>
       log.info("closing web socket connection from address {}", clientAddress)
@@ -132,8 +129,6 @@ object StreamActor {
                            filters: Option[Seq[Filter]] = None)
       extends NSDbSerializable
 
-  def props(clientAddress: String,
-            publisherActor: ActorRef,
-            refreshPeriod: Int) =
+  def props(clientAddress: String, publisherActor: ActorRef, refreshPeriod: Int) =
     Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod))
 }

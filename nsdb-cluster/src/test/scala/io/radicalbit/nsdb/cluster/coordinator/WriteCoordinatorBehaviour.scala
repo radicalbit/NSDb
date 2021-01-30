@@ -43,7 +43,7 @@ import scala.concurrent.duration._
 class TestSubscriber extends Actor {
   var receivedMessages = 0
   def receive: Receive = {
-    case RecordsPublished(_, _, _) =>
+    case RecordsPublished(_, _, _, _, _) =>
       receivedMessages += 1
   }
 }

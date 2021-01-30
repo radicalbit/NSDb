@@ -272,7 +272,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     case msg @ ExecuteSelectStatement(statement, schema, locations, _, timeContext, isSingleNode) =>
       log.debug("executing statement in metric reader actor {}", statement)
       StatementParser.parseStatement(statement, schema)(timeContext) match {
-        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
+        case Right(parsedStatement @ ParsedSimpleQuery(_, _, _, _, false, _, _, _)) =>
           retrieveAndOrderPlainResults(actorsForLocations(locations), parsedStatement, msg)
             .map {
               case SelectStatementExecuted(_, seq, schema) =>
@@ -284,7 +284,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               case err: SelectStatementFailed => err
             }
             .pipeTo(sender)
-        case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+        case Right(ParsedSimpleQuery(_, _, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           val distinctField = fields.head.name
 
           val filteredActors =
@@ -301,12 +301,12 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
           shardResults.pipeTo(sender)
 
-        case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
+        case Right(ParsedGlobalAggregatedQuery(_, _, _, _, _, fields, aggregations, _)) =>
           gatherShardResults(statement, actorsForLocations(locations), msg) { rawResults =>
             globalAggregationReduce(rawResults, fields, aggregations, statement, schema, isSingleNode)
           } pipeTo sender
 
-        case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, _, aggregation, _, _)) =>
           val filteredIndexes =
             actorsForLocations(locations)
 
@@ -315,7 +315,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
               internalAggregationReduce(_, schema, aggregation, isSingleNode))
 
           shardResults.pipeTo(sender)
-        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, aggregationType, _, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, _, _, aggregationType, _, _, _, _)) =>
           val actors =
             actorsForLocations(locations)
 

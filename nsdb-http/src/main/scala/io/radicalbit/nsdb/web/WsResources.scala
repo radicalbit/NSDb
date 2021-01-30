@@ -100,7 +100,6 @@ trait WsResources {
                                                   s"unauthorized ${authorizationResult.getFailReason}")
               case None => s"Message $text not handled by receiver"
             }
-//            text.parseJson.convertOpt[RegisterQuery] getOrElse
           case _ => "Message not handled by receiver"
         }
         .to(Sink.actorRef(connectedWsActor, Terminate, _.getMessage))

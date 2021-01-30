@@ -53,6 +53,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -106,6 +107,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -132,6 +134,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -177,6 +180,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, 4),
@@ -205,6 +209,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newExactQuery("timestamp", 10L),
@@ -230,6 +235,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new TermQuery(new Term("name", "TestString")),
@@ -254,6 +260,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               DoublePoint.newExactQuery("amount", 0),
@@ -293,6 +300,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new TermQuery(new Term("name", "0")),
@@ -324,6 +332,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 10L, Long.MaxValue),
@@ -352,6 +361,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               DoublePoint.newRangeQuery("amount", 10.0, Double.MaxValue),
@@ -402,6 +412,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -444,6 +455,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -491,6 +503,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -538,6 +551,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -573,6 +587,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -599,6 +614,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new MatchAllDocsQuery(),
@@ -632,6 +648,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2L, 4L),
@@ -653,7 +670,7 @@ class StatementParserSpec extends NSDbSpec {
                                                           fields = AllFields()),
                                        schema) should be(
           Right(
-            ParsedSimpleQuery("registry", "people", new MatchAllDocsQuery(), false, Int.MaxValue)
+            ParsedSimpleQuery("db", "registry", "people", new MatchAllDocsQuery(), false, Int.MaxValue)
           )
         )
       }
@@ -675,6 +692,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -710,6 +728,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -739,6 +758,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -775,6 +795,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -804,6 +825,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
@@ -840,6 +862,7 @@ class StatementParserSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()
