@@ -29,10 +29,10 @@ import scala.concurrent.duration._
   */
 object NSDBMainWrite extends App {
 
-  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb =
+    Await.result(NSDB.connect(host = "127.0.0.1", port = 7817, db = "root")(ExecutionContext.global), 10.seconds)
 
   val series = nsdb
-    .db("root")
     .namespace("registry")
     .metric("people")
     .value(new java.math.BigDecimal("13.5"))
@@ -51,10 +51,10 @@ object NSDBMainWrite extends App {
   */
 object NSDBMainRead extends App {
 
-  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb =
+    Await.result(NSDB.connect(host = "127.0.0.1", port = 7817, db = "root")(ExecutionContext.global), 10.seconds)
 
   val query = nsdb
-    .db("root")
     .namespace("registry")
     .metric("people")
     .query("select * from people limit 1")
@@ -69,10 +69,10 @@ object NSDBMainRead extends App {
   */
 object NSDBInitRead extends App {
 
-  val nsdb: NSDB = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb: NSDB =
+    Await.result(NSDB.connect(host = "127.0.0.1", port = 7817, db = "root")(ExecutionContext.global), 10.seconds)
 
   val init = nsdb
-    .db("root")
     .namespace("registry")
     .metric("people")
     .shardInterval("2d")
@@ -83,7 +83,6 @@ object NSDBInitRead extends App {
   println(Await.result(readRes, 10.seconds))
 
   val metricToDescribe = nsdb
-    .db("root")
     .namespace("registry")
     .metric("people")
 
@@ -96,11 +95,11 @@ object NSDBInitRead extends App {
   */
 object NSDBMainSecureRead extends App {
 
-  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb =
+    Await.result(NSDB.connect(host = "127.0.0.1", port = 7817, db = "root")(ExecutionContext.global), 10.seconds)
 
   val query = nsdb
     .withJwtToken("jwt token")
-    .db("root")
     .namespace("registry")
     .metric("people")
     .query("select * from people limit 1")

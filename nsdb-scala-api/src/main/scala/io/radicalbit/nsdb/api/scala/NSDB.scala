@@ -43,8 +43,9 @@ object NSDB {
     * @param executionContextExecutor implicit execution context.
     * @return a Future of a nsdb connection.
     */
-  def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
-    val connection = new NSDB(host = host, port = port)
+  def connect(host: String, port: Int, db: String)(
+      implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
+    val connection = new NSDB(host = host, port = port, db: String)
     connection.check.map(_ => connection)
   }
 
@@ -79,7 +80,7 @@ object NSDB {
   * @param tokenApplier implementation of [[TokenApplier]] that contains authorization token management logic.
   * @param executionContextExecutor implicit execution context to handle asynchronous methods
   */
-class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] = None)(
+class NSDB private (host: String, port: Int, db: String, tokenApplier: Option[TokenApplier] = None)(
     implicit executionContextExecutor: ExecutionContext) {
 
   /**
@@ -91,7 +92,7 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
     * Create a new instance of [[NSDB]] with a Jwt token.
     * @param token Jwt Authorization token.
     */
-  def withJwtToken(token: String): NSDB = new NSDB(host, port, Some(TokenAppliers.JWT(token)))
+  def withJwtToken(token: String): NSDB = new NSDB(host, port, db, Some(TokenAppliers.JWT(token)))
 
   /**
     * Create a new instance of [[NSDB]] with a custom token.
@@ -99,13 +100,15 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
     * @param tokenValue value of the token.
     */
   def withCustomToken(tokenName: String, tokenValue: String): NSDB =
-    new NSDB(host, port, Some(TokenAppliers.Custom(tokenName, tokenValue)))
+    new NSDB(host, port, db, Some(TokenAppliers.Custom(tokenName, tokenValue)))
 
   /**
     * Defines the db used to build the bit or the query.
-    * @param name the db name
+    * Defines the namespace for the builder.
+    * @param namespace namespace name.
+    * @return auxiliary namespace instance.
     */
-  def db(name: String): Db = Db(name)
+  def namespace(namespace: String): Namespace = Namespace(db, namespace)
 
   /**
     * Checks if a connection is healthy.
@@ -128,7 +131,8 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
         value = bit.value,
         dimensions = bit.dimensions.toMap,
         tags = bit.tags.toMap
-      ))
+      )
+    )
 
   /**
     * Writes a list of bits into NSdb using the current openend connection.
@@ -156,21 +160,6 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
     * Closes the connection. Here any allocated resources must be released.
     */
   def close(): Unit = client.close()
-}
-
-/**
-  * Auxiliary case class used to define the Db for the builder.
-  * @param name db name.
-  */
-case class Db(name: String) {
-
-  /**
-    * Defines the namespace for the builder.
-    * @param namespace namespace name.
-    * @return auxiliary namespace instance.
-    */
-  def namespace(namespace: String): Namespace = Namespace(name, namespace)
-
 }
 
 /**

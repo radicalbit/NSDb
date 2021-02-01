@@ -69,7 +69,7 @@ class StreamActor(clientAddress: String,
   lazy val kamonMetric = Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
 
   override def preStart(): Unit = {
-    kamonMetric.increment()
+//    kamonMetric.increment()
 
     context.system.scheduler.schedule(0.seconds, publishInterval.millis) {
       while (buffer.nonEmpty) observer.onNext(buffer.dequeue())
@@ -77,7 +77,7 @@ class StreamActor(clientAddress: String,
   }
 
   override def postStop(): Unit = {
-    kamonMetric.decrement()
+//    kamonMetric.decrement()
   }
 
   def receive: Receive = {
