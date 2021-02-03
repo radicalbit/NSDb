@@ -17,14 +17,18 @@
 package io.radicalbit.nsdb.rpc.server
 
 import io.grpc._
+import io.radicalbit.nsdb.client.rpc.JwtTokenApplier
 import io.radicalbit.nsdb.rpc.security.{AuthorizationLevel, SecurityProto}
 import io.radicalbit.nsdb.rpc.server.GrpcAuthInterceptor.{AuthInfo, DbAuthInto, MetricAuthInto, NamespaceAuthInto}
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider.AuthorizationResponse
+import org.slf4j.LoggerFactory
 import scalapb.GeneratedMessage
 import scalapb.descriptors.{FieldDescriptor, PValue}
 
 class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends ServerInterceptor {
+
+  private val log = LoggerFactory.getLogger(classOf[GrpcAuthInterceptor])
 
   override def interceptCall[ReqT, RespT](call: ServerCall[ReqT, RespT],
                                           headers: Metadata,
@@ -47,14 +51,19 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
 
             val authorizationResponse = AuthInfo.validate(authorizationLevel) match {
               case Right(DbAuthInto(db)) =>
+                log.debug(s"checking db auth from request $request")
                 authProvider.checkDbAuth(db, securityPayload, true)
               case Right(NamespaceAuthInto(db, namespace)) =>
+                log.debug(s"checking metric auth from request $request")
                 authProvider.checkNamespaceAuth(db, namespace, securityPayload, true)
               case Right(MetricAuthInto(db, namespace, metric)) =>
+                log.debug(s"checking db namespace from request $request")
                 authProvider.checkMetricAuth(db, namespace, metric, securityPayload, true)
               case Left(error) =>
                 new AuthorizationResponse(false, error)
             }
+
+            log.debug(s"got authorization response $authorizationResponse from request $request")
 
             if (authorizationResponse.isSuccess) super.onMessage(request)
             else
