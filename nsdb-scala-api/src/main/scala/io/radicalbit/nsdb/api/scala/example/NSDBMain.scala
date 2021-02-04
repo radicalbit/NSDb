@@ -51,9 +51,7 @@ object NSDBMainWrite extends App {
   */
 object NSDBMainRead extends App {
 
-  val nsdb = Await.result(
-    NSDB.connect(host = "127.0.0.1", port = 7817, token = Some("testToken"))(ExecutionContext.global),
-    10.seconds)
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
 
   val query = nsdb
     .db("root")

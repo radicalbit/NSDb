@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.api.scala
 
 import io.radicalbit.nsdb.api.scala.NSDB._
-import io.radicalbit.nsdb.client.rpc.GRPCClient
+import io.radicalbit.nsdb.client.rpc.{GRPCClient, TokenApplier, TokenAppliers}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.request.RPCInsert
@@ -44,9 +44,8 @@ object NSDB {
     * @param executionContextExecutor implicit execution context.
     * @return a Future of a nsdb connection.
     */
-  def connect(host: String, port: Int, token: Option[String] = None)(
-      implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
-    val connection = new NSDB(host = host, port = port, token = token)
+  def connect(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext): Future[NSDB] = {
+    val connection = new NSDB(host = host, port = port)
     connection.check.map(_ => connection)
   }
 
@@ -76,17 +75,32 @@ object NSDB {
 
       val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
   * }}}
-  * @param host Nsdb host
-  * @param port Nsdb port
+  * @param host Nsdb host.
+  * @param port Nsdb port.
+  * @param tokenApplier implementation of [[TokenApplier]] that contains authorization token management logic.
   * @param executionContextExecutor implicit execution context to handle asynchronous methods
   */
-case class NSDB(host: String, port: Int, token: Option[String] = None)(
+class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] = None)(
     implicit executionContextExecutor: ExecutionContext) {
 
   /**
     * Inner Grpc client.
     */
   protected[scala] val client = new GRPCClient(host = host, port = port)
+
+  /**
+    * Create a new instance of [[NSDB]] with a Jwt token.
+    * @param token Jwt Authorization token.
+    */
+  def withJwtToken(token: String): NSDB = new NSDB(host, port, Some(TokenAppliers.JWT(token)))
+
+  /**
+    * Create a new instance of [[NSDB]] with a custom token.
+    * @param tokenName name of the token.
+    * @param tokenValue value of the token.
+    */
+  def withCustomToken(tokenName: String, tokenValue: String): NSDB =
+    new NSDB(host, port, Some(TokenAppliers.Custom(tokenName, tokenValue)))
 
   /**
     * Defines the db used to build the bit or the query.
@@ -135,7 +149,7 @@ case class NSDB(host: String, port: Int, token: Option[String] = None)(
                           namespace = sqlStatement.namespace,
                           metric = sqlStatement.metric,
                           statement = sqlStatement.sQLStatement)
-    client.executeSQLStatement(sqlStatementRequest, token.getOrElse(""))
+    client.executeSQLStatement(sqlStatementRequest)
   }
 
   /**

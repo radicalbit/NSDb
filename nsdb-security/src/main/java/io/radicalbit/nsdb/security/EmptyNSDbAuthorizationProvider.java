@@ -36,6 +36,11 @@ public class EmptyNSDbAuthorizationProvider implements NSDbAuthorizationProvider
     }
 
     @Override
+    public String getGrpcSecurityHeader() {
+        return "dummyHeader";
+    }
+
+    @Override
     public AuthorizationResponse checkDbAuth(String db, String payload, boolean writePermission) {
         return new AuthorizationResponse(true);
     }

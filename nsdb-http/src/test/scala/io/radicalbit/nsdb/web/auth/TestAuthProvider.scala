@@ -32,6 +32,8 @@ class TestAuthProvider extends NSDbAuthorizationProvider {
   override def extractWsSecurityPayload(subProtocols: java.util.List[String]): String =
     subProtocols.asScala.mkString(" ")
 
+  override def getGrpcSecurityHeader(): String = "dummyHeader"
+
   override def checkDbAuth(db: String, userInfo: String, writePermission: Boolean): AuthorizationResponse =
     if (userInfo.isEmpty) new AuthorizationResponse(false, "header not provided")
     else if (db == "notAuthorizedDb")

@@ -448,7 +448,7 @@ public class NSDB {
      */
     public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
         SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.metric, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
-        return toJava(client.executeSQLStatement(sqlStatementRequest, "")).toCompletableFuture().thenApply(QueryResult::new);
+        return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
     }
 
     /**

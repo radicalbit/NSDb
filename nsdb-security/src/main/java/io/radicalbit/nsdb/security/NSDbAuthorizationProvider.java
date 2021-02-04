@@ -75,6 +75,11 @@ public interface NSDbAuthorizationProvider {
     String extractWsSecurityPayload(List<String> subProtocols);
 
     /**
+     * @return the header name that will be used to extract grpc security payload
+     */
+    String getGrpcSecurityHeader();
+
+    /**
      * Checks if a request against a Db is authorized.
      * @param db the db to check.
      * @param payload the security payload gathered from request.

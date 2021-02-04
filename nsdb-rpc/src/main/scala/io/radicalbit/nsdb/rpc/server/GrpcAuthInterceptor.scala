@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.rpc.server
 
 import io.grpc._
-import io.radicalbit.nsdb.client.rpc.JwtTokenApplier
 import io.radicalbit.nsdb.rpc.security.{AuthorizationLevel, SecurityProto}
 import io.radicalbit.nsdb.rpc.server.GrpcAuthInterceptor.{AuthInfo, DbAuthInto, MetricAuthInto, NamespaceAuthInto}
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
@@ -34,7 +33,8 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
                                           headers: Metadata,
                                           next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
 
-    val securityPayload = headers.get(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER))
+    val securityPayload =
+      headers.get(Metadata.Key.of(authProvider.getGrpcSecurityHeader(), Metadata.ASCII_STRING_MARSHALLER))
 
     new ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](next.startCall(call, headers)) {
       override def onMessage(request: ReqT): Unit = {
