@@ -19,7 +19,6 @@ package io.radicalbit.nsdb.api.scala
 import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.{GRPCClient, TokenApplier, TokenAppliers}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
-import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -110,8 +109,9 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
 
   /**
     * Checks if a connection is healthy.
+    * @return the connection instance.
     */
-  def check: Future[HealthCheckResponse] = client.checkConnection()
+  def check: Future[NSDB] = client.checkConnection().map(_ => this)
 
   /**
     * Writes a bit into Nsdb using the current openend connection.

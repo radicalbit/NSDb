@@ -240,7 +240,8 @@ object Dependencies {
       gRPC.`grpc-netty`,
       gRPC.`grpc-services`,
       scalaPB.`runtime`,
-      scalaPB.`runtime-grpc`
+      scalaPB.`runtime-grpc`,
+      scalatest.core % Test
     )
   }
 

@@ -60,6 +60,10 @@ public interface NSDbAuthorizationProvider {
         return new EmptyNSDbAuthorizationProvider();
     }
 
+    default boolean isEmpty() {
+        return this instanceof EmptyNSDbAuthorizationProvider;
+    }
+
     /**
      * Extract the security info from Http headers.
      * @param rawHeaders Http headers in an agnostic format.

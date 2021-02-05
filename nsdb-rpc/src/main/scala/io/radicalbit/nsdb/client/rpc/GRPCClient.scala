@@ -39,7 +39,7 @@ import scala.concurrent.Future
   * @param port GRPC server port.
   * @param tokenApplier implementation of [[TokenApplier]] that contains authorization token management logic.
   */
-class GRPCClient(host: String, port: Int, tokenApplier: TokenApplier) {
+class GRPCClient(val host: String, val port: Int, val tokenApplier: TokenApplier) {
 
   def this(host: String, port: Int) = this(host, port, null)
 

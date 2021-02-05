@@ -18,14 +18,30 @@ package io.radicalbit.nsdb.rpc.server
 
 import io.grpc._
 import io.radicalbit.nsdb.rpc.security.{AuthorizationLevel, SecurityProto}
-import io.radicalbit.nsdb.rpc.server.GrpcAuthInterceptor.{AuthInfo, DbAuthInto, MetricAuthInto, NamespaceAuthInto}
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider.AuthorizationResponse
 import org.slf4j.LoggerFactory
 import scalapb.GeneratedMessage
 import scalapb.descriptors.{FieldDescriptor, PValue}
 
+/**
+  * Implementation of [[ServerInterceptor]] that checks if a message can be authorized.
+  * A message must fulfil the following requirements to be authorized:
+  * - be and instance of [[GeneratedMessage]]
+  * - contain a proper tuple of authorization fields
+  *   - (DB), (DB, NAMESPACE), (DB, NAMESPACE, METRIC)
+  *   - all other combination will be rejected
+  *     {{{
+  *       string db = 1 [(AuthorizationField) = DB];
+          string namespace = 2 [(AuthorizationField) = NAMESPACE];
+          string metric = 3 [(AuthorizationField) = METRIC];
+  *     }}}
+  *   - return a successful [[AuthorizationResponse]] from [[authProvider]]
+  * @param authProvider configured authorization provider
+  */
 class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends ServerInterceptor {
+
+  import GrpcAuthInterceptor._
 
   private val log = LoggerFactory.getLogger(classOf[GrpcAuthInterceptor])
 
@@ -34,9 +50,13 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
                                           next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
 
     val securityPayload =
-      headers.get(Metadata.Key.of(authProvider.getGrpcSecurityHeader(), Metadata.ASCII_STRING_MARSHALLER))
+      headers.get(Metadata.Key.of(authProvider.getGrpcSecurityHeader, Metadata.ASCII_STRING_MARSHALLER))
 
-    new ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](next.startCall(call, headers)) {
+    if (Option(securityPayload).forall(_.trim.isEmpty))
+      call.close(Status.UNAUTHENTICATED.withDescription(EmptyToken), new Metadata)
+
+    new ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](
+      Contexts.interceptCall(Context.current(), call, headers, next)) {
       override def onMessage(request: ReqT): Unit = {
 
         request match {
@@ -65,19 +85,32 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
 
             log.debug(s"got authorization response $authorizationResponse from request $request")
 
-            if (authorizationResponse.isSuccess) super.onMessage(request)
+            if (authorizationResponse.isSuccess) delegate().onMessage(request)
             else
               call.close(Status.PERMISSION_DENIED.withDescription(authorizationResponse.getFailReason), new Metadata)
           case _ =>
-            call.close(Status.FAILED_PRECONDITION.withDescription(s"Wrong Msssage Type $request"), new Metadata)
+            call.close(Status.FAILED_PRECONDITION.withDescription(s"$WrongMessageType $request"), new Metadata)
+        }
+      }
+
+      override def onHalfClose(): Unit = {
+        try {
+          super.onHalfClose()
+        } catch {
+          case illegalStateException: java.lang.IllegalStateException
+              if illegalStateException.getMessage == CallAlreadyClosed => //call has been already closed.no further action required.
         }
       }
     }
-
   }
 }
 
 object GrpcAuthInterceptor {
+
+  final val CallAlreadyClosed        = "call already closed"
+  final val WrongMessageType: String = "Wrong Message Type"
+  final val EmptyToken: String       = "Empty Token provided"
+  final val AuthInfoNotValid         = "Auth Info Not Valid"
 
   sealed trait AuthInfo
   private case class DbAuthInto private (db: String)                                        extends AuthInfo
@@ -94,7 +127,7 @@ object GrpcAuthInterceptor {
         case (Some(db), Some(namespace), Some(metric)) =>
           Right(MetricAuthInto(db, namespace, metric))
         case _ =>
-          Left("auth info not valid")
+          Left(AuthInfoNotValid)
       }
     }
   }
