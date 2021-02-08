@@ -413,8 +413,8 @@ public class NSDB {
      * Creates a NSDb Connection with a Jwt token.
      * @param token the Jwt token that will be provided in the low level client.
      */
-    public CompletableFuture<NSDB> withJwtToken(String token) {
-        return CompletableFuture.supplyAsync(() -> new NSDB(this.client.host(), this.client.port(), TokenAppliers.JWT(token)));
+    public NSDB withJwtToken(String token) {
+        return new NSDB(this.client.host(), this.client.port(), TokenAppliers.JWT(token));
     }
 
     /**
@@ -422,8 +422,8 @@ public class NSDB {
      * @param tokenName name of the token.
      * @param tokenValue value of the token.
      */
-    public CompletableFuture<NSDB> withCustomToken(String tokenName, String tokenValue) {
-        return CompletableFuture.supplyAsync(() -> new NSDB(this.client.host(), this.client.port(), TokenAppliers.Custom(tokenName, tokenValue)));
+    public NSDB withCustomToken(String tokenName, String tokenValue) {
+        return new NSDB(this.client.host(), this.client.port(), TokenAppliers.Custom(tokenName, tokenValue));
     }
 
     /**

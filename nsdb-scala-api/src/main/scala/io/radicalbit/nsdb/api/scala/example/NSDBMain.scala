@@ -90,3 +90,22 @@ object NSDBInitRead extends App {
   val describeRes = nsdb.describe(metricToDescribe)
   println(Await.result(describeRes, 10.seconds))
 }
+
+/**
+  * Example App for executing a query in a secure environment.
+  */
+object NSDBMainSecureRead extends App {
+
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+
+  val query = nsdb
+    .withJwtToken("jwt token")
+    .db("root")
+    .namespace("registry")
+    .metric("people")
+    .query("select * from people limit 1")
+
+  val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
+
+  println(Await.result(readRes, 10.seconds))
+}
