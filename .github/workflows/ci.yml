@@ -1,9 +1,9 @@
 name: Continous Integration
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ 'master', 'branch-*' ]
   push:
-    branches: [ master ]
+    branches: [ 'master', 'branch-*' ]
     tags: [ '*' ]
 jobs:
   test:

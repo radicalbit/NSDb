@@ -1,6 +1,6 @@
 ![](docs/img/NSDb_logo_clear.png "")
 
-[![Build Status](https://travis-ci.org/radicalbit/NSDb.svg)](https://travis-ci.org/radicalbit/NSDb)
+![Build Status](https://github.com/radicalbit/NSDb/workflows/Continous%20Integration/badge.svg?branch=master)
 [![codecov](https://codecov.io/github/radicalbit/NSDb/coverage.svg?branch=master)](https://codecov.io/github/radicalbit/NSDb?branch=master)
 [![License](https://img.shields.io/github/license/radicalbit/NSDb.svg)](LICENSE)
 
