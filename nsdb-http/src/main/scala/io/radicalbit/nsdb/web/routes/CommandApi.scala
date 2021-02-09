@@ -26,13 +26,17 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.{Db, Metric, Namespace}
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective.{
+  withDbAuthorization,
+  withMetricAuthorization,
+  withNamespaceAuthorization
+}
 import io.swagger.annotations._
-import javax.ws.rs.Path
 import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
 
+import javax.ws.rs.Path
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -43,15 +47,15 @@ trait CommandApi {
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
   def metadataCoordinator: ActorRef
-  def authenticationProvider: NSDBAuthProvider
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
   implicit val formats: Formats
   implicit val ec: ExecutionContext
 
-  case class CommandRequestDatabase(db: String)                                  extends Db
-  case class CommandRequestNamespace(db: String, namespace: String)              extends Namespace
-  case class CommandRequestMetric(db: String, namespace: String, metric: String) extends Metric
+  case class CommandRequestDatabase(db: String)
+  case class CommandRequestNamespace(db: String, namespace: String)
+  case class CommandRequestMetric(db: String, namespace: String, metric: String)
 
   sealed trait CommandResponse
   case class ShowDbsResponse(dbs: Set[String])               extends CommandResponse
@@ -72,7 +76,8 @@ trait CommandApi {
     ))
   def showDbs: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
+      extractRequest { request =>
+        request.header
         path("dbs") {
           (pathEnd & get) {
             onComplete(readCoordinator ? GetDbs) {
@@ -102,17 +107,15 @@ trait CommandApi {
     ))
   def showNamespaces: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-        pathPrefix(Segment) { db =>
-          path("namespaces") {
-            (pathEnd & get) {
-              authenticationProvider.authorizeDb(CommandRequestDatabase(db), header, false) {
-                onComplete(readCoordinator ? GetNamespaces(db)) {
-                  case Success(NamespacesGot(_, namespaces)) =>
-                    complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
-                  case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
+      pathPrefix(Segment) { db =>
+        path("namespaces") {
+          (pathEnd & get) {
+            withDbAuthorization(db, false, authorizationProvider) {
+              onComplete(readCoordinator ? GetNamespaces(db)) {
+                case Success(NamespacesGot(_, namespaces)) =>
+                  complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+                case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
               }
             }
           }
@@ -141,17 +144,15 @@ trait CommandApi {
     ))
   def dropNamespace: Route = {
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathEnd {
-              delete {
-                authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
-                  onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
-                    case Success(NamespaceDeleted(_, _)) => complete("Ok")
-                    case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  }
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathEnd {
+            delete {
+              withNamespaceAuthorization(db, namespace, true, authorizationProvider) {
+                onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
+                  case Success(NamespaceDeleted(_, _)) => complete("Ok")
+                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }
@@ -182,19 +183,17 @@ trait CommandApi {
     ))
   def showMetrics: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            path("metrics") {
-              pathEnd {
-                get {
-                  authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, false) {
-                    onComplete(readCoordinator ? GetMetrics(db, namespace)) {
-                      case Success(MetricsGot(_, _, metrics)) =>
-                        complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
-                      case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                      case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                    }
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          path("metrics") {
+            pathEnd {
+              get {
+                withNamespaceAuthorization(db, namespace, false, authorizationProvider) {
+                  onComplete(readCoordinator ? GetMetrics(db, namespace)) {
+                    case Success(MetricsGot(_, _, metrics)) =>
+                      complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
@@ -227,55 +226,53 @@ trait CommandApi {
     ))
   def describeMetric: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathPrefix(Segment) { metric =>
-              (pathEnd & get) {
-                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, false) {
-                  onComplete(
-                    Future.sequence(
-                      Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
-                          (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
-                    )) {
-                    case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
-                      complete(
-                        HttpEntity(
-                          ContentTypes.`application/json`,
-                          write(
-                            DescribeMetricResponse(
-                              schema.fieldsMap.map {
-                                case (_, field) =>
-                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                              }.toSet,
-                              metricInfo
-                            )
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathPrefix(Segment) { metric =>
+            (pathEnd & get) {
+              withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
+                onComplete(
+                  Future.sequence(
+                    Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
+                        (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
+                  )) {
+                  case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
+                    complete(
+                      HttpEntity(
+                        ContentTypes.`application/json`,
+                        write(
+                          DescribeMetricResponse(
+                            schema.fieldsMap.map {
+                              case (_, field) =>
+                                Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                            }.toSet,
+                            metricInfo
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
-                      complete(
-                        HttpEntity(
-                          ContentTypes.`application/json`,
-                          write(
-                            DescribeMetricResponse(
-                              schemaOpt
-                                .map(s =>
-                                  s.fieldsMap.map {
-                                    case (_, field) =>
-                                      Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                                  }.toSet)
-                                .getOrElse(Set.empty),
-                              Some(metricInfo)
-                            )
+                    )
+                  case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
+                    complete(
+                      HttpEntity(
+                        ContentTypes.`application/json`,
+                        write(
+                          DescribeMetricResponse(
+                            schemaOpt
+                              .map(s =>
+                                s.fieldsMap.map {
+                                  case (_, field) =>
+                                    Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                                }.toSet)
+                              .getOrElse(Set.empty),
+                            Some(metricInfo)
                           )
                         )
                       )
-                    case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
-                      complete(HttpResponse(NotFound))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                    case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  }
+                    )
+                  case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
+                    complete(HttpResponse(NotFound))
+                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                  case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
                 }
               }
             }
@@ -306,17 +303,15 @@ trait CommandApi {
     ))
   def dropMetric: Route =
     pathPrefix("commands") {
-      optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathPrefix(Segment) { metric =>
-              delete {
-                authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
-                  onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
-                    case Success(MetricDropped(_, _, _)) => complete("Ok")
-                    case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  }
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathPrefix(Segment) { metric =>
+            delete {
+              withMetricAuthorization(db, namespace, metric, true, authorizationProvider) {
+                onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
+                  case Success(MetricDropped(_, _, _)) => complete("Ok")
+                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }

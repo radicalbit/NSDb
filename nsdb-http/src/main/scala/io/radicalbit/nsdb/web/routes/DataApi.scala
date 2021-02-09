@@ -16,22 +16,22 @@
 
 package io.radicalbit.nsdb.web.routes
 
-import javax.ws.rs.Path
 import akka.actor.ActorRef
-import akka.pattern.ask
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, InternalServerError}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{InputMapped, RecordRejected}
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.Metric
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective._
 import io.swagger.annotations._
 import org.json4s.Formats
 
+import javax.ws.rs.Path
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
 
@@ -42,7 +42,6 @@ case class InsertBody(@(ApiModelProperty @field)(value = "database name") db: St
                       @(ApiModelProperty @field)(
                         value = "bit representing a single row"
                       ) bit: Bit)
-    extends Metric
 
 @Api(value = "/data", produces = "application/json")
 @Path("/data")
@@ -53,7 +52,7 @@ trait DataApi {
   import io.radicalbit.nsdb.web.validation.Validators._
 
   def writeCoordinator: ActorRef
-  def authenticationProvider: NSDBAuthProvider
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -76,23 +75,25 @@ trait DataApi {
     pathPrefix("data") {
       post {
         entity(as[InsertBody]) { insertBody =>
-          optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-            validateModel(insertBody).apply { validatedInsertBody =>
-              authenticationProvider.authorizeMetric(ent = validatedInsertBody, header = header, writePermission = true) {
-                onComplete(
-                  writeCoordinator ? MapInput(validatedInsertBody.bit.timestamp,
-                                              validatedInsertBody.db,
-                                              validatedInsertBody.namespace,
-                                              validatedInsertBody.metric,
-                                              validatedInsertBody.bit)) {
-                  case Success(_: InputMapped) =>
-                    complete("OK")
-                  case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
-                    complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
-                  case Success(_) =>
-                    complete(HttpResponse(InternalServerError, entity = "unknown response"))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
+          validateModel(insertBody).apply { validatedInsertBody =>
+            withMetricAuthorization(validatedInsertBody.db,
+                                    validatedInsertBody.namespace,
+                                    validatedInsertBody.metric,
+                                    writePermission = true,
+                                    authorizationProvider = authorizationProvider) {
+              onComplete(
+                writeCoordinator ? MapInput(validatedInsertBody.bit.timestamp,
+                                            validatedInsertBody.db,
+                                            validatedInsertBody.namespace,
+                                            validatedInsertBody.metric,
+                                            validatedInsertBody.bit)) {
+                case Success(_: InputMapped) =>
+                  complete("OK")
+                case Success(RecordRejected(_, _, _, _, _, reasons, _)) =>
+                  complete(HttpResponse(BadRequest, entity = reasons.mkString(",")))
+                case Success(_) =>
+                  complete(HttpResponse(InternalServerError, entity = "unknown response"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
               }
             }
           }

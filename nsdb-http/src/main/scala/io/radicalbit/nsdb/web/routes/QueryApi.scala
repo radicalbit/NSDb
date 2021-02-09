@@ -29,16 +29,16 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{ExecuteDeleteStatement, ExecuteStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.Metric
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.web.Filters.Filter
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective._
 import io.radicalbit.nsdb.web.QueryEnriched
 import io.swagger.annotations._
-import javax.ws.rs.Path
 import org.json4s.Formats
 import org.json4s.jackson.Serialization.write
 
+import javax.ws.rs.Path
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
 
@@ -59,7 +59,6 @@ case class QueryBody(@(ApiModelProperty @field)(value = "database name") db: Str
                        dataType = "list[io.radicalbit.nsdb.web.routes.Filter]") filters: Option[Seq[Filter]] = None,
                      @(ApiModelProperty @field)(value = "return parsed query", required = false, dataType = "boolean") parsed: Option[
                        Boolean] = None)
-    extends Metric
 
 @Api(value = "/query", produces = "application/json")
 @Path("/query")
@@ -69,7 +68,7 @@ trait QueryApi {
 
   def readCoordinator: ActorRef
   def writeCoordinator: ActorRef
-  def authenticationProvider: NSDBAuthProvider
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
 
@@ -141,47 +140,49 @@ trait QueryApi {
         get {
           entity(as[QueryBody]) {
             qb =>
-              optionalHeaderValueByName(authenticationProvider.headerName) {
-                header =>
-                  authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-                    QueryEnriched(qb.db,
-                                  qb.namespace,
-                                  qb.queryString,
-                                  qb.from.map(_.rawValue),
-                                  qb.to.map(_.rawValue),
-                                  qb.filters.getOrElse(Seq.empty)) match {
-                      case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
-                        executeSelectStatement(qb, statement)
-                      case SqlStatementParserSuccess(queryString, _) =>
-                        complete(
-                          HttpResponse(MethodNotAllowed, entity = s"statement $queryString is not a select statement"))
-                      case SqlStatementParserFailure(queryString, _) =>
-                        complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
-                    }
-                  }
+              withMetricAuthorization(qb.db,
+                                      qb.namespace,
+                                      qb.metric,
+                                      writePermission = false,
+                                      authorizationProvider = authorizationProvider) {
+                QueryEnriched(qb.db,
+                              qb.namespace,
+                              qb.queryString,
+                              qb.from.map(_.rawValue),
+                              qb.to.map(_.rawValue),
+                              qb.filters.getOrElse(Seq.empty)) match {
+                  case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
+                    executeSelectStatement(qb, statement)
+                  case SqlStatementParserSuccess(queryString, _) =>
+                    complete(
+                      HttpResponse(MethodNotAllowed, entity = s"statement $queryString is not a select statement"))
+                  case SqlStatementParserFailure(queryString, _) =>
+                    complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
+                }
               }
           }
         },
         post {
           entity(as[QueryBody]) {
             qb =>
-              optionalHeaderValueByName(authenticationProvider.headerName) {
-                header =>
-                  authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
-                    QueryEnriched(qb.db,
-                                  qb.namespace,
-                                  qb.queryString,
-                                  qb.from.map(_.rawValue),
-                                  qb.to.map(_.rawValue),
-                                  qb.filters.getOrElse(Seq.empty)) match {
-                      case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
-                        executeSelectStatement(qb, statement)
-                      case SqlStatementParserSuccess(_, statement: DeleteSQLStatement) =>
-                        executeDeleteStatement(statement)
-                      case SqlStatementParserFailure(queryString, _) =>
-                        complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
-                    }
-                  }
+              withMetricAuthorization(qb.db,
+                                      qb.namespace,
+                                      qb.metric,
+                                      writePermission = false,
+                                      authorizationProvider = authorizationProvider) {
+                QueryEnriched(qb.db,
+                              qb.namespace,
+                              qb.queryString,
+                              qb.from.map(_.rawValue),
+                              qb.to.map(_.rawValue),
+                              qb.filters.getOrElse(Seq.empty)) match {
+                  case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
+                    executeSelectStatement(qb, statement)
+                  case SqlStatementParserSuccess(_, statement: DeleteSQLStatement) =>
+                    executeDeleteStatement(statement)
+                  case SqlStatementParserFailure(queryString, _) =>
+                    complete(HttpResponse(BadRequest, entity = s"statement $queryString is invalid"))
+                }
               }
           }
         }

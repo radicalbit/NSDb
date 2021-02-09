@@ -27,14 +27,14 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ValidateStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.security.http.NSDBAuthProvider
-import io.radicalbit.nsdb.security.model.Metric
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
+import io.radicalbit.nsdb.web.NSDbHttpSecurityDirective._
 import io.swagger.annotations._
-import javax.ws.rs.Path
 import org.json4s.Formats
 
+import javax.ws.rs.Path
 import scala.annotation.meta.field
 import scala.util.{Failure, Success}
 
@@ -43,7 +43,6 @@ case class QueryValidationBody(@(ApiModelProperty @field)(value = "database name
                                @(ApiModelProperty @field)(value = "namespace name ") namespace: String,
                                @(ApiModelProperty @field)(value = "metric name ") metric: String,
                                @(ApiModelProperty @field)(value = "sql query string") queryString: String)
-    extends Metric
 
 @Api(value = "/query/validate", produces = "application/json")
 @Path("/query/validate")
@@ -52,7 +51,7 @@ trait QueryValidationApi {
   import io.radicalbit.nsdb.web.NSDbJson._
 
   def readCoordinator: ActorRef
-  def authenticationProvider: NSDBAuthProvider
+  def authorizationProvider: NSDbAuthorizationProvider
 
   implicit val timeout: Timeout
   implicit val formats: Formats
@@ -76,8 +75,12 @@ trait QueryValidationApi {
     path("query" / "validate") {
       post {
         entity(as[QueryValidationBody]) { qb =>
-          optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-            authenticationProvider.authorizeMetric(ent = qb, header = header, writePermission = false) {
+          extractRawHeaders { implicit rawHeaders =>
+            withMetricAuthorization(qb.db,
+                                    qb.namespace,
+                                    qb.metric,
+                                    writePermission = false,
+                                    authorizationProvider = authorizationProvider) {
               new SQLStatementParser().parse(qb.db, qb.namespace, qb.queryString) match {
                 case SqlStatementParserSuccess(_, statement: SelectSQLStatement) =>
                   onComplete(readCoordinator ? ValidateStatement(statement)) {

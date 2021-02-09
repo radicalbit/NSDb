@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.web
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
@@ -28,19 +26,19 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.monitoring.NSDbMonitoring
-import io.radicalbit.nsdb.security.NsdbSecurity
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import kamon.Kamon
 import org.json4s.Formats
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 
 /**
   * Instantiate NSDb Http Server exposing apis defined in [[ApiResources]]
   * If SSL/TLS protocol is enable in [[SSLSupport]] an Https server is started instead Http ones.
   */
-trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
+trait WebResources extends WsResources with SSLSupport {
 
   import CORSSupport._
   import VersionHeader._
@@ -58,44 +56,39 @@ trait WebResources extends WsResources with SSLSupport { this: NsdbSecurity =>
                       writeCoordinator: ActorRef,
                       readCoordinator: ActorRef,
                       metadataCoordinator: ActorRef,
-                      publisher: ActorRef)(implicit logger: LoggingAdapter) =
-    authProvider match {
-      case Success(provider) =>
-        Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
-        val api: Route = wsResources(publisher, provider) ~ new ApiResources(publisher,
+                      publisher: ActorRef,
+                      authProvider: NSDbAuthorizationProvider)(implicit logger: LoggingAdapter) = {
+    Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
+
+    val api: Route = wsResources(publisher, authProvider) ~ new ApiResources(publisher,
                                                                              readCoordinator,
                                                                              writeCoordinator,
                                                                              metadataCoordinator,
-                                                                             provider).apiResources(config)
+                                                                             authProvider).apiResources(config)
 
-        val httpExt = akka.http.scaladsl.Http()
+    val httpExt = akka.http.scaladsl.Http()
 
-        val http: Future[Http.ServerBinding] =
-          if (isSSLEnabled) {
-            val interface = config.getString(HttpInterface)
-            val port      = config.getInt(HttpsPort)
-            logger.info(
-              s"Cluster Apis started for node $nodeId with https protocol at interface $interface on port $port")
-            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port, connectionContext = serverContext)
-          } else {
-            val interface = config.getString(HttpInterface)
-            val port      = config.getInt(HttpPort)
-            logger.info(
-              s"Cluster Apis started for node $nodeId with http protocol at interface $interface and port $port")
-            httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port)
-          }
+    val http: Future[Http.ServerBinding] =
+      if (isSSLEnabled) {
+        val interface = config.getString(HttpInterface)
+        val port      = config.getInt(HttpsPort)
+        logger.info(s"Cluster Apis started for node $nodeId with https protocol at interface $interface on port $port")
+        httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port, connectionContext = serverContext)
+      } else {
+        val interface = config.getString(HttpInterface)
+        val port      = config.getInt(HttpPort)
+        logger.info(s"Cluster Apis started for node $nodeId with http protocol at interface $interface and port $port")
+        httpExt.bindAndHandle(withCors(withNSDbVersion(api)), interface, port)
+      }
 
-        scala.sys.addShutdownHook {
-          http
-            .flatMap(_.unbind())
-            .onComplete { _ =>
-              system.terminate()
-            }
-          Await.result(system.whenTerminated, 60 seconds)
+    scala.sys.addShutdownHook {
+      http
+        .flatMap(_.unbind())
+        .onComplete { _ =>
+          system.terminate()
         }
-      case Failure(ex) =>
-        logger.error("error on loading authorization provider", ex)
-        System.exit(1)
+      Await.result(system.whenTerminated, 60 seconds)
     }
+  }
 
 }
