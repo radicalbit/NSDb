@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
 jobs:
-  style-check:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,60 +16,8 @@ jobs:
         uses: coursier/cache-action@v5
       - name: Code Style Check
         run: sbt fixCheck scalafmtCheck test:scalafmtCheck multi-jvm:scalafmtCheck
-  test:
-    needs: style-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: "adopt@1.8"
-      - name: Coursier cache
-        uses: coursier/cache-action@v5
       - name: Build and Test
-        run: sbt coverage test
-      - name: Coverage Report
-        run: sbt coverageReport
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          fail_ci_if_error: true
-  multi-jvm-test:
-    needs: style-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: "adopt@1.8"
-      - name: Coursier cache
-        uses: coursier/cache-action@v5
-      - name: Build and Test
-        run: sbt coverage multi-jvm:test
-      - name: Coverage Report
-        run: sbt coverageReport
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          fail_ci_if_error: true
-  it-test:
-    needs: style-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: "adopt@1.8"
-      - name: Coursier cache
-        uses: coursier/cache-action@v5
-      - name: Build and Test
-        run: sbt coverage it:test
+        run: sbt coverage testAll
       - name: Coverage Report
         run: sbt coverageReport
       - name: Upload coverage to Codecov
@@ -79,8 +27,6 @@ jobs:
   publish-test:
     needs:
       - test
-      - multi-jvm-test
-      - it-test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
