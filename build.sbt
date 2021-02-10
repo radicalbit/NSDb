@@ -47,6 +47,7 @@ addCommandAlias("fixCheck", "; compile:scalafix --check ; test:scalafix --check"
 addCommandAlias("dist", "packageDist")
 addCommandAlias("deb", "packageDeb")
 addCommandAlias("rpm", "packageRpm")
+addCommandAlias("testAll", "test; multi-jvm:test; it:test")
 lazy val `nsdb-common` = project
   .settings(Commons.crossScalaVersionSettings: _*)
   .settings(PublishSettings.settings: _*)

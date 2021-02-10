@@ -469,7 +469,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         _ <- schemaCoordinator ? msg
       } yield NamespaceDeleted(db, namespace)
 
-      sequential(chain).pipeTo(sender())
+      import io.radicalbit.nsdb.util.PipeableFutureWithSideEffect._
+      chain.pipeTo(sender())
     case msg @ ExecuteDeleteStatement(statement @ DeleteSQLStatement(db, namespace, metric, _)) =>
       //FIXME add cluster aware deletion
       sequential {
