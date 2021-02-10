@@ -6,7 +6,7 @@ on:
     branches: [ 'master', 'branch-*' ]
     tags: [ '*' ]
 jobs:
-  test:
+  code-style:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,6 +19,17 @@ jobs:
         uses: coursier/cache-action@v5
       - name: Code Style Check
         run: sbt fixCheck scalafmtCheck test:scalafmtCheck multi-jvm:scalafmtCheck
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Scala
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: "adopt@1.8"
+      - name: Coursier cache
+        uses: coursier/cache-action@v5
       - name: Build and Test
         run: sbt coverage testAll
       - name: Coverage Report
@@ -29,6 +40,7 @@ jobs:
           fail_ci_if_error: true
   publish-test:
     needs:
+      - code-style
       - test
     runs-on: ubuntu-latest
     steps:
