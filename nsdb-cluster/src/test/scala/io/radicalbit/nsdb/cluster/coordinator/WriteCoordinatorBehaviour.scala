@@ -87,7 +87,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
     Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
 
   def defaultBehaviour {
-    "write records" in within(5.seconds) {
+    "write records" in {
       val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
       val record2 =
         Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
@@ -119,7 +119,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
     }
 
-    "write records and publish event to its subscriber" in within(5.seconds) {
+    "write records and publish event to its subscriber" in {
       val testRecordSatisfy = Bit(100, 1, Map("name" -> "john"), Map.empty)
 
       val testSqlStatement = SelectSQLStatement(
@@ -176,7 +176,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
       result.namespaces.exists(_.contains(namespace)) shouldBe false
     }
 
-    "delete entries" in within(5.seconds) {
+    "delete entries" in {
 
       val records: Seq[Bit] = Seq(
         Bit(2, 1, Map("name"  -> "John", "surname"  -> "Doe", "creationDate" -> System.currentTimeMillis()), Map.empty),
@@ -216,7 +216,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
     }
 
-    "drop a metric" in within(5.seconds) {
+    "drop a metric" in {
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
       probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
 

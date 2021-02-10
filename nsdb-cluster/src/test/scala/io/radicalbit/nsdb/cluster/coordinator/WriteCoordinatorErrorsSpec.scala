@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -36,6 +35,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.RecordRejected
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
+import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -70,7 +70,7 @@ class WriteCoordinatorErrorsSpec
     with BeforeAndAfter
     with BeforeAndAfterAll {
 
-  lazy val basePath = "target/test_index/WriteCoordinatorErrorsSpec"
+  lazy val basePath = s"target/test_index/WriteCoordinatorErrorsSpec/${UUID.randomUUID}"
 
   val db        = "writeCoordinatorSpecDB"
   val namespace = "namespace"
@@ -130,7 +130,7 @@ class WriteCoordinatorErrorsSpec
   }
 
   "WriteCoordinator" should {
-    "handle failures during commit log writes" in within(5.seconds) {
+    "handle failures during commit log writes" in {
 
       callingProbe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, metric1, record1))
 
@@ -152,7 +152,7 @@ class WriteCoordinatorErrorsSpec
         callingProbe.expectMsgType[RecordRejected]
       }
     }
-    "handle failures during accumulation" in within(5.seconds) {
+    "handle failures during accumulation" in {
 
       callingProbe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, metric2, record2))
 
