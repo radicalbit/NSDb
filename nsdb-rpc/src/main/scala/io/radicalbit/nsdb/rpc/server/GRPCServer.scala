@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.client.rpc
-
-import java.net.InetSocketAddress
+package io.radicalbit.nsdb.rpc.server
 
 import com.google.common.net.InetAddresses
-import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
+import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.{Server, ServerInterceptor, ServerInterceptors}
 import io.radicalbit.nsdb.rpc.health.HealthGrpc
 import io.radicalbit.nsdb.rpc.health.HealthGrpc.Health
 import io.radicalbit.nsdb.rpc.init.InitMetricGrpc
@@ -30,9 +29,10 @@ import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
-import io.grpc.protobuf.services.ProtoReflectionService
 
+import java.net.InetSocketAddress
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
@@ -59,6 +59,11 @@ trait GRPCServer {
 
   protected[this] def parserSQL: SQLStatementParser
 
+  protected[this] def authorizationProvider: NSDbAuthorizationProvider
+
+  protected[this] def interceptors: List[ServerInterceptor] =
+    if (!authorizationProvider.isEmpty) List(new GrpcAuthInterceptor(authorizationProvider)) else List.empty
+
   sys.addShutdownHook {
     if (!server.isTerminated) {
       System.err.println(s"Shutting down gRPC server at interface $interface and port $port since JVM is shutting down")
@@ -69,11 +74,16 @@ trait GRPCServer {
 
   lazy val server: Server = NettyServerBuilder
     .forAddress(new InetSocketAddress(InetAddresses.forString(interface), port))
-    .addService(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor))
-    .addService(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor))
-    .addService(InitMetricGrpc.bindService(initMetricService, executionContextExecutor))
+    .addService(ServerInterceptors.intercept(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor),
+                                             interceptors: _*))
+    .addService(
+      ServerInterceptors.intercept(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor),
+                                   interceptors: _*))
+    .addService(ServerInterceptors.intercept(InitMetricGrpc.bindService(initMetricService, executionContextExecutor),
+                                             interceptors: _*))
+    .addService(ServerInterceptors.intercept(RestoreGrpc.bindService(restore, executionContextExecutor),
+                                             interceptors: _*))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
-    .addService(RestoreGrpc.bindService(restore, executionContextExecutor))
     .addService(ProtoReflectionService.newInstance())
     .build
 

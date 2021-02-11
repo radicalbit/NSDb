@@ -81,6 +81,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select * from ${LongMetric.name} limit 2")
 
       eventually {
@@ -101,6 +102,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select * from ${LongMetric.name} order by timestamp desc limit 2")
 
       eventually {
@@ -123,6 +125,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select * from ${LongMetric.name} where name = 'John' order by timestamp limit 2")
 
       eventually {
@@ -143,6 +146,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select * from ${LongMetric.name} order by value desc limit 2")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -164,6 +168,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select * from ${LongMetric.name} order by name desc limit 3")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -184,6 +189,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -204,7 +210,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select surname from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -222,7 +228,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name, surname from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -248,7 +254,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select distinct name from ${LongMetric.name} limit 6")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -270,7 +276,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select distinct name from ${LongMetric.name} limit 2")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -284,7 +290,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select distinct name from ${LongMetric.name} order by name limit 6")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -308,7 +314,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select distinct name from ${LongMetric.name} order by name desc limit 6")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -332,7 +338,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select distinct * from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -348,7 +354,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select count(*), name from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -371,7 +377,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select count(*) from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -388,7 +394,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select count(*), surname, sum(creationDate) from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -403,7 +409,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select distinct name, surname from ${LongMetric.name}")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -418,7 +424,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where timestamp in (2,4) limit 4")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -433,7 +439,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where timestamp >= 10")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -448,7 +454,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where not timestamp >= 10")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -462,7 +468,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where timestamp > 2 and timestamp <= 4 limit 4")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -476,7 +482,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where timestamp >= 2 or timestamp <= 4")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -490,7 +496,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where timestamp = 2 ")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -504,7 +510,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select name from ${LongMetric.name} where timestamp >= 2 and name = John")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -518,7 +524,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select sum(value) from ${LongMetric.name} where timestamp >= 3 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -539,7 +545,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select first(value) from ${LongMetric.name} where timestamp <= 8 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -560,7 +566,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select last(value) from ${LongMetric.name} where timestamp <= 8 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -581,7 +587,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select creationDate from ${LongMetric.name} where timestamp => 2 group by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -596,7 +602,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select creationDate from nonexisting where timestamp => 2 group by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -611,7 +617,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select count(value) from ${LongMetric.name} group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -627,18 +633,17 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val distinctQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(DoubleMetric.name)
         .query(s"select count(distinct value) from ${DoubleMetric.name} group by name order by name")
 
-      val distinctReadRes = Await.result(nsdb.execute(query), 10.seconds)
+      val distinctReadRes = Await.result(nsdb.execute(distinctQuery), 10.seconds)
 
       assert(
         distinctReadRes.records.map(_.asBit) == Seq(
           Bit(0L, 1L, Map.empty, Map("name" -> "Bill")),
           Bit(0L, 1L, Map.empty, Map("name" -> "Frank")),
           Bit(0L, 1L, Map.empty, Map("name" -> "Frankie")),
-          Bit(0L, 1L, Map.empty, Map("name" -> "J")),
-          Bit(0L, 2L, Map.empty, Map("name" -> "John"))
+          Bit(0L, 1L, Map.empty, Map("name" -> "John"))
         ))
     }
   }
@@ -649,7 +654,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val countQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select count(value) from ${LongMetric.name} group by name order by name desc")
 
       var readRes = Await.result(nsdb.execute(countQuery), 10.seconds)
@@ -665,7 +670,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val countDistinctQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(DoubleMetric.name)
         .query(s"select count(distinct value) from ${DoubleMetric.name} group by name order by name desc")
 
        readRes = Await.result(nsdb.execute(countDistinctQuery), 10.seconds)
@@ -680,7 +685,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val sumQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(DoubleMetric.name)
         .query(s"select sum(value) from ${DoubleMetric.name} group by name order by name desc")
 
       readRes = Await.result(nsdb.execute(sumQuery), 10.seconds)
@@ -701,7 +706,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(LongMetric.name)
         .query(s"select sum(value) from ${LongMetric.name} group by name order by value desc")
 
       var readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -711,6 +716,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val doubleQuery = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(DoubleMetric.name)
         .query(s"select sum(value) from ${DoubleMetric.name} group by name order by value desc")
 
       readRes = Await.result(nsdb.execute(doubleQuery), 10.seconds)
@@ -726,6 +732,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(value) from ${AggregationLongMetric.name} group by age order by value")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -743,6 +750,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(distinct value) from ${AggregationLongMetric.name} group by age order by value")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -760,6 +768,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(distinct height) from ${AggregationLongMetric.name} group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -781,6 +790,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select count(distinct name) from ${AggregationLongMetric.name} group by age order by age")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -801,6 +811,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val query = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select sum(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -821,6 +832,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
       val maxQuery = nsdb
         .db(db)
         .namespace(namespace)
+        .metric(AggregationLongMetric.name)
         .query(s"select max(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val maxResponse = Await.result(nsdb.execute(maxQuery), 10.seconds)
@@ -834,7 +846,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val minQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select min(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val minResponse = Await.result(nsdb.execute(minQuery), 10.seconds)
@@ -854,7 +866,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val firstQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select first(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val firstResponse = Await.result(nsdb.execute(firstQuery), 10.seconds)
@@ -868,7 +880,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val lastQuery = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select last(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val lastResponse = Await.result(nsdb.execute(lastQuery), 10.seconds)
@@ -888,7 +900,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select count(value) from ${AggregationLongMetric.name} group by height order by value desc")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -908,7 +920,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select count(distinct value) from ${AggregationLongMetric.name} group by height order by value desc")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -928,7 +940,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
         Await.result(NSDB.connect(host = n.hostname, port = 7817)(ExecutionContext.global), 10.seconds)
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select sum(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -949,7 +961,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val maxRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select max(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val maxResponse = Await.result(nsdb.execute(maxRequest), 10.seconds)
@@ -963,7 +975,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val minRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select min(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val minResponse = Await.result(nsdb.execute(minRequest), 10.seconds)
@@ -984,7 +996,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val firstRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select first(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val firstResponse = Await.result(nsdb.execute(firstRequest), 10.seconds)
@@ -998,7 +1010,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val lastRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select last(value) from ${AggregationLongMetric.name} group by height order by height")
 
       val lastResponse = Await.result(nsdb.execute(lastRequest), 10.seconds)
@@ -1019,7 +1031,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val avgDoubleRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select avg(*) from ${AggregationLongMetric.name} group by height order by height")
 
       val firstResponse = Await.result(nsdb.execute(avgDoubleRequest), 10.seconds)
@@ -1033,7 +1045,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val avgLongRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select avg(value) from ${AggregationLongMetric.name} group by age order by age")
 
       val lastResponse = Await.result(nsdb.execute(avgLongRequest), 10.seconds)
@@ -1046,7 +1058,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationLongMetric.name)
         .query(s"select avg(value) from ${AggregationLongMetric.name} where timestamp >= 3 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)
@@ -1068,7 +1080,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val avgDoubleRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationDoubleMetric.name)
         .query(s"select avg(*) from ${AggregationDoubleMetric.name} group by height order by height")
 
       val firstResponse = Await.result(nsdb.execute(avgDoubleRequest), 10.seconds)
@@ -1082,7 +1094,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val avgLongRequest = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationDoubleMetric.name)
         .query(s"select avg(value) from ${AggregationDoubleMetric.name} group by age order by age")
 
       val lastResponse = Await.result(nsdb.execute(avgLongRequest), 10.seconds)
@@ -1095,7 +1107,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
       val query = nsdb
         .db(db)
-        .namespace(namespace)
+        .namespace(namespace).metric(AggregationDoubleMetric.name)
         .query(s"select avg(value) from ${AggregationDoubleMetric.name} where timestamp >= 3 group by name order by name")
 
       val readRes = Await.result(nsdb.execute(query), 10.seconds)

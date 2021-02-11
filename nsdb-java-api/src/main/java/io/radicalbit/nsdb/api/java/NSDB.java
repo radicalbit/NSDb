@@ -17,9 +17,10 @@
 package io.radicalbit.nsdb.api.java;
 
 import io.radicalbit.nsdb.client.rpc.GRPCClient;
+import io.radicalbit.nsdb.client.rpc.TokenApplier;
+import io.radicalbit.nsdb.client.rpc.TokenAppliers;
 import io.radicalbit.nsdb.rpc.common.Dimension;
 import io.radicalbit.nsdb.rpc.common.Tag;
-import io.radicalbit.nsdb.rpc.health.HealthCheckResponse;
 import io.radicalbit.nsdb.rpc.init.InitMetricRequest;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
 import io.radicalbit.nsdb.rpc.requestCommand.DescribeMetric;
@@ -56,17 +57,16 @@ public class NSDB {
      * Auxiliar class to specify the Db in the Apis
      */
     public static class Db {
-        private String name;
+        private final String name;
 
         private Db(String name) {
             this.name = name;
         }
 
         /**
-         * defines the namespace used to build the bit or the query
+         * defines the namespace used to build the namespace
          *
          * @param namespace the db name
-         * @return
          */
         public Namespace namespace(String namespace) {
             return new Namespace(this.name, namespace);
@@ -74,15 +74,41 @@ public class NSDB {
     }
 
     /**
-     * Auxiliar class to specify the Namespace in the Apis
+     * Auxiliary class to specify the Namespace in the Apis
      */
     public static class Namespace {
-        private String db;
-        private String name;
+        private final String db;
+        private final String namespace;
 
-        private Namespace(String db, String name) {
+        private Namespace(String db, String namespace) {
             this.db = db;
-            this.name = name;
+            this.namespace = namespace;
+        }
+
+        /**
+         * defines the Metric to be inserted
+         *
+         * @param metric the db name
+         * @return the Bit
+         */
+        public Metric metric(String metric) {
+            return new Metric(this.db, this.namespace, metric);
+        }
+
+        public Bit bit(String metric) {
+            return new Bit(this.db, this.namespace, metric);
+        }
+    }
+
+    public static class Metric {
+        private final String db;
+        private final String namespace;
+        private final String metric;
+
+        private Metric(String db, String namespace, String metric) {
+            this.db = db;
+            this.namespace = namespace;
+            this.metric = metric;
         }
 
         /**
@@ -92,17 +118,7 @@ public class NSDB {
          * @return the sql statement to execute
          */
         public SQLStatement query(String queryString) {
-            return new SQLStatement(this.db, this.name, queryString);
-        }
-
-        /**
-         * defines the Bit to be inserted
-         *
-         * @param metric the db name
-         * @return the Bit 
-         */
-        public Bit bit(String metric) {
-            return new Bit(db, name, metric);
+            return new SQLStatement(this.db, this.namespace, this.metric, queryString);
         }
     }
 
@@ -110,13 +126,15 @@ public class NSDB {
      * Auxiliar class to specify the Sql statement in the Apis
      */
     public static class SQLStatement {
-        private String db;
-        private String namespace;
-        private String sQLStatement;
+        private final String db;
+        private final String namespace;
+        private final String metric;
+        private final String sQLStatement;
 
-        private SQLStatement(String db, String namespace, String sqlStatement) {
+        private SQLStatement(String db, String namespace, String metric, String sqlStatement) {
             this.db = db;
             this.namespace = namespace;
+            this.metric = metric;
             this.sQLStatement = sqlStatement;
         }
     }
@@ -126,13 +144,13 @@ public class NSDB {
      */
     public static class Bit {
 
-        private String db;
-        private String namespace;
-        private String metric;
+        private final String db;
+        private final String namespace;
+        private final String metric;
         private Long timestamp;
         private RPCInsert.Value value;
-        private Map<String, Dimension> dimensions;
-        private Map<String, Tag> tags;
+        private final Map<String, Dimension> dimensions;
+        private final Map<String, Tag> tags;
 
         private Bit(String db, String namespace, String metric) {
             this.db = db;
@@ -342,9 +360,9 @@ public class NSDB {
 
     public static class MetricInfo {
 
-        private String db;
-        private String namespace;
-        private String metric;
+        private final String db;
+        private final String namespace;
+        private final String metric;
         private String shardInterval;
         private String retention;
 
@@ -378,17 +396,34 @@ public class NSDB {
     }
 
 
-    private String host;
-    private Integer port;
     /**
-     * the inner Grpc client
+     * the inner {@link GRPCClient}
      */
-    private GRPCClient client;
+    private final GRPCClient client;
 
     private NSDB(String host, Integer port) {
-        this.host = host;
-        this.port = port;
-        client = new GRPCClient(this.host, this.port);
+        this.client = new GRPCClient(host, port);
+    }
+
+    private NSDB(String host, Integer port, TokenApplier tokenApplier) {
+        this.client = new GRPCClient(host, port, tokenApplier);
+    }
+
+    /**
+     * Creates a NSDb Connection with a Jwt token.
+     * @param token the Jwt token that will be provided in the low level client.
+     */
+    public NSDB withJwtToken(String token) {
+        return new NSDB(this.client.host(), this.client.port(), TokenAppliers.JWT(token));
+    }
+
+    /**
+     * Creates a NSDb Connection with a Custom token.
+     * @param tokenName name of the token.
+     * @param tokenValue value of the token.
+     */
+    public NSDB withCustomToken(String tokenName, String tokenValue) {
+        return new NSDB(this.client.host(), this.client.port(), TokenAppliers.Custom(tokenName, tokenValue));
     }
 
     /**
@@ -401,22 +436,21 @@ public class NSDB {
      * @param port Nsdb port
      */
     public static CompletableFuture<NSDB> connect(String host, Integer port) {
-        NSDB conn = new NSDB(host, port);
-        return conn.check().toCompletableFuture().thenApplyAsync(r -> conn);
+        return CompletableFuture.supplyAsync(() -> new NSDB(host, port));
     }
 
     /**
      * check if a connection is healthy
+     * @return the connection instance.
      */
-    public CompletableFuture<HealthCheckResponse> check() {
-        return toJava(client.checkConnection()).toCompletableFuture();
+    public CompletableFuture<NSDB> check() {
+        return toJava(client.checkConnection()).toCompletableFuture().thenApply(response -> this);
     }
 
     /**
      * defines the db used to build the bit or the query
      *
      * @param name the db name
-     * @return
      */
     public Db db(String name) {
         return new Db(name);
@@ -429,7 +463,7 @@ public class NSDB {
      * @return a CompletableFuture of the result of the operation. See {@link QueryResult}
      */
     public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
-        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.sQLStatement);
+        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.metric, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
         return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
     }
 
@@ -442,18 +476,18 @@ public class NSDB {
     public CompletableFuture<InsertResult> write(Bit bit) {
         return toJava(client.write(
                 new RPCInsert(bit.db, bit.namespace, bit.metric,
-                        bit.timestamp, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), bit.value))).toCompletableFuture().thenApply(InsertResult::new);
+                        bit.timestamp, bit.value, ScalaUtils.convertMap(bit.dimensions), ScalaUtils.convertMap(bit.tags), scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(InsertResult::new);
     }
 
 
     public CompletableFuture<InitMetricResult> initMetric(MetricInfo metricInfo) {
         return toJava(client.initMetric(
-                new InitMetricRequest(metricInfo.db, metricInfo.namespace, metricInfo.metric, metricInfo.shardInterval, metricInfo.retention))).toCompletableFuture().thenApply(InitMetricResult::new);
+                new InitMetricRequest(metricInfo.db, metricInfo.namespace, metricInfo.metric, metricInfo.shardInterval, metricInfo.retention, scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(InitMetricResult::new);
     }
 
     public CompletableFuture<DescribeMetricResult> describe(Bit bit) {
         return toJava(client.describeMetric(
-                new DescribeMetric(bit.db, bit.namespace, bit.metric))).toCompletableFuture().thenApply(DescribeMetricResult::new);
+                new DescribeMetric(bit.db, bit.namespace, bit.metric, scalapb.UnknownFieldSet.empty()))).toCompletableFuture().thenApply(DescribeMetricResult::new);
     }
 
 

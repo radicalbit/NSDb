@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+
+import "google/protobuf/descriptor.proto";
+
+enum AuthorizationLevel {
+  NONE = 0;
+  DB = 1;
+  NAMESPACE = 2;
+  METRIC = 3;
+}
+
+extend google.protobuf.ServiceOptions {
+  bool isAuthorized = 50000;
+}
+
+extend google.protobuf.FieldOptions {
+    AuthorizationLevel AuthorizationField = 50001;
+}

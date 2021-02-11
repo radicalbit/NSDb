@@ -60,6 +60,10 @@ public interface NSDbAuthorizationProvider {
         return new EmptyNSDbAuthorizationProvider();
     }
 
+    default boolean isEmpty() {
+        return this instanceof EmptyNSDbAuthorizationProvider;
+    }
+
     /**
      * Extract the security info from Http headers.
      * @param rawHeaders Http headers in an agnostic format.
@@ -73,6 +77,11 @@ public interface NSDbAuthorizationProvider {
      * @return the security payload in string format.
      */
     String extractWsSecurityPayload(List<String> subProtocols);
+
+    /**
+     * @return the header name that will be used to extract grpc security payload
+     */
+    String getGrpcSecurityHeader();
 
     /**
      * Checks if a request against a Db is authorized.

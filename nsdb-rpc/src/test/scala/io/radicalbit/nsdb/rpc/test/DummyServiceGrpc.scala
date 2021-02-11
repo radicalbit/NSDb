@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
+package io.radicalbit.nsdb.rpc.test
 
-package io.radicalbit.nsdb.rpc;
+import io.radicalbit.nsdb.rpc.test.securityTest.DummySecureServiceGrpc.DummySecureService
+import io.radicalbit.nsdb.rpc.test.securityTest.{DummyResponse, DummySecureRequest}
 
-import "common.proto";
-import "security.proto";
+import scala.concurrent.{ExecutionContext, Future}
 
-message RPCInsert {
-    string database = 1 [(AuthorizationField) = DB];
-    string namespace = 2 [(AuthorizationField) = NAMESPACE];
-    string metric = 3 [(AuthorizationField) = METRIC];
-    int64 timestamp = 4;
-    oneof value {
-        double decimalValue = 5;
-        int64 longValue = 6;
+object DummyServiceGrpc {
+
+  class DummySecureServiceGrpc(implicit executionContext: ExecutionContext) extends DummySecureService {
+    override def dummySecure(request: DummySecureRequest): Future[DummyResponse] = {
+      Future(DummyResponse(s"${request.db}-${request.namespace}-${request.metric}"))
     }
-    map<string, Dimension> dimensions = 7;
-    map<string, Tag> tags = 8;
+  }
+
 }

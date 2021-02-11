@@ -16,8 +16,7 @@
 
 package io.radicalbit.nsdb.client.rpc
 
-import java.util.concurrent.TimeUnit
-
+import io.grpc.stub.AbstractStub
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
@@ -31,23 +30,30 @@ import io.radicalbit.nsdb.rpc.restore.{RestoreGrpc, RestoreRequest, RestoreRespo
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 /**
-  * GRPC client
-  * @param host GRPC server host
-  * @param port GRPC server port
+  * GRPC client.
+  * @param host GRPC server host.
+  * @param port GRPC server port.
+  * @param tokenApplier implementation of [[TokenApplier]] that contains authorization token management logic.
   */
-class GRPCClient(host: String, port: Int) {
+class GRPCClient(val host: String, val port: Int, val tokenApplier: TokenApplier) {
+
+  def this(host: String, port: Int) = this(host, port, null)
 
   private val log = LoggerFactory.getLogger(classOf[GRPCClient])
 
-  private val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
-  private val stubHealth              = HealthGrpc.stub(channel)
-  private val stubRestore             = RestoreGrpc.stub(channel)
-  private val stubSql                 = NSDBServiceSQLGrpc.stub(channel)
-  private val stubCommand             = NSDBServiceCommandGrpc.stub(channel)
-  private val stubInit                = InitMetricGrpc.stub(channel)
+  private lazy val channel: ManagedChannel           = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
+  private lazy val stubHealth: HealthGrpc.HealthStub = HealthGrpc.stub(channel)
+  private lazy val stubRestore                       = RestoreGrpc.stub(channel)
+  private lazy val stubSql                           = authorizedStub(NSDBServiceSQLGrpc.stub(channel))
+  private lazy val stubCommand                       = authorizedStub(NSDBServiceCommandGrpc.stub(channel))
+  private lazy val stubInit                          = authorizedStub(InitMetricGrpc.stub(channel))
+
+  private def authorizedStub[T <: AbstractStub[T]](stub: T) =
+    Option(tokenApplier).fold(stub)(tokenApplier => stub.withCallCredentials(tokenApplier))
 
   def checkConnection(): Future[HealthCheckResponse] = {
     log.debug("checking connection")
@@ -79,7 +85,7 @@ class GRPCClient(host: String, port: Int) {
     stubCommand.showNamespaces(request)
   }
 
-  def showMetrics(request: ShowMetrics): Future[MetricsGot] = {
+  def showMetrics(request: ShowMetrics, token: String = ""): Future[MetricsGot] = {
     log.debug("Preparing of command show metrics for namespace: {} ", request.namespace)
     stubCommand.showMetrics(request)
   }

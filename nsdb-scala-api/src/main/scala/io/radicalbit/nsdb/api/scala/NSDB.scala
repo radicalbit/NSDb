@@ -17,9 +17,8 @@
 package io.radicalbit.nsdb.api.scala
 
 import io.radicalbit.nsdb.api.scala.NSDB._
-import io.radicalbit.nsdb.client.rpc.GRPCClient
+import io.radicalbit.nsdb.client.rpc.{GRPCClient, TokenApplier, TokenAppliers}
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
-import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
@@ -75,16 +74,32 @@ object NSDB {
 
       val readRes: Future[SQLStatementResponse] = nsdb.execute(query)
   * }}}
-  * @param host Nsdb host
-  * @param port Nsdb port
+  * @param host Nsdb host.
+  * @param port Nsdb port.
+  * @param tokenApplier implementation of [[TokenApplier]] that contains authorization token management logic.
   * @param executionContextExecutor implicit execution context to handle asynchronous methods
   */
-case class NSDB(host: String, port: Int)(implicit executionContextExecutor: ExecutionContext) {
+class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] = None)(
+    implicit executionContextExecutor: ExecutionContext) {
 
   /**
     * Inner Grpc client.
     */
   protected[scala] val client = new GRPCClient(host = host, port = port)
+
+  /**
+    * Create a new instance of [[NSDB]] with a Jwt token.
+    * @param token Jwt Authorization token.
+    */
+  def withJwtToken(token: String): NSDB = new NSDB(host, port, Some(TokenAppliers.JWT(token)))
+
+  /**
+    * Create a new instance of [[NSDB]] with a custom token.
+    * @param tokenName name of the token.
+    * @param tokenValue value of the token.
+    */
+  def withCustomToken(tokenName: String, tokenValue: String): NSDB =
+    new NSDB(host, port, Some(TokenAppliers.Custom(tokenName, tokenValue)))
 
   /**
     * Defines the db used to build the bit or the query.
@@ -94,8 +109,9 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
 
   /**
     * Checks if a connection is healthy.
+    * @return the connection instance.
     */
-  def check: Future[HealthCheckResponse] = client.checkConnection()
+  def check: Future[NSDB] = client.checkConnection().map(_ => this)
 
   /**
     * Writes a bit into Nsdb using the current openend connection.
@@ -131,6 +147,7 @@ case class NSDB(host: String, port: Int)(implicit executionContextExecutor: Exec
     val sqlStatementRequest =
       SQLRequestStatement(db = sqlStatement.db,
                           namespace = sqlStatement.namespace,
+                          metric = sqlStatement.metric,
                           statement = sqlStatement.sQLStatement)
     client.executeSQLStatement(sqlStatementRequest)
   }
@@ -169,17 +186,9 @@ case class Namespace(db: String, name: String) {
     * @return a bit with empty dimensions and value.
     */
   def metric(metric: String): Bit = Bit(db = db, namespace = name, metric = metric)
-
-  /**
-    * Builds the query to be executed.
-    * @param queryString raw query.
-    * @return auxiliary [[SQLStatement]] case class.
-    */
-  def query(queryString: String): SQLStatement = SQLStatement(db = db, namespace = name, sQLStatement = queryString)
-
 }
 
-case class SQLStatement(db: String, namespace: String, sQLStatement: String)
+case class SQLStatement(db: String, namespace: String, metric: String, sQLStatement: String)
 
 /**
   * Auxiliary case class useful to define a bit to be inserted.
@@ -197,6 +206,14 @@ case class Bit protected (db: String,
                           value: RPCInsert.Value = RPCInsert.Value.Empty,
                           dimensions: ListBuffer[DimensionAPI] = ListBuffer.empty[DimensionAPI],
                           tags: ListBuffer[TagAPI] = ListBuffer.empty[TagAPI]) {
+
+  /**
+    * Builds the query to be executed.
+    * @param queryString raw query.
+    * @return auxiliary [[SQLStatement]] case class.
+    */
+  def query(queryString: String): SQLStatement =
+    SQLStatement(db = db, namespace = namespace, metric = metric, sQLStatement = queryString)
 
   /**
     * Builds [[MetricInfo]] from an existing bit providing a shard interval

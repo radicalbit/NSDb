@@ -17,24 +17,26 @@
 syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
+import "security.proto";
 
 message InitMetricRequest {
-  string db = 1;
-  string namespace = 2;
-  string metric = 3;
+  string db = 1 [(AuthorizationField) = DB];
+  string namespace = 2 [(AuthorizationField) = NAMESPACE];
+  string metric = 3 [(AuthorizationField) = METRIC];
   string shardInterval = 4;
   string retention = 5;
 }
 
 message InitMetricResponse {
-  string db = 1;
-  string namespace = 2;
-  string metric = 3;
+  string db = 1 [(AuthorizationField) = DB];
+  string namespace = 2 [(AuthorizationField) = NAMESPACE];
+  string metric = 3 [(AuthorizationField) = METRIC];
   bool completedSuccessfully = 4;
   string errorMsg = 5;
 }
 
 service InitMetric {
+  option (isAuthorized) = true;
   rpc InitMetric(InitMetricRequest) returns (InitMetricResponse);
 }
 

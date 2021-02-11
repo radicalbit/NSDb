@@ -25,5 +25,4 @@ trait NSDbException extends RuntimeException with NoStackTrace
 
 class InvalidStatementException(val message: String) extends NSDbException
 class TypeNotSupportedException(val message: String) extends NSDbException
-class NsdbSecurityException(val message: String)     extends NSDbException
 class InvalidNodeIdException(address: String)        extends NSDbException

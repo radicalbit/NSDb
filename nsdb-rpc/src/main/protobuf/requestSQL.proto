@@ -17,9 +17,11 @@
 syntax = "proto3";
 
 package io.radicalbit.nsdb.rpc;
+import "security.proto";
 
 message SQLRequestStatement{
-    string db = 1;
-    string namespace = 2;
-    string statement = 3;
+    string db = 1 [(AuthorizationField) = DB];
+    string namespace = 2 [(AuthorizationField) = NAMESPACE];
+    string metric = 3 [(AuthorizationField) = METRIC];
+    string statement = 4;
 }

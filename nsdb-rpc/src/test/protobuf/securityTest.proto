@@ -16,20 +16,21 @@
 
 syntax = "proto3";
 
-package io.radicalbit.nsdb.rpc;
+package io.radicalbit.nsdb.rpc.test;
 
-import "common.proto";
 import "security.proto";
 
-message RPCInsert {
-    string database = 1 [(AuthorizationField) = DB];
-    string namespace = 2 [(AuthorizationField) = NAMESPACE];
-    string metric = 3 [(AuthorizationField) = METRIC];
-    int64 timestamp = 4;
-    oneof value {
-        double decimalValue = 5;
-        int64 longValue = 6;
-    }
-    map<string, Dimension> dimensions = 7;
-    map<string, Tag> tags = 8;
+message DummySecureRequest {
+  string db = 1 [(AuthorizationField) = DB];
+  string namespace = 2 [(AuthorizationField) = NAMESPACE];
+  string metric = 3 [(AuthorizationField) = METRIC];
+}
+
+message DummyResponse {
+  string headerName = 1;
+}
+
+service DummySecureService {
+  option (isAuthorized) = true;
+  rpc dummySecure(io.radicalbit.nsdb.rpc.test.DummySecureRequest) returns (io.radicalbit.nsdb.rpc.test.DummyResponse) {}
 }
