@@ -26,6 +26,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.SubscriptionByQueryStringFailed
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.web.NSDbJson._
@@ -42,12 +43,12 @@ trait WsResources {
   def logger: LoggingAdapter
 
   /** Publish refresh period default value , also considered as the min value */
-  private val refreshPeriod = system.settings.config.getInt("nsdb.websocket.refresh-period")
+  private val refreshPeriod = system.settings.config.getInt(NSDbConfig.HighLevel.StreamingRefreshPeriod)
 
   /** Number of messages that can be retained before being published,
     * if the buffered messages exceed this threshold, they will be discarded
     **/
-  private val retentionSize = system.settings.config.getInt("nsdb.websocket.retention-size")
+  private val retentionSize = system.settings.config.getInt(NSDbConfig.HighLevel.StreamingRetentionSize)
 
   /**
     * Akka stream Flow used to define the webSocket behaviour.

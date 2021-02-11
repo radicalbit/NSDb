@@ -519,7 +519,7 @@ class PublisherActorSpec
       }
 
       val recordPublished = probe.expectMsgType[RecordsPublished]
-      recordPublished.metric shouldBe "people"
+      recordPublished.metric shouldBe "metric"
       recordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             10L,
@@ -590,7 +590,7 @@ class PublisherActorSpec
       }
 
       val recordPublished = probe.expectMsgType[RecordsPublished]
-      recordPublished.metric shouldBe "people"
+      recordPublished.metric shouldBe "metric"
       recordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             10L,
@@ -618,7 +618,7 @@ class PublisherActorSpec
         Seq(Bit(eventStartTime, 25L, Map.empty, Map("name" -> "john"))))
 
       val lateRecordPublished = probe.expectMsgType[RecordsPublished]
-      lateRecordPublished.metric shouldBe "people"
+      lateRecordPublished.metric shouldBe "metric"
       lateRecordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             11L,
@@ -641,7 +641,7 @@ class PublisherActorSpec
       }
 
       val multipleLateRecordPublished = probe.expectMsgType[RecordsPublished]
-      multipleLateRecordPublished.metric shouldBe "people"
+      multipleLateRecordPublished.metric shouldBe "metric"
       multipleLateRecordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             21L,

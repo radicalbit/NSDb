@@ -24,7 +24,6 @@ import io.radicalbit.nsdb.actors.PublisherActor.Commands._
 import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters.BitConverter
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
-import io.radicalbit.nsdb.monitoring.NSDbMonitoring
 import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{
   RecordsPublished,
   SubscribedByQueryString,
@@ -41,7 +40,6 @@ import io.radicalbit.nsdb.rpc.streaming.{
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import io.radicalbit.nsdb.sql.parser.StatementParserResult._
 import io.radicalbit.nsdb.util.ActorPathLogging
-import kamon.Kamon
 
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
@@ -50,14 +48,10 @@ import scala.concurrent.duration._
 /**
   * Bridge actor between [[io.radicalbit.nsdb.actors.PublisherActor]] and the Grpc Stream endpoint.
   *
-  * @param clientAddress         the client address that established the connection (for logging and monitoring purposes).
   * @param publisher             global Publisher Actor.
   * @param publishInterval       publish to web socket interval.
   */
-class StreamActor(clientAddress: String,
-                  publisher: ActorRef,
-                  publishInterval: Int,
-                  observer: StreamObserver[SQLStreamingResponse])
+class StreamActor(publisher: ActorRef, publishInterval: Int, observer: StreamObserver[SQLStreamingResponse])
     extends ActorPathLogging {
 
   implicit val timeout: Timeout =
@@ -66,18 +60,10 @@ class StreamActor(clientAddress: String,
 
   private val buffer: mutable.Queue[SQLStreamingResponse] = mutable.Queue.empty
 
-  lazy val kamonMetric = Kamon.gauge(NSDbMonitoring.NSDbWsConnectionsTotal).withoutTags()
-
   override def preStart(): Unit = {
-//    kamonMetric.increment()
-
     context.system.scheduler.schedule(0.seconds, publishInterval.millis) {
       while (buffer.nonEmpty) observer.onNext(buffer.dequeue())
     }
-  }
-
-  override def postStop(): Unit = {
-//    kamonMetric.decrement()
   }
 
   def receive: Receive = {
@@ -120,13 +106,12 @@ class StreamActor(clientAddress: String,
                                      metric,
                                      Payload.RecordsPublished(RecordsPublishedGrpc(quid, records.map(_.asGrpcBit))))
     case Terminate =>
-      log.info("closing web socket connection from address {}", clientAddress)
       (publisher ? Unsubscribe(self)).foreach { _ =>
         self ! PoisonPill
         observer.onCompleted()
       }
     case msg @ _ =>
-      log.error(s"Unexpected message in ws : $msg")
+      log.error(s"Unexpected message : $msg")
   }
 }
 
@@ -136,9 +121,6 @@ object StreamActor {
   case object Terminate
   case class RegisterQuery(db: String, namespace: String, metric: String, queryString: String) extends NSDbSerializable
 
-  def props(clientAddress: String,
-            publisherActor: ActorRef,
-            refreshPeriod: Int,
-            observer: StreamObserver[SQLStreamingResponse]) =
-    Props(new StreamActor(clientAddress: String, publisherActor, refreshPeriod, observer))
+  def props(publisherActor: ActorRef, refreshPeriod: Int, observer: StreamObserver[SQLStreamingResponse]) =
+    Props(new StreamActor(publisherActor, refreshPeriod, observer))
 }

@@ -18,15 +18,24 @@ package io.radicalbit.nsdb.rpc.server.endpoint
 
 import akka.actor.{ActorRef, ActorSystem}
 import io.grpc.stub.StreamObserver
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.server.actor.StreamActor
 import io.radicalbit.nsdb.rpc.server.actor.StreamActor.RegisterQuery
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
 import io.radicalbit.nsdb.rpc.streaming.SQLStreamingResponse
 
+/**
+  * Concrete implementation of [[NSDbStreaming]]
+  * @param publisherActor global publisherActor
+  */
 class GrpcNSDbStreaming(publisherActor: ActorRef)(implicit system: ActorSystem) extends NSDbStreaming {
+
+  /** Publish refresh period default value, also considered as the min value */
+  private val refreshPeriod = system.settings.config.getInt(NSDbConfig.HighLevel.StreamingRefreshPeriod)
+
   override def streamSQL(request: SQLRequestStatement, responseObserver: StreamObserver[SQLStreamingResponse]): Unit = {
-    val actor = system.actorOf(StreamActor.props("", publisherActor, 500, responseObserver))
-    actor ! RegisterQuery(request.db, request.namespace, request.metric, request.statement)
+    val streamActor = system.actorOf(StreamActor.props(publisherActor, refreshPeriod, responseObserver))
+    streamActor ! RegisterQuery(request.db, request.namespace, request.metric, request.statement)
   }
 }

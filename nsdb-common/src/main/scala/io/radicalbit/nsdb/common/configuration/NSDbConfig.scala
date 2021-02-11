@@ -52,6 +52,9 @@ object NSDbConfig {
     final val globalTimeout = "nsdb.global.timeout"
 
     final val precision = "nsdb.math.precision"
+
+    final val StreamingRefreshPeriod = "nsdb.streaming.refresh-period"
+    final val StreamingRetentionSize = "nsdb.streaming.retention-size"
   }
 
   object LowLevel {
