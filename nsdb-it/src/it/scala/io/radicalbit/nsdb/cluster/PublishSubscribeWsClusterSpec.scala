@@ -46,7 +46,7 @@ import org.json4s.jackson.JsonMethods._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
-class PublishSubscribeClusterSpec extends MiniClusterSpec {
+class PublishSubscribeWsClusterSpec extends MiniClusterSpec {
 
   implicit val timeout: Timeout = Timeout(5, TimeUnit.SECONDS)
 

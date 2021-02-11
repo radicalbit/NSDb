@@ -27,14 +27,10 @@ object NSDBPusher extends App {
 
   val system = ActorSystem("pusher")
   import system.dispatcher
-  val connection = Await.result(NSDB.connect(
-                                  host = "127.0.0.1",
-                                  port = 7817,
-                                  db = "radicalbit"
-                                ),
-                                10.seconds)
+  val connection = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817), 10.seconds)
   system.scheduler.scheduleAtFixedRate(0.seconds, 1.second) { () =>
     val series: Bit = connection
+      .db("radicalbit")
       .namespace("channel")
       .metric("event")
       .value(new java.math.BigDecimal("13.5"))
@@ -57,14 +53,10 @@ object NSDbStreamingMain extends App {
 
   implicit val executionContext: ExecutionContextExecutor = ExecutionContext.global
 
-  val nsdb = Await.result(NSDB.connect(
-                            host = "127.0.0.1",
-                            port = 7817,
-                            db = "radicalbit"
-                          ),
-                          10 seconds)
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817), 10 seconds)
 
   val query = nsdb
+    .db("radicalbit")
     .namespace("registry")
     .metric("people")
     .query("select * from people limit 1")
