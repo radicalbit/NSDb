@@ -16,15 +16,12 @@
 
 package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
-import akka.actor.{Actor, ActorLogging}
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, WriteToCommitLogSucceeded}
+import akka.actor.Actor
+import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents.{GetNodeMetrics, NodeMetricsGot}
 
-class FakeCommitLogCoordinator extends Actor with ActorLogging {
+class MockedClusterListener extends Actor {
   override def receive: Receive = {
-    case WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
-      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
-    case unexpected =>
-      log.error(s"UnexpectedMessage $unexpected")
-      sender ! "UnexpectedMessage"
+    case GetNodeMetrics =>
+      sender ! NodeMetricsGot(Set.empty)
   }
 }

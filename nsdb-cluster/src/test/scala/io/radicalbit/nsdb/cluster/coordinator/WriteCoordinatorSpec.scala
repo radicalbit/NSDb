@@ -46,17 +46,17 @@ class WriteCoordinatorSpec
   val namespace = "namespace"
 
   override def beforeAll: Unit = {
-    probe.send(writeCoordinatorActor, SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"))
+    probe.send(writeCoordinatorActor, SubscribeCommitLogCoordinator(commitLogCoordinator, "nodeId"))
     awaitAssert {
       probe.expectMsgType[CommitLogCoordinatorSubscribed]
     }
 
-    probe.send(writeCoordinatorActor, SubscribeMetricsDataActor(metricsDataActor, "localhost"))
+    probe.send(writeCoordinatorActor, SubscribeMetricsDataActor(metricsDataActor, "nodeId"))
     awaitAssert {
       probe.expectMsgType[MetricsDataActorSubscribed]
     }
 
-    probe.send(writeCoordinatorActor, SubscribePublisher(publisherActor, "localhost"))
+    probe.send(writeCoordinatorActor, SubscribePublisher(publisherActor, "nodeId"))
     awaitAssert {
       probe.expectMsgType[PublisherSubscribed]
     }
@@ -68,4 +68,38 @@ class WriteCoordinatorSpec
   }
 
   "WriteCoordinator" should behave.like(defaultBehaviour)
+
+  //  "WriteCoordinator" should {
+//    "write records" in {
+//      val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
+//      val record2 =
+//        Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
+//      val incompatibleRecord =
+//        Bit(System.currentTimeMillis, 3, Map("content" -> 1, "content2" -> s"content2"), Map.empty)
+//
+//      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record1))
+//
+//      val expectedAdd = awaitAssert {
+//        probe.expectMsgType[InputMapped]
+//      }
+//      expectedAdd.metric shouldBe "testMetric"
+//      expectedAdd.record shouldBe record1
+//
+//      probe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, "testMetric", record2))
+//
+//      val expectedAdd2 = awaitAssert {
+//        probe.expectMsgType[InputMapped]
+//      }
+//      expectedAdd2.metric shouldBe "testMetric"
+//      expectedAdd2.record shouldBe record2
+//
+//      probe.send(writeCoordinatorActor,
+//        MapInput(System.currentTimeMillis, db, namespace, "testMetric", incompatibleRecord))
+//
+//      awaitAssert {
+//        probe.expectMsgType[RecordRejected]
+//      }
+//
+//    }
+//  }
 }

@@ -22,7 +22,6 @@ import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
-import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
@@ -36,7 +35,6 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
 import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
@@ -69,8 +67,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
                           writeNodesSelectionLogic: WriteNodesSelectionLogic)
     extends ActorPathLogging
     with DirectorySupport {
-  private val cluster = Cluster(context.system)
-
   private val nsdbClusterSnapshot = NSDbClusterSnapshot(context.system)
 
   private val config = context.system.settings.config
@@ -446,7 +442,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
+      val clusterAliveMembers = nsdbClusterSnapshot.nodes
       if (clusterAliveMembers.size < replicationFactor)
         sender ! GetWriteLocationsFailed(
           db,
@@ -474,14 +470,14 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
                           val nodes =
                             if (nodeMetrics.nodeMetrics.nonEmpty)
-                              writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                              writeNodesSelectionLogic
+                                .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                                .map(address => (address, nsdbClusterSnapshot.getId(address)))
                             else {
-                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
+                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }
 
-                          val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
-
-                          val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
+                          val locations = nodes.map { case (_, id) => Location(metric, id, start, end) }
                           performAddLocationIntoCache(db, namespace, locations, None)
                         }
                       } yield

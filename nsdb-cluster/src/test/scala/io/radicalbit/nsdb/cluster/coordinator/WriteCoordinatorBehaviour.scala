@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
@@ -29,8 +28,10 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.Locatio
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
   FakeCommitLogCoordinator,
   LocalMetadataCache,
-  LocalMetadataCoordinator
+  MockedClusterListener
 }
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
+import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
@@ -68,23 +69,38 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
-  lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
+  val writeNodesSelection = new CapacityWriteNodesSelectionLogic(
+    CapacityWriteNodesSelectionLogic.fromConfigValue(system.settings.config.getString("nsdb.cluster.metrics-selector")))
+
+  lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator], "commitLogCoordinator")
+  lazy val schemaCache          = system.actorOf(Props[FakeSchemaCache], "schemaCache")
   lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
-  lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
+    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(schemaCache), "schemaCoordinator")
+  lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber], "testSubscriber")
   lazy val publisherActor =
-    TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
-  lazy val fakeMetadataCoordinator =
-    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
-  lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(fakeMetadataCoordinator,
-                                                                         schemaCoordinator,
-                                                                         system.actorOf(Props.empty))
+    TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])),
+                                 "publisherActor")
+//  lazy val fakeMetadataCoordinator =
+//    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
+  lazy val metadataCoordinator = system.actorOf(
+    MetadataCoordinator.props(system.actorOf(Props[MockedClusterListener]),
+                              system.actorOf(Props[LocalMetadataCache]),
+                              schemaCache,
+                              system.actorOf(Props.empty),
+                              writeNodesSelection),
+    "metadataCoordinator"
+  )
+  lazy val writeCoordinatorActor = system.actorOf(
+    WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)),
+    "writeCoordinator")
   lazy val metricsDataActor =
     TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "localhost", writeCoordinatorActor))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
   val record2 =
     Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
+
+  NSDbClusterSnapshot(system).addNode("localhost", "nodeId")
 
   def defaultBehaviour {
     "write records" in {
@@ -156,7 +172,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
       expectNoMessage(interval)
     }
 
-    "delete a namespace" in within(5.seconds) {
+    "delete a namespace" in {
       probe.send(writeCoordinatorActor, DeleteNamespace(db, namespace))
 
       awaitAssert {
@@ -167,7 +183,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
       metricsDataActor.underlyingActor.context.children.map(_.path.name).exists(_.contains(namespace)) shouldBe false
 
-      probe.send(fakeMetadataCoordinator, GetNamespaces(db))
+      probe.send(metadataCoordinator, GetNamespaces(db))
 
       val result = awaitAssert {
         probe.expectMsgType[NamespacesGot]
@@ -229,7 +245,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
       probe.send(schemaCoordinator, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
-      probe.send(fakeMetadataCoordinator, GetLocations(db, namespace, "testMetric"))
+      probe.send(metadataCoordinator, GetLocations(db, namespace, "testMetric"))
       val locations = probe.expectMsgType[LocationsGot].locations
 
       probe.send(metricsDataActor, GetCountWithLocations(db, namespace, "testMetric", locations))
@@ -243,7 +259,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
       expectNoMessage(interval)
 
-      probe.send(fakeMetadataCoordinator, GetLocations(db, namespace, "testMetric"))
+      probe.send(metadataCoordinator, GetLocations(db, namespace, "testMetric"))
       val locationsAfterDrop = probe.expectMsgType[LocationsGot].locations
       locationsAfterDrop.size shouldBe 0
 
