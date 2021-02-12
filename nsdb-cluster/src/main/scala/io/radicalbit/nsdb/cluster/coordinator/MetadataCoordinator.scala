@@ -319,6 +319,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
                 log.debug(s"checking locations $locations at time ${timeContext.currentTime} and retention $retention")
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
                   TimeRangeManager.getLocationsToEvict(locations, retention)
+                log.debug(
+                  s"found locations to fully evict $locationsToFullyEvict at time ${timeContext.currentTime} and retention $retention")
+                log.debug(
+                  s"found locations to partially evict $locationsToPartiallyEvict at time ${timeContext.currentTime} and retention $retention")
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>

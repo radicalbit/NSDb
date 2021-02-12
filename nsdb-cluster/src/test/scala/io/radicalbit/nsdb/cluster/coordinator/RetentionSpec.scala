@@ -17,20 +17,23 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.cluster.Cluster
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.`extension`.NSDbClusterSnapshot
+import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
   AllMetricInfoWithRetentionGot,
   GetAllMetricInfoWithRetention
 }
-import io.radicalbit.nsdb.cluster.actor.{ClusterListener, MetricsDataActor}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.PutMetricInfo
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetricInfoPut
-import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
+  FakeCommitLogCoordinator,
+  LocalMetadataCache,
+  MockedClusterListener
+}
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
@@ -49,11 +52,9 @@ class RetentionSpec
         "RetentionSpec",
         ConfigFactory
           .load()
-          .withValue("akka.remote.artery.canonical.port", ConfigValueFactory.fromAnyRef(2654))
-          .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
           .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("20ms"))
-          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("50ms"))
+          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("10ms"))
       ))
     with ImplicitSender
     with NSDbSpecLike
@@ -91,7 +92,7 @@ class RetentionSpec
   val metadataCoordinator =
     system.actorOf(
       MetadataCoordinator
-        .props(system.actorOf(Props[ClusterListener]),
+        .props(system.actorOf(Props[MockedClusterListener]),
                localMetadataCache,
                schemaCache,
                system.actorOf(Props.empty),
@@ -123,8 +124,7 @@ class RetentionSpec
   )
 
   override def beforeAll = {
-    val cluster = Cluster(system)
-    cluster.join(cluster.selfAddress)
+    NSDbClusterSnapshot(system).addNode("localhost", "nodeId")
 
     val nodesId = awaitAssert {
       val nodes = NSDbClusterSnapshot(system).nodes

@@ -17,16 +17,19 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{ActorSystem, Props}
-import akka.cluster.Cluster
 import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.cluster.actor.ClusterListener
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{FakeCommitLogCoordinator, LocalMetadataCache}
+import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
+  FakeCommitLogCoordinator,
+  LocalMetadataCache,
+  MockedClusterListener
+}
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -45,9 +48,8 @@ class MetadataCoordinatorSpec
         "MetadataCoordinatorSpec",
         ConfigFactory
           .load()
-          .withValue("akka.actor.provider", ConfigValueFactory.fromAnyRef("cluster"))
-          .withValue("akka.remote.artery.canonical.port", ConfigValueFactory.fromAnyRef(2650))
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("60s"))
+          .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("20ms"))
       ))
     with ImplicitSender
     with NSDbSpecLike
@@ -66,7 +68,7 @@ class MetadataCoordinatorSpec
     system.actorOf(SchemaCoordinator.props(schemaCache), "schemacoordinator")
   val metricsDataActorProbe = TestProbe()
   val metadataCache         = system.actorOf(Props[LocalMetadataCache])
-  val clusterListener       = system.actorOf(Props[ClusterListener])
+  val clusterListener       = system.actorOf(Props[MockedClusterListener])
 
   val metadataCoordinator =
     system.actorOf(
@@ -79,11 +81,11 @@ class MetadataCoordinatorSpec
   implicit val timeout = Timeout(10 seconds)
 
   override def beforeAll = {
-    val cluster = Cluster(system)
-    cluster.join(cluster.selfAddress)
+    NSDbClusterSnapshot(system).addNode("localhost_2552", "node_01")
+    NSDbClusterSnapshot(system).addNode("localhost_2553", "node_02")
 
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, "localhost"), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, "node_01"), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, "node_01"), 10 seconds)
 
     val nameRecord = Bit(0, 1, Map("name" -> "name"), Map("city" -> "milano"))
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, nameRecord), 10 seconds)
@@ -333,17 +335,15 @@ class MetadataCoordinatorSpec
       val now = System.currentTimeMillis()
 
       val locations = Seq(
-        Location(metric, "localhost", 0L, 30000L),
-        Location(metric, "localhost", 30000L, 60000L),
-        Location(metric, "localhost", now - 5000, now - 2000),
-        Location(metric, "localhost", now - 1000, now)
+        Location(metric, "node_01", 0L, 30000L),
+        Location(metric, "node_01", 30000L, 60000L),
+        Location(metric, "node_01", now - 5000, now - 2000),
+        Location(metric, "node_01", now - 1000, now)
       )
 
-      locations.foreach { loc =>
-        probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc)))
-        awaitAssert {
-          probe.expectMsgType[LocationsAdded]
-        }
+      probe.send(metadataCoordinator, AddLocations(db, namespace, locations))
+      awaitAssert {
+        probe.expectMsgType[LocationsAdded]
       }
 
       awaitAssert {
