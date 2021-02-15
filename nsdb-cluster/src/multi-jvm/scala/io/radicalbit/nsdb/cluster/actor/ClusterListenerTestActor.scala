@@ -38,11 +38,11 @@ abstract class ClusterListenerTestActor
                                   writeCoordinator: ActorRef,
                                   metadataCoordinator: ActorRef,
                                   publisherActor: ActorRef): Unit = {
-    resultActor ! "Success"
+//    resultActor ! "Success"
   }
 
   override protected def onFailureBehaviour(member: Member, error: Any): Unit = {
-    resultActor ! "Failure"
+//    resultActor ! "Failure"
   }
 
   override protected def onRemoveNodeMetadataResponse: events.RemoveNodeMetadataResponse => Unit = {

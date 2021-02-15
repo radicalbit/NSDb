@@ -10,6 +10,7 @@ import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
@@ -53,11 +54,11 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   "Metadata system" must {
 
     "join cluster" in {
-      join(node1, node1)
-      join(node2, node1)
+      cluster.join(node(node1).address)
 
       awaitAssert {
         cluster.state.members.count(_.status == MemberStatus.Up) shouldBe 2
+        NSDbClusterSnapshot(system).nodes.size shouldBe 2
       }
 
       enterBarrier("joined")
@@ -127,25 +128,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       }
 
       enterBarrier("after-get-write-locations")
-
-      cluster.leave(node(node2).address)
-      awaitAssert {
-        cluster.state.members.count(_.status == MemberStatus.Up) shouldBe 1
-      }
-
-      enterBarrier("one-node-up")
-
-      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
-
-      awaitAssert{
-        val reply = expectMsgType[GetWriteLocationsFailed]
-        reply.db shouldBe "db"
-        reply.namespace shouldBe "namespace"
-        reply.metric shouldBe "metric"
-        reply.reason shouldBe MetadataCoordinator.notEnoughReplicasErrorMessage(1, 2)
-      }
-
-      enterBarrier("after-GetWriteLocationsFailed-test")
     }
 
     "manage outdated locations" in {
@@ -182,6 +164,34 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       }
 
       enterBarrier("after-get-outdated-locations")
+    }
+
+    "manage errors when there are not enough cluster nodes" in {
+      val selfMember = cluster.selfMember
+      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+      val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
+
+      cluster.leave(node(node2).address)
+      awaitAssert {
+        cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address) shouldBe Set(node(node1).address)
+        NSDbClusterSnapshot(system).nodes.size shouldBe 1
+      }
+
+      enterBarrier("one-node-up")
+
+      val currentTime = System.currentTimeMillis()
+
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
+
+      awaitAssert{
+        val reply = expectMsgType[GetWriteLocationsFailed]
+        reply.db shouldBe "db"
+        reply.namespace shouldBe "namespace"
+        reply.metric shouldBe "metric"
+        reply.reason shouldBe MetadataCoordinator.notEnoughReplicasErrorMessage(1, 2)
+      }
+
+      enterBarrier("after-GetWriteLocationsFailed-test")
     }
   }
 }

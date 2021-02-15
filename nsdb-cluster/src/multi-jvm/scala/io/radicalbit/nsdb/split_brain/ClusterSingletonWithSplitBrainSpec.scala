@@ -92,7 +92,7 @@ abstract class ClusterSingletonWithSplitBrainSpec
       enterBarrier("node-5-up")
     }
 
-    "demonstrate that after cluster partition two cluster singletons exists" in within(1 minutes) {
+    "demonstrate that after cluster partition two cluster singletons exists" in within(2 minutes) {
       runOn(node1) {
         for (role1 <- side1; role2 <- side2) switchOffConnection(role1, role2)
       }

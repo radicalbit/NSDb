@@ -155,7 +155,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.info("Member is Up: {}", member.address)
+      log.error("Member is Up: {}", member.address)
 
       val nodeActorsGuardian = createNodeActorsGuardian()
 
@@ -204,8 +204,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       NSDbClusterSnapshot(context.system).addNode(address, nodeId)
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
-    case MemberRemoved(member, previousStatus) =>
-      log.info("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
+    case MemberRemoved(member, previousStatus) if member != cluster.selfMember =>
+      log.error("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
 
       val nodeName = createNodeName(member)
 
