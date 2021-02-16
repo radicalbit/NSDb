@@ -43,9 +43,7 @@ object Commons {
       "Radicalbit Public Snapshots" at "https://tools.radicalbit.io/artifactory/public-snapshot/",
       Resolver.bintrayRepo("hseeberger", "maven")
     ),
-    parallelExecution in Test := false,
     parallelExecution in IntegrationTest := false,
-    concurrentRestrictions in Test += Tags.limitAll(1),
     concurrentRestrictions in IntegrationTest += Tags.limitAll(1)
   )
 

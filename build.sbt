@@ -268,4 +268,3 @@ lazy val `nsdb-it` = (project in file("nsdb-it"))
 scalafmtOnCompile in ThisBuild := true
 // make run command include the provided dependencies
 run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
-fork in test := false
