@@ -401,7 +401,7 @@ object PublisherActor {
   /**
     * Defines a sequence of partial results delimited by a time interval.
     */
-  case class TemporalBucket(lowerBound: Long, upperBound: Long, bits: Seq[Bit]) {
+  case class TemporalBucket(lowerBound: Long, upperBound: Long, bits: ListBuffer[Bit]) {
     def contains(timestamp: Long): Boolean = timestamp <= upperBound && timestamp >= lowerBound
   }
 

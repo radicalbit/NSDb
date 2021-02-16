@@ -269,7 +269,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
           }
         }
 
-        buffer
+        buffer.toSeq
 
       case None =>
         Seq.empty
@@ -340,7 +340,7 @@ abstract class AbstractStructuredIndex extends Index[Bit] with TypeSupport {
           }
         }
 
-        buffer
+        buffer.toSeq
 
       case None =>
         Seq.empty

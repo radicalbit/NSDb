@@ -100,11 +100,9 @@ object Schema extends TypeSupport {
     */
   def apply(metric: String, bit: Bit): Schema =
     validateSchemaTypeSupport(bit)
-      .map(
-        fieldsMap =>
-          new Schema(
-            metric,
-            fieldsMap.mapValues(field => SchemaField(field.name, field.fieldClassType, field.indexType)).map(identity)))
+      .map(fieldsMap =>
+        new Schema(metric,
+                   fieldsMap.mapValues(field => SchemaField(field.name, field.fieldClassType, field.indexType)).toMap))
       .get
 
   /**
