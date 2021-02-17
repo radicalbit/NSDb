@@ -21,11 +21,13 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.RemoteAddress
 import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.ws.{Message, TextMessage, UpgradeToWebSocket}
+import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketUpgrade}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import io.radicalbit.nsdb.common.configuration.NSDbConfig
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.SubscriptionByQueryStringFailed
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.web.NSDbJson._
 import io.radicalbit.nsdb.web.actor.StreamActor
@@ -41,12 +43,12 @@ trait WsResources {
   def logger: LoggingAdapter
 
   /** Publish refresh period default value , also considered as the min value */
-  private val refreshPeriod = system.settings.config.getInt("nsdb.websocket.refresh-period")
+  private val refreshPeriod = system.settings.config.getInt(NSDbConfig.HighLevel.StreamingRefreshPeriod)
 
   /** Number of messages that can be retained before being published,
     * if the buffered messages exceed this threshold, they will be discarded
     **/
-  private val retentionSize = system.settings.config.getInt("nsdb.websocket.retention-size")
+  private val retentionSize = system.settings.config.getInt(NSDbConfig.HighLevel.StreamingRetentionSize)
 
   /**
     * Akka stream Flow used to define the webSocket behaviour.
@@ -71,7 +73,7 @@ trait WsResources {
       */
     val connectedWsActor = system.actorOf(
       StreamActor
-        .props(clientAddress, publisherActor, refreshPeriod, wsSubProtocols, authProvider)
+        .props(clientAddress, publisherActor, refreshPeriod)
         .withDispatcher("akka.actor.control-aware-dispatcher"))
 
     /**
@@ -81,10 +83,27 @@ trait WsResources {
       Flow[Message]
         .map {
           case TextMessage.Strict(text) =>
-            text.parseJson.convertOpt[RegisterQuery] getOrElse s"Message $text not handled by receiver"
+            text.parseJson.convertOpt[RegisterQuery] match {
+              case Some(registerQuery: RegisterQuery) =>
+                val securityPayload = authProvider.extractWsSecurityPayload(wsSubProtocols.asJava)
+                val authorizationResult = authProvider.checkMetricAuth(registerQuery.db,
+                                                                       registerQuery.namespace,
+                                                                       registerQuery.metric,
+                                                                       securityPayload,
+                                                                       false)
+                if (authorizationResult.isSuccess)
+                  registerQuery
+                else
+                  SubscriptionByQueryStringFailed(registerQuery.db,
+                                                  registerQuery.namespace,
+                                                  registerQuery.metric,
+                                                  registerQuery.queryString,
+                                                  s"unauthorized ${authorizationResult.getFailReason}")
+              case None => s"Message $text not handled by receiver"
+            }
           case _ => "Message not handled by receiver"
         }
-        .to(Sink.actorRef(connectedWsActor, Terminate))
+        .to(Sink.actorRef(connectedWsActor, Terminate, _.getMessage))
 
     /**
       * Messages from the backend to the Ws.
@@ -120,7 +139,7 @@ trait WsResources {
       extractClientIP { remoteAddress: RemoteAddress =>
         parameter('refresh_period ? refreshPeriod, 'retention_size ? retentionSize) {
           case (period, retention) if period >= refreshPeriod =>
-            extractUpgradeToWebSocket { u: UpgradeToWebSocket =>
+            extractWebSocketUpgrade { u: WebSocketUpgrade =>
               val subProtocols = u.getRequestedProtocols().iterator().asScala.toSeq
               logger.debug("found sub protocols in ws request {}", subProtocols)
 

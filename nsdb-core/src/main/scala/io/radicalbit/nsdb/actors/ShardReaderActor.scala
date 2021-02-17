@@ -163,7 +163,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
     case ExecuteSelectStatement(statement, schema, _, timeRangeContext, timeContext, _) =>
       log.debug("executing statement in metric shard reader actor {}", statement)
       val results: Try[Seq[Bit]] = StatementParser.parseStatement(statement, schema)(timeContext) match {
-        case Right(ParsedSimpleQuery(_, _, q, false, limit, fields, sort)) =>
+        case Right(ParsedSimpleQuery(_, _, _, q, false, limit, fields, sort)) =>
           statement.getTimeOrdering match {
             case Some(_) =>
               handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
@@ -171,9 +171,9 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
               if (limit == Int.MaxValue) handleNoIndexResults(Try(index.query(schema, q, fields, limit, None)))
               else handleNoIndexResults(Try(index.query(schema, q, fields, limit, sort)))
           }
-        case Right(ParsedSimpleQuery(_, _, q, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+        case Right(ParsedSimpleQuery(_, _, _, q, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
           handleNoIndexResults(Try(facetIndexes.executeDistinctFieldCountIndex(q, fields.map(_.name).head, None)))
-        case Right(ParsedGlobalAggregatedQuery(_, _, q, limit, fields, aggregations, sort)) =>
+        case Right(ParsedGlobalAggregatedQuery(_, _, _, q, limit, fields, aggregations, sort)) =>
           val localPrimaryAggregationsResults = computePrimaryAggregations(aggregations, q, schema)
           if (fields.nonEmpty) {
             for {
@@ -204,12 +204,19 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             }
           }
         case Right(
-            ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: CountAggregation), _, limit)) =>
+            ParsedAggregatedQuery(_,
+                                  _,
+                                  _,
+                                  q,
+                                  InternalStandardAggregation(groupField, _: CountAggregation),
+                                  _,
+                                  limit)) =>
           handleNoIndexResults(
             Try(facetIndexes.executeCountFacet(q, groupField, None, limit, schema.fieldsMap(groupField).indexType)))
 
         case Right(
             ParsedAggregatedQuery(_,
+                                  _,
                                   _,
                                   q,
                                   InternalStandardAggregation(groupField, aggregation: CountDistinctAggregation),
@@ -219,7 +226,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
             Try(index.uniqueValues(q, schema, groupField, aggregation.fieldName))
           )
         case Right(
-            ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: SumAggregation), _, limit)) =>
+            ParsedAggregatedQuery(_, _, _, q, InternalStandardAggregation(groupField, _: SumAggregation), _, limit)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.executeSumFacet(q,
@@ -228,7 +235,8 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                            limit,
                                            schema.fieldsMap(groupField).indexType,
                                            schema.value.indexType)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: AvgAggregation), _, _)) =>
+        case Right(
+            ParsedAggregatedQuery(_, _, _, q, InternalStandardAggregation(groupField, _: AvgAggregation), _, _)) =>
           handleNoIndexResults(
             Try(
               facetIndexes.executeSumAndCountFacet(q,
@@ -237,16 +245,20 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                                                    schema.fieldsMap(groupField).indexType,
                                                    schema.value.indexType)))
         case Right(
-            ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: FirstAggregation), _, _)) =>
+            ParsedAggregatedQuery(_, _, _, q, InternalStandardAggregation(groupField, _: FirstAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getFirstGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: LastAggregation), _, _)) =>
+        case Right(
+            ParsedAggregatedQuery(_, _, _, q, InternalStandardAggregation(groupField, _: LastAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getLastGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: MaxAggregation), _, _)) =>
+        case Right(
+            ParsedAggregatedQuery(_, _, _, q, InternalStandardAggregation(groupField, _: MaxAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getMaxGroupBy(q, schema, groupField)))
-        case Right(ParsedAggregatedQuery(_, _, q, InternalStandardAggregation(groupField, _: MinAggregation), _, _)) =>
+        case Right(
+            ParsedAggregatedQuery(_, _, _, q, InternalStandardAggregation(groupField, _: MinAggregation), _, _)) =>
           handleNoIndexResults(Try(index.getMinGroupBy(q, schema, groupField)))
         case Right(
             ParsedTemporalAggregatedQuery(_,
+                                          _,
                                           _,
                                           q,
                                           _,
@@ -274,6 +286,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
         case Right(
             ParsedTemporalAggregatedQuery(_,
                                           _,
+                                          _,
                                           q,
                                           interval,
                                           InternalTemporalAggregation(
@@ -300,7 +313,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                   filteredRanges.headOption.map(_.upperBound).getOrElse(0L)
                 )))
 
-        case Right(ParsedTemporalAggregatedQuery(_, _, q, _, aggregationType, _, _, _, _)) =>
+        case Right(ParsedTemporalAggregatedQuery(_, _, _, q, _, aggregationType, _, _, _, _)) =>
           val valueFieldType: IndexType[_] = schema.value.indexType
           handleNoIndexResults(
             Try(
@@ -317,7 +330,7 @@ class ShardReaderActor(val basePath: String, val db: String, val namespace: Stri
                     .getOrElse(Seq.empty)
                     .filter(l => l.intersect(location) && l.lowerBound < timeContext.currentTime)
                 )))
-        case Right(ParsedAggregatedQuery(_, _, _, aggregationType, _, _)) =>
+        case Right(ParsedAggregatedQuery(_, _, _, _, aggregationType, _, _)) =>
           Failure(new RuntimeException(s"$aggregationType is not currently supported."))
         case Right(_) =>
           Failure(new RuntimeException("Unsupported query type"))

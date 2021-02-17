@@ -35,7 +35,9 @@ import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.restore.{RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.server.GRPCServer
+import io.radicalbit.nsdb.rpc.server.endpoint.{GrpcEndpointServiceCommand, GrpcEndpointServiceSQL, GrpcNSDbStreaming}
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
+import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 import org.slf4j.LoggerFactory
@@ -55,6 +57,7 @@ class GrpcEndpoint(nodeId: String,
                    readCoordinator: ActorRef,
                    writeCoordinator: ActorRef,
                    metadataCoordinator: ActorRef,
+                   publisherActor: ActorRef,
                    override val authorizationProvider: NSDbAuthorizationProvider)(implicit system: ActorSystem)
     extends GRPCServer {
 
@@ -77,6 +80,8 @@ class GrpcEndpoint(nodeId: String,
   override protected[this] lazy val health: Health = GrpcEndpointServiceHealth
 
   override protected[this] lazy val restore: Restore = GrpcEndpointServiceRestore
+
+  override protected[this] lazy val streamingService: NSDbStreaming = new GrpcNSDbStreaming(publisherActor)
 
   override protected[this] val interface: String = system.settings.config.getString(GrpcInterface)
 

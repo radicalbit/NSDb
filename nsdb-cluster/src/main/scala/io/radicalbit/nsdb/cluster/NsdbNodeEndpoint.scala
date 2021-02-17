@@ -75,6 +75,7 @@ class NsdbNodeEndpoint(nodeId: String,
         readCoordinator = readCoordinator,
         writeCoordinator = writeCoordinator,
         metadataCoordinator = metadataCoordinator,
+        publisherActor = publisher,
         authorizationProvider = provider
       )
 

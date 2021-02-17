@@ -27,7 +27,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
 import io.radicalbit.nsdb.actors.PublisherActor.Events.Unsubscribed
 import io.radicalbit.nsdb.actors.PublisherActor.{LateTemporalBucketKey, NSDbQuery, TemporalBucket}
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{
   RecordsPublished,
   SubscribedByQueryString,
   SubscriptionByQueryStringFailed
@@ -207,10 +207,11 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
         case (id, q) if subscribedActorsByQueryId.get(id).exists(_.nonEmpty) =>
           val f = (readCoordinator ? ExecuteStatement(q.query))
             .map {
-              case e: SelectStatementExecuted => RecordsPublished(id, e.statement.metric, e.values)
+              case e: SelectStatementExecuted =>
+                RecordsPublished(id, e.statement.db, e.statement.namespace, e.statement.metric, e.values)
               case SelectStatementFailed(statement, reason, _) =>
                 log.error(s"aggregated statement {} subscriber refresh failed because of {}", statement, reason)
-                RecordsPublished(id, q.query.metric, Seq.empty)
+                RecordsPublished(id, q.query.db, q.query.namespace, q.query.metric, Seq.empty)
             }
           subscribedActorsByQueryId.get(id).foreach(e => e.foreach(f.pipeTo(_)))
         case _ => //do nothing
@@ -231,7 +232,14 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 temporalBucket.bits).foreach { record =>
                 subscribedActorsByQueryId
                   .get(quid)
-                  .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
+                  .foreach(
+                    e =>
+                      e.foreach(
+                        _ ! RecordsPublished(quid,
+                                             parsedTemporalAggregatedQuery.db,
+                                             parsedTemporalAggregatedQuery.namespace,
+                                             parsedTemporalAggregatedQuery.metric,
+                                             Seq(record))))
 
                 temporalBuckets -= quid
               }
@@ -260,7 +268,14 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                     lateBucket.bits ++ lateEvents).foreach { record =>
                     subscribedActorsByQueryId
                       .get(quid)
-                      .foreach(e => e.foreach(_ ! RecordsPublished(quid, schema.metric, Seq(record))))
+                      .foreach(
+                        e =>
+                          e.foreach(
+                            _ ! RecordsPublished(quid,
+                                                 parsedTemporalAggregatedQuery.db,
+                                                 parsedTemporalAggregatedQuery.namespace,
+                                                 parsedTemporalAggregatedQuery.metric,
+                                                 Seq(record))))
                   }
               }
 
@@ -306,7 +321,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                     .lengthCompare(1) == 0)
                 subscribedActorsByQueryId
                   .get(quid)
-                  .foreach(e => e.foreach(_ ! RecordsPublished(quid, metric, Seq(record))))
+                  .foreach(e => e.foreach(_ ! RecordsPublished(quid, db, namespace, metric, Seq(record))))
               temporaryIndex.close()
             case parsedQuery: ParsedTemporalAggregatedQuery =>
               def updateLateEvents() =
@@ -386,7 +401,7 @@ object PublisherActor {
   /**
     * Defines a sequence of partial results delimited by a time interval.
     */
-  case class TemporalBucket(lowerBound: Long, upperBound: Long, bits: Seq[Bit]) {
+  case class TemporalBucket(lowerBound: Long, upperBound: Long, bits: ListBuffer[Bit]) {
     def contains(timestamp: Long): Boolean = timestamp <= upperBound && timestamp >= lowerBound
   }
 

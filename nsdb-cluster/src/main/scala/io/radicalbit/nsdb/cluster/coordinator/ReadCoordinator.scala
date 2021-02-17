@@ -209,10 +209,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
               readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
             StatementParser.parseStatement(statement, schema) match {
-              case Right(ParsedSimpleQuery(_, _, _, false, _, _, _)) =>
+              case Right(ParsedSimpleQuery(_, _, _, _, false, _, _, _)) =>
                 gatherNodeResults(msg, schema, uniqueLocationsByNode)(applyOrderingWithLimit(_, statement, schema))
 
-              case Right(ParsedSimpleQuery(_, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+              case Right(ParsedSimpleQuery(_, _, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
                 val distinctField = fields.head.name
 
                 gatherAndGroupNodeResults(msg, distinctField, schema, uniqueLocationsByNode) { bits =>
@@ -224,17 +224,17 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
                   )
                 }.map(limitAndOrder(_))
 
-              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, fields, aggregations, _)) =>
+              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, _, fields, aggregations, _)) =>
                 gatherNodeResults(msg, schema, uniqueLocationsByNode) { rawResults =>
                   globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
                 }
-              case Right(ParsedAggregatedQuery(_, _, _, aggregation, _, _)) =>
+              case Right(ParsedAggregatedQuery(_, _, _, _, aggregation, _, _)) =>
                 gatherAndGroupNodeResults(msg, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
                   internalAggregationReduce(_, schema, aggregation)
                 ).map(limitAndOrder(_, Some(aggregation)))
 
               case Right(
-                  ParsedTemporalAggregatedQuery(_, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
+                  ParsedTemporalAggregatedQuery(_, _, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
                 val sortedLocations = filteredLocations.sortBy(_.from)
                 val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
                   ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))

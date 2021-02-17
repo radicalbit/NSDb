@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.client.rpc
 
-import io.grpc.stub.AbstractStub
+import io.grpc.stub.{AbstractStub, StreamObserver}
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
@@ -28,6 +28,7 @@ import io.radicalbit.nsdb.rpc.responseCommand.{DescribeMetricResponse, MetricsGo
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.restore.{RestoreGrpc, RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.rpc.streaming.{NSDbStreamingGrpc, SQLStreamingResponse}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.TimeUnit
@@ -45,12 +46,13 @@ class GRPCClient(val host: String, val port: Int, val tokenApplier: TokenApplier
 
   private val log = LoggerFactory.getLogger(classOf[GRPCClient])
 
-  private lazy val channel: ManagedChannel           = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
-  private lazy val stubHealth: HealthGrpc.HealthStub = HealthGrpc.stub(channel)
-  private lazy val stubRestore                       = RestoreGrpc.stub(channel)
-  private lazy val stubSql                           = authorizedStub(NSDBServiceSQLGrpc.stub(channel))
-  private lazy val stubCommand                       = authorizedStub(NSDBServiceCommandGrpc.stub(channel))
-  private lazy val stubInit                          = authorizedStub(InitMetricGrpc.stub(channel))
+  private val channel: ManagedChannel           = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build
+  private val stubHealth: HealthGrpc.HealthStub = HealthGrpc.stub(channel)
+  private val stubRestore                       = RestoreGrpc.stub(channel)
+  private val stubSql                           = NSDBServiceSQLGrpc.stub(channel)
+  private val stubCommand                       = NSDBServiceCommandGrpc.stub(channel)
+  private val stubInit                          = InitMetricGrpc.stub(channel)
+  private val stubStreaming                     = NSDbStreamingGrpc.stub(channel)
 
   private def authorizedStub[T <: AbstractStub[T]](stub: T) =
     Option(tokenApplier).fold(stub)(tokenApplier => stub.withCallCredentials(tokenApplier))
@@ -72,27 +74,31 @@ class GRPCClient(val host: String, val port: Int, val tokenApplier: TokenApplier
 
   def write(request: RPCInsert): Future[RPCInsertResult] = {
     log.debug("Preparing a write request for {}...", request)
-    stubSql.insertBit(request)
+    authorizedStub(stubSql).insertBit(request)
   }
 
   def executeSQLStatement(request: SQLRequestStatement): Future[SQLStatementResponse] = {
     log.debug("Preparing execution of SQL request: {} ", request.statement)
-    stubSql.executeSQLStatement(request)
+    authorizedStub(stubSql).executeSQLStatement(request)
   }
 
   def showNamespaces(request: ShowNamespaces): Future[Namespaces] = {
     log.debug("Preparing of command show namespaces")
-    stubCommand.showNamespaces(request)
+    authorizedStub(stubCommand).showNamespaces(request)
   }
 
   def showMetrics(request: ShowMetrics, token: String = ""): Future[MetricsGot] = {
     log.debug("Preparing of command show metrics for namespace: {} ", request.namespace)
-    stubCommand.showMetrics(request)
+    authorizedStub(stubCommand).showMetrics(request)
   }
 
   def describeMetric(request: DescribeMetric): Future[DescribeMetricResponse] = {
     log.debug("Preparing of command describe metric for namespace: {} ", request.namespace)
-    stubCommand.describeMetric(request)
+    authorizedStub(stubCommand).describeMetric(request)
+  }
+
+  def subscribe(request: SQLRequestStatement, observer: StreamObserver[SQLStreamingResponse]) = {
+    stubStreaming.streamSQL(request, observer)
   }
 
   def close(): Unit = channel.shutdownNow().awaitTermination(10, TimeUnit.SECONDS)

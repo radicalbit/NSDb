@@ -62,6 +62,7 @@ class StatementParserRelativeTimeSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", 2, timeContext.currentTime + Duration("4 min").toMillis),
@@ -90,6 +91,7 @@ class StatementParserRelativeTimeSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp",
@@ -123,6 +125,7 @@ class StatementParserRelativeTimeSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               LongPoint.newRangeQuery("timestamp", timeContext.currentTime - Duration("10 s").toMillis, Long.MaxValue),
@@ -158,6 +161,7 @@ class StatementParserRelativeTimeSpec extends NSDbSpec {
         ) should be(
           Right(
             ParsedSimpleQuery(
+              "db",
               "registry",
               "people",
               new BooleanQuery.Builder()

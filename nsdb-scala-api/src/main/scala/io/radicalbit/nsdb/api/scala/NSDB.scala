@@ -103,7 +103,8 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
 
   /**
     * Defines the db used to build the bit or the query.
-    * @param name the db name
+    * @param name db name.
+    * @return auxiliary namespace instance.
     */
   def db(name: String): Db = Db(name)
 
@@ -128,7 +129,8 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
         value = bit.value,
         dimensions = bit.dimensions.toMap,
         tags = bit.tags.toMap
-      ))
+      )
+    )
 
   /**
     * Writes a list of bits into NSdb using the current openend connection.

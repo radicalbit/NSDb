@@ -1,0 +1,56 @@
+/*
+ * Copyright 2018-2020 Radicalbit S.r.l.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package io.radicalbit.nsdb.rpc;
+import "requestSQL.proto";
+import "common.proto";
+import "security.proto";
+
+message SubscribedByQueryString {
+  string quid = 1;
+  repeated Bit records = 2;
+}
+
+message SubscriptionByQueryStringFailed {
+  string queryString = 1;
+  string reason = 2;
+  string message = 3;
+}
+
+message RecordsPublished {
+  string quid = 1;
+  repeated Bit records = 2;
+}
+
+
+message SQLStreamingResponse{
+  string db = 1;
+  string namespace = 2;
+  string metric = 3;
+  oneof payload {
+    SubscribedByQueryString subscribedByQueryString = 4;
+    SubscriptionByQueryStringFailed subscriptionByQueryStringFailed = 5;
+    RecordsPublished recordsPublished = 6;
+  }
+}
+
+
+service NSDbStreaming {
+  option (isAuthorized) = true;
+  rpc streamSQL(io.radicalbit.nsdb.rpc.SQLRequestStatement) returns (stream io.radicalbit.nsdb.rpc.SQLStreamingResponse) {}
+}

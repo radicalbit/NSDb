@@ -41,7 +41,7 @@ trait TypeSupport {
   def validateSchemaTypeSupport(bit: Bit): Try[Map[String, TypedField]] = {
     val x = bit.fields
       .map { case (n, (v, t)) => n -> IndexType.fromRawField(RawField(n, t, v)) }
-    Try(x.mapValues(f => f.get).map(identity))
+    Try(x.mapValues(f => f.get).toMap)
   }
 }
 

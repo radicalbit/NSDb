@@ -135,7 +135,7 @@ class MetricPerformerActor(val basePath: String,
           facetsIndexWriter.close()
       }
 
-      val persistedBits = performedBitOperations
+      val persistedBits = performedBitOperations.toSeq
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
       (localCommitLogCoordinator ? PersistedBits(persistedBits)).recover {
         case _ => localCommitLogCoordinator ! PersistedBits(persistedBits)

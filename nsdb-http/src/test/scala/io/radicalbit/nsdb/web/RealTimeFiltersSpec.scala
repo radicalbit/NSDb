@@ -21,7 +21,7 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.testkit.{ScalatestRouteTest, WSProbe}
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{
   RecordsPublished,
   SubscribedByQueryString,
   SubscriptionByQueryStringFailed

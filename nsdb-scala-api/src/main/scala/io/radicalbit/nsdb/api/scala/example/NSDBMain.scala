@@ -69,7 +69,7 @@ object NSDBMainRead extends App {
   */
 object NSDBInitRead extends App {
 
-  val nsdb: NSDB = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
 
   val init = nsdb
     .db("root")

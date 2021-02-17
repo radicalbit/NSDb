@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ddata.DistributedData
@@ -29,7 +28,7 @@ import io.radicalbit.nsdb.cluster.actor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
 
 /**
-  * Creates the top level actor [[DatabaseActorsGuardian]] and grpc endpoint [[io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint]] based on coordinators
+  * Creates top level actors.
   */
 trait NSDbActors {
 

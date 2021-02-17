@@ -17,8 +17,8 @@
 package io.radicalbit.nsdb.web
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events._
-import io.radicalbit.nsdb.actors.RealTimeProtocol.RealTimeOutGoingMessage
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events._
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.RealTimeOutGoingMessage
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.web.Filters._
@@ -126,7 +126,7 @@ object NSDbJson extends DefaultJsonProtocol with SprayJsonSupport {
       SubscribedByQueryString.apply)
     implicit val SubscriptionByQueryStringFailedFormat: RootJsonFormat[SubscriptionByQueryStringFailed] = jsonFormat5(
       SubscriptionByQueryStringFailed.apply)
-    implicit val recordsPublishedFormat: RootJsonFormat[RecordsPublished] = jsonFormat3(RecordsPublished.apply)
+    implicit val recordsPublishedFormat: RootJsonFormat[RecordsPublished] = jsonFormat5(RecordsPublished.apply)
     implicit val errorResponseFormat: RootJsonFormat[ErrorResponse]       = jsonFormat1(ErrorResponse.apply)
 
     def write(a: RealTimeOutGoingMessage): JsValue = a match {

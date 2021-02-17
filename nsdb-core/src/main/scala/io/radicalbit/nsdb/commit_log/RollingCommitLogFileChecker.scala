@@ -82,7 +82,7 @@ class RollingCommitLogFileChecker(db: String, namespace: String, metric: String)
 
         pendingOutdatedEntries.get(fileName) match {
           case None =>
-            pendingOutdatedEntries += (fileName -> (pendingEntries.to[ListBuffer], closedEntries.to[ListBuffer]))
+            pendingOutdatedEntries += fileName -> ((ListBuffer(pendingEntries: _*), ListBuffer(closedEntries: _*)))
           case Some(_) =>
         }
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.endpoint
+package io.radicalbit.nsdb.rpc.server.endpoint
 
 import akka.actor.ActorRef
 import akka.pattern.ask
@@ -41,7 +41,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /**
   * Concrete implementation of the command Grpc service
   */
-private[endpoint] class GrpcEndpointServiceCommand(metadataCoordinator: ActorRef, readCoordinator: ActorRef)(
+class GrpcEndpointServiceCommand(metadataCoordinator: ActorRef, readCoordinator: ActorRef)(
     implicit timeout: Timeout,
     executionContext: ExecutionContext)
     extends NSDBServiceCommand

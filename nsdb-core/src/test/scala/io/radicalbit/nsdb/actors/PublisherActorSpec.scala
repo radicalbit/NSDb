@@ -20,7 +20,7 @@ import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.Unsubscribed
-import io.radicalbit.nsdb.actors.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Schema, TimeContext}
@@ -519,7 +519,7 @@ class PublisherActorSpec
       }
 
       val recordPublished = probe.expectMsgType[RecordsPublished]
-      recordPublished.metric shouldBe "people"
+      recordPublished.metric shouldBe "metric"
       recordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             10L,
@@ -590,7 +590,7 @@ class PublisherActorSpec
       }
 
       val recordPublished = probe.expectMsgType[RecordsPublished]
-      recordPublished.metric shouldBe "people"
+      recordPublished.metric shouldBe "metric"
       recordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             10L,
@@ -618,7 +618,7 @@ class PublisherActorSpec
         Seq(Bit(eventStartTime, 25L, Map.empty, Map("name" -> "john"))))
 
       val lateRecordPublished = probe.expectMsgType[RecordsPublished]
-      lateRecordPublished.metric shouldBe "people"
+      lateRecordPublished.metric shouldBe "metric"
       lateRecordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             11L,
@@ -641,7 +641,7 @@ class PublisherActorSpec
       }
 
       val multipleLateRecordPublished = probe.expectMsgType[RecordsPublished]
-      multipleLateRecordPublished.metric shouldBe "people"
+      multipleLateRecordPublished.metric shouldBe "metric"
       multipleLateRecordPublished.records shouldBe Seq(
         Bit(eventStartTime + 10,
             21L,

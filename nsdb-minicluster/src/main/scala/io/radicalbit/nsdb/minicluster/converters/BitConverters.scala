@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.minicluster.converters
 
-import io.radicalbit.nsdb.api.scala.{Db, Bit => ApiBit}
+import io.radicalbit.nsdb.api.scala.{Namespace, Bit => ApiBit}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
@@ -30,7 +30,7 @@ object BitConverters {
   implicit class BitConverter(bit: Bit) {
 
     def asApiBit(db: String, namespace: String, metric: String): ApiBit = {
-      val initialBit = Db(db).namespace(namespace).metric(metric).timestamp(bit.timestamp)
+      val initialBit = Namespace(db, namespace).metric(metric).timestamp(bit.timestamp)
       val apiBit = bit.value match {
         case NSDbLongType(v)   => initialBit.value(v)
         case NSDbDoubleType(v) => initialBit.value(v)

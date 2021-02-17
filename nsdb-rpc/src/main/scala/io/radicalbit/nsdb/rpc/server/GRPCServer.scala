@@ -29,6 +29,8 @@ import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc
+import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.sql.parser.SQLStatementParser
 
@@ -57,6 +59,8 @@ trait GRPCServer {
 
   protected[this] def restore: Restore
 
+  protected[this] def streamingService: NSDbStreaming
+
   protected[this] def parserSQL: SQLStatementParser
 
   protected[this] def authorizationProvider: NSDbAuthorizationProvider
@@ -83,6 +87,7 @@ trait GRPCServer {
                                              interceptors: _*))
     .addService(ServerInterceptors.intercept(RestoreGrpc.bindService(restore, executionContextExecutor),
                                              interceptors: _*))
+    .addService(NSDbStreamingGrpc.bindService(streamingService, executionContextExecutor))
     .addService(HealthGrpc.bindService(health, executionContextExecutor))
     .addService(ProtoReflectionService.newInstance())
     .build

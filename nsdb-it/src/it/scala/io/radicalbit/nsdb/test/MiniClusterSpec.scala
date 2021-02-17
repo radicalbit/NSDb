@@ -52,6 +52,7 @@ trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually
   }
 
   lazy val firstNode: NSDbMiniClusterNode = nodes.head
+  lazy val lastNode: NSDbMiniClusterNode = nodes.last
 
   protected lazy val indexingTime: Long =
     nodes.head.system.settings.config.getDuration("nsdb.write.scheduler.interval").toMillis

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.cluster.endpoint
+package io.radicalbit.nsdb.rpc.server.endpoint
 
 import akka.actor.ActorRef
 import akka.pattern.ask

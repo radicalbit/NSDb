@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.actors
+package io.radicalbit.nsdb.protocol
 
 import akka.dispatch.ControlMessage
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
@@ -40,7 +40,8 @@ object RealTimeProtocol {
         extends ControlMessage
         with RealTimeOutGoingMessage
 
-    case class RecordsPublished(quid: String, metric: String, records: Seq[Bit]) extends RealTimeOutGoingMessage
+    case class RecordsPublished(quid: String, db: String, namespace: String, metric: String, records: Seq[Bit])
+        extends RealTimeOutGoingMessage
 
     case class ErrorResponse(error: String) extends RealTimeOutGoingMessage
   }
