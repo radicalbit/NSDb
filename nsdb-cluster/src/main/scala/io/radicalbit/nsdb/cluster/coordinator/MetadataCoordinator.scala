@@ -447,7 +447,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val clusterAliveMembers = nsdbClusterSnapshot.nodes
-      log.error(s"cluster alive members $clusterAliveMembers")
+      log.debug(s"cluster alive members $clusterAliveMembers")
       if (clusterAliveMembers.size < replicationFactor)
         sender ! GetWriteLocationsFailed(
           db,
@@ -459,7 +459,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         val currentTime = System.currentTimeMillis()
         getMetricInfo(db, namespace, metric) { metricInfo =>
           val retention = metricInfo.retention
-          log.error(
+          log.debug(
             s"checking if timestamp $timestamp for coordinates ($db, $namespace, $metric) is beyond retention $retention at time $currentTime")
           if (retention > 0 && (timestamp < currentTime - retention || timestamp > currentTime + retention))
             Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
@@ -555,7 +555,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
       (temporaryDurableStoreActor ? LoadAll)
         .map {
           case LoadData(data) =>
-            log.error(s"restoring $data")
             log.info(s"restoring ${data.size} metadata entries")
 
             data.foreach {
