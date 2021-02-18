@@ -229,7 +229,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
           case parsedTemporalAggregatedQuery: ParsedTemporalAggregatedQuery =>
             temporalBuckets.get(quid).foreach { temporalBucket =>
               reduceSingleTemporalBucket(schema, parsedTemporalAggregatedQuery.aggregation)(mathContext)(
-                temporalBucket.bits).foreach { record =>
+                temporalBucket.bits.toSeq).foreach { record =>
                 subscribedActorsByQueryId
                   .get(quid)
                   .foreach(
@@ -265,7 +265,7 @@ class PublisherActor(readCoordinator: ActorRef) extends ActorPathLogging {
                 case (Some((key, lateBucket)), lateEvents) =>
                   lateTemporalBuckets += (key -> lateBucket.copy(bits = lateBucket.bits ++ lateEvents))
                   reduceSingleTemporalBucket(schema, parsedTemporalAggregatedQuery.aggregation)(mathContext)(
-                    lateBucket.bits ++ lateEvents).foreach { record =>
+                    lateBucket.bits.toSeq ++ lateEvents).foreach { record =>
                     subscribedActorsByQueryId
                       .get(quid)
                       .foreach(
