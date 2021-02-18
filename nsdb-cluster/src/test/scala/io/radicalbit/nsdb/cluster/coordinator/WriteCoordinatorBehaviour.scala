@@ -74,14 +74,11 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
   lazy val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator], "commitLogCoordinator")
   lazy val schemaCache          = system.actorOf(Props[FakeSchemaCache], "schemaCache")
-  lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(schemaCache), "schemaCoordinator")
-  lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber], "testSubscriber")
+  lazy val schemaCoordinator    = system.actorOf(SchemaCoordinator.props(schemaCache), "schemaCoordinator")
+  lazy val subscriber           = TestActorRef[TestSubscriber](Props[TestSubscriber], "testSubscriber")
   lazy val publisherActor =
     TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])),
                                  "publisherActor")
-//  lazy val fakeMetadataCoordinator =
-//    system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
   lazy val metadataCoordinator = system.actorOf(
     MetadataCoordinator.props(system.actorOf(Props[MockedClusterListener]),
                               system.actorOf(Props[LocalMetadataCache]),

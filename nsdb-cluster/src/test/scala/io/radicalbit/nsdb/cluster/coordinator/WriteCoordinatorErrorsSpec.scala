@@ -81,36 +81,31 @@ class WriteCoordinatorErrorsSpec
   final val node1 = "node1"
   final val node2 = "node2"
 
-  val callingProbe          = TestProbe()
-  val successCommitLogProbe = TestProbe()
-  val failureCommitLogProbe = TestProbe()
+  val callingProbe          = TestProbe("calling")
+  val successCommitLogProbe = TestProbe("successCommitLog")
+  val failureCommitLogProbe = TestProbe("failureCommitLog")
 
-  val successAccumulationProbe = TestProbe()
-  val failureAccumulationProbe = TestProbe()
+  val successAccumulationProbe = TestProbe("successAccumulation")
+  val failureAccumulationProbe = TestProbe("failureAccumulation")
 
   implicit val timeout = Timeout(10 seconds)
 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
-  lazy val successfulCommitLogCoordinator =
-    TestActorRef[MockedCommitLogCoordinator](MockedCommitLogCoordinator.props(successCommitLogProbe.ref))
-  lazy val failingCommitLogCoordinator: TestActorRef[MockedCommitLogCoordinator] =
-    TestActorRef[MockedCommitLogCoordinator](MockedCommitLogCoordinator.props(failureCommitLogProbe.ref))
-  lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
-  lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
-  lazy val publisherActor =
-    TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
-  lazy val mockedMetadataCoordinator = system.actorOf(Props[MockedMetadataCoordinator])
+  lazy val successfulCommitLogCoordinator = system.actorOf(MockedCommitLogCoordinator.props(successCommitLogProbe.ref))
+  lazy val failingCommitLogCoordinator    = system.actorOf(MockedCommitLogCoordinator.props(failureCommitLogProbe.ref))
+  lazy val schemaCoordinator              = system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
+  lazy val subscriber                     = system.actorOf(Props[TestSubscriber])
+  lazy val publisherActor                 = system.actorOf(PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
+  lazy val mockedMetadataCoordinator      = system.actorOf(Props[MockedMetadataCoordinator])
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(mockedMetadataCoordinator,
                                                                          schemaCoordinator,
                                                                          system.actorOf(Props.empty))
 
-  lazy val node1MetricsDataActor =
-    TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(successAccumulationProbe.ref))
-  lazy val node2MetricsDataActor =
-    TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(failureAccumulationProbe.ref))
+  lazy val node1MetricsDataActor = system.actorOf(MockedMetricsDataActor.props(successAccumulationProbe.ref))
+  lazy val node2MetricsDataActor = system.actorOf(MockedMetricsDataActor.props(failureAccumulationProbe.ref))
+  TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(failureAccumulationProbe.ref))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("dimension1" -> "dimension1"), Map("tag1" -> "tag1"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
