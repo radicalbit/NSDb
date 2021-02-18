@@ -215,13 +215,6 @@ package object post_proc {
 
     res.sortBy(_.timestamp) match {
       case Nil => None
-      case head :: Nil =>
-        Some(
-          Bit(head.timestamp,
-              head.value,
-              Map(upperBoundField -> head.timestamp, lowerBoundField -> head.timestamp),
-              Map.empty)
-        )
       case bits =>
         val head = bits.head
         val last = bits.last

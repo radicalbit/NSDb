@@ -256,19 +256,20 @@ class PublisherActorSpec
 
     "send a message to all its subscribers when only one matching event comes for a temporal aggregated query" in {
 
-      val secondProbe = TestProbe()
+      val firstProbe  = TestProbe("first")
+      val secondProbe = TestProbe("second")
 
-      probe.send(
+      firstProbe.send(
         publisherActor,
-        SubscribeBySqlStatement(probeActor,
+        SubscribeBySqlStatement(firstProbe.ref,
                                 "db",
-                                "namespace",
-                                "metric",
+                                "registry",
+                                "people",
                                 "queryString",
                                 testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
-      probe.expectMsgType[SubscribedByQueryString]
+      firstProbe.expectMsgType[SubscribedByQueryString]
 
       secondProbe.send(
         publisherActor,
@@ -283,19 +284,24 @@ class PublisherActorSpec
       secondProbe.expectMsgType[SubscribedByQueryString]
 
       publisherActor.underlyingActor.temporalAggregatedTasks.size shouldBe 1
+      publisherActor.underlyingActor.temporalAggregatedQueries.size shouldBe 1
       publisherActor.underlyingActor.subscribedActorsByQueryId.size shouldBe 1
       publisherActor.underlyingActor.subscribedActorsByQueryId.head._2.size shouldBe 2
 
-      probe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
-      val recordPublished = probe.expectMsgType[RecordsPublished]
-      recordPublished.metric shouldBe "people"
-      recordPublished.records shouldBe Seq(
+      firstProbe.send(publisherActor, PublishRecord("db", "registry", "people", testRecordSatisfy, schema))
+      val firstRecordPublished = firstProbe.expectMsgType[RecordsPublished]
+      firstRecordPublished.metric shouldBe "people"
+      firstRecordPublished.records shouldBe Seq(
         Bit(100, 1L, Map("upperBound" -> 100L, "lowerBound" -> 100L), Map("count(*)" -> 1L))
       )
 
-      secondProbe.expectMsgType[RecordsPublished]
+      val secondRecordPublished = secondProbe.expectMsgType[RecordsPublished]
+      secondRecordPublished.metric shouldBe "people"
+      secondRecordPublished.records shouldBe Seq(
+        Bit(100, 1L, Map("upperBound" -> 100L, "lowerBound" -> 100L), Map("count(*)" -> 1L))
+      )
 
-      probe.expectNoMessage(5 seconds)
+      firstProbe.expectNoMessage(5 seconds)
       secondProbe.expectNoMessage(5 seconds)
 
       publisherActor.underlyingActor.temporalBuckets.size shouldBe 0
