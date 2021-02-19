@@ -2,6 +2,7 @@ package io.radicalbit.nsdb.cluster.actor
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ClusterEvent.UnreachableMember
+import akka.cluster.Member
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
@@ -62,6 +63,17 @@ class ClusterListenerWithMockedChildren(override val resultActor: ActorRef, over
           context.actorOf(Props(new NodeActorsGuardianForTest), name = s"guardian_${selfNodeName}")
 
           override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
+
+  override def onSuccessBehaviour(readCoordinator: ActorRef,
+                                  writeCoordinator: ActorRef,
+                                  metadataCoordinator: ActorRef,
+                                  publisherActor: ActorRef): Unit = {
+        resultActor ! "Success"
+  }
+
+  override protected def onFailureBehaviour(member: Member, error: Any): Unit = {
+        resultActor ! "Failure"
+  }
 }
 
 object ClusterListenerSpecConfig extends MultiNodeConfig {
@@ -112,7 +124,8 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val clusterListener =
         cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)),
                                name = "clusterListener")
-      awaitAssert { clusterListener ! UnreachableMember(cluster.selfMember); resultActor.expectMsg("Failure") }
+      clusterListener ! UnreachableMember(cluster.selfMember)
+      awaitAssert(resultActor.expectMsg("Failure"))
     }
   }
 

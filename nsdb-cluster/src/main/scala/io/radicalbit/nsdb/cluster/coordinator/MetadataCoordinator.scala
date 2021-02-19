@@ -22,7 +22,6 @@ import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
-import akka.cluster.{Cluster, MemberStatus}
 import akka.pattern._
 import akka.util.Timeout
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
@@ -36,7 +35,6 @@ import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
-import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
 import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
@@ -69,8 +67,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
                           writeNodesSelectionLogic: WriteNodesSelectionLogic)
     extends ActorPathLogging
     with DirectorySupport {
-  private val cluster = Cluster(context.system)
-
   private val nsdbClusterSnapshot = NSDbClusterSnapshot(context.system)
 
   private val config = context.system.settings.config
@@ -323,6 +319,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
                 log.debug(s"checking locations $locations at time ${timeContext.currentTime} and retention $retention")
                 val (locationsToFullyEvict, locationsToPartiallyEvict) =
                   TimeRangeManager.getLocationsToEvict(locations, retention)
+                log.debug(
+                  s"found locations to fully evict $locationsToFullyEvict at time ${timeContext.currentTime} and retention $retention")
+                log.debug(
+                  s"found locations to partially evict $locationsToPartiallyEvict at time ${timeContext.currentTime} and retention $retention")
 
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
@@ -446,7 +446,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
+      val clusterAliveMembers = nsdbClusterSnapshot.nodes
+      log.debug(s"cluster alive members $clusterAliveMembers")
       if (clusterAliveMembers.size < replicationFactor)
         sender ! GetWriteLocationsFailed(
           db,
@@ -458,6 +459,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
         val currentTime = System.currentTimeMillis()
         getMetricInfo(db, namespace, metric) { metricInfo =>
           val retention = metricInfo.retention
+          log.debug(
+            s"checking if timestamp $timestamp for coordinates ($db, $namespace, $metric) is beyond retention $retention at time $currentTime")
           if (retention > 0 && (timestamp < currentTime - retention || timestamp > currentTime + retention))
             Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
           else {
@@ -474,14 +477,14 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
                           val nodes =
                             if (nodeMetrics.nodeMetrics.nonEmpty)
-                              writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                              writeNodesSelectionLogic
+                                .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                                .map(address => (address, nsdbClusterSnapshot.getId(address)))
                             else {
-                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
+                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }
 
-                          val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
-
-                          val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
+                          val locations = nodes.map { case (_, id) => Location(metric, id, start, end) }
                           performAddLocationIntoCache(db, namespace, locations, None)
                         }
                       } yield
@@ -552,7 +555,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
       (temporaryDurableStoreActor ? LoadAll)
         .map {
           case LoadData(data) =>
-            log.error(s"restoring $data")
             log.info(s"restoring ${data.size} metadata entries")
 
             data.foreach {

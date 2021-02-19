@@ -17,16 +17,14 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.ActorSystem
-import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import java.util.UUID
 
 class WriteCoordinatorSpec
     extends TestKit(
@@ -42,20 +40,33 @@ class WriteCoordinatorSpec
     with BeforeAndAfterAll
     with WriteCoordinatorBehaviour {
 
-  lazy val basePath = "target/test_index/WriteCoordinatorSpec"
+  lazy val basePath = s"target/test_index/WriteCoordinatorSpec/${UUID.randomUUID}"
 
   val db        = "writeCoordinatorSpecDB"
   val namespace = "namespace"
 
-  implicit val timeout = Timeout(10 seconds)
-
   override def beforeAll: Unit = {
-    Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(commitLogCoordinator, "localhost"), 10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "localhost"), 10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, "localhost"), 10 seconds)
-    Await.result(writeCoordinatorActor ? DeleteNamespace(db, namespace), 10 seconds)
-    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, "testMetric", record1), 10 seconds)
+    probe.send(writeCoordinatorActor, SubscribeCommitLogCoordinator(commitLogCoordinator, "nodeId"))
+    awaitAssert {
+      probe.expectMsgType[CommitLogCoordinatorSubscribed]
+    }
+
+    probe.send(writeCoordinatorActor, SubscribeMetricsDataActor(metricsDataActor, "nodeId"))
+    awaitAssert {
+      probe.expectMsgType[MetricsDataActorSubscribed]
+    }
+
+    probe.send(writeCoordinatorActor, SubscribePublisher(publisherActor, "nodeId"))
+    awaitAssert {
+      probe.expectMsgType[PublisherSubscribed]
+    }
+
+    probe.send(schemaCoordinator, UpdateSchemaFromRecord(db, namespace, "testMetric", record1))
+    awaitAssert {
+      probe.expectMsgType[SchemaUpdated]
+    }
   }
 
   "WriteCoordinator" should behave.like(defaultBehaviour)
+
 }

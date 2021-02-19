@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -28,6 +27,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationsGot, WriteLocationsGot}
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
@@ -36,6 +36,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.RecordRejected
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
+import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -70,7 +71,7 @@ class WriteCoordinatorErrorsSpec
     with BeforeAndAfter
     with BeforeAndAfterAll {
 
-  lazy val basePath = "target/test_index/WriteCoordinatorErrorsSpec"
+  lazy val basePath = s"target/test_index/WriteCoordinatorErrorsSpec/${UUID.randomUUID}"
 
   val db        = "writeCoordinatorSpecDB"
   val namespace = "namespace"
@@ -80,41 +81,40 @@ class WriteCoordinatorErrorsSpec
   final val node1 = "node1"
   final val node2 = "node2"
 
-  val callingProbe          = TestProbe()
-  val successCommitLogProbe = TestProbe()
-  val failureCommitLogProbe = TestProbe()
+  val callingProbe          = TestProbe("calling")
+  val successCommitLogProbe = TestProbe("successCommitLog")
+  val failureCommitLogProbe = TestProbe("failureCommitLog")
 
-  val successAccumulationProbe = TestProbe()
-  val failureAccumulationProbe = TestProbe()
+  val successAccumulationProbe = TestProbe("successAccumulation")
+  val failureAccumulationProbe = TestProbe("failureAccumulation")
 
   implicit val timeout = Timeout(10 seconds)
 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
-  lazy val successfulCommitLogCoordinator =
-    TestActorRef[MockedCommitLogCoordinator](MockedCommitLogCoordinator.props(successCommitLogProbe.ref))
-  lazy val failingCommitLogCoordinator: TestActorRef[MockedCommitLogCoordinator] =
-    TestActorRef[MockedCommitLogCoordinator](MockedCommitLogCoordinator.props(failureCommitLogProbe.ref))
-  lazy val schemaCoordinator =
-    TestActorRef[SchemaCoordinator](SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
-  lazy val subscriber = TestActorRef[TestSubscriber](Props[TestSubscriber])
-  lazy val publisherActor =
-    TestActorRef[PublisherActor](PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
-  lazy val mockedMetadataCoordinator = system.actorOf(Props[MockedMetadataCoordinator])
+  lazy val successfulCommitLogCoordinator = system.actorOf(MockedCommitLogCoordinator.props(successCommitLogProbe.ref))
+  lazy val failingCommitLogCoordinator    = system.actorOf(MockedCommitLogCoordinator.props(failureCommitLogProbe.ref))
+  lazy val schemaCoordinator              = system.actorOf(SchemaCoordinator.props(system.actorOf(Props[FakeSchemaCache])))
+  lazy val subscriber                     = system.actorOf(Props[TestSubscriber])
+  lazy val publisherActor                 = system.actorOf(PublisherActor.props(system.actorOf(Props[FakeReadCoordinatorActor])))
+  lazy val mockedMetadataCoordinator      = system.actorOf(Props[MockedMetadataCoordinator])
   lazy val writeCoordinatorActor = system actorOf WriteCoordinator.props(mockedMetadataCoordinator,
                                                                          schemaCoordinator,
                                                                          system.actorOf(Props.empty))
 
-  lazy val node1MetricsDataActor =
-    TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(successAccumulationProbe.ref))
-  lazy val node2MetricsDataActor =
-    TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(failureAccumulationProbe.ref))
+  lazy val node1MetricsDataActor = system.actorOf(MockedMetricsDataActor.props(successAccumulationProbe.ref))
+  lazy val node2MetricsDataActor = system.actorOf(MockedMetricsDataActor.props(failureAccumulationProbe.ref))
+  TestActorRef[MetricsDataActor](MockedMetricsDataActor.props(failureAccumulationProbe.ref))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("dimension1" -> "dimension1"), Map("tag1" -> "tag1"))
   val record2 = Bit(System.currentTimeMillis, 2, Map("dimension2" -> "dimension2"), Map("tag2" -> "tag2"))
 
   override def beforeAll: Unit = {
+
+    NSDbClusterSnapshot(system).addNode("localhost_2552", "node1")
+    NSDbClusterSnapshot(system).addNode("localhost_2553", "node2")
+
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(successfulCommitLogCoordinator, node1),
                  10 seconds)
     Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(failingCommitLogCoordinator, node2), 10 seconds)
@@ -130,7 +130,7 @@ class WriteCoordinatorErrorsSpec
   }
 
   "WriteCoordinator" should {
-    "handle failures during commit log writes" in within(5.seconds) {
+    "handle failures during commit log writes" in {
 
       callingProbe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, metric1, record1))
 
@@ -152,7 +152,7 @@ class WriteCoordinatorErrorsSpec
         callingProbe.expectMsgType[RecordRejected]
       }
     }
-    "handle failures during accumulation" in within(5.seconds) {
+    "handle failures during accumulation" in {
 
       callingProbe.send(writeCoordinatorActor, MapInput(System.currentTimeMillis, db, namespace, metric2, record2))
 

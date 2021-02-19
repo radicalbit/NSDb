@@ -204,8 +204,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       NSDbClusterSnapshot(context.system).addNode(address, nodeId)
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
-    case MemberRemoved(member, previousStatus) =>
-      log.info("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
+    case MemberRemoved(member, previousStatus) if member != cluster.selfMember =>
+      log.warning("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
 
       val nodeName = createNodeName(member)
 
