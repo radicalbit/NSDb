@@ -16,9 +16,7 @@
 
 package io.radicalbit.nsdb.test
 
-import java.time.Duration
-import java.util.logging.{Level, Logger}
-
+import io.radicalbit.nsdb.api.scala.NSDB
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.minicluster.{NSDbMiniCluster, NSDbMiniClusterNode}
 import org.json4s.DefaultFormats
@@ -26,6 +24,11 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Assertion, BeforeAndAfterAll}
+
+import java.time.Duration
+import java.util.logging.{Level, Logger}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.util.Random
 
 trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually with NSDbMiniCluster {
 
@@ -37,7 +40,7 @@ trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually
   override val shardInterval: Duration = Duration.ofMillis(5)
   override val passivateAfter: Duration = Duration.ofHours(1)
 
-  implicit val formats = DefaultFormats
+  implicit val formats: DefaultFormats.type = DefaultFormats
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(Span(20, Seconds))
 
@@ -54,13 +57,19 @@ trait MiniClusterSpec extends AnyFunSuite with BeforeAndAfterAll with Eventually
   lazy val firstNode: NSDbMiniClusterNode = nodes.head
   lazy val lastNode: NSDbMiniClusterNode = nodes.last
 
+  implicit lazy val executionContext: ExecutionContextExecutor = ExecutionContext.global
+
+  private lazy val connections : Seq[Future[NSDB]] = nodes.map( node => NSDB.connect(host = node.hostname, port = 7817))
+
+  protected def withRandomNodeConnection[A](f : NSDB => Future[A]): Future[A] = connections(Random.nextInt(connections.size)).flatMap(f)
+
   protected lazy val indexingTime: Long =
     nodes.head.system.settings.config.getDuration("nsdb.write.scheduler.interval").toMillis
 
   protected def waitIndexing(): Unit    = Thread.sleep(indexingTime + 1000)
   protected def waitPassivation(): Unit = Thread.sleep(passivateAfter.toMillis + 1000)
 
-  def healthCheck(): Set[Assertion] =
+  def healthCheck(): Seq[Assertion] =
       nodes.map { node =>
         eventually {
           assert(NSDbClusterSnapshot(node.system).nodes.size == nodes.size)
