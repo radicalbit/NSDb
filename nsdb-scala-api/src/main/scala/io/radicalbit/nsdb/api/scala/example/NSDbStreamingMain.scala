@@ -57,9 +57,9 @@ object NSDbStreamingMain extends App {
 
   val query = nsdb
     .db("radicalbit")
-    .namespace("registry")
-    .metric("people")
-    .query("select * from people limit 1")
+    .namespace("channel")
+    .metric("event")
+    .query("select * from event limit 1")
 
   nsdb.subscribe(query) { response =>
     println(response)

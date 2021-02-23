@@ -34,7 +34,7 @@ abstract class ClusterSingletonWithSplitBrainSpec
   val side1 = Vector(node1, node2)
   val side2 = Vector(node3, node4, node5)
 
-  private def awaitWhoAreYou: Unit = {
+  private def awaitWhoAreYou(): Unit = {
     awaitCond {
       val dbActorGuardian =
         system.actorOf(
@@ -101,14 +101,14 @@ abstract class ClusterSingletonWithSplitBrainSpec
       runOn(side1:_*) {
         awaitSurvivorsNodes(side1:_*)
         downingUnreachableNodes(side2:_*)
-        awaitWhoAreYou
+        awaitWhoAreYou()
       }
       enterBarrier("singleton-msg-side1-cluster")
 
       runOn(side2:_*) {
         awaitSurvivorsNodes(side2:_*)
         downingUnreachableNodes(side1:_*)
-        awaitWhoAreYou
+        awaitWhoAreYou()
       }
       enterBarrier("singleton-msg-side2-cluster")
     }

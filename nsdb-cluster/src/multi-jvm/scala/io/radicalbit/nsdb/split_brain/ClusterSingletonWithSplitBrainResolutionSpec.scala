@@ -31,7 +31,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBas
   val side1 = Vector(node1, node2)
   val side2 = Vector(node3, node4, node5)
 
-  private def awaitWhoAreYou: Unit = awaitCond {
+  private def awaitWhoAreYou(): Unit = awaitCond {
     val dbActorGuardian =
       system.actorOf(
         ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
@@ -100,7 +100,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBas
       enterBarrier("singleton-msg-side2-cluster")
 
       runOn(side2:_*) {
-        awaitWhoAreYou
+        awaitWhoAreYou()
       }
       enterBarrier("end-test")
 
