@@ -63,7 +63,7 @@ class SplitBrainFiveNodesResolutionSpec extends MultiNodeBaseSpec(SplitBrainFive
       enterBarrier("node-5-up")
     }
 
-    "solve split brain scenario" in within(60 seconds) {
+    "solve split brain scenario" in within(90 seconds) {
       runOn(node1) {
         for (role1 <- side1; role2 <- side2) switchOffConnection(role1, role2)
       }
