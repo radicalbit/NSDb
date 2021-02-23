@@ -35,13 +35,13 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBas
     val dbActorGuardian =
       system.actorOf(
         ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
-          settings = ClusterSingletonProxySettings(system)), name = "databaseActorGuardianProxy"
+          settings = ClusterSingletonProxySettings(system))
       )
     dbActorGuardian ! WhoAreYou
-    expectMsgType[String] === "akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton"
+    expectMsgType[String] === "akka://ClusterSingletonWithSplitBrainResolutionSpec/user/databaseActorGuardian/singleton"
   }
 
-  "MultiJvmTestSpec" must {
+  "ClusterSingletonWithSplitBrainResolutionSpec" must {
     "start node-1" in within(30 seconds) {
       runOn(node1) {
         Cluster(system).join(addressOf(node1))

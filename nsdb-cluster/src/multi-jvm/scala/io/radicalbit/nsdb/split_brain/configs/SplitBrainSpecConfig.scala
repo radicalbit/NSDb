@@ -70,9 +70,9 @@ trait SplitBrainResolutionSpecConfig {
 
   protected val splitBrainResolverConfig =
     ConfigFactory.parseString("""
-        |akka.cluster.downing-provider-class = "com.swissborg.lithium.DowningProviderImpl"
+        |akka.cluster.downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
         |
-        |com.swissborg.lithium {
+        |akka.cluster.split-brain-resolver {
         |  active-strategy = "keep-majority"
         |  stable-after = 30s
         |}

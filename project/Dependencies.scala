@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.4"
+    lazy val version   = "2.6.12"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -107,12 +107,6 @@ object Dependencies {
     lazy val sigarVersion = "1.6.6-rev002"
     lazy val bundle = namespace %% "kamon-bundle" % kamonVersion
     lazy val prometheus = namespace %% "kamon-prometheus" %  kamonVersion
-  }
-
-  object lithium {
-    lazy val version   = "0.11.2"
-    lazy val namespace = "com.swissborg"
-    lazy val core =  namespace %% "lithium" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
   }
 
   object swagger {
@@ -256,13 +250,12 @@ object Dependencies {
       akka_management.cluster_http,
       akka_discovery.kubernetes_api,
       akka.distributedData,
-      lithium.core,
       scala_logging.scala_logging,
       akka.slf4j,
       logback.logback,
       scalatest.core % Test,
       akka.testkit   % Test,
-      akka.multiNode
+      akka.multiNode % Test
     )
   }
 

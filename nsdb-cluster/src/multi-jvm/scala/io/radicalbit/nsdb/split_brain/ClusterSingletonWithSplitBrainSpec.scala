@@ -7,6 +7,7 @@ import akka.remote.testconductor.RoleName
 import io.radicalbit.nsdb.split_brain.DatabaseActorsGuardianForTest.WhoAreYou
 import io.radicalbit.nsdb.split_brain.configs.ClusterSingletonWithSplitBrainSpecConfig
 
+import java.util.UUID
 import scala.concurrent.duration._
 
 class ClusterSingletonWithSplitBrainSpecMultiJvmNode1 extends ClusterSingletonWithSplitBrainSpec
@@ -38,12 +39,11 @@ abstract class ClusterSingletonWithSplitBrainSpec
       val dbActorGuardian =
         system.actorOf(
           ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
-            settings = ClusterSingletonProxySettings(system)),
-          name = "databaseActorGuardianProxy"
+            settings = ClusterSingletonProxySettings(system))
         )
 
       dbActorGuardian ! WhoAreYou
-      expectMsgType[String] === "akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton"
+      expectMsgType[String] === "akka://ClusterSingletonWithSplitBrainSpec/user/databaseActorGuardian/singleton"
     }
   }
 
