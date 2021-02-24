@@ -167,6 +167,11 @@ sealed trait Aggregation {
     * Field to apply the aggregation to.
     */
   def fieldName: String
+
+  /**
+    * Field to use against the index. A wildcard field is replaced by the value.
+    */
+  def concreteFieldName: String = if (fieldName == SQLStatement.wildCard) SQLStatement.valueField else fieldName
 }
 
 /**
@@ -257,7 +262,7 @@ final case class GracePeriod(timeMeasure: String, quantity: Long) {
   /**
     * Time interval in milliseconds.
     */
-  lazy val interval = Duration(s"$quantity${timeMeasure.toLowerCase}").toMillis
+  lazy val interval: Long = Duration(s"$quantity${timeMeasure.toLowerCase}").toMillis
 }
 
 /**
@@ -304,7 +309,7 @@ final case class RelativeComparisonValue(operator: String, quantity: Long, unitM
 
   private val interval = Duration(s"$quantity${unitMeasure.toLowerCase}").toMillis
 
-  override val value = NSDbType(interval)
+  override val value: NSDbType = NSDbType(interval)
 
   override def absoluteValue(currentTime: Long): NSDbType = operator match {
     case SQLStatement.plus  => currentTime + interval
@@ -353,6 +358,9 @@ sealed trait SQLStatement extends NSDBStatement {
 object SQLStatement {
   final val plus  = "+"
   final val minus = "-"
+
+  final val wildCard   = "*"
+  final val valueField = "value"
 
   // The order of this sequences is essential, because those are picked up by the parser and used to create an alternative composition rule
   // like "day" | "d" | "hour|

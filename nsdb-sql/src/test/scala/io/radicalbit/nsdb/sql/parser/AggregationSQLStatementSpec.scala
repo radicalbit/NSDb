@@ -53,7 +53,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("value", Some(MaxAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(AvgAggregation("*"))))),
               groupBy = None
             )
           ))
@@ -69,7 +69,11 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("value", Some(MinAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(AvgAggregation("*"))))),
+              condition = Some(
+                Condition(RangeExpression(dimension = "timestamp",
+                                          value1 = AbsoluteComparisonValue(2L),
+                                          value2 = AbsoluteComparisonValue(4L)))),
               groupBy = None
             )
           ))
@@ -101,13 +105,8 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(
-                Field("*", Some(CountAggregation("value"))),
-                Field("*", Some(AvgAggregation("value"))),
-                Field("*", Some(MinAggregation("value"))),
-                Field("*", Some(MaxAggregation("value"))),
-                Field("*", Some(SumAggregation("value")))
-              )),
+              fields = ListFields(
+                List(Field("*", Some(CountAggregation("*"))), Field("value", Some(MinAggregation("value"))))),
               condition = Some(
                 Condition(RangeExpression(dimension = "timestamp",
                                           value1 = AbsoluteComparisonValue(2L),
@@ -144,7 +143,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(SumAggregation("*"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           ))
@@ -159,7 +158,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(CountAggregation("*"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           ))
@@ -189,7 +188,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(MinAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(MinAggregation("*"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           ))
@@ -204,7 +203,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(AvgAggregation("*"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           ))
@@ -227,7 +226,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
             )
           ))
       }
-      "parse it successfully in case of count(*)" in {
+      "parse it successfully in case of count distinct " in {
         val query = "SELECT count( distinct *) FROM people group by name"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
@@ -237,7 +236,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
               namespace = "registry",
               metric = "people",
               distinct = false,
-              fields = ListFields(List(Field("*", Some(CountDistinctAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(CountDistinctAggregation("*"))))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           ))
@@ -510,7 +509,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
                                                    value = AbsoluteComparisonValue(100L)),
                 operator = AndOperator
               ))),
-              fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(CountAggregation("*"))))),
               groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "D"))
             )
           ))
@@ -535,14 +534,14 @@ class AggregationSQLStatementSpec extends NSDbSpec {
                                                    value = AbsoluteComparisonValue(100L)),
                 operator = AndOperator
               ))),
-              fields = ListFields(List(Field("*", Some(CountAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(CountAggregation("*"))))),
               groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "D"))
             )
           ))
       }
 
       "parse it successfully if an aggregation different from count is provided " in {
-        val query = "SELECT sum(*) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2d"
+        val query = "SELECT sum(value) FROM people WHERE timestamp > 1 and timestamp < 100 group by interval 2d"
         parser.parse(db = "db", namespace = "registry", input = query) should be(
           SqlStatementParserSuccess(
             query,
@@ -560,7 +559,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
                                                    value = AbsoluteComparisonValue(100L)),
                 operator = AndOperator
               ))),
-              fields = ListFields(List(Field("*", Some(SumAggregation("value"))))),
+              fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               groupBy = Some(TemporalGroupByAggregation(2 * 24 * 3600 * 1000, 2, "D"))
             )
           ))
@@ -585,7 +584,7 @@ class AggregationSQLStatementSpec extends NSDbSpec {
                                                    value = AbsoluteComparisonValue(100L)),
                 operator = AndOperator
               ))),
-              fields = ListFields(List(Field("*", Some(AvgAggregation("value"))))),
+              fields = ListFields(List(Field("*", Some(AvgAggregation("*"))))),
               groupBy = Some(TemporalGroupByAggregation(4 * 24 * 3600 * 1000, 4, "D"))
             )
           ))
