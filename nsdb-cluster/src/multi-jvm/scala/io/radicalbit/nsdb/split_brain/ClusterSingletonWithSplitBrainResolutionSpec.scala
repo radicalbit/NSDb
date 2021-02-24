@@ -31,17 +31,17 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBas
   val side1 = Vector(node1, node2)
   val side2 = Vector(node3, node4, node5)
 
-  private def awaitWhoAreYou: Unit = awaitCond {
+  private def awaitWhoAreYou(): Unit = awaitCond {
     val dbActorGuardian =
       system.actorOf(
         ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
-          settings = ClusterSingletonProxySettings(system)), name = "databaseActorGuardianProxy"
+          settings = ClusterSingletonProxySettings(system))
       )
     dbActorGuardian ! WhoAreYou
-    expectMsgType[String] === "akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton"
+    expectMsgType[String] === "akka://ClusterSingletonWithSplitBrainResolutionSpec/user/databaseActorGuardian/singleton"
   }
 
-  "MultiJvmTestSpec" must {
+  "ClusterSingletonWithSplitBrainResolutionSpec" must {
     "start node-1" in within(30 seconds) {
       runOn(node1) {
         Cluster(system).join(addressOf(node1))
@@ -100,7 +100,7 @@ abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBas
       enterBarrier("singleton-msg-side2-cluster")
 
       runOn(side2:_*) {
-        awaitWhoAreYou
+        awaitWhoAreYou()
       }
       enterBarrier("end-test")
 

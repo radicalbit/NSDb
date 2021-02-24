@@ -280,7 +280,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
           case UpdateSuccess(_, _) =>
             Right(LocationEvicted(db, namespace, Location(metric, node, from, to)))
           case e =>
-            log.error(s"unexpected result during location eviction $e")
+            log.error("unexpected result during location eviction {}", e)
             Left(EvictLocationFailed(db, namespace, Location(metric, node, from, to)))
         }
         .pipeTo(sender)

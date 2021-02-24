@@ -328,7 +328,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
                   .sequence(locationsToFullyEvict.map { location =>
                     (metadataCache ? EvictLocation(db, namespace, location))
                       .mapTo[Either[EvictLocationFailed, LocationEvicted]]
-                      .recover { case _ => Left(EvictLocationFailed(db, namespace, location)) }
+                      .recover {
+                        case exception =>
+                          log.error("unexpected result during location eviction", exception)
+                          Left(EvictLocationFailed(db, namespace, location))
+                      }
                   })
                   .map { responses =>
                     manageErrors(responses) { errors =>

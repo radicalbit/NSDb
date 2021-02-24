@@ -7,6 +7,7 @@ import akka.remote.testconductor.RoleName
 import io.radicalbit.nsdb.split_brain.DatabaseActorsGuardianForTest.WhoAreYou
 import io.radicalbit.nsdb.split_brain.configs.ClusterSingletonWithSplitBrainSpecConfig
 
+import java.util.UUID
 import scala.concurrent.duration._
 
 class ClusterSingletonWithSplitBrainSpecMultiJvmNode1 extends ClusterSingletonWithSplitBrainSpec
@@ -33,17 +34,16 @@ abstract class ClusterSingletonWithSplitBrainSpec
   val side1 = Vector(node1, node2)
   val side2 = Vector(node3, node4, node5)
 
-  private def awaitWhoAreYou: Unit = {
+  private def awaitWhoAreYou(): Unit = {
     awaitCond {
       val dbActorGuardian =
         system.actorOf(
           ClusterSingletonProxy.props(singletonManagerPath = "/user/databaseActorGuardian",
-            settings = ClusterSingletonProxySettings(system)),
-          name = "databaseActorGuardianProxy"
+            settings = ClusterSingletonProxySettings(system))
         )
 
       dbActorGuardian ! WhoAreYou
-      expectMsgType[String] === "akka://MultiNodeBaseSpec/user/databaseActorGuardian/singleton"
+      expectMsgType[String] === "akka://ClusterSingletonWithSplitBrainSpec/user/databaseActorGuardian/singleton"
     }
   }
 
@@ -101,14 +101,14 @@ abstract class ClusterSingletonWithSplitBrainSpec
       runOn(side1:_*) {
         awaitSurvivorsNodes(side1:_*)
         downingUnreachableNodes(side2:_*)
-        awaitWhoAreYou
+        awaitWhoAreYou()
       }
       enterBarrier("singleton-msg-side1-cluster")
 
       runOn(side2:_*) {
         awaitSurvivorsNodes(side2:_*)
         downingUnreachableNodes(side1:_*)
-        awaitWhoAreYou
+        awaitWhoAreYou()
       }
       enterBarrier("singleton-msg-side2-cluster")
     }
