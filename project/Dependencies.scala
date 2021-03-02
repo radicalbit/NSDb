@@ -103,8 +103,7 @@ object Dependencies {
 
   object kamon {
     lazy val namespace= "io.kamon"
-    lazy val kamonVersion = "2.1.8"
-    lazy val sigarVersion = "1.6.6-rev002"
+    lazy val kamonVersion = "2.1.12"
     lazy val bundle = namespace %% "kamon-bundle" % kamonVersion
     lazy val prometheus = namespace %% "kamon-prometheus" %  kamonVersion
   }

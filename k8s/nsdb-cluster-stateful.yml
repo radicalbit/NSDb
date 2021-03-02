@@ -43,7 +43,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: nsdb
-          image: weareradicalbit/nsdb:1.1.0-SNAPSHOT
+          image: weareradicalbit/nsdb:1.3.0-SNAPSHOT
           imagePullPolicy: IfNotPresent
           #health
           readinessProbe:
@@ -89,6 +89,8 @@ spec:
               value: "10d"
             - name: REPLICATION_FACTOR
               value: "2"
+            - name: MONITORING_ENABLED
+              value : "false"
 ---
 #headless
 apiVersion: v1
