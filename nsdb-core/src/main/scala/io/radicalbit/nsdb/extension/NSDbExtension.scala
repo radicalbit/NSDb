@@ -35,9 +35,10 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
 
   lazy val extensionConfig: Seq[String] = try {
     system.settings.config
-      .getString("nsdb.extensions").split(",")
+      .getString("nsdb.extensions")
+      .split(",")
   } catch {
-    case ConfigException.Missing => Seq.empty
+    case _: ConfigException.Missing => Seq.empty
   }
 
   lazy val extensions: Seq[NSDbHook] =
