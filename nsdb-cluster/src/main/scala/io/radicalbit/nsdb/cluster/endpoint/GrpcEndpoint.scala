@@ -67,7 +67,7 @@ class GrpcEndpoint(nodeId: String,
     Timeout(system.settings.config.getDuration("nsdb.rpc-endpoint.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
   implicit val dispatcher: ExecutionContextExecutor = system.dispatcher
 
-  override protected[this] val executionContextExecutor: ExecutionContext = implicitly[ExecutionContext]
+  override protected[this] val executionContextExecutor: ExecutionContext = system.dispatcher
 
   override protected[this] lazy val serviceSQL =
     new GrpcEndpointServiceSQL(writeCoordinator, readCoordinator, parserSQL)
