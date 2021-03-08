@@ -20,6 +20,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.event.{Logging, LoggingAdapter}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.cluster.endpoint.GrpcEndpoint
+import io.radicalbit.nsdb.extension.NSDbExtension
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
 import io.radicalbit.nsdb.web.{BitSerializer, CustomSerializers, WebResources}
 import org.json4s.{DefaultFormats, Formats}
@@ -67,6 +68,9 @@ class NsdbNodeEndpoint(nodeId: String,
     } else {
       Left("a valid classname must be provided if security is enabled")
     }
+
+  //init extensions
+  NSDbExtension(system)
 
   authProvider match {
     case Right(provider: NSDbAuthorizationProvider) =>

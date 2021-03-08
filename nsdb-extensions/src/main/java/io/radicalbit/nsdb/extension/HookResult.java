@@ -16,10 +16,12 @@
 
 package io.radicalbit.nsdb.extension;
 
+import java.util.Objects;
+
 public class HookResult {
 
-    private boolean Success;
-    private String failureReason;
+    private final boolean Success;
+    private final String failureReason;
 
     private HookResult(boolean success, String failureReason) {
         Success = success;
@@ -40,5 +42,23 @@ public class HookResult {
 
     public String getFailureReason() {
         return failureReason;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        HookResult that = (HookResult) o;
+
+        if (Success != that.Success) return false;
+        return Objects.equals(failureReason, that.failureReason);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (Success ? 1 : 0);
+        result = 31 * result + (failureReason != null ? failureReason.hashCode() : 0);
+        return result;
     }
 }

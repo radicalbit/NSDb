@@ -29,5 +29,6 @@ services:
         - 7817:7817
         - 8558:8558
       environment:
+        LOG_LEVEL: "INFO"
         SHARD_INTERVAL: "30d"
         MONITORING_ENABLED: "true"

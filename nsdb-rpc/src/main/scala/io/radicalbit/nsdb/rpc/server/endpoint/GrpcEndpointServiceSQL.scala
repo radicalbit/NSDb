@@ -29,7 +29,7 @@ import io.radicalbit.nsdb.common.statement.{
   SelectSQLStatement
 }
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
-import io.radicalbit.nsdb.extension.NSDbExtension
+import io.radicalbit.nsdb.extension.{HookResult, NSDbExtension}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{
   DropMetric,
   ExecuteDeleteStatement,
@@ -81,7 +81,7 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
       value = valueFor(request.value)
     )
 
-    val res: Future[RPCInsertResult] =
+    val res: Future[(RPCInsertResult, HookResult)] =
       for {
         insertBitRes <- (writeCoordinator ? MapInput(
           db = request.database,
@@ -100,11 +100,15 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
             log.error(s"error while inserting $bit", t)
             RPCInsertResult(completedSuccessfully = false, t.getMessage)
         }
-        _ <- NSDbExtension(system).insertBitHook(system, bit)
-      } yield insertBitRes
+        hookResult <- NSDbExtension(system).insertBitHook(system,
+                                                          request.database,
+                                                          request.namespace,
+                                                          request.metric,
+                                                          bit)
+      } yield (insertBitRes, hookResult)
 
     res.onComplete {
-      case Success(res: RPCInsertResult) =>
+      case Success((res: RPCInsertResult, result: HookResult)) =>
         log.debug("Completed the write request {}", request)
         if (res.completedSuccessfully)
           log.debug("The result is {}", res)
@@ -113,7 +117,7 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
       case Failure(t: Throwable) =>
         log.error(s"error on request $request", t)
     }
-    res
+    res.map(_._1)
   }
 
   private def valueFor(v: RPCInsert.Value): NSDbNumericType = v match {

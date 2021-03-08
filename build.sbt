@@ -36,6 +36,7 @@ lazy val root = project
     `nsdb-sql`,
     `nsdb-cli`,
     `nsdb-perf`,
+    `nsdb-extensions`,
     `nsdb-minicluster`,
     `nsdb-it`
   )
@@ -249,6 +250,13 @@ lazy val `nsdb-perf` = (project in file("nsdb-perf"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
   .enablePlugins(GatlingPlugin)
+lazy val `nsdb-extensions` = project
+  .settings(Commons.crossScalaVersionSettings: _*)
+  .settings(PublishSettings.settings: _*)
+  .settings(PublishSettings.settings: _*)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(LicenseHeader.settings: _*)
+  .dependsOn(`nsdb-common`)
 lazy val `nsdb-minicluster` = (project in file("nsdb-minicluster"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.settings: _*)
@@ -257,12 +265,6 @@ lazy val `nsdb-minicluster` = (project in file("nsdb-minicluster"))
   .settings(libraryDependencies ++= Dependencies.Minicluster.libraries)
   .dependsOn(`nsdb-cluster`)
   .dependsOn(`nsdb-scala-api`)
-lazy val `nsdb-extensions` = project
-  .settings(Commons.crossScalaVersionSettings: _*)
-  .settings(PublishSettings.settings: _*)
-  .enablePlugins(AutomateHeaderPlugin)
-  .settings(LicenseHeader.settings: _*)
-  .dependsOn(`nsdb-common`)
 lazy val `nsdb-it` = (project in file("nsdb-it"))
   .settings(Commons.settings: _*)
   .settings(PublishSettings.dontPublish: _*)

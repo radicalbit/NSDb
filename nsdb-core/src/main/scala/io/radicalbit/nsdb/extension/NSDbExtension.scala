@@ -16,24 +16,19 @@
 
 package io.radicalbit.nsdb.extension
 
-import akka.actor.{
-  ActorSystem,
-  ClassicActorSystemProvider,
-  ExtendedActorSystem,
-  Extension,
-  ExtensionId,
-  ExtensionIdProvider
-}
+import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
+import akka.event.Logging
 import com.typesafe.config.ConfigException
 import io.radicalbit.nsdb.common.protocol.Bit
 
-import scala.collection.JavaConverters._
 import scala.compat.java8.FutureConverters.toScala
 import scala.concurrent.Future
 
 class NSDbExtension(system: ExtendedActorSystem) extends Extension {
 
-  lazy val extensionConfig: Seq[String] = try {
+  val log = Logging.getLogger(system, this)
+
+  val extensionConfig: Seq[String] = try {
     system.settings.config
       .getString("nsdb.extensions")
       .split(",")
@@ -41,15 +36,24 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
     case _: ConfigException.Missing => Seq.empty
   }
 
-  lazy val extensions: Seq[NSDbHook] =
-    extensionConfig.map(className => Class.forName(className).asSubclass(classOf[NSDbHook]).newInstance)
+  log.debug(s"extensions from configuration $extensionConfig")
+
+  val extensions: Seq[NSDbHook] =
+    extensionConfig.map { className =>
+      log.info(s"starting extension $className")
+      Class.forName(className, true, ClassLoader.getSystemClassLoader).asSubclass(classOf[NSDbHook]).newInstance
+    }
 
   import system.dispatcher
 
-  def insertBitHook(system: ActorSystem, bit: Bit): Future[HookResult] = {
+  def insertBitHook(system: ActorSystem,
+                    db: String,
+                    namespace: String,
+                    metric: String,
+                    bit: Bit): Future[HookResult] = {
     Future
       .sequence(extensions.map { extension =>
-        toScala(extension.insertBitHook(system, bit)).recover {
+        toScala(extension.insertBitHook(system, db, namespace, metric, bit)).recover {
           case t =>
             system.log.error(t, s"error during execution of extension $extension")
             HookResult.Failure(t.getMessage)
@@ -66,10 +70,6 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
 }
 
 object NSDbExtension extends ExtensionId[NSDbExtension] with ExtensionIdProvider {
-
-  override def get(system: ActorSystem): NSDbExtension = super.get(system)
-
-  override def get(system: ClassicActorSystemProvider): NSDbExtension = super.get(system)
 
   override def lookup: ExtensionId[_ <: Extension] = NSDbExtension
 
