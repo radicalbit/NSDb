@@ -19,6 +19,7 @@ package io.radicalbit.nsdb.rpc
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
+import io.radicalbit.nsdb.rpc.request.RPCInsert
 
 /**
   * Object containing convenience methods to convert from common bit to grpc bit and vice versa
@@ -81,5 +82,17 @@ object GrpcBitConverters {
         value = valueFor(bit.value)
       )
   }
+
+  implicit def bitValueToGrpcValue(value: GrpcBit.Value) =
+    value match {
+      case v: GrpcBit.Value.DecimalValue => RPCInsert.Value.DecimalValue(v.decimalValue.get)
+      case v: GrpcBit.Value.LongValue    => RPCInsert.Value.DecimalValue(v.longValue.get)
+    }
+
+  implicit def bitValueToGrpcValue(value: RPCInsert.Value) =
+    value match {
+      case v: RPCInsert.Value.DecimalValue => GrpcBit.Value.DecimalValue(v.decimalValue.get)
+      case v: RPCInsert.Value.LongValue    => GrpcBit.Value.DecimalValue(v.longValue.get)
+    }
 
 }

@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.rpc.serviceWithExtensions.NSDBServiceWithExtensionGrpc
 import io.radicalbit.nsdb.rpc.serviceWithExtensions.NSDBServiceWithExtensionGrpc.NSDBServiceWithExtension
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
@@ -83,9 +84,11 @@ trait GRPCServer {
     .forAddress(new InetSocketAddress(InetAddresses.forString(interface), port))
     .addService(ServerInterceptors.intercept(NSDBServiceSQLGrpc.bindService(serviceSQL, executionContextExecutor),
                                              interceptors: _*))
-    .addService(
-      ServerInterceptors.intercept(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor),
-                                   interceptors: _*))
+    .addService(ServerInterceptors.intercept(NSDBServiceWithExtensionGrpc.bindService(serviceWithExtension,
+                                                                                      executionContextExecutor),
+                                             interceptors: _*))
+    .addService(ServerInterceptors
+      .intercept(NSDBServiceCommandGrpc.bindService(serviceCommand, executionContextExecutor), interceptors: _*))
     .addService(ServerInterceptors.intercept(InitMetricGrpc.bindService(initMetricService, executionContextExecutor),
                                              interceptors: _*))
     .addService(ServerInterceptors.intercept(RestoreGrpc.bindService(restore, executionContextExecutor),

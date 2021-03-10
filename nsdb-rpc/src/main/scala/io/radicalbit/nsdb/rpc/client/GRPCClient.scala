@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.rpc.responseCommand.{DescribeMetricResponse, MetricsGo
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
 import io.radicalbit.nsdb.rpc.restore.{RestoreGrpc, RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.rpc.serviceWithExtensions.{NSDBServiceWithExtensionGrpc, RPCInsertWithExtension}
 import io.radicalbit.nsdb.rpc.streaming.{NSDbStreamingGrpc, SQLStreamingResponse}
 import org.slf4j.LoggerFactory
 
@@ -51,6 +52,7 @@ class GRPCClient(val host: String, val port: Int, val tokenApplier: TokenApplier
   private val stubHealth: HealthGrpc.HealthStub = HealthGrpc.stub(channel)
   private val stubRestore                       = RestoreGrpc.stub(channel)
   private val stubSql                           = NSDBServiceSQLGrpc.stub(channel)
+  private val stubExtensions                    = NSDBServiceWithExtensionGrpc.stub(channel)
   private val stubCommand                       = NSDBServiceCommandGrpc.stub(channel)
   private val stubInit                          = InitMetricGrpc.stub(channel)
   private val stubStreaming                     = NSDbStreamingGrpc.stub(channel)
@@ -76,6 +78,11 @@ class GRPCClient(val host: String, val port: Int, val tokenApplier: TokenApplier
   def write(request: RPCInsert): Future[RPCInsertResult] = {
     log.debug("Preparing a write request for {}...", request)
     authorizedStub(stubSql).insertBit(request)
+  }
+
+  def writeWithExtensions(request: RPCInsertWithExtension): Future[RPCInsertResult] = {
+    log.debug("Preparing a write request with extensions for {}...", request)
+    authorizedStub(stubExtensions).insertBitWithExtension(request)
   }
 
   def executeSQLStatement(request: SQLRequestStatement): Future[SQLStatementResponse] = {

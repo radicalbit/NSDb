@@ -70,6 +70,7 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
   override def insertBit(request: RPCInsert): Future[RPCInsertResult] = {
     log.debug("Received a write request {}", request)
 
+    //FIXME the rpc request must be refactor by encapsulate all the bit information inside a bit object and then use the converters
     val bit = Bit(
       timestamp = request.timestamp,
       dimensions = request.dimensions.collect {

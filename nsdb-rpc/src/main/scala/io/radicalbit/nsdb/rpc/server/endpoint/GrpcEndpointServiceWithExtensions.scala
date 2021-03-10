@@ -24,6 +24,7 @@ import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.extension.{HookResult, NSDbExtension}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.rpc.GrpcBitConverters.GrpcBitConverter
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.server.GRPCService
@@ -50,23 +51,10 @@ class GrpcEndpointServiceWithExtensions(writeCoordinator: ActorRef)(implicit tim
   override def insertBitWithExtension(request: RPCInsertWithExtension): Future[RPCInsertResult] = {
     log.debug("Received a write request {}", request)
 
-    val bitFromRequest = request.bit.map(
-      grpcBit =>
-        Bit(
-          timestamp = grpcBit.timestamp,
-          dimensions = grpcBit.dimensions.collect {
-            case (k, v) => (k, dimensionFor(v.value))
-          },
-          tags = grpcBit.tags.collect {
-            case (k, v) => (k, tagFor(v.value))
-          },
-          value = valueFor(grpcBit.value)
-      ))
-
     val results: Future[(HookResult, RPCInsertResult)] =
       for {
-        bit <- bitFromRequest.fold(Future.failed[Bit](new IllegalArgumentException("bit is required")))(bit =>
-          Future(bit))
+        bit <- request.bit.fold(Future.failed[Bit](new IllegalArgumentException("bit is required")))(grpcBit =>
+          Future(grpcBit.asBit))
 
         hookResult <- {
           if (NSDbExtension(system).extensionsNames.isEmpty)
@@ -122,23 +110,6 @@ class GrpcEndpointServiceWithExtensions(writeCoordinator: ActorRef)(implicit tim
           log.error(s"error on request $request", t)
           RPCInsertResult(false, t.getMessage)
       }
-  }
-
-  private def valueFor(v: GrpcBit.Value): NSDbNumericType = v match {
-    case _: GrpcBit.Value.DecimalValue => NSDbNumericType(v.decimalValue.get)
-    case _: GrpcBit.Value.LongValue    => NSDbNumericType(v.longValue.get)
-  }
-
-  private def dimensionFor(v: Dimension.Value): NSDbType = v match {
-    case _: Dimension.Value.DecimalValue => NSDbType(v.decimalValue.get)
-    case _: Dimension.Value.LongValue    => NSDbType(v.longValue.get)
-    case _                               => NSDbType(v.stringValue.get)
-  }
-
-  private def tagFor(v: Tag.Value): NSDbType = v match {
-    case _: Tag.Value.DecimalValue => NSDbType(v.decimalValue.get)
-    case _: Tag.Value.LongValue    => NSDbType(v.longValue.get)
-    case _                         => NSDbType(v.stringValue.get)
   }
 
 }

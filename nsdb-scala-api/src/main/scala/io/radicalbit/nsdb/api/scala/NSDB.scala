@@ -19,11 +19,13 @@ package io.radicalbit.nsdb.api.scala
 import io.radicalbit.nsdb.api.scala.NSDB._
 import io.radicalbit.nsdb.client.rpc.{TokenApplier, TokenAppliers}
 import io.radicalbit.nsdb.rpc.client.GRPCClient
-import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
+import io.radicalbit.nsdb.rpc.common.{Bit => GrpcBit, Dimension, Tag}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.responseSQL.SQLStatementResponse
+import io.radicalbit.nsdb.rpc.serviceWithExtensions.RPCInsertWithExtension
+import io.radicalbit.nsdb.rpc.GrpcBitConverters._
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
@@ -80,8 +82,11 @@ object NSDB {
   * @param tokenApplier implementation of [[TokenApplier]] that contains authorization token management logic.
   * @param executionContextExecutor implicit execution context to handle asynchronous methods
   */
-class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] = None)(
-    implicit executionContextExecutor: ExecutionContext) {
+class NSDB private (host: String,
+                    port: Int,
+                    tokenApplier: Option[TokenApplier] = None,
+                    useExtensions: Boolean = false,
+                    persistWithExtensions: Boolean = false)(implicit executionContextExecutor: ExecutionContext) {
 
   /**
     * Inner Grpc client.
@@ -93,6 +98,11 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
     * @param token Jwt Authorization token.
     */
   def withJwtToken(token: String): NSDB = new NSDB(host, port, Some(TokenAppliers.JWT(token)))
+
+  /**
+    * Create a new instance of [[NSDB]] that will use extensions when performing grpc call
+    */
+  def withExtensions(persist: Boolean) = new NSDB(host, port, useExtensions = true, persistWithExtensions = persist)
 
   /**
     * Create a new instance of [[NSDB]] with a custom token.
@@ -121,17 +131,34 @@ class NSDB private (host: String, port: Int, tokenApplier: Option[TokenApplier] 
     * @return a Future containing the result of the operation. See [[RPCInsertResult]].
     */
   def write(bit: Bit): Future[RPCInsertResult] =
-    client.write(
-      RPCInsert(
-        database = bit.db,
-        namespace = bit.namespace,
-        metric = bit.metric,
-        timestamp = bit.timestamp getOrElse System.currentTimeMillis,
-        value = bit.value,
-        dimensions = bit.dimensions.toMap,
-        tags = bit.tags.toMap
+    if (useExtensions)
+      client.writeWithExtensions(
+        RPCInsertWithExtension(
+          database = bit.db,
+          namespace = bit.namespace,
+          metric = bit.metric,
+          Some(
+            GrpcBit(
+              timestamp = bit.timestamp getOrElse System.currentTimeMillis,
+              value = bit.value,
+              dimensions = bit.dimensions.toMap,
+              tags = bit.tags.toMap
+            )),
+          persist = persistWithExtensions
+        )
       )
-    )
+    else
+      client.write(
+        RPCInsert(
+          database = bit.db,
+          namespace = bit.namespace,
+          metric = bit.metric,
+          timestamp = bit.timestamp getOrElse System.currentTimeMillis,
+          value = bit.value,
+          dimensions = bit.dimensions.toMap,
+          tags = bit.tags.toMap
+        )
+      )
 
   /**
     * Writes a list of bits into NSdb using the current openend connection.
