@@ -19,7 +19,7 @@ package io.radicalbit.nsdb.rpc.server.endpoint
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
-import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
+import io.radicalbit.nsdb.rpc.GrpcBitConverters._
 import io.radicalbit.nsdb.common.exception.InvalidStatementException
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.{
@@ -81,34 +81,26 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
       value = valueFor(request.value)
     )
 
-    val res: Future[(RPCInsertResult, HookResult)] =
-      for {
-        insertBitRes <- (writeCoordinator ? MapInput(
-          db = request.database,
-          namespace = request.namespace,
-          metric = request.metric,
-          ts = request.timestamp,
-          record = bit
-        )).map {
-          case _: InputMapped =>
-            RPCInsertResult(completedSuccessfully = true)
-          case msg: RecordRejected =>
-            RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
-          case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
-        } recover {
-          case t =>
-            log.error(s"error while inserting $bit", t)
-            RPCInsertResult(completedSuccessfully = false, t.getMessage)
-        }
-        hookResult <- NSDbExtension(system).insertBitHook(system,
-                                                          request.database,
-                                                          request.namespace,
-                                                          request.metric,
-                                                          bit)
-      } yield (insertBitRes, hookResult)
+    val res = (writeCoordinator ? MapInput(
+      db = request.database,
+      namespace = request.namespace,
+      metric = request.metric,
+      ts = request.timestamp,
+      record = bit
+    )).map {
+      case _: InputMapped =>
+        RPCInsertResult(completedSuccessfully = true)
+      case msg: RecordRejected =>
+        RPCInsertResult(completedSuccessfully = false, errors = msg.reasons.mkString(","))
+      case _ => RPCInsertResult(completedSuccessfully = false, errors = "unknown reason")
+    } recover {
+      case t =>
+        log.error(s"error while inserting $bit", t)
+        RPCInsertResult(completedSuccessfully = false, t.getMessage)
+    }
 
     res.onComplete {
-      case Success((res: RPCInsertResult, result: HookResult)) =>
+      case Success(res: RPCInsertResult) =>
         log.debug("Completed the write request {}", request)
         if (res.completedSuccessfully)
           log.debug("The result is {}", res)
@@ -117,7 +109,7 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
       case Failure(t: Throwable) =>
         log.error(s"error on request $request", t)
     }
-    res.map(_._1)
+    res
   }
 
   private def valueFor(v: RPCInsert.Value): NSDbNumericType = v match {

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.client.rpc.converter
+package io.radicalbit.nsdb.rpc
+
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common._
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}

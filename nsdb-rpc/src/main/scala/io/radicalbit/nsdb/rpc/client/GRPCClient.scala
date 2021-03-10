@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package io.radicalbit.nsdb.client.rpc
+package io.radicalbit.nsdb.rpc.client
 
 import io.grpc.stub.{AbstractStub, StreamObserver}
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
+import io.radicalbit.nsdb.client.rpc.TokenApplier
 import io.radicalbit.nsdb.rpc.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.radicalbit.nsdb.rpc.init._
 import io.radicalbit.nsdb.rpc.request.RPCInsert

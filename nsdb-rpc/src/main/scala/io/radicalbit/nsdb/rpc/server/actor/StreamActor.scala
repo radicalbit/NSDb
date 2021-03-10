@@ -21,7 +21,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.grpc.stub.StreamObserver
 import io.radicalbit.nsdb.actors.PublisherActor.Commands._
-import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters.BitConverter
+import io.radicalbit.nsdb.rpc.GrpcBitConverters.BitConverter
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.common.statement.SelectSQLStatement
 import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{

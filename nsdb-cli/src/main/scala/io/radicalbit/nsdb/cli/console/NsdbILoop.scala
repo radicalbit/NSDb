@@ -17,14 +17,13 @@
 package io.radicalbit.nsdb.cli.console
 
 import java.io.BufferedReader
-
 import com.typesafe.scalalogging.LazyLogging
 import io.radicalbit.nsdb.cli.table.ASCIITableBuilder
-import io.radicalbit.nsdb.client.rpc.GRPCClient
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
+import io.radicalbit.nsdb.rpc.client.GRPCClient
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse
 import io.radicalbit.nsdb.rpc.health.HealthCheckResponse.ServingStatus
 import io.radicalbit.nsdb.rpc.requestCommand.{
@@ -50,7 +49,7 @@ import scala.util.{Failure, Success, Try}
 
 /**
   * Nsdb Command Line Interface main class extending scala standard REPL [[scala.tools.nsc.interpreter.ILoop]].
-  * Internally, this class manages a gRPC Client of [[io.radicalbit.nsdb.client.rpc.GRPCClient]] class used to send queries and command statements to Nsdb cluster.
+  * Internally, this class manages a gRPC Client of [[GRPCClient]] class used to send queries and command statements to Nsdb cluster.
   * User input is parsed using two methodologies: command statements are parsed client side using [[CommandStatementParser]],
   * whereas sql statements are interpreted on cluster side.
   * The database information, to establish connection with, must be specified in class constructor,

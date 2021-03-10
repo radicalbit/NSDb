@@ -35,7 +35,12 @@ import io.radicalbit.nsdb.rpc.init.{InitMetricRequest, InitMetricResponse}
 import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.restore.{RestoreRequest, RestoreResponse}
 import io.radicalbit.nsdb.rpc.server.GRPCServer
-import io.radicalbit.nsdb.rpc.server.endpoint.{GrpcEndpointServiceCommand, GrpcEndpointServiceSQL, GrpcNSDbStreaming}
+import io.radicalbit.nsdb.rpc.server.endpoint.{
+  GrpcEndpointServiceCommand,
+  GrpcEndpointServiceSQL,
+  GrpcEndpointServiceWithExtensions,
+  GrpcNSDbStreaming
+}
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
@@ -71,6 +76,9 @@ class GrpcEndpoint(nodeId: String,
 
   override protected[this] lazy val serviceSQL =
     new GrpcEndpointServiceSQL(writeCoordinator, readCoordinator, parserSQL)
+
+  override protected[this] lazy val serviceWithExtension =
+    new GrpcEndpointServiceWithExtensions(writeCoordinator)
 
   override protected[this] lazy val serviceCommand: NSDBServiceCommand =
     new GrpcEndpointServiceCommand(metadataCoordinator, readCoordinator)

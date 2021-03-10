@@ -28,7 +28,7 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
 
   val log = Logging.getLogger(system, this)
 
-  val extensionConfig: Seq[String] = try {
+  private val extensionConfig: Seq[String] = try {
     system.settings.config
       .getString("nsdb.extensions")
       .split(",")
@@ -38,13 +38,16 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
 
   log.debug(s"extensions from configuration $extensionConfig")
 
-  val extensions: Seq[NSDbHook] =
+  private val extensions: Seq[NSDbHook] =
     extensionConfig.map { className =>
       log.info(s"starting extension $className")
       Class.forName(className, true, ClassLoader.getSystemClassLoader).asSubclass(classOf[NSDbHook]).newInstance
     }
 
   import system.dispatcher
+
+  //TODO add a name and decription property for the extensions (in the meta-inf or in some other way)
+  def extensionsNames: Seq[String] = extensionConfig
 
   def insertBitHook(system: ActorSystem,
                     db: String,

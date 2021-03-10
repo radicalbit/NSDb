@@ -29,6 +29,7 @@ import io.radicalbit.nsdb.rpc.restore.RestoreGrpc.Restore
 import io.radicalbit.nsdb.rpc.service.NSDBServiceCommandGrpc.NSDBServiceCommand
 import io.radicalbit.nsdb.rpc.service.NSDBServiceSQLGrpc.NSDBServiceSQL
 import io.radicalbit.nsdb.rpc.service.{NSDBServiceCommandGrpc, NSDBServiceSQLGrpc}
+import io.radicalbit.nsdb.rpc.serviceWithExtensions.NSDBServiceWithExtensionGrpc.NSDBServiceWithExtension
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc
 import io.radicalbit.nsdb.rpc.streaming.NSDbStreamingGrpc.NSDbStreaming
 import io.radicalbit.nsdb.security.NSDbAuthorizationProvider
@@ -50,6 +51,8 @@ trait GRPCServer {
   protected[this] def port: Int
 
   protected[this] def serviceSQL: NSDBServiceSQL
+
+  protected[this] def serviceWithExtension: NSDBServiceWithExtension
 
   protected[this] def serviceCommand: NSDBServiceCommand
 

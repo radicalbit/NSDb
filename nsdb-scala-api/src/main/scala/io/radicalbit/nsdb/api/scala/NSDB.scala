@@ -17,7 +17,8 @@
 package io.radicalbit.nsdb.api.scala
 
 import io.radicalbit.nsdb.api.scala.NSDB._
-import io.radicalbit.nsdb.client.rpc.{GRPCClient, TokenApplier, TokenAppliers}
+import io.radicalbit.nsdb.client.rpc.{TokenApplier, TokenAppliers}
+import io.radicalbit.nsdb.rpc.client.GRPCClient
 import io.radicalbit.nsdb.rpc.common.{Dimension, Tag}
 import io.radicalbit.nsdb.rpc.request.RPCInsert
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement

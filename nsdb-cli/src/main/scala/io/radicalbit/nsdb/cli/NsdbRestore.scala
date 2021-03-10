@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.cli
 
-import io.radicalbit.nsdb.client.rpc.GRPCClient
+import io.radicalbit.nsdb.rpc.client.GRPCClient
 import io.radicalbit.nsdb.rpc.restore.RestoreRequest
 
 import scala.concurrent.Await

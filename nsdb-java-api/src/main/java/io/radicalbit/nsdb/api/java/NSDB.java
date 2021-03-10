@@ -16,7 +16,7 @@
 
 package io.radicalbit.nsdb.api.java;
 
-import io.radicalbit.nsdb.client.rpc.GRPCClient;
+import io.radicalbit.nsdb.rpc.client.GRPCClient;
 import io.radicalbit.nsdb.client.rpc.TokenApplier;
 import io.radicalbit.nsdb.client.rpc.TokenAppliers;
 import io.radicalbit.nsdb.rpc.common.Dimension;

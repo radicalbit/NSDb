@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.cluster
 
 import io.radicalbit.nsdb.api.scala.NSDB
-import io.radicalbit.nsdb.client.rpc.converter.GrpcBitConverters._
+import io.radicalbit.nsdb.rpc.GrpcBitConverters._
 import io.radicalbit.nsdb.cluster.testdata.TestMetrics._
 import io.radicalbit.nsdb.common.protocol._
 import io.radicalbit.nsdb.minicluster.converters.BitConverters.BitConverter
