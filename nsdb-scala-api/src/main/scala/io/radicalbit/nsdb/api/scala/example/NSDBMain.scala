@@ -109,3 +109,26 @@ object NSDBMainSecureRead extends App {
 
   println(Await.result(readRes, 10.seconds))
 }
+
+/**
+  * Example App that writes a bit using extensions
+  */
+object NSDBMainWriteWithExtensions extends App {
+
+  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+    .withExtensions(true)
+
+  val series = nsdb
+    .db("root")
+    .namespace("registry")
+    .metric("people")
+    .value(new java.math.BigDecimal("13.5"))
+    .dimension("city", "Mouseton")
+    .tag("gender", "M")
+    .dimension("bigDecimalLong", new java.math.BigDecimal("12"))
+    .dimension("bigDecimalDouble", new java.math.BigDecimal("12.5"))
+
+  val readRes: Future[RPCInsertResult] = nsdb.write(series)
+
+  println(Await.result(readRes, 10.seconds))
+}
