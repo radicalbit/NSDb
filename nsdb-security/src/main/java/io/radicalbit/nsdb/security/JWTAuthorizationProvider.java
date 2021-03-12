@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
+package io.radicalbit.nsdb.security;
 
-package io.radicalbit.nsdb.rpc.test;
+import java.util.List;
+import java.util.Map;
 
-import "security.proto";
+public interface JWTAuthorizationProvider extends NSDbAuthorizationProvider {
 
-message DummySecureRequest {
-  string db = 1 [(AuthorizationField) = DB];
-  string namespace = 2 [(AuthorizationField) = NAMESPACE];
-  string metric = 3 [(AuthorizationField) = METRIC];
-}
+    @Override
+    default String extractHttpSecurityPayload(Map<String, String> rawHeaders) {
+        return rawHeaders.get("Authorization");
+    }
 
-message DummyResponse {
-  string securityPayload = 1;
-  string coordinates = 2;
-}
+    @Override
+    default String extractWsSecurityPayload(List<String> subProtocols) {
+        return subProtocols.stream().reduce("",  (a, b) -> a + "" + b);
+    }
 
-service DummySecureService {
-  option (isAuthorized) = true;
-  rpc dummySecure(io.radicalbit.nsdb.rpc.test.DummySecureRequest) returns (io.radicalbit.nsdb.rpc.test.DummyResponse) {}
+    @Override
+    default String getGrpcSecurityHeader() {
+        return "Authorization";
+    }
 }

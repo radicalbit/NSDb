@@ -115,8 +115,10 @@ object NSDBMainSecureRead extends App {
   */
 object NSDBMainWriteWithExtensions extends App {
 
-  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb = Await
+    .result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
     .withExtensions(true)
+    .withJwtToken("token")
 
   val series = nsdb
     .db("root")

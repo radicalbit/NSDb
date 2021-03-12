@@ -17,12 +17,17 @@
 package io.radicalbit.nsdb.extension;
 
 import akka.actor.ActorSystem;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import io.radicalbit.nsdb.common.protocol.Bit;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface NSDbHook {
-
-    CompletableFuture<HookResult> insertBitHook(ActorSystem system, String securityPayload, String db, String namespace, String metric, Bit bit);
-
+public class NSDbDummyHook implements NSDbHook {
+    @Override
+    public CompletableFuture<HookResult> insertBitHook(ActorSystem system, String securityPayload, String db, String namespace, String metric, Bit bit) {
+        LoggingAdapter log = Logging.getLogger(system, this);
+        log.info("Executing dummy extension");
+        return CompletableFuture.completedFuture(HookResult.Success());
+    }
 }

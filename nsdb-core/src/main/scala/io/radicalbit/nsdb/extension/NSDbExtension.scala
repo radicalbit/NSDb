@@ -50,13 +50,14 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
   def extensionsNames: Seq[String] = extensionConfig
 
   def insertBitHook(system: ActorSystem,
+                    securityPayload: String,
                     db: String,
                     namespace: String,
                     metric: String,
                     bit: Bit): Future[HookResult] = {
     Future
       .sequence(extensions.map { extension =>
-        toScala(extension.insertBitHook(system, db, namespace, metric, bit)).recover {
+        toScala(extension.insertBitHook(system, securityPayload, db, namespace, metric, bit)).recover {
           case t =>
             system.log.error(t, s"error during execution of extension $extension")
             HookResult.Failure(t.getMessage)

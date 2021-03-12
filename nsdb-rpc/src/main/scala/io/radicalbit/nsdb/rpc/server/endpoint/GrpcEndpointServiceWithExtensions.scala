@@ -19,13 +19,12 @@ package io.radicalbit.nsdb.rpc.server.endpoint
 import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import akka.util.Timeout
+import io.grpc.Context
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.common.{NSDbNumericType, NSDbType}
 import io.radicalbit.nsdb.extension.{HookResult, NSDbExtension}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.MapInput
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.rpc.GrpcBitConverters.GrpcBitConverter
-import io.radicalbit.nsdb.rpc.common.{Dimension, Tag, Bit => GrpcBit}
 import io.radicalbit.nsdb.rpc.response.RPCInsertResult
 import io.radicalbit.nsdb.rpc.server.GRPCService
 import io.radicalbit.nsdb.rpc.serviceWithExtensions.NSDBServiceWithExtensionGrpc.NSDBServiceWithExtension
@@ -49,7 +48,9 @@ class GrpcEndpointServiceWithExtensions(writeCoordinator: ActorRef)(implicit tim
   override def serviceDescriptor: ServiceDescriptor = this.serviceCompanion.scalaDescriptor
 
   override def insertBitWithExtension(request: RPCInsertWithExtension): Future[RPCInsertResult] = {
-    log.debug("Received a write request {}", request)
+    log.error(s"Received a write request $request")
+    val securityPayload = getSecurityPaylaod(Context.current())
+    log.error(s"Security payload $securityPayload")
 
     val results: Future[(HookResult, RPCInsertResult)] =
       for {
@@ -60,7 +61,12 @@ class GrpcEndpointServiceWithExtensions(writeCoordinator: ActorRef)(implicit tim
           if (NSDbExtension(system).extensionsNames.isEmpty)
             Future.successful(HookResult.Failure("no extensions configured"))
           else
-            NSDbExtension(system).insertBitHook(system, request.database, request.namespace, request.metric, bit)
+            NSDbExtension(system).insertBitHook(system,
+                                                securityPayload,
+                                                request.database,
+                                                request.namespace,
+                                                request.metric,
+                                                bit)
         }
 
         insertBitRes <- {

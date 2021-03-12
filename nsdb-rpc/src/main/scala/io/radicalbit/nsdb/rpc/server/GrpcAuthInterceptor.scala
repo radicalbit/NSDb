@@ -56,7 +56,10 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
       call.close(Status.UNAUTHENTICATED.withDescription(EmptyToken), new Metadata)
 
     new ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](
-      Contexts.interceptCall(Context.current(), call, headers, next)) {
+      Contexts.interceptCall(Context.current().withValue(GRPCService.securityPayloadKey, securityPayload),
+                             call,
+                             headers,
+                             next)) {
       override def onMessage(request: ReqT): Unit = {
 
         request match {

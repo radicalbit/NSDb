@@ -76,11 +76,11 @@ class GrpcAuthInterceptorTest extends NSDbSpec with BeforeAndAfterAll with Befor
     PatienceConfig(timeout = Span(1, Seconds), interval = Span(500, Millis))
 
   override def beforeAll: Unit = {
-    val dummySecureService = new DummySecureServiceGrpc
     server = InProcessServerBuilder
       .forName(channelName)
       .addService(
-        ServerInterceptors.intercept(DummySecureServiceGrpc.bindService(dummySecureService, ec), grpcAuthProvider))
+        ServerInterceptors.intercept(DummySecureServiceGrpc.bindService(new DummySecureServiceGrpc, ec),
+                                     grpcAuthProvider))
       .build
       .start
   }
@@ -147,7 +147,7 @@ class GrpcAuthInterceptorTest extends NSDbSpec with BeforeAndAfterAll with Befor
     whenReady(
       dummyServiceSecureClient.dummySecure(DummySecureRequest("allowedDb", "allowedNamespace", "allowedMetric"))) {
       response =>
-        response shouldBe DummyResponse("allowedDb-allowedNamespace-allowedMetric")
+        response shouldBe DummyResponse("Bearer allowed", "allowedDb-allowedNamespace-allowedMetric")
     }
   }
 }

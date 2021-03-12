@@ -16,17 +16,25 @@
 
 package io.radicalbit.nsdb.rpc.test
 
+import io.grpc.Context
+import io.radicalbit.nsdb.rpc.server.GRPCService
 import io.radicalbit.nsdb.rpc.test.securityTest.DummySecureServiceGrpc.DummySecureService
 import io.radicalbit.nsdb.rpc.test.securityTest.{DummyResponse, DummySecureRequest}
+import scalapb.descriptors.ServiceDescriptor
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object DummyServiceGrpc {
 
-  class DummySecureServiceGrpc(implicit executionContext: ExecutionContext) extends DummySecureService {
+  class DummySecureServiceGrpc(implicit executionContext: ExecutionContext)
+      extends DummySecureService
+      with GRPCService {
     override def dummySecure(request: DummySecureRequest): Future[DummyResponse] = {
-      Future(DummyResponse(s"${request.db}-${request.namespace}-${request.metric}"))
+      val p = getSecurityPaylaod(Context.current())
+      Future(DummyResponse(p, s"${request.db}-${request.namespace}-${request.metric}"))
     }
+
+    override def serviceDescriptor: ServiceDescriptor = this.serviceCompanion.scalaDescriptor
   }
 
 }

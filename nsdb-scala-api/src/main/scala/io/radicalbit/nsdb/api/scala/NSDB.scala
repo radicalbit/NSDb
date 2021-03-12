@@ -97,12 +97,14 @@ class NSDB private (host: String,
     * Create a new instance of [[NSDB]] with a Jwt token.
     * @param token Jwt Authorization token.
     */
-  def withJwtToken(token: String): NSDB = new NSDB(host, port, Some(TokenAppliers.JWT(token)))
+  def withJwtToken(token: String): NSDB =
+    new NSDB(host, port, Some(TokenAppliers.JWT(token)), useExtensions, persistWithExtensions)
 
   /**
     * Create a new instance of [[NSDB]] that will use extensions when performing grpc call
     */
-  def withExtensions(persist: Boolean) = new NSDB(host, port, useExtensions = true, persistWithExtensions = persist)
+  def withExtensions(persist: Boolean) =
+    new NSDB(host, port, tokenApplier, useExtensions = true, persistWithExtensions = persist)
 
   /**
     * Create a new instance of [[NSDB]] with a custom token.
