@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 
 public interface NSDbHook {
 
+    void open(ActorSystem system);
+
     CompletableFuture<HookResult> insertBitHook(ActorSystem system, String securityPayload, String db, String namespace, String metric, Bit bit);
 
 }

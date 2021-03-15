@@ -91,7 +91,8 @@ class NSDB private (host: String,
   /**
     * Inner Grpc client.
     */
-  protected[scala] val client = new GRPCClient(host = host, port = port)
+  protected[scala] val client = tokenApplier.fold(new GRPCClient(host = host, port = port))(applier =>
+    new GRPCClient(host = host, port = port, tokenApplier = applier))
 
   /**
     * Create a new instance of [[NSDB]] with a Jwt token.

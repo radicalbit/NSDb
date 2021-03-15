@@ -49,8 +49,12 @@ class GrpcAuthInterceptor(authProvider: NSDbAuthorizationProvider) extends Serve
                                           headers: Metadata,
                                           next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
 
+    log.debug(s"intercepting call $call with headers $headers")
+
     val securityPayload =
       headers.get(Metadata.Key.of(authProvider.getGrpcSecurityHeader, Metadata.ASCII_STRING_MARSHALLER))
+
+    log.debug(s"security payload $securityPayload")
 
     if (Option(securityPayload).forall(_.trim.isEmpty))
       call.close(Status.UNAUTHENTICATED.withDescription(EmptyToken), new Metadata)

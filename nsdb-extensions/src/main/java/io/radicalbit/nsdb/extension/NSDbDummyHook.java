@@ -24,10 +24,16 @@ import io.radicalbit.nsdb.common.protocol.Bit;
 import java.util.concurrent.CompletableFuture;
 
 public class NSDbDummyHook implements NSDbHook {
+
+    @Override
+    public void open(ActorSystem system){}
+
     @Override
     public CompletableFuture<HookResult> insertBitHook(ActorSystem system, String securityPayload, String db, String namespace, String metric, Bit bit) {
         LoggingAdapter log = Logging.getLogger(system, this);
         log.info("Executing dummy extension");
+        log.info("security payload {}", securityPayload);
+        log.info("parameters {} {} {} {}", db, namespace, metric, bit);
         return CompletableFuture.completedFuture(HookResult.Success());
     }
 }

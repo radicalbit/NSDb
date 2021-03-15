@@ -96,10 +96,11 @@ object NSDBInitRead extends App {
   */
 object NSDBMainSecureRead extends App {
 
-  val nsdb = Await.result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+  val nsdb = Await
+    .result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
+    .withJwtToken("jwt token")
 
   val query = nsdb
-    .withJwtToken("jwt token")
     .db("root")
     .namespace("registry")
     .metric("people")
@@ -118,7 +119,7 @@ object NSDBMainWriteWithExtensions extends App {
   val nsdb = Await
     .result(NSDB.connect(host = "127.0.0.1", port = 7817)(ExecutionContext.global), 10.seconds)
     .withExtensions(true)
-    .withJwtToken("token")
+    .withJwtToken("token1")
 
   val series = nsdb
     .db("root")

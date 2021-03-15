@@ -32,6 +32,7 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
     system.settings.config
       .getString("nsdb.extensions")
       .split(",")
+      .filterNot(_.isEmpty)
   } catch {
     case _: ConfigException.Missing => Seq.empty
   }
@@ -41,7 +42,10 @@ class NSDbExtension(system: ExtendedActorSystem) extends Extension {
   private val extensions: Seq[NSDbHook] =
     extensionConfig.map { className =>
       log.info(s"starting extension $className")
-      Class.forName(className, true, ClassLoader.getSystemClassLoader).asSubclass(classOf[NSDbHook]).newInstance
+      val instance: NSDbHook =
+        Class.forName(className, true, ClassLoader.getSystemClassLoader).asSubclass(classOf[NSDbHook]).newInstance
+      instance.open(system)
+      instance
     }
 
   import system.dispatcher

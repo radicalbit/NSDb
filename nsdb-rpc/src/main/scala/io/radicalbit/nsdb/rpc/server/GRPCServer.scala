@@ -69,7 +69,7 @@ trait GRPCServer {
 
   protected[this] def authorizationProvider: NSDbAuthorizationProvider
 
-  protected[this] def interceptors: List[ServerInterceptor] =
+  protected[this] lazy val interceptors: List[ServerInterceptor] =
     if (!authorizationProvider.isEmpty) List(new GrpcAuthInterceptor(authorizationProvider)) else List.empty
 
   sys.addShutdownHook {

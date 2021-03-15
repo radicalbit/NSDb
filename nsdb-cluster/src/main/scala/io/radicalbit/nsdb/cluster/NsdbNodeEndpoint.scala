@@ -64,7 +64,10 @@ class NsdbNodeEndpoint(nodeId: String,
     } else if (authProviderClassName.nonEmpty) {
       logger.debug(s"Trying to load class $authProviderClassName")
       Try(Class.forName(authProviderClassName).asSubclass(classOf[NSDbAuthorizationProvider]).newInstance).toEither.left
-        .map(_.getMessage)
+        .map { t: Throwable =>
+          logger.error(t, s"error during initialize authorization provider $authProviderClassName")
+          t.getMessage
+        }
     } else {
       Left("a valid classname must be provided if security is enabled")
     }
