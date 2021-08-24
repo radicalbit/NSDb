@@ -153,7 +153,7 @@ class GrpcEndpointServiceSQL(writeCoordinator: ActorRef, readCoordinator: ActorR
                     records = values.map(bit => bit.asGrpcBit)
                   )
                 // SelectExecution Failure
-                case SelectStatementFailed(statement, reason, _) =>
+                case SelectStatementFailed(_, reason, _) =>
                   SQLStatementResponse(
                     db = requestDb,
                     namespace = requestNamespace,

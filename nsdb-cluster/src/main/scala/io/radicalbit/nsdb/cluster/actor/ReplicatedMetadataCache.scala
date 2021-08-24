@@ -482,7 +482,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       replyTo ! MetricsFromCacheGot(db, namespace, elements)
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
-    case NotFound(_, Some(MetricLocationsInNodeRequest(db, namespace, metric, nodeName, replyTo))) =>
+    case NotFound(_, Some(MetricLocationsInNodeRequest(db, namespace, metric, _, replyTo))) =>
       replyTo ! LocationsCached(db, namespace, metric, Seq.empty)
     case NotFound(_, Some(OutdatedLocationsRequest(replyTo))) =>
       replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
