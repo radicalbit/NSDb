@@ -54,6 +54,7 @@ class TemporalReadCoordinatorSpec extends MiniClusterSpec {
     }
 
     waitIndexing()
+    waitIndexing()
   }
 
   test("execute a temporal count query on a Long metric") {
