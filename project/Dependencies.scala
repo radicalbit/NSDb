@@ -19,7 +19,7 @@ import sbt._
 object Dependencies {
 
   object scalaLang {
-    lazy val version   = "2.12.12"
+    lazy val version   = "2.12.2"
     lazy val namespace = "org.scala-lang"
     lazy val compiler = namespace % "scala-compiler" % version excludeAll (ExclusionRule(organization =
                                                                                            "org.scala-lang.modules",
@@ -41,7 +41,7 @@ object Dependencies {
   }
 
   object cats {
-    lazy val version   = "2.0.0"
+    lazy val version   = "2.6.0"
     lazy val namespace = "org.typelevel"
     lazy val cats_core      = namespace %% "cats-core" % version
   }
@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.12"
+    lazy val version   = "2.6.15"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -72,7 +72,7 @@ object Dependencies {
   }
 
   object akka_management {
-    lazy val version   = "1.0.6"
+    lazy val version   = "1.1.1"
     lazy val namespace = "com.lightbend.akka.management"
     lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
     lazy val cluster_http = namespace %% "akka-management-cluster-http" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
@@ -93,7 +93,7 @@ object Dependencies {
   }
 
   object akka_http {
-    lazy val version   = "10.2.0"
+    lazy val version   = "10.2.5"
     lazy val namespace = "com.typesafe.akka"
     lazy val default         = namespace                      %% "akka-http"            % version
     lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
@@ -103,8 +103,7 @@ object Dependencies {
 
   object kamon {
     lazy val namespace= "io.kamon"
-    lazy val kamonVersion = "2.1.8"
-    lazy val sigarVersion = "1.6.6-rev002"
+    lazy val kamonVersion = "2.2.3"
     lazy val bundle = namespace %% "kamon-bundle" % kamonVersion
     lazy val prometheus = namespace %% "kamon-prometheus" %  kamonVersion
   }
@@ -128,7 +127,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.6.3"
+    lazy val version     = "8.9.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -138,7 +137,7 @@ object Dependencies {
   }
 
   object scalatest {
-    lazy val version   = "3.2.2"
+    lazy val version   = "3.2.9"
     lazy val namespace = "org.scalatest"
     lazy val core      = namespace %% "scalatest" % version
   }

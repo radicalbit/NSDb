@@ -318,7 +318,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         }
         .flatMap { responses =>
           handleCommitLogCoordinatorResponses(responses, db, namespace, metric, bit, schema)(
-            res =>
+            _ =>
               Future.successful(
                 RecordRejected(db,
                                namespace,

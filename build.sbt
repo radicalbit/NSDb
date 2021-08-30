@@ -79,11 +79,11 @@ lazy val `nsdb-rpc` = project
   .settings(libraryDependencies ++= Dependencies.RPC.libraries)
   .settings(coverageExcludedPackages := "io\\.radicalbit\\.nsdb.*")
   .settings(
-    PB.targets in Compile := Seq(
-    scalapb.gen() -> (sourceManaged in Compile).value
+    Compile / PB.targets   := Seq(
+    scalapb.gen() -> (Compile / sourceManaged).value
   ),
-    PB.targets in Test := Seq(
-      scalapb.gen() -> (sourceManaged in Test).value
+    Test / PB.targets := Seq(
+      scalapb.gen() -> (Test / sourceManaged).value
     )
   )
   .settings(LicenseHeader.settings: _*)
@@ -98,7 +98,7 @@ lazy val `nsdb-cluster` = project
   .configs(MultiJvm)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(LicenseHeader.settings: _*)
-  .settings(scriptClasspath in bashScriptDefines += "../ext-lib/*")
+  .settings(bashScriptDefines / scriptClasspath += "../ext-lib/*")
   .settings(SbtMultiJvm.multiJvmSettings)
   .configs(MultiJvm)
   .settings(
@@ -107,29 +107,29 @@ lazy val `nsdb-cluster` = project
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/docker.html
      */
-    packageName in Docker := "nsdb",
-    mappings in Docker ++= {
+    Docker / packageName := "nsdb",
+    Docker / mappings ++= {
       val confDir = baseDirectory.value / "src/main/resources"
       val confResources = ((confDir ** "*" --- confDir) pair (relativeTo(confDir), false)).filterNot{case (_,name) => name.contains("application")}
       for {
         (file, relativePath) <- confResources
-      } yield file -> s"/opt/${(packageName in Docker).value}/conf/$relativePath"
+      } yield file -> s"/opt/${(Docker / packageName).value}/conf/$relativePath"
     },
-    mappings in Docker ++= {
+    Docker / mappings ++= {
       val scriptDir = baseDirectory.value / "../docker-scripts"
       for {
         (file, relativePath) <- (scriptDir ** "*" --- scriptDir) pair (relativeTo(scriptDir), false)
-      } yield file -> s"/opt/${(packageName in Docker).value}/bin/$relativePath"
+      } yield file -> s"/opt/${(Docker / packageName).value}/bin/$relativePath"
     },
-    version in Docker := version.value,
-    maintainer in Docker := organization.value,
+    Docker / version := version.value,
+    Docker / maintainer := organization.value,
     dockerRepository := Some("weareradicalbit"),
-    defaultLinuxInstallLocation in Docker := s"/opt/${(packageName in Docker).value}",
+    Docker / defaultLinuxInstallLocation := s"/opt/${(Docker / packageName).value}",
     dockerCommands := Seq(
       Cmd("FROM", "adoptopenjdk/openjdk8:alpine-slim"),
       Cmd("LABEL", s"""MAINTAINER="${organization.value}""""),
       Cmd("RUN", "apk add", "--no-cache", "bash", "udev"),
-      Cmd("WORKDIR", s"/opt/${(packageName in Docker).value}"),
+      Cmd("WORKDIR", s"/opt/${(Docker / packageName).value}"),
       Cmd("RUN", "addgroup", "-S", "nsdb", "&&", "adduser", "-S", "nsdb", "-G", "nsdb"),
       Cmd("ADD", "opt", "/opt"),
       ExecCmd("RUN", "chown", "-R", "nsdb:nsdb", "."),
@@ -144,13 +144,13 @@ lazy val `nsdb-cluster` = project
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/debian.html
      */
-    name in Debian := "nsdb",
-    version in Debian := version.value,
-    maintainer in Debian := "Radicalbit <info@radicalbit.io>",
-    packageSummary in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
-    packageDescription in Debian := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    Debian / name := "nsdb",
+    Debian / version := version.value,
+    Debian / maintainer := "Radicalbit <info@radicalbit.io>",
+    Debian / packageSummary := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    Debian / packageDescription := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
     packageDeb := {
-      val distFile = (packageBin in Debian).value
+      val distFile = (Debian / packageBin).value
       val output   = baseDirectory.value / ".." / "package" / distFile.getName
       IO.move(distFile, output)
       output
@@ -162,16 +162,16 @@ lazy val `nsdb-cluster` = project
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/rpm.html
      */
-    version in Rpm := version.value,
-    packageName in Rpm := "nsdb",
+    Rpm / version := version.value,
+    Rpm / packageName := "nsdb",
     rpmRelease := "1",
-    packageSummary in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
-    packageDescription in Rpm := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    Rpm / packageSummary := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
+    Rpm / packageDescription := "NSDb is an open source, brand new distributed time series Db, streaming oriented, optimized for the serving layer and completely based on Scala and Akka",
     rpmVendor := "Radicalbit",
     rpmUrl := Some("https://github.com/radicalbit/NSDb"),
     rpmLicense := Some("Apache"),
     packageRpm := {
-      val distFile = (packageBin in Rpm).value
+      val distFile = (Rpm / packageBin).value
       val output   = baseDirectory.value / ".." / "package" / distFile.getName
       IO.move(distFile, output)
       output
@@ -183,21 +183,21 @@ lazy val `nsdb-cluster` = project
        See here for details:
        http://www.scala-sbt.org/sbt-native-packager/formats/universal.html
      */
-    packageName in Universal := s"nsdb-${version.value}",
-    mappings in Universal ++= {
+    Universal / packageName := s"nsdb-${version.value}",
+    Universal / mappings ++= {
       val confDir = baseDirectory.value / "src/main/resources"
       val confResources = ((confDir ** "*" --- confDir) pair (relativeTo(confDir), false)).filterNot{case (_,name) => name.contains("application")}
       for {
         (file, relativePath) <- confResources
       } yield file -> s"conf/$relativePath"
     },
-    discoveredMainClasses in Compile ++= (discoveredMainClasses in (`nsdb-cli`, Compile)).value,
+    Compile / discoveredMainClasses ++= (`nsdb-cli` / Compile / discoveredMainClasses).value,
     bashScriptDefines ++= Seq(
       """addJava "-DconfDir=${app_home}/../conf"""",
       """addJava "-Dlogback.configurationFile=${app_home}/../conf/logback.xml""""
     ),
     packageDist := {
-      val distFile = (packageBin in Universal).value
+      val distFile = (Universal / packageBin).value
       val output   = baseDirectory.value / ".." / "package" / distFile.getName
       IO.move(distFile, output)
       output
@@ -265,6 +265,6 @@ lazy val `nsdb-it` = (project in file("nsdb-it"))
   .configs(IntegrationTest)
   .settings(Defaults.itSettings)
   .dependsOn(`nsdb-minicluster`)
-scalafmtOnCompile in ThisBuild := true
+ThisBuild / scalafmtOnCompile := true
 // make run command include the provided dependencies
-run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
+Compile / run := Defaults.runTask(Compile / fullClasspath,  Compile / run / mainClass, Compile / run / runner)

@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.api.java;
 
+import io.grpc.stub.StreamObserver;
 import io.radicalbit.nsdb.client.rpc.GRPCClient;
 import io.radicalbit.nsdb.client.rpc.TokenApplier;
 import io.radicalbit.nsdb.client.rpc.TokenAppliers;
@@ -25,10 +26,12 @@ import io.radicalbit.nsdb.rpc.init.InitMetricRequest;
 import io.radicalbit.nsdb.rpc.request.RPCInsert;
 import io.radicalbit.nsdb.rpc.requestCommand.DescribeMetric;
 import io.radicalbit.nsdb.rpc.requestSQL.SQLRequestStatement;
+import io.radicalbit.nsdb.rpc.streaming.SQLStreamingResponse;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import static scala.compat.java8.FutureConverters.toJava;
 
@@ -457,7 +460,7 @@ public class NSDB {
     }
 
     /**
-     * execute a {@link SQLStatement}  using the current openend connection
+     * execute a {@link SQLStatement}  using the current opened connection
      *
      * @param sqlStatement the {@link SQLStatement} to be executed
      * @return a CompletableFuture of the result of the operation. See {@link QueryResult}
@@ -465,6 +468,33 @@ public class NSDB {
     public CompletableFuture<QueryResult> executeStatement(SQLStatement sqlStatement) {
         SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.metric, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
         return toJava(client.executeSQLStatement(sqlStatementRequest)).toCompletableFuture().thenApply(QueryResult::new);
+    }
+
+    /**
+     * subscribe to a {@link SQLStatement} using the current opened connection.
+     * This works similarly to the web-socket publish subscribe.
+     *
+     * @see <a href="https://nsdb.io/PublishSubscribe">nsdb.io</a> for more details.
+     *
+     * @param sqlStatement the {@link SQLStatement} to be executed
+     * @param callback a callback that receives all the {@link SQLStreamingResponse} records
+     */
+    public void subscribe(SQLStatement sqlStatement, Consumer<SQLStreamingResponse> callback) {
+        SQLRequestStatement sqlStatementRequest = new SQLRequestStatement(sqlStatement.db, sqlStatement.namespace, sqlStatement.metric, sqlStatement.sQLStatement, scalapb.UnknownFieldSet.empty());
+        client.subscribe(sqlStatementRequest, new StreamObserver<SQLStreamingResponse>() {
+            @Override
+            public void onNext(SQLStreamingResponse value) {
+                callback.accept(value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                throw new RuntimeException(t);
+            }
+
+            @Override
+            public void onCompleted() {}
+        });
     }
 
     /**

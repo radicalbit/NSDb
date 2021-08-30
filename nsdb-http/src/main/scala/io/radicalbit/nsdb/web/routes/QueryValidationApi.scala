@@ -75,7 +75,7 @@ trait QueryValidationApi {
     path("query" / "validate") {
       post {
         entity(as[QueryValidationBody]) { qb =>
-          extractRawHeaders { implicit rawHeaders =>
+          extractRawHeaders { _ =>
             withMetricAuthorization(qb.db,
                                     qb.namespace,
                                     qb.metric,

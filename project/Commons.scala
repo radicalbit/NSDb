@@ -44,6 +44,7 @@ object Commons {
       Resolver.bintrayRepo("hseeberger", "maven")
     ),
     parallelExecution in IntegrationTest := false,
+    parallelExecution in Test := false,
     concurrentRestrictions in IntegrationTest += Tags.limitAll(1)
   )
 

@@ -53,8 +53,8 @@ class RetentionSpec
         ConfigFactory
           .load()
           .withValue("nsdb.sharding.interval", ConfigValueFactory.fromAnyRef("5s"))
-          .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("20ms"))
-          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("10ms"))
+          .withValue("nsdb.write.scheduler.interval", ConfigValueFactory.fromAnyRef("5ms"))
+          .withValue("nsdb.retention.check.interval", ConfigValueFactory.fromAnyRef("20ms"))
       ))
     with ImplicitSender
     with NSDbSpecLike

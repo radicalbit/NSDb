@@ -332,7 +332,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
           Math.abs(bit.value.rawValue.asInstanceOf[Double] - 10.8d) should be < 1e-7
         case Some(("tag", NSDbStringType("tag_5"))) =>
           Math.abs(bit.value.rawValue.asInstanceOf[Double] - 1.2d) should be < 1e-7
-        case Some(("tag", NSDbStringType(v))) =>
+        case Some(("tag", NSDbStringType(_))) =>
           Math.abs(bit.value.rawValue.asInstanceOf[Double] - 12.0d) should be < 1e-7
       }
     }
