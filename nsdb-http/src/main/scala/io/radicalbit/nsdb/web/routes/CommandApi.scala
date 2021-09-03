@@ -76,8 +76,16 @@ trait CommandApi {
     ))
   def showDbs: Route =
     pathPrefix("commands") {
-      extractRequest { request =>
-        request.header
+        path("topology") {
+          (pathEnd & get) {
+            onComplete(metadataCoordinator ? GetTopology) {
+              case Success(topology: TopologyGot) =>
+                complete(HttpEntity(ContentTypes.`application/json`, write(topology)))
+              case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+              case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+            }
+          }
+        } ~
         path("dbs") {
           (pathEnd & get) {
             onComplete(readCoordinator ? GetDbs) {
@@ -89,7 +97,6 @@ trait CommandApi {
           }
         }
       }
-    }
 
   @Api(value = "/{db}/namespaces", produces = "application/json")
   @Path("/{db}/namespaces")
