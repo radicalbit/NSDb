@@ -107,10 +107,13 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   override def postStop(): Unit = cluster.unsubscribe(self)
 
+  private def createNodeActorGuardianName(nodeId: String, nodeName: String): String =
+    s"guardian_${nodeId}_${nodeName}"
+
   protected def createNodeActorsGuardian(): ActorRef = {
     context.system.actorOf(
       NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-      name = s"guardian_${nodeId}_${selfNodeName}"
+      name = createNodeActorGuardianName(nodeId, selfNodeName)
     )
   }
 
@@ -131,22 +134,22 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       log.error(s"RemoveNodeMetadataFailed for node $nodeName")
   }
 
-  private def unsubscribeNode(nodeName: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+  private def unsubscribeNode(nodeId: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
     (for {
       NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
-        s"/user/guardian_$nodeName") ? GetNodeChildActors)
+        createNodeActorGuardianName(nodeId, selfNodeName)) ? GetNodeChildActors)
         .mapTo[NodeChildActorsGot]
-      _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeName)).mapTo[MetricsDataActorUnSubscribed]
-      _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
+      _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeId)).mapTo[MetricsDataActorUnSubscribed]
+      _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeId))
         .mapTo[CommitLogCoordinatorUnSubscribed]
-      _ <- (writeCoordinator ? UnSubscribePublisher(nodeName)).mapTo[PublisherUnSubscribed]
-      _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeName))
+      _ <- (writeCoordinator ? UnSubscribePublisher(nodeId)).mapTo[PublisherUnSubscribed]
+      _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeId))
         .mapTo[MetricsDataActorUnSubscribed]
-      _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeName))
+      _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeId))
         .mapTo[MetricsDataActorUnSubscribed]
-      _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeName))
+      _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeId))
         .mapTo[CommitLogCoordinatorUnSubscribed]
-      removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeName))
+      removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeId))
         .mapTo[RemoveNodeMetadataResponse]
     } yield removeNodeMetadataResponse)
       .retry(delay, retries)(_.isInstanceOf[NodeMetadataRemoved])
@@ -155,7 +158,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.info("Member is Up: {}", member.address)
+      log.info("Member with nodeId {} is Up: {}", nodeId, member.address)
 
       val nodeActorsGuardian = createNodeActorsGuardian()
 
@@ -167,7 +170,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
           val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd.diff(outdatedLocations.locations)
 
-          log.debug(s"locations to add from node $nodeId $locationsToAdd")
+          log.info(s"locations to add from node $nodeId $locationsToAdd")
 
           val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
             case LocationWithCoordinates(database, namespace, _) => (database, namespace)
@@ -207,9 +210,10 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
     case MemberRemoved(member, previousStatus) =>
       log.info("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
 
-      val nodeName = createNodeName(member)
+      val nodeName       = createNodeName(member)
+      val nodeIdToRemove = NSDbClusterSnapshot(context.system).getId(nodeName)
 
-      unsubscribeNode(nodeName)
+      unsubscribeNode(nodeIdToRemove.nodeId)
 
       NSDbClusterSnapshot(context.system).removeNode(nodeName)
     case _: MemberEvent => // ignore

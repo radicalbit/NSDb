@@ -73,16 +73,26 @@ trait CommandApi {
   def showDbs: Route =
     pathPrefix("commands") {
       optionalHeaderValueByName(authenticationProvider.headerName) { header =>
-        path("dbs") {
+        path("topology") {
           (pathEnd & get) {
-            onComplete(readCoordinator ? GetDbs) {
-              case Success(DbsGot(dbs)) =>
-                complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
-              case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+            onComplete(metadataCoordinator ? GetTopology) {
+              case Success(topology: TopologyGot) =>
+                complete(HttpEntity(ContentTypes.`application/json`, write(topology)))
+              case Success(_) => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
               case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
             }
           }
-        }
+        } ~
+          path("dbs") {
+            (pathEnd & get) {
+              onComplete(readCoordinator ? GetDbs) {
+                case Success(DbsGot(dbs)) =>
+                  complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
+                case Success(_) => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+              }
+            }
+          }
       }
     }
 

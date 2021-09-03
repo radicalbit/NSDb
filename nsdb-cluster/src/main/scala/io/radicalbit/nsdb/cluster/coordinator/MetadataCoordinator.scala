@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
@@ -311,6 +310,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
   }
 
   override def receive: Receive = {
+    case GetTopology =>
+      sender() ! TopologyGot(NSDbClusterSnapshot(context.system).nodes.toSet)
     case AllMetricInfoWithRetentionGot(metricInfoes) =>
       implicit val timeContext: TimeContext = TimeContext()
       log.debug(s"check for retention for {}", metricInfoes)
@@ -479,9 +480,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
                             }
 
-                          val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
+                          val nsdbNodes = nodes.map(address => nsdbClusterSnapshot.getId(address))
 
-                          val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
+                          val locations = nsdbNodes.map { node =>
+                            Location(metric, node.nodeId, start, end)
+                          }
                           performAddLocationIntoCache(db, namespace, locations, None)
                         }
                       } yield

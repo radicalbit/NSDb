@@ -106,6 +106,8 @@ object MessageProtocol {
     case object GetPublishers            extends NSDbSerializable
 
     case class NodeAlive(nodeId: String, nodeAddress: String) extends NSDbSerializable
+
+    case object GetTopology extends NSDbSerializable
   }
 
   /**
@@ -231,6 +233,9 @@ object MessageProtocol {
     case class PublisherUnSubscribed(nodeName: String)            extends NSDbSerializable
 
     case class MigrationStarted(inputPath: String) extends NSDbSerializable
+
+    case class NSDbNode(address: String, nodeId: String) extends NSDbSerializable
+    case class TopologyGot(nodes: Set[NSDbNode])         extends NSDbSerializable
   }
 
 }
