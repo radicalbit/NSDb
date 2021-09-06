@@ -135,6 +135,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   }
 
   private def unsubscribeNode(nodeId: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+    log.info(s"unsubscribing node $nodeId")
     (for {
       NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
         createNodeActorGuardianName(nodeId, selfNodeName)) ? GetNodeChildActors)
@@ -194,7 +195,8 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
         .onComplete {
           case Success(
               (NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor),
-               (_, failures))) if failures.isEmpty =>
+               (success, failures))) if failures.isEmpty =>
+            log.info(s"location ${success} successfully added for node $nodeId")
             val nodeName = createNodeName(member)
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
             mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
