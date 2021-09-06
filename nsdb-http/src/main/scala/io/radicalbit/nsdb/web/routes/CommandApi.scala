@@ -66,6 +66,70 @@ trait CommandApi {
 
   @Api(value = "/dbs", produces = "application/json")
   @Path("/dbs")
+  @ApiOperation(
+    value = "Perform show topology command. A topology is a representation of the cluster members",
+    nickname = "show topology",
+    httpMethod = "GET",
+    response = classOf[TopologyGot]
+  )
+  @ApiResponses(
+    Array(
+      new ApiResponse(code = 500, message = "Internal server error")
+    ))
+  def topologyApi: Route =
+    path("topology") {
+      (pathEnd & get) {
+        onComplete(metadataCoordinator ? GetTopology) {
+          case Success(topology: TopologyGot) =>
+            complete(HttpEntity(ContentTypes.`application/json`, write(topology)))
+          case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+          case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+        }
+      }
+    }
+
+  @Api(value = "locations/{db}/{namespace}/{metric}", produces = "application/json")
+  @Path("/locations/{db}/{namespace}/{metric}")
+  @ApiOperation(value = "Perform show locations given db, namespace, metric",
+                nickname = "Show Locations",
+                httpMethod = "GET",
+                response = classOf[String])
+  @ApiImplicitParams(
+    Array(
+      new ApiImplicitParam(name = "db", value = "database", required = true, dataType = "string", paramType = "path"),
+      new ApiImplicitParam(name = "namespace",
+                           value = "namespace",
+                           required = true,
+                           dataType = "string",
+                           paramType = "path")
+    ))
+  @ApiResponses(
+    Array(
+      new ApiResponse(code = 500, message = "Internal server error")
+    ))
+  def locationsApi: Route = {
+      pathPrefix("locations") {
+        pathPrefix(Segment) { db =>
+          pathPrefix(Segment) { namespace =>
+            pathPrefix(Segment) { metric =>
+              (pathEnd & get) {
+                withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
+                  onComplete(metadataCoordinator ? GetLocations(db, namespace, metric)) {
+                    case Success(response: LocationsGot) =>
+                      complete(HttpEntity(ContentTypes.`application/json`, write(response)))
+                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+  }
+
+  @Api(value = "/dbs", produces = "application/json")
+  @Path("/dbs")
   @ApiOperation(value = "Perform show dbs command",
                 nickname = "show dbs",
                 httpMethod = "GET",
@@ -75,25 +139,13 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def showDbs: Route =
-    pathPrefix("commands") {
-        path("topology") {
-          (pathEnd & get) {
-            onComplete(metadataCoordinator ? GetTopology) {
-              case Success(topology: TopologyGot) =>
-                complete(HttpEntity(ContentTypes.`application/json`, write(topology)))
-              case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-              case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-            }
-          }
-        } ~
-        path("dbs") {
-          (pathEnd & get) {
-            onComplete(readCoordinator ? GetDbs) {
-              case Success(DbsGot(dbs)) =>
-                complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
-              case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-              case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-            }
+      path("dbs") {
+        (pathEnd & get) {
+          onComplete(readCoordinator ? GetDbs) {
+            case Success(DbsGot(dbs)) =>
+              complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
+            case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+            case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
           }
         }
       }
@@ -113,7 +165,6 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def showNamespaces: Route =
-    pathPrefix("commands") {
       pathPrefix(Segment) { db =>
         path("namespaces") {
           (pathEnd & get) {
@@ -127,7 +178,6 @@ trait CommandApi {
             }
           }
         }
-      }
     }
 
   @Api(value = "/{db}/{namespace}", produces = "application/json")
@@ -150,7 +200,6 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def dropNamespace: Route = {
-    pathPrefix("commands") {
       pathPrefix(Segment) { db =>
         pathPrefix(Segment) { namespace =>
           pathEnd {
@@ -163,7 +212,6 @@ trait CommandApi {
                 }
               }
             }
-          }
         }
       }
     }
@@ -189,7 +237,6 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def showMetrics: Route =
-    pathPrefix("commands") {
       pathPrefix(Segment) { db =>
         pathPrefix(Segment) { namespace =>
           path("metrics") {
@@ -206,7 +253,6 @@ trait CommandApi {
               }
             }
           }
-        }
       }
     }
 
@@ -232,7 +278,6 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def describeMetric: Route =
-    pathPrefix("commands") {
       pathPrefix(Segment) { db =>
         pathPrefix(Segment) { namespace =>
           pathPrefix(Segment) { metric =>
@@ -284,7 +329,6 @@ trait CommandApi {
               }
             }
           }
-        }
       }
     }
 
@@ -309,7 +353,6 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def dropMetric: Route =
-    pathPrefix("commands") {
       pathPrefix(Segment) { db =>
         pathPrefix(Segment) { namespace =>
           pathPrefix(Segment) { metric =>
@@ -324,11 +367,11 @@ trait CommandApi {
             }
           }
         }
-      }
     }
 
-  def commandsApi: Route = {
-    showDbs ~ showNamespaces ~ showMetrics ~ dropNamespace ~ describeMetric ~ dropMetric
+  def commandsApi: Route =
+    pathPrefix("commands") {
+      topologyApi ~ locationsApi ~ showDbs ~ showNamespaces ~ showMetrics ~ dropNamespace ~ describeMetric ~ dropMetric
   }
 
 }

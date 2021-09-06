@@ -16,9 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorRef, Props, Stash}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.util.Timeout
@@ -26,10 +23,9 @@ import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics.{COORDINATORS_TOPIC, NODE_GUARDIANS_TOPIC}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
 import io.radicalbit.nsdb.cluster.actor.SequentialFutureProcessing
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetWriteLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.logic.WriteConfig
-import io.radicalbit.nsdb.util.ErrorManagementUtils._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.Bit
@@ -39,7 +35,10 @@ import io.radicalbit.nsdb.model.{Location, Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.ErrorManagementUtils._
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration

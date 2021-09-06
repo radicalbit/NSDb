@@ -623,7 +623,6 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
         extends NSDbSerializable
     case class AddLocations(db: String,
@@ -647,9 +646,6 @@ object MetadataCoordinator {
   }
 
   object events {
-
-    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
-        extends NSDbSerializable
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(

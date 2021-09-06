@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -24,19 +23,20 @@ import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetLocations, GetWriteLocations}
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{LocationsGot, WriteLocationsGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetWriteLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WriteLocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.RecordRejected
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{LocationsGot, RecordRejected}
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
