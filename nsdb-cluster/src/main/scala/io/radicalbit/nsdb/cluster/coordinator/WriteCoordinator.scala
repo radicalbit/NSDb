@@ -70,8 +70,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     TimeUnit.SECONDS)
   import context.dispatcher
 
-  log.info("WriteCoordinator is ready.")
-
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
   override lazy val indexStorageStrategy: StorageStrategy =
@@ -374,6 +372,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       log.debug("WriteCoordinator data actor : {}", metricsDataActors.size)
       log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
+
+    log.info("WriteCoordinator is ready.")
   }
 
   override def receive: Receive = {

@@ -25,11 +25,12 @@ import io.radicalbit.nsdb.model.Location
 class LocalityReadNodesSelection(localNode: String) extends ReadNodesSelection {
 
   override def getDistinctLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]] = {
+    assert(localNode != null)
     locationsWithReplicas
       .groupBy(l => (l.from, l.to))
       .map {
         case ((_, _), locations) if locations.size > 1 =>
-          Option(localNode).flatMap(local => locations.find(_.node == local)).getOrElse(locations.minBy(_.node))
+          locations.find(_.node == localNode).getOrElse(locations.head)
         case ((_, _), locations) => locations.minBy(_.node)
       }
       .toSeq
