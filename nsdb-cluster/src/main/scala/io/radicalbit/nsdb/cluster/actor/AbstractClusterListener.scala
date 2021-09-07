@@ -110,6 +110,9 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   private def createNodeActorGuardianName(nodeId: String, nodeName: String): String =
     s"guardian_${nodeId}_${nodeName}"
 
+  private def createNodeActorGuardianPath(nodeId: String, nodeName: String): String =
+    s"/user/${createNodeActorGuardianName(nodeId, nodeName)}"
+
   protected def createNodeActorsGuardian(): ActorRef = {
     context.system.actorOf(
       NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
@@ -134,23 +137,23 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       log.error(s"RemoveNodeMetadataFailed for node $nodeName")
   }
 
-  private def unsubscribeNode(nodeId: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
-    log.info(s"unsubscribing node $nodeId")
+  private def unsubscribeNode(otherNodeId: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+    log.info(s"unsubscribing node $otherNodeId from node $nodeId")
     (for {
       NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.actorSelection(
-        createNodeActorGuardianName(nodeId, selfNodeName)) ? GetNodeChildActors)
+        createNodeActorGuardianPath(nodeId, selfNodeName)) ? GetNodeChildActors)
         .mapTo[NodeChildActorsGot]
-      _ <- (readCoordinator ? UnsubscribeMetricsDataActor(nodeId)).mapTo[MetricsDataActorUnSubscribed]
-      _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(nodeId))
+      _ <- (readCoordinator ? UnsubscribeMetricsDataActor(otherNodeId)).mapTo[MetricsDataActorUnSubscribed]
+      _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(otherNodeId))
         .mapTo[CommitLogCoordinatorUnSubscribed]
-      _ <- (writeCoordinator ? UnSubscribePublisher(nodeId)).mapTo[PublisherUnSubscribed]
-      _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(nodeId))
+      _ <- (writeCoordinator ? UnSubscribePublisher(otherNodeId)).mapTo[PublisherUnSubscribed]
+      _ <- (writeCoordinator ? UnsubscribeMetricsDataActor(otherNodeId))
         .mapTo[MetricsDataActorUnSubscribed]
-      _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(nodeId))
+      _ <- (metadataCoordinator ? UnsubscribeMetricsDataActor(otherNodeId))
         .mapTo[MetricsDataActorUnSubscribed]
-      _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(nodeId))
+      _ <- (metadataCoordinator ? UnSubscribeCommitLogCoordinator(otherNodeId))
         .mapTo[CommitLogCoordinatorUnSubscribed]
-      removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(nodeId))
+      removeNodeMetadataResponse <- (metadataCoordinator ? RemoveNodeMetadata(otherNodeId))
         .mapTo[RemoveNodeMetadataResponse]
     } yield removeNodeMetadataResponse)
       .retry(delay, retries)(_.isInstanceOf[NodeMetadataRemoved])
