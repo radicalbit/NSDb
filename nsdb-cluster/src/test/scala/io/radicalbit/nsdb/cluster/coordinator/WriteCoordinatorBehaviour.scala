@@ -16,15 +16,11 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, Props}
 import akka.testkit.{TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.SubscribeBySqlStatement
-import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetLocations
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsGot
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
   FakeCommitLogCoordinator,
   LocalMetadataCache,
@@ -37,8 +33,10 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.test.NSDbSpecLike
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 
 class TestSubscriber extends Actor {

@@ -70,7 +70,7 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
-  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeAddress)
+  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeId)
 
   private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeId-$nodeAddress")
   private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeId-$nodeAddress")
@@ -144,6 +144,8 @@ class NodeActorsGuardian(clusterListener: ActorRef, nodeId: String) extends Acto
     context.system.scheduler.schedule(interval, interval) {
       mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeAddress))
     }
+
+    log.info(s"NodeActorGuardian is ready at ${self.path.name}")
   }
 
   def receive: Receive = {

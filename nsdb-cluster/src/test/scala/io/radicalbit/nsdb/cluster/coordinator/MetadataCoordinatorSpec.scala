@@ -37,6 +37,7 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricInfoGot
 import io.radicalbit.nsdb.test.NSDbSpecLike
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{LocationsGot, MetricInfoGot}
 import org.scalatest._
 
 import scala.concurrent.Await

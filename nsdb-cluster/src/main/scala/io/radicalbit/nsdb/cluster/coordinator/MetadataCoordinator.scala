@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
@@ -307,6 +306,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
   }
 
   override def receive: Receive = {
+    case GetTopology =>
+      sender() ! TopologyGot(NSDbClusterSnapshot(context.system).nodes.toSet)
     case AllMetricInfoWithRetentionGot(metricInfoes) =>
       implicit val timeContext: TimeContext = TimeContext()
       log.debug(s"check for retention for {}", metricInfoes)
@@ -483,12 +484,14 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             if (nodeMetrics.nodeMetrics.nonEmpty)
                               writeNodesSelectionLogic
                                 .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                                .map(address => (address, nsdbClusterSnapshot.getId(address)))
+                                .map(address => nsdbClusterSnapshot.getId(address))
                             else {
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }
 
-                          val locations = nodes.map { case (_, id) => Location(metric, id, start, end) }
+                          val locations = nodes.map { node =>
+                            Location(metric, node.nodeId, start, end)
+                          }
                           performAddLocationIntoCache(db, namespace, locations, None)
                         }
                       } yield
@@ -618,7 +621,6 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
         extends NSDbSerializable
     case class AddLocations(db: String,
@@ -642,9 +644,6 @@ object MetadataCoordinator {
   }
 
   object events {
-
-    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
-        extends NSDbSerializable
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
