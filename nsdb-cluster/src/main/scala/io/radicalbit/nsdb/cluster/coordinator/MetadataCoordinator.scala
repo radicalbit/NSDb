@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
@@ -38,7 +37,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
-import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -50,7 +48,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.ErrorManagementUtils._
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -447,7 +447,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val clusterAliveMembers = nsdbClusterSnapshot.nodes
+      val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
       if (clusterAliveMembers.size < replicationFactor)
         sender ! GetWriteLocationsFailed(
           db,
@@ -477,12 +477,13 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             if (nodeMetrics.nodeMetrics.nonEmpty)
                               writeNodesSelectionLogic
                                 .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                                .map(address => nsdbClusterSnapshot.getId(address))
                             else {
-                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
+                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
                             }
 
-                          val locations = nodes.map { node =>
+                          val nsdbNodes = nodes.map(address => nsdbClusterSnapshot.getId(address))
+
+                          val locations = nsdbNodes.map { node =>
                             Location(metric, node.nodeId, start, end)
                           }
                           performAddLocationIntoCache(db, namespace, locations, None)

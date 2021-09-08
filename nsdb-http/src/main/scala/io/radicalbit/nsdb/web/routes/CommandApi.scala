@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.web.routes
 
 import akka.actor.ActorRef
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes.{InternalServerError, NotFound}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse}
 import akka.http.scaladsl.server.Directives._
@@ -48,6 +49,7 @@ trait CommandApi {
   implicit val timeout: Timeout
   implicit val formats: Formats
   implicit val ec: ExecutionContext
+  def logger: LoggingAdapter
 
   case class CommandRequestDatabase(db: String)                                  extends Db
   case class CommandRequestNamespace(db: String, namespace: String)              extends Namespace
@@ -78,8 +80,12 @@ trait CommandApi {
         onComplete(metadataCoordinator ? GetTopology) {
           case Success(topology: TopologyGot) =>
             complete(HttpEntity(ContentTypes.`application/json`, write(topology)))
-          case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-          case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+          case Success(wrongResponse) =>
+            logger.error(s"received unexpected response $wrongResponse")
+            complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+          case Failure(ex) =>
+            logger.error(ex, "unexpected error")
+            complete(HttpResponse(InternalServerError, entity = ex.getMessage))
         }
       }
     }
@@ -114,8 +120,12 @@ trait CommandApi {
                   onComplete(metadataCoordinator ? GetLocations(db, namespace, metric)) {
                     case Success(response: LocationsGot) =>
                       complete(HttpEntity(ContentTypes.`application/json`, write(response)))
-                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    case Success(wrongResponse) =>
+                      logger.error(s"received unexpected response $wrongResponse")
+                      complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                    case Failure(ex) =>
+                      logger.error(ex, "unexpected error")
+                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
@@ -141,8 +151,12 @@ trait CommandApi {
         onComplete(readCoordinator ? GetDbs) {
           case Success(DbsGot(dbs)) =>
             complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
-          case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-          case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+          case Success(wrongResponse) =>
+            logger.error(s"received unexpected response $wrongResponse")
+            complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+          case Failure(ex) =>
+            logger.error(ex, "unexpected error")
+            complete(HttpResponse(InternalServerError, entity = ex.getMessage))
         }
       }
     }
@@ -172,8 +186,12 @@ trait CommandApi {
                   onComplete(readCoordinator ? GetNamespaces(db)) {
                     case Success(NamespacesGot(_, namespaces)) =>
                       complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
-                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    case Success(wrongResponse) =>
+                      logger.error(s"received unexpected response $wrongResponse")
+                      complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                    case Failure(ex) =>
+                      logger.error(ex, "unexpected error")
+                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
@@ -211,8 +229,12 @@ trait CommandApi {
               authenticationProvider.authorizeNamespace(CommandRequestNamespace(db, namespace), header, true) {
                 onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
                   case Success(NamespaceDeleted(_, _)) => complete("Ok")
-                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                  case Success(wrongResponse) =>
+                    logger.error(s"received unexpected response $wrongResponse")
+                    complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex) =>
+                    logger.error(ex, "unexpected error")
+                    complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }
@@ -251,8 +273,12 @@ trait CommandApi {
                   onComplete(readCoordinator ? GetMetrics(db, namespace)) {
                     case Success(MetricsGot(_, _, metrics)) =>
                       complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
-                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                    case Success(wrongResponse) =>
+                      logger.error(s"received unexpected response $wrongResponse")
+                      complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                    case Failure(ex) =>
+                      logger.error(ex, "unexpected error")
+                      complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                   }
                 }
               }
@@ -330,8 +356,12 @@ trait CommandApi {
                     )
                   case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
                     complete(HttpResponse(NotFound))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Success(wrongResponse) =>
+                    logger.error(s"received unexpected response $wrongResponse")
+                    complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex) =>
+                    logger.error(ex, "unexpected error")
+                    complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }
@@ -369,8 +399,12 @@ trait CommandApi {
               authenticationProvider.authorizeMetric(CommandRequestMetric(db, namespace, metric), header, true) {
                 onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
                   case Success(MetricDropped(_, _, _)) => complete("Ok")
-                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                  case Success(wrongResponse) =>
+                    logger.error(s"received unexpected response $wrongResponse")
+                    complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex) =>
+                    logger.error(ex, "unexpected error")
+                    complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }

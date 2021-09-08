@@ -17,6 +17,7 @@
 package io.radicalbit.nsdb.web
 
 import akka.actor.{Actor, ActorRef, Props}
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.server.Route
@@ -79,6 +80,8 @@ class CommandApiSpec extends FlatSpec with Matchers with ScalatestRouteTest with
 
   override implicit val formats: DefaultFormats = DefaultFormats
   override implicit val timeout: Timeout        = 5 seconds
+
+  override implicit val logger: LoggingAdapter = system.log
 
   val testSecuredRoutes = Route.seal(
     commandsApi

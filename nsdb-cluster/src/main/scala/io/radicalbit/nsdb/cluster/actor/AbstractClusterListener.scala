@@ -162,7 +162,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.info("Member with nodeId {} is Up: {}", nodeId, member.address)
+      log.info(s"Member with nodeId $nodeId and address ${member.address} is Up")
 
       val nodeActorsGuardian = createNodeActorsGuardian()
 
@@ -174,7 +174,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
           val locationsToAdd: Seq[LocationWithCoordinates] = retrieveLocationsToAdd.diff(outdatedLocations.locations)
 
-          log.info(s"locations to add from node $nodeId $locationsToAdd")
+          log.info(s"locations to add from node $nodeId \t$locationsToAdd")
 
           val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
             case LocationWithCoordinates(database, namespace, _) => (database, namespace)
