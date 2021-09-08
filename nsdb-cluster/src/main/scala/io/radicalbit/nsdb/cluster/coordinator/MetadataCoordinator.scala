@@ -484,14 +484,12 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             if (nodeMetrics.nodeMetrics.nonEmpty)
                               writeNodesSelectionLogic
                                 .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                                .map(address => (address, nsdbClusterSnapshot.getId(address)))
+                                .map(address => nsdbClusterSnapshot.getId(address))
                             else {
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }
 
-                          val nsdbNodes = nodes.map(address => (nsdbClusterSnapshot.getId(address)))
-
-                          val locations = nsdbNodes.map { node =>
+                          val locations = nodes.map { node =>
                             Location(metric, node.nodeId, start, end)
                           }
                           performAddLocationIntoCache(db, namespace, locations, None)

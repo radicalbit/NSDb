@@ -108,24 +108,24 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def locationsApi: Route = {
-      pathPrefix("locations") {
-        pathPrefix(Segment) { db =>
-          pathPrefix(Segment) { namespace =>
-            pathPrefix(Segment) { metric =>
-              (pathEnd & get) {
-                withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
-                  onComplete(metadataCoordinator ? GetLocations(db, namespace, metric)) {
-                    case Success(response: LocationsGot) =>
-                      complete(HttpEntity(ContentTypes.`application/json`, write(response)))
-                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  }
+    pathPrefix("locations") {
+      pathPrefix(Segment) { db =>
+        pathPrefix(Segment) { namespace =>
+          pathPrefix(Segment) { metric =>
+            (pathEnd & get) {
+              withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
+                onComplete(metadataCoordinator ? GetLocations(db, namespace, metric)) {
+                  case Success(response: LocationsGot) =>
+                    complete(HttpEntity(ContentTypes.`application/json`, write(response)))
+                  case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }
           }
         }
       }
+    }
   }
 
   @Api(value = "/dbs", produces = "application/json")
@@ -139,16 +139,16 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def showDbs: Route =
-      path("dbs") {
-        (pathEnd & get) {
-          onComplete(readCoordinator ? GetDbs) {
-            case Success(DbsGot(dbs)) =>
-              complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
-            case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-            case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-          }
+    path("dbs") {
+      (pathEnd & get) {
+        onComplete(readCoordinator ? GetDbs) {
+          case Success(DbsGot(dbs)) =>
+            complete(HttpEntity(ContentTypes.`application/json`, write(ShowDbsResponse(dbs))))
+          case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+          case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
         }
       }
+    }
 
   @Api(value = "/{db}/namespaces", produces = "application/json")
   @Path("/{db}/namespaces")
@@ -165,19 +165,19 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def showNamespaces: Route =
-      pathPrefix(Segment) { db =>
-        path("namespaces") {
-          (pathEnd & get) {
-            withDbAuthorization(db, false, authorizationProvider) {
-              onComplete(readCoordinator ? GetNamespaces(db)) {
-                case Success(NamespacesGot(_, namespaces)) =>
-                  complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
-                case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-              }
+    pathPrefix(Segment) { db =>
+      path("namespaces") {
+        (pathEnd & get) {
+          withDbAuthorization(db, false, authorizationProvider) {
+            onComplete(readCoordinator ? GetNamespaces(db)) {
+              case Success(NamespacesGot(_, namespaces)) =>
+                complete(HttpEntity(ContentTypes.`application/json`, write(ShowNamespacesResponse(namespaces))))
+              case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+              case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
             }
           }
         }
+      }
     }
 
   @Api(value = "/{db}/{namespace}", produces = "application/json")
@@ -200,18 +200,18 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def dropNamespace: Route = {
-      pathPrefix(Segment) { db =>
-        pathPrefix(Segment) { namespace =>
-          pathEnd {
-            delete {
-              withNamespaceAuthorization(db, namespace, true, authorizationProvider) {
-                onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
-                  case Success(NamespaceDeleted(_, _)) => complete("Ok")
-                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
+    pathPrefix(Segment) { db =>
+      pathPrefix(Segment) { namespace =>
+        pathEnd {
+          delete {
+            withNamespaceAuthorization(db, namespace, true, authorizationProvider) {
+              onComplete(writeCoordinator ? DeleteNamespace(db, namespace)) {
+                case Success(NamespaceDeleted(_, _)) => complete("Ok")
+                case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
               }
             }
+          }
         }
       }
     }
@@ -237,22 +237,22 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def showMetrics: Route =
-      pathPrefix(Segment) { db =>
-        pathPrefix(Segment) { namespace =>
-          path("metrics") {
-            pathEnd {
-              get {
-                withNamespaceAuthorization(db, namespace, false, authorizationProvider) {
-                  onComplete(readCoordinator ? GetMetrics(db, namespace)) {
-                    case Success(MetricsGot(_, _, metrics)) =>
-                      complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
-                    case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                    case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  }
+    pathPrefix(Segment) { db =>
+      pathPrefix(Segment) { namespace =>
+        path("metrics") {
+          pathEnd {
+            get {
+              withNamespaceAuthorization(db, namespace, false, authorizationProvider) {
+                onComplete(readCoordinator ? GetMetrics(db, namespace)) {
+                  case Success(MetricsGot(_, _, metrics)) =>
+                    complete(HttpEntity(ContentTypes.`application/json`, write(ShowMetricsResponse(metrics))))
+                  case Success(_)  => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
                 }
               }
             }
           }
+        }
       }
     }
 
@@ -278,57 +278,57 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def describeMetric: Route =
-      pathPrefix(Segment) { db =>
-        pathPrefix(Segment) { namespace =>
-          pathPrefix(Segment) { metric =>
-            (pathEnd & get) {
-              withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
-                onComplete(
-                  Future.sequence(
-                    Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
-                        (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
-                  )) {
-                  case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
-                    complete(
-                      HttpEntity(
-                        ContentTypes.`application/json`,
-                        write(
-                          DescribeMetricResponse(
-                            schema.fieldsMap.map {
-                              case (_, field) =>
-                                Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                            }.toSet,
-                            metricInfo
-                          )
+    pathPrefix(Segment) { db =>
+      pathPrefix(Segment) { namespace =>
+        pathPrefix(Segment) { metric =>
+          (pathEnd & get) {
+            withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
+              onComplete(
+                Future.sequence(
+                  Seq((readCoordinator ? GetSchema(db, namespace, metric)).mapTo[SchemaGot],
+                      (metadataCoordinator ? GetMetricInfo(db, namespace, metric)).mapTo[MetricInfoGot])
+                )) {
+                case Success(SchemaGot(_, _, _, Some(schema)) :: MetricInfoGot(_, _, _, metricInfo) :: Nil) =>
+                  complete(
+                    HttpEntity(
+                      ContentTypes.`application/json`,
+                      write(
+                        DescribeMetricResponse(
+                          schema.fieldsMap.map {
+                            case (_, field) =>
+                              Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                          }.toSet,
+                          metricInfo
                         )
                       )
                     )
-                  case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
-                    complete(
-                      HttpEntity(
-                        ContentTypes.`application/json`,
-                        write(
-                          DescribeMetricResponse(
-                            schemaOpt
-                              .map(s =>
-                                s.fieldsMap.map {
-                                  case (_, field) =>
-                                    Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
-                                }.toSet)
-                              .getOrElse(Set.empty),
-                            Some(metricInfo)
-                          )
+                  )
+                case Success(SchemaGot(_, _, _, schemaOpt) :: MetricInfoGot(_, _, _, Some(metricInfo)) :: Nil) =>
+                  complete(
+                    HttpEntity(
+                      ContentTypes.`application/json`,
+                      write(
+                        DescribeMetricResponse(
+                          schemaOpt
+                            .map(s =>
+                              s.fieldsMap.map {
+                                case (_, field) =>
+                                  Field(name = field.name, `type` = field.indexType.getClass.getSimpleName)
+                              }.toSet)
+                            .getOrElse(Set.empty),
+                          Some(metricInfo)
                         )
                       )
                     )
-                  case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
-                    complete(HttpResponse(NotFound))
-                  case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                  case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                }
+                  )
+                case Success(SchemaGot(_, _, _, None) :: _ :: Nil) =>
+                  complete(HttpResponse(NotFound))
+                case Failure(ex) => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
+                case _           => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
               }
             }
           }
+        }
       }
     }
 
@@ -353,25 +353,25 @@ trait CommandApi {
       new ApiResponse(code = 500, message = "Internal server error")
     ))
   def dropMetric: Route =
-      pathPrefix(Segment) { db =>
-        pathPrefix(Segment) { namespace =>
-          pathPrefix(Segment) { metric =>
-            delete {
-              withMetricAuthorization(db, namespace, metric, true, authorizationProvider) {
-                onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
-                  case Success(MetricDropped(_, _, _)) => complete("Ok")
-                  case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
-                  case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
-                }
+    pathPrefix(Segment) { db =>
+      pathPrefix(Segment) { namespace =>
+        pathPrefix(Segment) { metric =>
+          delete {
+            withMetricAuthorization(db, namespace, metric, true, authorizationProvider) {
+              onComplete(writeCoordinator ? DropMetric(db, namespace, metric)) {
+                case Success(MetricDropped(_, _, _)) => complete("Ok")
+                case Success(_)                      => complete(HttpResponse(InternalServerError, entity = "Unknown reason"))
+                case Failure(ex)                     => complete(HttpResponse(InternalServerError, entity = ex.getMessage))
               }
             }
           }
         }
+      }
     }
 
   def commandsApi: Route =
     pathPrefix("commands") {
       topologyApi ~ locationsApi ~ showDbs ~ showNamespaces ~ showMetrics ~ dropNamespace ~ describeMetric ~ dropMetric
-  }
+    }
 
 }
