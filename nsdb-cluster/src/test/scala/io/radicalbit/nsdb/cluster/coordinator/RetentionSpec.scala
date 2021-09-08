@@ -129,7 +129,7 @@ class RetentionSpec
     val nodesId = awaitAssert {
       val nodes = NSDbClusterSnapshot(system).nodes
       nodes.size shouldBe 1
-      nodes.head._2
+      nodes.head.nodeId
     }
 
     val metricsDataActor =

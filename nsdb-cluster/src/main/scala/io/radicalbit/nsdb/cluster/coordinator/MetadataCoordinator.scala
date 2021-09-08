@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
@@ -39,7 +37,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.createNodeName
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
-import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -51,7 +48,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.ErrorManagementUtils._
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -311,6 +310,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
   }
 
   override def receive: Receive = {
+    case GetTopology =>
+      sender() ! TopologyGot(NSDbClusterSnapshot(context.system).nodes.toSet)
     case AllMetricInfoWithRetentionGot(metricInfoes) =>
       implicit val timeContext: TimeContext = TimeContext()
       log.debug(s"check for retention for {}", metricInfoes)
@@ -474,14 +475,17 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
                           val nodes =
                             if (nodeMetrics.nodeMetrics.nonEmpty)
-                              writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                              writeNodesSelectionLogic
+                                .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
                             else {
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
                             }
 
-                          val nodesWithId = nodes.map(address => (nsdbClusterSnapshot.getId(address), address))
+                          val nsdbNodes = nodes.map(address => nsdbClusterSnapshot.getId(address))
 
-                          val locations = nodesWithId.map { case (id, _) => Location(metric, id, start, end) }
+                          val locations = nsdbNodes.map { node =>
+                            Location(metric, node.nodeId, start, end)
+                          }
                           performAddLocationIntoCache(db, namespace, locations, None)
                         }
                       } yield
@@ -612,7 +616,6 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
         extends NSDbSerializable
     case class AddLocations(db: String,
@@ -636,9 +639,6 @@ object MetadataCoordinator {
   }
 
   object events {
-
-    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
-        extends NSDbSerializable
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(

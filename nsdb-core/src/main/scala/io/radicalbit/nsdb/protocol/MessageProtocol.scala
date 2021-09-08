@@ -33,10 +33,12 @@ object MessageProtocol {
     * commands executed among NSDb actors.
     */
   object Commands {
-    case object GetDbs                                                  extends ControlMessage with NSDbSerializable
-    case class GetNamespaces(db: String)                                extends ControlMessage with NSDbSerializable
-    case class GetMetrics(db: String, namespace: String)                extends ControlMessage with NSDbSerializable
-    case class GetSchema(db: String, namespace: String, metric: String) extends NSDbSerializable
+    case object GetTopology                                                extends NSDbSerializable
+    case class GetLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
+    case object GetDbs                                                     extends ControlMessage with NSDbSerializable
+    case class GetNamespaces(db: String)                                   extends ControlMessage with NSDbSerializable
+    case class GetMetrics(db: String, namespace: String)                   extends ControlMessage with NSDbSerializable
+    case class GetSchema(db: String, namespace: String, metric: String)    extends NSDbSerializable
 
     case class GetMetricInfo(db: String, namespace: String, metric: String) extends NSDbSerializable
 
@@ -106,12 +108,16 @@ object MessageProtocol {
     case object GetPublishers            extends NSDbSerializable
 
     case class NodeAlive(nodeId: String, nodeAddress: String) extends NSDbSerializable
+
   }
 
   /**
     * events received from nsdb actors.
     */
   object Events {
+
+    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
+        extends NSDbSerializable
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
     @JsonSubTypes(
@@ -231,6 +237,9 @@ object MessageProtocol {
     case class PublisherUnSubscribed(nodeName: String)            extends NSDbSerializable
 
     case class MigrationStarted(inputPath: String) extends NSDbSerializable
+
+    case class NSDbNode(address: String, nodeId: String) extends NSDbSerializable
+    case class TopologyGot(nodes: Set[NSDbNode])         extends NSDbSerializable
   }
 
 }

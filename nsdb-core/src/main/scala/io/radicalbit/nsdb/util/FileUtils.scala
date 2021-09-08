@@ -33,7 +33,7 @@ import scala.collection.JavaConverters._
   */
 object FileUtils {
 
-  private val NODE_ID_EXTENSION = ".name"
+  private val NODE_ID_EXTENSION = "name"
   private val NODE_ID_LENGTH    = 10
   private val BUFFER_SIZE       = 4096
   private val buffer            = new Array[Byte](BUFFER_SIZE)
