@@ -24,6 +24,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.security.http.NSDBAuthProvider
@@ -36,7 +37,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-object CommandApiTest {
+object CommandApiSpec {
 
   class FakeWriteCoordinator extends Actor {
     override def receive: Receive = {
@@ -47,6 +48,10 @@ object CommandApiTest {
 
   class FakeMetadataCoordinator extends Actor {
     override def receive: Receive = {
+      case GetTopology =>
+        sender() ! TopologyGot(Set(NSDbNode("address", "id")))
+      case GetLocations(db, namespace, metric) =>
+        sender() ! LocationsGot(db, namespace, metric, Seq(Location.empty))
       case GetMetricInfo(db, namespace, "metricWithoutInfo") =>
         sender() ! MetricInfoGot(db, namespace, "metricWithoutInfo", None)
       case GetMetricInfo(db, namespace, "nonExistingMetric") =>
@@ -57,10 +62,10 @@ object CommandApiTest {
   }
 }
 
-class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
+class CommandApiSpec extends FlatSpec with Matchers with ScalatestRouteTest with CommandApi {
 
   import FakeReadCoordinator.Data._
-  import io.radicalbit.nsdb.web.CommandApiTest._
+  import io.radicalbit.nsdb.web.CommandApiSpec._
 
   override def readCoordinator: ActorRef = system.actorOf(Props[FakeReadCoordinator])
 
@@ -79,7 +84,23 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     commandsApi
   )
 
-  "CommandsApi show dbs" should "return dbs" in {
+  "CommandApi" should "get cluster topology" in {
+    Get("/commands/topology").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe OK
+      val entity = entityAs[String]
+      entity shouldBe write(TopologyGot(Set(NSDbNode("address", "id"))))
+    }
+  }
+
+  "CommandApi" should "get locations for a metric" in {
+    Get("/commands/locations/db/namespace/metric").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
+      status shouldBe OK
+      val entity = entityAs[String]
+      entity shouldBe write(LocationsGot("db", "namespace", "metric", Seq(Location.empty)))
+    }
+  }
+
+  "CommandsApi" should "show dbs" in {
     Get("/commands/dbs").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
@@ -87,7 +108,7 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     }
   }
 
-  "CommandsApi show namespaces" should "return namespaces" in {
+  "CommandsApi" should "show namespaces" in {
     Get("/commands/db1/namespaces").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
@@ -95,7 +116,7 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     }
   }
 
-  "CommandsApi show metrics" should "return namespaces" in {
+  "CommandsApi" should "show metrics" in {
     Get("/commands/db1/namespace1/metrics").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
@@ -103,7 +124,7 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     }
   }
 
-  "CommandsApi describe existing metric " should "return description" in {
+  "CommandsApi" should "describe existing metric" in {
     Get("/commands/db1/namespace1/metricWithoutInfo").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
@@ -129,7 +150,7 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     }
   }
 
-  "CommandsApi describe metric initialized but without schema " should "return description" in {
+  "CommandsApi" should "describe initialized metric but without schema" in {
     Get("/commands/db1/namespace1/metricWithoutSchema").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
@@ -141,19 +162,19 @@ class CommandApiTest extends FlatSpec with Matchers with ScalatestRouteTest with
     }
   }
 
-  "CommandsApi describe not existing metric " should "return NotFound" in {
+  "CommandsApi" should "return NotFound for a non existing metric" in {
     Get("/commands/db1/namespace1/nonExistingMetric").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe NotFound
     }
   }
 
-  "CommandsApi drop namespace" should " drop" in {
+  "CommandsApi" should "drop a namespace" in {
     Delete("/commands/db1/namespace1").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
     }
   }
 
-  "CommandsApi drop metric" should " drop" in {
+  "CommandsApi" should "drop metric" in {
     Delete("/commands/db1/namespace1/metric1").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
     }

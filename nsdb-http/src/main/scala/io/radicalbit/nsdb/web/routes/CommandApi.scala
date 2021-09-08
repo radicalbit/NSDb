@@ -376,7 +376,7 @@ trait CommandApi {
             }
           }
         }
-      } 
+      }
     }
 
   def commandsApi: Route =

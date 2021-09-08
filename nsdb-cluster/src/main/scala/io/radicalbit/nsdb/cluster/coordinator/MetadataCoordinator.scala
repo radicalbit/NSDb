@@ -447,7 +447,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
-      val clusterAliveMembers = cluster.state.members.filter(_.status == MemberStatus.Up)
+      val clusterAliveMembers = nsdbClusterSnapshot.nodes
       if (clusterAliveMembers.size < replicationFactor)
         sender ! GetWriteLocationsFailed(
           db,
@@ -475,14 +475,14 @@ class MetadataCoordinator(clusterListener: ActorRef,
 
                           val nodes =
                             if (nodeMetrics.nodeMetrics.nonEmpty)
-                              writeNodesSelectionLogic.selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                              writeNodesSelectionLogic
+                                .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
+                                .map(address => nsdbClusterSnapshot.getId(address))
                             else {
-                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor).map(createNodeName)
+                              Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }
 
-                          val nsdbNodes = nodes.map(address => nsdbClusterSnapshot.getId(address))
-
-                          val locations = nsdbNodes.map { node =>
+                          val locations = nodes.map { node =>
                             Location(metric, node.nodeId, start, end)
                           }
                           performAddLocationIntoCache(db, namespace, locations, None)
