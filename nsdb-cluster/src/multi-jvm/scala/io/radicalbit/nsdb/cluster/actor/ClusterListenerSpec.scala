@@ -62,11 +62,6 @@ class NodeActorsGuardianForTest(val resultActor: ActorRef, val testType: TestTyp
 }
 
 class ClusterListenerWithMockedChildren(override val resultActor: ActorRef, override val testType: TestType) extends ClusterListenerTestActor {
-//  val nodeActorsGuardianForTest =
-//          context.actorOf(Props(new NodeActorsGuardianForTest), name = s"guardian_${selfNodeName}")
-
-//          override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
-
   override def onSuccessBehaviour(readCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   metadataCoordinator: ActorRef,

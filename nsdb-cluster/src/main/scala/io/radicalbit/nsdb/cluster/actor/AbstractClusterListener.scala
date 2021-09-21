@@ -155,7 +155,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
     case MemberUp(member) if member == cluster.selfMember =>
       log.info(s"Member with nodeId $nodeId and address ${member.address} is Up")
 
-      val nodeActorsGuardian = context.parent // createNodeActorsGuardian()
+      val nodeActorsGuardian = context.parent
 
       (for {
         children @ NodeChildActorsGot(metadataCoordinator, _, _, _) <- (nodeActorsGuardian ? GetNodeChildActors)
