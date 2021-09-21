@@ -108,7 +108,6 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
     "successfully create a NsdbNodeEndpoint when a new member in the cluster is Up" in {
       val resultActor = TestProbe("resultActor")
       cluster.system.actorOf(Props(new NodeActorsGuardianForTest(resultActor.testActor, SuccessTest)))
-//      cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, SuccessTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
@@ -118,7 +117,6 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
     "return a failure and leave the cluster" in {
       val resultActor = TestProbe("resultActor")
       cluster.system.actorOf(Props(new NodeActorsGuardianForTest(resultActor.testActor, FailureTest)))
-//      cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
@@ -129,8 +127,6 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
       val resultActor = TestProbe("resultActor")
       val clusterListener =
         cluster.system.actorOf(Props(new NodeActorsGuardianForTest(resultActor.testActor, FailureTest)))
-//        cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)),
-//                               name = "clusterListener")
       clusterListener ! UnreachableMember(cluster.selfMember)
       awaitAssert(resultActor.expectMsg("Failure"))
     }

@@ -1,13 +1,13 @@
 package io.radicalbit.nsdb.cluster
 
-import akka.actor.{ActorSelection, Props}
-import akka.cluster.MemberStatus
+import akka.actor.{ActorRef, ActorSelection, Props}
+import akka.cluster.{Member, MemberStatus}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.cluster.actor.MetadataSpec.{node1, node2}
-import io.radicalbit.nsdb.cluster.actor.{ClusterListenerTestActor, DatabaseActorsGuardian, NodeActorGuardianForTest}
+import io.radicalbit.nsdb.cluster.actor.{DatabaseActorsGuardian, NodeActorGuardianForTest}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.ExecuteRestoreMetadata
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetadataRestored
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -41,10 +41,9 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
 
   system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
-  val selfMember = cluster.selfMember
+  val selfMember: Member = cluster.selfMember
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-  val nodeActorGuardian = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
-//  system.actorOf(ClusterListenerTestActor.props(), name = "clusterListener")
+  val nodeActorGuardian: ActorRef = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
 
   "Metadata system" must {
 

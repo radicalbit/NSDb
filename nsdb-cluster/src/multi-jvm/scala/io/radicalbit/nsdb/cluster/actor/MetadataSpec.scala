@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.Props
-import akka.cluster.MemberStatus
+import akka.actor.{ActorRef, Props}
+import akka.cluster.{Member, MemberStatus}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import akka.util.Timeout
@@ -44,13 +44,13 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   override def initialParticipants = roles.size
 
-  val guardian = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
+  val guardian: ActorRef = system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
   implicit val timeout: Timeout = Timeout(5.seconds)
 
-  val selfMember = cluster.selfMember
+  val selfMember: Member = cluster.selfMember
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-  val nodeActorGuardian = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
+  val nodeActorGuardian: ActorRef = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
 
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
 

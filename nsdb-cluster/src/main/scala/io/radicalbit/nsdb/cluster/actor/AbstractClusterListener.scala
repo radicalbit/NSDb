@@ -16,9 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.nio.file.{Files, NoSuchFileException, Paths}
-import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.cluster.ClusterEvent._
 import akka.cluster.metrics.{ClusterMetricsChanged, ClusterMetricsExtension, Metric, NodeMetrics}
@@ -27,7 +24,6 @@ import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.cluster.{Cluster, Member}
 import akka.event.LoggingAdapter
 import akka.pattern.ask
-import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster._
@@ -51,6 +47,8 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
 }
 import io.radicalbit.nsdb.util.{ErrorManagementUtils, FileUtils, FutureRetryUtility}
 
+import java.nio.file.{Files, NoSuchFileException, Paths}
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -112,13 +110,6 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   private def createNodeActorGuardianPath(nodeId: String, nodeName: String): String =
     s"/user/${createNodeActorGuardianName(nodeId, nodeName)}"
-
-//  protected def createNodeActorsGuardian(): ActorRef = {
-//    context.system.actorOf(
-//      NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-//      name = createNodeActorGuardianName(nodeId, selfNodeName)
-//    )
-//  }
 
   protected def retrieveLocationsToAdd: List[LocationWithCoordinates] =
     FileUtils.getLocationsFromFilesystem(indexPath, nodeId)
