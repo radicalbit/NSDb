@@ -13,6 +13,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetNodeChildActors, NodeChildActorsGot}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -47,7 +48,9 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   implicit val timeout: Timeout = Timeout(5.seconds)
 
-  system.actorOf(ClusterListenerTestActor.props(), name = "clusterListener")
+  val selfMember = cluster.selfMember
+  val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+  val nodeActorGuardian = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
 
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
 
@@ -59,6 +62,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       awaitAssert {
         cluster.state.members.count(_.status == MemberStatus.Up) shouldBe 2
         NSDbClusterSnapshot(system).nodes.size shouldBe 2
+        nodeActorGuardian ! GetNodeChildActors
+        expectMsgType[NodeChildActorsGot]
       }
 
       enterBarrier("joined")

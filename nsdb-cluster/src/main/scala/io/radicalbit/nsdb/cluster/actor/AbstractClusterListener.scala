@@ -113,12 +113,12 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   private def createNodeActorGuardianPath(nodeId: String, nodeName: String): String =
     s"/user/${createNodeActorGuardianName(nodeId, nodeName)}"
 
-  protected def createNodeActorsGuardian(): ActorRef = {
-    context.system.actorOf(
-      NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
-      name = createNodeActorGuardianName(nodeId, selfNodeName)
-    )
-  }
+//  protected def createNodeActorsGuardian(): ActorRef = {
+//    context.system.actorOf(
+//      NodeActorsGuardian.props(self, nodeId).withDeploy(Deploy(scope = RemoteScope(cluster.selfMember.address))),
+//      name = createNodeActorGuardianName(nodeId, selfNodeName)
+//    )
+//  }
 
   protected def retrieveLocationsToAdd: List[LocationWithCoordinates] =
     FileUtils.getLocationsFromFilesystem(indexPath, nodeId)
@@ -164,7 +164,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
     case MemberUp(member) if member == cluster.selfMember =>
       log.info(s"Member with nodeId $nodeId and address ${member.address} is Up")
 
-      val nodeActorsGuardian = createNodeActorsGuardian()
+      val nodeActorsGuardian = context.parent // createNodeActorsGuardian()
 
       (for {
         children @ NodeChildActorsGot(metadataCoordinator, _, _, _) <- (nodeActorsGuardian ? GetNodeChildActors)
@@ -201,6 +201,15 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
                (success, failures))) if failures.isEmpty =>
             log.info(s"location ${success} successfully added for node $nodeId")
             val nodeName = createNodeName(member)
+
+            val interval =
+              FiniteDuration(context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
+                             TimeUnit.SECONDS)
+
+            context.system.scheduler.schedule(interval, interval) {
+              mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, selfNodeName))
+            }
+
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
             mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeName))
             NSDbClusterSnapshot(context.system).addNode(nodeName, nodeId)

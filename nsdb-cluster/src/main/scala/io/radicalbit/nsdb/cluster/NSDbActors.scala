@@ -23,6 +23,7 @@ import akka.cluster.ddata.DistributedData
 import akka.cluster.singleton._
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
+import akka.remote.RemoteScope
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
@@ -36,6 +37,12 @@ trait NSDbActors {
 
   implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
+
+  private def createNodeActorGuardianName(nodeId: String, nodeName: String): String =
+    s"guardian_${nodeId}_${nodeName}"
+
+  private def createNodeActorGuardianPath(nodeId: String, nodeName: String): String =
+    s"/user/${createNodeActorGuardianName(nodeId, nodeName)}"
 
   def initTopLevelActors(): Unit = {
     AkkaManagement(system).start()
@@ -54,8 +61,11 @@ trait NSDbActors {
       name = "databaseActorGuardianProxy"
     )
 
-    DistributedData(system).replicator
+//    DistributedData(system).replicator
 
-    system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
+//    system
+
+    system.actorOf(Props[NodeActorsGuardian])
+//    system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
   }
 }
