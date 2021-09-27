@@ -47,7 +47,10 @@ class WriteCoordinatorForTest extends Actor with ActorLogging {
   }
 }
 
-class NodeActorsGuardianForTest extends Actor with ActorLogging {
+class NodeActorsGuardianForTest(val resultActor: ActorRef, val testType: TestType) extends Actor with ActorLogging {
+
+  context.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor, testType)))
+
   private lazy val metaDataCoordinator = context.actorOf(Props(new MetaDataCoordinatorForTest))
   private lazy val writeCoordinator    = context.actorOf(Props(new WriteCoordinatorForTest))
   private lazy val readCoordinator     = context.actorOf(Props(new ReadCoordinatorForTest))
@@ -59,11 +62,6 @@ class NodeActorsGuardianForTest extends Actor with ActorLogging {
 }
 
 class ClusterListenerWithMockedChildren(override val resultActor: ActorRef, override val testType: TestType) extends ClusterListenerTestActor {
-  val nodeActorsGuardianForTest =
-          context.actorOf(Props(new NodeActorsGuardianForTest), name = s"guardian_${selfNodeName}")
-
-          override def createNodeActorsGuardian(): ActorRef = nodeActorsGuardianForTest
-
   override def onSuccessBehaviour(readCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   metadataCoordinator: ActorRef,
@@ -88,6 +86,7 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
                                            |    delay = 1 second
                                            |    n-retries = 2
                                            |  }
+                                           |  heartbeat.interval = 10 seconds
                                            |  global.timeout = 30 seconds
                                            |}
                                            |""".stripMargin))
@@ -103,7 +102,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
   "ClusterListener" must {
     "successfully create a NsdbNodeEndpoint when a new member in the cluster is Up" in {
       val resultActor = TestProbe("resultActor")
-      cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, SuccessTest)))
+      cluster.system.actorOf(Props(new NodeActorsGuardianForTest(resultActor.testActor, SuccessTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
@@ -112,7 +111,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
 
     "return a failure and leave the cluster" in {
       val resultActor = TestProbe("resultActor")
-      cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)))
+      cluster.system.actorOf(Props(new NodeActorsGuardianForTest(resultActor.testActor, FailureTest)))
       cluster.join(node(node1).address)
       cluster.join(node(node2).address)
       enterBarrier(5 seconds, "nodes joined")
@@ -122,8 +121,7 @@ class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with 
     "correctly handle 'UnreachableMember' msg" in {
       val resultActor = TestProbe("resultActor")
       val clusterListener =
-        cluster.system.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor.testActor, FailureTest)),
-                               name = "clusterListener")
+        cluster.system.actorOf(Props(new NodeActorsGuardianForTest(resultActor.testActor, FailureTest)))
       clusterListener ! UnreachableMember(cluster.selfMember)
       awaitAssert(resultActor.expectMsg("Failure"))
     }

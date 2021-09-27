@@ -16,16 +16,16 @@
 
 package io.radicalbit.nsdb.cluster
 
-import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.cluster.Cluster
-import akka.cluster.ddata.DistributedData
 import akka.cluster.singleton._
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.management.scaladsl.AkkaManagement
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.globalTimeout
+
+import java.util.concurrent.TimeUnit
 
 /**
   * Creates top level actors.
@@ -36,6 +36,9 @@ trait NSDbActors {
 
   implicit lazy val timeout: Timeout =
     Timeout(system.settings.config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
+
+  private def createNodeActorGuardianName(nodeName: String): String =
+    s"guardian_${nodeName}"
 
   def initTopLevelActors(): Unit = {
     AkkaManagement(system).start()
@@ -54,8 +57,6 @@ trait NSDbActors {
       name = "databaseActorGuardianProxy"
     )
 
-    DistributedData(system).replicator
-
-    system.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(Cluster(system).selfMember)}")
+    system.actorOf(Props[NodeActorsGuardian], createNodeActorGuardianName(createNodeName(Cluster(system).selfMember)))
   }
 }
