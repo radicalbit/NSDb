@@ -55,7 +55,7 @@ class MetricPerformerActor(val basePath: String,
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  private val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
+  val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
 
   override lazy val indexStorageStrategy: StorageStrategy =
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
@@ -135,10 +135,9 @@ class MetricPerformerActor(val basePath: String,
           facetsIndexWriter.close()
       }
 
-      val persistedBits = performedBitOperations.toSeq
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
-      (localCommitLogCoordinator ? PersistedBits(persistedBits)).recover {
-        case _ => localCommitLogCoordinator ! PersistedBits(persistedBits)
+      (localCommitLogCoordinator ? PersistedBits(performedBitOperations)).recover {
+        case _ => localCommitLogCoordinator ! PersistedBits(performedBitOperations)
       }
 
       if (toRetryOperations.nonEmpty)

@@ -16,9 +16,6 @@
 
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.{Files, Paths}
-import java.util.UUID
-
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
@@ -28,12 +25,13 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.test.NSDbFlatSpecLike
+import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.apache.lucene.store.MMapDirectory
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
+import java.nio.file.Paths
+import java.util.UUID
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration._
 
 class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
 
@@ -46,7 +44,7 @@ class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
       Resume
     case t =>
       log.error(t, "generic exception")
-      super.supervisorStrategy.decider.apply(t)
+      Resume
   }
 
   override def receive: Receive = {
@@ -57,13 +55,14 @@ class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
 class MetricPerformerActorSpec
     extends TestKit(ActorSystem("IndexerActorSpec"))
     with ImplicitSender
-    with NSDbFlatSpecLike
-    with BeforeAndAfterAll {
+    with NSDbSpecLike
+    with BeforeAndAfterAll
+    with BeforeAndAfterEach {
 
   val probe      = TestProbe()
   val probeActor = probe.ref
 
-  val basePath                  = "target/test_index"
+  val basePath                  = s"target/MetricPerformerActorSpec/${UUID.randomUUID()}"
   val db                        = "db"
   val namespace                 = "namespace"
   val localCommitLogCoordinator = TestProbe()
@@ -76,73 +75,111 @@ class MetricPerformerActorSpec
       testSupervisor,
       "indexerPerformerActor")
 
-  val errorLocation = Location("IndexerPerformerActorMetric", "node1", 1, 1)
-  val bit           = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
+  indexerPerformerActor.underlyingActor.supervisorStrategy
+
+  val errorLocation               = Location("IndexerPerformerActorMetric", "node1", 1, 1)
+  val unstableRecoverableLocation = Location("IndexerPerformerActorMetric", "node1", 2, 2)
+  val unstableLocation            = Location("IndexerPerformerActorMetric", "node1", 3, 3)
+  val bit                         = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
 
   override def beforeAll: Unit = {
-    import scala.collection.JavaConverters._
-    if (Paths.get(basePath, db).toFile.exists())
-      Files.walk(Paths.get(basePath, db)).iterator().asScala.map(_.toFile).toSeq.reverse.foreach(_.delete)
 
-    val directory =
+    def directoryFromLocation(location: Location) =
       new MMapDirectory(
         Paths
-          .get(basePath, db, namespace, "shards", s"${errorLocation.shardName}"))
+          .get(basePath, db, namespace, "shards", s"${location.shardName}"))
 
-    indexerPerformerActor.underlyingActor.shards += (errorLocation -> new BrokenTimeSeriesIndex(directory))
+    indexerPerformerActor.underlyingActor.shards += (errorLocation -> new BrokenTimeSeriesIndex(
+      directory = directoryFromLocation(errorLocation)))
+    indexerPerformerActor.underlyingActor.shards += (unstableRecoverableLocation -> new BrokenTimeSeriesIndex(
+      failureBeforeSuccess = 2,
+      directory = directoryFromLocation(unstableRecoverableLocation)))
+    indexerPerformerActor.underlyingActor.shards += (unstableLocation -> new BrokenTimeSeriesIndex(
+      failureBeforeSuccess = 5,
+      directory = directoryFromLocation(unstableLocation)))
   }
 
-  "ShardPerformerActor" should "write and delete properly" in within(5.seconds) {
+  override def beforeEach: Unit = {
+    testSupervisor.underlyingActor.exceptionsCaught.clear()
+    testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 0
 
-    val loc = Location("IndexerPerformerActorMetric", "node1", 0, 0)
-
-    val operations =
-      Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, loc, bit))
-
-    probe.send(indexerPerformerActor, PerformShardWrites(operations))
-    awaitAssert {
-      probe.expectMsgType[Refresh]
-    }
-
-    awaitAssert {
-      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-      msg.persistedBits.size shouldBe 1
-    }
-
+    indexerPerformerActor.underlyingActor.toRetryOperations.clear()
+    indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 0
   }
 
-  "ShardPerformerActor" should "retry in case of write error" in within(5.seconds) {
+  "ShardPerformerActor" should {
+    "write and delete properly" in {
 
-    val writeOperation =
-      Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, errorLocation, bit))
+      val loc = Location("IndexerPerformerActorMetric", "node1", 0, 0)
 
-    probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
-    awaitAssert {
-      probe.expectMsgType[Refresh]
+      val operations =
+        Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, loc, bit))
+
+      probe.send(indexerPerformerActor, PerformShardWrites(operations))
+      awaitAssert {
+        probe.expectMsgType[Refresh]
+      }
+
+      awaitAssert {
+        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+        msg.persistedBits.size shouldBe 1
+      }
+
     }
 
-    awaitAssert {
-      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-      msg.persistedBits.size shouldBe 0
+    "retry and fail in case of write error" in {
+
+      val writeOperation =
+        Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, errorLocation, bit))
+
+      probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
+      awaitAssert {
+        probe.expectMsgType[Refresh]
+      }
+
+      awaitAssert {
+        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+        msg.persistedBits.size shouldBe 0
+      }
+
+      indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 1
+      testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 1
     }
 
-    testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 1
-  }
+    "retry and fail in case of delete error" in {
+      val deleteOperation =
+        Map(UUID.randomUUID().toString -> DeleteShardRecordOperation(namespace, errorLocation, bit))
 
-  "ShardPerformerActor" should "retry in case of delete error" in within(5.seconds) {
-    val deleteOperation =
-      Map(UUID.randomUUID().toString -> DeleteShardRecordOperation(namespace, errorLocation, bit))
+      probe.send(indexerPerformerActor, PerformShardWrites(deleteOperation))
+      awaitAssert {
+        probe.expectMsgType[Refresh]
+      }
 
-    probe.send(indexerPerformerActor, PerformShardWrites(deleteOperation))
-    awaitAssert {
-      probe.expectMsgType[Refresh]
+      awaitAssert {
+        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+        msg.persistedBits.size shouldBe 0
+      }
+
+      indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 1
+      testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 1
     }
 
-    awaitAssert {
-      val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-      msg.persistedBits.size shouldBe 0
-    }
+    "retry amd eventually persist in case of unstable locations" in {
+      val writeOperation =
+        Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, unstableRecoverableLocation, bit))
 
-    testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 2
+      probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
+      awaitAssert {
+        probe.expectMsgType[Refresh]
+      }
+
+      awaitAssert {
+        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
+        msg.persistedBits.size shouldBe 1
+      }
+
+      indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 0
+      testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 0
+    }
   }
 }

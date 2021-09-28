@@ -16,17 +16,15 @@
 
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
-import java.util.UUID
-import java.util.concurrent.TimeUnit
-
-import akka.actor.{ActorRef, Props}
+import akka.actor.SupervisorStrategy.{Escalate, Resume}
+import akka.actor.{ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.routing.Broadcast
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
+import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.StorageStrategy
 import io.radicalbit.nsdb.model.{Location, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -37,6 +35,9 @@ import io.radicalbit.nsdb.util.{ActorPathLogging, FileUtils => NSDbFileUtils}
 import org.apache.commons.io.FileUtils
 import org.apache.lucene.index.IndexWriter
 
+import java.nio.file.Paths
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -94,6 +95,15 @@ class MetricAccumulatorActor(val basePath: String,
       .foreach(
         folderName => FileUtils.deleteDirectory(Paths.get(basePath, db, namespace, "shards", folderName.getName).toFile)
       )
+
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+    case e: InvalidLocationsInNode =>
+      log.error(e, s"Invalid locations ${e.locations} found")
+      Escalate
+    case t =>
+      log.error(t, "generic error occurred")
+      Resume
+  }
 
   /**
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
