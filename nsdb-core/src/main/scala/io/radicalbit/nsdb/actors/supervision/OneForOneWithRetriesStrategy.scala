@@ -33,12 +33,12 @@ import scala.concurrent.duration.Duration
   * @param loggingEnabled the strategy logs the failure if this is enabled (true), by default it is enabled
   * @param decider mapping from Throwable to [[akka.actor.SupervisorStrategy.Directive]], you can also use a
   *   [[scala.collection.immutable.Seq]] of Throwables which maps the given Throwables to restarts, otherwise escalates.
-  * @param shutdownBehaviour behavoiur to be executed when the number or restart or retry attempts is reached.
+  * @param fatalBehaviour behaviour to be executed when the number or restart or retry attempts is reached.
   */
 case class OneForOneWithRetriesStrategy(maxNrOfRetries: Int = -1,
                                         withinTimeRange: Duration = Duration.Inf,
                                         override val loggingEnabled: Boolean = true)(
-    val decider: SupervisorStrategy.Decider)(val shutdownBehaviour: (ActorContext, ActorRef) => Unit)
+    val decider: SupervisorStrategy.Decider)(val fatalBehaviour: (ActorContext, ActorRef) => Unit)
     extends SupervisorStrategy {
 
   private val childrenResumes = new ConcurrentHashMap[String, Int]()
@@ -63,7 +63,7 @@ case class OneForOneWithRetriesStrategy(maxNrOfRetries: Int = -1,
     if (restart && stats.requestRestartPermission(retriesWindow))
       restartChild(child, cause, suspendFirst = false)
     else
-      shutdownBehaviour(context, child)
+      fatalBehaviour(context, child)
 
   override def handleFailure(context: ActorContext,
                              child: ActorRef,
@@ -80,7 +80,7 @@ case class OneForOneWithRetriesStrategy(maxNrOfRetries: Int = -1,
                                 Option(childrenResumes.get(child.path.toSerializationFormat)).map(_ + 1).getOrElse(1))
             resumeChild(child, cause)
           } else
-            shutdownBehaviour(context, child)
+            fatalBehaviour(context, child)
         else
           resumeChild(child, cause)
         true
