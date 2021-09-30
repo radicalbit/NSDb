@@ -18,12 +18,13 @@ package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.{TimeUnit, TimeoutException}
 import akka.actor.SupervisorStrategy.{Resume, Stop}
-import akka.actor._
+import akka.actor.{ActorContext, ActorRef, _}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
 import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
+import io.radicalbit.nsdb.actors.supervision.OneForOneWithRetriesStrategy
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeName
@@ -40,7 +41,37 @@ import scala.concurrent.duration.FiniteDuration
   */
 class NodeActorsGuardian extends Actor with ActorLogging {
 
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
+  private val selfMember = Cluster(context.system).selfMember
+
+  private val mediator = DistributedPubSub(context.system).mediator
+
+  private val nodeAddress = createNodeName(selfMember)
+
+  protected lazy val selfNodeName: String = createNodeName(selfMember)
+  protected lazy val nodeId: String       = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
+
+  private val config = context.system.settings.config
+
+  private val indexBasePath = config.getString(StorageIndexPath)
+
+  if (config.hasPath(StorageTmpPath))
+    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
+
+  protected val actorNameSuffix = s"${nodeAddress}_$nodeId"
+
+  private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
+    CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
+  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeId)
+
+  private lazy val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
+
+  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeId-$nodeAddress")
+  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeId-$nodeAddress")
+
+  def shutdownBehaviour(context: ActorContext, child: ActorRef): Unit =
+    context.system.terminate()
+
+  override val supervisorStrategy: SupervisorStrategy = OneForOneWithRetriesStrategy(maxNrOfRetries = maxAttempts) {
     case e: TimeoutException =>
       log.error(e, "Got the following TimeoutException, resuming the processing")
       Resume
@@ -50,47 +81,24 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       Stop
     case t =>
       log.error(t, "generic error occurred")
-      super.supervisorStrategy.decider.apply(t)
+      Resume
+  } {
+    shutdownBehaviour
   }
-
-  private val selfMember = Cluster(context.system).selfMember
-
-  private val mediator = DistributedPubSub(context.system).mediator
-
-  private val nodeAddress = createNodeName(selfMember)
-
-  protected lazy val selfNodeName = createNodeName(selfMember)
-  protected lazy val nodeId       = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
-
-  private val config = context.system.settings.config
-
-  private val indexBasePath = config.getString(StorageIndexPath)
-
-  if (config.hasPath(StorageTmpPath))
-    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
-
-  private val actorNameSuffix = s"${nodeAddress}_$nodeId"
-
-  private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
-    CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
-  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeId)
-
-  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeId-$nodeAddress")
-  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeId-$nodeAddress")
 
   def createClusterListener: ActorRef =
     context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(selfMember)}")
 
   private val clusterListener: ActorRef = createClusterListener
 
-  private lazy val schemaCoordinator = context.actorOf(
+  protected lazy val schemaCoordinator: ActorRef = context.actorOf(
     SchemaCoordinator
       .props(schemaCache)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
     s"schema-coordinator_$actorNameSuffix"
   )
 
-  private lazy val metadataCoordinator =
+  protected lazy val metadataCoordinator: ActorRef =
     context.actorOf(
       MetadataCoordinator
         .props(clusterListener, metadataCache, schemaCache, mediator, writeNodesSelectionLogic)
@@ -99,7 +107,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       name = s"metadata-coordinator_$actorNameSuffix"
     )
 
-  private lazy val readCoordinator =
+  protected lazy val readCoordinator: ActorRef =
     context.actorOf(
       ReadCoordinator
         .props(metadataCoordinator, schemaCoordinator, mediator, readNodesSelection)
@@ -107,7 +115,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$actorNameSuffix"
     )
-  private lazy val publisherActor =
+  protected lazy val publisherActor: ActorRef =
     context.actorOf(
       PublisherActor
         .props(readCoordinator)
@@ -115,7 +123,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"publisher-actor_$actorNameSuffix"
     )
-  private lazy val writeCoordinator =
+  protected lazy val writeCoordinator: ActorRef =
     context.actorOf(
       WriteCoordinator
         .props(metadataCoordinator, schemaCoordinator, mediator)
@@ -123,7 +131,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       s"write-coordinator_$actorNameSuffix"
     )
 
-  private lazy val commitLogCoordinator =
+  protected lazy val commitLogCoordinator: ActorRef =
     context.actorOf(
       Props[CommitLogCoordinator]
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
@@ -131,7 +139,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       s"commitlog-coordinator_$actorNameSuffix"
     )
 
-  private lazy val metricsDataActor = context.actorOf(
+  protected lazy val metricsDataActor: ActorRef = context.actorOf(
     MetricsDataActor
       .props(indexBasePath, nodeAddress, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))

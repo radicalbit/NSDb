@@ -19,14 +19,24 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import org.apache.lucene.index.IndexWriter
 import org.apache.lucene.store.BaseDirectory
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
-class BrokenTimeSeriesIndex(override val directory: BaseDirectory) extends TimeSeriesIndex(directory) {
+class BrokenTimeSeriesIndex(failureBeforeSuccess: Int = Int.MaxValue, override val directory: BaseDirectory)
+    extends TimeSeriesIndex(directory) {
 
   private val genericFailure = Failure(
     new RuntimeException("How could it be useful to test failures if it does not fail at all"))
 
-  override def write(data: Bit)(implicit writer: IndexWriter): Try[Long] = genericFailure
+  private var attempts: Int = 0
 
-  override def delete(data: Bit)(implicit writer: IndexWriter): Try[Long] = genericFailure
+  private def generateResponse: Try[Long] =
+    if (attempts <= failureBeforeSuccess) {
+      attempts += 1
+      genericFailure
+    } else
+      Success(1L)
+
+  override def write(data: Bit)(implicit writer: IndexWriter): Try[Long] = generateResponse
+
+  override def delete(data: Bit)(implicit writer: IndexWriter): Try[Long] = generateResponse
 }

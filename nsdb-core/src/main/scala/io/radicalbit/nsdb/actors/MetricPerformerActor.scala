@@ -55,7 +55,7 @@ class MetricPerformerActor(val basePath: String,
   implicit val timeout: Timeout =
     Timeout(context.system.settings.config.getDuration("nsdb.publisher.timeout", TimeUnit.SECONDS), TimeUnit.SECONDS)
 
-  private val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
+  val toRetryOperations: ListBuffer[(ShardOperation, Int)] = ListBuffer.empty
 
   override lazy val indexStorageStrategy: StorageStrategy =
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
